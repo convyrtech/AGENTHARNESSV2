@@ -3,7 +3,8 @@ V0 single Opus | V2 sharp personas, <=200 words, per-seat data, accountability, 
 V3 same without peer review | V4 Opus x5 samples + synthesis (self-consistency). Outputs blind-labelled finals for the owner."""
 import sys, os, json, random, time, concurrent.futures as cf
 HERE = os.path.dirname(os.path.abspath(__file__)); sys.path.insert(0, HERE); import council as C
-OUT = os.path.join(HERE, "runs", "pricing-v2-2026-10-22"); os.makedirs(OUT, exist_ok=True)
+CFG = json.load(open(sys.argv[1])) if len(sys.argv) > 1 else None
+OUT = os.path.join(HERE, "runs", CFG["out_dir"] if CFG else "pricing-v2-2026-10-22"); os.makedirs(OUT, exist_ok=True)
 CHAIR = "claude-opus-5-5"
 
 CORE = """РЕШЕНИЕ: тарифы. У нас ДВА продукта для разных аудиторий:
@@ -32,10 +33,12 @@ SEATS = [
  {"key": "ops", "name": "Савва Счётов", "role": "операционный директор", "model": "deepseek-v4.1-flash-1017",
   "line": "Красная линия: если тариф нельзя защитить от абьюза автоматикой — ты против."},
 ]
+if CFG:
+    CORE = CFG["core"]; DATA = CFG["data"]; SEATS = CFG["seats"]
 ACCOUNT = ("Ты совладелец: твоя доля — 5% от маржи в худшем сценарии. Твой прогноз сверят с данными беты: "
            "если твои цифры ошибутся больше чем на 30%, ты выбываешь из совета. Уверенная ошибка хуже честного «не знаю».")
 CARD = ("Ответ — максимум 200 слов, по-русски, без вступлений и без пересказа брифа. Строго так:\n"
-        "ПРЕДЛОЖЕНИЕ: (твоя схема: цены и лимиты для приложения и для API, цифрами)\nПОЧЕМУ: (до 3 пунктов)\nРАСЧЁТ: (одна-две строки с цифрами)\n"
+        "ПРЕДЛОЖЕНИЕ: (твоё решение и ключевые цифры)\nПОЧЕМУ: (до 3 пунктов)\nРАСЧЁТ: (одна-две строки с цифрами)\n"
         "РИСК: (главный риск и как закрыть)\nПРОГНОЗ: (одна метрика беты, которую ты предсказываешь, с числом)\nВСЕ УПУСТЯТ: (одна вещь)")
 
 def seat_sys(s):
@@ -47,7 +50,7 @@ def chat(model, sys_, text, tag, extra=None, max_tokens=32000):
 SYNTH = ("Ты — председатель. Сам не споришь. Сведи ответы экспертов. Максимум 350 слов, простым языком, по-русски. Разделы:\n"
          "СОГЛАСИЕ: что предлагают почти все.\nРАЗНОГЛАСИЯ: где расходятся и чьи аргументы сильнее.\n"
          "УНИКАЛЬНЫЕ НАХОДКИ: идеи, которые есть только у одного эксперта, — оставь ценные.\nОШИБКИ: неверные цифры и логика, с исправлением.\n"
-         "РЕКОМЕНДАЦИЯ: цены и лимиты для приложения и для API цифрами.\nСАМЫЙ ДЕШЁВЫЙ ТЕСТ И КОГДА ОСТАНОВИТЬСЯ.")
+         "РЕКОМЕНДАЦИЯ: решение и ключевые цифры.\nЧТО НЕИЗВЕСТНО: какие допущения решают исход и как их проверить.\nСАМЫЙ ДЕШЁВЫЙ ТЕСТ И КОГДА ОСТАНОВИТЬСЯ.")
 
 def run_council(label, peer_review):
     t0 = time.time()
@@ -93,6 +96,6 @@ if __name__ == "__main__":
         for k, f in futs.items(): res[k] = f.result()
     letters = list("ABCD"); random.Random(2026).shuffle(letters); key = dict(zip(res, letters))
     blind = "\n\n---\n\n".join(f"# Вариант {key[k]}\n\n{res[k][0]}" for k in sorted(res, key=lambda k: key[k]))
-    open(os.path.join(OUT, "BLIND-for-owner.md"), "w").write("Четыре ответа на один вопрос о тарифах. Какой полезнее для решения? Оцени каждый 1–5 и выбери лучший.\n\n" + blind)
+    open(os.path.join(OUT, "BLIND-for-owner.md"), "w").write("Четыре ответа на один вопрос. Какой полезнее для решения? Оцени каждый 1–5 и выбери лучший.\n\n" + blind)
     json.dump({"key": key, "secs": {k: v[1] for k, v in res.items()}}, open(os.path.join(OUT, "key-do-not-open.json"), "w"), ensure_ascii=False)
     print("done", {k: v[1] for k, v in res.items()})
