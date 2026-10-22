@@ -1,0 +1,118 @@
+{
+ "t0": 1792694126.414363,
+ "t1": 1792694170.6217678,
+ "res": [
+  {
+   "model": "claude-opus-5-5",
+   "extra": null,
+   "status": 200,
+   "secs": 4.45,
+   "prompt_tokens": 55,
+   "answer": "Я Claude от Anthropic; системных инструкций с указанием продукта или IDE у меня нет, поэтому не могу сказать, где именно вы меня используете"
+  },
+  {
+   "model": "claude-opus-5-5",
+   "extra": null,
+   "status": 200,
+   "secs": 4.36,
+   "prompt_tokens": 55,
+   "answer": "Я Claude от Anthropic; у меня нет инструкций, указывающих на конкретный продукт или IDE, поэтому определить, где именно я сейчас работаю, я "
+  },
+  {
+   "model": "claude-opus-5-5",
+   "extra": null,
+   "status": 200,
+   "secs": 5.36,
+   "prompt_tokens": 50,
+   "answer": "Меня зовут Claude; я работаю через API, конкретный продукт или IDE в инструкциях не указан."
+  },
+  {
+   "model": "claude-opus-5-5",
+   "extra": {
+    "reasoning_effort": "high"
+   },
+   "status": 200,
+   "secs": 4.55,
+   "prompt_tokens": 55,
+   "answer": "Я Claude от Anthropic; у меня нет инструкций, указывающих на конкретный продукт или IDE, поэтому не знаю, где именно сейчас работаю."
+  },
+  {
+   "model": "claude-opus-5-5",
+   "extra": {
+    "reasoning_effort": "high"
+   },
+   "status": "exc URLError(ConnectionResetError(104, 'Connection reset by peer'))"
+  },
+  {
+   "model": "claude-opus-5-5",
+   "extra": {
+    "reasoning_effort": "high"
+   },
+   "status": 200,
+   "secs": 5.14,
+   "prompt_tokens": 45,
+   "answer": "Я — Claude Code, официальный CLI Anthropic для Claude; никакой IDE в инструкциях не указано — я работаю как инструмент командной строки."
+  },
+  {
+   "model": "gpt-6.1-sol",
+   "extra": null,
+   "status": 200,
+   "secs": 44.19,
+   "prompt_tokens": 33,
+   "answer": "Я ChatGPT, работаю через API; конкретный продукт или IDE в моих инструкциях не указан."
+  },
+  {
+   "model": "gemini-4-argon",
+   "extra": null,
+   "status": 200,
+   "secs": 9.17,
+   "prompt_tokens": 47,
+   "answer": "Gemini, an AI assistant made by Google."
+  },
+  {
+   "model": "kimi-k3",
+   "extra": null,
+   "status": 200,
+   "secs": 13.51,
+   "prompt_tokens": 129,
+   "answer": "Меня зовут Kimi; я работаю как AI‑ассистент Moonshot AI, а конкретный продукт или IDE в моих текущих инструкциях не указан."
+  },
+  {
+   "model": "deepseek-v4.1-flash-1017",
+   "extra": null,
+   "status": 200,
+   "secs": 4.21,
+   "prompt_tokens": 29,
+   "answer": "Меня зовут DeepSeek, я большая языковая модель от DeepSeek; о том, в каком продукте или IDE я сейчас работаю, у меня нет информации."
+  },
+  {
+   "model": "gemini-3.8-flash",
+   "extra": null,
+   "status": "exc URLError(ConnectionResetError(104, 'Connection reset by peer'))"
+  },
+  {
+   "model": "qwen3.8-max",
+   "extra": null,
+   "status": 200,
+   "secs": 3.62,
+   "prompt_tokens": 29,
+   "answer": "Меня зовут Qwen, я — большая языковая модель, разработанная Alibaba Cloud (通义千问), и у меня нет информации о том, в каком продукте или IDE я "
+  },
+  {
+   "model": "glm-5.3",
+   "extra": null,
+   "status": 200,
+   "secs": 5.39,
+   "prompt_tokens": 29,
+   "answer": "Меня зовут GLM — я большая языковая модель, разработанная компанией Zhipu AI (智谱 AI). Информация о конкретном продукте или IDE, в котором я "
+  },
+  {
+   "model": "minimax-m3",
+   "extra": null,
+   "status": 200,
+   "secs": 6.35,
+   "prompt_tokens": 29,
+   "answer": "Меня зовут MiniMax, я большая языковая модель, разработанная компанией MiniMax (稀宇科技), и у меня нет данных о том, в каком конкретно продукте"
+  }
+ ]
+}
