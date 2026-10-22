@@ -27,10 +27,18 @@ DEEP_SYS = ("You are a top professional planning work that a junior executor wil
             "4) A concrete specification for the executor: structure/sections, style/art direction (palette, typography, motion, tone) or text structure, specific content points.\n"
             "5) Acceptance checks: what concretely must be true for the result to be excellent, and the typical failures to avoid (for texts: AI cliches).")
 
-def chat(model, msgs, tag, max_tokens=16000):
-    r = a6.chat({"model": model, "messages": msgs, "max_tokens": max_tokens}, tag=tag, timeout=900)
-    j = r["json"] or {}
-    return ((j.get("choices") or [{}])[0].get("message") or {}).get("content") or "", j.get("usage") or {}, r["status"]
+def chat(model, msgs, tag, max_tokens=64000):
+    # streaming: long generations through the relay drop non-streaming connections; 64K output so reasoning can't eat the answer
+    for attempt in range(3):
+        try:
+            r = a6.chat_stream({"model": model, "messages": msgs, "max_tokens": max_tokens, "stream_options": {"include_usage": True}}, tag=tag, timeout=1500)
+        except Exception as e:
+            r = {"status": f"exc {e!r}", "chunks": []}
+        text = "".join(((c.get("choices") or [{}])[0].get("delta") or {}).get("content") or "" for c in r["chunks"] if isinstance(c, dict))
+        usage = next((c.get("usage") for c in reversed(r["chunks"]) if isinstance(c, dict) and c.get("usage")), {}) or {}
+        if r["status"] == 200 and text.strip():
+            return text, usage, 200
+    return text, usage, r["status"]
 
 def extract(kind, text):
     if kind == "web":

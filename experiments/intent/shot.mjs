@@ -4,7 +4,8 @@ const require = createRequire(process.env.PW_REQUIRE_FROM);
 const { chromium } = require('playwright');
 import fs from 'fs'; import path from 'path';
 const root = process.argv[2]; const outDir = process.argv[3];
-const browser = await chromium.launch();
+const proxy = process.env.HTTPS_PROXY ? { server: process.env.HTTPS_PROXY } : undefined;
+const browser = await chromium.launch({ proxy, args: ['--ignore-certificate-errors'] });
 for (const id of fs.readdirSync(root)) {
   for (const f of fs.readdirSync(path.join(root, id)).filter(f => f.endsWith('.html'))) {
     const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
@@ -13,13 +14,14 @@ for (const id of fs.readdirSync(root)) {
     try {
       await page.goto('file://' + path.resolve(root, id, f), { waitUntil: 'networkidle', timeout: 30000 });
     } catch (e) { errors.push('load: ' + String(e).slice(0, 120)); }
-    await page.waitForTimeout(2500);
+    await page.waitForTimeout(3000);
+    const base0 = path.join(outDir, `${id}__${f.replace('.html', '')}`);
+    await page.screenshot({ path: base0 + '_top.jpg', type: 'jpeg', quality: 70 });
     // scroll through to trigger scroll animations, then back to top
     const h = await page.evaluate(() => document.body ? document.body.scrollHeight : 0).catch(() => 0);
     for (let y = 0; y < Math.min(h, 9000); y += 700) { await page.evaluate(v => window.scrollTo(0, v), y).catch(() => {}); await page.waitForTimeout(250); }
     await page.evaluate(() => window.scrollTo(0, 0)).catch(() => {}); await page.waitForTimeout(800);
     const base = path.join(outDir, `${id}__${f.replace('.html', '')}`);
-    await page.screenshot({ path: base + '_top.jpg', type: 'jpeg', quality: 70 });
     await page.screenshot({ path: base + '_full.jpg', type: 'jpeg', quality: 55, fullPage: true, clip: { x: 0, y: 0, width: 1440, height: Math.max(900, Math.min(h || 900, 5400)) } }).catch(async () => {
       await page.screenshot({ path: base + '_full.jpg', type: 'jpeg', quality: 55 });
     });

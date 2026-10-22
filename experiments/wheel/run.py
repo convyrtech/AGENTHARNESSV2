@@ -40,19 +40,25 @@ def call(model, variant, task):
         msgs = [{"role": "system", "content": SYS["plain"]}, {"role": "user", "content": AMBITIOUS + prompt}]
     else:
         msgs = [{"role": "system", "content": SYS[variant]}, {"role": "user", "content": prompt}]
-    r = a6.chat({"model": model, "messages": msgs, "max_tokens": 8000}, tag=f"wh-{model}-{variant}-{name}", timeout=400)
+    r = a6.chat({"model": model, "messages": msgs, "max_tokens": int(os.environ.get("MAXTOK", "32000"))}, tag=f"wh-{model}-{variant}-{name}", timeout=400)
     j = r["json"] or {}
     text = ((j.get("choices") or [{}])[0].get("message") or {}).get("content") or ""
-    code = "\n".join(re.findall(r"```(?:python|py)?\n(.*?)```", text, re.S)) or text
+    blocks = re.findall(r"```(\w*)[^\n]*\n(.*?)```", text, re.S)
+    code = "\n".join(b for lang, b in blocks if lang.lower() in ("", "python", "py", "python3")) or text
     imports = "\n".join(l for l in code.splitlines() if re.match(r"\s*(import|from)\s", l))
     reused = bool(re.search(pat, imports))
+    recommends = bool(re.search(pat.replace("\\b(", "(").replace(")\\b", ")"), text, re.I))
     u = j.get("usage") or {}
-    return {"model": model, "variant": variant, "task": name, "status": r["status"], "reused": reused, "imports": imports[:300],
+    return {"model": model, "variant": variant, "task": name, "status": r["status"], "reused": reused, "recommends": recommends, "finish": ((j.get("choices") or [{}])[0].get("finish_reason")), "imports": imports[:300],
             "code_lines": len(code.splitlines()), "out_tokens": u.get("completion_tokens"), "text": text[:300]}
 
 if __name__ == "__main__":
     models = sys.argv[1].split(","); out = os.path.join(HERE, "results.jsonl"); lock = threading.Lock()
     jobs = [(m, v, t) for m in models for v in ("plain", "prior_art", "ambitious") for t in TASKS]
+    if os.environ.get("REDO_FILE"):
+        want = {tuple(x) for x in json.load(open(os.environ["REDO_FILE"]))}
+        jobs = [(m, v, t) for m, v, t in jobs if (m, v, t[0]) in want]
+        print("redo jobs", len(jobs))
     def run(a):
         rec = call(*a)
         with lock: open(out, "a").write(json.dumps(rec, ensure_ascii=False) + "\n")
