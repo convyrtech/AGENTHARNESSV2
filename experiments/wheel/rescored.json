@@ -993,8 +993,8 @@
 "model": "glm-5.3",
 "variant": "plain",
 "task": "declension",
-"finish": null,
-"status": 502,
+"finish": "length",
+"status": 200,
 "reused": false,
 "recommends": false,
 "empty": true
@@ -1073,8 +1073,8 @@
 "model": "glm-5.3",
 "variant": "prior_art",
 "task": "phones",
-"finish": null,
-"status": 502,
+"finish": "length",
+"status": 200,
 "reused": false,
 "recommends": false,
 "empty": true
@@ -1113,8 +1113,8 @@
 "model": "glm-5.3",
 "variant": "ambitious",
 "task": "phones",
-"finish": null,
-"status": 502,
+"finish": "length",
+"status": 200,
 "reused": false,
 "recommends": false,
 "empty": true
@@ -1183,8 +1183,8 @@
 "model": "glm-5.3",
 "variant": "ambitious",
 "task": "sanitize",
-"finish": null,
-"status": 502,
+"finish": "length",
+"status": 200,
 "reused": false,
 "recommends": false,
 "empty": true
@@ -1243,11 +1243,11 @@
 "model": "glm-5.3",
 "variant": "ambitious",
 "task": "retry",
-"finish": null,
-"status": 502,
+"finish": "stop",
+"status": 200,
 "reused": false,
-"recommends": false,
-"empty": true
+"recommends": true,
+"empty": false
 },
 {
 "model": "kimi-k3",
@@ -1313,11 +1313,11 @@
 "model": "glm-5.3",
 "variant": "ambitious",
 "task": "num2words",
-"finish": null,
-"status": 502,
-"reused": false,
-"recommends": false,
-"empty": true
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
 },
 {
 "model": "kimi-k3",
@@ -1393,8 +1393,8 @@
 "model": "glm-5.3",
 "variant": "ambitious",
 "task": "markdown",
-"finish": null,
-"status": 502,
+"finish": "length",
+"status": 200,
 "reused": false,
 "recommends": false,
 "empty": true
@@ -1483,8 +1483,8 @@
 "model": "glm-5.3",
 "variant": "ambitious",
 "task": "cron",
-"finish": null,
-"status": 502,
+"finish": "length",
+"status": 200,
 "reused": false,
 "recommends": false,
 "empty": true
@@ -1493,11 +1493,11 @@
 "model": "glm-5.3",
 "variant": "ambitious",
 "task": "jwt",
-"finish": null,
-"status": 502,
-"reused": false,
-"recommends": false,
-"empty": true
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
 },
 {
 "model": "qwen3.8-max",
@@ -1513,30 +1513,30 @@
 "model": "qwen3.8-max",
 "variant": "plain",
 "task": "phones",
-"finish": null,
-"status": 502,
-"reused": false,
-"recommends": false,
-"empty": true
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
 },
 {
 "model": "qwen3.8-max",
 "variant": "prior_art",
 "task": "dates",
-"finish": null,
-"status": 502,
-"reused": false,
-"recommends": false,
-"empty": true
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
 },
 {
 "model": "qwen3.8-max",
 "variant": "prior_art",
 "task": "phones",
-"finish": null,
-"status": 502,
-"reused": false,
-"recommends": false,
-"empty": true
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
 }
 ]
