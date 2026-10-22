@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Зерно — кофейня на Ленина, 12 · Москва</title>
+<meta name="description" content="Кофейня «Зерно»: эспрессо, капучино, латте, раф, фильтр и свежая выпечка каждое утро. Москва, ул. Ленина, 12, ежедневно 8:00–22:00. Заказ навынос — Telegram @zerno_coffee, +7 900 123-45-67.">
+<meta name="theme-color" content="#100E0C">
+<script>document.documentElement.className += ' js';</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&family=JetBrains+Mono:wght@400&family=Unbounded:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#100E0C;
+  --cream:#EFE6D6;
+  --ink:#17130F;
+  --dim:#9A8F81;
+  --line:rgba(239,230,214,.14);
+  --line-dark:rgba(23,19,15,.16);
+  --accent:#D98E4A;
+  --accent-deep:#B4631F;
+  --open:#AFCF8E;
+  --pad:clamp(20px,4.6vw,68px);
+  --gap:clamp(14px,2vw,32px);
+  --shell:1520px;
+}
+
+*,*::before,*::after{box-sizing:border-box}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+body{
+  margin:0;
+  background:radial-gradient(120% 80% at 82% -12%,#251C13 0%,rgba(16,14,12,0) 58%),var(--bg);
+  color:var(--cream);
+  font-family:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  font-size:16px;line-height:1.55;
+  -webkit-font-smoothing:antialiased;
+  overflow-x:hidden;
+}
+img{display:block;max-width:100%}
+a{color:inherit;text-decoration:none}
+ul{margin:0;padding:0;list-style:none}
+h1,h2,p,figure{margin:0}
+button{font:inherit;color:inherit}
+
+.shell{width:100%;max-width:var(--shell);margin-inline:auto;padding-inline:var(--pad)}
+.mono{font-family:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;line-height:1.5}
+.dim{color:var(--dim)}
+.accent{color:var(--accent)}
+
+.grain{
+  position:fixed;inset:0;z-index:70;pointer-events:none;opacity:.05;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* ---------- шапка ---------- */
+.topbar{
+  position:sticky;top:0;z-index:50;
+  background:rgba(16,14,12,.78);
+  backdrop-filter:blur(14px) saturate(1.2);
+  -webkit-backdrop-filter:blur(14px) saturate(1.2);
+  border-bottom:1px solid var(--line);
+}
+.topbar-in{
+  position:relative;
+  display:flex;align-items:center;gap:clamp(12px,1.8vw,30px);
+  padding-block:13px;
+}
+.logo{
+  font-family:'Unbounded',sans-serif;font-weight:500;font-size:15px;
+  letter-spacing:.06em;text-transform:uppercase;
+  display:inline-flex;align-items:center;gap:9px;white-space:nowrap;
+}
+.logo-dot{width:7px;height:7px;border-radius:50%;background:var(--accent)}
+.topnav{display:flex;gap:clamp(14px,1.8vw,26px);margin-left:auto}
+.topnav a{
+  font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.16em;
+  text-transform:uppercase;color:var(--dim);transition:color .25s ease;
+}
+.topnav a:hover{color:var(--cream)}
+.tg{
+  display:inline-flex;align-items:center;gap:8px;
+  padding:9px 15px;border:1px solid var(--line);border-radius:999px;
+  font-size:12.5px;white-space:nowrap;
+  transition:border-color .25s ease,color .25s ease;
+}
+.tg:hover{border-color:var(--accent);color:var(--accent)}
+.burger{
+  display:none;width:42px;height:36px;position:relative;
+  border:1px solid var(--line);border-radius:999px;background:none;
+  padding:0;cursor:pointer;
+}
+.burger span{
+  position:absolute;left:50%;width:16px;height:1.5px;background:var(--cream);
+  transform:translateX(-50%);transition:transform .3s ease,top .3s ease;
+}
+.burger span:first-child{top:14px}
+.burger span:last-child{top:20px}
+
+/* ---------- герой ---------- */
+.hero{padding-top:clamp(32px,5.5vw,84px);scroll-margin-top:80px}
+.hero-grid{display:grid;grid-template-columns:repeat(12,1fr);gap:var(--gap);align-items:end}
+.hero-copy{grid-column:1/9;display:flex;flex-direction:column;gap:clamp(14px,2vw,26px)}
+.hero-kicker{color:var(--dim)}
+.hero-title{
+  font-family:'Unbounded',sans-serif;font-weight:500;
+  font-size:clamp(46px,8.6vw,126px);line-height:.86;letter-spacing:-.04em;
+  text-transform:uppercase;
+}
+.hero-title span{display:block}
+.hero-title .out{color:rgba(239,230,214,.26)}
+@supports (-webkit-text-stroke:1px #000){
+  .hero-title .out{color:transparent;-webkit-text-stroke:1px rgba(239,230,214,.5)}
+}
+.hero-tags{display:flex;flex-direction:column;gap:5px;max-width:46ch;color:var(--dim)}
+.hero-tags span:first-child{color:var(--cream)}
+.hero-media{grid-column:9/13}
+.hero-media img{
+  width:100%;aspect-ratio:3/4;object-fit:cover;border-radius:4px;
+  filter:saturate(.92) contrast(1.06) brightness(.96);
+}
+.hero-media figcaption{display:flex;justify-content:space-between;gap:14px;margin-top:11px;color:var(--dim)}
+
+.hero-foot{
+  display:grid;grid-template-columns:repeat(3,1fr);gap:var(--gap);
+  margin-top:clamp(34px,5vw,66px);
+  border-top:1px solid var(--line);
+  padding:clamp(16px,2vw,24px) 0 clamp(30px,4vw,52px);
+}
+.cell{display:flex;flex-direction:column;gap:8px}
+.cell .k{color:var(--dim)}
+.cell .v{font-size:15px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.clock{font-family:'JetBrains Mono',monospace;font-size:15px;letter-spacing:.02em}
+.pill{
+  display:inline-flex;align-items:center;gap:8px;
+  padding:5px 12px;border:1px solid var(--line);border-radius:999px;
+  font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--dim);white-space:nowrap;
+  transition:color .3s ease,border-color .3s ease;
+}
+.pill::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor;opacity:.85}
+.pill.is-open{color:var(--open);border-color:rgba(175,207,142,.35)}
+
+/* ---------- бегущая строка ---------- */
+.ticker{
+  border-top:1px solid var(--line);border-bottom:1px solid var(--line);
+  overflow:hidden;padding:clamp(12px,1.6vw,20px) 0;
+  background:linear-gradient(90deg,rgba(217,142,74,.07),rgba(217,142,74,0) 55%);
+}
+.ticker-track{display:flex;width:max-content;animation:slide 40s linear infinite}
+.ticker:hover .ticker-track{animation-play-state:paused}
+.ticker-track span{
+  display:inline-flex;align-items:center;gap:clamp(16px,2.4vw,36px);
+  padding-right:clamp(16px,2.4vw,36px);white-space:nowrap;
+  font-family:'Unbounded',sans-serif;font-weight:400;
+  font-size:clamp(12px,1.2vw,18px);letter-spacing:.08em;text-transform:uppercase;
+}
+.ticker-track i{font-style:normal;color:var(--accent)}
+@keyframes slide{to{transform:translateX(-50%)}}
+
+/* ---------- секции ---------- */
+.sec{padding-block:clamp(56px,7.4vw,130px);scroll-margin-top:80px}
+.sec-head{display:flex;align-items:center;gap:clamp(12px,2vw,26px);margin-bottom:clamp(26px,4vw,62px)}
+.sec-head .rule{flex:1;height:1px;background:var(--line)}
+.sec-head .mono:last-child{text-align:right}
+
+/* ---------- о нас ---------- */
+.about-grid{display:grid;grid-template-columns:repeat(12,1fr);gap:var(--gap);align-items:start}
+.about-lead{
+  grid-column:1/9;
+  font-family:'Unbounded',sans-serif;font-weight:300;
+  font-size:clamp(20px,2.8vw,43px);line-height:1.18;letter-spacing:-.02em;
+  text-wrap:balance;
+}
+.about-side{grid-column:10/13;display:flex;flex-direction:column;gap:clamp(18px,2.4vw,30px);padding-top:6px}
+.about-p{font-size:15px;color:var(--dim);max-width:38ch}
+.facts{display:flex;flex-direction:column}
+.facts li{
+  display:grid;grid-template-columns:92px 1fr;gap:12px;
+  padding:11px 0;border-top:1px solid var(--line);font-size:14px;
+}
+.facts li:last-child{border-bottom:1px solid var(--line)}
+
+/* ---------- меню ---------- */
+.menu-grid{display:grid;grid-template-columns:1fr;gap:clamp(28px,5vw,80px)}
+.m-group{
+  display:flex;align-items:center;gap:clamp(12px,2vw,24px);
+  margin:clamp(26px,3.2vw,46px) 0 clamp(6px,1.2vw,14px);
+}
+.m-group:first-child{margin-top:0}
+.m-group .rule{flex:1;height:1px;background:var(--line)}
+.m-row{
+  display:grid;grid-template-columns:clamp(36px,4vw,60px) 1fr auto;
+  align-items:center;gap:clamp(10px,1.6vw,26px);
+  padding:clamp(13px,1.8vw,22px) 0;
+  border-bottom:1px solid var(--line);
+  transition:padding-left .38s cubic-bezier(.2,.7,.2,1),border-color .38s ease;
+}
+.m-num{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.12em;color:var(--dim);transition:color .3s ease}
+.m-name{
+  font-family:'Unbounded',sans-serif;font-weight:400;
+  font-size:clamp(20px,2.5vw,36px);line-height:1;letter-spacing:-.025em;
+  transition:color .3s ease;
+}
+.m-desc{
+  font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--dim);text-align:right;transition:color .3s ease;
+}
+.m-row:hover{border-color:var(--accent);padding-left:clamp(8px,1.2vw,18px)}
+.m-row:hover .m-name,.m-row:hover .m-num{color:var(--accent)}
+.m-row:hover .m-desc{color:rgba(239,230,214,.7)}
+.menu-shot{position:sticky;top:104px;align-self:start;display:none}
+.shots{position:relative;aspect-ratio:4/5;border-radius:4px;overflow:hidden;background:#191512}
+.shots img{
+  position:absolute;inset:0;width:100%;height:100%;object-fit:cover;
+  opacity:0;transform:scale(1.05);
+  transition:opacity .6s ease,transform 1.4s ease;
+  filter:saturate(.9) contrast(1.06) brightness(.97);
+}
+.shots img.is-active{opacity:1;transform:scale(1)}
+.shot-cap{margin-top:14px;color:var(--dim)}
+
+/* ---------- выпечка (светлая секция) ---------- */
+.bake{
+  background:var(--cream);color:var(--ink);
+  padding-block:clamp(56px,7.4vw,120px);scroll-margin-top:80px;
+}
+.bake .dim{color:rgba(23,19,15,.55)}
+.bake .accent{color:var(--accent-deep)}
+.bake .rule{background:var(--line-dark)}
+.bake-grid{display:grid;grid-template-columns:repeat(12,1fr);gap:clamp(20px,3vw,60px);align-items:center}
+.bake-media{grid-column:1/7}
+.bake-media img{width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:4px}
+.bake-media figcaption{display:flex;justify-content:space-between;gap:14px;margin-top:11px;color:rgba(23,19,15,.55)}
+.bake-copy{grid-column:7/13;display:flex;flex-direction:column;gap:clamp(14px,2vw,24px);padding-left:clamp(0px,2vw,26px)}
+.bake-copy h2{
+  font-family:'Unbounded',sans-serif;font-weight:400;
+  font-size:clamp(26px,3.6vw,54px);line-height:1.05;letter-spacing:-.03em;text-wrap:balance;
+}
+.bake-copy p{font-size:15px;line-height:1.7;color:rgba(23,19,15,.72);max-width:44ch}
+.bake-copy .quote{
+  font-family:'Unbounded',sans-serif;font-weight:300;
+  font-size:clamp(17px,1.6vw,22px);line-height:1.35;color:var(--ink);
+  border-left:2px solid var(--accent-deep);padding-left:18px;max-width:34ch;
+}
+
+/* ---------- место ---------- */
+.collage{display:grid;grid-template-columns:repeat(12,1fr);gap:clamp(12px,1.6vw,26px)}
+.collage img{width:100%;height:100%;object-fit:cover;border-radius:4px;filter:saturate(.92) contrast(1.06) brightness(.96)}
+.collage figcaption{display:flex;justify-content:space-between;gap:14px;margin-top:11px;color:var(--dim)}
+.f-wide{grid-column:1/13}
+.f-wide img{aspect-ratio:21/9}
+.f-sq{grid-column:1/6;margin-top:clamp(14px,2vw,30px)}
+.f-sq img{aspect-ratio:1/1}
+.f-note{grid-column:7/13;align-self:end;display:flex;flex-direction:column;gap:14px;padding-bottom:clamp(4px,1vw,16px)}
+.f-note .note-lead{
+  font-family:'Unbounded',sans-serif;font-weight:300;
+  font-size:clamp(18px,2vw,28px);line-height:1.25;letter-spacing:-.02em;max-width:30ch;
+}
+
+/* ---------- контакты ---------- */
+.c-list{display:flex;flex-direction:column}
+.c-row{
+  display:grid;grid-template-columns:clamp(88px,10vw,160px) 1fr auto;
+  align-items:baseline;gap:clamp(12px,2vw,32px);
+  padding:clamp(18px,2.3vw,30px) 0;
+  border-bottom:1px solid var(--line);
+  transition:padding-left .38s cubic-bezier(.2,.7,.2,1),border-color .38s ease;
+}
+.c-list .c-row:first-child{border-top:1px solid var(--line)}
+.c-val{
+  font-family:'Unbounded',sans-serif;font-weight:400;
+  font-size:clamp(17px,2.3vw,32px);line-height:1.15;letter-spacing:-.02em;
+  display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+  transition:color .3s ease;
+}
+.arrow{color:var(--dim);font-size:17px;line-height:1;transition:transform .35s ease,color .35s ease}
+a.c-row:hover{border-color:var(--accent);padding-left:clamp(8px,1.1vw,16px)}
+a.c-row:hover .c-val{color:var(--accent)}
+a.c-row:hover .arrow{color:var(--accent);transform:translate(4px,-4px)}
+
+/* ---------- подвал ---------- */
+.footer{background:var(--cream);color:var(--ink);padding:clamp(46px,6.4vw,108px) 0 clamp(22px,3vw,40px)}
+.f-kick{color:rgba(23,19,15,.55);margin-bottom:clamp(16px,2.4vw,30px)}
+.cta{display:flex;flex-wrap:wrap;align-items:baseline;gap:clamp(10px,2vw,30px)}
+.cta-line{
+  font-family:'Unbounded',sans-serif;font-weight:500;
+  font-size:clamp(30px,9vw,92px);line-height:.98;letter-spacing:-.035em;
+  text-transform:uppercase;transition:color .3s ease;
+}
+.cta-handle{color:rgba(23,19,15,.55);transition:transform .35s ease}
+.cta:hover .cta-line{color:var(--accent-deep)}
+.cta:hover .cta-handle{transform:translateX(5px)}
+.footer-bottom{
+  display:flex;flex-wrap:wrap;justify-content:space-between;
+  gap:12px clamp(16px,3vw,40px);
+  margin-top:clamp(38px,5.4vw,84px);padding-top:20px;
+  border-top:1px solid var(--line-dark);
+  color:rgba(23,19,15,.6);
+}
+
+/* ---------- появление при скролле ---------- */
+.js .reveal{opacity:0;transform:translateY(22px);transition:opacity .9s cubic-bezier(.2,.7,.2,1),transform .9s cubic-bezier(.2,.7,.2,1)}
+.js .reveal.in{opacity:1;transform:none}
+
+.js .hero-title span{animation:rise .9s cubic-bezier(.2,.75,.2,1) both}
+.js .hero-title span:nth-child(2){animation-delay:.09s}
+.js .hero-title span:nth-child(3){animation-delay:.18s}
+.js .hero-media{animation:rise 1.1s cubic-bezier(.2,.75,.2,1) .22s both}
+@keyframes rise{from{opacity:0;transform:translateY(.45em)}to{opacity:1;transform:none}}
+
+/* ---------- адаптив ---------- */
+@media (min-width:981px){
+  .menu-grid{grid-template-columns:1.42fr .58fr}
+  .menu-shot{display:block}
+}
+@media (max-width:980px){
+  .about-lead{grid-column:1/13}
+  .about-side{grid-column:1/13;padding-top:0}
+  .about-p{max-width:60ch}
+  .bake-media,.bake-copy{grid-column:1/13}
+  .bake-copy{padding-left:0}
+}
+@media (max-width:760px){
+  .topnav{
+    display:none;position:absolute;top:100%;left:0;right:0;
+    flex-direction:column;gap:0;margin-left:0;
+    padding:6px var(--pad) 18px;
+    background:rgba(16,14,12,.97);
+    backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+    border-bottom:1px solid var(--line);
+  }
+  .topnav.is-open{display:flex}
+  .topnav a{padding:13px 0;border-top:1px solid var(--line);font-size:12px}
+  .topnav a:first-child{border-top:0}
+  .tg{margin-left:auto}
+  .burger{display:block}
+
+  .hero-grid{grid-template-columns:1fr}
+  .hero-copy,.hero-media{grid-column:1/-1}
+  .hero-media img{aspect-ratio:4/5}
+  .hero-foot{grid-template-columns:1fr;gap:18px}
+  .sec-head .mono:last-child{display:none}
+  .about-lead{font-size:clamp(20px,6vw,30px)}
+
+  .collage{grid-template-columns:1fr}
+  .f-wide,.f-sq,.f-note{grid-column:1/-1;margin-top:0}
+  .f-wide img{aspect-ratio:4/3}
+  .f-note{margin-top:clamp(20px,4vw,30px)}
+
+  .c-row{grid-template-columns:1fr;gap:10px;align-items:start}
+  .arrow{display:none}
+  .c-val{font-size:clamp(18px,5.4vw,26px)}
+}
+@media (max-width:560px){
+  .m-row{grid-template-columns:32px 1fr}
+  .m-desc{display:none}
+  .facts li{grid-template-columns:84px 1fr}
+  .footer-bottom{flex-direction:column;gap:8px}
+}
+@media (prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  .js .reveal{opacity:1;transform:none;transition:none}
+  .js .hero-title span,.js .hero-media{animation:none}
+  .ticker-track{animation:none}
+}
+</style>
+</head>
+<body>
+<div class="grain" aria-hidden="true"></div>
+
+<header class="topbar" id="top">
+  <div class="shell topbar-in">
+    <a class="logo" href="#top"><span class="logo-dot" aria-hidden="true"></span>Зерно</a>
+    <nav class="topnav" id="topnav" aria-label="Навигация по сайту">
+      <a href="#about">О нас</a>
+      <a href="#menu">Меню</a>
+      <a href="#bake">Выпечка</a>
+      <a href="#place">Место</a>
+      <a href="#contacts">Контакты</a>
+    </nav>
+    <a class="tg" href="https://t.me/zerno_coffee" target="_blank" rel="noopener">Навынос в Telegram <span aria-hidden="true">↗</span></a>
+    <button class="burger" id="burger" type="button" aria-label="Меню" aria-expanded="false" aria-controls="topnav">
+      <span></span><span></span>
+    </button>
+  </div>
+</header>
+
+<main>
+  <!-- ГЕРОЙ -->
+  <section class="hero">
+    <div class="shell">
+      <div class="hero-grid">
+        <div class="hero-copy">
+          <p class="mono hero-kicker">кофейня · москва · ул. ленина, 12</p>
+          <h1 class="hero-title">
+            <span>Кофе</span>
+            <span class="out">каждый</span>
+            <span>день</span>
+          </h1>
+          <p class="hero-tags mono">
+            <span>эспрессо · капучино · латте · раф · фильтр</span>
+            <span>круассаны и синнабоны — каждое утро</span>
+          </p>
+        </div>
+        <figure class="hero-media">
+          <img src="assets/cup.jpg" alt="Чашка капучино с рисунком на молочной пенке на стойке кофейни «Зерно»">
+          <figcaption class="mono"><span>капучино</span><span>8:00</span></figcaption>
+        </figure>
+      </div>
+
+      <div class="hero-foot">
+        <div class="cell">
+          <span class="k mono">часы работы</span>
+          <span class="v">каждый день 8:00–22:00</span>
+        </div>
+        <div class="cell">
+          <span class="k mono">адрес</span>
+          <span class="v">Москва, ул. Ленина, 12</span>
+        </div>
+        <div class="cell">
+          <span class="k mono">сейчас в москве</span>
+          <span class="v"><span class="clock" data-clock>--:--</span><span class="pill" data-status>проверяем</span></span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- БЕГУЩАЯ СТРОКА -->
+  <div class="ticker" aria-hidden="true">
+    <div class="ticker-track">
+      <span>Эспрессо<i>·</i></span>
+      <span>Капучино<i>·</i></span>
+      <span>Латте<i>·</i></span>
+      <span>Раф<i>·</i></span>
+      <span>Фильтр<i>·</i></span>
+      <span>Круассаны<i>·</i></span>
+      <span>Синнабоны<i>·</i></span>
+      <span>Навынос<i>·</i></span>
+      <span>Эспрессо<i>·</i></span>
+      <span>Капучино<i>·</i></span>
+      <span>Латте<i>·</i></span>
+      <span>Раф<i>·</i></span>
+      <span>Фильтр<i>·</i></span>
+      <span>Круассаны<i>·</i></span>
+      <span>Синнабоны<i>·</i></span>
+      <span>Навынос<i>·</i></span>
+    </div>
+  </div>
+
+  <!-- О НАС -->
+  <section class="sec" id="about">
+    <div class="shell">
+      <div class="sec-head reveal">
+        <span class="mono accent">01 — о нас</span>
+        <span class="rule"></span>
+        <span class="mono dim">без выходных, с 8:00 до 22:00</span>
+      </div>
+      <div class="about-grid">
+        <h2 class="about-lead reveal">Открываемся в восемь утра и варим кофе до десяти вечера. Каждый день, без выходных.</h2>
+        <div class="about-side reveal">
+          <p class="about-p">В меню — эспрессо, капучино, латте, раф и фильтр. Каждое утро достаём из печи круассаны и синнабоны: к открытию они ещё тёплые. Заходите в зал или заказывайте навынос.</p>
+          <ul class="facts">
+            <li><span class="mono dim">навынос</span><span>Telegram @zerno_coffee</span></li>
+            <li><span class="mono dim">телефон</span><span>+7 900 123-45-67</span></li>
+            <li><span class="mono dim">выпечка</span><span>круассаны и синнабоны</span></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- МЕНЮ -->
+  <section class="sec" id="menu">
+    <div class="shell">
+      <div class="sec-head reveal">
+        <span class="mono accent">02 — меню</span>
+        <span class="rule"></span>
+        <span class="mono dim">всё можно взять с собой</span>
+      </div>
+      <div class="menu-grid">
+        <div class="menu-list">
+          <div class="m-group reveal"><span class="mono accent">кофе</span><span class="rule"></span></div>
+          <ul class="reveal">
+            <li class="m-row" data-shot="0"><span class="m-num">01</span><span class="m-name">Эспрессо</span><span class="m-desc">плотная основа</span></li>
+            <li class="m-row" data-shot="0"><span class="m-num">02</span><span class="m-name">Капучино</span><span class="m-desc">молоко и пена</span></li>
+            <li class="m-row" data-shot="0"><span class="m-num">03</span><span class="m-name">Латте</span><span class="m-desc">мягкое молоко</span></li>
+            <li class="m-row" data-shot="0"><span class="m-num">04</span><span class="m-name">Раф</span><span class="m-desc">сливки и ваниль</span></li>
+            <li class="m-row" data-shot="0"><span class="m-num">05</span><span class="m-name">Фильтр</span><span class="m-desc">чистый вкус зерна</span></li>
+          </ul>
+
+          <div class="m-group reveal"><span class="mono accent">из печи</span><span class="rule"></span></div>
+          <ul class="reveal">
+            <li class="m-row" data-shot="1"><span class="m-num">06</span><span class="m-name">Круассан</span><span class="m-desc">слоёный, утренний</span></li>
+            <li class="m-row" data-shot="1"><span class="m-num">07</span><span class="m-name">Синнабон</span><span class="m-desc">корица и глазурь</span></li>
+          </ul>
+        </div>
+
+        <aside class="menu-shot reveal" aria-hidden="true">
+          <div class="shots">
+            <img class="is-active" src="assets/cup.jpg" alt="">
+            <img src="assets/pastry.jpg" alt="">
+          </div>
+          <p class="mono shot-cap">наведите на позицию — покажем фото</p>
+        </aside>
+      </div>
+    </div>
+  </section>
+
+  <!-- ВЫПЕЧКА -->
+  <section class="bake" id="bake">
+    <div class="shell">
+      <div class="sec-head reveal">
+        <span class="mono accent">03 — выпечка</span>
+        <span class="rule"></span>
+        <span class="mono dim">каждое утро к открытию</span>
+      </div>
+      <div class="bake-grid">
+        <figure class="bake-media reveal">
+          <img src="assets/pastry.jpg" alt="Свежие круассаны и синнабоны с глазурью на подносах">
+          <figcaption class="mono"><span>из печи</span><span>8:00</span></figcaption>
+        </figure>
+        <div class="bake-copy reveal">
+          <h2>Тёплая выпечка — лучший повод заглянуть</h2>
+          <p>Пока город только просыпается, мы достаём из печи румяные круассаны и синнабоны. Они особенно хороши с первым капучино — проверено десятками добрых утр.</p>
+          <p class="quote">«Здесь пахнет так, будто день точно будет хорошим»</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- МЕСТО -->
+  <section class="sec" id="place">
+    <div class="shell">
+      <div class="sec-head reveal">
+        <span class="mono accent">04 — место</span>
+        <span class="rule"></span>
+        <span class="mono dim">стойка, окна и растения</span>
+      </div>
+      <div class="collage">
+        <figure class="f-wide reveal">
+          <img src="assets/interior.jpg" alt="Зал кофейни «Зерно»: деревянные столы, барная стойка и растения у окна">
+          <figcaption class="mono"><span>01 / зал</span><span>ул. Ленина, 12</span></figcaption>
+        </figure>
+        <figure class="f-sq reveal">
+          <img src="assets/cup.jpg" alt="Капучино на деревянной стойке у окна">
+          <figcaption class="mono"><span>02 / капучино</span><span>каждый день</span></figcaption>
+        </figure>
+        <div class="f-note reveal">
+          <p class="mono accent">атмосфера</p>
+          <p class="note-lead">Место для неспешного завтрака, короткой встречи или работы у окна.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- КОНТАКТЫ -->
+  <section class="sec" id="contacts">
+    <div class="shell">
+      <div class="sec-head reveal">
+        <span class="mono accent">05 — контакты</span>
+        <span class="rule"></span>
+        <span class="mono dim">навынос — по Telegram</span>
+      </div>
+      <div class="c-list reveal">
+        <a class="c-row" href="https://yandex.ru/maps/?text=Москва,+улица+Ленина,+12" target="_blank" rel="noopener">
+          <span class="mono dim">адрес</span>
+          <span class="c-val">Москва, ул. Ленина, 12</span>
+          <span class="arrow" aria-hidden="true">↗</span>
+        </a>
+        <div class="c-row">
+          <span class="mono dim">часы</span>
+          <span class="c-val">каждый день 8:00–22:00 <span class="pill" data-status>проверяем</span></span>
+        </div>
+        <a class="c-row" href="tel:+79001234567">
+          <span class="mono dim">телефон</span>
+          <span class="c-val">+7 900 123-45-67</span>
+          <span class="arrow" aria-hidden="true">↗</span>
+        </a>
+        <a class="c-row" href="https://t.me/zerno_coffee" target="_blank" rel="noopener">
+          <span class="mono dim">telegram</span>
+          <span class="c-val">@zerno_coffee</span>
+          <span class="arrow" aria-hidden="true">↗</span>
+        </a>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="footer">
+  <div class="shell">
+    <p class="mono f-kick">заказ навынос</p>
+    <a class="cta" href="https://t.me/zerno_coffee" target="_blank" rel="noopener">
+      <span class="cta-line">Напишите в Telegram</span>
+      <span class="cta-handle mono">@zerno_coffee ↗</span>
+    </a>
+    <div class="footer-bottom mono">
+      <span>© кофейня «Зерно»</span>
+      <span>Москва, ул. Ленина, 12</span>
+      <span>ежедневно 8:00–22:00</span>
+      <a href="tel:+79001234567">+7 900 123-45-67</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+(function () {
+  var doc = document;
+
+  /* мобильное меню */
+  var burger = doc.getElementById('burger');
+  var nav = doc.getElementById('topnav');
+  if (burger && nav) {
+    burger.addEventListener('click', function () {
+      var open = nav.classList.toggle('is-open');
+      burger.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+    Array.prototype.forEach.call(nav.querySelectorAll('a'), function (a) {
+      a.addEventListener('click', function () {
+        nav.classList.remove('is-open');
+        burger.setAttribute('aria-expanded', 'false');
+      });
+    });
+  }
+
+  /* часы и статус «открыто» по московскому времени */
+  var clockEls = doc.querySelectorAll('[data-clock]');
+  var statusEls = doc.querySelectorAll('[data-status]');
+
+  function moscowNow() {
+    try {
+      var parts = new Intl.DateTimeFormat('ru-RU', {
+        timeZone: 'Europe/Moscow', hour: '2-digit', minute: '2-digit', hour12: false
+      }).formatToParts(new Date());
+      var hh = '', mm = '';
+      for (var i = 0; i < parts.length; i++) {
+        if (parts[i].type === 'hour') hh = parts[i].value;
+        if (parts[i].type === 'minute') mm = parts[i].value;
+      }
+      return { h: parseInt(hh, 10) % 24, text: hh + ':' + mm };
+    } catch (e) {
+      var d = new Date();
+      var h = d.getHours(), m = d.getMinutes();
+      return { h: h, text: (h < 10 ? '0' : '') + h + ':' + (m < 10 ? '0' : '') + m };
+    }
+  }
+
+  function tick() {
+    var t = moscowNow();
+    var open = t.h >= 8 && t.h < 22;
+    Array.prototype.forEach.call(clockEls, function (el) { el.textContent = t.text; });
+    Array.prototype.forEach.call(statusEls, function (el) {
+      el.textContent = open ? 'открыто' : 'закрыто';
+      if (open) { el.classList.add('is-open'); } else { el.classList.remove('is-open'); }
+    });
+  }
+  tick();
+  setInterval(tick, 30000);
+
+  /* смена фото в меню (десктоп) */
+  var shots = doc.querySelectorAll('.shots img');
+  Array.prototype.forEach.call(doc.querySelectorAll('.m-row'), function (row) {
+    row.addEventListener('mouseenter', function () {
+      var i = parseInt(row.getAttribute('data-shot'), 10) || 0;
+      Array.prototype.forEach.call(shots, function (img, k) {
+        if (k === i) { img.classList.add('is-active'); } else { img.classList.remove('is-active'); }
+      });
+    });
+  });
+
+  /* появление блоков при скролле */
+  var items = doc.querySelectorAll('.reveal');
+  function showAll() {
+    Array.prototype.forEach.call(items, function (el) { el.classList.add('in'); });
+  }
+  if ('IntersectionObserver' in window) {
+    try {
+      var io = new IntersectionObserver(function (entries) {
+        for (var i = 0; i < entries.length; i++) {
+          if (entries[i].isIntersecting) {
+            entries[i].target.classList.add('in');
+            io.unobserve(entries[i].target);
+          }
+        }
+      }, { rootMargin: '0px 0px -6% 0px', threshold: 0.08 });
+      Array.prototype.forEach.call(items, function (el) { io.observe(el); });
+    } catch (e) {
+      showAll();
+    }
+  } else {
+    showAll();
+  }
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Зерно — кофейня в Москве</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Inter:wght@300;400;500&display=swap" rel="stylesheet" />
+  <style>
+    /* === TOKENS === */
+    :root {
+      --bg:             #f9f6f2;
+      --surface:        #f2ede6;
+      --surface-raised: #ede5da;
+      --border:         #ddd1c2;
+      --text-heading:   #1c130e;
+      --text-body:      #3a2d22;
+      --text-muted:     #8a7766;
+      --accent:         #c07a38;
+      --accent-dark:    #9a5f26;
+      --accent-light:   #e8c99a;
+      --white:          #fdfaf7;
+      --gap-xs: 8px;
+      --gap-sm: 16px;
+      --gap-md: 32px;
+      --gap-lg: 64px;
+      --gap-xl: 96px;
+      --r-sm: 6px;
+      --r-md: 12px;
+      --r-lg: 20px;
+    }
+
+    /* === RESET === */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text-body);
+      line-height: 1.6;
+      font-size: 16px;
+      -webkit-font-smoothing: antialiased;
+    }
+    img { display: block; max-width: 100%; height: auto; }
+    a { color: inherit; text-decoration: none; }
+
+    /* === NAV === */
+    .nav {
+      position: fixed;
+      inset: 0 0 auto 0;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 var(--gap-lg);
+      height: 68px;
+      background: rgba(249, 246, 242, 0.88);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border-bottom: 1px solid transparent;
+      transition: border-color 0.3s;
+    }
+    .nav.scrolled { border-bottom-color: var(--border); }
+    .nav-logo {
+      font-family: 'Cormorant Garamond', Georgia, serif;
+      font-size: 1.65rem;
+      font-weight: 600;
+      color: var(--text-heading);
+      letter-spacing: 0.04em;
+    }
+    .nav-links {
+      display: flex;
+      gap: var(--gap-md);
+      list-style: none;
+    }
+    .nav-links a {
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: var(--text-body);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      transition: color 0.2s;
+    }
+    .nav-links a:hover { color: var(--accent); }
+    .nav-links a:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 2px; }
+    .nav-order {
+      display: inline-flex;
+      align-items: center;
+      padding: 10px 22px;
+      background: var(--accent);
+      color: var(--white);
+      border-radius: var(--r-sm);
+      font-size: 0.85rem;
+      font-weight: 500;
+      letter-spacing: 0.04em;
+      transition: background 0.2s, transform 0.15s;
+    }
+    .nav-order:hover { background: var(--accent-dark); transform: translateY(-1px); }
+    .nav-order:active { transform: translateY(0); }
+    .nav-order:focus-visible { outline: 2px solid var(--accent-dark); outline-offset: 3px; }
+
+    /* === HERO === */
+    .hero {
+      position: relative;
+      height: 100svh;
+      min-height: 600px;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      overflow: hidden;
+    }
+    .hero-img {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: center 30%;
+    }
+    .hero-overlay {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(
+        to bottom,
+        rgba(20, 12, 6, 0.06) 0%,
+        rgba(20, 12, 6, 0.15) 40%,
+        rgba(20, 12, 6, 0.75) 100%
+      );
+    }
+    .hero-content {
+      position: relative;
+      z-index: 1;
+      padding: var(--gap-xl) var(--gap-lg) var(--gap-xl);
+      max-width: 800px;
+    }
+    .hero-tag {
+      display: inline-block;
+      font-size: 0.72rem;
+      font-weight: 500;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--accent-light);
+      margin-bottom: var(--gap-sm);
+    }
+    .hero-title {
+      font-family: 'Cormorant Garamond', Georgia, serif;
+      font-size: clamp(3.2rem, 8vw, 6.2rem);
+      font-weight: 500;
+      line-height: 1.04;
+      color: var(--white);
+      margin-bottom: var(--gap-sm);
+      letter-spacing: -0.01em;
+    }
+    .hero-title em {
+      font-style: italic;
+      color: var(--accent-light);
+    }
+    .hero-sub {
+      font-size: 1.05rem;
+      color: rgba(253, 250, 247, 0.75);
+      max-width: 460px;
+      line-height: 1.6;
+      margin-bottom: var(--gap-md);
+    }
+    .hero-actions {
+      display: flex;
+      gap: var(--gap-sm);
+      flex-wrap: wrap;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 14px 28px;
+      border-radius: var(--r-sm);
+      font-size: 0.9rem;
+      font-weight: 500;
+      letter-spacing: 0.03em;
+      cursor: pointer;
+      transition: all 0.2s;
+      min-height: 48px;
+    }
+    .btn:focus-visible { outline: 2px solid var(--white); outline-offset: 3px; }
+    .btn-primary {
+      background: var(--accent);
+      color: var(--white);
+    }
+    .btn-primary:hover {
+      background: var(--accent-dark);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(192, 122, 56, 0.38);
+    }
+    .btn-primary:active { transform: translateY(0); }
+    .btn-outline {
+      background: transparent;
+      color: var(--white);
+      border: 1.5px solid rgba(253, 250, 247, 0.42);
+    }
+    .btn-outline:hover {
+      border-color: var(--white);
+      background: rgba(253, 250, 247, 0.1);
+    }
+    .hero-scroll {
+      position: absolute;
+      bottom: var(--gap-md);
+      right: var(--gap-lg);
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      color: rgba(253, 250, 247, 0.45);
+      font-size: 0.68rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+    .hero-scroll-line {
+      width: 1px;
+      height: 40px;
+      background: linear-gradient(to bottom, transparent, rgba(253, 250, 247, 0.42));
+      animation: scrollPulse 2.2s ease-in-out infinite;
+    }
+    @keyframes scrollPulse {
+      0%, 100% { opacity: 0.4; }
+      50%       { opacity: 1; }
+    }
+
+    /* === SECTION BASE === */
+    .section { padding: var(--gap-xl) var(--gap-lg); }
+    .section-tag {
+      font-size: 0.7rem;
+      font-weight: 500;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: var(--gap-xs);
+    }
+    .section-title {
+      font-family: 'Cormorant Garamond', Georgia, serif;
+      font-size: clamp(2rem, 4.5vw, 3.2rem);
+      font-weight: 500;
+      color: var(--text-heading);
+      line-height: 1.14;
+      letter-spacing: -0.01em;
+    }
+
+    /* === ABOUT === */
+    .about {
+      background: var(--bg);
+      max-width: 1440px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--gap-lg);
+      align-items: center;
+    }
+    .about-text { max-width: 520px; }
+    .about-text .section-title { margin-bottom: var(--gap-md); }
+    .about-text p {
+      color: var(--text-body);
+      font-size: 1.04rem;
+      line-height: 1.72;
+      margin-bottom: var(--gap-sm);
+    }
+    .about-text p:last-of-type { margin-bottom: 0; }
+    .about-stats {
+      display: flex;
+      gap: var(--gap-md);
+      margin-top: var(--gap-md);
+      padding-top: var(--gap-md);
+      border-top: 1px solid var(--border);
+    }
+    .stat-num {
+      font-family: 'Cormorant Garamond', Georgia, serif;
+      font-size: 2.6rem;
+      font-weight: 600;
+      color: var(--accent);
+      line-height: 1;
+    }
+    .stat-label {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      letter-spacing: 0.04em;
+      margin-top: 4px;
+    }
+    .about-img-wrap {
+      border-radius: var(--r-lg);
+      overflow: hidden;
+      aspect-ratio: 4/5;
+    }
+    .about-img-wrap img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transition: transform 0.7s ease;
+    }
+    .about-img-wrap:hover img { transform: scale(1.03); }
+
+    /* === MENU === */
+    .menu-section {
+      background: var(--surface);
+      padding: var(--gap-xl) var(--gap-lg);
+    }
+    .menu-inner { max-width: 1440px; margin: 0 auto; }
+    .menu-header {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      margin-bottom: var(--gap-lg);
+      gap: var(--gap-md);
+    }
+    .menu-header-note {
+      max-width: 340px;
+      color: var(--text-muted);
+      font-size: 0.94rem;
+      line-height: 1.62;
+    }
+    .menu-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--gap-md);
+    }
+    .menu-card {
+      background: var(--white);
+      border-radius: var(--r-md);
+      border: 1px solid var(--border);
+      overflow: hidden;
+      transition: box-shadow 0.25s, transform 0.25s;
+    }
+    .menu-card:hover {
+      box-shadow: 0 14px 44px rgba(60, 30, 10, 0.1);
+      transform: translateY(-3px);
+    }
+    .menu-card-img {
+      width: 100%;
+      aspect-ratio: 16/9;
+      object-fit: cover;
+    }
+    .menu-card-body { padding: var(--gap-md); }
+    .menu-card-title {
+      font-family: 'Cormorant Garamond', Georgia, serif;
+      font-size: 1.55rem;
+      font-weight: 600;
+      color: var(--text-heading);
+      margin-bottom: var(--gap-sm);
+    }
+    .menu-items {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .menu-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 0.95rem;
+      color: var(--text-body);
+    }
+    .menu-item::before {
+      content: '';
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent-light);
+      flex-shrink: 0;
+    }
+
+    /* === GALLERY === */
+    .gallery-section {
+      padding: var(--gap-xl) var(--gap-lg);
+      max-width: 1440px;
+      margin: 0 auto;
+    }
+    .gallery-head { margin-bottom: var(--gap-lg); }
+    .gallery-grid {
+      display: grid;
+      grid-template-columns: 1.35fr 0.83fr 0.83fr;
+      gap: var(--gap-sm);
+    }
+    .gallery-item {
+      border-radius: var(--r-md);
+      overflow: hidden;
+    }
+    .gallery-item img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      aspect-ratio: 3/4;
+      display: block;
+      transition: transform 0.55s ease;
+    }
+    .gallery-item:first-child img { aspect-ratio: 2/3; }
+    .gallery-item:hover img { transform: scale(1.04); }
+
+    /* === ORDER CTA === */
+    .order-section {
+      background: var(--text-heading);
+      padding: var(--gap-xl) var(--gap-lg);
+      text-align: center;
+    }
+    .order-inner { max-width: 680px; margin: 0 auto; }
+    .order-tag {
+      font-size: 0.7rem;
+      font-weight: 500;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--accent-light);
+      margin-bottom: var(--gap-xs);
+    }
+    .order-title {
+      font-family: 'Cormorant Garamond', Georgia, serif;
+      font-size: clamp(2.2rem, 5vw, 3.6rem);
+      font-weight: 500;
+      color: var(--white);
+      line-height: 1.12;
+      margin-bottom: var(--gap-sm);
+    }
+    .order-sub {
+      color: rgba(253, 250, 247, 0.58);
+      font-size: 1rem;
+      margin-bottom: var(--gap-md);
+    }
+    .order-actions {
+      display: flex;
+      gap: var(--gap-sm);
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    .btn-tg { background: #229ED9; color: var(--white); }
+    .btn-tg:hover {
+      background: #1a8bbf;
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(34, 158, 217, 0.38);
+    }
+    .btn-phone {
+      background: transparent;
+      color: var(--white);
+      border: 1.5px solid rgba(253, 250, 247, 0.3);
+    }
+    .btn-phone:hover {
+      border-color: var(--white);
+      background: rgba(253, 250, 247, 0.08);
+    }
+
+    /* === INFO STRIP === */
+    .info-strip {
+      background: var(--surface-raised);
+      padding: var(--gap-lg) var(--gap-lg);
+    }
+    .info-grid {
+      max-width: 1440px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: var(--gap-md);
+      text-align: center;
+    }
+    .info-item-icon { font-size: 1.5rem; margin-bottom: 8px; }
+    .info-item-label {
+      font-size: 0.72rem;
+      font-weight: 500;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+    .info-item-val {
+      font-size: 1rem;
+      color: var(--text-heading);
+      font-weight: 500;
+    }
+
+    /* === FOOTER === */
+    footer {
+      background: var(--text-heading);
+      padding: var(--gap-md) var(--gap-lg);
+    }
+    .footer-inner {
+      max-width: 1440px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--gap-sm);
+      flex-wrap: wrap;
+    }
+    .footer-logo {
+      font-family: 'Cormorant Garamond', Georgia, serif;
+      font-size: 1.45rem;
+      font-weight: 600;
+      color: var(--white);
+    }
+    .footer-copy {
+      font-size: 0.8rem;
+      color: rgba(253, 250, 247, 0.42);
+    }
+    .footer-links {
+      display: flex;
+      gap: var(--gap-sm);
+      list-style: none;
+    }
+    .footer-links a {
+      font-size: 0.8rem;
+      color: rgba(253, 250, 247, 0.42);
+      transition: color 0.2s;
+    }
+    .footer-links a:hover { color: var(--white); }
+    .footer-links a:focus-visible { outline: 1px solid var(--white); outline-offset: 3px; }
+
+    /* === RESPONSIVE === */
+    @media (max-width: 960px) {
+      :root { --gap-lg: 40px; --gap-xl: 64px; }
+      .nav { padding: 0 var(--gap-lg); }
+      .nav-links { display: none; }
+      .about {
+        grid-template-columns: 1fr;
+        max-width: 100%;
+      }
+      .about-text { max-width: 100%; order: 2; }
+      .about-img-wrap { order: 1; aspect-ratio: 16/9; }
+      .menu-grid { grid-template-columns: 1fr; }
+      .gallery-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+      .gallery-item:first-child { grid-column: span 2; }
+      .gallery-item:first-child img { aspect-ratio: 16/9; }
+      .gallery-item img { aspect-ratio: 1/1; }
+      .info-grid { grid-template-columns: 1fr; }
+      .menu-header { flex-direction: column; align-items: flex-start; }
+    }
+
+    @media (max-width: 520px) {
+      :root {
+        --gap-lg: 20px;
+        --gap-xl: 52px;
+        --gap-md: 24px;
+      }
+      .hero-scroll { display: none; }
+      .about-stats { flex-wrap: wrap; gap: var(--gap-sm); }
+      .gallery-grid { grid-template-columns: 1fr; }
+      .gallery-item:first-child { grid-column: auto; }
+      .gallery-item img,
+      .gallery-item:first-child img { aspect-ratio: 4/3; }
+      .footer-inner { flex-direction: column; text-align: center; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- NAV -->
+  <nav class="nav" id="nav" aria-label="Основная навигация">
+    <a class="nav-logo" href="#" aria-label="Зерно — вернуться на главную">Зерно</a>
+    <ul class="nav-links" role="list">
+      <li><a href="#about">О нас</a></li>
+      <li><a href="#menu">Меню</a></li>
+      <li><a href="#gallery">Атмосфера</a></li>
+      <li><a href="#contact">Контакты</a></li>
+    </ul>
+    <a class="nav-order" href="https://t.me/zerno_coffee" target="_blank" rel="noopener noreferrer">
+      Заказать навынос
+    </a>
+  </nav>
+
+  <!-- HERO -->
+  <section class="hero" aria-label="Добро пожаловать в кофейню Зерно">
+    <img
+      class="hero-img"
+      src="assets/cup.jpg"
+      alt="Капучино с молочным рисунком на деревянной стойке кофейни, на фоне Красной площади"
+    />
+    <div class="hero-overlay" aria-hidden="true"></div>
+    <div class="hero-content">
+      <span class="hero-tag">Кофейня · Москва, ул. Ленина, 12</span>
+      <h1 class="hero-title">Кофе, который<br><em>остаётся</em></h1>
+      <p class="hero-sub">
+        Варим с душой, печём каждое утро. Приходите — или заберите с собой.
+      </p>
+      <div class="hero-actions">
+        <a class="btn btn-primary" href="https://t.me/zerno_coffee" target="_blank" rel="noopener noreferrer">
+          Заказ в Telegram
+        </a>
+        <a class="btn btn-outline" href="#menu">Смотреть меню</a>
+      </div>
+    </div>
+    <div class="hero-scroll" aria-hidden="true">
+      <span>Листай</span>
+      <div class="hero-scroll-line"></div>
+    </div>
+  </section>
+
+  <!-- ABOUT -->
+  <section class="section about" id="about" aria-labelledby="about-title">
+    <div class="about-text">
+      <p class="section-tag">Наша история</p>
+      <h2 class="section-title" id="about-title">Маленькая кофейня<br>с большим характером</h2>
+      <p>
+        В «Зерне» кофе варят вручную — от обжарки зерна до последнего узора на пенке.
+        Мы верим, что правильный напиток меняет настроение с первого глотка.
+      </p>
+      <p>
+        Светлый зал, деревянные столы, живые растения и много солнца. Приходите работать,
+        встречаться или просто побыть в тишине.
+      </p>
+      <div class="about-stats">
+        <div>
+          <div class="stat-num">5</div>
+          <div class="stat-label">видов кофе</div>
+        </div>
+        <div>
+          <div class="stat-num">2</div>
+          <div class="stat-label">вида выпечки</div>
+        </div>
+        <div>
+          <div class="stat-num">7</div>
+          <div class="stat-label">дней в неделю</div>
+        </div>
+      </div>
+    </div>
+    <div class="about-img-wrap">
+      <img
+        src="assets/interior.jpg"
+        alt="Светлый зал кофейни Зерно: деревянные столы, живые растения, промышленные светильники"
+        loading="lazy"
+      />
+    </div>
+  </section>
+
+  <!-- MENU -->
+  <section class="menu-section" id="menu" aria-labelledby="menu-title">
+    <div class="menu-inner">
+      <div class="menu-header">
+        <div>
+          <p class="section-tag">Что мы готовим</p>
+          <h2 class="section-title" id="menu-title">Меню</h2>
+        </div>
+        <p class="menu-header-note">
+          Кофе на свежеобжаренном зерне, молоко на выбор — коровье или растительное. Выпечка — каждое утро.
+        </p>
+      </div>
+      <div class="menu-grid">
+        <div class="menu-card">
+          <img
+            class="menu-card-img"
+            src="assets/cup.jpg"
+            alt="Кофейные напитки"
+            loading="lazy"
+          />
+          <div class="menu-card-body">
+            <h3 class="menu-card-title">☕ Кофе</h3>
+            <ul class="menu-items">
+              <li class="menu-item">Эспрессо</li>
+              <li class="menu-item">Капучино</li>
+              <li class="menu-item">Латте</li>
+              <li class="menu-item">Раф</li>
+              <li class="menu-item">Фильтр</li>
+            </ul>
+          </div>
+        </div>
+        <div class="menu-card">
+          <img
+            class="menu-card-img"
+            src="assets/pastry.jpg"
+            alt="Свежая выпечка — круассаны и синнабоны"
+            loading="lazy"
+          />
+          <div class="menu-card-body">
+            <h3 class="menu-card-title">🥐 Выпечка</h3>
+            <ul class="menu-items">
+              <li class="menu-item">Круассан — каждое утро из печи</li>
+              <li class="menu-item">Синнабон с глазурью</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- GALLERY -->
+  <section class="gallery-section" id="gallery" aria-labelledby="gallery-title">
+    <div class="gallery-head">
+      <p class="section-tag">Атмосфера</p>
+      <h2 class="section-title" id="gallery-title">Загляните к нам</h2>
+    </div>
+    <div class="gallery-grid">
+      <div class="gallery-item">
+        <img src="assets/interior.jpg" alt="Интерьер кофейни Зерно" loading="lazy" />
+      </div>
+      <div class="gallery-item">
+        <img src="assets/cup.jpg" alt="Капучино в кофейне Зерно" loading="lazy" />
+      </div>
+      <div class="gallery-item">
+        <img src="assets/pastry.jpg" alt="Круассаны и синнабоны на прилавке" loading="lazy" />
+      </div>
+    </div>
+  </section>
+
+  <!-- ORDER CTA -->
+  <section class="order-section" id="contact" aria-labelledby="order-title">
+    <div class="order-inner">
+      <p class="order-tag">Заказ навынос</p>
+      <h2 class="order-title" id="order-title">
+        Заберите с собой — без очереди
+      </h2>
+      <p class="order-sub">
+        Пишите в Telegram или звоните — соберём заказ к нужному времени.
+      </p>
+      <div class="order-actions">
+        <a class="btn btn-tg" href="https://t.me/zerno_coffee" target="_blank" rel="noopener noreferrer">
+          Telegram @zerno_coffee
+        </a>
+        <a class="btn btn-phone" href="tel:+79001234567">
+          +7 900 123-45-67
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- INFO STRIP -->
+  <div class="info-strip" aria-label="Адрес, часы и контакты">
+    <div class="info-grid">
+      <div class="info-item">
+        <div class="info-item-icon" aria-hidden="true">📍</div>
+        <div class="info-item-label">Адрес</div>
+        <div class="info-item-val">Москва, ул. Ленина, 12</div>
+      </div>
+      <div class="info-item">
+        <div class="info-item-icon" aria-hidden="true">🕗</div>
+        <div class="info-item-label">Часы работы</div>
+        <div class="info-item-val">Ежедневно 8:00 — 22:00</div>
+      </div>
+      <div class="info-item">
+        <div class="info-item-icon" aria-hidden="true">📞</div>
+        <div class="info-item-label">Телефон</div>
+        <div class="info-item-val">
+          <a href="tel:+79001234567" style="color:inherit;">+7 900 123-45-67</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <footer>
+    <div class="footer-inner">
+      <span class="footer-logo">Зерно</span>
+      <span class="footer-copy">© 2025 Кофейня «Зерно», Москва</span>
+      <ul class="footer-links" role="list">
+        <li><a href="https://t.me/zerno_coffee" target="_blank" rel="noopener noreferrer">Telegram</a></li>
+        <li><a href="tel:+79001234567">Позвонить</a></li>
+      </ul>
+    </div>
+  </footer>
+
+  <script>
+    const nav = document.getElementById('nav');
+    const tick = () => nav.classList.toggle('scrolled', window.scrollY > 40);
+    window.addEventListener('scroll', tick, { passive: true });
+    tick();
+  </script>
+
+</body>
+</html>

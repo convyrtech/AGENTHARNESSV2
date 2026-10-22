@@ -12,8 +12,9 @@ try { await page.goto('file://' + html, { waitUntil: 'networkidle', timeout: 300
 await page.waitForTimeout(1500);
 await page.screenshot({ path: base + '-top.png' });
 const h = await page.evaluate(() => document.documentElement.scrollHeight).catch(() => 900);
-for (let y = 0; y < Math.min(h, 9000); y += 700) { await page.evaluate(v => window.scrollTo(0, v), y).catch(() => {}); await page.waitForTimeout(200); }
-await page.evaluate(() => window.scrollTo(0, 0)); await page.waitForTimeout(600);
+for (let y = 0; y < Math.min(h, 9000); y += 400) { await page.evaluate(v => window.scrollTo(0, v), y).catch(() => {}); await page.waitForTimeout(250); }
+await page.waitForTimeout(1500);
+await page.evaluate(() => window.scrollTo(0, 0)); await page.waitForTimeout(800);
 await page.screenshot({ path: base + '-full.jpg', type: 'jpeg', quality: 70, fullPage: true, clip: { x: 0, y: 0, width: 1440, height: Math.max(900, Math.min(h, 5400)) } }).catch(async () => page.screenshot({ path: base + '-full.jpg', type: 'jpeg', quality: 70 }));
 const m = await browser.newPage({ viewport: { width: 390, height: 844 } });
 try { await m.goto('file://' + html, { waitUntil: 'networkidle', timeout: 30000 }); } catch (e) {}

@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#f8f3ea">
+<title>Кофейня «Зерно» — Москва, ул. Ленина, 12</title>
+<meta name="description" content="Кофейня «Зерно» на улице Ленина, 12 в Москве: эспрессо, капучино, латте, раф и фильтр, свежая выпечка каждое утро. Каждый день 8:00–22:00. Заказ навынос в Telegram @zerno_coffee.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f8f3ea;
+    --ink:#221c16;
+    --ink-soft:#655a4c;
+    --ink-dim:#8a7c68;
+    --line:#e4dac9;
+    --green:#1c3a2c;
+    --green-dark:#15301f;
+    --radius:22px;
+  }
+  *,*::before,*::after{box-sizing:border-box}
+  html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--ink);
+    font-family:'Manrope',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;
+    font-size:17px;
+    line-height:1.55;
+    -webkit-font-smoothing:antialiased;
+  }
+  img{display:block;max-width:100%}
+  h1,h2,h3{font-family:'Playfair Display',Georgia,'Times New Roman',serif;font-weight:600;letter-spacing:-.01em;line-height:1.08;margin:0}
+  p{margin:0}
+  ul{margin:0;padding:0;list-style:none}
+  a{color:inherit}
+  section[id],footer[id],main[id]{scroll-margin-top:88px}
+
+  .container{
+    width:100%;
+    max-width:1200px;
+    margin:0 auto;
+    padding-left:clamp(16px,4.5vw,44px);
+    padding-right:clamp(16px,4.5vw,44px);
+  }
+
+  /* ---------- Шапка ---------- */
+  .site-header{
+    position:sticky;
+    top:0;
+    z-index:20;
+    background:rgba(248,243,234,.93);
+    -webkit-backdrop-filter:saturate(140%) blur(10px);
+    backdrop-filter:saturate(140%) blur(10px);
+    border-bottom:1px solid transparent;
+    transition:border-color .25s ease;
+  }
+  .site-header.is-scrolled{border-bottom-color:var(--line)}
+  .header__inner{display:flex;align-items:center;gap:20px;min-height:72px}
+  .logo{display:inline-flex;flex-direction:column;gap:3px;line-height:1;text-decoration:none}
+  .logo__name{font-family:'Playfair Display',Georgia,serif;font-size:23px;font-weight:600;letter-spacing:.01em}
+  .logo__sub{font-size:10px;letter-spacing:.3em;text-transform:uppercase;color:var(--ink-dim)}
+  .nav{display:none;gap:28px;margin-left:auto;font-size:15px}
+  @media (min-width:1000px){.nav{display:flex}}
+  .nav a{padding:6px 0;color:var(--ink-soft);text-decoration:none;border-bottom:1px solid transparent;transition:color .2s ease,border-color .2s ease}
+  .nav a:hover{color:var(--ink);border-bottom-color:var(--ink)}
+  .header__cta{margin-left:auto}
+  @media (min-width:1000px){.header__cta{margin-left:0}}
+
+  /* ---------- Кнопки и ссылки ---------- */
+  .btn{
+    display:inline-flex;align-items:center;justify-content:center;gap:10px;
+    min-height:52px;max-width:100%;padding:14px 26px;
+    border:1px solid transparent;border-radius:999px;
+    font:inherit;font-size:16px;font-weight:600;line-height:1.2;text-align:center;text-decoration:none;
+    cursor:pointer;
+    transition:background-color .2s ease,color .2s ease,border-color .2s ease;
+  }
+  .btn--primary{background:var(--green);color:#f8f3ea}
+  .btn--primary:hover{background:var(--green-dark)}
+  .btn--ghost{border-color:#d6c9b4;color:var(--ink);background:transparent}
+  .btn--ghost:hover{border-color:var(--ink)}
+  .btn--light{background:#f8f3ea;color:var(--green)}
+  .btn--light:hover{background:#ffffff}
+  .btn--sm{min-height:44px;padding:10px 20px;font-size:14px}
+  :focus-visible{outline:2px solid var(--green);outline-offset:3px}
+  .link{
+    color:inherit;
+    text-decoration:underline;
+    text-decoration-thickness:1px;
+    text-decoration-color:#c8b99f;
+    text-underline-offset:3px;
+    transition:text-decoration-color .2s ease;
+  }
+  .link:hover{text-decoration-color:var(--ink)}
+
+  .kicker{font-size:12px;font-weight:700;letter-spacing:.22em;text-transform:uppercase;color:var(--ink-dim)}
+
+  /* ---------- Первый экран ---------- */
+  .hero{padding-top:clamp(28px,4vw,56px);padding-bottom:clamp(44px,6vw,88px)}
+  .hero__inner{display:grid;gap:34px;align-items:center}
+  @media (min-width:1000px){
+    .hero__inner{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:clamp(36px,4.5vw,64px)}
+  }
+  .hero__title{margin-top:16px;font-size:clamp(33px,4.6vw,58px)}
+  .hero__lead{margin-top:18px;max-width:44ch;font-size:clamp(16px,1.3vw,19px);color:var(--ink-soft)}
+  .hero__actions{display:flex;flex-wrap:wrap;gap:12px;margin-top:30px}
+  .facts{display:flex;flex-wrap:wrap;gap:20px 48px;margin-top:36px;padding-top:26px;border-top:1px solid var(--line)}
+  .fact{display:flex;flex-direction:column;gap:5px;min-width:150px}
+  .fact__label{font-size:11px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--ink-dim)}
+  .fact__value{font-size:16px}
+
+  /* ---------- Фотографии ---------- */
+  .hero__media,.about__media,.menu__media{
+    position:relative;margin:0;border-radius:var(--radius);overflow:hidden;background:#e8dfd0;
+  }
+  .hero__media img,.about__media img,.menu__media img{width:100%;height:100%;object-fit:cover}
+  .hero__media{aspect-ratio:4/3}
+  @media (min-width:1000px){.hero__media{aspect-ratio:1/1}}
+
+  /* ---------- О кофейне ---------- */
+  .about{border-top:1px solid var(--line);padding-top:clamp(52px,7vw,96px);padding-bottom:clamp(52px,7vw,96px)}
+  .about__inner{display:grid;gap:30px;align-items:center}
+  @media (min-width:900px){
+    .about__inner{grid-template-columns:minmax(0,1.05fr) minmax(0,.95fr);gap:clamp(36px,5vw,72px)}
+    .about__media{order:-1}
+  }
+  .about__media{aspect-ratio:4/3}
+  .about__title{margin-top:14px;font-size:clamp(28px,3vw,42px)}
+  .about__text p{margin-top:18px;max-width:50ch;color:var(--ink-soft)}
+  .about__text .about__meta{margin-top:24px;color:var(--ink);font-size:16px}
+
+  /* ---------- Меню ---------- */
+  .menu{border-top:1px solid var(--line);padding-top:clamp(52px,7vw,96px);padding-bottom:clamp(52px,7vw,96px)}
+  .menu__inner{display:grid;gap:34px;align-items:center}
+  @media (min-width:900px){
+    .menu__inner{grid-template-columns:minmax(0,1.05fr) minmax(0,.95fr);gap:clamp(36px,5vw,72px)}
+  }
+  .menu__title{margin-top:14px;font-size:clamp(28px,3vw,42px)}
+  .menu__groups{display:grid;gap:30px;margin-top:30px}
+  @media (min-width:560px){.menu__groups{grid-template-columns:repeat(2,minmax(0,1fr));gap:36px}}
+  .menu__group h3{font-family:'Manrope',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:11px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--ink-dim)}
+  .menu-list{margin-top:14px}
+  .menu-list li{padding:13px 0;border-bottom:1px solid var(--line);font-size:clamp(17px,1.35vw,20px)}
+  .menu-list li:last-child{border-bottom:0;padding-bottom:0}
+  .menu__media{aspect-ratio:4/3}
+
+  /* ---------- Заказ навынос ---------- */
+  .order{background:var(--green);color:#f6f1e7;padding-top:clamp(48px,6vw,84px);padding-bottom:clamp(48px,6vw,84px)}
+  .order__inner{display:grid;gap:28px;align-items:center}
+  @media (min-width:820px){.order__inner{grid-template-columns:minmax(0,1.25fr) auto;gap:48px}}
+  .order .kicker{color:rgba(246,241,231,.55)}
+  .order__title{margin-top:14px;font-size:clamp(28px,3vw,42px);color:#fbf7ef}
+  .order__text p{margin-top:16px;max-width:46ch;color:rgba(246,241,231,.78)}
+  .order__actions{display:flex;flex-wrap:wrap;align-items:center;gap:16px 24px}
+  .order__phone{
+    font-size:16px;color:rgba(246,241,231,.82);text-decoration:none;
+    border-bottom:1px solid rgba(246,241,231,.35);padding-bottom:2px;
+    transition:color .2s ease,border-color .2s ease;
+  }
+  .order__phone:hover{color:#ffffff;border-bottom-color:#ffffff}
+
+  /* ---------- Подвал ---------- */
+  .footer{border-top:1px solid var(--line);padding-top:clamp(44px,5vw,68px);padding-bottom:26px}
+  .footer__inner{display:grid;gap:30px}
+  @media (min-width:800px){.footer__inner{grid-template-columns:1.3fr 1fr 1fr 1fr;gap:36px}}
+  .footer__brand{display:flex;flex-direction:column;gap:4px;line-height:1}
+  .footer__title{font-family:'Manrope',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:11px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--ink-dim);margin-top:4px}
+  .footer__col p{margin-top:12px;font-size:16px}
+  .footer__col a{text-decoration:none;border-bottom:1px solid #d6c9b4;transition:border-color .2s ease}
+  .footer__col a:hover{border-bottom-color:var(--ink)}
+  .footer__bottom{
+    margin-top:40px;padding-top:20px;border-top:1px solid var(--line);
+    font-size:14px;color:var(--ink-soft);
+  }
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="container header__inner">
+    <a class="logo" href="#top" aria-label="Кофейня «Зерно» — в начало страницы">
+      <span class="logo__name">Зерно</span>
+      <span class="logo__sub">кофейня</span>
+    </a>
+    <nav class="nav" aria-label="Разделы страницы">
+      <a href="#about">О кофейне</a>
+      <a href="#menu">Меню</a>
+      <a href="#contacts">Контакты</a>
+    </nav>
+    <a class="btn btn--primary btn--sm header__cta" href="https://t.me/zerno_coffee" target="_blank" rel="noopener noreferrer">Заказать в Telegram</a>
+  </div>
+</header>
+
+<main id="top">
+
+  <!-- Первый экран: знакомство и заказ -->
+  <section class="hero">
+    <div class="container hero__inner">
+      <div class="hero__text">
+        <p class="kicker">Кофейня «Зерно» · Москва</p>
+        <h1 class="hero__title">Кофе и свежая выпечка каждое утро</h1>
+        <p class="hero__lead">Эспрессо, капучино, латте, раф и фильтр — в зале или навынос.</p>
+        <div class="hero__actions">
+          <a class="btn btn--primary" href="https://t.me/zerno_coffee" target="_blank" rel="noopener noreferrer">Заказать навынос в Telegram</a>
+          <a class="btn btn--ghost" href="tel:+79001234567">+7 900 123-45-67</a>
+        </div>
+        <ul class="facts">
+          <li class="fact">
+            <span class="fact__label">Адрес</span>
+            <span class="fact__value">ул. Ленина, 12, Москва · <a class="link" href="https://yandex.ru/maps/?text=%D0%9C%D0%BE%D1%81%D0%BA%D0%B2%D0%B0%2C%20%D1%83%D0%BB%D0%B8%D1%86%D0%B0%20%D0%9B%D0%B5%D0%BD%D0%B8%D0%BD%D0%B0%2C%2012" target="_blank" rel="noopener noreferrer">на карте</a></span>
+          </li>
+          <li class="fact">
+            <span class="fact__label">Часы работы</span>
+            <span class="fact__value">Каждый день 8:00–22:00</span>
+          </li>
+        </ul>
+      </div>
+      <figure class="hero__media">
+        <img src="assets/cup.jpg" alt="Чашка капучино на столе в кофейне «Зерно»">
+      </figure>
+    </div>
+  </section>
+
+  <!-- О кофейне: зал и адрес — чтобы спланировать визит -->
+  <section class="about" id="about">
+    <div class="container about__inner">
+      <div class="about__text">
+        <p class="kicker">О кофейне</p>
+        <h2 class="about__title">Кофе в зале и навынос</h2>
+        <p>Варим кофе — можно сесть за столик в зале или забрать заказ с собой.</p>
+        <p class="about__meta">Каждый день 8:00–22:00 · <a class="link" href="https://yandex.ru/maps/?text=%D0%9C%D0%BE%D1%81%D0%BA%D0%B2%D0%B0%2C%20%D1%83%D0%BB%D0%B8%D1%86%D0%B0%20%D0%9B%D0%B5%D0%BD%D0%B8%D0%BD%D0%B0%2C%2012" target="_blank" rel="noopener noreferrer">ул. Ленина, 12 на карте</a></p>
+      </div>
+      <figure class="about__media">
+        <img src="assets/interior.jpg" alt="Зал кофейни «Зерно» на улице Ленина, 12">
+      </figure>
+    </div>
+  </section>
+
+  <!-- Меню: ассортимент -->
+  <section class="menu" id="menu">
+    <div class="container menu__inner">
+      <div class="menu__content">
+        <p class="kicker">Меню</p>
+        <h2 class="menu__title">Кофе и выпечка</h2>
+        <div class="menu__groups">
+          <div class="menu__group">
+            <h3>Кофе</h3>
+            <ul class="menu-list">
+              <li>Эспрессо</li>
+              <li>Капучино</li>
+              <li>Латте</li>
+              <li>Раф</li>
+              <li>Фильтр</li>
+            </ul>
+          </div>
+          <div class="menu__group">
+            <h3>Выпечка</h3>
+            <ul class="menu-list">
+              <li>Круассаны</li>
+              <li>Синнабоны</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <figure class="menu__media">
+        <img src="assets/pastry.jpg" alt="Свежая выпечка кофейни «Зерно»: круассаны и синнабоны">
+      </figure>
+    </div>
+  </section>
+
+  <!-- Заказ навынос -->
+  <section class="order">
+    <div class="container order__inner">
+      <div class="order__text">
+        <p class="kicker">Заказ навынос</p>
+        <h2 class="order__title">Напишите нам в Telegram</h2>
+        <p>Выберите кофе и выпечку, напишите в Telegram — заказ можно забрать в кофейне.</p>
+      </div>
+      <div class="order__actions">
+        <a class="btn btn--light" href="https://t.me/zerno_coffee" target="_blank" rel="noopener noreferrer">@zerno_coffee</a>
+        <a class="order__phone" href="tel:+79001234567">+7 900 123-45-67</a>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<!-- Контакты -->
+<footer class="footer" id="contacts">
+  <div class="container footer__inner">
+    <div class="footer__brand">
+      <span class="logo__name">Зерно</span>
+      <span class="logo__sub">кофейня</span>
+    </div>
+    <div class="footer__col">
+      <h3 class="footer__title">Адрес</h3>
+      <p>ул. Ленина, 12, Москва</p>
+      <p><a href="https://yandex.ru/maps/?text=%D0%9C%D0%BE%D1%81%D0%BA%D0%B2%D0%B0%2C%20%D1%83%D0%BB%D0%B8%D1%86%D0%B0%20%D0%9B%D0%B5%D0%BD%D0%B8%D0%BD%D0%B0%2C%2012" target="_blank" rel="noopener noreferrer">Показать на карте</a></p>
+    </div>
+    <div class="footer__col">
+      <h3 class="footer__title">Часы работы</h3>
+      <p>Каждый день 8:00–22:00</p>
+    </div>
+    <div class="footer__col">
+      <h3 class="footer__title">Связаться</h3>
+      <p><a href="tel:+79001234567">+7 900 123-45-67</a></p>
+      <p><a href="https://t.me/zerno_coffee" target="_blank" rel="noopener noreferrer">Telegram: @zerno_coffee</a></p>
+    </div>
+  </div>
+  <div class="container footer__bottom">© Кофейня «Зерно»</div>
+</footer>
+
+<script>
+  (function () {
+    var header = document.querySelector('.site-header');
+    if (!header) return;
+    var update = function () {
+      header.classList.toggle('is-scrolled', window.scrollY > 8);
+    };
+    update();
+    window.addEventListener('scroll', update, { passive: true });
+  })();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,64 @@
+{
+ "key": {
+  "a1": "B",
+  "a2": "F",
+  "c1": "A",
+  "c2": "E",
+  "d1": "C",
+  "d2": "D"
+ },
+ "infos": [
+  {
+   "variant": "a",
+   "sample": 1,
+   "render_final": "{\"errors\":[],\"height\":2594}",
+   "secs": 392
+  },
+  {
+   "variant": "a",
+   "sample": 2,
+   "render_final": "{\"errors\":[],\"height\":2504}",
+   "secs": 422
+  },
+  {
+   "variant": "c",
+   "sample": 1,
+   "mock": "c1-mock1.png",
+   "mock_votes": {
+    "c1-mock0.png": 2,
+    "c1-mock1.png": 7,
+    "c1-mock2.png": 3
+   },
+   "n_mocks": 3,
+   "render_final": "{\"errors\":[],\"height\":900}",
+   "secs": 1900
+  },
+  {
+   "variant": "c",
+   "sample": 2,
+   "mock": "c2-mock1.png",
+   "mock_votes": {
+    "c2-mock0.png": 1,
+    "c2-mock1.png": 3
+   },
+   "n_mocks": 2,
+   "render_final": "{\"errors\":[],\"height\":2538}",
+   "secs": 1353
+  },
+  {
+   "variant": "d",
+   "sample": 1,
+   "render_final": "{\"errors\":[],\"height\":900}",
+   "secs": 524
+  },
+  {
+   "variant": "d",
+   "sample": 2,
+   "render_final": "{\"errors\":[],\"height\":4208}",
+   "secs": 485
+  }
+ ],
+ "t0": 1792702587.8228602,
+ "t1": 1792704554.3110244,
+ "note": "d1 hybrid and c1 rev2 re-run with reasoning_effort=medium: the original calls hit the 32768-token output cap of supplier 1036 while thinking and returned no HTML"
+}

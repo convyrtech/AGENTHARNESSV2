@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Зерно — кофейня в Москве, ул. Ленина, 12</title>
+<meta name="description" content="Кофейня «Зерно» в Москве: эспрессо, капучино, латте, раф, фильтр и свежая выпечка каждое утро. Каждый день 8:00–22:00. Заказ навынос в Telegram.">
+<meta name="theme-color" content="#f7f0e6">
+<script>document.documentElement.classList.add('js');</script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,500&display=swap&subset=cyrillic" rel="stylesheet">
+
+<style>
+  :root {
+    --cream: #f7f0e6;
+    --paper: #fffaf2;
+    --sand: #ecdfcc;
+    --espresso: #2b1d16;
+    --brown: #5a3d2b;
+    --muted: #6f5848;
+    --caramel: #9a5328;
+    --caramel-dark: #7f4220;
+    --leaf: #4f6b4a;
+    --radius: 24px;
+    --shadow: 0 18px 40px -18px rgba(43, 29, 22, .35);
+    --serif: "Playfair Display", Georgia, "Times New Roman", serif;
+    --sans: "Manrope", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+  html { scroll-behavior: smooth; scroll-padding-top: 84px; }
+  body {
+    margin: 0;
+    font-family: var(--sans);
+    font-size: 17px;
+    line-height: 1.6;
+    color: var(--espresso);
+    background: var(--cream);
+    -webkit-font-smoothing: antialiased;
+  }
+  img { display: block; max-width: 100%; height: auto; }
+  a { color: inherit; }
+  h1, h2, h3 { font-family: var(--serif); font-weight: 600; line-height: 1.15; margin: 0; }
+  p { margin: 0; }
+
+  :focus-visible {
+    outline: 3px solid var(--caramel);
+    outline-offset: 3px;
+    border-radius: 6px;
+  }
+
+  .container { width: min(1200px, 100% - 48px); margin-inline: auto; }
+  .section { padding: 112px 0; }
+  .eyebrow {
+    display: inline-block;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--caramel);
+    margin-bottom: 16px;
+  }
+  .section-title { font-size: clamp(30px, 4vw, 46px); margin-bottom: 20px; }
+  .lead { font-size: 19px; color: var(--muted); max-width: 52ch; }
+
+  /* Buttons */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 15px 28px;
+    border-radius: 999px;
+    font: 700 16px/1 var(--sans);
+    text-decoration: none;
+    border: 2px solid transparent;
+    cursor: pointer;
+    transition: transform .2s ease, background-color .2s ease, color .2s ease, border-color .2s ease;
+  }
+  .btn:hover { transform: translateY(-2px); }
+  .btn-primary { background: var(--caramel); color: #fff; }
+  .btn-primary:hover { background: var(--caramel-dark); }
+  .btn-ghost { border-color: var(--espresso); color: var(--espresso); background: transparent; }
+  .btn-ghost:hover { background: var(--espresso); color: var(--cream); }
+  .btn-light { background: var(--cream); color: var(--espresso); }
+  .btn-light:hover { background: #fff; }
+
+  /* Header */
+  .site-header {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    background: rgba(247, 240, 230, .88);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-bottom: 1px solid rgba(90, 61, 43, .12);
+  }
+  .header-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    height: 72px;
+  }
+  .logo {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    font-family: var(--serif);
+    font-weight: 700;
+    font-size: 26px;
+    text-decoration: none;
+  }
+  .logo-mark {
+    width: 30px;
+    height: 30px;
+    flex: none;
+  }
+  .nav { display: flex; align-items: center; gap: 32px; }
+  .nav a:not(.btn) {
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 15px;
+    padding: 6px 0;
+    background: linear-gradient(var(--caramel), var(--caramel)) left bottom / 0 2px no-repeat;
+    transition: background-size .25s ease;
+  }
+  .nav a:not(.btn):hover { background-size: 100% 2px; }
+  .nav .btn { padding: 11px 20px; font-size: 15px; }
+
+  .burger {
+    display: none;
+    width: 44px;
+    height: 44px;
+    border: 0;
+    border-radius: 12px;
+    background: transparent;
+    cursor: pointer;
+    color: var(--espresso);
+  }
+  .burger span,
+  .burger span::before,
+  .burger span::after {
+    display: block;
+    width: 22px;
+    height: 2px;
+    background: currentColor;
+    border-radius: 2px;
+    position: relative;
+    margin-inline: auto;
+    transition: transform .25s ease, background-color .25s ease;
+  }
+  .burger span::before, .burger span::after { content: ""; position: absolute; left: 0; }
+  .burger span::before { top: -7px; }
+  .burger span::after { top: 7px; }
+  .burger[aria-expanded="true"] span { background: transparent; }
+  .burger[aria-expanded="true"] span::before { transform: translateY(7px) rotate(45deg); }
+  .burger[aria-expanded="true"] span::after { transform: translateY(-7px) rotate(-45deg); }
+
+  /* Hero */
+  .hero { padding: 72px 0 112px; position: relative; overflow: hidden; }
+  .hero::before {
+    content: "";
+    position: absolute;
+    width: 620px;
+    height: 620px;
+    right: -160px;
+    top: -140px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(184, 107, 58, .20), rgba(184, 107, 58, 0) 70%);
+    pointer-events: none;
+  }
+  .hero-grid {
+    display: grid;
+    grid-template-columns: 1.1fr .9fr;
+    align-items: center;
+    gap: 64px;
+    position: relative;
+  }
+  .status {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 16px;
+    border-radius: 999px;
+    background: var(--paper);
+    border: 1px solid rgba(90, 61, 43, .15);
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 28px;
+  }
+  .status-dot { width: 10px; height: 10px; border-radius: 50%; background: #9a8a7c; }
+  .status[data-open="true"] .status-dot { background: #3f8f4f; box-shadow: 0 0 0 4px rgba(63, 143, 79, .2); }
+  .hero h1 { font-size: clamp(40px, 6vw, 76px); letter-spacing: -.01em; margin-bottom: 24px; }
+  .hero h1 em { font-style: italic; color: var(--caramel); }
+  .hero .lead { margin-bottom: 36px; }
+  .hero-actions { display: flex; flex-wrap: wrap; gap: 14px; margin-bottom: 40px; }
+  .hero-facts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px 36px;
+    padding-top: 28px;
+    border-top: 1px solid rgba(90, 61, 43, .18);
+    font-size: 15px;
+    color: var(--muted);
+  }
+  .hero-facts strong { display: block; color: var(--espresso); font-size: 17px; }
+
+  .hero-photo { position: relative; justify-self: end; width: min(100%, 460px); }
+  .hero-photo img {
+    width: 100%;
+    aspect-ratio: 3 / 4;
+    object-fit: cover;
+    border-radius: 999px 999px var(--radius) var(--radius);
+    box-shadow: var(--shadow);
+  }
+  .hero-badge {
+    position: absolute;
+    left: -36px;
+    bottom: 36px;
+    background: var(--paper);
+    border-radius: 18px;
+    padding: 16px 20px;
+    box-shadow: var(--shadow);
+    font-size: 14px;
+    max-width: 210px;
+    line-height: 1.4;
+  }
+  .hero-badge b { display: block; font-family: var(--serif); font-size: 19px; margin-bottom: 2px; }
+
+  /* About */
+  .about { background: var(--paper); }
+  .about-grid {
+    display: grid;
+    grid-template-columns: 1.15fr .85fr;
+    gap: 64px;
+    align-items: center;
+  }
+  .about-photo img {
+    width: 100%;
+    aspect-ratio: 16 / 11;
+    object-fit: cover;
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+  }
+  .about-text .lead { margin-bottom: 28px; }
+  .checklist { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; }
+  .checklist li { display: flex; gap: 14px; align-items: flex-start; }
+  .checklist svg { flex: none; width: 24px; height: 24px; margin-top: 2px; color: var(--leaf); }
+
+  /* Menu */
+  .menu-head { max-width: 640px; margin-bottom: 56px; }
+  .menu-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 20px;
+  }
+  .menu-card {
+    background: var(--paper);
+    border: 1px solid rgba(90, 61, 43, .12);
+    border-radius: 20px;
+    padding: 28px 22px;
+    transition: transform .25s ease, box-shadow .25s ease;
+  }
+  .menu-card:hover { transform: translateY(-6px); box-shadow: var(--shadow); }
+  .menu-card .icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 14px;
+    background: var(--sand);
+    display: grid;
+    place-items: center;
+    margin-bottom: 20px;
+    color: var(--brown);
+  }
+  .menu-card .icon svg { width: 26px; height: 26px; }
+  .menu-card h3 { font-size: 23px; margin-bottom: 8px; }
+  .menu-card p { font-size: 15px; color: var(--muted); line-height: 1.5; }
+
+  /* Pastry */
+  .pastry { background: var(--sand); }
+  .pastry-grid {
+    display: grid;
+    grid-template-columns: .85fr 1.15fr;
+    gap: 64px;
+    align-items: center;
+  }
+  .pastry-photo img {
+    width: 100%;
+    aspect-ratio: 16 / 11;
+    object-fit: cover;
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+  }
+  .tags { display: flex; flex-wrap: wrap; gap: 10px; margin: 28px 0 0; padding: 0; list-style: none; }
+  .tags li {
+    padding: 10px 20px;
+    border-radius: 999px;
+    background: var(--paper);
+    font-weight: 700;
+    font-size: 15px;
+  }
+
+  /* Order band */
+  .order { padding: 0 0 112px; background: var(--sand); }
+  .order-box {
+    background: var(--espresso);
+    color: var(--cream);
+    border-radius: 32px;
+    padding: 64px;
+    display: grid;
+    grid-template-columns: 1.3fr 1fr;
+    gap: 40px;
+    align-items: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .order-box::after {
+    content: "";
+    position: absolute;
+    width: 360px;
+    height: 360px;
+    right: -80px;
+    top: -120px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(184, 107, 58, .45), rgba(184, 107, 58, 0) 70%);
+    pointer-events: none;
+  }
+  .order-box h2 { font-size: clamp(28px, 3.6vw, 42px); margin-bottom: 14px; }
+  .order-box p { color: #d9c8b4; max-width: 46ch; }
+  .order-actions { display: grid; gap: 14px; position: relative; z-index: 1; }
+  .order-actions .btn-ghost { border-color: rgba(247, 240, 230, .5); color: var(--cream); }
+  .order-actions .btn-ghost:hover { background: var(--cream); color: var(--espresso); }
+
+  /* Contacts */
+  .contacts-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 64px;
+    align-items: start;
+  }
+  .contact-list { list-style: none; margin: 32px 0 0; padding: 0; display: grid; gap: 24px; }
+  .contact-list li { display: flex; gap: 18px; align-items: flex-start; }
+  .contact-list .icon {
+    flex: none;
+    width: 48px;
+    height: 48px;
+    border-radius: 14px;
+    background: var(--sand);
+    display: grid;
+    place-items: center;
+    color: var(--brown);
+  }
+  .contact-list svg { width: 24px; height: 24px; }
+  .contact-list small {
+    display: block;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .contact-list a { font-weight: 600; text-decoration-color: rgba(154, 83, 40, .5); text-underline-offset: 4px; }
+  .contact-list a:hover { color: var(--caramel); }
+  .hours-card {
+    background: var(--paper);
+    border: 1px solid rgba(90, 61, 43, .12);
+    border-radius: var(--radius);
+    padding: 40px;
+    box-shadow: var(--shadow);
+  }
+  .hours-card h3 { font-size: 28px; margin-bottom: 20px; }
+  .hours-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 14px 0;
+    border-bottom: 1px dashed rgba(90, 61, 43, .25);
+    font-weight: 600;
+  }
+  .hours-row:last-of-type { border-bottom: 0; }
+  .hours-row span:first-child { color: var(--muted); font-weight: 500; }
+  .hours-card .btn { width: 100%; margin-top: 24px; }
+
+  /* Footer */
+  .site-footer { background: var(--espresso); color: #d9c8b4; padding: 40px 0; font-size: 15px; }
+  .footer-inner { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 16px 32px; align-items: center; }
+  .site-footer .logo { color: var(--cream); font-size: 24px; }
+  .site-footer a { text-underline-offset: 4px; }
+
+  /* Reveal */
+  .js .reveal { opacity: 0; transform: translateY(24px); transition: opacity .7s ease, transform .7s ease; }
+  .js .reveal.visible { opacity: 1; transform: none; }
+
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    *, *::before, *::after { transition: none !important; animation: none !important; }
+    .js .reveal { opacity: 1; transform: none; }
+  }
+
+  /* Tablet */
+  @media (max-width: 1080px) {
+    .menu-grid { grid-template-columns: repeat(3, 1fr); }
+    .order-box { padding: 48px; }
+  }
+
+  /* Mobile */
+  @media (max-width: 860px) {
+    body { font-size: 16px; }
+    .section { padding: 72px 0; }
+    .container { width: min(1200px, 100% - 40px); }
+
+    .js .burger { display: block; }
+    .js .nav {
+      position: absolute;
+      top: 72px;
+      left: 0;
+      right: 0;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 0;
+      padding: 8px 20px 24px;
+      background: var(--cream);
+      border-bottom: 1px solid rgba(90, 61, 43, .15);
+      box-shadow: 0 20px 30px -20px rgba(43, 29, 22, .3);
+      display: none;
+    }
+    .js .nav.open { display: flex; }
+    .js .nav a:not(.btn) { padding: 16px 0; font-size: 18px; border-bottom: 1px solid rgba(90, 61, 43, .1); background: none; }
+    .js .nav .btn { margin-top: 16px; padding: 15px 28px; }
+    .nav { gap: 18px; flex-wrap: wrap; }
+    html:not(.js) .header-inner { height: auto; padding: 12px 0; flex-wrap: wrap; }
+
+    .hero { padding: 40px 0 72px; }
+    .hero-grid { grid-template-columns: 1fr; gap: 48px; }
+    .hero-photo { justify-self: center; width: min(100%, 360px); order: -1; }
+    .hero-badge { left: -8px; bottom: 20px; padding: 12px 16px; max-width: 180px; }
+    .hero-actions .btn { flex: 1 1 100%; }
+
+    .about-grid, .pastry-grid, .contacts-grid { grid-template-columns: 1fr; gap: 40px; }
+    .pastry-photo { order: -1; }
+    .menu-grid { grid-template-columns: 1fr 1fr; gap: 14px; }
+    .menu-card { padding: 22px 18px; }
+    .menu-card:last-child { grid-column: 1 / -1; }
+    .menu-head { margin-bottom: 36px; }
+
+    .order { padding-bottom: 72px; }
+    .order-box { grid-template-columns: 1fr; padding: 36px 24px; border-radius: 24px; gap: 28px; }
+    .hours-card { padding: 28px 22px; }
+    .footer-inner { flex-direction: column; align-items: flex-start; }
+  }
+
+  @media (max-width: 400px) {
+    .menu-grid { grid-template-columns: 1fr; }
+    .hero-facts { gap: 16px 28px; }
+  }
+</style>
+</head>
+
+<body>
+
+<header class="site-header">
+  <div class="container header-inner">
+    <a class="logo" href="#top" aria-label="Зерно — на главную">
+      <svg class="logo-mark" viewBox="0 0 32 32" aria-hidden="true">
+        <ellipse cx="16" cy="16" rx="9.5" ry="13" transform="rotate(35 16 16)" fill="#5a3d2b"/>
+        <path d="M9.5 24.5c4-3 8-6 13-17" stroke="#f7f0e6" stroke-width="2" fill="none" stroke-linecap="round" transform="rotate(0 16 16)"/>
+      </svg>
+      Зерно
+    </a>
+
+    <button class="burger" type="button" aria-label="Открыть меню" aria-expanded="false" aria-controls="nav">
+      <span></span>
+    </button>
+
+    <nav class="nav" id="nav" aria-label="Основная навигация">
+      <a href="#about">О нас</a>
+      <a href="#menu">Меню</a>
+      <a href="#pastry">Выпечка</a>
+      <a href="#contacts">Контакты</a>
+      <a class="btn btn-primary" href="https://t.me/zerno_coffee" target="_blank" rel="noopener">Заказать</a>
+    </nav>
+  </div>
+</header>
+
+<main id="top">
+
+  <section class="hero">
+    <div class="container hero-grid">
+      <div class="hero-text">
+        <div class="status" id="status" data-open="false" role="status">
+          <span class="status-dot" aria-hidden="true"></span>
+          <span id="status-text">Ежедневно с 8:00 до 22:00</span>
+        </div>
+        <h1>Кофе, который хочется пить <em>не торопясь</em></h1>
+        <p class="lead">«Зерно» — уютная кофейня в центре Москвы. Свежая выпечка по утрам, хороший эспрессо и тёплый зал, где приятно остаться подольше.</p>
+        <div class="hero-actions">
+          <a class="btn btn-primary" href="https://t.me/zerno_coffee" target="_blank" rel="noopener">Заказать навынос</a>
+          <a class="btn btn-ghost" href="#contacts">Как нас найти</a>
+        </div>
+        <div class="hero-facts">
+          <div><strong>ул. Ленина, 12</strong>Москва</div>
+          <div><strong>8:00–22:00</strong>каждый день</div>
+          <div><strong>Каждое утро</strong>свежая выпечка</div>
+        </div>
+      </div>
+
+      <div class="hero-photo reveal">
+        <img src="assets/cup.jpg" width="512" height="682" alt="Капучино с рисунком на молочной пене в белой чашке на деревянной стойке у окна">
+        <div class="hero-badge">
+          <b>Капучино</b>
+          С рисунком на пене и видом из окна
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section about" id="about">
+    <div class="container about-grid">
+      <div class="about-photo reveal">
+        <img src="assets/interior.jpg" width="512" height="468" loading="lazy" alt="Светлый зал кофейни: деревянные столы, стулья, живые растения и барная стойка с кофемашиной">
+      </div>
+      <div class="about-text reveal">
+        <span class="eyebrow">О кофейне</span>
+        <h2 class="section-title">Место, куда приятно возвращаться</h2>
+        <p class="lead">Много света, живые растения и деревянные столы. Заходите на быстрый эспрессо по дороге или берите книгу и оставайтесь на весь вечер.</p>
+        <ul class="checklist">
+          <li>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m8 12.5 2.8 2.8L16 9.5"/></svg>
+            <span>Работаем без выходных, с 8:00 до 22:00</span>
+          </li>
+          <li>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m8 12.5 2.8 2.8L16 9.5"/></svg>
+            <span>Выпечка свежая каждое утро</span>
+          </li>
+          <li>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m8 12.5 2.8 2.8L16 9.5"/></svg>
+            <span>Можно заказать навынос заранее в Telegram</span>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="menu">
+    <div class="container">
+      <div class="menu-head reveal">
+        <span class="eyebrow">Меню</span>
+        <h2 class="section-title">Кофе на любой вкус</h2>
+        <p class="lead">Пять классических позиций, которые мы готовим каждый день.</p>
+      </div>
+
+      <div class="menu-grid">
+        <article class="menu-card reveal">
+          <div class="icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 10h11v4a5 5 0 0 1-5 5H10a5 5 0 0 1-5-5v-4Z"/><path d="M16 11h1.5a2.5 2.5 0 0 1 0 5H16"/><path d="M9 3v3M12.5 3v3"/></svg>
+          </div>
+          <h3>Эспрессо</h3>
+          <p>Насыщенный и плотный. Основа всех остальных напитков.</p>
+        </article>
+
+        <article class="menu-card reveal">
+          <div class="icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10h13v3a6 6 0 0 1-6 6h-1a6 6 0 0 1-6-6v-3Z"/><path d="M17 11h1.5a2.5 2.5 0 0 1 0 5H17"/><path d="M9 6c0-1 1-1 1-2M13 6c0-1 1-1 1-2"/></svg>
+          </div>
+          <h3>Капучино</h3>
+          <p>Эспрессо и бархатистая молочная пена в классической пропорции.</p>
+        </article>
+
+        <article class="menu-card reveal">
+          <div class="icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4h9l-1 14a2 2 0 0 1-2 2h-3a2 2 0 0 1-2-2L7 4Z"/><path d="M7.5 9h8"/></svg>
+          </div>
+          <h3>Латте</h3>
+          <p>Мягкий и нежный, с большим количеством молока.</p>
+        </article>
+
+        <article class="menu-card reveal">
+          <div class="icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8h10v6a5 5 0 0 1-5 5 5 5 0 0 1-5-5V8Z"/><path d="M16 9.5h1.2a2.3 2.3 0 0 1 0 4.6H16"/><path d="M8 4.5c.5.7.5 1.3 0 2M11 4.5c.5.7.5 1.3 0 2"/></svg>
+          </div>
+          <h3>Раф</h3>
+          <p>Сливочный и сладкий. Для тех, кто любит кофе десертом.</p>
+        </article>
+
+        <article class="menu-card reveal">
+          <div class="icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h14l-5 7v3h-4v-3L5 4Z"/><path d="M8 20h8M12 14v6"/></svg>
+          </div>
+          <h3>Фильтр</h3>
+          <p>Чистый и мягкий вкус. Идеален для неспешной беседы.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="section pastry" id="pastry">
+    <div class="container pastry-grid">
+      <div class="pastry-text reveal">
+        <span class="eyebrow">Выпечка</span>
+        <h2 class="section-title">Свежая, каждое утро</h2>
+        <p class="lead">Круассаны с хрустящей корочкой и мягкие синнабоны с кремом. К капучино лучше пары не найти.</p>
+        <ul class="tags">
+          <li>Круассаны</li>
+          <li>Синнабоны</li>
+        </ul>
+      </div>
+      <div class="pastry-photo reveal">
+        <img src="assets/pastry.jpg" width="512" height="468" loading="lazy" alt="Золотистые круассаны и синнабоны с кремом на противнях на деревянной стойке">
+      </div>
+    </div>
+  </section>
+
+  <section class="order" aria-labelledby="order-title">
+    <div class="container">
+      <div class="order-box reveal">
+        <div>
+          <h2 id="order-title">Заказ навынос — в пару касаний</h2>
+          <p>Напишите нам в Telegram, и к вашему приходу всё будет готово. Или просто позвоните.</p>
+        </div>
+        <div class="order-actions">
+          <a class="btn btn-light" href="https://t.me/zerno_coffee" target="_blank" rel="noopener">Написать в Telegram @zerno_coffee</a>
+          <a class="btn btn-ghost" href="tel:+79001234567">+7 900 123-45-67</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="contacts">
+    <div class="container contacts-grid">
+      <div class="reveal">
+        <span class="eyebrow">Контакты</span>
+        <h2 class="section-title">Ждём вас в гости</h2>
+        <p class="lead">Заходите в любое время: мы открыты каждый день.</p>
+
+        <ul class="contact-list">
+          <li>
+            <span class="icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-6.2 7-11.5A7 7 0 0 0 5 9.5C5 14.8 12 21 12 21Z"/><circle cx="12" cy="9.5" r="2.5"/></svg>
+            </span>
+            <div>
+              <small>Адрес</small>
+              <a href="https://yandex.ru/maps/?text=%D0%9C%D0%BE%D1%81%D0%BA%D0%B2%D0%B0%2C%20%D1%83%D0%BB%D0%B8%D1%86%D0%B0%20%D0%9B%D0%B5%D0%BD%D0%B8%D0%BD%D0%B0%2C%2012" target="_blank" rel="noopener">Москва, ул. Ленина, 12</a>
+            </div>
+          </li>
+          <li>
+            <span class="icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2Z"/></svg>
+            </span>
+            <div>
+              <small>Телефон</small>
+              <a href="tel:+79001234567">+7 900 123-45-67</a>
+            </div>
+          </li>
+          <li>
+            <span class="icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 4 3 11l6 2.5L11.5 20l3-4.5L19 19 21 4Z"/><path d="m9 13.5 12-9.5"/></svg>
+            </span>
+            <div>
+              <small>Telegram</small>
+              <a href="https://t.me/zerno_coffee" target="_blank" rel="noopener">@zerno_coffee</a>
+            </div>
+          </li>
+        </ul>
+      </div>
+
+      <aside class="hours-card reveal" aria-labelledby="hours-title">
+        <h3 id="hours-title">Часы работы</h3>
+        <div class="hours-row"><span>Понедельник – Пятница</span><span>8:00–22:00</span></div>
+        <div class="hours-row"><span>Суббота</span><span>8:00–22:00</span></div>
+        <div class="hours-row"><span>Воскресенье</span><span>8:00–22:00</span></div>
+        <a class="btn btn-primary" href="https://t.me/zerno_coffee" target="_blank" rel="noopener">Заказать навынос</a>
+      </aside>
+    </div>
+  </section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="container footer-inner">
+    <a class="logo" href="#top">Зерно</a>
+    <span>Кофейня в Москве, ул. Ленина, 12 · ежедневно 8:00–22:00</span>
+    <span><a href="https://t.me/zerno_coffee" target="_blank" rel="noopener">@zerno_coffee</a> · <a href="tel:+79001234567">+7 900 123-45-67</a></span>
+  </div>
+</footer>
+
+<script>
+  (function () {
+    var burger = document.querySelector('.burger');
+    var nav = document.getElementById('nav');
+
+    function setMenu(open) {
+      nav.classList.toggle('open', open);
+      burger.setAttribute('aria-expanded', String(open));
+      burger.setAttribute('aria-label', open ? 'Закрыть меню' : 'Открыть меню');
+    }
+
+    burger.addEventListener('click', function () {
+      setMenu(burger.getAttribute('aria-expanded') !== 'true');
+    });
+    nav.addEventListener('click', function (e) {
+      if (e.target.closest('a')) setMenu(false);
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') setMenu(false);
+    });
+
+    var status = document.getElementById('status');
+    var statusText = document.getElementById('status-text');
+    try {
+      var parts = new Intl.DateTimeFormat('ru-RU', {
+        timeZone: 'Europe/Moscow', hour: 'numeric', minute: 'numeric', hour12: false
+      }).formatToParts(new Date());
+      var h = 0, m = 0;
+      parts.forEach(function (p) {
+        if (p.type === 'hour') h = parseInt(p.value, 10) % 24;
+        if (p.type === 'minute') m = parseInt(p.value, 10);
+      });
+      var minutes = h * 60 + m;
+      var isOpen = minutes >= 8 * 60 && minutes < 22 * 60;
+      status.setAttribute('data-open', String(isOpen));
+      statusText.textContent = isOpen ? 'Сейчас открыто · до 22:00' : 'Сейчас закрыто · откроемся в 8:00';
+    } catch (err) { /* оставляем статичный текст */ }
+
+    var items = document.querySelectorAll('.reveal');
+    if ('IntersectionObserver' in window) {
+      var io = new IntersectionObserver(function (entries) {
+        entries.forEach(function (entry) {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('visible');
+            io.unobserve(entry.target);
+          }
+        });
+      }, { threshold: 0.12 });
+      items.forEach(function (el, i) {
+        el.style.transitionDelay = (i % 5) * 60 + 'ms';
+        io.observe(el);
+      });
+    } else {
+      items.forEach(function (el) { el.classList.add('visible'); });
+    }
+  })();
+</script>
+</body>
+</html>
