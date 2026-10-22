@@ -1,0 +1,281 @@
+[
+ {
+  "tag": "c3-V2-cx",
+  "model": "claude-opus-5-5",
+  "secs": 16.02,
+  "words": 194,
+  "reasoning_chars": 1527,
+  "out_tok": 1039,
+  "in_tok": 1542
+ },
+ {
+  "tag": "c3-V4-s1",
+  "model": "claude-opus-5-5",
+  "secs": 16.04,
+  "words": 207,
+  "reasoning_chars": 1723,
+  "out_tok": 1118,
+  "in_tok": 1328
+ },
+ {
+  "tag": "c3-V5-cx",
+  "model": "claude-opus-5-5",
+  "secs": 16.03,
+  "words": 252,
+  "reasoning_chars": 1530,
+  "out_tok": 1150,
+  "in_tok": 1888
+ },
+ {
+  "tag": "c3-V4-s3",
+  "model": "claude-opus-5-5",
+  "secs": 16.25,
+  "words": 246,
+  "reasoning_chars": 1466,
+  "out_tok": 1138,
+  "in_tok": 1328
+ },
+ {
+  "tag": "c3-V4-s2",
+  "model": "claude-opus-5-5",
+  "secs": 22.11,
+  "words": 266,
+  "reasoning_chars": 1836,
+  "out_tok": 1125,
+  "in_tok": 6432
+ },
+ {
+  "tag": "c3-V0",
+  "model": "claude-opus-5-5",
+  "secs": 26.49,
+  "words": 318,
+  "reasoning_chars": 1379,
+  "out_tok": 1073,
+  "in_tok": 6364
+ },
+ {
+  "tag": "c3-V5-ops",
+  "model": "deepseek-v4.1-flash-1017",
+  "secs": 27.44,
+  "words": 204,
+  "reasoning_chars": 12476,
+  "out_tok": 4845,
+  "in_tok": 1684
+ },
+ {
+  "tag": "c3-V2-risk",
+  "model": "grok-4.7",
+  "secs": 30.68,
+  "words": 143,
+  "reasoning_chars": 0,
+  "out_tok": 1939,
+  "in_tok": 1388
+ },
+ {
+  "tag": "c3-V4-s4",
+  "model": "claude-opus-5-5",
+  "secs": 40.46,
+  "words": 191,
+  "reasoning_chars": 2587,
+  "out_tok": 1190,
+  "in_tok": 6669
+ },
+ {
+  "tag": "c3-V4-s0",
+  "model": "claude-opus-5-5",
+  "secs": 44.63,
+  "words": 203,
+  "reasoning_chars": 2929,
+  "out_tok": 1350,
+  "in_tok": 6610
+ },
+ {
+  "tag": "c3-V5-risk",
+  "model": "grok-4.7",
+  "secs": 46.1,
+  "words": 195,
+  "reasoning_chars": 0,
+  "out_tok": 2605,
+  "in_tok": 1694
+ },
+ {
+  "tag": "c3-V2-mkt",
+  "model": "gemini-4-argon",
+  "secs": 53.6,
+  "words": 307,
+  "reasoning_chars": 0,
+  "out_tok": 688,
+  "in_tok": 1221
+ },
+ {
+  "tag": "c3-V2-ops",
+  "model": "deepseek-v4.1-flash-1017",
+  "secs": 55.51,
+  "words": 205,
+  "reasoning_chars": 28196,
+  "out_tok": 13084,
+  "in_tok": 1347
+ },
+ {
+  "tag": "c3-V4-synth",
+  "model": "claude-opus-5-5",
+  "secs": 47.73,
+  "words": 420,
+  "reasoning_chars": 2030,
+  "out_tok": 1504,
+  "in_tok": 10933
+ },
+ {
+  "tag": "c3-V5-mkt",
+  "model": "gemini-4-argon",
+  "secs": 21.69,
+  "words": 191,
+  "reasoning_chars": 0,
+  "out_tok": 0,
+  "in_tok": 1197
+ },
+ {
+  "tag": "c3-V5-fin",
+  "model": "gpt-6.1-sol",
+  "secs": 203.91,
+  "words": 180,
+  "reasoning_chars": 1011,
+  "out_tok": 5684,
+  "in_tok": 5871
+ },
+ {
+  "tag": "c3-V5-rev-ops",
+  "model": "deepseek-v4.1-flash-1017",
+  "secs": 8.38,
+  "words": 108,
+  "reasoning_chars": 2641,
+  "out_tok": 1251,
+  "in_tok": 4609
+ },
+ {
+  "tag": "c3-V5-rev-mkt",
+  "model": "gemini-4-argon",
+  "secs": 17.04,
+  "words": 89,
+  "reasoning_chars": 0,
+  "out_tok": 0,
+  "in_tok": 3928
+ },
+ {
+  "tag": "c3-V5-rev-cx",
+  "model": "claude-opus-5-5",
+  "secs": 18.1,
+  "words": 145,
+  "reasoning_chars": 1680,
+  "out_tok": 861,
+  "in_tok": 10828
+ },
+ {
+  "tag": "c3-V5-rev-fin",
+  "model": "gpt-6.1-sol",
+  "secs": 38.35,
+  "words": 100,
+  "reasoning_chars": 106,
+  "out_tok": 744,
+  "in_tok": 8606
+ },
+ {
+  "tag": "c3-V5-rev-risk",
+  "model": "grok-4.7",
+  "secs": 65.34,
+  "words": 119,
+  "reasoning_chars": 3003,
+  "out_tok": 7887,
+  "in_tok": 5401
+ },
+ {
+  "tag": "c3-V5-synth",
+  "model": "claude-opus-5-5",
+  "secs": 21.67,
+  "words": 423,
+  "reasoning_chars": 3283,
+  "out_tok": 1935,
+  "in_tok": 6535
+ },
+ {
+  "tag": "c3-V5-verify",
+  "model": "gpt-6.1-sol",
+  "secs": 20.42,
+  "words": 338,
+  "reasoning_chars": 208,
+  "out_tok": 1958,
+  "in_tok": 6718
+ },
+ {
+  "tag": "c3-V5-fix",
+  "model": "claude-opus-5-5",
+  "secs": 30.66,
+  "words": 519,
+  "reasoning_chars": 1021,
+  "out_tok": 1423,
+  "in_tok": 11315
+ },
+ {
+  "tag": "c3-V2-fin",
+  "model": "gpt-6.1-sol",
+  "secs": 365.71,
+  "words": 204,
+  "reasoning_chars": 1815,
+  "out_tok": 11281,
+  "in_tok": 5571
+ },
+ {
+  "tag": "c3-V2-rev-ops",
+  "model": "deepseek-v4.1-flash-1017",
+  "secs": 13.16,
+  "words": 113,
+  "reasoning_chars": 4707,
+  "out_tok": 1948,
+  "in_tok": 4036
+ },
+ {
+  "tag": "c3-V2-rev-cx",
+  "model": "claude-opus-5-5",
+  "secs": 14.89,
+  "words": 127,
+  "reasoning_chars": 1521,
+  "out_tok": 751,
+  "in_tok": 9841
+ },
+ {
+  "tag": "c3-V2-rev-mkt",
+  "model": "gemini-4-argon",
+  "secs": 17.09,
+  "words": 71,
+  "reasoning_chars": 0,
+  "out_tok": 0,
+  "in_tok": 3335
+ },
+ {
+  "tag": "c3-V2-rev-risk",
+  "model": "grok-4.7",
+  "secs": 30.57,
+  "words": 79,
+  "reasoning_chars": 0,
+  "out_tok": 1670,
+  "in_tok": 3835
+ },
+ {
+  "tag": "c3-V2-rev-fin",
+  "model": "gpt-6.1-sol",
+  "secs": 53.09,
+  "words": 108,
+  "reasoning_chars": 194,
+  "out_tok": 1276,
+  "in_tok": 8014
+ },
+ {
+  "tag": "c3-V2-synth",
+  "model": "claude-opus-5-5",
+  "secs": 41.15,
+  "words": 591,
+  "reasoning_chars": 3140,
+  "out_tok": 2268,
+  "in_tok": 12598
+ }
+]
