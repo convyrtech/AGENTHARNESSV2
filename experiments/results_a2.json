@@ -1,0 +1,258 @@
+{
+ "deepseek-v4.1-flash-1017": [
+  {
+   "status": 200,
+   "provider": "ope*********",
+   "prompt": 13654,
+   "cached": 0,
+   "cache_write": null,
+   "completion": 512,
+   "answer": "400",
+   "secs": 7.36
+  },
+  {
+   "status": 200,
+   "provider": "mis*********",
+   "prompt": 13657,
+   "cached": 0,
+   "cache_write": null,
+   "completion": 512,
+   "answer": "k0123",
+   "secs": 3.22
+  },
+  {
+   "status": 200,
+   "provider": "ope**********",
+   "prompt": 13657,
+   "cached": 0,
+   "cache_write": null,
+   "completion": 512,
+   "answer": "2",
+   "secs": 3.34
+  }
+ ],
+ "glm-5.3": [
+  {
+   "status": 200,
+   "provider": null,
+   "prompt": 13887,
+   "cached": 0,
+   "cache_write": null,
+   "completion": 92,
+   "answer": "400",
+   "secs": 4.13
+  },
+  {
+   "status": 200,
+   "provider": null,
+   "prompt": 13890,
+   "cached": 13824,
+   "cache_write": null,
+   "completion": 26,
+   "answer": "k0123",
+   "secs": 2.94
+  },
+  {
+   "status": 200,
+   "provider": null,
+   "prompt": 23134,
+   "cached": 9600,
+   "cache_write": null,
+   "completion": 179,
+   "answer": "2",
+   "secs": 3.68
+  }
+ ],
+ "kimi-k3": [
+  {
+   "status": 200,
+   "provider": null,
+   "prompt": 13320,
+   "cached": 0,
+   "cache_write": null,
+   "completion": 54,
+   "answer": "400",
+   "secs": 5.64
+  },
+  {
+   "status": 200,
+   "provider": null,
+   "prompt": 13323,
+   "cached": 12288,
+   "cache_write": null,
+   "completion": 78,
+   "answer": "k0123",
+   "secs": 5.95
+  },
+  {
+   "status": 200,
+   "provider": null,
+   "prompt": 13322,
+   "cached": 0,
+   "cache_write": null,
+   "completion": 78,
+   "answer": "2",
+   "secs": 4.41
+  }
+ ],
+ "qwen3.8-max": [
+  {
+   "status": 200,
+   "provider": null,
+   "prompt": 16257,
+   "cached": null,
+   "cache_write": null,
+   "completion": 100,
+   "answer": "400",
+   "secs": 6.86
+  },
+  {
+   "status": 200,
+   "provider": null,
+   "prompt": 16262,
+   "cached": null,
+   "cache_write": null,
+   "completion": 86,
+   "answer": "k0123",
+   "secs": 6.6
+  },
+  {
+   "status": 200,
+   "provider": null,
+   "prompt": 16260,
+   "cached": null,
+   "cache_write": null,
+   "completion": 90,
+   "answer": "2",
+   "secs": 6.12
+  }
+ ],
+ "minimax-m3": [
+  {
+   "status": 200,
+   "provider": null,
+   "prompt": 13374,
+   "cached": 141,
+   "cache_write": null,
+   "completion": 14,
+   "answer": "400",
+   "secs": 5.12
+  },
+  {
+   "status": 200,
+   "provider": null,
+   "prompt": 13377,
+   "cached": 13354,
+   "cache_write": null,
+   "completion": 4,
+   "answer": "k0123",
+   "secs": 5.04
+  },
+  {
+   "status": 200,
+   "provider": null,
+   "prompt": 13376,
+   "cached": 14,
+   "cache_write": null,
+   "completion": 16,
+   "answer": "2",
+   "secs": 6.22
+  }
+ ],
+ "claude-opus-5-5": [
+  {
+   "status": 200,
+   "provider": null,
+   "prompt": 18240,
+   "cached": null,
+   "cache_write": 18236,
+   "completion": 205,
+   "answer": "400",
+   "secs": 7.54
+  },
+  {
+   "status": 200,
+   "provider": null,
+   "prompt": 18242,
+   "cached": 16575,
+   "cache_write": 1663,
+   "completion": 3,
+   "answer": "k0123",
+   "secs": 3.92
+  },
+  {
+   "status": 200,
+   "provider": null,
+   "prompt": 24,
+   "cached": null,
+   "cache_write": 24,
+   "completion": 3,
+   "answer": "2",
+   "secs": 7.78
+  }
+ ],
+ "gemini-4-argon": [
+  {
+   "status": 200,
+   "provider": null,
+   "prompt": 17040,
+   "cached": null,
+   "cache_write": null,
+   "completion": 7,
+   "answer": "400",
+   "secs": 8.25
+  },
+  {
+   "status": 200,
+   "provider": null,
+   "prompt": 17045,
+   "cached": null,
+   "cache_write": null,
+   "completion": 9,
+   "answer": "k0123",
+   "secs": 15.73
+  },
+  {
+   "status": 200,
+   "provider": null,
+   "prompt": 2052,
+   "cached": null,
+   "cache_write": null,
+   "completion": 5,
+   "answer": "2",
+   "secs": 8.22
+  }
+ ],
+ "gpt-6.1-sol": [
+  {
+   "status": 200,
+   "provider": null,
+   "prompt": 17610,
+   "cached": null,
+   "cache_write": null,
+   "completion": 5,
+   "answer": "400",
+   "secs": 10.75
+  },
+  {
+   "status": 200,
+   "provider": null,
+   "prompt": 17613,
+   "cached": 17408,
+   "cache_write": null,
+   "completion": 7,
+   "answer": "k0123",
+   "secs": 35.67
+  },
+  {
+   "status": 200,
+   "provider": null,
+   "prompt": 17612,
+   "cached": 17408,
+   "cache_write": null,
+   "completion": 5,
+   "answer": "2",
+   "secs": 8.33
+  }
+ ]
+}

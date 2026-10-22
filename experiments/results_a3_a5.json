@@ -1,0 +1,234 @@
+{
+ "A3-bogus-effort-deepseek-v4.1-flash-1017": {
+  "status": 200,
+  "err": null,
+  "content": "OK",
+  "prompt": 525,
+  "cached": 0,
+  "reasoning_tokens": 0
+ },
+ "A3-bogus-effort-glm-5.3": {
+  "status": 200,
+  "err": null,
+  "content": "OK",
+  "prompt": 5111,
+  "cached": 4800,
+  "reasoning_tokens": 83
+ },
+ "A3-bogus-effort-kimi-k3": {
+  "status": 503,
+  "err": "{\"error\":{\"message\":\"当前可用额度不足。 原因：您的可用额度（账户余额或订阅额度）不足，平台无法完成本次预扣或调用。 解决方案：请补充可用额度后重试。 request_id: 202610221111239506957168268d9d6U5qZyVbA\",\"type\":\"insufficient_user_quota\",\"param\":\"\",\"code\":\"insufficient_user_quota\",\"rea",
+  "content": "",
+  "prompt": null,
+  "cached": null,
+  "reasoning_tokens": null
+ },
+ "A3-bogus-effort-qwen3.8-max": {
+  "status": 200,
+  "err": null,
+  "content": "OK",
+  "prompt": 64,
+  "cached": null,
+  "reasoning_tokens": 23
+ },
+ "A3-bogus-effort-gpt-6.1-sol": {
+  "status": 200,
+  "err": null,
+  "content": "[System Notice: Invalid Request Format]\nYour client request failed model interfa",
+  "prompt": 1,
+  "cached": null,
+  "reasoning_tokens": 0
+ },
+ "A3-glm-thinking-disabled": {
+  "status": 200,
+  "err": null,
+  "content": "OK",
+  "prompt": 5111,
+  "cached": 4800,
+  "reasoning_tokens": 164
+ },
+ "A3-ds-thinking-disabled": {
+  "status": 200,
+  "err": null,
+  "content": "OK.",
+  "prompt": 525,
+  "cached": 0,
+  "reasoning_tokens": 15
+ },
+ "A3-kimi-temperature": {
+  "status": 200,
+  "err": null,
+  "content": "OK",
+  "prompt": 295,
+  "cached": 241,
+  "reasoning_tokens": 170
+ },
+ "A3-tool_choice_required-deepseek-v4.1-flash-1017": {
+  "status": 200,
+  "err": null,
+  "content": "",
+  "prompt": 525,
+  "cached": 0,
+  "reasoning_tokens": 14
+ },
+ "A3-tool_choice_required-glm-5.3": {
+  "status": 200,
+  "err": null,
+  "content": "OK",
+  "prompt": 5604,
+  "cached": 4800,
+  "reasoning_tokens": 58
+ },
+ "A3-tool_choice_required-kimi-k3": {
+  "status": 200,
+  "err": null,
+  "content": "OK",
+  "prompt": 788,
+  "cached": 0,
+  "reasoning_tokens": 59
+ },
+ "A3-tool_choice_required-qwen3.8-max": {
+  "status": 200,
+  "err": null,
+  "content": "",
+  "prompt": 255,
+  "cached": null,
+  "reasoning_tokens": null
+ },
+ "A3-tool_choice_required-minimax-m3": {
+  "status": 200,
+  "err": null,
+  "content": "OK",
+  "prompt": 390,
+  "cached": 128,
+  "reasoning_tokens": null
+ },
+ "A4-glm-5.3": {
+  "first": {
+   "status": 200,
+   "err": null,
+   "content": "23",
+   "prompt": 13130,
+   "cached": 5041,
+   "reasoning_tokens": 187
+  },
+  "late_system": {
+   "status": 200,
+   "err": null,
+   "content": "BANANA 37",
+   "prompt": 13165,
+   "cached": 4800,
+   "reasoning_tokens": 154
+  },
+  "obeyed": true
+ },
+ "A4-kimi-k3": {
+  "first": {
+   "status": 200,
+   "err": null,
+   "content": "23",
+   "prompt": 8314,
+   "cached": 241,
+   "reasoning_tokens": 233
+  },
+  "late_system": {
+   "status": 200,
+   "err": null,
+   "content": "BANANA 37",
+   "prompt": 8349,
+   "cached": 0,
+   "reasoning_tokens": 354
+  },
+  "obeyed": true
+ },
+ "A4-deepseek-v4.1-flash-1017": {
+  "first": {
+   "status": 200,
+   "err": null,
+   "content": "23",
+   "prompt": 8053,
+   "cached": 0,
+   "reasoning_tokens": 35
+  },
+  "late_system": {
+   "status": 200,
+   "err": null,
+   "content": "BANANA 37",
+   "prompt": 8083,
+   "cached": 0,
+   "reasoning_tokens": 162
+  },
+  "obeyed": true
+ },
+ "A4-gpt-6.1-sol": {
+  "first": {
+   "status": 200,
+   "err": null,
+   "content": "23",
+   "prompt": 12409,
+   "cached": null,
+   "reasoning_tokens": null
+  },
+  "late_system": {
+   "status": 200,
+   "err": null,
+   "content": "BANANA 37",
+   "prompt": 12443,
+   "cached": 12288,
+   "reasoning_tokens": 49
+  },
+  "obeyed": true
+ },
+ "A5-glm-5.3": [
+  {
+   "status": 200,
+   "err": null,
+   "content": "23",
+   "prompt": 13130,
+   "cached": 4800,
+   "reasoning_tokens": 153
+  },
+  {
+   "status": 200,
+   "err": null,
+   "content": "23",
+   "prompt": 13130,
+   "cached": 4800,
+   "reasoning_tokens": 128
+  },
+  {
+   "status": 200,
+   "err": null,
+   "content": "23",
+   "prompt": 13130,
+   "cached": 13105,
+   "reasoning_tokens": 172
+  }
+ ],
+ "A5-gpt-6.1-sol": [
+  {
+   "status": 200,
+   "err": null,
+   "content": "23",
+   "prompt": 12409,
+   "cached": null,
+   "reasoning_tokens": null
+  },
+  {
+   "status": 200,
+   "err": null,
+   "content": "23",
+   "prompt": 12409,
+   "cached": 12288,
+   "reasoning_tokens": null
+  },
+  {
+   "status": 200,
+   "err": null,
+   "content": "23",
+   "prompt": 12411,
+   "cached": null,
+   "reasoning_tokens": null
+  }
+ ]
+}

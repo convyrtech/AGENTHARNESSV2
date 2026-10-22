@@ -1,0 +1,9 @@
+# secrets — never commit
+.a6key
+*.key
+.env
+# raw API logs and bulky artifacts
+logs/
+experiments/**/logs/
+experiments/intent/shots/
+__pycache__/
