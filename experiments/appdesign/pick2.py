@@ -29,7 +29,10 @@ def judge(model_key, a, b):
              labelled(os.path.join(HERE, CANDS[b]), "КАНДИДАТ Y"), {"type": "text", "text": Q}]
     body = {"model": model, "max_tokens": 16000, "stream_options": {"include_usage": True}, "messages": [{"role": "user", "content": parts}], **extra}
     for _ in range(2):
-        r = a6.chat_stream(body, tag=f"pick2-{model_key}-{a}{b}", timeout=900)
+        try:
+            r = a6.chat_stream(body, tag=f"pick2-{model_key}-{a}{b}", timeout=900)
+        except Exception as e:
+            t = f"exc {e!r}"; continue
         t = "".join(((c.get("choices") or [{}])[0].get("delta") or {}).get("content") or "" for c in r["chunks"] if isinstance(c, dict))
         m = re.search(r"\{.*?\}", t, re.S)
         if m:

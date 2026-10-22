@@ -12,7 +12,10 @@ def ocr(model_key):
     model, extra = P.MODELS[model_key]
     parts = [P.labelled(os.path.join(P.HERE, "mockups", "prsloy-r1-v1.png"), "МАКЕТ"), {"type": "text", "text": OCR_Q}]
     body = {"model": model, "max_tokens": 8000, "stream_options": {"include_usage": True}, "messages": [{"role": "user", "content": parts}], **extra}
-    r = a6.chat_stream(body, tag=f"ocr-{model_key}", timeout=600)
+    try:
+        r = a6.chat_stream(body, tag=f"ocr-{model_key}", timeout=600)
+    except Exception as e:
+        return {"model": model_key, "ocr_exact": "ошибка", "err": repr(e)}
     ch = [c for c in r["chunks"] if isinstance(c, dict)]
     t = "".join(((c.get("choices") or [{}])[0].get("delta") or {}).get("content") or "" for c in ch)
     u = [c["usage"] for c in ch if c.get("usage")]; mid = next((c.get("id") for c in ch if c.get("id")), None)
