@@ -1,0 +1,833 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=1440, initial-scale=1">
+  <meta name="theme-color" content="#f3eee3">
+  <title>Готово: сайт для кофейни «Зерно» — PRSLOY</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geologica:wght@400;500&family=IBM+Plex+Mono:wght@400;500&family=Piazzolla:opsz,wght@8..30,400;8..30,500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --paper: #f3eee3;
+      --card: #faf7f0;
+      --ink: #3b2a1e;
+      --muted: #7a6352;
+      --line: #ddd2c1;
+      --accent: #a4472c;
+      --stamp: #b23a26;
+      --sans: "Geologica", sans-serif;
+      --serif: "Piazzolla", serif;
+      --mono: "IBM Plex Mono", monospace;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; }
+    body {
+      background: var(--paper);
+      color: var(--ink);
+      font: 400 18px/28px var(--sans);
+      -webkit-font-smoothing: antialiased;
+    }
+    button, textarea { font: inherit; color: inherit; }
+    button { cursor: pointer; }
+    button, a, textarea { -webkit-tap-highlight-color: transparent; }
+    button { border-radius: 3px; }
+    h1, h2, h3, p, figure { margin: 0; }
+    ul { margin: 0; padding: 0; list-style: none; }
+    svg { display: block; }
+    [hidden] { display: none !important; }
+    button:focus-visible, a:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 3px;
+    }
+    button:disabled { cursor: default; color: var(--muted); border-color: var(--line); }
+
+    .screen { position: relative; width: 1440px; height: 900px; overflow: hidden; }
+    .sidebar {
+      position: absolute;
+      inset: 0 auto 0 0;
+      width: 224px;
+      border-right: 1px solid var(--ink);
+    }
+    .brand { position: absolute; left: 24px; top: 28px; font: 500 28px/34px var(--serif); }
+    .status {
+      position: absolute;
+      left: 24px;
+      top: 74px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 20px;
+    }
+    .status::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--ink); }
+    .modes {
+      position: absolute;
+      left: 16px;
+      top: 124px;
+      width: 192px;
+      border: 1px solid var(--line);
+      border-radius: 3px;
+    }
+    .mode {
+      position: relative;
+      display: block;
+      width: 100%;
+      height: 44px;
+      padding: 0 15px;
+      background: transparent;
+      border: 0;
+      border-radius: 0;
+      text-align: left;
+      font-size: 16px;
+      line-height: 24px;
+    }
+    .mode + .mode { border-top: 1px solid var(--line); }
+    .mode:hover, .chat:hover { background: var(--card); }
+    .mode[aria-pressed="true"] { background: var(--card); font-weight: 500; }
+    .mode[aria-pressed="true"]::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 10px;
+      width: 3px;
+      height: 24px;
+      background: var(--accent);
+    }
+    .mode[aria-pressed="true"]::after {
+      content: "";
+      position: absolute;
+      right: 15px;
+      top: 19px;
+      width: 5px;
+      height: 5px;
+      background: var(--accent);
+      border-radius: 50%;
+    }
+    .chats { position: absolute; left: 16px; top: 284px; width: 192px; display: grid; gap: 8px; }
+    .chat {
+      width: 192px;
+      height: 52px;
+      padding: 0 11px;
+      background: transparent;
+      border: 1px solid transparent;
+      text-align: left;
+      white-space: nowrap;
+      font-size: 15px;
+      line-height: 22px;
+    }
+    .chat[aria-current="page"] { border-color: var(--ink); background: var(--card); font-weight: 500; }
+    .new-chat {
+      position: absolute;
+      left: 16px;
+      bottom: 24px;
+      width: 192px;
+      height: 44px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 8px;
+      background: transparent;
+      border: 1px solid var(--ink);
+      font-size: 16px;
+      font-weight: 500;
+    }
+    .new-chat:hover { background: var(--card); }
+    .icon {
+      width: 20px;
+      height: 20px;
+      flex: none;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 1.5;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+    .small-icon { width: 16px; height: 16px; }
+
+    .work { position: absolute; left: 224px; top: 0; width: 1216px; height: 900px; }
+    .heading { position: absolute; top: 35px; left: 40px; width: 752px; }
+    h1 { font: 500 32px/42px var(--serif); font-optical-sizing: auto; white-space: nowrap; }
+    .subtitle { margin-top: 10px; color: var(--muted); font-size: 17px; line-height: 26px; }
+    .technical { font: 400 12px/18px var(--mono); letter-spacing: .8px; text-transform: uppercase; }
+    .budget { position: absolute; left: 840px; top: 20px; width: 336px; height: 122px; }
+    .budget-title { color: var(--muted); margin-bottom: 5px; }
+    .budget-top { height: 42px; display: flex; align-items: center; gap: 12px; }
+    .counter { display: flex; align-items: center; gap: 3px; }
+    .digit {
+      position: relative;
+      width: 25px;
+      height: 42px;
+      display: grid;
+      place-items: center;
+      background: var(--card);
+      border: 1px solid var(--ink);
+      border-radius: 2px;
+      font: 500 28px/34px var(--mono);
+    }
+    .digit::after {
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 20px;
+      border-top: 1px solid var(--line);
+    }
+    .comma { width: 10px; font: 500 28px/34px var(--mono); text-align: center; }
+    .budget-caption { color: var(--muted); font-size: 14px; line-height: 20px; white-space: nowrap; }
+    .ruler { width: 336px; height: 22px; margin-top: 7px; overflow: visible; }
+    .ruler-labels {
+      position: relative;
+      height: 20px;
+      color: var(--muted);
+      font: 400 13px/20px var(--mono);
+    }
+    .ruler-labels span { position: absolute; top: 0; }
+    .ruler-labels .zero { left: 0; }
+    .ruler-labels .middle { left: 50%; transform: translateX(-50%); }
+    .ruler-labels .danger { left: 80%; transform: translateX(-50%); }
+    .ruler-labels .end { right: 0; }
+
+    .result-grid {
+      position: absolute;
+      left: 40px;
+      top: 164px;
+      width: 1136px;
+      height: 526px;
+      display: grid;
+      grid-template-columns: 616px 496px;
+      gap: 24px;
+    }
+    .preview {
+      position: relative;
+      height: 526px;
+      background: var(--card);
+      border: 1px solid var(--ink);
+      border-radius: 3px;
+    }
+    .screw {
+      position: absolute;
+      width: 8px;
+      height: 8px;
+      border: 1px solid var(--muted);
+      border-radius: 50%;
+      pointer-events: none;
+    }
+    .screw::after {
+      content: "";
+      position: absolute;
+      width: 6px;
+      left: 0;
+      top: 2.5px;
+      border-top: 1px solid var(--muted);
+      transform: rotate(-45deg);
+    }
+    .tl { top: 7px; left: 7px; }
+    .tr { top: 7px; right: 7px; }
+    .bl { bottom: 7px; left: 7px; }
+    .br { bottom: 7px; right: 7px; }
+    .frame-ticks { position: absolute; left: -1px; top: 80px; width: 9px; height: 330px; pointer-events: none; }
+    .preview-bar {
+      height: 56px;
+      padding: 0 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--line);
+    }
+    .preview-label {
+      padding: 3px 8px;
+      border: 1px solid var(--muted);
+      border-radius: 2px;
+      color: var(--muted);
+    }
+    .preview-page { color: var(--muted); font-size: 14px; line-height: 20px; }
+    .site {
+      position: relative;
+      width: 566px;
+      height: 374px;
+      margin: 18px 24px 0;
+      pointer-events: none;
+    }
+    .site-header {
+      height: 46px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      border-bottom: 1px solid var(--line);
+    }
+    .site-brand { font: 500 27px/34px var(--serif); }
+    .site-nav { display: flex; gap: 20px; padding-top: 7px; font-size: 14px; line-height: 22px; }
+    .site-hero { position: relative; height: 183px; padding-top: 22px; }
+    .site-title { font: 500 28px/36px var(--serif); }
+    .site-description { width: 350px; margin-top: 8px; font-size: 15px; line-height: 23px; color: var(--muted); }
+    .site-order {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      height: 36px;
+      padding: 0 14px;
+      margin-top: 16px;
+      border-radius: 3px;
+      background: var(--accent);
+      color: var(--card);
+      font-size: 14px;
+      line-height: 20px;
+    }
+    .cup {
+      position: absolute;
+      right: 0;
+      top: 40px;
+      width: 154px;
+      height: 112px;
+      fill: none;
+      stroke: var(--muted);
+      stroke-width: 1.4;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+    .menu-title { font: 500 24px/30px var(--serif); }
+    .menu-items { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 12px; }
+    .menu-item { padding-top: 10px; border-top: 1px solid var(--line); font-size: 16px; line-height: 24px; }
+    .price { display: block; margin-top: 3px; font: 400 15px/23px var(--mono); color: var(--muted); }
+    .site-footer {
+      margin-top: 17px;
+      padding-top: 9px;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 22px;
+    }
+    .publication {
+      position: absolute;
+      left: 24px;
+      right: 24px;
+      bottom: 18px;
+      padding-top: 12px;
+      border-top: 1px dashed var(--line);
+      font-size: 14px;
+      line-height: 22px;
+      color: var(--muted);
+    }
+    .publication strong { color: var(--ink); font-weight: 500; }
+    .publication p { margin-top: 2px; }
+
+    .notes {
+      height: 526px;
+      padding: 22px 23px;
+      border: 1px solid var(--line);
+      border-radius: 3px;
+      background: var(--card);
+    }
+    .notes h2 { font: 500 26px/34px var(--serif); }
+    .done-list { margin-top: 16px; }
+    .done-list li { position: relative; padding-left: 20px; font-size: 17px; line-height: 32px; white-space: nowrap; }
+    .done-list li::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 16px;
+      width: 8px;
+      border-top: 1px solid var(--muted);
+    }
+    .checked-section { margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--line); }
+    .checked-list { display: grid; gap: 10px; margin-top: 15px; }
+    .checked-list li { display: flex; align-items: center; gap: 12px; font-size: 18px; line-height: 28px; }
+    .stamp {
+      position: relative;
+      display: grid;
+      place-items: center;
+      flex: none;
+      width: 25px;
+      height: 25px;
+      color: var(--stamp);
+      border: 1px solid var(--stamp);
+      border-radius: 50%;
+    }
+    .stamp::before { content: ""; position: absolute; inset: 2px; border: 1px solid var(--stamp); border-radius: 50%; }
+    .stamp .icon { width: 15px; height: 15px; }
+    .limit {
+      margin-top: 20px;
+      padding-top: 12px;
+      border-top: 1px dashed var(--line);
+      color: var(--muted);
+      font-size: 15px;
+      line-height: 23px;
+    }
+    .limit strong { font-weight: 500; }
+
+    .actions { position: absolute; left: 40px; top: 714px; height: 48px; display: flex; align-items: center; gap: 12px; }
+    .action {
+      height: 48px;
+      padding: 0 18px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      border: 1px solid var(--ink);
+      background: var(--card);
+      font-size: 16px;
+      line-height: 22px;
+      font-weight: 500;
+      text-decoration: none;
+      border-radius: 3px;
+    }
+    .action:hover { background: var(--paper); }
+    .action:active { border-color: var(--accent); }
+    .primary { width: 184px; padding: 0; border-color: var(--accent); background: var(--accent); color: var(--card); }
+    .primary:hover { background: var(--accent); outline: 1px solid var(--card); outline-offset: -5px; }
+    .primary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+    .primary:active { background: var(--ink); border-color: var(--ink); }
+    .correct { width: 192px; }
+    .publish { width: 168px; border-color: var(--muted); background: transparent; }
+    .more {
+      width: 100px;
+      height: 48px;
+      margin-left: 12px;
+      padding: 0;
+      border: 0;
+      background: transparent;
+      color: var(--muted);
+      font-size: 15px;
+      text-decoration: underline;
+      text-underline-offset: 4px;
+      text-decoration-thickness: 1px;
+    }
+    .bottom-rule { position: absolute; left: 40px; top: 784px; width: 1136px; border-top: 1px solid var(--line); }
+    .composer {
+      position: absolute;
+      left: 40px;
+      bottom: 32px;
+      width: 1136px;
+      height: 60px;
+      background: var(--card);
+      border: 1px solid var(--muted);
+      border-radius: 3px;
+    }
+    .composer:focus-within { border-color: var(--accent); outline: 1px solid var(--accent); outline-offset: 2px; }
+    .composer textarea {
+      display: block;
+      width: 100%;
+      height: 100%;
+      padding: 16px 72px 16px 19px;
+      border: 0;
+      outline: none;
+      resize: none;
+      background: transparent;
+      font-size: 18px;
+      line-height: 26px;
+    }
+    textarea::placeholder { color: var(--muted); opacity: 1; }
+    .voice {
+      position: absolute;
+      right: 7px;
+      bottom: 7px;
+      width: 44px;
+      height: 44px;
+      display: grid;
+      place-items: center;
+      background: transparent;
+      border: 1px solid transparent;
+    }
+    .voice:hover { border-color: var(--line); }
+    .voice.recording { color: var(--stamp); border-color: var(--stamp); }
+    .field-message {
+      position: absolute;
+      left: 40px;
+      bottom: 102px;
+      padding: 3px 8px;
+      background: var(--paper);
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 20px;
+    }
+    dialog {
+      width: 560px;
+      max-height: 760px;
+      padding: 30px;
+      border: 1px solid var(--ink);
+      border-radius: 3px;
+      color: var(--ink);
+      background: var(--card);
+      font-size: 17px;
+      line-height: 27px;
+    }
+    dialog::backdrop { background: rgb(59 42 30 / 25%); }
+    dialog h2 { margin-bottom: 16px; font: 500 28px/36px var(--serif); }
+    dialog p + p { margin-top: 12px; }
+    .dialog-actions { display: flex; justify-content: flex-end; gap: 12px; margin-top: 24px; }
+    .dialog-actions .action { width: auto; padding: 0 18px; }
+  </style>
+</head>
+<body>
+  <div class="screen">
+    <aside class="sidebar" aria-label="Боковая навигация">
+      <div class="brand">PRSLOY</div>
+      <div class="status">работает</div>
+
+      <nav class="modes" aria-label="Режим помощника">
+        <button class="mode" type="button" aria-pressed="false">Код</button>
+        <button class="mode" type="button" aria-pressed="true">Креатив</button>
+        <button class="mode" type="button" aria-pressed="false">Повседнев</button>
+      </nav>
+
+      <nav class="chats" aria-label="Чаты">
+        <button class="chat" type="button" aria-current="page">Сайт для кофейни</button>
+        <button class="chat" type="button">Пост в Telegram</button>
+        <button class="chat" type="button">Письмо арендатору</button>
+      </nav>
+
+      <button class="new-chat" id="new-chat" type="button">
+        <svg class="icon small-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2v12M2 8h12"/></svg>
+        Новый чат
+      </button>
+    </aside>
+
+    <main class="work">
+      <section class="budget" aria-label="Сегодня потрачено 36 рублей 61 копейка из 50 рублей.">
+        <div aria-hidden="true">
+          <div class="budget-title technical">Потрачено</div>
+          <div class="budget-top">
+            <div class="counter">
+              <span class="digit">3</span>
+              <span class="digit">6</span>
+              <span class="comma">,</span>
+              <span class="digit">6</span>
+              <span class="digit">1</span>
+            </div>
+            <span class="budget-caption">из 50 ₽ сегодня</span>
+          </div>
+          <svg class="ruler" viewBox="0 0 336 22">
+            <defs>
+              <pattern id="ticks" width="6.7" height="12" patternUnits="userSpaceOnUse">
+                <path d="M.5 8v4" stroke="#7a6352" fill="none"/>
+              </pattern>
+              <pattern id="large-ticks" width="33.5" height="12" patternUnits="userSpaceOnUse">
+                <path d="M.5 4v8" stroke="#7a6352" fill="none"/>
+              </pattern>
+              <pattern id="hatch" width="5" height="8" patternUnits="userSpaceOnUse">
+                <path d="M-3 8 5 0M2 8 10 0" stroke="#b23a26" stroke-width="1" fill="none"/>
+              </pattern>
+            </defs>
+            <g transform="translate(.5 6)">
+              <rect x="268" y="4" width="67" height="8" fill="url(#hatch)"/>
+              <rect width="335" height="12" fill="url(#ticks)"/>
+              <rect width="335" height="12" fill="url(#large-ticks)"/>
+              <path d="M0 1v11M167.5 1v11M268 0v12M335 1v11M0 12.5h335" fill="none" stroke="#7a6352"/>
+            </g>
+            <path d="M242.3 0h7l-3.5 5z" fill="#a4472c"/>
+          </svg>
+          <div class="ruler-labels">
+            <span class="zero">0</span>
+            <span class="middle">25</span>
+            <span class="danger">40</span>
+            <span class="end">50 ₽</span>
+          </div>
+        </div>
+      </section>
+
+      <header class="heading">
+        <h1>Готово: сайт для кофейни «Зерно»</h1>
+        <p class="subtitle">Заняло 3 мин 12 с · потрачено 4,20 ₽</p>
+      </header>
+
+      <div class="result-grid">
+        <section class="preview" aria-label="Результат: превью сайта и состояние публикации">
+          <span class="screw tl" aria-hidden="true"></span>
+          <span class="screw tr" aria-hidden="true"></span>
+          <span class="screw bl" aria-hidden="true"></span>
+          <span class="screw br" aria-hidden="true"></span>
+          <svg class="frame-ticks" viewBox="0 0 9 330" aria-hidden="true">
+            <g stroke="#7a6352" stroke-width="1" fill="none">
+              <path d="M0 .5h8M0 16.5h4M0 32.5h4M0 48.5h4M0 64.5h8
+                       M0 128.5h8M0 144.5h4M0 160.5h4M0 176.5h4M0 192.5h8
+                       M0 256.5h8M0 272.5h4M0 288.5h4M0 304.5h4M0 320.5h8"/>
+            </g>
+          </svg>
+
+          <div class="preview-bar">
+            <span class="preview-label technical">Превью сайта</span>
+            <span class="preview-page">Главная</span>
+          </div>
+
+          <figure class="site" id="site-preview" role="img" aria-label="Превью главной страницы кофейни «Зерно»: меню, цены и кнопка заказа в Telegram.">
+            <div aria-hidden="true">
+              <div class="site-header">
+                <span class="site-brand">Зерно</span>
+                <div class="site-nav"><span>Меню</span><span>Контакты</span></div>
+              </div>
+              <div class="site-hero">
+                <h3 class="site-title">Кофе и тёплые встречи</h3>
+                <p class="site-description">Каждый день — свежий кофе и выпечка.</p>
+                <span class="site-order">Заказать в Telegram</span>
+                <svg class="cup" viewBox="0 0 160 112">
+                  <path d="M57 28c-9-10 9-12 1-23M78 27c-8-9 9-12 2-23M99 29c-7-9 8-12 2-21"/>
+                  <ellipse cx="74" cy="43" rx="40" ry="9"/>
+                  <path d="m34 43 5 32c3 16 65 16 69 0l6-32M114 49c26-8 28 24 1 27l-7 1M115 55c14-4 15 13-2 15"/>
+                  <path d="M39 86c-16 2-25 6-25 10 0 7 28 12 63 12s63-5 63-12c0-4-10-8-27-10M29 95c12 9 77 10 98-1"/>
+                </svg>
+              </div>
+              <div class="site-menu">
+                <h3 class="menu-title">Меню</h3>
+                <div class="menu-items">
+                  <div class="menu-item">Эспрессо<span class="price">150 ₽</span></div>
+                  <div class="menu-item">Капучино<span class="price">220 ₽</span></div>
+                  <div class="menu-item">Круассан<span class="price">190 ₽</span></div>
+                </div>
+              </div>
+              <div class="site-footer">Кофе · выпечка · каждый день</div>
+            </div>
+          </figure>
+
+          <div class="publication">
+            <strong>Пока не опубликован</strong>
+            <p>«Открыть сайт» откроет предпросмотр в новой вкладке.</p>
+          </div>
+        </section>
+
+        <section class="notes" aria-label="Состав результата и проверка">
+          <section aria-labelledby="done-title">
+            <h2 id="done-title">Что сделано</h2>
+            <ul class="done-list">
+              <li>Главная с меню и ценами</li>
+              <li>Страница „Контакты“ с картой</li>
+              <li>Кнопка „Заказать“ ведёт в Telegram</li>
+            </ul>
+          </section>
+
+          <section class="checked-section" aria-labelledby="checked-title">
+            <h2 id="checked-title">Что проверено</h2>
+            <ul class="checked-list">
+              <li>
+                <span class="stamp" aria-hidden="true"><svg class="icon" viewBox="0 0 16 16"><path d="m3 8 3 3 7-7"/></svg></span>
+                Открывается на телефоне
+              </li>
+              <li>
+                <span class="stamp" aria-hidden="true"><svg class="icon" viewBox="0 0 16 16"><path d="m3 8 3 3 7-7"/></svg></span>
+                Все ссылки работают
+              </li>
+              <li>
+                <span class="stamp" aria-hidden="true"><svg class="icon" viewBox="0 0 16 16"><path d="m3 8 3 3 7-7"/></svg></span>
+                Тексты без ошибок
+              </li>
+              <li>
+                <span class="stamp" aria-hidden="true"><svg class="icon" viewBox="0 0 16 16"><path d="m3 8 3 3 7-7"/></svg></span>
+                Загружается за 1,2 с
+              </li>
+            </ul>
+          </section>
+
+          <p class="limit"><strong>Не проверено:</strong> оплата онлайн —<br>её не было в задаче</p>
+        </section>
+      </div>
+
+      <div class="actions" aria-label="Действия с результатом">
+        <button class="action primary" id="open-site" type="button" aria-describedby="open-description">
+          Открыть сайт
+          <svg class="icon small-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M9 2h5v5M14 2 7 9M6 3H2v11h11v-4"/></svg>
+        </button>
+        <button class="action correct" id="correct" type="button">Исправить что-то</button>
+        <button class="action publish" id="publish" type="button" aria-haspopup="dialog">Опубликовать</button>
+        <button class="more" id="more" type="button" aria-haspopup="dialog">Подробнее</button>
+      </div>
+      <span id="open-description" hidden>Откроется неопубликованный предпросмотр в новой вкладке.</span>
+
+      <div class="bottom-rule" aria-hidden="true"></div>
+      <p class="field-message" id="field-message" role="status" hidden></p>
+      <form class="composer" id="composer">
+        <textarea id="changes" rows="1" aria-label="Что поменять?" placeholder="Что поменять?"></textarea>
+        <button class="voice" id="voice" type="button" aria-label="Сказать, что поменять">
+          <svg class="icon" id="mic-icon" viewBox="0 0 20 20" aria-hidden="true">
+            <rect x="7" y="2" width="6" height="10" rx="3"/>
+            <path d="M4.5 9a5.5 5.5 0 0 0 11 0M10 14.5V18M7 18h6"/>
+          </svg>
+          <svg class="icon" id="send-icon" viewBox="0 0 20 20" aria-hidden="true" hidden><path d="M10 17V3M4 9l6-6 6 6"/></svg>
+        </button>
+      </form>
+    </main>
+  </div>
+
+  <dialog id="details-dialog" aria-labelledby="details-title">
+    <h2 id="details-title">Подробнее о результате</h2>
+    <p>Сделаны главная с меню и ценами, страница «Контакты» с картой и кнопка заказа в Telegram.</p>
+    <p>Проверены отображение на телефоне, ссылки и тексты. Время загрузки — 1,2 с.</p>
+    <p>Оплата онлайн не проверялась: её не было в задаче.</p>
+    <p>Работа заняла 3 мин 12 с. Потрачено 4,20 ₽.</p>
+    <p>Сайт пока не опубликован. В этом HTML-примере доступен только схематичный предпросмотр главной страницы; результаты проверок приведены как образец интерфейса.</p>
+    <form method="dialog" class="dialog-actions"><button class="action" autofocus>Закрыть</button></form>
+  </dialog>
+
+  <dialog id="publish-dialog" aria-labelledby="publish-title">
+    <h2 id="publish-title">Опубликовать сайт?</h2>
+    <p>После публикации сайт смогут открыть другие люди по ссылке.</p>
+    <p>В этом примере размещение сайта не подключено. Предпросмотр можно открыть, но публикация пока недоступна.</p>
+    <form method="dialog" class="dialog-actions">
+      <button class="action" autofocus>Не сейчас</button>
+      <button class="action" disabled>Опубликовать</button>
+    </form>
+  </dialog>
+
+  <dialog id="notice-dialog" aria-labelledby="notice-title">
+    <h2 id="notice-title">Это пример интерфейса</h2>
+    <p id="notice-text"></p>
+    <form method="dialog" class="dialog-actions"><button class="action" autofocus>Понятно</button></form>
+  </dialog>
+
+  <script>
+    const changes = document.getElementById("changes");
+    const composer = document.getElementById("composer");
+    const voice = document.getElementById("voice");
+    const mic = document.getElementById("mic-icon");
+    const send = document.getElementById("send-icon");
+    const message = document.getElementById("field-message");
+    let recognition = null;
+    let recording = false;
+
+    function notice(text) {
+      document.getElementById("notice-text").textContent = text;
+      document.getElementById("notice-dialog").showModal();
+    }
+
+    function showMessage(text) {
+      message.textContent = text;
+      message.hidden = false;
+    }
+
+    function updateComposer() {
+      const hasText = changes.value.trim().length > 0;
+      mic.hidden = hasText;
+      send.hidden = !hasText;
+      voice.setAttribute("aria-label", recording ? "Завершить запись" : hasText ? "Отправить изменения" : "Сказать, что поменять");
+      composer.style.height = "60px";
+      if (changes.scrollHeight > changes.clientHeight) {
+        composer.style.height = Math.min(120, changes.scrollHeight + 2) + "px";
+      }
+    }
+
+    function submitChanges() {
+      if (!changes.value.trim()) return;
+      notice("ИИ-помощник пока не подключён, поэтому изменения не отправлены. Ваш текст сохранён в поле.");
+    }
+
+    document.getElementById("correct").addEventListener("click", () => changes.focus());
+    document.getElementById("more").addEventListener("click", () => document.getElementById("details-dialog").showModal());
+    document.getElementById("publish").addEventListener("click", () => document.getElementById("publish-dialog").showModal());
+
+    document.getElementById("open-site").addEventListener("click", () => {
+      const preview = window.open("about:blank", "_blank");
+      if (!preview) {
+        showMessage("Браузер не открыл новую вкладку. Разрешите всплывающие окна и попробуйте ещё раз.");
+        return;
+      }
+      preview.opener = null;
+      const site = document.getElementById("site-preview").cloneNode(true);
+      site.removeAttribute("role");
+      site.removeAttribute("aria-label");
+      site.querySelector("[aria-hidden]").removeAttribute("aria-hidden");
+      preview.document.open();
+      preview.document.write(`<!DOCTYPE html>
+        <html lang="ru"><head><meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>Предпросмотр — кофейня «Зерно»</title>
+        <link href="https://fonts.googleapis.com/css2?family=Geologica:wght@400;500&family=IBM+Plex+Mono:wght@400;500&family=Piazzolla:opsz,wght@8..30,400;8..30,500&display=swap" rel="stylesheet">
+        <style>${document.querySelector("style").textContent}
+          html,body{height:auto;min-height:100%;overflow:auto}
+          body{padding:32px 20px}
+          .preview-notice{max-width:760px;margin:0 auto 24px;padding-bottom:16px;border-bottom:1px solid var(--line);font-size:15px;line-height:24px;color:var(--muted)}
+          .site{width:min(760px,100%);height:auto;min-height:410px;margin:0 auto;padding:24px;background:var(--card)}
+          .site-hero{height:200px}
+          @media(max-width:620px){
+            .site{padding:16px}
+            .site-title{font-size:25px}
+            .site-description{width:100%}
+            .cup{display:none}
+            .site-nav{gap:12px}
+            .menu-items{grid-template-columns:1fr}
+            .site-hero{height:auto;padding-bottom:28px}
+          }
+        </style></head><body>
+        <p class="preview-notice">Предпросмотр · Пока не опубликован<br>Это схема главной страницы. Заказ и переходы в этом примере не подключены.</p>
+        ${site.outerHTML}</body></html>`);
+      preview.document.close();
+    });
+
+    document.getElementById("new-chat").addEventListener("click", () => {
+      notice("Создание чатов будет доступно после подключения помощника. Текущий результат остаётся на экране.");
+    });
+    document.querySelectorAll(".mode, .chat").forEach(button => {
+      button.addEventListener("click", () => {
+        if (button.getAttribute("aria-pressed") === "true" || button.hasAttribute("aria-current")) return;
+        notice("Другие режимы и чаты в этом примере не подключены. Результат для кофейни «Зерно» остаётся на экране.");
+      });
+    });
+
+    changes.addEventListener("input", updateComposer);
+    changes.addEventListener("keydown", event => {
+      if (event.key === "Enter" && !event.shiftKey && !event.isComposing) {
+        event.preventDefault();
+        submitChanges();
+      }
+    });
+    composer.addEventListener("submit", event => {
+      event.preventDefault();
+      submitChanges();
+    });
+
+    function stopRecording() {
+      recording = false;
+      voice.classList.remove("recording");
+      changes.placeholder = "Что поменять?";
+      updateComposer();
+    }
+
+    voice.addEventListener("click", () => {
+      if (recording) {
+        recognition.stop();
+        return;
+      }
+      if (changes.value.trim()) {
+        submitChanges();
+        return;
+      }
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRecognition) {
+        showMessage("Голосовой ввод недоступен в этом браузере. Можно написать текстом.");
+        changes.focus();
+        return;
+      }
+
+      recognition = new SpeechRecognition();
+      recognition.lang = "ru-RU";
+      recognition.interimResults = false;
+      recognition.onstart = () => {
+        recording = true;
+        message.hidden = true;
+        voice.classList.add("recording");
+        changes.placeholder = "Слушаю…";
+        updateComposer();
+      };
+      recognition.onresult = event => {
+        changes.value = event.results[0][0].transcript;
+        updateComposer();
+      };
+      recognition.onerror = event => {
+        showMessage(
+          ["not-allowed", "service-not-allowed"].includes(event.error)
+            ? "Нет доступа к микрофону. Можно написать текстом."
+            : "Не удалось распознать речь. Попробуйте ещё раз или напишите текстом."
+        );
+      };
+      recognition.onend = stopRecording;
+      try {
+        recognition.start();
+      } catch {
+        stopRecording();
+        showMessage("Нет доступа к микрофону. Можно написать текстом.");
+      }
+    });
+  </script>
+</body>
+</html>

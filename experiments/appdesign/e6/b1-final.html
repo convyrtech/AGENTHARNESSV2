@@ -1,0 +1,1033 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Готово — PRSLOY</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geologica:wght@400;500&family=IBM+Plex+Mono:wght@400;500&family=Piazzolla:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --paper: #f3eee3;
+      --card: #faf7f0;
+      --ink: #3b2a1e;
+      --muted: #7a6352;
+      --line: #ddd2c1;
+      --accent: #a4472c;
+      --stamp: #b23a26;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      width: 1440px;
+      height: 900px;
+      margin: 0;
+      overflow: hidden;
+    }
+
+    body {
+      color: var(--ink);
+      background: var(--paper);
+      font: 400 16px/24px "Geologica", sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    button, textarea { font: inherit; color: inherit; }
+    button { cursor: pointer; }
+    button, textarea { -webkit-tap-highlight-color: transparent; }
+    button:disabled { opacity: .4; cursor: default; }
+
+    button:focus-visible, textarea:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 3px;
+    }
+
+    button:not(:disabled):hover { background-color: rgb(59 42 30 / 4%); }
+    button:not(:disabled):active { background-color: rgb(59 42 30 / 8%); }
+
+    h1, h2, h3, p { margin: 0; }
+
+    .app { position: relative; width: 1440px; height: 900px; }
+    .serif { font-family: "Piazzolla", serif; font-weight: 500; }
+
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    .icon {
+      width: 16px;
+      height: 16px;
+      flex-shrink: 0;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 1.5;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    /* Ширина сохранена для читаемых названий режимов и чатов. */
+    .sidebar {
+      position: absolute;
+      inset: 0 auto 0 0;
+      width: 248px;
+      border-right: 1px solid var(--ink);
+    }
+
+    .logo {
+      position: absolute;
+      left: 24px;
+      top: 28px;
+      font-size: 28px;
+      line-height: 36px;
+    }
+
+    .status {
+      position: absolute;
+      left: 24px;
+      top: 72px;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 18px;
+    }
+
+    .status::before {
+      content: "";
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--ink);
+    }
+
+    .modes {
+      position: absolute;
+      left: 20px;
+      top: 128px;
+      width: 208px;
+      height: 40px;
+      display: grid;
+      grid-template-columns: 44px 74px 88px;
+      border: 1px solid var(--ink);
+      border-radius: 3px;
+    }
+
+    .mode {
+      padding: 0;
+      border: 0;
+      background: transparent;
+      font-size: 13px;
+      line-height: 20px;
+      white-space: nowrap;
+    }
+
+    .mode + .mode { border-left: 1px solid var(--ink); }
+    .mode:first-child { border-radius: 2px 0 0 2px; }
+    .mode:last-child { border-radius: 0 2px 2px 0; }
+
+    .mode[aria-pressed="true"],
+    .mode[aria-pressed="true"]:hover,
+    .mode[aria-pressed="true"]:active {
+      background: var(--ink);
+      color: var(--card);
+      font-weight: 500;
+    }
+
+    .tag {
+      padding: 4px 6px;
+      border: 1px solid var(--ink);
+      border-radius: 2px;
+      font: 400 11px/16px "IBM Plex Mono", monospace;
+      letter-spacing: .8px;
+    }
+
+    .chats-label { position: absolute; left: 24px; top: 204px; }
+
+    .chat-list {
+      position: absolute;
+      left: 20px;
+      top: 240px;
+      width: 208px;
+      display: grid;
+      gap: 8px;
+    }
+
+    .chat {
+      position: relative;
+      width: 208px;
+      height: 52px;
+      padding: 0 11px;
+      border: 1px solid transparent;
+      border-radius: 3px;
+      background: transparent;
+      text-align: left;
+      font-size: 15px;
+      line-height: 22px;
+      white-space: nowrap;
+    }
+
+    .chat[aria-current="page"] {
+      padding-left: 15px;
+      border-color: var(--ink);
+      background: var(--card);
+      font-weight: 500;
+    }
+
+    .chat[aria-current="page"]::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 13px;
+      width: 3px;
+      height: 24px;
+      background: var(--accent);
+    }
+
+    .button {
+      height: 48px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 0 15px;
+      border: 1px solid var(--ink);
+      border-radius: 3px;
+      background: transparent;
+      font-size: 16px;
+      line-height: 24px;
+      font-weight: 500;
+      white-space: nowrap;
+    }
+
+    .new-chat {
+      position: absolute;
+      left: 20px;
+      top: 828px;
+      width: 208px;
+    }
+
+    .topbar {
+      position: absolute;
+      left: 248px;
+      top: 0;
+      width: 1192px;
+      height: 96px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .budget {
+      position: absolute;
+      right: 40px;
+      top: 5px;
+      width: 440px;
+      height: 86px;
+    }
+
+    .budget-label {
+      position: absolute;
+      left: 112px;
+      top: 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 18px;
+    }
+
+    .gauge {
+      position: absolute;
+      left: 8px;
+      top: 8px;
+      width: 80px;
+      height: 64px;
+      color: var(--muted);
+    }
+
+    .counter {
+      position: absolute;
+      left: 112px;
+      top: 21px;
+      width: 160px;
+      height: 34px;
+      display: flex;
+      align-items: center;
+      gap: 2px;
+    }
+
+    .digit {
+      position: relative;
+      width: 34px;
+      height: 34px;
+      flex: 0 0 34px;
+      display: grid;
+      place-items: center;
+      border: 1px solid var(--ink);
+      border-radius: 2px;
+      background: var(--card);
+      font: 500 25px/32px "IBM Plex Mono", monospace;
+    }
+
+    .digit::after {
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 16px;
+      height: 1px;
+      background: var(--line);
+    }
+
+    .digit span { position: relative; z-index: 1; }
+
+    .comma {
+      width: 16px;
+      flex: 0 0 16px;
+      text-align: center;
+      font: 500 25px/32px "IBM Plex Mono", monospace;
+    }
+
+    .budget-caption {
+      position: absolute;
+      left: 284px;
+      top: 27px;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 22px;
+      white-space: nowrap;
+    }
+
+    .ruler {
+      position: absolute;
+      left: 112px;
+      top: 58px;
+      width: 328px;
+      height: 28px;
+    }
+
+    .result-heading {
+      position: absolute;
+      left: 280px;
+      top: 120px;
+      width: 1120px;
+      font-size: 34px;
+      line-height: 44px;
+      white-space: nowrap;
+    }
+
+    .cost {
+      position: absolute;
+      left: 280px;
+      top: 172px;
+      color: var(--muted);
+    }
+
+    .preview {
+      position: absolute;
+      left: 280px;
+      top: 220px;
+      width: 648px;
+      height: 408px;
+      overflow: hidden;
+      border: 1px solid var(--ink);
+      border-radius: 3px;
+      background: var(--card);
+      pointer-events: none;
+    }
+
+    .screw {
+      position: absolute;
+      z-index: 2;
+      width: 5px;
+      height: 5px;
+      border: 1px solid var(--muted);
+      border-radius: 50%;
+    }
+
+    .screw::after {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 1px;
+      width: 3px;
+      height: 1px;
+      background: var(--muted);
+      transform: rotate(-40deg);
+    }
+
+    .tl { left: 7px; top: 7px; }
+    .tr { right: 7px; top: 7px; }
+    .bl { left: 7px; bottom: 7px; }
+    .br { right: 7px; bottom: 7px; }
+
+    .preview-toolbar {
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 20px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .preview-label {
+      font: 400 11px/16px "IBM Plex Mono", monospace;
+      letter-spacing: .8px;
+    }
+
+    .mini-site {
+      position: absolute;
+      left: 20px;
+      top: 55px;
+      width: 606px;
+      height: 330px;
+    }
+
+    .site-nav {
+      height: 39px;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .cafe-name { font-size: 24px; line-height: 30px; }
+
+    .site-links {
+      display: flex;
+      gap: 20px;
+      padding-top: 5px;
+      font-size: 14px;
+      line-height: 22px;
+    }
+
+    .site-hero {
+      position: absolute;
+      top: 52px;
+      width: 606px;
+      height: 139px;
+    }
+
+    .site-hero h3 {
+      width: 360px;
+      font-size: 25px;
+      line-height: 30px;
+    }
+
+    .site-hero p {
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 22px;
+      white-space: nowrap;
+    }
+
+    .mini-order {
+      width: 194px;
+      height: 32px;
+      margin-top: 10px;
+      display: grid;
+      place-items: center;
+      border-radius: 2px;
+      background: var(--accent);
+      color: var(--card);
+      font-size: 14px;
+      line-height: 20px;
+    }
+
+    .cup {
+      position: absolute;
+      right: 15px;
+      top: 14px;
+      width: 120px;
+      height: 96px;
+      color: var(--muted);
+    }
+
+    .site-bottom {
+      position: absolute;
+      top: 204px;
+      width: 606px;
+      display: flex;
+      justify-content: space-between;
+      padding-top: 11px;
+      border-top: 1px solid var(--line);
+    }
+
+    .menu { width: 330px; }
+
+    .menu h3, .contacts h3 {
+      margin-bottom: 5px;
+      font-size: 18px;
+      line-height: 24px;
+    }
+
+    .menu-row {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      font-size: 14px;
+      line-height: 23px;
+    }
+
+    .leader { flex: 1; border-bottom: 1px dotted var(--line); }
+    .contacts { width: 190px; }
+
+    .map {
+      width: 190px;
+      height: 69px;
+      border: 1px solid var(--line);
+      border-radius: 2px;
+    }
+
+    .done {
+      position: absolute;
+      left: 960px;
+      top: 220px;
+      width: 440px;
+      height: 164px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .section-title { font-size: 24px; line-height: 32px; }
+    .done ul, .checks ul { margin: 12px 0 0; padding: 0; list-style: none; }
+
+    .done li {
+      position: relative;
+      height: 32px;
+      padding-left: 20px;
+      white-space: nowrap;
+    }
+
+    .done li::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 12px;
+      width: 8px;
+      height: 1px;
+      background: var(--ink);
+    }
+
+    .checks {
+      position: absolute;
+      left: 960px;
+      top: 400px;
+      width: 440px;
+    }
+
+    .checks li {
+      height: 32px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      white-space: nowrap;
+    }
+
+    .stamp {
+      width: 22px;
+      height: 22px;
+      flex: 0 0 22px;
+      display: grid;
+      place-items: center;
+      border: 1px solid var(--stamp);
+      border-radius: 2px;
+      color: var(--stamp);
+      transform: rotate(-5deg);
+    }
+
+    .stamp svg {
+      width: 17px;
+      height: 17px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 1.6;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .limitation {
+      position: absolute;
+      left: 960px;
+      top: 580px;
+      width: 440px;
+      padding-top: 12px;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 22px;
+    }
+
+    .visibility-status {
+      position: absolute;
+      left: 280px;
+      top: 652px;
+      width: 1120px;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 22px;
+      white-space: nowrap;
+    }
+
+    .actions {
+      position: absolute;
+      left: 280px;
+      top: 688px;
+      height: 48px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .primary {
+      width: 184px;
+      border-color: var(--accent);
+      background: var(--accent);
+      color: var(--card);
+    }
+
+    .primary:not(:disabled):hover {
+      border-color: var(--ink);
+      background: var(--ink);
+    }
+
+    .primary:not(:disabled):active {
+      background: var(--ink);
+      outline: 1px solid var(--card);
+      outline-offset: -4px;
+    }
+
+    .edit { width: 196px; background: var(--card); }
+    .publish { width: 168px; }
+
+    .details {
+      height: 44px;
+      margin-left: 12px;
+      padding: 0;
+      border: 0;
+      background: transparent;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 22px;
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+
+    .composer {
+      position: absolute;
+      left: 280px;
+      top: 784px;
+      width: 1120px;
+      height: 84px;
+      border: 1px solid var(--ink);
+      border-radius: 3px;
+      background: var(--card);
+    }
+
+    .composer:focus-within { border-color: var(--accent); }
+
+    .composer textarea {
+      position: absolute;
+      left: 19px;
+      top: 19px;
+      width: 860px;
+      height: 44px;
+      resize: none;
+      padding: 8px 0;
+      border: 0;
+      background: transparent;
+      font-size: 18px;
+      line-height: 28px;
+    }
+
+    .composer textarea::placeholder { color: var(--muted); opacity: 1; }
+    .composer textarea:focus-visible { outline: none; }
+
+    .composer:has(textarea:focus-visible) {
+      outline: 2px solid var(--accent);
+      outline-offset: 3px;
+    }
+
+    .voice {
+      position: absolute;
+      right: 15px;
+      top: 17px;
+      height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding: 0 12px;
+      border: 1px solid var(--line);
+      border-radius: 3px;
+      background: transparent;
+      font-size: 14px;
+      line-height: 22px;
+      white-space: nowrap;
+    }
+
+    .voice .icon { width: 20px; height: 20px; }
+
+    .voice.send {
+      width: 48px;
+      padding: 0;
+      border-color: var(--accent);
+      background: var(--accent);
+      color: var(--card);
+    }
+
+    .voice.recording {
+      border-color: var(--accent);
+      background: var(--accent);
+      color: var(--card);
+    }
+
+    .voice.send:not(:disabled):hover,
+    .voice.recording:not(:disabled):hover { background: var(--ink); }
+
+    .notice {
+      position: absolute;
+      right: 0;
+      bottom: 94px;
+      max-width: 600px;
+      padding: 10px 14px;
+      border: 1px solid var(--line);
+      border-radius: 3px;
+      background: var(--card);
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 22px;
+    }
+
+    .notice:empty { display: none; }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar" aria-label="Боковая панель">
+      <div class="logo serif">PRSLOY</div>
+      <div class="status">работает</div>
+
+      <nav class="modes" aria-label="Режим работы">
+        <button class="mode" type="button" aria-pressed="false">Код</button>
+        <button class="mode" type="button" aria-pressed="true">Креатив</button>
+        <button class="mode" type="button" aria-pressed="false">Повседнев</button>
+      </nav>
+
+      <span class="tag chats-label">ЧАТЫ</span>
+      <nav class="chat-list" aria-label="Чаты">
+        <button class="chat" type="button" aria-current="page">Сайт для кофейни</button>
+        <button class="chat" type="button">Пост в Telegram</button>
+        <button class="chat" type="button">Письмо арендатору</button>
+      </nav>
+
+      <button class="button new-chat" type="button">
+        <svg class="icon" viewBox="0 0 16 16" aria-hidden="true">
+          <path d="M8 2v12M2 8h12"/>
+        </svg>
+        Новый чат
+      </button>
+    </aside>
+
+    <header class="topbar">
+      <div class="budget" role="img" aria-label="Потрачено сегодня 36 рублей 61 копейка из 50 рублей">
+        <span class="budget-label" aria-hidden="true">Потрачено сегодня</span>
+
+        <!-- Полукруглая шкала: 0 слева, 50 справа; стрелка на 73,22%. -->
+        <svg class="gauge" viewBox="0 0 80 64" fill="none" aria-hidden="true">
+          <path d="M7 48a33 33 0 0 1 66 0M13 48a27 27 0 0 1 54 0"
+                stroke="currentColor" stroke-width="1"/>
+          <g stroke="currentColor" stroke-width="1">
+            <path d="M7 48h6M9.5 35.4l5.5 2.3M16.7 24.7l4.2 4.2M27.4 17.5l2.3 5.5M40 15v6M52.6 17.5l-2.3 5.5M63.3 24.7l-4.2 4.2M70.5 35.4 65 37.7M73 48h-6"/>
+          </g>
+          <path d="M40 48 56.65 29.35" stroke="#3b2a1e" stroke-width="1.5"/>
+          <circle cx="40" cy="48" r="2.5" fill="#faf7f0" stroke="#3b2a1e"/>
+          <g fill="#7a6352" font-family="'IBM Plex Mono', monospace" font-size="9">
+            <text x="6" y="61">0</text>
+            <text x="74" y="61" text-anchor="end">50</text>
+          </g>
+        </svg>
+
+        <div class="counter" aria-hidden="true">
+          <span class="digit"><span>3</span></span>
+          <span class="digit"><span>6</span></span>
+          <span class="comma">,</span>
+          <span class="digit"><span>6</span></span>
+          <span class="digit"><span>1</span></span>
+        </div>
+        <span class="budget-caption" aria-hidden="true">из 50 ₽ сегодня</span>
+
+        <svg class="ruler" viewBox="0 0 328 28" aria-hidden="true">
+          <defs>
+            <pattern id="ticks" width="6.54" height="11" patternUnits="userSpaceOnUse">
+              <path d="M.5 7v4" stroke="#3b2a1e" stroke-width="1"/>
+            </pattern>
+            <pattern id="hatch" width="5" height="8" patternUnits="userSpaceOnUse">
+              <path d="M-2 8 3 0M3 8 8 0" stroke="#b23a26" stroke-opacity=".35" stroke-width="1"/>
+            </pattern>
+          </defs>
+          <rect x="261.6" y="3" width="65.4" height="8" fill="url(#hatch)"/>
+          <rect width="327" height="11" fill="url(#ticks)"/>
+          <path d="M.5 1v10M32.7 4v7M65.4 4v7M98.1 4v7M130.8 4v7M163.5 1v10M196.2 4v7M228.9 4v7M261.6 1v10M294.3 4v7M327 1v10M0 11.5H328"
+                fill="none" stroke="#3b2a1e" stroke-width="1"/>
+          <path d="M235.93 0h7l-3.5 5z" fill="#a4472c"/>
+          <g fill="#7a6352" font-family="'IBM Plex Mono', monospace" font-size="10">
+            <text x="0" y="26">0</text>
+            <text x="163.5" y="26" text-anchor="middle">25</text>
+            <text x="261.6" y="26" text-anchor="middle">40</text>
+            <text x="328" y="26" text-anchor="end">50 ₽</text>
+          </g>
+        </svg>
+      </div>
+    </header>
+
+    <main aria-labelledby="result-title">
+      <h1 class="result-heading serif" id="result-title">Готово: сайт для кофейни «Зерно»</h1>
+      <p class="cost">Заняло 3&nbsp;мин 12&nbsp;с · потрачено 4,20&nbsp;₽</p>
+
+      <section class="preview" aria-label="Предпросмотр сайта кофейни «Зерно»">
+        <i class="screw tl" aria-hidden="true"></i>
+        <i class="screw tr" aria-hidden="true"></i>
+        <i class="screw bl" aria-hidden="true"></i>
+        <i class="screw br" aria-hidden="true"></i>
+
+        <div class="preview-toolbar">
+          <span class="preview-label">ПРЕДПРОСМОТР</span>
+          <svg class="icon" viewBox="0 0 16 16" aria-hidden="true">
+            <rect x="1.5" y="2" width="13" height="12" rx="1"/>
+            <path d="M2 5h12"/>
+          </svg>
+        </div>
+
+        <div class="mini-site">
+          <div class="site-nav">
+            <span class="cafe-name serif">Зерно</span>
+            <div class="site-links"><span>Меню</span><span>Контакты</span></div>
+          </div>
+
+          <div class="site-hero">
+            <h3 class="serif">Кофе. Пауза.<br>Хороший день.</h3>
+            <p>Свежий кофе и выпечка каждый день</p>
+            <span class="mini-order">Заказать в Telegram</span>
+
+            <svg class="cup" viewBox="0 0 120 96" fill="none" stroke="currentColor" stroke-width="1" aria-hidden="true">
+              <path d="M40 22c-7-8 7-10 1-19M59 22c-7-8 7-10 1-19"/>
+              <ellipse cx="55" cy="38" rx="33" ry="9"/>
+              <path d="M22 38l6 28c3 12 51 12 54 0l6-28M88 43c25-6 25 24-3 23"/>
+              <path d="M31 48l3 18M37 51l3 18M43 53l2 17" opacity=".5"/>
+              <path d="M28 70c-30 4-26 17 28 18 51 0 58-14 28-18"/>
+            </svg>
+          </div>
+
+          <div class="site-bottom">
+            <div class="menu">
+              <h3 class="serif">Меню</h3>
+              <div class="menu-row"><span>Эспрессо</span><span class="leader"></span><span>150 ₽</span></div>
+              <div class="menu-row"><span>Капучино</span><span class="leader"></span><span>220 ₽</span></div>
+              <div class="menu-row"><span>Круассан</span><span class="leader"></span><span>190 ₽</span></div>
+            </div>
+
+            <div class="contacts">
+              <h3 class="serif">Контакты</h3>
+              <svg class="map" viewBox="0 0 190 69" fill="none" aria-hidden="true">
+                <g stroke="#ddd2c1" stroke-width="1">
+                  <path d="M-5 18 195 48M44-5 26 75M137-5 109 75M-5 61 195 10"/>
+                </g>
+                <path d="M98 23a8 8 0 0 1 8 8c0 6-8 14-8 14s-8-8-8-14a8 8 0 0 1 8-8Z"
+                      stroke="#7a6352" stroke-width="1.2" fill="#faf7f0"/>
+                <circle cx="98" cy="31" r="2.5" stroke="#7a6352" stroke-width="1.2"/>
+              </svg>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="done" aria-labelledby="done-title">
+        <h2 class="section-title serif" id="done-title">Что сделано</h2>
+        <ul>
+          <li>Главная с меню и ценами</li>
+          <li>Страница «Контакты» с картой</li>
+          <li>Кнопка «Заказать» ведёт в Telegram</li>
+        </ul>
+      </section>
+
+      <section class="checks" aria-labelledby="checks-title">
+        <h2 class="section-title serif" id="checks-title">Что проверено</h2>
+        <ul>
+          <li>
+            <span class="stamp" aria-hidden="true"><svg viewBox="0 0 18 18"><path d="m4 9 3.3 3.4L14 5"/></svg></span>
+            <span>Открывается на телефоне</span>
+          </li>
+          <li>
+            <span class="stamp" aria-hidden="true"><svg viewBox="0 0 18 18"><path d="m4 9 3.3 3.4L14 5"/></svg></span>
+            <span>Все ссылки работают</span>
+          </li>
+          <li>
+            <span class="stamp" aria-hidden="true"><svg viewBox="0 0 18 18"><path d="m4 9 3.3 3.4L14 5"/></svg></span>
+            <span>Тексты без ошибок</span>
+          </li>
+          <li>
+            <span class="stamp" aria-hidden="true"><svg viewBox="0 0 18 18"><path d="m4 9 3.3 3.4L14 5"/></svg></span>
+            <span>Загружается за 1,2&nbsp;с</span>
+          </li>
+        </ul>
+      </section>
+
+      <p class="limitation">Не проверено: оплата онлайн — её не было в задаче.</p>
+
+      <p class="visibility-status" id="visibility-status">Сайт готов. Пока его видите только вы. После публикации его смогут открыть другие.</p>
+
+      <div class="actions" role="group" aria-label="Действия с результатом" aria-describedby="visibility-status">
+        <button class="button primary" id="open-button" type="button">
+          Открыть сайт
+          <svg class="icon" viewBox="0 0 16 16" aria-hidden="true">
+            <path d="M9 2h5v5M14 2 7 9M6 3H2v11h11v-4"/>
+          </svg>
+        </button>
+        <button class="button edit" id="edit-button" type="button">Исправить что-то</button>
+        <button class="button publish" id="publish-button" type="button">Опубликовать</button>
+        <button class="details" id="details-button" type="button">Подробнее</button>
+      </div>
+
+      <form class="composer" id="change-form">
+        <label class="sr-only" for="changes">Что поменять?</label>
+        <textarea id="changes" rows="1" placeholder="Что поменять?" aria-describedby="input-notice"></textarea>
+        <button class="voice" id="input-action" type="button" aria-label="Сказать, что поменять" title="Сказать голосом">
+          <svg class="icon" viewBox="0 0 20 20" aria-hidden="true">
+            <rect x="7" y="2" width="6" height="10" rx="3"/>
+            <path d="M4.5 9v1a5.5 5.5 0 0 0 11 0V9M10 15.5V18M7 18h6"/>
+          </svg>
+          <span>Сказать голосом</span>
+        </button>
+        <p class="notice" id="input-notice" role="status" aria-live="polite"></p>
+      </form>
+    </main>
+  </div>
+
+  <script>
+    const field = document.getElementById('changes');
+    const action = document.getElementById('input-action');
+    const notice = document.getElementById('input-notice');
+
+    const mic = '<svg class="icon" viewBox="0 0 20 20" aria-hidden="true"><rect x="7" y="2" width="6" height="10" rx="3"/><path d="M4.5 9v1a5.5 5.5 0 0 0 11 0V9M10 15.5V18M7 18h6"/></svg>';
+    const arrow = '<svg class="icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 16V4M5 9l5-5 5 5"/></svg>';
+    const stop = '<svg class="icon" viewBox="0 0 20 20" aria-hidden="true"><rect x="5" y="5" width="10" height="10" fill="currentColor" stroke="none"/></svg>';
+
+    let recognition = null;
+    let recording = false;
+
+    function updateInput() {
+      if (recording) return;
+      const hasText = Boolean(field.value.trim());
+      action.classList.toggle('send', hasText);
+      action.classList.remove('recording');
+      action.innerHTML = hasText ? arrow : mic + '<span>Сказать голосом</span>';
+      action.setAttribute('aria-label', hasText ? 'Отправить изменения' : 'Сказать, что поменять');
+      action.title = hasText ? 'Отправить изменения' : 'Сказать голосом';
+      field.style.width = hasText ? '1016px' : '860px';
+    }
+
+    function sendChanges() {
+      if (!field.value.trim()) return;
+      // Сервер не подключён: макет не сообщает о фиктивной отправке.
+      notice.textContent = 'Это макет. Изменения не отправлены, ваш текст сохранён.';
+    }
+
+    field.addEventListener('input', () => {
+      notice.textContent = '';
+      updateInput();
+    });
+
+    document.getElementById('edit-button').addEventListener('click', () => field.focus());
+
+    document.getElementById('change-form').addEventListener('submit', event => {
+      event.preventDefault();
+      sendChanges();
+    });
+
+    // Адрес результата и отдельные экраны не заданы.
+    document.getElementById('open-button').addEventListener('click', () => {
+      notice.textContent = 'Это макет. Адрес готового сайта пока не подключён.';
+    });
+
+    document.getElementById('publish-button').addEventListener('click', () => {
+      notice.textContent = 'Это макет. Экран подтверждения публикации не подключён. Сайт не опубликован.';
+    });
+
+    document.getElementById('details-button').addEventListener('click', () => {
+      notice.textContent = 'Это макет. Подробный отчёт пока не подключён.';
+    });
+
+    action.addEventListener('click', () => {
+      if (recording) {
+        recognition.stop();
+        return;
+      }
+
+      if (field.value.trim()) {
+        sendChanges();
+        return;
+      }
+
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+      if (!SpeechRecognition) {
+        notice.textContent = 'Голосовой ввод недоступен в этом браузере. Напишите текст.';
+        field.focus();
+        return;
+      }
+
+      recognition = new SpeechRecognition();
+      recognition.lang = 'ru-RU';
+      recognition.interimResults = false;
+
+      recognition.onstart = () => {
+        recording = true;
+        notice.textContent = '';
+        field.placeholder = 'Слушаю…';
+        field.readOnly = true;
+        action.classList.remove('send');
+        action.classList.add('recording');
+        action.innerHTML = stop + '<span>Остановить</span>';
+        action.setAttribute('aria-label', 'Остановить запись');
+        action.title = 'Остановить';
+      };
+
+      recognition.onresult = event => {
+        field.value = event.results[0][0].transcript;
+        notice.textContent = '';
+      };
+
+      recognition.onerror = event => {
+        notice.textContent = event.error === 'not-allowed' || event.error === 'service-not-allowed'
+          ? 'Разрешите доступ к микрофону или напишите текст.'
+          : 'Не удалось распознать речь. Попробуйте ещё раз или напишите текст.';
+      };
+
+      recognition.onend = () => {
+        recording = false;
+        field.readOnly = false;
+        field.placeholder = 'Что поменять?';
+        updateInput();
+      };
+
+      try {
+        recognition.start();
+      } catch {
+        recording = false;
+        field.readOnly = false;
+        field.placeholder = 'Что поменять?';
+        updateInput();
+        notice.textContent = 'Не удалось включить микрофон. Попробуйте ещё раз или напишите текст.';
+      }
+    });
+  </script>
+</body>
+</html>

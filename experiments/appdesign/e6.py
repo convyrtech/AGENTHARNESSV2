@@ -40,7 +40,7 @@ def ask(model_extra, parts, tag, max_tokens=64000):
         t = "".join(((c.get("choices") or [{}])[0].get("delta") or {}).get("content") or "" for c in ch)
         rc = sum(len(((c.get("choices") or [{}])[0].get("delta") or {}).get("reasoning_content") or "") for c in ch)
         u = [c["usage"] for c in ch if c.get("usage")]
-        if r["status"] == 200 and len(t.strip()) > 20:
+        if r["status"] == 200 and len(t.strip()) > 0:
             LOG.append({"tag": tag, "model": model, "secs": r["secs"], "reasoning_chars": rc, "in": u[-1].get("prompt_tokens") if u else None, "out": u[-1].get("completion_tokens") if u else None})
             return t
     return ""

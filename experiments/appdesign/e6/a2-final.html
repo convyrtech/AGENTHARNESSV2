@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Готово — PRSLOY</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geologica:wght@300;400;500;600&family=Piazzolla:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --paper: #f3eee3;
+  --card: #faf7f0;
+  --ink: #3b2a1e;
+  --muted: #7a6352;
+  --line: #ddd2c1;
+  --accent: #a4472c;
+  --stamp: #b23a26;
+}
+* { box-sizing: border-box; }
+html, body { width: 1440px; height: 900px; margin: 0; overflow: hidden; }
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font: 400 17px/1.5 "Geologica", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+button, input { font: inherit; color: inherit; }
+button { cursor: pointer; border-radius: 3px; }
+button:focus-visible, input:focus-visible, a:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+}
+.serif { font-family: "Piazzolla", Georgia, serif; }
+.label {
+  display: inline-block;
+  padding: 4px 7px;
+  border: 1px solid var(--muted);
+  color: var(--muted);
+  font: 11px/1.3 "Courier New", monospace;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+.app { display: flex; width: 1440px; height: 900px; }
+.sidebar {
+  flex: 0 0 232px;
+  padding: 31px 17px 24px;
+  border-right: 1px solid var(--ink);
+  display: flex;
+  flex-direction: column;
+}
+.brand { margin-left: 12px; font-size: 32px; line-height: 1.2; letter-spacing: 1.5px; }
+.status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 0 34px 13px;
+  font-size: 14px;
+  color: var(--muted);
+}
+.status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ink); }
+.side-label { margin: 0 0 12px 9px; }
+.modes { padding: 5px; border: 1px solid var(--line); border-radius: 3px; }
+.mode {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  height: 47px;
+  padding: 0 12px;
+  border: 1px solid transparent;
+  background: transparent;
+  text-align: left;
+}
+.mode.selected { border-color: var(--ink); background: var(--card); }
+.mode.selected::after { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+.chats { margin-top: 31px; }
+.chat {
+  display: block;
+  width: 100%;
+  min-height: 56px;
+  margin-bottom: 8px;
+  padding: 12px 11px;
+  border: 1px solid transparent;
+  background: transparent;
+  text-align: left;
+  font-size: 16px;
+  line-height: 24px;
+}
+.chat.active { position: relative; border-color: var(--ink); background: var(--card); }
+.chat.active::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 3px;
+  background: var(--accent);
+}
+.new-chat { margin-top: auto; height: 52px; border: 1px solid var(--ink); background: transparent; }
+.new-chat span { margin-right: 11px; font-size: 22px; }
+
+main { flex: 1; min-width: 0; padding: 26px 32px 20px; }
+.page-header {
+  height: 104px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 18px;
+}
+.heading { flex: 1; min-width: 0; }
+h1 {
+  margin: 0 0 10px;
+  font: 400 34px/1.2 "Piazzolla", Georgia, serif;
+  letter-spacing: -.5px;
+  white-space: nowrap;
+}
+.heading p { margin: 0; color: var(--muted); font-size: 16px; }
+.heading p span { margin: 0 8px; }
+
+/* Один компактный прибор: счётчик, лимит и шкала. */
+.budget {
+  flex: 0 0 294px;
+  height: 104px;
+  padding: 10px 13px 8px;
+  border: 1px solid var(--ink);
+  border-radius: 3px;
+  background: var(--card);
+}
+.budget-top { display: flex; align-items: center; gap: 12px; }
+.counter { display: flex; align-items: center; gap: 3px; }
+.digit {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 25px;
+  height: 35px;
+  border: 1px solid var(--ink);
+  font: 29px/1 "Piazzolla", Georgia, serif;
+}
+.digit::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  border-top: 1px solid var(--line);
+}
+.digit span { position: relative; z-index: 1; }
+.comma { align-self: flex-end; font: 28px/1 "Piazzolla", Georgia, serif; }
+.budget-note { color: var(--muted); font-size: 14px; line-height: 19px; }
+.budget-scale { display: block; width: 100%; height: 43px; margin-top: 5px; }
+
+/* Общая приборная рама, без отдельных карточек отчёта. */
+.result {
+  position: relative;
+  height: 484px;
+  border: 1px solid var(--ink);
+  border-radius: 3px;
+  background: var(--card);
+}
+.screw {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  border: 1px solid #a18a73;
+  border-radius: 50%;
+}
+.screw::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 0;
+  width: 4px;
+  border-top: 1px solid #a18a73;
+  transform: rotate(-45deg);
+}
+.tl { top: 7px; left: 7px; }
+.tr { top: 7px; right: 7px; }
+.bl { bottom: 7px; left: 7px; }
+.br { bottom: 7px; right: 7px; }
+.instrument-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 40px;
+  margin: 0 18px;
+  border-bottom: 1px solid var(--line);
+}
+.instrument-header .label { padding: 3px 6px; }
+.small-scale { display: block; width: 166px; height: 26px; }
+.result-grid {
+  display: grid;
+  grid-template-columns: 510px minmax(0, 1fr);
+  gap: 25px;
+  height: 442px;
+  padding: 18px;
+}
+.preview { margin: 0; min-width: 0; }
+.browser { height: 369px; border: 1px solid var(--muted); border-radius: 2px; background: var(--paper); overflow: hidden; }
+.browser-bar {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  height: 31px;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--line);
+  background: var(--card);
+}
+.browser-dot { width: 5px; height: 5px; border: 1px solid #ad9880; border-radius: 50%; }
+.browser-address { margin: 0 auto; padding-right: 25px; font-size: 13px; color: var(--muted); }
+.website { padding: 12px 20px; }
+.site-header { display: flex; align-items: baseline; gap: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--line); }
+.coffee-logo { font: 600 28px/1.2 "Piazzolla", Georgia, serif; }
+.site-kind { color: var(--muted); font-size: 14px; }
+.site-hero { height: 134px; display: flex; align-items: center; justify-content: space-between; }
+.site-title { margin-bottom: 10px; font: 500 26px/1.12 "Piazzolla", Georgia, serif; }
+.site-order {
+  display: inline-flex;
+  align-items: center;
+  gap: 22px;
+  padding: 6px 14px;
+  background: var(--ink);
+  color: var(--card);
+  border-radius: 2px;
+  font-size: 14px;
+}
+.coffee-drawing { width: 145px; height: 125px; flex: 0 0 145px; }
+.site-blocks { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; border-top: 1px solid var(--line); padding-top: 9px; }
+.site-block-title { margin-bottom: 5px; font-size: 15px; font-weight: 500; }
+.menu-row { display: flex; align-items: baseline; gap: 5px; font-size: 13px; line-height: 22px; }
+.menu-row .leader { flex: 1; border-bottom: 1px dotted #bda98f; }
+.menu-row .price { white-space: nowrap; }
+.map { display: block; width: 100%; height: 54px; border: 1px solid #c8b9a5; }
+.address { margin-top: 3px; font-size: 12px; color: var(--muted); line-height: 18px; }
+.preview-caption { margin-top: 8px; color: var(--muted); font-size: 14px; line-height: 21px; }
+
+.report { min-width: 0; }
+h2 { margin: 0 0 10px; font: 400 26px/1.2 "Piazzolla", Georgia, serif; }
+.done-list, .check-list { list-style: none; margin: 0; padding: 0; }
+.done-list li { position: relative; padding-left: 19px; font-size: 16px; line-height: 28px; }
+.done-list li::before { content: "—"; position: absolute; left: 0; color: var(--muted); }
+.checked { margin-top: 15px; padding-top: 13px; border-top: 1px solid var(--line); }
+.check-list li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 94px;
+  align-items: center;
+  gap: 12px;
+  min-height: 31px;
+  font-size: 16px;
+  line-height: 26px;
+}
+.check-stamp {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 94px;
+  height: 23px;
+  border: 1px solid var(--stamp);
+  border-radius: 2px;
+  color: var(--stamp);
+  font: 600 11px/1 "Courier New", monospace;
+  letter-spacing: .6px;
+}
+.unchecked {
+  margin: 12px 0 0;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  font-size: 15px;
+  line-height: 23px;
+}
+.unchecked strong { font-weight: 500; }
+
+.actions { height: 132px; padding-top: 15px; }
+.action-state { margin: 0 0 11px; font-size: 16px; line-height: 24px; }
+.action-row { display: flex; align-items: flex-start; gap: 12px; }
+.action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 23px;
+  height: 48px;
+  padding: 0 20px;
+  border: 1px solid var(--ink);
+  background: transparent;
+  text-decoration: none;
+  font-size: 17px;
+}
+.action.primary { background: var(--accent); border-color: var(--accent); color: var(--card); }
+.action.primary svg { width: 18px; height: 18px; }
+.publish { display: flex; flex-direction: column; align-items: center; }
+.publish-note { margin-top: 5px; color: var(--muted); font-size: 14px; line-height: 21px; }
+.details { margin: 12px 0 0 auto; color: var(--muted); font-size: 16px; text-underline-offset: 4px; }
+.composer { margin: 0; padding-top: 17px; border-top: 1px solid var(--line); }
+.input-wrap {
+  display: flex;
+  align-items: center;
+  height: 62px;
+  padding: 0 12px 0 19px;
+  border: 1px solid var(--ink);
+  border-radius: 3px;
+  background: var(--card);
+}
+.input-wrap input { flex: 1; min-width: 0; border: 0; background: transparent; font-size: 18px; line-height: 28px; }
+.input-wrap input::placeholder { color: var(--muted); opacity: 1; }
+.mic { display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; border: 1px solid var(--muted); background: transparent; }
+.mic svg { width: 23px; height: 23px; }
+.composer-note { margin: 7px 0 0; font-size: 14px; line-height: 21px; color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar" aria-label="Навигация">
+    <div class="brand serif">PRSLOY</div>
+    <div class="status"><span class="status-dot" aria-hidden="true"></span>работает</div>
+
+    <div><span class="side-label label">Режим работы</span></div>
+    <nav class="modes" aria-label="Режим работы">
+      <button class="mode" type="button" aria-pressed="false">Код</button>
+      <button class="mode selected" type="button" aria-pressed="true">Креатив</button>
+      <button class="mode" type="button" aria-pressed="false">Повседнев</button>
+    </nav>
+
+    <nav class="chats" aria-label="Чаты">
+      <span class="side-label label">Ваши чаты</span>
+      <button class="chat active" type="button" aria-current="page">Сайт для кофейни</button>
+      <button class="chat" type="button">Пост в Telegram</button>
+      <button class="chat" type="button">Письмо арендатору</button>
+    </nav>
+    <button class="new-chat" type="button"><span aria-hidden="true">+</span>Новый чат</button>
+  </aside>
+
+  <main>
+    <header class="page-header">
+      <div class="heading">
+        <h1>Готово: сайт для кофейни «Зерно»</h1>
+        <p>Заняло 3 мин 12 с <span aria-hidden="true">·</span> потрачено 4,20 ₽</p>
+      </div>
+
+      <section class="budget" aria-label="Потрачено 36 рублей 61 копейка из 50 рублей сегодня">
+        <div class="budget-top">
+          <div class="counter" aria-hidden="true">
+            <span class="digit"><span>3</span></span>
+            <span class="digit"><span>6</span></span>
+            <span class="comma">,</span>
+            <span class="digit"><span>6</span></span>
+            <span class="digit"><span>1</span></span>
+          </div>
+          <span class="budget-note">из 50 ₽ сегодня</span>
+        </div>
+        <svg class="budget-scale" viewBox="0 0 266 43" fill="none" aria-hidden="true">
+          <defs>
+            <pattern id="budget-hatch" width="5" height="7" patternUnits="userSpaceOnUse">
+              <path d="M-2 7 2 0M3 7 7 0" stroke="#b23a26" stroke-width=".7"/>
+            </pattern>
+            <pattern id="budget-ticks" x="3" y="0" width="5.2" height="20" patternUnits="userSpaceOnUse">
+              <path d="M0 10V17" stroke="#7a6352" stroke-width=".8"/>
+            </pattern>
+          </defs>
+          <!-- Рабочая длина шкалы — 260. Красная зона: ровно 52, то есть 20%. -->
+          <rect x="211" y="10" width="52" height="7" fill="url(#budget-hatch)"/>
+          <rect x="3" y="0" width="260" height="18" fill="url(#budget-ticks)"/>
+          <path d="M3 6V18H263V6M55 7V18M107 7V18M133 5V18M159 7V18M211 5V18" stroke="#7a6352" stroke-width=".8"/>
+          <path d="M189.37 1H197.37L193.37 7Z" fill="#a4472c"/>
+          <g fill="#7a6352" font-family="Courier New, monospace" font-size="13">
+            <text x="3" y="36">0</text>
+            <text x="133" y="36" text-anchor="middle">25</text>
+            <text x="263" y="36" text-anchor="end">50 ₽</text>
+          </g>
+        </svg>
+      </section>
+    </header>
+
+    <section class="result" aria-label="Результат работы">
+      <i class="screw tl" aria-hidden="true"></i>
+      <i class="screw tr" aria-hidden="true"></i>
+      <i class="screw bl" aria-hidden="true"></i>
+      <i class="screw br" aria-hidden="true"></i>
+
+      <div class="instrument-header">
+        <span class="label">01 / Результат работы</span>
+        <svg class="small-scale" viewBox="0 0 166 26" fill="none" aria-hidden="true">
+          <path d="M1 13H165M1 5V16M17 9V13M33 9V13M49 9V13M65 9V13M83 5V16M99 9V13M115 9V13M131 9V13M147 9V13M165 5V16" stroke="#b6a38c" stroke-width=".8"/>
+          <g fill="#7a6352" font-family="Courier New, monospace" font-size="9">
+            <text x="1" y="25">0</text>
+            <text x="83" y="25" text-anchor="middle">50</text>
+            <text x="165" y="25" text-anchor="end">100</text>
+          </g>
+        </svg>
+      </div>
+
+      <div class="result-grid">
+        <figure class="preview">
+          <div class="browser" aria-label="Схема сайта кофейни «Зерно»">
+            <div class="browser-bar">
+              <span class="browser-dot" aria-hidden="true"></span>
+              <span class="browser-dot" aria-hidden="true"></span>
+              <span class="browser-dot" aria-hidden="true"></span>
+              <span class="browser-address">Зерно — главная</span>
+            </div>
+            <div class="website">
+              <div class="site-header">
+                <span class="coffee-logo">Зерно</span>
+                <span class="site-kind">кофейня</span>
+              </div>
+              <div class="site-hero">
+                <div>
+                  <div class="site-title">Хороший день<br>начинается с кофе.</div>
+                  <span class="site-order">Заказать <span aria-hidden="true">↗</span></span>
+                </div>
+                <svg class="coffee-drawing" viewBox="0 0 180 150" fill="none" aria-hidden="true">
+                  <ellipse cx="91" cy="123" rx="68" ry="15" stroke="#b5a088"/>
+                  <path d="M35 123c17 11 91 13 111-1" stroke="#c6b69f"/>
+                  <path d="M46 66l7 43c4 20 65 21 72-1l8-42" fill="#e9dfce" stroke="#7a6352"/>
+                  <path d="M130 73c36-7 31 34-6 33M130 81c22-5 20 16-4 18" stroke="#7a6352"/>
+                  <ellipse cx="89" cy="66" rx="44" ry="12" fill="#f3eee3" stroke="#7a6352"/>
+                  <ellipse cx="89" cy="68" rx="36" ry="7" fill="#b7a086" stroke="#7a6352"/>
+                  <path d="M66 85l3 22M73 91l2 20M114 86l-3 21" stroke="#c2ad92"/>
+                  <path d="M76 48c-12-12 11-16 0-29M91 45c-12-15 12-20 2-35M106 47c-8-9 9-15 3-24" stroke="#a28b70" stroke-linecap="round"/>
+                </svg>
+              </div>
+
+              <div class="site-blocks">
+                <div>
+                  <div class="site-block-title">Меню и цены</div>
+                  <div class="menu-row"><span>Эспрессо</span><span class="leader"></span><span class="price">150 ₽</span></div>
+                  <div class="menu-row"><span>Капучино</span><span class="leader"></span><span class="price">220 ₽</span></div>
+                  <div class="menu-row"><span>Круассан</span><span class="leader"></span><span class="price">190 ₽</span></div>
+                </div>
+                <div>
+                  <div class="site-block-title">Как нас найти</div>
+                  <svg class="map" viewBox="0 0 215 54" fill="none" role="img" aria-label="Схема карты с отметкой кофейни">
+                    <rect width="215" height="54" fill="#faf7f0"/>
+                    <path d="M0 29H215M65 0V54M171 0 140 54" stroke="#ddd2c1" stroke-width="9"/>
+                    <path d="M0 29H215M65 0V54M171 0 140 54" stroke="#b7a38b" stroke-width=".7"/>
+                    <path d="M86 8h27v11H86zM13 7h33v10H13zM84 40h35v10H84zM178 38h25v11h-25z" stroke="#c8b9a5"/>
+                    <path d="M143 14c0 7-8 14-8 14s-8-7-8-14a8 8 0 1 1 16 0Z" fill="#faf7f0" stroke="#a4472c" stroke-width="1.2"/>
+                    <circle cx="135" cy="14" r="2.5" stroke="#a4472c"/>
+                  </svg>
+                  <div class="address">ул. Лесная, 12 · 8:00–21:00</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <figcaption class="preview-caption">Предпросмотр сайта · главная страница</figcaption>
+        </figure>
+
+        <div class="report">
+          <section aria-labelledby="done-title">
+            <h2 id="done-title">Что сделано</h2>
+            <ul class="done-list">
+              <li>Главная с меню и ценами</li>
+              <li>Страница «Контакты» с картой</li>
+              <li>Кнопка «Заказать» ведёт в Telegram</li>
+            </ul>
+          </section>
+
+          <section class="checked" aria-labelledby="checked-title">
+            <h2 id="checked-title">Что проверено</h2>
+            <ul class="check-list">
+              <li><span>Открывается на телефоне</span><span class="check-stamp">ПРОВЕРЕНО</span></li>
+              <li><span>Все ссылки работают</span><span class="check-stamp">ПРОВЕРЕНО</span></li>
+              <li><span>Тексты без ошибок</span><span class="check-stamp">ПРОВЕРЕНО</span></li>
+              <li><span>Загружается за 1,2 с</span><span class="check-stamp">ПРОВЕРЕНО</span></li>
+            </ul>
+            <p class="unchecked"><strong>Не проверено:</strong> оплата онлайн — её не было в задаче</p>
+          </section>
+        </div>
+      </div>
+    </section>
+
+    <section class="actions" aria-label="Действия с сайтом">
+      <p class="action-state">Сайт ещё не опубликован. Его видите только вы.</p>
+      <div class="action-row">
+        <button class="action primary" type="button">
+          Открыть сайт
+          <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
+            <path d="M5 15 15 5M5 5h10v10" stroke="currentColor" stroke-width="1.5"/>
+          </svg>
+        </button>
+        <button class="action" type="button" onclick="document.getElementById('changes').focus()">Исправить что-то</button>
+        <div class="publish">
+          <button class="action" type="button" aria-describedby="publish-note">Опубликовать</button>
+          <span class="publish-note" id="publish-note">Сделать доступным всем</span>
+        </div>
+        <a class="details" href="#checked-title">Подробнее</a>
+      </div>
+    </section>
+
+    <form class="composer" onsubmit="event.preventDefault()">
+      <div class="input-wrap">
+        <input id="changes" type="text" placeholder="Что поменять?" aria-label="Что поменять?" autocomplete="off">
+        <button class="mic" type="button" aria-label="Сказать голосом">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <rect x="9" y="3" width="6" height="11" rx="3" stroke="currentColor" stroke-width="1.4"/>
+            <path d="M6 10v2a6 6 0 0 0 12 0v-2M12 18v3M9 21h6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+          </svg>
+        </button>
+      </div>
+      <p class="composer-note">Напишите как есть — или скажите голосом.</p>
+    </form>
+  </main>
+</div>
+</body>
+</html>

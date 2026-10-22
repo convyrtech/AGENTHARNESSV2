@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PRSLOY — Готово</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geologica:wght@300;400;500;600&family=Piazzolla:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --paper: #f3eee3;
+  --card: #faf7f0;
+  --ink: #3b2a1e;
+  --muted: #7a6352;
+  --line: #ddd2c1;
+  --accent: #a4472c;
+  --stamp: #b23a26;
+}
+* { box-sizing: border-box; }
+html, body { width: 1440px; height: 900px; margin: 0; overflow: hidden; }
+body { background: var(--paper); color: var(--ink); font: 400 16px/1.5 "Geologica", sans-serif; }
+button, input { font: inherit; color: inherit; }
+button { cursor: pointer; border-radius: 3px; }
+button:hover { background: #eee5d7; }
+button:focus-visible, a:focus-visible, input:focus-visible, summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+}
+a { color: inherit; text-underline-offset: 4px; }
+svg { display: block; }
+.mono { font: 11px/1.4 "Courier New", monospace; text-transform: uppercase; letter-spacing: 1.1px; }
+.app { display: flex; width: 1440px; height: 900px; border: 1px solid var(--ink); }
+.sidebar {
+  width: 230px;
+  flex-shrink: 0;
+  border-right: 1px solid var(--ink);
+  padding: 30px 21px 27px;
+  display: flex;
+  flex-direction: column;
+}
+.logo { font: 400 30px/1.2 "Piazzolla", Georgia, serif; letter-spacing: 1.1px; }
+.status { display: flex; align-items: center; gap: 8px; margin-top: 10px; color: var(--muted); font-size: 14px; }
+.status::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--ink); }
+.side-label { margin: 39px 0 12px; color: var(--muted); }
+.modes, .chats { display: flex; flex-direction: column; gap: 6px; }
+.mode {
+  height: 44px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 12px;
+  border: 1px solid transparent;
+  background: transparent;
+  text-align: left;
+}
+.mode svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.2; }
+.mode.selected { border-color: var(--ink); background: var(--card); }
+.mode.selected::after { content: ""; width: 5px; height: 5px; margin-left: auto; border-radius: 50%; background: var(--accent); }
+.chats-label { margin-top: 35px; }
+.chat { padding: 12px 9px; border: 1px solid transparent; background: transparent; text-align: left; line-height: 1.45; }
+.chat.active { padding-left: 8px; border-color: var(--line); border-left: 2px solid var(--accent); background: var(--card); }
+.chat small { display: block; margin-top: 6px; color: var(--muted); font-size: 14px; }
+.new-chat { width: 100%; height: 48px; margin-top: auto; border: 1px solid var(--ink); background: transparent; }
+.new-chat span { margin-right: 9px; font-size: 22px; vertical-align: -1px; }
+
+main { position: relative; flex: 1; min-width: 0; padding: 0 44px; }
+.topbar { height: 113px; display: flex; justify-content: space-between; align-items: flex-start; padding-top: 18px; }
+.breadcrumb { display: flex; gap: 12px; padding-top: 15px; color: var(--muted); font-size: 14px; }
+.breadcrumb span:last-child { color: var(--ink); }
+
+/* Один прибор: общий корпус, счётчик и шкала. */
+.budget {
+  position: relative;
+  width: 322px;
+  height: 85px;
+  padding: 10px 15px 8px;
+  border: 1px solid var(--ink);
+  border-radius: 3px;
+  background: var(--card);
+}
+.screw { position: absolute; width: 5px; height: 5px; top: 4px; left: 4px; border: 1px solid #a28e78; border-radius: 50%; }
+.screw::after { content: ""; position: absolute; width: 3px; top: 1px; left: 0; border-top: 1px solid #a28e78; transform: rotate(-45deg); }
+.screw.tr { left: auto; right: 4px; }
+.screw.bl { top: auto; bottom: 4px; }
+.screw.br { top: auto; left: auto; right: 4px; bottom: 4px; }
+.budget-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.counter { display: flex; align-items: center; padding: 2px; gap: 2px; border: 1px solid var(--ink); }
+.digit {
+  position: relative;
+  width: 23px;
+  height: 28px;
+  border: 1px solid #aa9681;
+  background: var(--paper);
+  text-align: center;
+  font: 24px/26px "Piazzolla", Georgia, serif;
+}
+.digit::after { content: ""; position: absolute; left: 0; right: 0; top: 50%; border-top: 1px solid var(--line); }
+.comma { width: 8px; text-align: center; font: 23px/28px "Piazzolla", Georgia, serif; }
+.budget-copy { white-space: nowrap; font-size: 13px; color: var(--muted); }
+.ruler { position: relative; height: 15px; margin-top: 4px; }
+.ruler svg { width: 290px; height: 15px; }
+.pointer {
+  position: absolute;
+  top: 0;
+  left: calc(73.22% - 3px);
+  width: 0;
+  height: 0;
+  border-left: 3px solid transparent;
+  border-right: 3px solid transparent;
+  border-top: 5px solid var(--accent);
+}
+.scale-labels { display: flex; justify-content: space-between; color: var(--muted); font: 10px/12px "Courier New", monospace; }
+
+h1 { margin: 0; font: 400 35px/1.25 "Piazzolla", Georgia, serif; letter-spacing: -.6px; }
+.result-meta { display: flex; align-items: center; gap: 20px; margin-top: 8px; font-size: 14px; }
+.subtitle { margin: 0; color: var(--muted); }
+.subtitle span { padding: 0 7px; }
+.details-link { color: var(--muted); }
+
+.result { display: grid; grid-template-columns: 548px minmax(0, 1fr); gap: 31px; margin-top: 24px; }
+.preview-frame { position: relative; height: 402px; padding: 13px; border: 1px solid var(--ink); border-radius: 2px; background: var(--card); }
+.browser { height: 100%; overflow: hidden; border: 1px solid var(--line); background: var(--paper); }
+.browser-bar { height: 34px; display: flex; align-items: center; gap: 5px; padding: 0 12px; border-bottom: 1px solid var(--line); background: var(--card); }
+.browser-dot { width: 4px; height: 4px; border: 1px solid #ac9c89; border-radius: 50%; }
+.preview-label { margin-left: 18px; color: var(--muted); font: 12px "Courier New", monospace; }
+.site { padding: 0 24px; }
+.site-nav { height: 59px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #d5c8b5; }
+.site-logo { font: 32px/1 "Piazzolla", Georgia, serif; letter-spacing: 1px; }
+.site-category { color: var(--muted); font-size: 14px; }
+.site-hero { position: relative; height: 176px; display: flex; align-items: center; }
+.hero-text { position: relative; z-index: 1; }
+.site-title { margin: 0 0 16px; font: 31px/1.15 "Piazzolla", Georgia, serif; letter-spacing: -.4px; }
+.site-button { display: inline-block; padding: 9px 13px; border: 1px solid var(--ink); border-radius: 2px; background: var(--ink); color: var(--card); font-size: 13px; }
+.coffee-drawing { position: absolute; right: -9px; top: 12px; width: 180px; height: 155px; }
+.site-menu-title { padding-top: 10px; border-top: 1px solid #d5c8b5; font: 23px/1.2 "Piazzolla", Georgia, serif; }
+.menu-items { display: flex; gap: 15px; margin-top: 14px; }
+.menu-item { flex: 1; display: flex; justify-content: space-between; gap: 6px; padding-bottom: 8px; border-bottom: 1px dotted #bbaa94; font-size: 13px; }
+.preview-caption { margin: 8px 0 0; color: var(--muted); font-size: 15px; }
+
+h2 { margin: 0 0 12px; font: 400 25px/1.25 "Piazzolla", Georgia, serif; }
+.done-list, .checked-list { margin: 0; padding: 0; list-style: none; }
+.done-list li { position: relative; padding-left: 17px; line-height: 1.5; }
+.done-list li + li { margin-top: 9px; }
+.done-list li::before { content: ""; position: absolute; left: 0; top: 12px; width: 6px; border-top: 1px solid var(--muted); }
+.checked-section { margin-top: 19px; padding-top: 15px; border-top: 1px solid var(--line); }
+.checked-heading { display: flex; align-items: center; justify-content: space-between; margin-bottom: 13px; }
+.checked-heading h2 { margin: 0; }
+.overall-stamp {
+  padding: 4px 7px 3px;
+  border: 1px solid var(--stamp);
+  border-radius: 2px;
+  color: var(--stamp);
+  font: 11px/1.2 "Courier New", monospace;
+  letter-spacing: 1px;
+  transform: rotate(-3deg);
+}
+.checked-list li { display: flex; align-items: center; gap: 12px; line-height: 24px; }
+.checked-list li + li { margin-top: 8px; }
+.check-mark {
+  width: 23px;
+  height: 23px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--muted);
+  border-radius: 2px;
+  color: var(--ink);
+}
+.check-mark svg { width: 15px; height: 15px; }
+.unchecked { margin-top: 14px; padding-top: 11px; border-top: 1px dashed #bba992; }
+.unchecked p { margin: 0; font-size: 15px; }
+.unchecked p + p { margin-top: 2px; color: var(--muted); font-size: 14px; }
+
+/* Самостоятельная полоса действий на всю ширину результата. */
+.actions {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+.private-actions { display: flex; gap: 12px; }
+.action {
+  height: 48px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 0 21px;
+  border: 1px solid var(--ink);
+  background: transparent;
+  white-space: nowrap;
+}
+.action.primary { min-width: 195px; background: var(--ink); color: var(--card); }
+.action.primary:hover { background: #503a29; }
+.action svg { width: 17px; height: 17px; }
+.action-note { margin: 7px 0 0; color: var(--muted); font-size: 14px; }
+.privacy { display: flex; align-items: center; gap: 7px; }
+.privacy svg { width: 14px; height: 14px; }
+.publish-group { display: flex; align-items: center; gap: 15px; padding-top: 0; }
+.publish-group .action-note { margin: 0; max-width: 155px; line-height: 1.5; }
+
+.composer-area { position: absolute; left: 44px; right: 44px; bottom: 23px; }
+.composer { height: 65px; display: flex; align-items: center; padding: 0 13px 0 20px; border: 1px solid var(--ink); border-radius: 3px; background: var(--card); }
+.composer input { flex: 1; min-width: 0; height: 43px; border: 0; background: transparent; }
+.composer input::placeholder { color: var(--muted); opacity: 1; }
+.mic { width: 39px; height: 39px; display: grid; place-items: center; border: 1px solid var(--line); background: transparent; }
+.mic svg { width: 20px; height: 20px; }
+.composer-foot { margin: 8px 0 0; color: var(--muted); font-size: 14px; }
+
+dialog { width: 550px; padding: 30px; border: 1px solid var(--ink); border-radius: 3px; background: var(--card); color: var(--ink); }
+dialog::backdrop { background: rgb(59 42 30 / 25%); }
+dialog h2 { font-size: 28px; }
+dialog p { margin: 12px 0; }
+dialog ul { padding-left: 22px; }
+dialog .action { margin-top: 12px; }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="logo">PRSLOY</div>
+    <div class="status">работает</div>
+
+    <div class="side-label mono">Режим работы</div>
+    <nav class="modes" aria-label="Режим работы">
+      <button class="mode" type="button" aria-pressed="false">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m7 5-5 5 5 5m6-10 5 5-5 5m-2-13L9 18"/></svg>
+        Код
+      </button>
+      <button class="mode selected" type="button" aria-pressed="true">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m4 15 1-4L14 2l4 4-9 9-5 1Zm8-11 4 4M3 18h14"/></svg>
+        Креатив
+      </button>
+      <button class="mode" type="button" aria-pressed="false">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 6h14v11H3zM6 3v5m8-5v5M3 10h14m-10 3h2m2 0h2"/></svg>
+        Повседнев
+      </button>
+    </nav>
+
+    <div class="side-label chats-label mono">Ваши чаты</div>
+    <nav class="chats" aria-label="Чаты">
+      <button class="chat active" type="button" aria-current="page">Сайт для кофейни<small>Готово · сегодня</small></button>
+      <button class="chat" type="button">Пост в Telegram</button>
+      <button class="chat" type="button">Письмо арендатору</button>
+    </nav>
+    <button class="new-chat" type="button"><span aria-hidden="true">+</span>Новый чат</button>
+  </aside>
+
+  <main>
+    <header class="topbar">
+      <div class="breadcrumb">
+        <span>Креатив</span><span aria-hidden="true">/</span><span>Сайт для кофейни</span>
+      </div>
+
+      <section class="budget" aria-label="Потрачено 36 рублей 61 копейка из 50 рублей сегодня. Красная зона — последние 20 процентов бюджета.">
+        <i class="screw" aria-hidden="true"></i><i class="screw tr" aria-hidden="true"></i>
+        <i class="screw bl" aria-hidden="true"></i><i class="screw br" aria-hidden="true"></i>
+        <div class="budget-top">
+          <div class="counter" aria-hidden="true">
+            <span class="digit">3</span><span class="digit">6</span><span class="comma">,</span><span class="digit">6</span><span class="digit">1</span>
+          </div>
+          <span class="budget-copy">из 50 ₽ сегодня</span>
+        </div>
+        <div class="ruler" aria-hidden="true">
+          <svg viewBox="0 0 290 15">
+            <defs>
+              <pattern id="ticks" width="5.8" height="15" patternUnits="userSpaceOnUse">
+                <path d="M0 15V10" fill="none" stroke="#7a6352" stroke-width="1"/>
+              </pattern>
+              <pattern id="hatch" width="5" height="8" patternUnits="userSpaceOnUse">
+                <path d="M-2 8 3 0M3 8 8 0" fill="none" stroke="#b23a26" stroke-width=".9"/>
+              </pattern>
+            </defs>
+            <rect x="232" y="6" width="58" height="9" fill="url(#hatch)"/>
+            <rect width="290" height="15" fill="url(#ticks)"/>
+            <path d="M.5 15V5M29 15V8M58 15V8M87 15V8M116 15V8M145 15V5M174 15V8M203 15V8M232 15V5M261 15V8M289.5 15V5M0 14.5H290" fill="none" stroke="#7a6352"/>
+          </svg>
+          <span class="pointer"></span>
+        </div>
+        <div class="scale-labels" aria-hidden="true"><span>0</span><span>25</span><span>50 ₽</span></div>
+      </section>
+    </header>
+
+    <section aria-labelledby="result-title">
+      <h1 id="result-title">Готово: сайт для кофейни «Зерно»</h1>
+      <div class="result-meta">
+        <p class="subtitle">Заняло 3 мин 12 с<span>·</span>потрачено 4,20 ₽</p>
+        <a class="details-link" href="#task-details" id="details-link" aria-haspopup="dialog">Подробнее</a>
+      </div>
+
+      <div class="result">
+        <div class="preview">
+          <div class="preview-frame">
+            <i class="screw" aria-hidden="true"></i><i class="screw tr" aria-hidden="true"></i>
+            <i class="screw bl" aria-hidden="true"></i><i class="screw br" aria-hidden="true"></i>
+            <div class="browser" role="img" aria-label="Схема сайта кофейни «Зерно». Заголовок «Хороший день начинается с зерна», кнопка заказа в Telegram и меню: эспрессо 150 рублей, капучино 220 рублей, латте 250 рублей.">
+              <div class="browser-bar" aria-hidden="true">
+                <span class="browser-dot"></span><span class="browser-dot"></span><span class="browser-dot"></span>
+                <span class="preview-label">Предпросмотр сайта</span>
+              </div>
+              <div class="site" aria-hidden="true">
+                <div class="site-nav">
+                  <div class="site-logo">зерно<span style="color:var(--accent)">.</span></div>
+                  <span class="site-category">кофейня</span>
+                </div>
+                <div class="site-hero">
+                  <div class="hero-text">
+                    <div class="site-title">Хороший день<br>начинается с зерна.</div>
+                    <span class="site-button">Заказать в Telegram ↗</span>
+                  </div>
+                  <svg class="coffee-drawing" viewBox="0 0 210 165" fill="none">
+                    <g stroke="#9e846b" stroke-width="1">
+                      <ellipse cx="112" cy="132" rx="77" ry="18"/>
+                      <path d="M37 133c7 26 141 27 151-1M48 130c16 16 111 16 128 0"/>
+                      <ellipse cx="108" cy="77" rx="50" ry="17"/>
+                      <ellipse cx="108" cy="77" rx="44" ry="12"/>
+                      <path d="M58 77 65 119c3 19 80 20 86 0l7-42M157 84c40-13 44 33-2 34M158 92c25-9 28 16-1 18"/>
+                      <path d="M74 88 78 115M80 91l3 28M86 93l3 28M139 92l-4 29M145 89l-5 29" opacity=".5"/>
+                      <path d="M88 54c-18-17 13-21 0-39M109 51c-15-19 15-24 3-44M129 55c-14-15 12-22 6-34" stroke-dasharray="2 3"/>
+                      <ellipse cx="108" cy="78" rx="34" ry="8"/>
+                      <path d="M85 78c7-8 12-3 23 0 13-9 24-3 19 2-7 6-21 5-31 1"/>
+                    </g>
+                  </svg>
+                </div>
+                <div class="site-menu-title">Меню</div>
+                <div class="menu-items">
+                  <div class="menu-item"><span>Эспрессо</span><span>150 ₽</span></div>
+                  <div class="menu-item"><span>Капучино</span><span>220 ₽</span></div>
+                  <div class="menu-item"><span>Латте</span><span>250 ₽</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <p class="preview-caption">Так выглядит ваш сайт</p>
+        </div>
+
+        <div class="summary">
+          <section aria-labelledby="done-title">
+            <h2 id="done-title">Что сделано</h2>
+            <ul class="done-list">
+              <li>Главная с меню и ценами</li>
+              <li>Страница «Контакты» с картой</li>
+              <li>Кнопка «Заказать» ведёт в Telegram</li>
+            </ul>
+          </section>
+          <section class="checked-section" aria-labelledby="checked-title">
+            <div class="checked-heading">
+              <h2 id="checked-title">Что проверено</h2>
+              <span class="overall-stamp" aria-hidden="true">ПРОВЕРЕНО</span>
+            </div>
+            <ul class="checked-list">
+              <li>
+                <span class="check-mark" aria-hidden="true"><svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.4"><path d="m4 9 3 4 7-9"/></svg></span>
+                Открывается на телефоне
+              </li>
+              <li>
+                <span class="check-mark" aria-hidden="true"><svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.4"><path d="m4 9 3 4 7-9"/></svg></span>
+                Все ссылки работают
+              </li>
+              <li>
+                <span class="check-mark" aria-hidden="true"><svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.4"><path d="m4 9 3 4 7-9"/></svg></span>
+                Тексты без ошибок
+              </li>
+              <li>
+                <span class="check-mark" aria-hidden="true"><svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.4"><path d="m4 9 3 4 7-9"/></svg></span>
+                Загружается за 1,2 с
+              </li>
+            </ul>
+            <div class="unchecked">
+              <p>Не проверено: оплата онлайн</p>
+              <p>Её не было в задаче</p>
+            </div>
+          </section>
+        </div>
+      </div>
+
+      <div class="actions">
+        <div>
+          <div class="private-actions">
+            <button class="action primary" type="button" id="open-site">
+              Открыть сайт
+              <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.2" aria-hidden="true"><path d="M11 3h6v6M17 3 8 12M7 4H3v13h13v-4"/></svg>
+            </button>
+            <button class="action" type="button" id="edit-site">Исправить что-то</button>
+          </div>
+          <p class="action-note privacy">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" aria-hidden="true"><rect x="3" y="7" width="10" height="7" rx="1"/><path d="M5 7V5a3 3 0 0 1 6 0v2"/></svg>
+            Сайт пока виден только вам
+          </p>
+        </div>
+        <div class="publish-group">
+          <button class="action" type="button" id="publish-site">Опубликовать</button>
+          <p class="action-note">Сделать доступным всем</p>
+        </div>
+      </div>
+    </section>
+
+    <form class="composer-area" id="changes-form">
+      <div class="composer">
+        <input id="changes" type="text" aria-label="Что поменять?" placeholder="Что поменять?" autocomplete="off">
+        <button class="mic" type="button" id="voice" aria-label="Сказать голосом">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M6 11v1a6 6 0 0 0 12 0v-1M12 18v4m-4 0h8"/></svg>
+        </button>
+      </div>
+      <p class="composer-foot" id="composer-hint" aria-live="polite">Напишите своими словами или скажите голосом.</p>
+    </form>
+  </main>
+</div>
+
+<dialog id="task-details" aria-labelledby="details-title">
+  <h2 id="details-title">Как выполнена задача</h2>
+  <p>Заняло 3 мин 12 с. На эту задачу потрачено 4,20 ₽.</p>
+  <p>Созданы главная с меню и ценами, страница «Контакты» с картой и кнопка заказа в Telegram.</p>
+  <p>Проверены:</p>
+  <ul>
+    <li>Открытие на телефоне</li>
+    <li>Работа всех ссылок</li>
+    <li>Тексты — без ошибок</li>
+    <li>Загрузка — 1,2 с</li>
+  </ul>
+  <p>Оплата онлайн не проверялась: её не было в задаче.</p>
+  <form method="dialog"><button class="action" autofocus>Понятно</button></form>
+</dialog>
+
+<dialog id="demo-notice" aria-labelledby="notice-title">
+  <h2 id="notice-title">Это макет экрана</h2>
+  <p id="notice-text"></p>
+  <form method="dialog"><button class="action" autofocus>Понятно</button></form>
+</dialog>
+
+<script>
+const input = document.getElementById('changes');
+const hint = document.getElementById('composer-hint');
+
+document.getElementById('edit-site').addEventListener('click', () => input.focus());
+
+document.getElementById('details-link').addEventListener('click', event => {
+  event.preventDefault();
+  document.getElementById('task-details').showModal();
+});
+
+function showNotice(text) {
+  document.getElementById('notice-text').textContent = text;
+  document.getElementById('demo-notice').showModal();
+}
+
+document.getElementById('open-site').addEventListener('click', () => {
+  showNotice('В приложении эта кнопка откроет личный предпросмотр сайта. В этом HTML-макете отдельный сайт не подключён.');
+});
+
+document.getElementById('publish-site').addEventListener('click', () => {
+  showNotice('В приложении здесь можно будет опубликовать сайт для всех. В этом макете публикация не подключена — сайт не опубликован.');
+});
+
+document.getElementById('changes-form').addEventListener('submit', event => {
+  event.preventDefault();
+  if (input.value.trim()) {
+    hint.textContent = 'Это макет: сообщение не отправлено. Текст сохранён в поле.';
+  }
+});
+
+const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+document.getElementById('voice').addEventListener('click', () => {
+  if (!SpeechRecognition) {
+    hint.textContent = 'Голосовой ввод здесь недоступен. Напишите, что поменять.';
+    input.focus();
+    return;
+  }
+  const recognition = new SpeechRecognition();
+  recognition.lang = 'ru-RU';
+  recognition.interimResults = false;
+  recognition.onstart = () => { hint.textContent = 'Слушаю… Скажите, что поменять.'; };
+  recognition.onresult = event => {
+    input.value = event.results[0][0].transcript;
+    input.focus();
+    hint.textContent = 'Проверьте распознанный текст. В этом макете он не отправляется.';
+  };
+  recognition.onerror = () => {
+    hint.textContent = 'Не удалось включить микрофон. Напишите, что поменять.';
+  };
+  recognition.onend = () => {
+    if (hint.textContent.startsWith('Слушаю')) {
+      hint.textContent = 'Речь не распознана. Попробуйте ещё раз или напишите.';
+    }
+  };
+  recognition.start();
+});
+</script>
+</body>
+</html>

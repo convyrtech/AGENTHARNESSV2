@@ -1,0 +1,654 @@
+```html
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=1440, initial-scale=1">
+  <meta name="theme-color" content="#f3eee3">
+  <title>Готово: сайт для кофейни «Зерно» — PRSLOY</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geologica:wght@400;500&family=IBM+Plex+Mono:wght@400;500&family=Piazzolla:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --paper: #f3eee3;
+      --card: #faf7f0;
+      --ink: #3b2a1e;
+      --muted: #7a6352;
+      --line: #ddd2c1;
+      --accent: #a4472c;
+      --stamp: #b23a26;
+      --sans: "Geologica", sans-serif;
+      --serif: "Piazzolla", serif;
+      --mono: "IBM Plex Mono", monospace;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; }
+    body {
+      background: var(--paper);
+      color: var(--ink);
+      font: 400 16px/24px var(--sans);
+      -webkit-font-smoothing: antialiased;
+    }
+    button, input, textarea { font: inherit; color: inherit; }
+    button { cursor: pointer; }
+    button, textarea { border-radius: 3px; }
+    button { margin: 0; }
+    h1, h2, h3, p { margin: 0; }
+    ul { list-style: none; margin: 0; padding: 0; }
+    svg { display: block; }
+    button:focus-visible, a:focus-visible, summary:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 3px;
+    }
+    button:disabled {
+      color: var(--line);
+      border-color: var(--line);
+      background: transparent;
+      cursor: default;
+    }
+    .screen {
+      position: relative;
+      width: 1440px;
+      height: 900px;
+      overflow: hidden;
+      background: var(--paper);
+    }
+    .sidebar {
+      position: absolute;
+      inset: 0 auto 0 0;
+      width: 224px;
+      border-right: 1px solid var(--ink);
+    }
+    .brand {
+      position: absolute;
+      left: 24px;
+      top: 28px;
+      width: 176px;
+      font: 500 28px/34px var(--serif);
+    }
+    .status {
+      position: absolute;
+      left: 24px;
+      top: 72px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      height: 20px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 18px;
+    }
+    .status::before {
+      content: "";
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--ink);
+    }
+    .modes {
+      position: absolute;
+      left: 16px;
+      top: 124px;
+      width: 192px;
+      height: 120px;
+      border: 1px solid var(--line);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    .mode {
+      position: relative;
+      display: block;
+      width: 100%;
+      height: 40px;
+      padding: 0 15px;
+      text-align: left;
+      border: 0;
+      border-bottom: 1px solid var(--line);
+      border-radius: 0;
+      background: transparent;
+      font-size: 15px;
+      line-height: 22px;
+    }
+    .mode:last-child { height: 38px; border-bottom: 0; }
+    .mode:hover, .chat:hover { background: var(--card); }
+    .mode[aria-pressed="true"] { background: var(--card); font-weight: 500; }
+    .mode[aria-pressed="true"]::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 8px;
+      width: 3px;
+      height: 24px;
+      background: var(--accent);
+    }
+    .mode[aria-pressed="true"]::after {
+      content: "";
+      position: absolute;
+      right: 15px;
+      top: 18px;
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: var(--accent);
+    }
+    .mode:focus-visible { outline-offset: -4px; }
+    .chats {
+      position: absolute;
+      left: 16px;
+      top: 284px;
+      display: grid;
+      gap: 8px;
+      width: 192px;
+    }
+    .chat {
+      width: 192px;
+      height: 52px;
+      padding: 0 11px;
+      background: transparent;
+      border: 1px solid transparent;
+      text-align: left;
+      white-space: nowrap;
+      font-size: 15px;
+      line-height: 22px;
+    }
+    .chat[aria-current="page"] {
+      background: var(--card);
+      border-color: var(--ink);
+      font-weight: 500;
+    }
+    .new-chat {
+      position: absolute;
+      left: 16px;
+      top: 832px;
+      width: 192px;
+      height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      border: 1px solid var(--ink);
+      background: transparent;
+      font-size: 15px;
+      font-weight: 500;
+    }
+    .new-chat:hover { background: var(--card); }
+    .icon {
+      width: 20px;
+      height: 20px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 1.5;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      flex-shrink: 0;
+    }
+    .small-icon { width: 16px; height: 16px; }
+    .work { position: absolute; left: 224px; top: 0; width: 1216px; height: 900px; }
+    .label {
+      font: 400 11px/16px var(--mono);
+      letter-spacing: .8px;
+      text-transform: uppercase;
+    }
+    .screen-label {
+      position: absolute;
+      left: 40px;
+      top: 32px;
+      width: 92px;
+      height: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--muted);
+      border: 1px solid var(--muted);
+      border-radius: 2px;
+    }
+    .budget {
+      position: absolute;
+      left: 840px;
+      top: 24px;
+      width: 336px;
+      height: 100px;
+    }
+    .budget-top { display: flex; align-items: center; gap: 12px; height: 42px; }
+    .counter { display: flex; align-items: center; gap: 3px; height: 42px; }
+    .digit {
+      position: relative;
+      display: grid;
+      place-items: center;
+      width: 25px;
+      height: 42px;
+      background: var(--card);
+      border: 1px solid var(--ink);
+      border-radius: 2px;
+      font: 500 28px/34px var(--mono);
+    }
+    .digit::after {
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 20px;
+      height: 1px;
+      background: var(--line);
+      opacity: .65;
+    }
+    .comma { width: 12px; font: 500 28px/34px var(--mono); text-align: center; }
+    .budget-caption { font-size: 14px; line-height: 20px; color: var(--muted); white-space: nowrap; }
+    .ruler { position: absolute; top: 51px; left: 0; width: 336px; height: 20px; }
+    .ruler-labels {
+      position: absolute;
+      top: 74px;
+      left: 0;
+      right: 0;
+      height: 14px;
+      color: var(--muted);
+      font: 400 10px/14px var(--mono);
+    }
+    .ruler-labels span { position: absolute; top: 0; }
+    .ruler-labels span:first-child { left: 0; }
+    .ruler-labels span:nth-child(2) { left: 50%; transform: translateX(-50%); }
+    .ruler-labels span:last-child { right: 0; }
+    .heading {
+      position: absolute;
+      left: 40px;
+      top: 152px;
+      width: 1136px;
+    }
+    h1 { font: 500 32px/40px var(--serif); }
+    .subtitle { margin-top: 12px; color: var(--muted); font-size: 16px; line-height: 24px; }
+
+    .preview {
+      position: absolute;
+      left: 40px;
+      top: 252px;
+      width: 616px;
+      height: 430px;
+      margin: 0;
+      background: var(--card);
+      border: 1px solid var(--ink);
+      border-radius: 3px;
+    }
+    .screw {
+      position: absolute;
+      width: 5px;
+      height: 5px;
+      border: 1px solid var(--muted);
+      border-radius: 50%;
+      pointer-events: none;
+    }
+    .screw::after {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 1px;
+      width: 3px;
+      border-top: 1px solid var(--muted);
+      transform: rotate(-45deg);
+    }
+    .screw.tl { left: 6px; top: 6px; }
+    .screw.tr { right: 6px; top: 6px; }
+    .screw.bl { left: 6px; bottom: 6px; }
+    .screw.br { right: 6px; bottom: 6px; }
+    .preview-bar {
+      height: 39px;
+      padding: 0 19px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--line);
+      color: var(--muted);
+    }
+    .preview-page { font-size: 12px; line-height: 18px; }
+    .mini-site {
+      position: absolute;
+      left: 19px;
+      top: 55px;
+      width: 576px;
+      height: 354px;
+      pointer-events: none;
+      user-select: none;
+    }
+    .mini-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      height: 40px;
+      border-bottom: 1px solid var(--line);
+    }
+    .mini-brand { font: 500 24px/30px var(--serif); }
+    .mini-nav { display: flex; gap: 20px; padding-top: 6px; font-size: 12px; line-height: 18px; }
+    .mini-hero { position: absolute; top: 56px; left: 0; width: 576px; height: 136px; }
+    .mini-title { font: 500 26px/32px var(--serif); white-space: nowrap; }
+    .mini-description { margin-top: 8px; font-size: 13px; line-height: 20px; color: var(--muted); }
+    .mini-order {
+      display: grid;
+      place-items: center;
+      margin-top: 14px;
+      width: 184px;
+      height: 32px;
+      border-radius: 3px;
+      background: var(--accent);
+      color: var(--card);
+      font-size: 12px;
+      line-height: 18px;
+    }
+    .cup {
+      position: absolute;
+      right: 12px;
+      top: 4px;
+      width: 160px;
+      height: 112px;
+      fill: none;
+      stroke: var(--muted);
+      stroke-width: 1.3;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+    .mini-menu { position: absolute; left: 0; top: 208px; width: 576px; }
+    .mini-menu-title { font: 500 20px/26px var(--serif); }
+    .menu-items { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 12px; }
+    .menu-item { padding-top: 9px; border-top: 1px solid var(--line); font-size: 13px; line-height: 20px; }
+    .price { display: block; margin-top: 4px; color: var(--muted); font: 400 12px/18px var(--mono); }
+    .mini-footer {
+      position: absolute;
+      left: 0;
+      top: 326px;
+      width: 576px;
+      padding-top: 8px;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 16px;
+    }
+    .result-notes {
+      position: absolute;
+      left: 680px;
+      top: 252px;
+      width: 496px;
+      height: 430px;
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 3px;
+    }
+    .result-notes h2 { font: 500 24px/30px var(--serif); }
+    .done-title { position: absolute; left: 23px; top: 19px; }
+    .done-list { position: absolute; left: 23px; top: 61px; width: 448px; }
+    .done-list li {
+      position: relative;
+      height: 28px;
+      padding-left: 20px;
+      font-size: 16px;
+      line-height: 24px;
+      white-space: nowrap;
+    }
+    .done-list li::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 12px;
+      width: 8px;
+      border-top: 1px solid var(--muted);
+    }
+    .notes-rule { position: absolute; left: 23px; top: 157px; width: 448px; border-top: 1px solid var(--line); }
+    .checked-title { position: absolute; left: 23px; top: 173px; }
+    .checked-list { position: absolute; left: 23px; top: 215px; width: 448px; }
+    .checked-list li { display: flex; align-items: flex-start; gap: 12px; height: 30px; line-height: 24px; }
+    .check-stamp {
+      display: grid;
+      place-items: center;
+      width: 20px;
+      height: 20px;
+      margin-top: 2px;
+      flex-shrink: 0;
+      color: var(--stamp);
+      border: 1px solid var(--stamp);
+      border-radius: 2px;
+    }
+    .check-stamp svg { width: 14px; height: 14px; }
+    .limit {
+      position: absolute;
+      left: 23px;
+      top: 351px;
+      width: 448px;
+      height: 54px;
+      padding-top: 10px;
+      border-top: 1px dashed var(--line);
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 20px;
+    }
+    .limit strong { font-weight: 500; }
+    .actions {
+      position: absolute;
+      left: 40px;
+      top: 706px;
+      height: 48px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .action {
+      height: 48px;
+      padding: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      background: var(--card);
+      border: 1px solid var(--ink);
+      font-size: 16px;
+      line-height: 22px;
+      font-weight: 500;
+    }
+    .action:hover { background: var(--paper); }
+    .action:active { border-color: var(--accent); }
+    .primary { width: 184px; background: var(--accent); border-color: var(--accent); color: var(--card); }
+    .primary:hover {
+      background: var(--accent);
+      outline: 1px solid var(--card);
+      outline-offset: -4px;
+    }
+    .primary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+    .primary:active { background: var(--ink); border-color: var(--ink); }
+    .correct { width: 192px; }
+    .publish { width: 168px; background: transparent; border-color: var(--muted); }
+    .more {
+      width: 100px;
+      height: 48px;
+      margin-left: 12px;
+      padding: 0;
+      background: none;
+      border: 0;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 20px;
+      text-decoration: underline;
+      text-decoration-thickness: 1px;
+      text-underline-offset: 3px;
+    }
+    .bottom-rule { position: absolute; left: 40px; top: 784px; width: 1136px; border-top: 1px solid var(--line); }
+    .composer {
+      position: absolute;
+      left: 40px;
+      bottom: 32px;
+      width: 1136px;
+      height: 60px;
+      border: 1px solid var(--muted);
+      border-radius: 3px;
+      background: var(--card);
+    }
+    .composer:focus-within {
+      border-color: var(--accent);
+      outline: 1px solid var(--accent);
+      outline-offset: 2px;
+    }
+    .composer textarea {
+      display: block;
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      padding: 17px 72px 17px 19px;
+      resize: none;
+      overflow-y: auto;
+      background: transparent;
+      border: 0;
+      outline: 0;
+      font-size: 16px;
+      line-height: 24px;
+    }
+    .composer textarea::placeholder { color: var(--muted); opacity: 1; }
+    .voice {
+      position: absolute;
+      right: 7px;
+      bottom: 7px;
+      display: grid;
+      place-items: center;
+      width: 44px;
+      height: 44px;
+      background: transparent;
+      border: 1px solid transparent;
+    }
+    .voice:hover { border-color: var(--line); }
+    .voice.recording { color: var(--stamp); border-color: var(--stamp); }
+    .field-message {
+      position: absolute;
+      left: 40px;
+      bottom: 98px;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 20px;
+    }
+    dialog {
+      width: 520px;
+      padding: 30px;
+      background: var(--card);
+      color: var(--ink);
+      border: 1px solid var(--ink);
+      border-radius: 3px;
+    }
+    dialog::backdrop { background: rgb(59 42 30 / 22%); }
+    dialog h2 { margin-bottom: 16px; font: 500 26px/32px var(--serif); }
+    dialog p { margin-bottom: 16px; }
+    .dialog-actions { display: flex; justify-content: flex-end; gap: 12px; margin-top: 24px; }
+    .dialog-actions button { width: auto; min-width: 112px; padding: 0 16px; }
+    .detail-list { padding-left: 20px; list-style: disc; }
+    .detail-list li { margin: 8px 0; }
+    [hidden] { display: none !important; }
+  </style>
+</head>
+<body>
+  <div class="screen">
+    <aside class="sidebar" aria-label="Боковая навигация">
+      <div class="brand">PRSLOY</div>
+      <div class="status">работает</div>
+
+      <nav class="modes" aria-label="Режим помощника">
+        <button class="mode" type="button" aria-pressed="false">Код</button>
+        <button class="mode" type="button" aria-pressed="true">Креатив</button>
+        <button class="mode" type="button" aria-pressed="false">Повседнев</button>
+      </nav>
+
+      <nav class="chats" aria-label="Чаты">
+        <button class="chat" type="button" aria-current="page">Сайт для кофейни</button>
+        <button class="chat" type="button">Пост в Telegram</button>
+        <button class="chat" type="button">Письмо арендатору</button>
+      </nav>
+
+      <button class="new-chat" type="button" id="new-chat">
+        <svg class="icon small-icon" viewBox="0 0 16 16" aria-hidden="true">
+          <path d="M8 2v12M2 8h12"/>
+        </svg>
+        Новый чат
+      </button>
+    </aside>
+
+    <main class="work">
+      <div class="screen-label label">РЕЗУЛЬТАТ</div>
+
+      <section class="budget" aria-label="Сегодня потрачено 36 рублей 61 копейка из 50 рублей.">
+        <div aria-hidden="true">
+          <div class="budget-top">
+            <div class="counter">
+              <span class="digit">3</span>
+              <span class="digit">6</span>
+              <span class="comma">,</span>
+              <span class="digit">6</span>
+              <span class="digit">1</span>
+            </div>
+            <span class="budget-caption">из 50 ₽ сегодня</span>
+          </div>
+          <svg class="ruler" viewBox="0 0 336 20">
+            <defs>
+              <pattern id="minor-ticks" width="6.7" height="12" patternUnits="userSpaceOnUse">
+                <path d="M.5 8V12" fill="none" stroke="#7a6352" stroke-width="1"/>
+              </pattern>
+              <pattern id="major-ticks" width="33.5" height="12" patternUnits="userSpaceOnUse">
+                <path d="M.5 5V12" fill="none" stroke="#7a6352" stroke-width="1"/>
+              </pattern>
+              <pattern id="red-hatch" width="5" height="8" patternUnits="userSpaceOnUse">
+                <path d="M-3 8L5 0M2 8L10 0" fill="none" stroke="#b23a26" stroke-width="1"/>
+              </pattern>
+            </defs>
+            <g transform="translate(0 5)">
+              <rect x="268" y="4" width="67" height="8" fill="url(#red-hatch)"/>
+              <rect width="336" height="12" fill="url(#minor-ticks)"/>
+              <rect width="336" height="12" fill="url(#major-ticks)"/>
+              <path d="M.5 2v10M168 2v10M335.5 2v10M0 12.5H336" fill="none" stroke="#7a6352" stroke-width="1"/>
+            </g>
+            <path d="M242.52 0h7l-3.5 5z" fill="#a4472c"/>
+          </svg>
+          <div class="ruler-labels"><span>0</span><span>25</span><span>50 ₽</span></div>
+        </div>
+      </section>
+
+      <header class="heading">
+        <h1>Готово: сайт для кофейни «Зерно»</h1>
+        <p class="subtitle">Заняло 3 мин 12 с · потрачено 4,20 ₽</p>
+      </header>
+
+      <figure class="preview" role="img" aria-label="Превью главной страницы кофейни «Зерно»: меню, цены и кнопка заказа в Telegram.">
+        <span class="screw tl" aria-hidden="true"></span>
+        <span class="screw tr" aria-hidden="true"></span>
+        <span class="screw bl" aria-hidden="true"></span>
+        <span class="screw br" aria-hidden="true"></span>
+        <div class="preview-bar" aria-hidden="true">
+          <span class="label">ПРЕВЬЮ САЙТА</span>
+          <span class="preview-page">Главная</span>
+        </div>
+        <div class="mini-site" aria-hidden="true">
+          <div class="mini-header">
+            <span class="mini-brand">Зерно</span>
+            <div class="mini-nav"><span>Меню</span><span>Контакты</span></div>
+          </div>
+          <div class="mini-hero">
+            <div class="mini-title">Кофе и тёплые встречи</div>
+            <p class="mini-description">Каждый день — свежий кофе и выпечка.</p>
+            <span class="mini-order">Заказать в Telegram</span>
+            <svg class="cup" viewBox="0 0 160 112">
+              <path d="M57 28c-9-10 9-12 1-23M78 27c-8-9 9-12 2-23M99 29c-7-9 8-12 2-21"/>
+              <ellipse cx="74" cy="43" rx="40" ry="9"/>
+              <path d="M34 43l5 32c3 16 65 16 69 0l6-32"/>
+              <path d="M114 49c26-8 28 24 1 27l-7 1M115 55c14-4 15 13-2 15"/>
+              <path d="M39 86c-16 2-25 6-25 10 0 7 28 12 63 12s63-5 63-12c0-4-10-8-27-10"/>
+              <path d="M29 95c12 9 77 10 98-1M52 86c9 5 31 6 43 1"/>
+            </svg>
+          </div>
+          <div class="mini-menu">
+            <div class="mini-menu-title">Меню</div>
+            <div class="menu-items">
+              <div class="menu-item">Эспрессо<span class="price">150 ₽</span></div>
+              <div class="menu-item">Капучино<span class="price">220 ₽</span></div>
+              <div class="menu-item">Круассан<span class="price">190 ₽</span></div>
+            </div>
+          </div>
+          <div class="mini-footer">Кофе · выпечка · каждый день</div>
+        </div>
+      </figure>
+
+      <section class="result-notes" aria-label="Состав результата и проверка">
+        <h2 class="done-title">Что сделано</h2>
+        <ul class="done-list">
+          <li>Главная с меню и ценами</li>
+          <li>Страница „Контакт

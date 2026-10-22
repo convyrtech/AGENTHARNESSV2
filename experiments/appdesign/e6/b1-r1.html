@@ -1,0 +1,924 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Готово — PRSLOY</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geologica:wght@400;500&family=IBM+Plex+Mono:wght@400;500&family=Piazzolla:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --paper: #f3eee3;
+      --card: #faf7f0;
+      --ink: #3b2a1e;
+      --muted: #7a6352;
+      --line: #ddd2c1;
+      --accent: #a4472c;
+      --stamp: #b23a26;
+    }
+
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      width: 1440px;
+      height: 900px;
+      overflow: hidden;
+    }
+    body {
+      background: var(--paper);
+      color: var(--ink);
+      font: 400 16px/24px "Geologica", sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    button, textarea { font: inherit; color: inherit; }
+    button { cursor: pointer; }
+    button, textarea { -webkit-tap-highlight-color: transparent; }
+    button:focus-visible, textarea:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 3px;
+    }
+    button:disabled { opacity: .4; cursor: default; }
+    button:not(:disabled):hover { background-color: rgb(59 42 30 / 4%); }
+    button:not(:disabled):active { background-color: rgb(59 42 30 / 8%); }
+    h1, h2, h3, p { margin: 0; }
+    .serif { font-family: "Piazzolla", serif; font-weight: 500; }
+    .icon {
+      width: 16px;
+      height: 16px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 1.5;
+      flex-shrink: 0;
+    }
+    .app { position: relative; width: 1440px; height: 900px; }
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    /* Более широкая колонка: все три названия режимов помещаются целиком. */
+    .sidebar {
+      position: absolute;
+      inset: 0 auto 0 0;
+      width: 248px;
+      border-right: 1px solid var(--ink);
+    }
+    .logo {
+      position: absolute;
+      left: 24px;
+      top: 28px;
+      font-size: 28px;
+      line-height: 36px;
+    }
+    .status {
+      position: absolute;
+      left: 24px;
+      top: 72px;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 18px;
+    }
+    .status::before {
+      content: "";
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--ink);
+    }
+    .modes {
+      position: absolute;
+      left: 20px;
+      top: 128px;
+      width: 208px;
+      height: 40px;
+      display: grid;
+      grid-template-columns: 44px 74px 88px;
+      border: 1px solid var(--ink);
+      border-radius: 3px;
+    }
+    .mode {
+      border: 0;
+      background: transparent;
+      padding: 0;
+      font-size: 13px;
+      line-height: 20px;
+      white-space: nowrap;
+    }
+    .mode:first-child { border-radius: 2px 0 0 2px; }
+    .mode:last-child { border-radius: 0 2px 2px 0; }
+    .mode + .mode { border-left: 1px solid var(--ink); }
+    .mode[aria-pressed="true"],
+    .mode[aria-pressed="true"]:hover,
+    .mode[aria-pressed="true"]:active {
+      background: var(--ink);
+      color: var(--card);
+      font-weight: 500;
+    }
+    .tag {
+      font: 400 11px/16px "IBM Plex Mono", monospace;
+      letter-spacing: .8px;
+      border: 1px solid var(--ink);
+      border-radius: 2px;
+      padding: 4px 6px;
+    }
+    .chats-label { position: absolute; left: 24px; top: 204px; }
+    .chat-list {
+      position: absolute;
+      left: 20px;
+      top: 240px;
+      width: 208px;
+      display: grid;
+      gap: 8px;
+    }
+    .chat {
+      position: relative;
+      width: 208px;
+      height: 52px;
+      text-align: left;
+      padding: 0 11px;
+      border: 1px solid transparent;
+      border-radius: 3px;
+      background: transparent;
+      font-size: 15px;
+      line-height: 22px;
+      white-space: nowrap;
+    }
+    .chat[aria-current="page"] {
+      background: var(--card);
+      border-color: var(--ink);
+      padding-left: 15px;
+      font-weight: 500;
+    }
+    .chat[aria-current="page"]::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 13px;
+      width: 3px;
+      height: 24px;
+      background: var(--accent);
+    }
+    .button {
+      height: 48px;
+      border: 1px solid var(--ink);
+      border-radius: 3px;
+      background: transparent;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 0 15px;
+      font-size: 16px;
+      line-height: 24px;
+      font-weight: 500;
+      white-space: nowrap;
+    }
+    .new-chat {
+      position: absolute;
+      left: 20px;
+      top: 828px;
+      width: 208px;
+    }
+
+    .topbar {
+      position: absolute;
+      left: 248px;
+      top: 0;
+      width: 1192px;
+      height: 120px;
+      border-bottom: 1px solid var(--line);
+    }
+    .budget {
+      position: absolute;
+      right: 40px;
+      top: 20px;
+      width: 328px;
+      height: 88px;
+    }
+    .gauge {
+      position: absolute;
+      left: -104px;
+      top: 5px;
+      width: 80px;
+      height: 64px;
+      color: var(--muted);
+    }
+    .counter {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      width: 160px;
+      height: 42px;
+    }
+    .digit {
+      position: relative;
+      width: 34px;
+      height: 42px;
+      flex: 0 0 34px;
+      display: grid;
+      place-items: center;
+      border: 1px solid var(--ink);
+      border-radius: 2px;
+      background: var(--card);
+      font: 500 27px/34px "IBM Plex Mono", monospace;
+    }
+    .digit::after {
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 20px;
+      height: 1px;
+      background: var(--line);
+    }
+    .digit span { position: relative; z-index: 1; }
+    .comma {
+      width: 16px;
+      flex: 0 0 16px;
+      text-align: center;
+      font: 500 27px/34px "IBM Plex Mono", monospace;
+    }
+    .budget-caption {
+      position: absolute;
+      left: 172px;
+      top: 9px;
+      font-size: 14px;
+      line-height: 22px;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+    .ruler { position: absolute; left: 0; top: 51px; width: 328px; height: 37px; }
+
+    /* Общая сетка: превью 648 px, промежуток 32 px, сведения 440 px. */
+    .result-heading {
+      position: absolute;
+      left: 280px;
+      top: 144px;
+      width: 1120px;
+      font-size: 34px;
+      line-height: 44px;
+      white-space: nowrap;
+    }
+    .cost {
+      position: absolute;
+      left: 280px;
+      top: 196px;
+      color: var(--muted);
+    }
+    .preview {
+      position: absolute;
+      left: 280px;
+      top: 244px;
+      width: 648px;
+      height: 408px;
+      border: 1px solid var(--ink);
+      border-radius: 3px;
+      background: var(--card);
+      pointer-events: none;
+      overflow: hidden;
+    }
+    .screw {
+      position: absolute;
+      width: 9px;
+      height: 9px;
+      border: 1px solid var(--muted);
+      border-radius: 50%;
+      background: var(--paper);
+      z-index: 2;
+    }
+    .screw::after {
+      content: "";
+      position: absolute;
+      width: 6px;
+      height: 1px;
+      background: var(--muted);
+      left: .5px;
+      top: 3px;
+      transform: rotate(-40deg);
+    }
+    .tl { left: 7px; top: 7px; }
+    .tr { right: 7px; top: 7px; }
+    .bl { left: 7px; bottom: 7px; }
+    .br { right: 7px; bottom: 7px; }
+    .preview-toolbar {
+      height: 39px;
+      border-bottom: 1px solid var(--line);
+      padding: 0 25px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .preview-label {
+      font: 400 11px/16px "IBM Plex Mono", monospace;
+      letter-spacing: .8px;
+    }
+    .mini-site {
+      position: absolute;
+      left: 20px;
+      top: 56px;
+      width: 606px;
+      height: 330px;
+    }
+    .site-nav {
+      height: 36px;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+    }
+    .cafe-name { font-size: 24px; line-height: 30px; }
+    .site-links {
+      display: flex;
+      gap: 20px;
+      padding-top: 7px;
+      font-size: 11px;
+      line-height: 16px;
+    }
+    .site-hero { position: absolute; top: 52px; width: 606px; height: 124px; }
+    .site-hero h3 { width: 330px; font-size: 25px; line-height: 30px; }
+    .site-hero p {
+      margin-top: 6px;
+      font-size: 12px;
+      line-height: 18px;
+      color: var(--muted);
+    }
+    .mini-order {
+      margin-top: 9px;
+      width: 164px;
+      height: 30px;
+      display: grid;
+      place-items: center;
+      color: var(--card);
+      background: var(--accent);
+      border-radius: 2px;
+      font-size: 11px;
+      line-height: 16px;
+    }
+    .cup {
+      position: absolute;
+      right: 32px;
+      top: 11px;
+      width: 120px;
+      height: 96px;
+      color: var(--muted);
+    }
+    .site-bottom {
+      position: absolute;
+      top: 190px;
+      width: 606px;
+      border-top: 1px solid var(--line);
+      padding-top: 14px;
+      display: flex;
+      justify-content: space-between;
+    }
+    .menu { width: 330px; }
+    .menu h3, .contacts h3 {
+      font-size: 18px;
+      line-height: 24px;
+      margin-bottom: 5px;
+    }
+    .menu-row {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      font-size: 12px;
+      line-height: 20px;
+    }
+    .leader { flex: 1; border-bottom: 1px dotted var(--line); }
+    .contacts { width: 190px; height: 104px; }
+    .map { width: 190px; height: 71px; border: 1px solid var(--line); border-radius: 2px; }
+
+    .done {
+      position: absolute;
+      left: 960px;
+      top: 244px;
+      width: 440px;
+      height: 164px;
+      border-bottom: 1px solid var(--line);
+    }
+    .section-title { font-size: 24px; line-height: 32px; }
+    .done ul, .checks ul { list-style: none; margin: 12px 0 0; padding: 0; }
+    .done li {
+      position: relative;
+      height: 32px;
+      padding-left: 20px;
+      white-space: nowrap;
+    }
+    .done li::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 12px;
+      width: 8px;
+      height: 1px;
+      background: var(--ink);
+    }
+    .checks { position: absolute; left: 960px; top: 424px; width: 440px; }
+    .checks li {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      height: 32px;
+      white-space: nowrap;
+    }
+    /* Оттиски с двойной рамкой, без поворотов и вида интерактивного чекбокса. */
+    .stamp {
+      position: relative;
+      flex: 0 0 26px;
+      width: 26px;
+      height: 24px;
+      border: 1px solid var(--stamp);
+      border-radius: 2px;
+      color: var(--stamp);
+      display: grid;
+      place-items: center;
+    }
+    .stamp::before {
+      content: "";
+      position: absolute;
+      inset: 2px;
+      border: 1px solid var(--stamp);
+      border-radius: 1px;
+    }
+    .stamp svg {
+      position: relative;
+      width: 17px;
+      height: 17px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 1.8;
+      stroke-linecap: square;
+      stroke-linejoin: miter;
+    }
+    .limitation {
+      position: absolute;
+      left: 960px;
+      top: 608px;
+      width: 440px;
+      padding-left: 20px;
+    }
+    .limitation::before {
+      content: "—";
+      position: absolute;
+      left: 0;
+      top: 0;
+      color: var(--muted);
+    }
+    .limitation strong {
+      display: block;
+      color: var(--ink);
+      font-size: 16px;
+      line-height: 24px;
+      font-weight: 500;
+      white-space: nowrap;
+    }
+    .limitation span {
+      display: block;
+      margin-top: 2px;
+      font-size: 15px;
+      line-height: 22px;
+      color: var(--muted);
+    }
+
+    .visibility-status {
+      position: absolute;
+      left: 280px;
+      top: 668px;
+      width: 648px;
+      font-size: 16px;
+      line-height: 24px;
+    }
+    .actions {
+      position: absolute;
+      left: 280px;
+      top: 700px;
+      width: 648px;
+      height: 48px;
+      display: flex;
+      gap: 12px;
+    }
+    .primary {
+      width: 184px;
+      background: var(--accent);
+      border-color: var(--accent);
+      color: var(--card);
+    }
+    .primary:not(:disabled):hover { background: var(--ink); border-color: var(--ink); }
+    .primary:not(:disabled):active {
+      background: var(--ink);
+      outline: 1px solid var(--card);
+      outline-offset: -4px;
+    }
+    .edit { width: 196px; background: var(--card); }
+    .publish { width: 168px; }
+    .details {
+      position: absolute;
+      left: 280px;
+      top: 748px;
+      height: 36px;
+      border: 0;
+      padding: 0;
+      background: transparent;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 22px;
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+
+    .composer {
+      position: absolute;
+      left: 280px;
+      top: 784px;
+      width: 1120px;
+      height: 84px;
+      border: 1px solid var(--ink);
+      border-radius: 3px;
+      background: var(--card);
+    }
+    .composer:focus-within { border-color: var(--accent); }
+    .composer textarea {
+      position: absolute;
+      left: 19px;
+      top: 19px;
+      width: 1016px;
+      height: 44px;
+      resize: none;
+      border: 0;
+      padding: 8px 0;
+      background: transparent;
+      font-size: 18px;
+      line-height: 28px;
+    }
+    .composer textarea::placeholder { color: var(--muted); opacity: 1; }
+    .composer textarea:focus-visible { outline: none; }
+    .composer:has(textarea:focus-visible) {
+      outline: 2px solid var(--accent);
+      outline-offset: 3px;
+    }
+    .voice {
+      position: absolute;
+      right: 15px;
+      top: 17px;
+      width: 48px;
+      height: 48px;
+      padding: 0;
+      display: grid;
+      place-items: center;
+      border: 1px solid var(--line);
+      border-radius: 3px;
+      background: transparent;
+    }
+    .voice svg { width: 20px; height: 20px; }
+    .voice.send { background: var(--accent); color: var(--card); border-color: var(--accent); }
+    .voice.send:not(:disabled):hover { background: var(--ink); }
+    .notice {
+      position: absolute;
+      right: 0;
+      bottom: 94px;
+      max-width: 520px;
+      padding: 10px 14px;
+      border: 1px solid var(--line);
+      border-radius: 3px;
+      background: var(--card);
+      font-size: 14px;
+      line-height: 22px;
+      color: var(--muted);
+    }
+    .notice:empty { display: none; }
+    .stop-label {
+      position: absolute;
+      right: 80px;
+      top: 29px;
+      font-size: 14px;
+      line-height: 24px;
+      color: var(--accent);
+      background: var(--card);
+    }
+    [hidden] { display: none !important; }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar" aria-label="Боковая панель">
+      <div class="logo serif">PRSLOY</div>
+      <div class="status">работает</div>
+
+      <nav class="modes" aria-label="Режим работы">
+        <button class="mode" type="button" aria-pressed="false">Код</button>
+        <button class="mode" type="button" aria-pressed="true">Креатив</button>
+        <button class="mode" type="button" aria-pressed="false">Повседнев</button>
+      </nav>
+
+      <span class="tag chats-label">ЧАТЫ</span>
+      <nav class="chat-list" aria-label="Чаты">
+        <button class="chat" type="button" aria-current="page">Сайт для кофейни</button>
+        <button class="chat" type="button">Пост в Telegram</button>
+        <button class="chat" type="button">Письмо арендатору</button>
+      </nav>
+
+      <button class="button new-chat" type="button">
+        <svg class="icon" viewBox="0 0 16 16" aria-hidden="true">
+          <path d="M8 2v12M2 8h12"/>
+        </svg>
+        Новый чат
+      </button>
+    </aside>
+
+    <header class="topbar">
+      <div class="budget" role="img" aria-label="Потрачено сегодня 36 рублей 61 копейка из 50 рублей">
+        <svg class="gauge" viewBox="0 0 80 64" fill="none" aria-hidden="true">
+          <path d="M7 48a33 33 0 0 1 66 0M13 48a27 27 0 0 1 54 0"
+                stroke="currentColor" stroke-width="1"/>
+          <g stroke="currentColor" stroke-width="1">
+            <path d="M7 48h6M9.5 35.4l5.5 2.3M16.7 24.7l4.2 4.2M27.4 17.5l2.3 5.5M40 15v6M52.6 17.5l-2.3 5.5M63.3 24.7l-4.2 4.2M70.5 35.4 65 37.7M73 48h-6"/>
+            <path d="m8 41.5 3 .6M12.6 29.7l2.5 1.7M21.7 20.6l1.7 2.5M33.5 15.6l.6 3M46.5 15.6l-.6 3M58.3 20.6l-1.7 2.5M67.4 29.7l-2.5 1.7M72 41.5l-3 .6"/>
+          </g>
+          <path d="m40 48 18-20" stroke="#3b2a1e" stroke-width="1.5"/>
+          <circle cx="40" cy="48" r="3" fill="#faf7f0" stroke="#3b2a1e"/>
+          <path d="M5 57h70" stroke="#ddd2c1"/>
+        </svg>
+
+        <div class="counter" aria-hidden="true">
+          <span class="digit"><span>3</span></span>
+          <span class="digit"><span>6</span></span>
+          <span class="comma">,</span>
+          <span class="digit"><span>6</span></span>
+          <span class="digit"><span>1</span></span>
+        </div>
+        <span class="budget-caption" aria-hidden="true">из 50 ₽ сегодня</span>
+
+        <svg class="ruler" viewBox="0 0 328 37" aria-hidden="true">
+          <defs>
+            <pattern id="ticks" width="6.54" height="16" patternUnits="userSpaceOnUse">
+              <path d="M.5 12V16" stroke="#3b2a1e" stroke-width="1"/>
+            </pattern>
+            <pattern id="hatch" width="5" height="8" patternUnits="userSpaceOnUse">
+              <path d="M-2 8L3 0M3 8L8 0" stroke="#b23a26" stroke-opacity=".35" stroke-width="1"/>
+            </pattern>
+          </defs>
+          <rect x="261.6" y="8" width="65.4" height="8" fill="url(#hatch)"/>
+          <rect width="327" height="16" fill="url(#ticks)"/>
+          <path d="M.5 6v10M32.7 9v7M65.4 9v7M98.1 9v7M130.8 9v7M163.5 6v10M196.2 9v7M228.9 9v7M261.6 9v7M294.3 9v7M327 6v10M0 16.5H328"
+                fill="none" stroke="#3b2a1e" stroke-width="1"/>
+          <path d="M235.93 0h7l-3.5 5z" fill="#a4472c"/>
+          <g fill="#7a6352" font-family="'IBM Plex Mono', monospace" font-size="10">
+            <text x="0" y="33">0</text>
+            <text x="163.5" y="33" text-anchor="middle">25</text>
+            <text x="328" y="33" text-anchor="end">50 ₽</text>
+          </g>
+        </svg>
+      </div>
+    </header>
+
+    <main aria-labelledby="result-title">
+      <h1 id="result-title" class="result-heading serif">Готово: сайт для кофейни «Зерно»</h1>
+      <p class="cost">Заняло 3&nbsp;мин 12&nbsp;с · потрачено 4,20&nbsp;₽</p>
+
+      <section class="preview" aria-label="Предпросмотр сайта кофейни «Зерно»">
+        <i class="screw tl" aria-hidden="true"></i>
+        <i class="screw tr" aria-hidden="true"></i>
+        <i class="screw bl" aria-hidden="true"></i>
+        <i class="screw br" aria-hidden="true"></i>
+
+        <div class="preview-toolbar">
+          <span class="preview-label">ПРЕДПРОСМОТР</span>
+          <svg class="icon" viewBox="0 0 16 16" aria-hidden="true">
+            <rect x="1.5" y="2" width="13" height="12" rx="1"/>
+            <path d="M2 5h12"/>
+          </svg>
+        </div>
+
+        <div class="mini-site">
+          <div class="site-nav">
+            <span class="cafe-name serif">Зерно</span>
+            <div class="site-links"><span>Меню</span><span>Контакты</span></div>
+          </div>
+
+          <div class="site-hero">
+            <h3 class="serif">Кофе. Пауза.<br>Хороший день.</h3>
+            <p>Свежий кофе и выпечка каждый день</p>
+            <span class="mini-order">Заказать в Telegram</span>
+            <svg class="cup" viewBox="0 0 120 96" fill="none" stroke="currentColor" stroke-width="1" aria-hidden="true">
+              <path d="M39 23c-7-8 8-10 2-19M57 22c-7-8 8-10 2-19M74 23c-7-8 8-10 2-19"/>
+              <ellipse cx="57" cy="39" rx="34" ry="10"/>
+              <ellipse cx="57" cy="39" rx="28" ry="6"/>
+              <path d="M23 39l5 27c2 12 54 12 57 0l6-27M91 43c25-7 25 24-3 23M91 49c15-4 14 12-2 12"/>
+              <path d="M32 49l3 18M37 52l3 17M42 54l2 16" opacity=".5"/>
+              <path d="M30 70c-32 3-28 17 28 18 53 0 60-15 29-19M15 81c9 14 77 14 87-1"/>
+              <path d="M44 81c8 2 20 2 29 0" opacity=".6"/>
+            </svg>
+          </div>
+
+          <div class="site-bottom">
+            <div class="menu">
+              <h3 class="serif">Меню</h3>
+              <div class="menu-row"><span>Эспрессо</span><span class="leader"></span><span>150 ₽</span></div>
+              <div class="menu-row"><span>Капучино</span><span class="leader"></span><span>220 ₽</span></div>
+              <div class="menu-row"><span>Круассан</span><span class="leader"></span><span>190 ₽</span></div>
+            </div>
+            <div class="contacts">
+              <h3 class="serif">Контакты</h3>
+              <svg class="map" viewBox="0 0 190 71" fill="none" aria-hidden="true">
+                <g stroke="#ddd2c1" stroke-width="1">
+                  <path d="M-5 19L195 49M-5 25L195 55M40-5L22 76M47-5L29 76M134-5L106 76M141-5L113 76M-5 59L195 8M-5 65L195 14"/>
+                </g>
+                <path d="M98 25a8 8 0 0 1 8 8c0 6-8 14-8 14s-8-8-8-14a8 8 0 0 1 8-8Z"
+                      stroke="#a4472c" stroke-width="1.3" fill="#faf7f0"/>
+                <circle cx="98" cy="33" r="2.5" stroke="#a4472c" stroke-width="1.3"/>
+              </svg>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="done" aria-labelledby="done-title">
+        <h2 class="section-title serif" id="done-title">Что сделано</h2>
+        <ul>
+          <li>Главная с меню и ценами</li>
+          <li>Страница «Контакты» с картой</li>
+          <li>Кнопка «Заказать» ведёт в Telegram</li>
+        </ul>
+      </section>
+
+      <section class="checks" aria-labelledby="checks-title">
+        <h2 class="section-title serif" id="checks-title">Что проверено</h2>
+        <ul>
+          <li>
+            <span class="stamp" aria-hidden="true"><svg viewBox="0 0 18 18"><path d="m4 9 3.3 3.4L14 5"/></svg></span>
+            <span>Открывается на телефоне</span>
+          </li>
+          <li>
+            <span class="stamp" aria-hidden="true"><svg viewBox="0 0 18 18"><path d="m4 9 3.3 3.4L14 5"/></svg></span>
+            <span>Все ссылки работают</span>
+          </li>
+          <li>
+            <span class="stamp" aria-hidden="true"><svg viewBox="0 0 18 18"><path d="m4 9 3.3 3.4L14 5"/></svg></span>
+            <span>Тексты без ошибок</span>
+          </li>
+          <li>
+            <span class="stamp" aria-hidden="true"><svg viewBox="0 0 18 18"><path d="m4 9 3.3 3.4L14 5"/></svg></span>
+            <span>Загружается за 1,2&nbsp;с</span>
+          </li>
+        </ul>
+      </section>
+
+      <p class="limitation">
+        <strong>Не проверено: оплата онлайн</strong>
+        <span>Её не было в задаче</span>
+      </p>
+
+      <!-- Исходное состояние макета: готовый сайт ещё не опубликован. -->
+      <p class="visibility-status">Сайт готов. Пока его видите только вы.</p>
+
+      <div class="actions" aria-label="Действия с результатом">
+        <button class="button primary" id="open-button" type="button">
+          Открыть сайт
+          <svg class="icon" viewBox="0 0 16 16" aria-hidden="true">
+            <path d="M9 2h5v5M14 2 7 9M6 3H2v11h11v-4"/>
+          </svg>
+        </button>
+        <button class="button edit" type="button" id="edit-button">Исправить что-то</button>
+        <button class="button publish" type="button" id="publish-button">Опубликовать</button>
+      </div>
+      <button class="details" type="button" id="details-button">Подробнее</button>
+
+      <form class="composer" id="change-form">
+        <label class="sr-only" for="changes">Что поменять?</label>
+        <textarea id="changes" rows="1" placeholder="Что поменять?" aria-describedby="input-notice"></textarea>
+        <span class="stop-label" id="stop-label" hidden>Остановить</span>
+        <button class="voice" id="input-action" type="button" aria-label="Сказать, что поменять" title="Сказать голосом">
+          <svg class="icon" viewBox="0 0 20 20" aria-hidden="true">
+            <rect x="7" y="2" width="6" height="10" rx="3"/>
+            <path d="M4.5 9v1a5.5 5.5 0 0 0 11 0V9M10 15.5V18M7 18h6"/>
+          </svg>
+        </button>
+        <p class="notice" id="input-notice" role="status" aria-live="polite"></p>
+      </form>
+    </main>
+  </div>
+
+  <script>
+    const field = document.getElementById('changes');
+    const action = document.getElementById('input-action');
+    const notice = document.getElementById('input-notice');
+    const stopLabel = document.getElementById('stop-label');
+
+    const mic = '<svg class="icon" viewBox="0 0 20 20" aria-hidden="true"><rect x="7" y="2" width="6" height="10" rx="3"/><path d="M4.5 9v1a5.5 5.5 0 0 0 11 0V9M10 15.5V18M7 18h6"/></svg>';
+    const arrow = '<svg class="icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 16V4M5 9l5-5 5 5"/></svg>';
+    const stop = '<svg class="icon" viewBox="0 0 20 20" aria-hidden="true"><rect x="5" y="5" width="10" height="10" fill="currentColor" stroke="none"/></svg>';
+
+    let recognition = null;
+    let recording = false;
+
+    function updateInput() {
+      if (recording) return;
+      const hasText = Boolean(field.value.trim());
+      action.classList.toggle('send', hasText);
+      action.innerHTML = hasText ? arrow : mic;
+      action.setAttribute('aria-label', hasText ? 'Отправить изменения' : 'Сказать, что поменять');
+      action.title = hasText ? 'Отправить изменения' : 'Сказать голосом';
+    }
+
+    function sendChanges() {
+      if (!field.value.trim()) return;
+      // В самодостаточном макете нет сервера: ввод сохраняется.
+      notice.textContent = 'Это макет. Изменения не отправлены, ваш текст сохранён.';
+    }
+
+    field.addEventListener('input', () => {
+      notice.textContent = '';
+      updateInput();
+    });
+
+    document.getElementById('edit-button').addEventListener('click', () => field.focus());
+
+    document.getElementById('change-form').addEventListener('submit', event => {
+      event.preventDefault();
+      sendChanges();
+    });
+
+    // Реальный адрес и отдельные экраны не заданы: макет не имитирует
+    // открытие сайта, публикацию или успешную отправку.
+    document.getElementById('open-button').addEventListener('click', () => {
+      notice.textContent = 'Это макет. Адрес готового сайта пока не подключён.';
+    });
+    document.getElementById('publish-button').addEventListener('click', () => {
+      notice.textContent = 'Это макет. Экран подтверждения публикации не подключён. Сайт не опубликован.';
+    });
+    document.getElementById('details-button').addEventListener('click', () => {
+      notice.textContent = 'Это макет. Подробный отчёт пока не подключён.';
+    });
+
+    action.addEventListener('click', () => {
+      if (recording) {
+        recognition.stop();
+        return;
+      }
+      if (field.value.trim()) {
+        sendChanges();
+        return;
+      }
+
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRecognition) {
+        notice.textContent = 'Голосовой ввод недоступен в этом браузере. Напишите текст.';
+        field.focus();
+        return;
+      }
+
+      recognition = new SpeechRecognition();
+      recognition.lang = 'ru-RU';
+      recognition.interimResults = false;
+
+      recognition.onstart = () => {
+        recording = true;
+        notice.textContent = '';
+        field.placeholder = 'Слушаю…';
+        field.readOnly = true;
+        stopLabel.hidden = false;
+        action.classList.add('send');
+        action.innerHTML = stop;
+        action.setAttribute('aria-label', 'Остановить запись');
+        action.title = 'Остановить';
+      };
+
+      recognition.onresult = event => {
+        field.value = event.results[0][0].transcript;
+        notice.textContent = '';
+      };
+
+      recognition.onerror = event => {
+        notice.textContent = event.error === 'not-allowed' || event.error === 'service-not-allowed'
+          ? 'Разрешите доступ к микрофону или напишите текст.'
+          : 'Не удалось распознать речь. Попробуйте ещё раз или напишите текст.';
+      };
+
+      recognition.onend = () => {
+        recording = false;
+        field.readOnly = false;
+        field.placeholder = 'Что поменять?';
+        stopLabel.hidden = true;
+        updateInput();
+      };
+
+      try {
+        recognition.start();
+      } catch {
+        notice.textContent = 'Не удалось включить микрофон. Попробуйте ещё раз или напишите текст.';
+      }
+    });
+  </script>
+</body>
+</html>

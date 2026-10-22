@@ -1,0 +1,103 @@
+{
+ "key": {
+  "a1": "G",
+  "a2": "E",
+  "b1": "A",
+  "b2": "H",
+  "c1": "B",
+  "c2": "D",
+  "d1": "F",
+  "d2": "C"
+ },
+ "infos": [
+  {
+   "variant": "a",
+   "sample": 1,
+   "render0": "{\"errors\":[]}",
+   "render1": "{\"errors\":[]}",
+   "render_final": "{\"errors\":[]}",
+   "secs": 515
+  },
+  {
+   "variant": "a",
+   "sample": 2,
+   "render0": "{\"errors\":[]}",
+   "render1": "{\"errors\":[]}",
+   "render_final": "{\"errors\":[]}",
+   "secs": 524
+  },
+  {
+   "variant": "b",
+   "sample": 1,
+   "render0": "{\"errors\":[]}",
+   "render1": "{\"errors\":[]}",
+   "render_final": "{\"errors\":[]}",
+   "secs": 737
+  },
+  {
+   "variant": "b",
+   "sample": 2,
+   "render0": "{\"errors\":[]}",
+   "render1": "{\"errors\":[]}",
+   "render_final": "{\"errors\":[]}",
+   "secs": 728
+  },
+  {
+   "variant": "c",
+   "sample": 1,
+   "mock_votes": {
+    "c1-mock0.png": 0,
+    "c1-mock1.png": 0
+   },
+   "mock": "c1-mock0.png",
+   "render0": "{\"errors\":[]}",
+   "render1": "{\"errors\":[]}",
+   "render_final": "{\"errors\":[]}",
+   "secs": 683
+  },
+  {
+   "variant": "c",
+   "sample": 2,
+   "mock_votes": {
+    "c2-mock0.png": 1,
+    "c2-mock1.png": 3
+   },
+   "mock": "c2-mock1.png",
+   "render0": "{\"errors\":[]}",
+   "render1": "{\"errors\":[]}",
+   "render_final": "{\"errors\":[]}",
+   "secs": 570
+  },
+  {
+   "variant": "d",
+   "sample": 1,
+   "secs": 221,
+   "render_final": "{\"errors\":[]}"
+  },
+  {
+   "variant": "d",
+   "sample": 2,
+   "secs": 223,
+   "render_final": "{\"errors\":[]}"
+  }
+ ],
+ "t0": 1792694376.752368,
+ "t1": 1792695114.300368,
+ "note": "c2 rebuilt on the mockup the pickers chose (mock1); first c2 used mock0 due to a parsing bug, moved to discarded/",
+ "t_redo": [
+  1792695216.5148065,
+  1792695786.4589362
+ ],
+ "key_v1_unused": {
+  "a1": "A",
+  "a2": "D",
+  "b1": "F",
+  "b2": "B",
+  "c1": "C",
+  "c2": "E"
+ },
+ "t_d": [
+  1792695816.8006275,
+  1792696039.8096757
+ ]
+}

@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=1440, initial-scale=1">
+<title>PRSLOY — Готово: сайт для кофейни «Зерно»</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geologica:wght@300;400;500;600&family=Piazzolla:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#f3eee3;--card:#faf7f0;--ink:#3b2a1e;
+  --muted:#7a6352;--line:#ddd2c1;--accent:#a4472c;--stamp:#b23a26;
+}
+*{box-sizing:border-box}
+html,body{margin:0;width:1440px;height:900px;overflow:hidden}
+body{background:var(--paper);color:var(--ink);font-family:"Geologica",sans-serif;font-size:16px;font-weight:300}
+button,input{font:inherit}
+button,a{ -webkit-tap-highlight-color:transparent}
+button{cursor:pointer;color:var(--ink)}
+button:focus-visible,a:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:4px}
+button{border:1px solid var(--ink);border-radius:3px;background:transparent}
+a{color:inherit;text-underline-offset:5px}
+.serif{font-family:"Piazzolla",serif}
+.micro{font-family:"Courier New",monospace;text-transform:uppercase;letter-spacing:1.2px;font-size:10px;font-weight:400}
+.app{width:1440px;height:900px;display:grid;grid-template-columns:224px 1fr;border:1px solid var(--ink)}
+.sidebar{height:898px;border-right:1px solid var(--ink);padding:31px 20px 23px;display:flex;flex-direction:column}
+.logo{font-family:"Piazzolla",serif;font-size:31px;letter-spacing:1.5px;line-height:1}
+.status{display:flex;align-items:center;gap:7px;color:var(--muted);font-size:12px;margin-top:15px}
+.status:before{content:"";width:7px;height:7px;border-radius:50%;background:var(--ink)}
+.mode-label{margin:49px 0 12px;color:var(--muted)}
+.modes{display:flex;flex-direction:column;gap:5px}
+.mode{border-color:transparent;text-align:left;height:40px;padding:0 12px;font-size:15px;display:flex;align-items:center;justify-content:space-between}
+.mode.active{background:var(--card);border-color:var(--ink)}
+.mode.active:after{content:"●";font-size:8px;color:var(--accent)}
+.chat-label{margin:38px 0 13px;color:var(--muted)}
+.chats{display:flex;flex-direction:column;gap:7px}
+.chat{padding:13px 11px;text-decoration:none;font-size:14px;line-height:1.4;border:1px solid transparent;border-radius:2px}
+.chat.active{border-color:var(--line);background:var(--card);border-left:3px solid var(--accent);padding-left:9px}
+.chat small{display:block;font-family:"Courier New",monospace;color:var(--muted);font-size:10px;margin-top:7px;text-transform:uppercase;letter-spacing:1px}
+.sidebar-bottom{margin-top:auto}
+.side-rule{height:25px;border-top:1px solid var(--line);position:relative}
+.side-rule:before{content:"";position:absolute;top:-1px;left:0;width:100%;height:7px;background:repeating-linear-gradient(90deg,var(--line) 0 1px,transparent 1px 9px)}
+.new-chat{width:100%;height:47px;background:var(--card);display:flex;align-items:center;justify-content:center;gap:13px;font-size:14px}
+.new-chat span{font-size:23px;font-weight:300}
+.main{position:relative;height:898px;padding:0 38px}
+.topbar{height:113px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}
+.breadcrumb{display:flex;align-items:center;gap:12px;color:var(--muted);font-size:13px}
+.breadcrumb .slash{color:#b7a693}
+.breadcrumb strong{font-weight:400;color:var(--ink)}
+.budget{width:302px;padding-top:2px}
+.budget-top{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.counter{display:flex;gap:3px;align-items:center}
+.digit{font-family:"Piazzolla",serif;font-size:25px;line-height:32px;width:24px;height:34px;text-align:center;border:1px solid var(--ink);background:var(--card);position:relative}
+.digit:after{content:"";position:absolute;left:0;right:0;top:50%;border-top:1px solid rgba(59,42,30,.12)}
+.comma{font-family:"Piazzolla",serif;font-size:25px;align-self:flex-end;margin:0 -1px 1px}
+.budget-caption{font-size:12px;color:var(--muted);white-space:nowrap}
+.ruler{height:12px;margin-top:10px;position:relative;border-bottom:1px solid var(--muted);background:repeating-linear-gradient(90deg,var(--muted) 0 1px,transparent 1px 6px);background-size:100% 5px;background-repeat:no-repeat;background-position:bottom}
+.ruler:after{content:"";position:absolute;right:0;bottom:0;width:20%;height:10px;background:repeating-linear-gradient(125deg,transparent 0 3px,rgba(178,58,38,.45) 3px 4px)}
+.pointer{position:absolute;left:73.22%;top:-3px;width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-top:6px solid var(--accent);transform:translateX(-4px)}
+.ruler-labels{display:flex;justify-content:space-between;font:9px "Courier New",monospace;color:var(--muted);margin-top:3px}
+.title-row{padding-top:25px;display:flex;align-items:flex-start;justify-content:space-between}
+h1{font-family:"Piazzolla",serif;font-weight:400;font-size:35px;line-height:1.25;margin:0;letter-spacing:-.7px}
+.subtitle{font-size:14px;color:var(--muted);margin:10px 0 0}
+.ready-seal{border:1px solid var(--stamp);color:var(--stamp);padding:8px 11px;transform:rotate(-3deg);font-size:11px;margin-top:8px;display:flex;align-items:center;gap:8px}
+.work{display:grid;grid-template-columns:324px 1fr;gap:30px;margin-top:26px;height:329px}
+.summary{display:flex;flex-direction:column;padding-top:4px}
+h2{font-family:"Piazzolla",serif;font-weight:500;font-size:24px;line-height:1.2;margin:0}
+.done-list{list-style:none;padding:0;margin:18px 0 0}
+.done-list li{padding:0 0 14px 24px;position:relative;font-size:16px;line-height:1.5}
+.done-list li:before{content:"—";position:absolute;left:0;color:var(--muted)}
+.actions{margin-top:auto}
+.primary{height:47px;width:100%;background:var(--accent);border-color:var(--accent);color:var(--card);display:flex;align-items:center;justify-content:space-between;padding:0 17px;font-size:16px}
+.primary .arrow{font-size:22px}
+.secondary-actions{display:flex;gap:9px;margin-top:10px}
+.secondary-actions button{height:41px;font-size:12px;padding:0 12px;background:var(--card);flex:1;white-space:nowrap}
+.preview{position:relative;border:1px solid var(--ink);border-radius:3px;background:var(--card);padding:15px}
+.screw{position:absolute;width:5px;height:5px;border:1px solid #b7a38d;border-radius:50%;z-index:2}
+.screw:after{content:"";position:absolute;left:0;top:1px;width:3px;border-top:1px solid #b7a38d;transform:rotate(-40deg)}
+.tl{top:5px;left:5px}.tr{top:5px;right:5px}.bl{bottom:5px;left:5px}.br{bottom:5px;right:5px}
+.preview-heading{display:flex;justify-content:space-between;align-items:center;margin:0 2px 12px;color:var(--muted)}
+.preview-heading .tag{border:1px solid var(--line);padding:3px 5px;font-size:9px;letter-spacing:.7px}
+.site{height:265px;border:1px solid var(--line);overflow:hidden;background:var(--paper)}
+.site-nav{height:43px;padding:0 21px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--line)}
+.coffee-logo{font-family:"Piazzolla",serif;font-size:23px;font-weight:500;letter-spacing:2px}
+.site-links{display:flex;gap:20px;font-size:9px}
+.site-hero{height:141px;display:flex;align-items:center;justify-content:space-between;padding:12px 25px;border-bottom:1px solid var(--line)}
+.site-kicker{font:8px "Courier New",monospace;letter-spacing:1.6px;color:var(--muted)}
+.site-title{font:400 29px/1.05 "Piazzolla",serif;margin:6px 0 7px}
+.site-description{font-size:9px;color:var(--muted)}
+.site-order{display:inline-block;background:var(--ink);color:var(--card);font-size:8px;border-radius:2px;padding:6px 12px;margin-top:10px}
+.cup{width:144px;height:119px;margin-right:8px;color:var(--muted)}
+.site-menu{display:grid;grid-template-columns:1fr 1fr 1fr;gap:17px;padding:12px 23px}
+.menu-item{font-family:"Piazzolla",serif;font-size:14px;border-top:1px solid var(--muted);padding-top:7px;display:flex;justify-content:space-between}
+.menu-item span{font:10px "Geologica",sans-serif;padding-top:4px;color:var(--muted)}
+.verification{margin-top:28px;border-top:1px solid var(--ink);border-bottom:1px solid var(--line);padding:19px 0 17px}
+.verification-head{display:flex;justify-content:space-between;align-items:center}
+.details{font-size:13px;color:var(--muted)}
+.checks{display:grid;grid-template-columns:1.1fr 1.1fr 1fr 1.15fr;margin-top:18px;gap:13px}
+.check{display:flex;gap:9px;align-items:center;font-size:14px;white-space:nowrap}
+.checkmark{display:flex;align-items:center;justify-content:center;flex:none;width:24px;height:24px;border:1px solid var(--stamp);border-radius:2px;color:var(--stamp);font-size:17px;transform:rotate(-6deg);font-family:Arial,sans-serif}
+.check:nth-child(2) .checkmark{transform:rotate(4deg)}
+.check:nth-child(4) .checkmark{transform:rotate(-3deg)}
+.not-checked{display:flex;gap:9px;align-items:center;font-size:13px;color:var(--muted);margin-top:19px}
+.empty-mark{width:17px;height:17px;border:1px dashed var(--muted);display:inline-block;flex:none}
+.not-checked strong{font-weight:400;color:var(--ink)}
+.composer-area{position:absolute;left:38px;right:38px;bottom:25px}
+.composer-label{display:flex;justify-content:space-between;margin-bottom:11px;color:var(--muted);font-size:10px}
+.composer{height:65px;border:1px solid var(--ink);border-radius:3px;background:var(--card);display:flex;align-items:center;padding:0 12px 0 20px}
+.composer input{flex:1;min-width:0;border:none;background:transparent;color:var(--ink);font-size:18px;outline:none;height:100%}
+.composer input::placeholder{color:var(--muted);opacity:1}
+.mic{width:41px;height:41px;border-color:var(--line);display:flex;align-items:center;justify-content:center}
+.mic svg{width:21px;height:21px;fill:none;stroke:var(--ink);stroke-width:1.5;stroke-linecap:round}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="logo">PRSLOY</div>
+    <div class="status">работает</div>
+
+    <div class="micro mode-label">Режим работы</div>
+    <nav class="modes" aria-label="Режим работы">
+      <button class="mode">Код</button>
+      <button class="mode active" aria-pressed="true">Креатив</button>
+      <button class="mode">Повседнев</button>
+    </nav>
+
+    <div class="micro chat-label">Ваши чаты</div>
+    <nav class="chats" aria-label="Чаты">
+      <a class="chat active" href="#" aria-current="page">Сайт для кофейни<small>Результат готов</small></a>
+      <a class="chat" href="#">Пост в Telegram</a>
+      <a class="chat" href="#">Письмо арендатору</a>
+    </nav>
+
+    <div class="sidebar-bottom">
+      <div class="side-rule"></div>
+      <button class="new-chat"><span aria-hidden="true">+</span> Новый чат</button>
+    </div>
+  </aside>
+
+  <main class="main">
+    <header class="topbar">
+      <div class="breadcrumb"><span>Креатив</span><span class="slash">/</span><strong>Сайт для кофейни</strong></div>
+      <section class="budget" aria-label="Потрачено 36 рублей 61 копейка из 50 рублей сегодня">
+        <div class="budget-top">
+          <div class="counter" aria-hidden="true">
+            <span class="digit">3</span><span class="digit">6</span><span class="comma">,</span><span class="digit">6</span><span class="digit">1</span>
+          </div>
+          <div class="budget-caption">из 50 ₽ сегодня</div>
+        </div>
+        <div class="ruler"><span class="pointer"></span></div>
+        <div class="ruler-labels"><span>0</span><span>25</span><span>50 ₽</span></div>
+      </section>
+    </header>
+
+    <section class="title-row">
+      <div>
+        <h1>Готово: сайт для кофейни «Зерно»</h1>
+        <p class="subtitle">Заняло 3 мин 12 с · потрачено 4,20 ₽</p>
+      </div>
+      <div class="ready-seal micro"><span aria-hidden="true">✓</span> Задача выполнена</div>
+    </section>
+
+    <section class="work" aria-label="Результат работы">
+      <div class="summary">
+        <h2>Что сделано</h2>
+        <ul class="done-list">
+          <li>Главная с меню и ценами</li>
+          <li>Страница «Контакты»<br>с картой</li>
+          <li>Кнопка «Заказать»<br>ведёт в Telegram</li>
+        </ul>
+        <div class="actions">
+          <button class="primary">Открыть сайт <span class="arrow" aria-hidden="true">↗</span></button>
+          <div class="secondary-actions">
+            <button onclick="document.getElementById('changes').focus()">Исправить что-то</button>
+            <button>Опубликовать</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="preview">
+        <i class="screw tl"></i><i class="screw tr"></i><i class="screw bl"></i><i class="screw br"></i>
+        <div class="preview-heading micro"><span>Предпросмотр сайта</span><span class="tag">Главная / 01</span></div>
+        <div class="site" aria-label="Схематичный предпросмотр сайта кофейни Зерно">
+          <div class="site-nav">
+            <div class="coffee-logo">зерно.</div>
+            <div class="site-links"><span>Меню</span><span>О нас</span><span>Контакты</span></div>
+          </div>
+          <div class="site-hero">
+            <div>
+              <div class="site-kicker">КОФЕЙНЯ РЯДОМ С ВАМИ</div>
+              <div class="site-title">Хороший день<br>начинается с кофе.</div>
+              <div class="site-description">Свежие зёрна. Тёплые встречи.</div>
+              <span class="site-order">Заказать в Telegram ↗</span>
+            </div>
+            <svg class="cup" viewBox="0 0 160 130" fill="none" stroke="currentColor" stroke-width="1">
+              <path d="M18 104h126M29 111h104" stroke-dasharray="2 4" opacity=".4"/>
+              <ellipse cx="78" cy="97" rx="57" ry="12"/>
+              <path d="M32 94c10 17 83 18 94 0M44 48l5 36c3 19 55 19 58 0l5-36"/>
+              <ellipse cx="78" cy="48" rx="34" ry="10"/>
+              <ellipse cx="78" cy="49" rx="27" ry="6" opacity=".5"/>
+              <path d="M111 54c28-8 28 29-3 28M112 60c17-4 16 15-3 16"/>
+              <path d="M65 32c-10-11 10-15 0-27M81 30c-9-10 9-12 1-23M95 33c-8-8 8-13 2-20" stroke-linecap="round"/>
+              <path d="M18 19v77M14 24h8M14 91h8M134 33v64M130 38h8M130 91h8" opacity=".3"/>
+              <path d="M53 117h50" opacity=".4"/>
+            </svg>
+          </div>
+          <div class="site-menu">
+            <div class="menu-item">Эспрессо <span>150 ₽</span></div>
+            <div class="menu-item">Капучино <span>220 ₽</span></div>
+            <div class="menu-item">Латте <span>250 ₽</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="verification">
+      <div class="verification-head">
+        <h2>Что проверено</h2>
+        <a class="details" href="#">Подробнее</a>
+      </div>
+      <div class="checks">
+        <div class="check"><span class="checkmark" aria-hidden="true">✓</span>Открывается на телефоне</div>
+        <div class="check"><span class="checkmark" aria-hidden="true">✓</span>Все ссылки работают</div>
+        <div class="check"><span class="checkmark" aria-hidden="true">✓</span>Тексты без ошибок</div>
+        <div class="check"><span class="checkmark" aria-hidden="true">✓</span>Загружается за 1,2 с</div>
+      </div>
+      <div class="not-checked">
+        <span class="empty-mark" aria-hidden="true"></span>
+        <span><strong>Не проверено:</strong> оплата онлайн — её не было в задаче</span>
+      </div>
+    </section>
+
+    <div class="composer-area">
+      <div class="composer-label micro"><span>Можно продолжить здесь</span><span>Текстом или голосом</span></div>
+      <div class="composer">
+        <input id="changes" type="text" placeholder="Что поменять?" aria-label="Что поменять?">
+        <button class="mic" aria-label="Сказать голосом">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <rect x="9" y="3" width="6" height="11" rx="3"/>
+            <path d="M6 10v2a6 6 0 0 0 12 0v-2M12 18v4M9 22h6"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </main>
+</div>
+</body>
+</html>

@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=1440, initial-scale=1">
+<title>PRSLOY — Готово</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geologica:wght@300;400;500&family=Piazzolla:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --paper: #f3eee3;
+  --card: #faf7f0;
+  --ink: #3b2a1e;
+  --muted: #7a6352;
+  --line: #ddd2c1;
+  --accent: #a4472c;
+  --stamp: #b23a26;
+}
+* { box-sizing: border-box; }
+html, body { width: 1440px; height: 900px; margin: 0; overflow: hidden; }
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font: 400 17px/1.5 "Geologica", sans-serif;
+}
+button, input { font: inherit; }
+button { cursor: pointer; color: inherit; }
+button, a { -webkit-tap-highlight-color: transparent; }
+button:focus-visible, a:focus-visible, input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+}
+svg { display: block; }
+.symbols { position: absolute; width: 0; height: 0; overflow: hidden; }
+.app { position: relative; width: 1440px; height: 900px; }
+.plate { position: relative; border: 1px solid #9d8b74; border-radius: 3px; }
+.screw {
+  position: absolute; width: 7px; height: 7px;
+  border: 1px solid #ad9980; border-radius: 50%;
+  pointer-events: none;
+}
+.screw::after {
+  content: ""; position: absolute; left: 2px; top: 1px;
+  width: 1px; height: 3px; background: #ad9980; transform: rotate(38deg);
+}
+.tl { left: 7px; top: 7px; }
+.tr { right: 7px; top: 7px; }
+.bl { left: 7px; bottom: 7px; }
+.br { right: 7px; bottom: 7px; }
+
+.sidebar {
+  position: absolute; inset: 0 auto 0 0; width: 248px;
+  padding: 27px 16px;
+  border-right: 1px solid #b7a68f;
+}
+.brand-row { display: flex; align-items: center; justify-content: space-between; }
+.logo {
+  font: 500 29px/1.2 "Piazzolla", serif;
+  letter-spacing: 1px;
+}
+.status {
+  display: flex; align-items: center; gap: 5px;
+  font-size: 11px; color: var(--muted); white-space: nowrap;
+}
+.status::before {
+  content: ""; width: 7px; height: 7px;
+  border-radius: 50%; background: var(--ink);
+}
+.modes {
+  display: flex; margin-top: 35px;
+  border: 1px solid #a7937a; border-radius: 3px; overflow: hidden;
+}
+.mode {
+  flex: 1; border: 0; border-right: 1px solid #a7937a;
+  background: transparent; padding: 9px 5px;
+  font-size: 14px; line-height: 1.2; white-space: nowrap;
+}
+.mode:last-child { border-right: 0; }
+.mode.active { background: #7a6955; color: var(--card); }
+.chats { display: flex; flex-direction: column; gap: 5px; margin-top: 29px; }
+.chat {
+  display: flex; align-items: center; gap: 9px;
+  width: 100%; min-height: 51px; padding: 11px 7px;
+  text-align: left; white-space: nowrap;
+  font-size: 15px; font-weight: 300;
+  border: 1px solid transparent; border-radius: 3px; background: transparent;
+}
+.chat svg { width: 17px; height: 22px; flex: 0 0 17px; }
+.chat.active { background: #e9e0ce; border-color: #bba98f; }
+.new-chat {
+  position: absolute; bottom: 41px; left: 16px; right: 16px;
+  height: 53px; border: 1px solid #9d8b74; border-radius: 3px;
+  background: transparent; font-size: 17px;
+  display: flex; align-items: center; justify-content: center; gap: 9px;
+}
+.new-chat svg { width: 19px; height: 19px; }
+
+.budget {
+  position: absolute; right: 21px; top: 18px;
+  width: 650px; height: 66px; padding: 10px 18px;
+  display: flex; align-items: center; gap: 24px; background: var(--card);
+}
+.budget-value { display: flex; align-items: center; gap: 11px; white-space: nowrap; }
+.counter {
+  display: flex; align-items: center; gap: 2px;
+  font: 400 32px/36px "Piazzolla", serif;
+  font-variant-numeric: tabular-nums;
+}
+.counter span {
+  width: 22px; height: 37px; border: 1px solid var(--ink); text-align: center;
+}
+.counter .comma { width: 9px; border: 0; }
+.budget-note { font-size: 15px; color: var(--muted); }
+.ruler { width: 285px; height: 43px; flex: 1; }
+
+.main {
+  position: absolute; top: 103px; left: 270px; right: 21px; bottom: 18px;
+  padding: 17px 21px 21px;
+}
+h1 {
+  margin: 0; font: 500 36px/1.35 "Piazzolla", serif;
+  letter-spacing: -.5px;
+}
+.summary {
+  margin: 9px 0 22px; color: var(--muted);
+  font: 16px/1.5 monospace;
+}
+.result {
+  display: grid; grid-template-columns: 510px minmax(0, 1fr);
+  gap: 26px; height: 460px;
+}
+
+/* Одно обрамление превью; внутри — простая схема страницы. */
+.preview {
+  border: 1px solid #ac987d; border-radius: 3px;
+  background: var(--card); overflow: hidden;
+}
+.site-header {
+  height: 52px; padding: 0 23px;
+  display: flex; align-items: center; justify-content: space-between;
+  border-bottom: 1px solid var(--line);
+}
+.site-logo {
+  display: flex; align-items: center; gap: 10px;
+  font: 600 24px/1 "Piazzolla", serif;
+}
+.site-logo svg { width: 20px; height: 25px; color: var(--muted); }
+.label {
+  display: inline-block; padding: 3px 7px;
+  border: 1px solid var(--line); border-radius: 2px;
+  color: var(--muted); font: 12px/1.3 monospace;
+  letter-spacing: .8px; text-transform: uppercase;
+}
+.hero {
+  position: relative; height: 197px; padding: 22px 24px;
+  border-bottom: 1px solid var(--line);
+}
+.hero h2 {
+  position: relative; z-index: 1;
+  margin: 0 0 15px; font: 500 29px/1.12 "Piazzolla", serif;
+}
+.site-order {
+  display: inline-flex; align-items: center; gap: 9px;
+  padding: 8px 15px; border-radius: 3px;
+  background: var(--ink); color: var(--card); font-size: 14px;
+}
+.site-order svg { width: 14px; height: 14px; }
+.coffee-art {
+  position: absolute; width: 224px; height: 178px;
+  right: 15px; top: 6px; color: #8b765b;
+}
+.menu { height: 150px; padding: 12px 24px; border-bottom: 1px solid var(--line); }
+.menu h3, .contacts h3 {
+  margin: 0; font: 500 23px/1.3 "Piazzolla", serif;
+}
+.menu-items { display: flex; justify-content: space-between; margin-top: 7px; }
+.menu-item { width: 135px; text-align: center; font-size: 15px; }
+.menu-item svg { width: 63px; height: 45px; margin: 0 auto 2px; color: #8b765b; }
+.contacts {
+  height: 60px; display: flex; align-items: center;
+  justify-content: space-between; padding: 0 24px;
+}
+.map {
+  width: 126px; height: 32px; border: 1px dashed #b6a38b;
+  border-radius: 2px; color: #9b856a;
+}
+.details { min-width: 0; }
+.detail-box h2 {
+  margin: 0 0 9px; font: 500 26px/1.3 "Piazzolla", serif;
+}
+.done { padding: 2px 0 17px; border-bottom: 1px solid var(--line); }
+ul { margin: 0; padding: 0; list-style: none; }
+.done li {
+  display: flex; align-items: center; gap: 11px;
+  min-height: 37px; font-size: 17px; white-space: nowrap;
+}
+.check { width: 18px; height: 18px; flex: 0 0 18px; color: #7b6c57; }
+.checked { padding-top: 16px; }
+.checked li {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; min-height: 38px; font-size: 17px;
+}
+.stamp {
+  flex: 0 0 86px; text-align: center;
+  border: 1px solid var(--stamp); border-radius: 2px;
+  padding: 3px 4px; color: var(--stamp);
+  font: 600 11px/1.2 monospace; letter-spacing: .3px;
+}
+.unchecked {
+  display: flex; align-items: flex-start; gap: 11px;
+  border-top: 1px solid var(--line); margin-top: 12px; padding-top: 13px;
+  font-size: 17px; line-height: 1.55;
+}
+.info {
+  flex: 0 0 18px; width: 18px; height: 18px; margin-top: 4px;
+  border: 1px solid var(--muted); border-radius: 50%;
+  text-align: center; color: var(--muted); font: 14px/17px monospace;
+}
+.unchecked p { margin: 0; }
+.unchecked .reason { display: block; color: var(--muted); }
+
+.actions { display: flex; align-items: center; gap: 14px; margin-top: 20px; }
+.action {
+  height: 54px; padding: 0 21px; border: 1px solid #9d8b74;
+  border-radius: 3px; background: transparent;
+  display: flex; align-items: center; justify-content: center; gap: 11px;
+  font-size: 17px;
+}
+.action svg { width: 18px; height: 18px; }
+.primary { background: var(--accent); color: var(--card); border-color: var(--accent); }
+.more {
+  margin-left: auto; display: flex; align-items: center; gap: 10px;
+  color: var(--accent); font-size: 16px; text-underline-offset: 4px;
+}
+.more svg { width: 21px; height: 21px; }
+.composer {
+  position: absolute; bottom: 21px; left: 21px; right: 21px;
+  height: 70px; padding: 9px;
+  display: flex; align-items: center; gap: 12px;
+  background: var(--card); border: 1px solid #9d8b74; border-radius: 3px;
+}
+.composer input {
+  flex: 1; min-width: 0; height: 100%; padding: 0 10px;
+  border: 0; background: transparent; color: var(--ink); font-size: 18px;
+}
+.composer input::placeholder { color: var(--muted); opacity: 1; }
+.mic {
+  width: 50px; height: 50px; flex: 0 0 50px;
+  display: grid; place-items: center;
+  border: 1px solid var(--ink); border-radius: 3px; background: transparent;
+}
+.mic svg { width: 23px; height: 27px; }
+</style>
+</head>
+<body>
+<svg class="symbols" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+<defs>
+  <symbol id="document" viewBox="0 0 20 25">
+    <path d="M4 2h8l5 5v16H4zM12 2v6h5M7 12h7M7 15h7M7 18h5" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/>
+  </symbol>
+  <symbol id="tick" viewBox="0 0 20 20">
+    <path d="m3 10 4 4 10-10" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+  </symbol>
+  <symbol id="cup" viewBox="0 0 80 60">
+    <g fill="none" stroke="currentColor" stroke-width="1.1">
+      <ellipse cx="35" cy="48" rx="28" ry="7"/>
+      <path d="M12 47c9 6 35 7 47 0M15 15l4 24c3 13 29 14 33-1l3-23M55 19c19-6 20 20-4 20M56 23c11-3 11 11-3 12"/>
+      <ellipse cx="35" cy="15" rx="20" ry="6"/>
+      <ellipse cx="35" cy="15" rx="16" ry="3.5"/>
+    </g>
+  </symbol>
+  <symbol id="external" viewBox="0 0 20 20">
+    <path d="M11 3h6v6M17 3l-9 9M8 5H3v12h12v-5" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+  </symbol>
+  <symbol id="pencil" viewBox="0 0 20 20">
+    <path d="m4 12 9-9 4 4-9 9-5 1zM11 5l4 4M4 12l4 4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+  </symbol>
+  <symbol id="upload" viewBox="0 0 20 20">
+    <path d="M5 14H4a3 3 0 0 1-1-5.8A5 5 0 0 1 12 5a4 4 0 0 1 4 7.8M10 17V8m-3 3 3-3 3 3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </symbol>
+  <symbol id="arrow" viewBox="0 0 24 24">
+    <path d="M3 12h17m-6-6 6 6-6 6" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+  </symbol>
+</defs>
+</svg>
+
+<div class="app">
+  <aside class="sidebar" aria-label="Чаты">
+    <div class="brand-row">
+      <div class="logo">PRSLOY</div>
+      <div class="status">работает</div>
+    </div>
+    <nav class="modes" aria-label="Режим">
+      <button class="mode" type="button" aria-pressed="false">Код</button>
+      <button class="mode active" type="button" aria-pressed="true">Креатив</button>
+      <button class="mode" type="button" aria-pressed="false">Повседнев</button>
+    </nav>
+    <nav class="chats" aria-label="Ваши чаты">
+      <button class="chat active" type="button" aria-current="page">
+        <svg aria-hidden="true"><use href="#document"/></svg>Сайт для кофейни
+      </button>
+      <button class="chat" type="button">
+        <svg aria-hidden="true"><use href="#document"/></svg>Пост в Telegram
+      </button>
+      <button class="chat" type="button">
+        <svg aria-hidden="true"><use href="#document"/></svg>Письмо арендатору
+      </button>
+    </nav>
+    <button class="new-chat" type="button">
+      <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true">
+        <circle cx="10" cy="10" r="8"/><path d="M10 5v10M5 10h10"/>
+      </svg>
+      Новый чат
+    </button>
+  </aside>
+
+  <section class="budget plate" aria-label="Бюджет: 36 рублей 61 копейка из 50 рублей сегодня">
+    <i class="screw tl"></i><i class="screw tr"></i>
+    <i class="screw bl"></i><i class="screw br"></i>
+    <div class="budget-value">
+      <div class="counter" aria-hidden="true">
+        <span>3</span><span>6</span><span class="comma">,</span><span>6</span><span>1</span>
+      </div>
+      <span class="budget-note">из 50 ₽ сегодня</span>
+    </div>
+    <svg class="ruler" viewBox="0 0 285 43" aria-hidden="true">
+      <defs>
+        <pattern id="ticks" width="5.4" height="16" patternUnits="userSpaceOnUse">
+          <path d="M.5 9v7" stroke="#a38e75" stroke-width="1"/>
+        </pattern>
+        <pattern id="hatch" width="6" height="12" patternUnits="userSpaceOnUse">
+          <path d="m-3 12 9-12M3 12l9-12" stroke="#b23a26" stroke-width="1"/>
+        </pattern>
+      </defs>
+      <path d="M7 4v12h270V4" fill="none" stroke="#8d775f"/>
+      <path d="M7 4h270v12H7z" fill="url(#ticks)"/>
+      <path d="M223 4h54v12h-54z" fill="url(#hatch)"/>
+      <path d="M61 4v12M115 4v12M169 4v12" stroke="#8d775f"/>
+      <path d="M223 2v16" stroke="#b23a26" stroke-width="1.5"/>
+      <path d="m204.7 18-4 6h8z" fill="#a4472c"/>
+      <g font-family="monospace" font-size="11" fill="#7a6352" text-anchor="middle">
+        <text x="7" y="39">0</text><text x="61" y="39">10</text>
+        <text x="115" y="39">20</text><text x="169" y="39">30</text>
+        <text x="223" y="39">40</text><text x="277" y="39">50</text>
+      </g>
+    </svg>
+  </section>
+
+  <main class="main plate">
+    <i class="screw tl"></i><i class="screw tr"></i>
+    <i class="screw bl"></i><i class="screw br"></i>
+    <h1>Готово: сайт для кофейни «Зерно»</h1>
+    <p class="summary">Заняло 3 мин 12 с · потрачено 4,20 ₽</p>
+
+    <div class="result">
+      <section class="preview" aria-label="Превью сайта кофейни «Зерно»: первый экран, меню и контакты">
+        <header class="site-header">
+          <div class="site-logo">
+            <svg viewBox="0 0 20 24" fill="none" stroke="currentColor" stroke-width="1.1" aria-hidden="true">
+              <path d="M4 3 10 1l6 2 2 7-3 11H5L2 10zM10 5v13M10 11C4 11 5 6 10 8M10 15c6 0 5-5 0-3"/>
+            </svg>
+            Зерно
+          </div>
+          <span class="label">Первый экран</span>
+        </header>
+        <div class="hero">
+          <h2>Вкусный кофе<br>каждый день</h2>
+          <span class="site-order">Заказать <svg aria-hidden="true"><use href="#arrow"/></svg></span>
+          <svg class="coffee-art" viewBox="0 0 240 190" aria-hidden="true">
+            <g fill="none" stroke="currentColor" stroke-width="1.05" stroke-linecap="round" stroke-linejoin="round">
+              <ellipse cx="116" cy="139" rx="88" ry="32" transform="rotate(-8 116 139)"/>
+              <path d="M32 141c8 35 161 38 169-9M44 144c23 22 116 25 146-7M72 111c-8 18 69 36 91 9"/>
+              <path d="M59 61c1 30 9 67 42 75 28 8 59-7 66-31l14-50"/>
+              <ellipse cx="120" cy="58" rx="62" ry="27" transform="rotate(-4 120 58)"/>
+              <ellipse cx="120" cy="58" rx="56" ry="22" transform="rotate(-4 120 58)"/>
+              <ellipse cx="120" cy="60" rx="50" ry="17" transform="rotate(-4 120 60)"/>
+              <path d="M176 71c35-23 47 12 27 34-11 12-26 16-37 14M179 79c22-15 28 6 15 18-8 8-15 10-23 11"/>
+              <path d="M115 74c-7-8-30-9-29-18 2-11 21-7 31 2-11-14-4-25 4-17 4 4 5 9 4 16 8-12 26-13 28-4 2 10-20 16-31 22l-3 6"/>
+              <path d="M114 68c-17-8-21-10-19-13 3-3 13 1 24 10-6-14-6-19-2-19 5 0 5 10 5 18 12-9 20-13 23-10 3 4-12 11-24 17"/>
+              <path d="m65 82 5 21m-2-17 5 22m-1-15 5 21M91 125l7 4M148 123l-7 6"/>
+              <ellipse cx="174" cy="162" rx="11" ry="7" transform="rotate(-25 174 162)"/>
+              <path d="M169 166c1-8 8-7 10-12"/>
+              <ellipse cx="201" cy="154" rx="11" ry="7" transform="rotate(24 201 154)"/>
+              <path d="M192 151c8-2 8 6 17 5"/>
+            </g>
+          </svg>
+        </div>
+        <div class="menu">
+          <h3>Меню</h3>
+          <div class="menu-items">
+            <div class="menu-item"><svg aria-hidden="true"><use href="#cup"/></svg>Эспрессо</div>
+            <div class="menu-item"><svg aria-hidden="true"><use href="#cup"/></svg>Американо</div>
+            <div class="menu-item"><svg aria-hidden="true"><use href="#cup"/></svg>Капучино</div>
+          </div>
+        </div>
+        <div class="contacts">
+          <h3>Контакты</h3>
+          <svg class="map" viewBox="0 0 126 32" aria-hidden="true">
+            <path d="m0 24 126-15M34 0l15 32M85 0l-8 32" fill="none" stroke="currentColor" stroke-width="1"/>
+            <path d="M68 7a5 5 0 0 0-5 5c0 4 5 9 5 9s5-5 5-9a5 5 0 0 0-5-5Z" fill="#faf7f0" stroke="#a4472c"/>
+            <circle cx="68" cy="12" r="1.5" fill="#a4472c"/>
+          </svg>
+        </div>
+      </section>
+
+      <div class="details">
+        <section class="detail-box done">
+          <h2>Что сделано</h2>
+          <ul>
+            <li><svg class="check" aria-hidden="true"><use href="#tick"/></svg>Главная с меню и ценами</li>
+            <li><svg class="check" aria-hidden="true"><use href="#tick"/></svg>Страница „Контакты“ с картой</li>
+            <li><svg class="check" aria-hidden="true"><use href="#tick"/></svg>Кнопка „Заказать“ ведёт в Telegram</li>
+          </ul>
+        </section>
+        <section class="detail-box checked" id="details">
+          <h2>Что проверено</h2>
+          <ul>
+            <li><span>Открывается на телефоне</span><span class="stamp">ПРОВЕРЕНО</span></li>
+            <li><span>Все ссылки работают</span><span class="stamp">ПРОВЕРЕНО</span></li>
+            <li><span>Тексты без ошибок</span><span class="stamp">ПРОВЕРЕНО</span></li>
+            <li><span>Загружается за 1,2 с</span><span class="stamp">ПРОВЕРЕНО</span></li>
+          </ul>
+          <div class="unchecked">
+            <span class="info" aria-hidden="true">i</span>
+            <p>Не проверено: оплата онлайн<span class="reason">Её не было в задаче</span></p>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button class="action primary" type="button">
+        Открыть сайт<svg aria-hidden="true"><use href="#external"/></svg>
+      </button>
+      <button class="action" type="button" onclick="document.getElementById('changes').focus()">
+        Исправить что-то<svg aria-hidden="true"><use href="#pencil"/></svg>
+      </button>
+      <button class="action" type="button">
+        Опубликовать<svg aria-hidden="true"><use href="#upload"/></svg>
+      </button>
+      <a class="more" href="#details">Подробнее<svg aria-hidden="true"><use href="#arrow"/></svg></a>
+    </div>
+
+    <form class="composer" onsubmit="event.preventDefault()" aria-label="Изменения сайта">
+      <input id="changes" type="text" placeholder="Что поменять?" aria-label="Что поменять?" autocomplete="off">
+      <button class="mic" type="button" aria-label="Ввести голосом">
+        <svg viewBox="0 0 24 28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="8" y="3" width="8" height="15" rx="4"/>
+          <path d="M5 12v3a7 7 0 0 0 14 0v-3M12 22v4M8 26h8"/>
+        </svg>
+      </button>
+    </form>
+  </main>
+</div>
+</body>
+</html>

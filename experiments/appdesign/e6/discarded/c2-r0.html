@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=1440, initial-scale=1">
+<title>PRSLOY — Готово</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geologica:wght@300;400;500&family=Piazzolla:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --paper: #f3eee3;
+  --card: #faf7f0;
+  --ink: #3b2a1e;
+  --muted: #7a6352;
+  --line: #ddd2c1;
+  --accent: #a4472c;
+  --stamp: #b23a26;
+}
+* { box-sizing: border-box; }
+html, body { width: 1440px; height: 900px; margin: 0; overflow: hidden; }
+body { background: var(--paper); color: var(--ink); font-family: "Geologica", sans-serif; font-weight: 300; }
+button, input { font: inherit; }
+button, a { -webkit-tap-highlight-color: transparent; }
+button { cursor: pointer; }
+button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
+button { color: var(--ink); }
+svg { display: block; }
+.symbols { position: absolute; width: 0; height: 0; overflow: hidden; }
+.app { position: relative; width: 1440px; height: 900px; border: 1px solid #b2a28c; }
+.plate { position: relative; border: 1px solid #9d8b74; border-radius: 2px; }
+.screw { position: absolute; width: 7px; height: 7px; border: 1px solid #ad9980; border-radius: 50%; pointer-events: none; }
+.screw::after { content: ""; position: absolute; left: 2px; top: 1px; width: 1px; height: 3px; background: #ad9980; transform: rotate(38deg); }
+.tl { left: 6px; top: 6px; } .tr { right: 6px; top: 6px; }
+.bl { left: 6px; bottom: 6px; } .br { right: 6px; bottom: 6px; }
+.sidebar { position: absolute; left: 7px; top: 7px; bottom: 7px; width: 301px; padding: 18px 20px; }
+.sidebar::after { content: ""; position: absolute; right: -7px; top: -7px; bottom: -7px; border-right: 1px solid #9d8b74; }
+.brand-row { display: flex; align-items: center; justify-content: space-between; }
+.logo { font-family: "Piazzolla", serif; font-size: 32px; letter-spacing: 1.2px; line-height: 1.2; }
+.status { display: flex; align-items: center; gap: 7px; font-size: 11px; color: var(--muted); white-space: nowrap; }
+.status::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: var(--ink); }
+.modes { display: flex; margin-top: 34px; border: 1px solid #aa977e; border-radius: 2px; overflow: hidden; }
+.mode { flex: 1; border: 0; border-right: 1px solid #aa977e; background: transparent; padding: 5px 4px; font-size: 11px; white-space: nowrap; }
+.mode:last-child { border-right: 0; }
+.mode::before { content: ""; display: inline-block; width: 8px; height: 8px; border: 1px solid currentColor; border-radius: 50%; margin-right: 5px; vertical-align: -1px; }
+.mode.active { background: #85765f; color: var(--card); }
+.mode.active::before { background: var(--card); }
+.chats { display: flex; flex-direction: column; margin: 30px -8px 0; gap: 3px; }
+.chat { position: relative; display: flex; align-items: center; gap: 13px; text-align: left; min-height: 47px; padding: 10px 12px; border: 1px solid transparent; background: none; font-size: 15px; white-space: nowrap; }
+.chat svg { width: 19px; height: 23px; flex-shrink: 0; }
+.chat.active { border-color: #b9a78f; background: #ebe3d2; }
+.chat.active::before { content: ""; position: absolute; width: 7px; height: 7px; border-radius: 50%; background: var(--ink); left: -5px; top: 19px; }
+.new-chat { position: absolute; bottom: 54px; left: 20px; right: 20px; height: 54px; background: transparent; font-family: "Piazzolla", serif; font-size: 18px; display: flex; align-items: center; justify-content: center; gap: 8px; }
+.new-chat svg { width: 18px; height: 18px; }
+.budget { position: absolute; right: 33px; top: 17px; width: 558px; height: 57px; display: flex; align-items: center; padding: 10px 17px; gap: 23px; background: var(--card); }
+.budget-value { display: flex; align-items: center; gap: 9px; white-space: nowrap; }
+.counter { display: flex; gap: 2px; font-family: "Piazzolla", serif; font-size: 25px; line-height: 29px; }
+.counter span { width: 18px; height: 30px; text-align: center; border: 1px solid var(--ink); }
+.counter .comma { width: 9px; border: 0; }
+.budget-note { color: var(--muted); font-family: "Piazzolla", serif; font-size: 17px; font-style: italic; }
+.ruler { flex: 1; height: 33px; min-width: 0; }
+.main { position: absolute; top: 90px; left: 329px; right: 17px; bottom: 18px; padding: 15px 19px 19px; }
+h1 { margin: 0; font-family: "Piazzolla", serif; font-size: 35px; line-height: 1.35; font-weight: 500; letter-spacing: -.5px; }
+.summary { margin: 10px 0 19px; color: var(--muted); font-family: monospace; font-size: 16px; letter-spacing: .2px; }
+.result { display: grid; grid-template-columns: 574px 1fr; gap: 19px; height: 456px; }
+.preview { padding: 8px; background: var(--card); }
+.site { height: 100%; border: 1px solid #a18d73; background: var(--card); }
+.site-header { height: 51px; border-bottom: 1px solid var(--line); display: flex; align-items: center; padding: 0 19px; gap: 12px; }
+.site-logo { font-family: "Piazzolla", serif; font-size: 19px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+.site-logo svg { width: 18px; height: 22px; color: #9e896c; }
+.site-nav { display: flex; gap: 16px; margin: 0 auto; font-family: monospace; font-size: 10px; }
+.site-order { border: 1px solid var(--ink); background: var(--ink); border-radius: 12px; color: var(--card); font-family: monospace; font-size: 10px; padding: 6px 10px; }
+.hero { height: 209px; display: flex; padding: 21px 26px 18px 43px; border-bottom: 1px solid var(--line); position: relative; }
+.hero-copy { position: relative; z-index: 1; width: 230px; }
+.hero h2 { margin: 0 0 8px; font-family: "Piazzolla", serif; font-size: 26px; font-weight: 500; line-height: 1.08; }
+.hero p { font-family: monospace; font-size: 10px; line-height: 1.6; margin: 0 0 12px; color: var(--muted); }
+.hero .site-order { min-width: 105px; }
+.coffee-art { width: 224px; height: 180px; position: absolute; right: 18px; top: 17px; color: #8b765b; }
+.menu { padding: 11px 32px 10px 43px; }
+.menu h3 { font-family: "Piazzolla", serif; font-size: 20px; font-weight: 500; margin: 0 0 8px; }
+.menu-items { display: flex; justify-content: space-between; }
+.menu-item { text-align: center; font-family: monospace; color: var(--muted); font-size: 10px; line-height: 1.6; width: 76px; }
+.menu-item svg { width: 62px; height: 47px; margin: 0 auto 5px; color: #998469; }
+.details { display: flex; flex-direction: column; gap: 19px; }
+.detail-box { background: rgba(250,247,240,.45); padding: 10px 19px 14px; border-color: #b4a38d; }
+.detail-box h2 { font-family: "Piazzolla", serif; font-size: 23px; font-weight: 500; margin: 0 0 9px; line-height: 1.4; }
+.done { height: 158px; }
+.checked { flex: 1; }
+ul { margin: 0; padding: 0; list-style: none; }
+.detail-box li { display: flex; align-items: center; gap: 12px; font-size: 15px; line-height: 1.5; min-height: 34px; white-space: nowrap; }
+.check { width: 18px; height: 18px; border-radius: 50%; background: #8c806e; color: var(--card); display: inline-flex; align-items: center; justify-content: center; flex: 0 0 18px; }
+.check svg { width: 12px; height: 12px; }
+.checked li { min-height: 35px; gap: 12px; }
+.stamp { margin-left: auto; color: var(--stamp); font-family: monospace; font-weight: bold; font-size: 11px; border: 1px solid var(--stamp); border-radius: 2px; padding: 2px 5px; transform: rotate(-5deg); line-height: 1.3; }
+.unchecked { display: flex; align-items: flex-start; gap: 12px; border-top: 1px solid var(--line); padding-top: 12px; margin-top: 11px; font-size: 15px; line-height: 1.65; color: #95816a; }
+.cross { border: 1px solid #a38f76; width: 18px; height: 18px; flex: 0 0 18px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-top: 3px; font-family: sans-serif; font-size: 19px; line-height: 1; }
+.actions { display: flex; align-items: center; gap: 17px; margin-top: 19px; }
+.action { height: 54px; padding: 0 22px; border: 1px solid #8f7b64; border-radius: 2px; background: transparent; display: flex; align-items: center; justify-content: center; gap: 11px; font-family: "Piazzolla", serif; font-size: 19px; }
+.action svg { width: 17px; height: 17px; }
+.primary { background: var(--accent); color: var(--card); border-color: var(--accent); min-width: 199px; }
+.edit { min-width: 210px; }
+.publish { min-width: 188px; }
+.more { margin-left: auto; color: var(--accent); font-size: 15px; text-underline-offset: 3px; display: flex; gap: 10px; align-items: center; }
+.more span { font-size: 24px; text-decoration: none; }
+.composer { position: absolute; bottom: 19px; left: 19px; right: 19px; height: 86px; padding: 10px; background: var(--card); }
+.input-wrap { width: 100%; height: 100%; display: flex; align-items: center; border: 1px solid #8f7b64; padding: 5px 6px 5px 12px; }
+.input-wrap input { flex: 1; min-width: 0; border: 0; background: transparent; color: var(--ink); outline: none; font-size: 15px; }
+.input-wrap input::placeholder { color: #a08c75; opacity: 1; }
+.mic { width: 49px; height: 48px; border: 1px solid var(--ink); border-radius: 4px; background: transparent; display: grid; place-items: center; }
+.mic svg { width: 23px; height: 26px; }
+</style>
+</head>
+<body>
+<svg class="symbols" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+<defs>
+  <symbol id="document" viewBox="0 0 20 25">
+    <path d="M4 2h8l5 5v16H4zM12 2v6h5M7 12h7M7 15h7M7 18h5" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/>
+  </symbol>
+  <symbol id="tick" viewBox="0 0 14 14"><path d="m2 7 3.2 3.3L12 3.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="cup" viewBox="0 0 80 60">
+    <g fill="none" stroke="currentColor" stroke-width="1">
+      <ellipse cx="35" cy="48" rx="28" ry="7"/><path d="M12 47c9 6 35 7 47 0M15 15l4 24c3 13 29 14 33-1l3-23M55 19c19-6 20 20-4 20M56 23c11-3 11 11-3 12"/>
+      <ellipse cx="35" cy="15" rx="20" ry="6"/><ellipse cx="35" cy="15" rx="16" ry="3.5"/>
+    </g>
+  </symbol>
+  <symbol id="croissant" viewBox="0 0 80 60">
+    <g fill="none" stroke="currentColor" stroke-width="1.1" stroke-linejoin="round">
+      <path d="M8 48c-3-8 4-21 12-24 1-8 11-15 19-13 8-5 18 0 20 7 11 1 18 13 12 19-6 2-9-2-13-2-7 7-12 7-17 7-8 6-11 7-17 5-6 7-12 8-16 1Z"/>
+      <path d="M20 24c10-2 18 6 21 18M26 15c13 0 23 10 24 24M39 11c9 3 18 13 19 24M59 18c-3 5-3 10-1 17M10 38c6-1 12 3 14 9"/>
+    </g>
+  </symbol>
+  <symbol id="external" viewBox="0 0 20 20"><path d="M11 3h6v6M17 3l-9 9M8 5H3v12h12v-5" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="pencil" viewBox="0 0 20 20"><path d="m4 12 9-9 4 4-9 9-5 1zM11 5l4 4M4 12l4 4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></symbol>
+  <symbol id="upload" viewBox="0 0 20 20"><path d="M5 14H4a3 3 0 0 1-1-5.8A5 5 0 0 1 12 5a4 4 0 0 1 4 7.8M10 17V8m-3 3 3-3 3 3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+</defs>
+</svg>
+
+<div class="app">
+  <aside class="sidebar plate" aria-label="Чаты">
+    <i class="screw tl"></i><i class="screw tr"></i><i class="screw bl"></i><i class="screw br"></i>
+    <div class="brand-row">
+      <div class="logo">PRSLOY</div>
+      <div class="status">работает</div>
+    </div>
+    <nav class="modes" aria-label="Режим">
+      <button class="mode" type="button">Код</button>
+      <button class="mode active" type="button" aria-pressed="true">Креатив</button>
+      <button class="mode" type="button">Повседнев</button>
+    </nav>
+    <nav class="chats" aria-label="Ваши чаты">
+      <button class="chat active" type="button" aria-current="page"><svg aria-hidden="true"><use href="#document"/></svg>Сайт для кофейни</button>
+      <button class="chat" type="button"><svg aria-hidden="true"><use href="#document"/></svg>Пост в Telegram</button>
+      <button class="chat" type="button"><svg aria-hidden="true"><use href="#document"/></svg>Письмо арендатору</button>
+    </nav>
+    <button class="new-chat plate" type="button">
+      <i class="screw tl"></i><i class="screw tr"></i><i class="screw bl"></i><i class="screw br"></i>
+      <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true"><circle cx="10" cy="10" r="8"/><path d="M10 5v10M5 10h10"/></svg>
+      Новый чат
+    </button>
+  </aside>
+
+  <section class="budget plate" aria-label="Бюджет: 36 рублей 61 копейка из 50 рублей сегодня">
+    <i class="screw tl"></i><i class="screw tr"></i><i class="screw bl"></i><i class="screw br"></i>
+    <div class="budget-value">
+      <div class="counter" aria-hidden="true"><span>3</span><span>6</span><span class="comma">,</span><span>6</span><span>1</span></div>
+      <span class="budget-note">из 50 ₽ сегодня</span>
+    </div>
+    <svg class="ruler" viewBox="0 0 265 34" aria-hidden="true">
+      <defs>
+        <pattern id="ticks" width="5" height="13" patternUnits="userSpaceOnUse"><path d="M.5 7v6" stroke="#a38e75" stroke-width="1"/></pattern>
+        <pattern id="hatch" width="5" height="10" patternUnits="userSpaceOnUse"><path d="m-2 10 7-10M3 10l7-10" stroke="#b23a26" stroke-width="1"/></pattern>
+      </defs>
+      <path d="M2 2v12h260V2" fill="none" stroke="#a38e75"/>
+      <path d="M2 2h260v12H2z" fill="url(#ticks)"/>
+      <path d="M210 4h52v10h-52z" fill="url(#hatch)"/>
+      <path d="M54 4v10M106 4v10M158 4v10M210 4v10" stroke="#8d775f"/>
+      <path d="m192 15-3 5h6z" fill="#a4472c"/>
+      <g font-family="monospace" font-size="8" fill="#7a6352" text-anchor="middle"><text x="3" y="30">0</text><text x="54" y="30">10</text><text x="106" y="30">20</text><text x="158" y="30">30</text><text x="210" y="30">40</text><text x="260" y="30">50</text></g>
+    </svg>
+  </section>
+
+  <main class="main plate">
+    <i class="screw tl"></i><i class="screw tr"></i><i class="screw bl"></i><i class="screw br"></i>
+    <h1>Готово: сайт для кофейни «Зерно»</h1>
+    <p class="summary">Заняло 3 мин 12 с · потрачено 4,20 ₽</p>
+
+    <div class="result">
+      <section class="preview plate" aria-label="Превью сайта кофейни «Зерно»">
+        <i class="screw tl"></i><i class="screw tr"></i><i class="screw bl"></i><i class="screw br"></i>
+        <div class="site">
+          <header class="site-header">
+            <div class="site-logo">
+              <svg viewBox="0 0 20 24" fill="none" stroke="currentColor" stroke-width="1"><path d="M4 3 10 1l6 2 2 7-3 11H5L2 10zM10 5v13M10 11C4 11 5 6 10 8M10 15c6 0 5-5 0-3"/></svg>
+              Зерно
+            </div>
+            <div class="site-nav"><span>Главная</span><span>Меню</span><span>Контакты</span></div>
+            <span class="site-order">Заказать ↗</span>
+          </header>
+          <div class="hero">
+            <div class="hero-copy">
+              <h2>Вкусный<br>кофе каждый<br>день</h2>
+              <p>Свежая обжарка, уютная атмосфера,<br>и хорошее настроение.</p>
+              <span class="site-order">Заказать ↗</span>
+            </div>
+            <svg class="coffee-art" viewBox="0 0 240 190" aria-hidden="true">
+              <g fill="none" stroke="currentColor" stroke-width="1.05" stroke-linecap="round" stroke-linejoin="round">
+                <ellipse cx="116" cy="139" rx="88" ry="32" transform="rotate(-8 116 139)"/>
+                <path d="M32 141c8 35 161 38 169-9M44 144c23 22 116 25 146-7M72 111c-8 18 69 36 91 9"/>
+                <path d="M59 61c1 30 9 67 42 75 28 8 59-7 66-31l14-50"/>
+                <ellipse cx="120" cy="58" rx="62" ry="27" transform="rotate(-4 120 58)"/>
+                <ellipse cx="120" cy="58" rx="56" ry="22" transform="rotate(-4 120 58)"/>
+                <ellipse cx="120" cy="60" rx="50" ry="17" transform="rotate(-4 120 60)"/>
+                <path d="M176 71c35-23 47 12 27 34-11 12-26 16-37 14M179 79c22-15 28 6 15 18-8 8-15 10-23 11"/>
+                <path d="M115 74c-7-8-30-9-29-18 2-11 21-7 31 2-11-14-4-25 4-17 4 4 5 9 4 16 8-12 26-13 28-4 2 10-20 16-31 22l-3 6"/>
+                <path d="M114 68c-17-8-21-10-19-13 3-3 13 1 24 10-6-14-6-19-2-19 5 0 5 10 5 18 12-9 20-13 23-10 3 4-12 11-24 17"/>
+                <path d="m65 82 5 21m-2-17 5 22m-1-15 5 21M91 125l7 4M148 123l-7 6"/>
+                <ellipse cx="174" cy="162" rx="11" ry="7" transform="rotate(-25 174 162)"/>
+                <path d="M169 166c1-8 8-7 10-12"/>
+                <ellipse cx="201" cy="154" rx="11" ry="7" transform="rotate(24 201 154)"/>
+                <path d="M192 151c8-2 8 6 17 5"/>
+                <ellipse cx="207" cy="171" rx="10" ry="6" transform="rotate(-12 207 171)"/>
+                <path d="M198 173c6-6 11 0 17-5"/>
+              </g>
+            </svg>
+          </div>
+          <div class="menu">
+            <h3>Меню</h3>
+            <div class="menu-items">
+              <div class="menu-item"><svg aria-hidden="true"><use href="#cup"/></svg>Эспрессо<br>150 ₽</div>
+              <div class="menu-item"><svg aria-hidden="true" viewBox="0 0 80 60"><g fill="none" stroke="currentColor"><ellipse cx="35" cy="11" rx="20" ry="5"/><ellipse cx="35" cy="11" rx="16" ry="2.5"/><path d="m15 11 5 35c2 8 28 9 31-1l4-34M55 17c20-6 20 21-3 22M55 22c12-4 12 10-2 12"/></g></svg>Американо<br>180 ₽</div>
+              <div class="menu-item"><svg aria-hidden="true"><use href="#cup"/><path d="M24 15c4-7 8 7 12-2s8 6 12 0" fill="none" stroke="currentColor"/></svg>Капучино<br>220 ₽</div>
+              <div class="menu-item"><svg aria-hidden="true"><use href="#croissant"/></svg>Выпечка<br>120 ₽</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div class="details">
+        <section class="detail-box done plate">
+          <i class="screw tl"></i><i class="screw tr"></i>
+          <h2>Что сделано</h2>
+          <ul>
+            <li><span class="check"><svg aria-hidden="true"><use href="#tick"/></svg></span>Главная с меню и ценами</li>
+            <li><span class="check"><svg aria-hidden="true"><use href="#tick"/></svg></span>Страница „Контакты“ с картой</li>
+            <li><span class="check"><svg aria-hidden="true"><use href="#tick"/></svg></span>Кнопка „Заказать“ ведёт в Telegram</li>
+          </ul>
+        </section>
+        <section class="detail-box checked plate">
+          <i class="screw tl"></i><i class="screw tr"></i>
+          <h2>Что проверено</h2>
+          <ul>
+            <li><span class="check"><svg aria-hidden="true"><use href="#tick"/></svg></span>Открывается на телефоне<span class="stamp">ПРОВЕРЕНО</span></li>
+            <li><span class="check"><svg aria-hidden="true"><use href="#tick"/></svg></span>Все ссылки работают<span class="stamp">ПРОВЕРЕНО</span></li>
+            <li><span class="check"><svg aria-hidden="true"><use href="#tick"/></svg></span>Тексты без ошибок<span class="stamp">ПРОВЕРЕНО</span></li>
+            <li><span class="check"><svg aria-hidden="true"><use href="#tick"/></svg></span>Загружается за 1,2 с<span class="stamp">ПРОВЕРЕНО</span></li>
+          </ul>
+          <div class="unchecked"><span class="cross" aria-hidden="true">×</span><span>Не проверено: оплата онлайн —<br>её не было в задаче</span></div>
+        </section>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button class="action primary" type="button">Открыть сайт<svg aria-hidden="true"><use href="#external"/></svg></button>
+      <button class="action edit" type="button" onclick="document.getElementById('changes').focus()">Исправить что-то<svg aria-hidden="true"><use href="#pencil"/></svg></button>
+      <button class="action publish" type="button">Опубликовать<svg aria-hidden="true"><use href="#upload"/></svg></button>
+      <a class="more" href="#details" onclick="event.preventDefault()">Подробнее <span aria-hidden="true">→</span></a>
+    </div>
+
+    <form class="composer plate" onsubmit="event.preventDefault()" aria-label="Изменения сайта">
+      <i class="screw tl"></i><i class="screw tr"></i><i class="screw bl"></i><i class="screw br"></i>
+      <div class="input-wrap">
+        <input id="changes" type="text" placeholder="Что поменять?" aria-label="Что поменять?" autocomplete="off">
+        <button class="mic" type="button" aria-label="Ввести голосом">
+          <svg viewBox="0 0 24 28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8" y="3" width="8" height="15" rx="4"/><path d="M5 12v3a7 7 0 0 0 14 0v-3M12 22v4M8 26h8"/></svg>
+        </button>
+      </div>
+    </form>
+  </main>
+</div>
+</body>
+</html>

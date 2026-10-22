@@ -1,0 +1,258 @@
+[
+ {
+  "tag": "a1-build",
+  "model": "claude-opus-5-5",
+  "secs": 136.45,
+  "reasoning_chars": 0,
+  "in": 1097,
+  "out": 6293
+ },
+ {
+  "tag": "a2-build",
+  "model": "claude-opus-5-5",
+  "secs": 139.7,
+  "reasoning_chars": 0,
+  "in": 1097,
+  "out": 6553
+ },
+ {
+  "tag": "b1-spec",
+  "model": "claude-opus-5-5",
+  "secs": 146.79,
+  "reasoning_chars": 0,
+  "in": 1110,
+  "out": 5852
+ },
+ {
+  "tag": "b2-spec",
+  "model": "claude-opus-5-5",
+  "secs": 147.33,
+  "reasoning_chars": 0,
+  "in": 1110,
+  "out": 6249
+ },
+ {
+  "tag": "a1-r1-crit",
+  "model": "gpt-6.1-sol",
+  "secs": 46.17,
+  "reasoning_chars": 0,
+  "in": 3739,
+  "out": 1583
+ },
+ {
+  "tag": "a2-r1-crit",
+  "model": "gpt-6.1-sol",
+  "secs": 54.58,
+  "reasoning_chars": 0,
+  "in": 3739,
+  "out": 2030
+ },
+ {
+  "tag": "c2-build",
+  "model": "claude-opus-5-5",
+  "secs": 136.37,
+  "reasoning_chars": 0,
+  "in": 1153,
+  "out": 7585
+ },
+ {
+  "tag": "c1-build",
+  "model": "claude-opus-5-5",
+  "secs": 145.2,
+  "reasoning_chars": 0,
+  "in": 1153,
+  "out": 6655
+ },
+ {
+  "tag": "b2-build",
+  "model": "claude-opus-5-5",
+  "secs": 133.38,
+  "reasoning_chars": 0,
+  "in": null,
+  "out": null
+ },
+ {
+  "tag": "b1-build",
+  "model": "claude-opus-5-5",
+  "secs": 147.09,
+  "reasoning_chars": 0,
+  "in": 9010,
+  "out": 7499
+ },
+ {
+  "tag": "c2-r1-crit",
+  "model": "gpt-6.1-sol",
+  "secs": 49.05,
+  "reasoning_chars": 0,
+  "in": 3739,
+  "out": 1780
+ },
+ {
+  "tag": "a1-rev1",
+  "model": "claude-opus-5-5",
+  "secs": 121.14,
+  "reasoning_chars": 0,
+  "in": 8285,
+  "out": 5778
+ },
+ {
+  "tag": "a2-rev1",
+  "model": "claude-opus-5-5",
+  "secs": 132.05,
+  "reasoning_chars": 0,
+  "in": 8545,
+  "out": 6285
+ },
+ {
+  "tag": "c1-r1-crit",
+  "model": "gpt-6.1-sol",
+  "secs": 58.21,
+  "reasoning_chars": 0,
+  "in": 3739,
+  "out": 2086
+ },
+ {
+  "tag": "b2-r1-crit",
+  "model": "gpt-6.1-sol",
+  "secs": 54.29,
+  "reasoning_chars": 0,
+  "in": 3739,
+  "out": 1551
+ },
+ {
+  "tag": "b1-r1-crit",
+  "model": "gpt-6.1-sol",
+  "secs": 53.37,
+  "reasoning_chars": 0,
+  "in": 3739,
+  "out": 1836
+ },
+ {
+  "tag": "a1-r2-crit",
+  "model": "gpt-6.1-sol",
+  "secs": 82.39,
+  "reasoning_chars": 0,
+  "in": 3739,
+  "out": 2596
+ },
+ {
+  "tag": "a2-r2-crit",
+  "model": "gpt-6.1-sol",
+  "secs": 64.05,
+  "reasoning_chars": 0,
+  "in": 3739,
+  "out": 2104
+ },
+ {
+  "tag": "c2-rev1",
+  "model": "claude-opus-5-5",
+  "secs": 143.76,
+  "reasoning_chars": 0,
+  "in": 9895,
+  "out": 7062
+ },
+ {
+  "tag": "c1-rev1",
+  "model": "claude-opus-5-5",
+  "secs": 133.72,
+  "reasoning_chars": 0,
+  "in": 8894,
+  "out": 6807
+ },
+ {
+  "tag": "b2-rev1",
+  "model": "claude-opus-5-5",
+  "secs": 160.92,
+  "reasoning_chars": 0,
+  "in": 16904,
+  "out": 8570
+ },
+ {
+  "tag": "b1-rev1",
+  "model": "claude-opus-5-5",
+  "secs": 155.7,
+  "reasoning_chars": 0,
+  "in": 17231,
+  "out": 9120
+ },
+ {
+  "tag": "c1-r2-crit",
+  "model": "gpt-6.1-sol",
+  "secs": 43.66,
+  "reasoning_chars": 0,
+  "in": 3739,
+  "out": 1643
+ },
+ {
+  "tag": "a1-rev2",
+  "model": "claude-opus-5-5",
+  "secs": 118.01,
+  "reasoning_chars": 0,
+  "in": 7826,
+  "out": 7593
+ },
+ {
+  "tag": "a2-rev2",
+  "model": "claude-opus-5-5",
+  "secs": 122.77,
+  "reasoning_chars": 0,
+  "in": 8217,
+  "out": 6751
+ },
+ {
+  "tag": "c2-r2-crit",
+  "model": "gpt-6.1-sol",
+  "secs": 75.99,
+  "reasoning_chars": 0,
+  "in": 3739,
+  "out": 2613
+ },
+ {
+  "tag": "b2-r2-crit",
+  "model": "gpt-6.1-sol",
+  "secs": 53.45,
+  "reasoning_chars": 0,
+  "in": 3739,
+  "out": 1966
+ },
+ {
+  "tag": "b1-r2-crit",
+  "model": "gpt-6.1-sol",
+  "secs": 54.3,
+  "reasoning_chars": 0,
+  "in": 3739,
+  "out": 1933
+ },
+ {
+  "tag": "c1-rev2",
+  "model": "claude-opus-5-5",
+  "secs": 168.64,
+  "reasoning_chars": 0,
+  "in": 8884,
+  "out": 7614
+ },
+ {
+  "tag": "c2-rev2",
+  "model": "claude-opus-5-5",
+  "secs": 158.9,
+  "reasoning_chars": 0,
+  "in": 8984,
+  "out": 9186
+ },
+ {
+  "tag": "b2-rev2",
+  "model": "claude-opus-5-5",
+  "secs": 167.33,
+  "reasoning_chars": 0,
+  "in": 19178,
+  "out": 9455
+ },
+ {
+  "tag": "b1-rev2",
+  "model": "claude-opus-5-5",
+  "secs": 169.02,
+  "reasoning_chars": 0,
+  "in": 19044,
+  "out": 9020
+ }
+]

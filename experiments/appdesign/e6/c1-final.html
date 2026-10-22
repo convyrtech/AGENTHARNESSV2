@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PRSLOY — Готово</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geologica:wght@400;450;500&family=Piazzolla:wght@400;450;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --paper:#f3eee3;
+  --card:#faf7f0;
+  --ink:#3b2a1e;
+  --muted:#7a6352;
+  --line:#ddd2c1;
+  --accent:#a4472c;
+  --stamp:#b23a26;
+}
+* { box-sizing:border-box; }
+html,body { width:1440px; height:900px; margin:0; overflow:hidden; }
+body { background:var(--paper); color:var(--ink); font:400 16px/1.45 "Geologica",sans-serif; }
+button,input { font:inherit; color:inherit; }
+button { cursor:pointer; border-radius:3px; }
+button,a,input { -webkit-tap-highlight-color:transparent; }
+button:focus-visible,a:focus-visible,input:focus-visible {
+  outline:2px solid var(--accent); outline-offset:4px;
+}
+button:hover { background-color:#eee5d8; }
+svg { display:block; }
+.workspace {
+  width:1440px; height:900px; padding:17px;
+  display:grid; grid-template-columns:300px minmax(0,1fr); gap:16px;
+}
+.sidebar {
+  display:flex; flex-direction:column; min-width:0;
+  padding:24px 21px 27px;
+  border:1px solid var(--muted); border-radius:3px;
+}
+.brand-row { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.logo { font:450 30px/1.2 "Piazzolla",serif; letter-spacing:1.5px; }
+.status { display:flex; align-items:center; gap:8px; font-size:13px; }
+.status::before { content:""; width:9px; height:9px; border-radius:50%; background:var(--ink); }
+.modes {
+  display:flex; flex-direction:column; margin-top:33px;
+  border:1px solid var(--muted); border-radius:3px; overflow:hidden;
+}
+.modes button {
+  height:46px; padding:0 17px; text-align:left; font-size:17px;
+  border:0; border-bottom:1px solid var(--line);
+  border-radius:0; background:transparent;
+}
+.modes button:last-child { border-bottom:0; }
+.modes button:hover { background:#eae1d2; }
+.modes .selected,.modes .selected:hover { background:var(--accent); color:var(--card); }
+.technical { font:400 11px/1.3 monospace; letter-spacing:1.1px; text-transform:uppercase; }
+.chat-label { align-self:flex-start; margin:29px 0 14px; padding:3px 6px; border:1px solid var(--line); color:var(--muted); }
+.chats { display:flex; flex-direction:column; gap:6px; margin:0 -9px; }
+.chat {
+  display:flex; align-items:center; gap:10px; width:100%; height:51px;
+  padding:0 10px; border:0; background:transparent; text-align:left;
+  font-size:16px; white-space:nowrap;
+}
+.chat.active { background:#eae1d2; }
+.chat svg { width:19px; height:21px; flex-shrink:0; }
+.chevron { margin-left:auto; color:var(--muted); font:24px/1 serif; }
+.new-chat {
+  display:flex; align-items:center; justify-content:center; gap:10px;
+  margin-top:auto; height:52px; background:transparent;
+  border:1px solid var(--muted); font-size:17px;
+}
+.new-chat span { font-size:26px; font-weight:400; }
+.main {
+  position:relative; min-width:0; border:1px solid var(--ink); border-radius:4px;
+  display:grid; grid-template-rows:88px minmax(0,1fr);
+}
+.screw { position:absolute; width:8px; height:8px; border:1px solid #ad9276; border-radius:50%; pointer-events:none; }
+.screw::after {
+  content:""; position:absolute; width:5px; height:1px; background:#ad9276;
+  top:2.5px; left:.5px; transform:rotate(-48deg);
+}
+.tl { top:8px; left:8px; } .tr { top:8px; right:8px; }
+.bl { bottom:8px; left:8px; } .br { bottom:8px; right:8px; }
+.budget-bar {
+  display:flex; align-items:center; justify-content:flex-end; gap:20px;
+  padding:0 27px; border-bottom:1px solid var(--muted);
+}
+.budget-label { border:1px solid var(--line); padding:4px 7px; color:var(--muted); }
+.budget-value { display:flex; align-items:center; gap:12px; }
+.counter {
+  display:flex; align-items:center; padding:3px;
+  border:1px solid var(--ink); border-radius:2px; background:#eae1d2;
+  font-variant-numeric:tabular-nums;
+}
+.digit {
+  display:flex; align-items:center; justify-content:center;
+  width:22px; height:33px; background:var(--card);
+  border-right:1px solid #bca58d;
+  font:400 28px/1 monospace;
+}
+.digit:last-child { border-right:0; }
+.comma { align-self:flex-end; width:9px; padding-bottom:1px; text-align:center; font:24px/1 "Piazzolla",serif; }
+.budget-caption { font:400 italic 19px/1.2 "Piazzolla",serif; color:var(--muted); white-space:nowrap; }
+.instruments { display:flex; align-items:center; gap:15px; }
+.gauge { width:74px; height:49px; }
+.ruler { width:218px; height:48px; }
+.content { padding:27px 29px 29px; min-width:0; }
+h1 { margin:0; font:450 34px/1.2 "Piazzolla",serif; letter-spacing:-.35px; }
+.subtitle { margin:8px 0 0; color:var(--muted); font-size:16px; line-height:24px; }
+.result-grid {
+  display:grid; grid-template-columns:minmax(0,1.14fr) minmax(0,1fr);
+  gap:25px; margin-top:21px; height:445px;
+}
+.preview-frame {
+  display:flex; flex-direction:column; padding:13px 15px 15px;
+  border:1px solid var(--muted); border-radius:3px; min-width:0;
+  background:var(--card);
+}
+.preview-caption { display:flex; align-items:center; gap:11px; min-height:24px; margin-bottom:10px; }
+.draft { padding:3px 6px; border:1px solid var(--muted); color:var(--ink); }
+.preview-note { font-size:12px; color:var(--muted); }
+.website { flex:1; min-height:0; overflow:hidden; border:1px solid var(--line); }
+.site-header {
+  display:flex; align-items:center; gap:14px; height:44px;
+  padding:0 17px; border-bottom:1px solid var(--line);
+}
+.site-brand { font:500 20px/1 "Piazzolla",serif; }
+.site-nav { margin-left:auto; display:flex; gap:14px; color:var(--muted); font-size:9px; }
+.site-order { padding:4px 10px; border:1px solid #b59a7f; border-radius:3px; color:var(--muted); font-size:10px; }
+.site-hero { position:relative; height:179px; padding:18px 20px; border-bottom:1px solid var(--line); }
+.site-hero h2 { position:relative; z-index:1; margin:0; font:450 29px/1.03 "Piazzolla",serif; }
+.site-hero p { margin:10px 0 12px; max-width:235px; color:var(--muted); font-size:10px; line-height:1.55; }
+.telegram-mini {
+  display:flex; align-items:center; gap:6px; width:max-content;
+  padding:6px 10px; background:var(--accent); color:var(--card);
+  border-radius:3px; font-size:10px;
+}
+.hero-art { position:absolute; right:9px; top:9px; width:168px; height:158px; color:#a78b6f; }
+.menu { padding:12px 16px; }
+.menu h3 { margin:0 0 8px; font:450 21px/1.2 "Piazzolla",serif; }
+.menu-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; }
+.menu-item { height:95px; padding:6px 4px; border:1px solid var(--line); border-radius:3px; text-align:center; }
+.menu-item svg { width:68px; height:41px; margin:0 auto 2px; color:#a78b6f; }
+.menu-name { font-size:11px; color:var(--muted); }
+.price { margin-top:3px; font:11px/1.3 monospace; color:var(--muted); }
+.summary { min-width:0; display:flex; flex-direction:column; }
+.summary-card { padding:13px 0 0; border-top:1px solid var(--muted); }
+.section-title { margin:0 0 13px; font:450 26px/1.2 "Piazzolla",serif; }
+.list { display:flex; flex-direction:column; gap:11px; }
+.list-row { display:flex; align-items:center; gap:12px; font-size:16px; line-height:1.45; }
+.done-marker {
+  display:flex; align-items:center; justify-content:center; flex-shrink:0;
+  width:19px; height:19px; border:1px solid var(--accent); border-radius:2px;
+  color:var(--card); background:var(--accent);
+}
+.done-marker svg { width:14px; height:14px; }
+.checked-card { margin-top:23px; }
+.checked-card .list { gap:10px; }
+.check-stamp {
+  width:21px; height:21px; flex-shrink:0; display:flex; align-items:center; justify-content:center;
+  border:1px solid var(--ink); border-radius:3px; color:var(--ink); transform:rotate(-4deg);
+}
+.check-stamp svg { width:17px; height:17px; }
+.list-row:nth-child(2) .check-stamp { transform:rotate(3deg); }
+.check-stamp.final { border-color:var(--stamp); color:var(--stamp); transform:rotate(-3deg); }
+.unchecked {
+  display:flex; align-items:flex-start; gap:12px;
+  margin-top:17px; padding-top:13px; border-top:1px dashed #bda993;
+  font-size:16px; line-height:1.45;
+}
+.minus {
+  display:flex; align-items:center; justify-content:center; flex-shrink:0;
+  margin-top:2px; width:21px; height:21px; border:1px solid #bda993;
+  border-radius:3px; color:var(--muted); line-height:1;
+}
+.unchecked strong { font-weight:450; }
+.unchecked p { margin:3px 0 0; color:var(--muted); }
+.actions { display:flex; align-items:center; gap:15px; margin-top:23px; }
+.action {
+  display:flex; align-items:center; justify-content:center; gap:9px;
+  height:52px; padding:0 20px; border:1px solid var(--muted);
+  background:transparent; font-size:16px; white-space:nowrap;
+}
+.action svg { width:20px; height:22px; }
+.action.primary { min-width:207px; background:var(--accent); color:var(--card); border-color:var(--accent); }
+.action.primary:hover { background:#903d27; }
+.action.edit { min-width:221px; }
+.action.publish { min-width:202px; }
+.details { display:flex; align-items:center; gap:10px; margin-left:auto; color:var(--ink); font-size:16px; text-decoration:none; }
+.details span:first-child { border-bottom:1px solid #bda58a; padding-bottom:3px; }
+.composer { display:flex; gap:15px; margin-top:27px; height:70px; }
+.composer input {
+  min-width:0; flex:1; padding:0 23px; border:1px solid #aa9179; border-radius:3px;
+  background:var(--card); font-size:17px;
+}
+.composer input::placeholder { color:var(--muted); opacity:1; }
+.mic {
+  display:flex; align-items:center; justify-content:center; width:68px;
+  border:1px solid #aa9179; background:transparent;
+}
+.mic svg { width:25px; height:29px; }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+<defs>
+  <symbol id="chat" viewBox="0 0 24 24">
+    <path d="M5 3h14l2 3v11l-2 2h-8l-5 3v-4H3V6Z" fill="none" stroke="currentColor" stroke-width="1.5"/>
+    <path d="M7 10h2m3 0h2m3 0h1" stroke="currentColor" stroke-width="1.4"/>
+  </symbol>
+  <symbol id="check" viewBox="0 0 20 20">
+    <path d="m4 10 4 4 8-9" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+  </symbol>
+  <symbol id="plane" viewBox="0 0 24 24">
+    <path d="m3 10 18-7-6 18-5-7-7-4Zm7 4L21 3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+  </symbol>
+  <symbol id="cup" viewBox="0 0 100 65">
+    <g fill="none" stroke="currentColor" stroke-width="1.2">
+      <ellipse cx="43" cy="15" rx="29" ry="8"/>
+      <path d="M14 15c1 30 12 40 29 40s27-10 29-40M22 45c5 12 36 17 43-1M72 20c20-10 21 19-5 22M73 25c12-6 13 10-3 12"/>
+      <path d="M20 13c12-5 34-5 47 0" stroke-width=".65"/>
+    </g>
+  </symbol>
+</defs>
+</svg>
+
+<div class="workspace">
+  <aside class="sidebar">
+    <div class="brand-row">
+      <div class="logo">PRSLOY</div>
+      <div class="status">работает</div>
+    </div>
+
+    <nav class="modes" aria-label="Режим">
+      <button type="button" aria-pressed="false">Код</button>
+      <button type="button" class="selected" aria-pressed="true">Креатив</button>
+      <button type="button" aria-pressed="false">Повседнев</button>
+    </nav>
+
+    <div class="chat-label technical">ЧАТЫ</div>
+    <nav class="chats" aria-label="Чаты">
+      <button type="button" class="chat active" aria-current="page">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M5 3h14l2 3v11l-2 2h-8l-5 3v-4H3V6Z" fill="currentColor"/>
+          <path d="M8 10h6" stroke="#faf7f0" stroke-width="1.5"/>
+        </svg>
+        Сайт для кофейни <span class="chevron" aria-hidden="true">›</span>
+      </button>
+      <button type="button" class="chat">
+        <svg aria-hidden="true"><use href="#chat"/></svg>
+        Пост в Telegram <span class="chevron" aria-hidden="true">›</span>
+      </button>
+      <button type="button" class="chat">
+        <svg aria-hidden="true"><use href="#chat"/></svg>
+        Письмо арендатору <span class="chevron" aria-hidden="true">›</span>
+      </button>
+    </nav>
+
+    <button type="button" class="new-chat"><span aria-hidden="true">＋</span>Новый чат</button>
+  </aside>
+
+  <main class="main">
+    <i class="screw tl" aria-hidden="true"></i><i class="screw tr" aria-hidden="true"></i>
+    <i class="screw bl" aria-hidden="true"></i><i class="screw br" aria-hidden="true"></i>
+
+    <header class="budget-bar" aria-label="Бюджет на сегодня">
+      <span class="budget-label technical">БЮДЖЕТ</span>
+      <div class="budget-value">
+        <div class="counter" role="img" aria-label="36,61">
+          <span class="digit" aria-hidden="true">3</span>
+          <span class="digit" aria-hidden="true">6</span>
+          <span class="comma" aria-hidden="true">,</span>
+          <span class="digit" aria-hidden="true">6</span>
+          <span class="digit" aria-hidden="true">1</span>
+        </div>
+        <span class="budget-caption">из 50 ₽ сегодня</span>
+      </div>
+
+      <div class="instruments">
+        <svg class="gauge" viewBox="0 0 80 52" aria-hidden="true">
+          <g fill="none" stroke="#9e826a" stroke-width="1">
+            <path d="M7 43a33 33 0 0 1 66 0M13 43a27 27 0 0 1 54 0"/>
+            <path d="m8 35 6 2m0-16 5 4m7-13 3 6m11-8v7m14-4-3 6m13 3-5 4m12 10-6 2"/>
+          </g>
+          <path d="M40 43 59 22" stroke="#3b2a1e" stroke-width="1.5" stroke-linecap="round"/>
+          <circle cx="40" cy="43" r="2.7" fill="#3b2a1e"/>
+          <path d="M67 24a33 33 0 0 1 6 19" fill="none" stroke="#b23a26" stroke-width="1.3"/>
+        </svg>
+        <svg class="ruler" viewBox="0 0 242 53" role="img" aria-label="Потрачено 36,61 ₽ из 50 ₽. Последние 20% бюджета — красная зона.">
+          <defs>
+            <pattern id="ticks" width="9.2" height="17" patternUnits="userSpaceOnUse">
+              <path d="M0 17V9M4.6 17v-4" fill="none" stroke="#9e826a" stroke-width="1"/>
+            </pattern>
+            <pattern id="hatch" width="4" height="8" patternUnits="userSpaceOnUse">
+              <path d="m-2 8 6-8m-2 10 6-8" stroke="#b23a26" stroke-width=".8"/>
+            </pattern>
+          </defs>
+          <rect x="190" y="15" width="46" height="9" fill="url(#hatch)"/>
+          <rect x="6" y="7" width="230" height="17" fill="url(#ticks)"/>
+          <path d="M6 11v13h230V11M52 24V14m46 10V14m46 10V14m46 10V14" fill="none" stroke="#7a6352"/>
+          <path d="m170.4 3 8 0-4 8Z" fill="#3b2a1e"/>
+          <g fill="#7a6352" font-family="monospace" font-size="11" text-anchor="middle">
+            <text x="6" y="45">0</text><text x="52" y="45">10</text><text x="98" y="45">20</text>
+            <text x="144" y="45">30</text><text x="190" y="45">40</text><text x="234" y="45">50</text>
+          </g>
+        </svg>
+      </div>
+    </header>
+
+    <section class="content" aria-labelledby="result-title">
+      <h1 id="result-title">Готово: сайт для кофейни «Зерно»</h1>
+      <p class="subtitle">Заняло 3 мин 12 с · потрачено 4,20 ₽</p>
+
+      <div class="result-grid">
+        <section class="preview-frame" aria-label="Превью сайта кофейни «Зерно»">
+          <div class="preview-caption">
+            <span class="draft technical">Черновик</span>
+            <span class="preview-note" id="preview-note">«Открыть сайт» — предварительный просмотр</span>
+          </div>
+
+          <div class="website">
+            <div class="site-header">
+              <span class="site-brand">Зерно</span>
+              <div class="site-nav"><span>Меню</span><span>О нас</span><span>Контакты</span></div>
+              <span class="site-order">Заказать</span>
+            </div>
+            <div class="site-hero">
+              <h2>Хороший<br>кофе рядом</h2>
+              <p>Свежая обжарка, уютная атмосфера,<br>всегда для вас.</p>
+              <span class="telegram-mini">
+                <svg width="12" height="12" aria-hidden="true"><use href="#plane"/></svg>
+                Заказать в Telegram
+              </span>
+              <svg class="hero-art" viewBox="0 0 200 180" aria-hidden="true">
+                <g fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round">
+                  <ellipse cx="118" cy="137" rx="68" ry="25"/>
+                  <path d="M51 139c4 36 124 39 135-2M73 85c0 44 18 64 45 64 25 0 42-23 45-64"/>
+                  <ellipse cx="118" cy="85" rx="45" ry="15"/>
+                  <ellipse cx="118" cy="88" rx="40" ry="11"/>
+                  <path d="M163 92c26-16 37 23 5 35l-10 2M163 99c18-12 25 13 0 23M87 127c12 25 48 26 62 1M103 65c9-17-10-19-2-34M117 62c12-21-11-25 0-43M130 64c13-15-5-22 3-34"/>
+                  <path d="M91 88c18-5 37-4 56 0" stroke-width=".7"/>
+                  <ellipse cx="23" cy="154" rx="10" ry="7" transform="rotate(-20 23 154)"/>
+                  <path d="M14 152c7 8 12-4 18 2"/>
+                  <ellipse cx="37" cy="145" rx="10" ry="7" transform="rotate(12 37 145)"/>
+                  <path d="M29 143c8 0 5 9 15 6"/>
+                </g>
+              </svg>
+            </div>
+            <div class="menu">
+              <h3>Меню</h3>
+              <div class="menu-grid">
+                <div class="menu-item">
+                  <svg aria-hidden="true"><use href="#cup"/></svg>
+                  <div class="menu-name">Эспрессо</div>
+                  <div class="price">120 ₽</div>
+                </div>
+                <div class="menu-item">
+                  <svg viewBox="0 0 100 65" aria-hidden="true">
+                    <use href="#cup"/>
+                    <g fill="none" stroke="currentColor" stroke-width=".9">
+                      <ellipse cx="43" cy="15" rx="20" ry="5"/>
+                      <path d="M33 14c-5-6 13-7 15-1s-14 5-10 0 10 2 4 3"/>
+                    </g>
+                  </svg>
+                  <div class="menu-name">Капучино</div>
+                  <div class="price">180 ₽</div>
+                </div>
+                <div class="menu-item">
+                  <svg viewBox="0 0 100 65" aria-hidden="true">
+                    <g fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round">
+                      <path d="M12 49c-5-5 1-15 9-20 1-9 10-14 18-14 5-9 17-9 23 0 10 0 17 8 18 16 9 7 14 16 8 20l-16-6-14 3-18-1-13-2Z"/>
+                      <path d="M21 29c9 0 16 10 19 18M39 15c11 9 15 20 15 32M62 15c0 11-3 22-8 32M80 31c-9 1-14 6-18 16M15 37c7 0 12 4 12 8"/>
+                    </g>
+                  </svg>
+                  <div class="menu-name">Круассан</div>
+                  <div class="price">150 ₽</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <div class="summary">
+          <section class="summary-card" aria-labelledby="done-title">
+            <h2 class="section-title" id="done-title">Что сделано</h2>
+            <div class="list">
+              <div class="list-row">
+                <span class="done-marker" aria-hidden="true"><svg><use href="#check"/></svg></span>
+                <span>Главная с меню и ценами</span>
+              </div>
+              <div class="list-row">
+                <span class="done-marker" aria-hidden="true"><svg><use href="#check"/></svg></span>
+                <span>Страница „Контакты“ с картой</span>
+              </div>
+              <div class="list-row">
+                <span class="done-marker" aria-hidden="true"><svg><use href="#check"/></svg></span>
+                <span>Кнопка „Заказать“ ведёт в Telegram</span>
+              </div>
+            </div>
+          </section>
+
+          <section class="summary-card checked-card" aria-labelledby="checked-title">
+            <h2 class="section-title" id="checked-title">Что проверено</h2>
+            <div class="list">
+              <div class="list-row">
+                <span class="check-stamp" role="img" aria-label="Проверено"><svg aria-hidden="true"><use href="#check"/></svg></span>
+                <span>Открывается на телефоне</span>
+              </div>
+              <div class="list-row">
+                <span class="check-stamp" role="img" aria-label="Проверено"><svg aria-hidden="true"><use href="#check"/></svg></span>
+                <span>Все ссылки работают</span>
+              </div>
+              <div class="list-row">
+                <span class="check-stamp" role="img" aria-label="Проверено"><svg aria-hidden="true"><use href="#check"/></svg></span>
+                <span>Тексты без ошибок</span>
+              </div>
+              <div class="list-row">
+                <span class="check-stamp final" role="img" aria-label="Проверено"><svg aria-hidden="true"><use href="#check"/></svg></span>
+                <span>Загружается за 1,2 с</span>
+              </div>
+            </div>
+            <div class="unchecked">
+              <span class="minus" aria-hidden="true">−</span>
+              <div>
+                <strong>Не проверено: оплата онлайн</strong>
+                <p>Её не было в задаче</p>
+              </div>
+            </div>
+          </section>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button type="button" class="action primary" aria-describedby="preview-note">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M13 4h7v7m0-7L10 14M9 6H4v15h15v-8"/>
+          </svg>
+          Открыть сайт
+        </button>
+        <button type="button" class="action edit">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true">
+            <path d="m4 15-1 6 6-2L21 7l-4-4L4 15Zm10-9 4 4M4 15l5 4M17 21h4"/>
+          </svg>
+          Исправить что-то
+        </button>
+        <button type="button" class="action publish">
+          <svg aria-hidden="true"><use href="#plane"/></svg>
+          Опубликовать
+        </button>
+        <a href="#checked-title" class="details"><span>Подробнее</span><span aria-hidden="true">→</span></a>
+      </div>
+
+      <form class="composer" action="#">
+        <input type="text" aria-label="Что поменять?" placeholder="Что поменять?">
+        <button class="mic" type="button" aria-label="Голосовой ввод">
+          <svg viewBox="0 0 24 30" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true">
+            <rect x="8" y="3" width="8" height="16" rx="4" fill="currentColor" stroke="none"/>
+            <path d="M5 13v3a7 7 0 0 0 14 0v-3M12 23v5m-4 0h8"/>
+          </svg>
+        </button>
+      </form>
+    </section>
+  </main>
+</div>
+</body>
+</html>
