@@ -1,0 +1,137 @@
+[
+ {
+  "lam": 1,
+  "full_every5": {
+   "waste_pct": 58.2,
+   "lost_pct": 0.1,
+   "sold_day": 1.0,
+   "lam": 1,
+   "T": 5,
+   "N": 12
+  },
+  "full_every2": {
+   "waste_pct": 54.7,
+   "lost_pct": 0.0,
+   "sold_day": 1.0,
+   "lam": 1,
+   "T": 2,
+   "N": 12
+  },
+  "best_waste_le5": {
+   "waste_pct": 2.5,
+   "lost_pct": 10.1,
+   "sold_day": 0.9,
+   "lam": 1,
+   "T": 1,
+   "N": 2
+  }
+ },
+ {
+  "lam": 2,
+  "full_every5": {
+   "waste_pct": 21.2,
+   "lost_pct": 5.4,
+   "sold_day": 1.89,
+   "lam": 2,
+   "T": 5,
+   "N": 12
+  },
+  "full_every2": {
+   "waste_pct": 21.1,
+   "lost_pct": 0.1,
+   "sold_day": 2.0,
+   "lam": 2,
+   "T": 2,
+   "N": 12
+  },
+  "best_waste_le5": {
+   "waste_pct": 2.6,
+   "lost_pct": 0.3,
+   "sold_day": 2.0,
+   "lam": 2,
+   "T": 1,
+   "N": 6
+  }
+ },
+ {
+  "lam": 3,
+  "full_every5": {
+   "waste_pct": 3.7,
+   "lost_pct": 23.2,
+   "sold_day": 2.31,
+   "lam": 3,
+   "T": 5,
+   "N": 12
+  },
+  "full_every2": {
+   "waste_pct": 4.4,
+   "lost_pct": 0.3,
+   "sold_day": 3.0,
+   "lam": 3,
+   "T": 2,
+   "N": 12
+  },
+  "best_waste_le5": {
+   "waste_pct": 1.2,
+   "lost_pct": 0.1,
+   "sold_day": 3.01,
+   "lam": 3,
+   "T": 1,
+   "N": 9
+  }
+ },
+ {
+  "lam": 5,
+  "full_every5": {
+   "waste_pct": 0.0,
+   "lost_pct": 52.1,
+   "sold_day": 2.4,
+   "lam": 5,
+   "T": 5,
+   "N": 12
+  },
+  "full_every2": {
+   "waste_pct": 0.0,
+   "lost_pct": 5.4,
+   "sold_day": 4.74,
+   "lam": 5,
+   "T": 2,
+   "N": 12
+  },
+  "best_waste_le5": {
+   "waste_pct": 0.1,
+   "lost_pct": 0.1,
+   "sold_day": 5.0,
+   "lam": 5,
+   "T": 1,
+   "N": 12
+  }
+ },
+ {
+  "lam": 8,
+  "full_every5": {
+   "waste_pct": 0.0,
+   "lost_pct": 70.0,
+   "sold_day": 2.4,
+   "lam": 8,
+   "T": 5,
+   "N": 12
+  },
+  "full_every2": {
+   "waste_pct": 0.0,
+   "lost_pct": 26.9,
+   "sold_day": 5.86,
+   "lam": 8,
+   "T": 2,
+   "N": 12
+  },
+  "best_waste_le5": {
+   "waste_pct": 0.0,
+   "lost_pct": 1.6,
+   "sold_day": 7.87,
+   "lam": 8,
+   "T": 1,
+   "N": 12
+  }
+ }
+]
