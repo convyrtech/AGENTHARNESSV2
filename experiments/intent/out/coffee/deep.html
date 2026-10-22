@@ -1,0 +1,1056 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Кофейня «Пар» — здесь начинается утро</title>
+<meta name="description" content="Кофейня «Пар» на Покровке, 17. Свежая обжарка, флэт уайт с бархатной пенкой и место, где можно не спешить. Открыто с 7:30.">
+<meta name="theme-color" content="#FFF8E1">
+<meta property="og:title" content="Кофейня «Пар» — здесь начинается утро">
+<meta property="og:description" content="Сварим ваш идеальный день. Покровка, 17. Открыто с 7:30.">
+<meta property="og:type" content="website">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,500;1,600&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ============ БАЗА ============ */
+*,*::before,*::after{box-sizing:border-box}
+:root{
+  --espresso:#3E2723;
+  --espresso-soft:#4E332C;
+  --latte:#BCAAA4;
+  --cream:#FFF8E1;
+  --sand:#F6EADA;
+  --sand-2:#EFDFC9;
+  --accent:#D84315;
+  --accent-dark:#B93A11;
+  --white:#FFFDF8;
+  --muted:#7A6259;
+  --line:rgba(62,39,35,.08);
+  --radius:22px;
+  --shadow:0 26px 60px -34px rgba(62,39,35,.55);
+  --font-d:'Playfair Display',Georgia,'Times New Roman',serif;
+  --font-b:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+}
+html{
+  scroll-behavior:smooth;
+  scroll-padding-top:96px;
+  -webkit-text-size-adjust:100%;
+}
+body{
+  margin:0;
+  background:var(--cream);
+  color:var(--espresso);
+  font-family:var(--font-b);
+  font-size:1.125rem;
+  line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+  -moz-osx-font-smoothing:grayscale;
+  overflow-x:hidden;
+}
+img,svg{max-width:100%}
+a{color:inherit}
+h1,h2,h3,p{margin:0}
+ul{margin:0;padding:0;list-style:none}
+.wrap{width:100%;max-width:1180px;margin:0 auto;padding:0 24px}
+.icon{width:18px;height:18px;fill:currentColor;flex:none}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+:focus-visible{outline:3px solid var(--accent);outline-offset:3px;border-radius:6px}
+
+/* ============ КНОПКИ ============ */
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:10px;
+  padding:16px 30px;border-radius:999px;
+  font-family:var(--font-b);font-size:1rem;font-weight:600;line-height:1.2;
+  text-decoration:none;border:1px solid transparent;cursor:pointer;
+  transition:transform .25s cubic-bezier(.2,.7,.3,1),box-shadow .25s,background .25s,color .25s,border-color .25s;
+}
+.btn-accent{
+  background:var(--accent);color:#fff;
+  box-shadow:0 16px 30px -16px rgba(216,67,21,.9);
+}
+.btn-accent:hover{background:var(--accent-dark);transform:translateY(-2px);box-shadow:0 22px 36px -16px rgba(216,67,21,.95)}
+.btn-ghost{background:transparent;color:var(--espresso);border-color:rgba(62,39,35,.25)}
+.btn-ghost:hover{border-color:var(--espresso);background:rgba(62,39,35,.05);transform:translateY(-2px)}
+.btn-sm{padding:12px 22px;font-size:.95rem}
+.btn:active{transform:translateY(0) scale(.99)}
+.btn .icon{width:17px;height:17px}
+
+/* ============ ХЕДЕР ============ */
+.site-header{
+  position:fixed;top:0;left:0;right:0;z-index:60;
+  background:rgba(255,248,225,.74);
+  -webkit-backdrop-filter:blur(14px) saturate(1.25);
+  backdrop-filter:blur(14px) saturate(1.25);
+  border-bottom:1px solid rgba(62,39,35,.06);
+  transition:box-shadow .3s ease,background .3s ease;
+}
+.site-header.scrolled{
+  background:rgba(255,248,225,.95);
+  box-shadow:0 14px 34px -24px rgba(62,39,35,.85);
+}
+.header-inner{display:flex;align-items:center;gap:26px;height:78px}
+.logo{display:flex;align-items:center;gap:11px;text-decoration:none;margin-right:auto}
+.logo-mark{
+  width:40px;height:40px;border-radius:13px;display:grid;place-items:center;
+  background:var(--espresso);color:var(--cream);flex:none;
+  box-shadow:0 10px 20px -12px rgba(62,39,35,.9);
+}
+.logo-mark svg{width:21px;height:21px}
+.logo-text{display:flex;flex-direction:column;gap:1px;font-family:var(--font-d);font-size:1.42rem;font-weight:700;line-height:1;letter-spacing:.01em}
+.logo-text small{font-family:var(--font-b);font-size:.6rem;font-weight:600;letter-spacing:.24em;text-transform:uppercase;color:var(--muted)}
+.nav{display:flex;gap:30px}
+.nav a{
+  position:relative;text-decoration:none;font-size:.98rem;font-weight:500;
+  padding:6px 0;color:var(--espresso);transition:color .2s;
+}
+.nav a::after{
+  content:"";position:absolute;left:0;right:0;bottom:0;height:2px;border-radius:2px;
+  background:var(--accent);transform:scaleX(0);transform-origin:left;
+  transition:transform .3s cubic-bezier(.2,.7,.3,1);
+}
+.nav a:hover::after,.nav a:focus-visible::after{transform:scaleX(1)}
+.header-actions{display:flex;align-items:center;gap:14px}
+.phone{
+  text-decoration:none;font-weight:600;font-size:.98rem;white-space:nowrap;
+  padding-bottom:2px;border-bottom:1px solid transparent;transition:border-color .25s,color .25s;
+}
+.phone:hover{border-color:var(--accent);color:var(--accent)}
+.icon-btn{
+  display:none;width:42px;height:42px;border-radius:50%;place-items:center;
+  border:1px solid rgba(62,39,35,.2);color:var(--espresso);text-decoration:none;
+  transition:background .25s,border-color .25s;
+}
+.icon-btn:hover{background:rgba(62,39,35,.06);border-color:var(--espresso)}
+
+/* ============ ГЕРОЙ ============ */
+.hero{position:relative;padding:158px 0 86px;overflow:hidden}
+.hero::before{
+  content:"";position:absolute;right:-300px;top:-300px;width:940px;height:940px;
+  background:radial-gradient(circle,rgba(255,219,166,.8) 0%,rgba(255,240,210,.35) 45%,rgba(255,248,225,0) 68%);
+  pointer-events:none;
+}
+.hero::after{
+  content:"";position:absolute;left:-220px;bottom:-260px;width:620px;height:620px;
+  background:radial-gradient(circle,rgba(188,170,164,.28),rgba(255,248,225,0) 70%);
+  pointer-events:none;
+}
+.hero-grid{position:relative;display:grid;grid-template-columns:1.02fr .98fr;gap:48px;align-items:center}
+.eyebrow{
+  display:inline-flex;align-items:center;gap:11px;
+  font-size:.8rem;font-weight:600;letter-spacing:.18em;text-transform:uppercase;
+  color:var(--accent);margin-bottom:20px;
+}
+.eyebrow::before{content:"";width:34px;height:1px;background:var(--accent)}
+h1{
+  font-family:var(--font-d);font-weight:600;
+  font-size:clamp(2.35rem,5.6vw,4rem);
+  line-height:1.05;letter-spacing:-.018em;margin-bottom:22px;
+}
+h1 em{font-style:italic;font-weight:500;color:var(--accent);white-space:nowrap}
+.lead{font-size:1.14rem;color:var(--muted);max-width:46ch;margin-bottom:32px}
+.hero-actions{display:flex;flex-wrap:wrap;gap:14px;margin-bottom:34px}
+.rating-badge{
+  display:inline-flex;align-items:center;gap:13px;
+  padding:10px 20px 10px 14px;border-radius:999px;
+  background:var(--white);border:1px solid var(--line);
+  box-shadow:0 18px 42px -30px rgba(62,39,35,.9);
+}
+.stars{display:inline-flex;gap:2px;color:#E8A33D}
+.stars .icon{width:15px;height:15px}
+.rating-badge .score{font-weight:700;font-size:1rem;letter-spacing:.01em}
+.rating-badge .src{font-size:.86rem;color:var(--muted)}
+.rating-badge .divider{width:1px;height:18px;background:rgba(62,39,35,.14)}
+
+.hero-art-wrap{position:relative;width:100%;max-width:560px;margin:0 auto}
+.hero-art{width:100%;height:auto;display:block;filter:drop-shadow(0 34px 46px rgba(62,39,35,.14))}
+.float-chip{
+  position:absolute;left:0;bottom:4%;
+  display:inline-flex;align-items:center;gap:10px;
+  padding:11px 18px;border-radius:999px;
+  background:rgba(255,253,248,.9);
+  -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+  border:1px solid rgba(255,255,255,.7);
+  box-shadow:0 20px 44px -26px rgba(62,39,35,.85);
+  font-size:.86rem;font-weight:600;letter-spacing:.01em;
+  animation:floaty 7s ease-in-out infinite;
+}
+.float-chip .dot{width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 4px rgba(216,67,21,.16);flex:none}
+@keyframes floaty{0%,100%{transform:translateY(0)}50%{transform:translateY(-9px)}}
+.steam{fill:none;stroke:#C9B4A5;stroke-width:7;stroke-linecap:round;transform-box:fill-box;transform-origin:center;animation:steamRise 5.2s ease-in-out infinite}
+.steam.s2{animation-delay:1.3s}
+.steam.s3{animation-delay:2.6s}
+@keyframes steamRise{
+  0%{opacity:0;transform:translateY(16px) scaleY(.85)}
+  35%{opacity:.8}
+  70%{opacity:.22}
+  100%{opacity:0;transform:translateY(-28px) scaleY(1.1)}
+}
+
+/* ============ СЕКЦИИ ============ */
+.section{padding:92px 0;position:relative}
+.section--sand{background:linear-gradient(180deg,#F8EEDF 0%,#F2E3CF 100%)}
+.section-head{max-width:660px;margin-bottom:46px}
+.section-head h2{
+  font-family:var(--font-d);font-weight:600;
+  font-size:clamp(1.95rem,3.8vw,3rem);
+  line-height:1.1;letter-spacing:-.015em;margin-bottom:14px;
+}
+.section-head p{color:var(--muted);font-size:1.05rem}
+.eyebrow--dark{color:var(--espresso);opacity:.65}
+.eyebrow--dark::before{background:var(--espresso);opacity:.4}
+
+/* ============ ПРИЧИНЫ ============ */
+.why-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:22px}
+.why-card{
+  background:var(--white);border-radius:var(--radius);padding:34px 28px 32px;
+  border:1px solid var(--line);box-shadow:0 22px 54px -44px rgba(62,39,35,.9);
+  transition:transform .35s cubic-bezier(.2,.7,.3,1),box-shadow .35s,border-color .35s;
+}
+.why-card:hover{transform:translateY(-6px);box-shadow:0 34px 64px -40px rgba(62,39,35,.7);border-color:rgba(216,67,21,.18)}
+.why-icon{
+  width:54px;height:54px;border-radius:17px;display:grid;place-items:center;
+  background:linear-gradient(145deg,#FDEDE2,#F7D9C8);color:var(--accent);
+  margin-bottom:22px;
+}
+.why-icon .icon{width:25px;height:25px}
+.why-card h3{font-family:var(--font-d);font-size:1.38rem;font-weight:600;margin-bottom:10px;line-height:1.25}
+.why-card p{color:var(--muted);font-size:1rem}
+
+/* ============ МЕНЮ ============ */
+.menu-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:24px}
+.menu-card{
+  display:flex;flex-direction:column;overflow:hidden;
+  background:var(--white);border-radius:20px;border:1px solid var(--line);
+  box-shadow:0 24px 54px -44px rgba(62,39,35,.95);
+  transition:transform .4s cubic-bezier(.2,.7,.3,1),box-shadow .4s;
+}
+.menu-card:hover{transform:translateY(-8px);box-shadow:0 38px 68px -38px rgba(62,39,35,.55)}
+.menu-visual{
+  position:relative;aspect-ratio:4/3;display:grid;place-items:center;overflow:hidden;
+  background:
+    radial-gradient(circle at 26% 16%,#FFF7EA 0%,rgba(255,247,234,0) 56%),
+    radial-gradient(circle at 74% 88%,#E7D1B6 0%,rgba(231,209,182,0) 62%),
+    linear-gradient(158deg,#F5E5CF,#E9D5BA);
+}
+.menu-visual::before{
+  content:"";position:absolute;inset:-20% -45%;pointer-events:none;
+  background:linear-gradient(115deg,rgba(255,255,255,0) 43%,rgba(255,255,255,.6) 50%,rgba(255,255,255,0) 57%);
+  transform:translateX(-55%);
+  transition:transform .95s cubic-bezier(.2,.7,.3,1);
+}
+.menu-card:hover .menu-visual::before{transform:translateX(55%)}
+.badge{
+  position:absolute;top:14px;left:14px;z-index:2;
+  padding:6px 11px;border-radius:999px;
+  background:rgba(255,253,248,.92);border:1px solid rgba(216,67,21,.22);
+  color:var(--accent);font-size:.68rem;font-weight:700;
+  letter-spacing:.14em;text-transform:uppercase;
+  -webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);
+}
+.cup-top{
+  position:relative;width:57%;aspect-ratio:1;border-radius:50%;
+  display:grid;place-items:center;
+  background:linear-gradient(150deg,#FFFFFF,#F3E7DB 62%,#E0CDBB);
+  box-shadow:0 24px 34px -16px rgba(62,39,35,.45),inset 0 1px 0 rgba(255,255,255,.95);
+  transition:transform .55s cubic-bezier(.2,.7,.3,1);
+}
+.cup-top::before{
+  content:"";position:absolute;inset:9%;border-radius:50%;
+  background:radial-gradient(circle at 50% 38%,#F9F1E9,#E7D8C8);
+  box-shadow:inset 0 3px 7px rgba(62,39,35,.17);
+}
+.liquid{
+  position:relative;width:76%;aspect-ratio:1;border-radius:50%;
+  background:radial-gradient(circle at 34% 28%,var(--l1,#8A5A3B),var(--l2,#3E2723) 72%);
+  box-shadow:inset 0 7px 16px rgba(0,0,0,.34),inset 0 -5px 12px rgba(255,255,255,.1);
+}
+.liquid::after{
+  content:"";position:absolute;inset:15%;border-radius:50%;
+  background:conic-gradient(from 210deg,rgba(255,255,255,0),rgba(255,255,255,.34),rgba(255,255,255,0),rgba(255,255,255,.24),rgba(255,255,255,0));
+  filter:blur(2px);opacity:.75;
+}
+.menu-card:hover .cup-top{transform:scale(1.07) rotate(-3deg)}
+.menu-body{display:flex;flex-direction:column;gap:8px;padding:22px 22px 26px;flex:1}
+.menu-top{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
+.menu-body h3{font-family:var(--font-d);font-size:1.28rem;font-weight:600;line-height:1.25}
+.price{font-weight:700;font-size:1.02rem;color:var(--accent);white-space:nowrap}
+.menu-body p{color:var(--muted);font-size:.96rem;line-height:1.55}
+.menu-cta{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:16px;margin-top:44px;text-align:center}
+.menu-cta span{font-size:.92rem;color:var(--muted)}
+
+/* ============ ОТЗЫВЫ ============ */
+.reviews-head{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:26px;margin-bottom:40px}
+.rating-panel{
+  display:flex;align-items:center;gap:18px;
+  padding:18px 26px;border-radius:20px;
+  background:var(--white);border:1px solid var(--line);
+  box-shadow:0 22px 50px -40px rgba(62,39,35,.9);
+}
+.rating-panel .big{font-family:var(--font-d);font-size:2.7rem;font-weight:600;line-height:1}
+.rating-panel .meta{display:flex;flex-direction:column;gap:4px}
+.rating-panel .meta .count{font-size:.86rem;color:var(--muted)}
+.g-badge{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:34px;height:34px;border-radius:50%;background:#F4F1EA;
+  font-family:var(--font-b);font-weight:700;font-size:1.05rem;color:#4285F4;
+  flex:none;
+}
+.reviews-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:22px}
+.review-card{
+  display:flex;flex-direction:column;gap:16px;
+  padding:30px 28px;border-radius:var(--radius);
+  background:var(--white);border:1px solid var(--line);
+  box-shadow:0 22px 54px -46px rgba(62,39,35,.95);
+  transition:transform .35s cubic-bezier(.2,.7,.3,1),box-shadow .35s;
+}
+.review-card:hover{transform:translateY(-5px);box-shadow:0 32px 60px -38px rgba(62,39,35,.6)}
+.review-card .stars{color:#E8A33D}
+.review-card blockquote{margin:0;font-size:1.05rem;line-height:1.6;color:var(--espresso-soft)}
+.review-author{display:flex;align-items:center;gap:12px;margin-top:auto}
+.avatar{
+  width:42px;height:42px;border-radius:50%;display:grid;place-items:center;flex:none;
+  font-weight:700;font-size:1rem;color:#fff;
+  background:linear-gradient(145deg,var(--a1,#C0895F),var(--a2,#8A5A3B));
+}
+.review-author .who{font-weight:600;font-size:.96rem;line-height:1.3}
+.review-author .when{font-size:.82rem;color:var(--muted)}
+
+/* ============ КОНТАКТЫ ============ */
+.contacts-grid{display:grid;grid-template-columns:1.08fr .92fr;gap:26px;align-items:start}
+.map-card{
+  position:relative;border-radius:24px;overflow:hidden;
+  background:#E9DCC9;border:1px solid rgba(62,39,35,.09);
+  box-shadow:var(--shadow);aspect-ratio:1/1;
+}
+.map-card svg{position:absolute;inset:0;width:100%;height:100%}
+.map-label{
+  position:absolute;left:16px;bottom:16px;
+  display:inline-flex;align-items:center;gap:9px;
+  padding:10px 16px;border-radius:999px;
+  background:rgba(255,253,248,.95);
+  box-shadow:0 14px 30px -18px rgba(62,39,35,.9);
+  font-size:.84rem;font-weight:600;
+}
+.map-label .dot{width:8px;height:8px;border-radius:50%;background:var(--accent);flex:none}
+.pulse{transform-box:fill-box;transform-origin:center;animation:pulseRing 2.8s ease-out infinite}
+@keyframes pulseRing{
+  0%{transform:scale(.6);opacity:.5}
+  70%{transform:scale(1.5);opacity:0}
+  100%{transform:scale(1.5);opacity:0}
+}
+.side-col{display:flex;flex-direction:column;gap:22px}
+.panel{
+  background:var(--white);border-radius:var(--radius);padding:30px 28px;
+  border:1px solid var(--line);box-shadow:0 22px 54px -44px rgba(62,39,35,.9);
+}
+.info-list{display:flex;flex-direction:column;gap:20px;margin-bottom:26px}
+.info-row{display:flex;gap:14px;align-items:flex-start}
+.info-ico{
+  width:38px;height:38px;border-radius:12px;display:grid;place-items:center;flex:none;
+  background:linear-gradient(145deg,#FDEDE2,#F7D9C8);color:var(--accent);
+}
+.info-ico .icon{width:18px;height:18px}
+.info-label{display:block;font-size:.72rem;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin-bottom:3px}
+.info-row p{font-size:1rem;line-height:1.5}
+.info-row .muted{color:var(--muted);font-size:.9rem}
+.info-row a{text-decoration:none;font-weight:600;border-bottom:1px solid rgba(62,39,35,.2);transition:color .2s,border-color .2s}
+.info-row a:hover{color:var(--accent);border-color:var(--accent)}
+.panel-actions{display:flex;flex-wrap:wrap;gap:12px}
+.panel-actions .btn{flex:1 1 160px;padding:14px 20px;font-size:.95rem}
+
+.booking h3{font-family:var(--font-d);font-size:1.55rem;font-weight:600;margin-bottom:8px;line-height:1.2}
+.booking > p{color:var(--muted);font-size:.95rem;margin-bottom:22px}
+.field{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}
+.field label{font-size:.72rem;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+.field input,.field select{
+  width:100%;font-family:var(--font-b);font-size:1rem;color:var(--espresso);
+  padding:13px 15px;border-radius:12px;
+  border:1px solid rgba(62,39,35,.18);background:#FFFDF8;
+  transition:border-color .2s,box-shadow .2s;
+}
+.field select{
+  appearance:none;-webkit-appearance:none;cursor:pointer;
+  background-image:url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='9' viewBox='0 0 14 9'%3E%3Cpath d='M1 1l6 6 6-6' fill='none' stroke='%233E2723' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 16px center;
+  padding-right:42px;
+}
+.field input::placeholder{color:#B0A096}
+.field input:focus,.field select:focus{
+  outline:none;border-color:var(--accent);
+  box-shadow:0 0 0 4px rgba(216,67,21,.13);
+}
+.field.invalid input{border-color:#C62828;box-shadow:0 0 0 4px rgba(198,40,40,.1)}
+.err{display:none;font-size:.8rem;color:#C62828}
+.field.invalid .err{display:block}
+.booking .btn{width:100%;margin-top:6px}
+.form-note{font-size:.84rem;color:var(--muted);margin-top:14px;text-align:center}
+.form-note a{font-weight:600;text-decoration:none;border-bottom:1px solid rgba(62,39,35,.25)}
+.form-note a:hover{color:var(--accent);border-color:var(--accent)}
+.form-success{
+  display:flex;gap:14px;align-items:flex-start;
+  padding:20px;border-radius:16px;
+  background:#EFF4E5;border:1px solid rgba(93,124,58,.25);
+}
+.form-success[hidden]{display:none}
+.form-success .ok{
+  width:36px;height:36px;border-radius:50%;flex:none;display:grid;place-items:center;
+  background:#5D7C3A;color:#fff;
+}
+.form-success .ok .icon{width:18px;height:18px}
+.form-success p{font-size:.96rem;line-height:1.5;color:#3C4B26}
+
+/* ============ ФУТЕР ============ */
+.footer{background:var(--espresso);color:#EFE3D9;padding:66px 0 30px}
+.footer-grid{display:grid;grid-template-columns:1.5fr 1fr 1fr 1.1fr;gap:34px}
+.footer .logo-mark{background:var(--cream);color:var(--espresso);box-shadow:none}
+.footer .logo-text{color:var(--cream)}
+.footer .logo-text small{color:rgba(239,227,217,.55)}
+.footer-about p{color:rgba(239,227,217,.62);font-size:.95rem;margin-top:18px;max-width:30ch}
+.footer h4{
+  font-size:.72rem;font-weight:700;letter-spacing:.18em;text-transform:uppercase;
+  color:rgba(239,227,217,.5);margin-bottom:18px;
+}
+.footer ul{display:flex;flex-direction:column;gap:11px}
+.footer a{text-decoration:none;color:rgba(239,227,217,.82);font-size:.95rem;transition:color .2s}
+.footer a:hover{color:var(--cream)}
+.footer .hours-row{display:flex;justify-content:space-between;gap:14px;font-size:.92rem;color:rgba(239,227,217,.8);padding-bottom:4px}
+.footer .hours-row span:first-child{color:rgba(239,227,217,.55)}
+.socials{display:flex;gap:10px;margin-top:20px}
+.socials a{
+  display:grid;place-items:center;height:38px;padding:0 16px;border-radius:999px;
+  border:1px solid rgba(239,227,217,.22);font-size:.85rem;font-weight:600;
+  transition:background .25s,border-color .25s,transform .25s;
+}
+.socials a:hover{background:rgba(239,227,217,.1);border-color:rgba(239,227,217,.5);transform:translateY(-2px)}
+.footer-bottom{
+  display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px;
+  margin-top:48px;padding-top:22px;
+  border-top:1px solid rgba(239,227,217,.14);
+  font-size:.84rem;color:rgba(239,227,217,.45);
+}
+
+/* ============ АНИМАЦИИ ПОЯВЛЕНИЯ ============ */
+.reveal{opacity:0;transform:translateY(26px);transition:opacity .75s ease,transform .75s cubic-bezier(.2,.7,.3,1)}
+.reveal.in{opacity:1;transform:none}
+
+/* ============ АДАПТИВ ============ */
+@media (max-width:1040px){
+  .hero-grid{grid-template-columns:1fr;gap:34px}
+  .hero{padding:132px 0 64px}
+  .hero-art-wrap{max-width:480px}
+  .hero .lead{max-width:56ch}
+  .why-grid{grid-template-columns:1fr 1fr}
+  .menu-grid{grid-template-columns:1fr 1fr}
+  .reviews-grid{grid-template-columns:1fr}
+  .contacts-grid{grid-template-columns:1fr}
+  .map-card{aspect-ratio:16/10}
+  .footer-grid{grid-template-columns:1fr 1fr}
+}
+@media (max-width:860px){
+  .nav{display:none}
+  .phone{display:none}
+  .icon-btn{display:grid}
+  .header-inner{height:70px;gap:16px}
+  :root{--radius:18px}
+}
+@media (max-width:640px){
+  body{font-size:1.06rem}
+  .wrap{padding:0 18px}
+  .section{padding:64px 0}
+  .hero{padding:110px 0 52px}
+  h1{font-size:clamp(2.15rem,8.6vw,2.9rem)}
+  .hero-actions .btn{flex:1 1 100%}
+  .why-grid,.menu-grid,.reviews-grid,.footer-grid{grid-template-columns:1fr}
+  .map-card{aspect-ratio:4/4.4}
+  .rating-panel{padding:14px 18px;gap:14px}
+  .rating-panel .big{font-size:2.2rem}
+  .panel{padding:24px 20px}
+  .logo-text{font-size:1.22rem}
+  .logo-mark{width:36px;height:36px}
+  .float-chip{font-size:.76rem;padding:9px 14px;left:0;bottom:0}
+  .footer{padding:52px 0 26px}
+  .footer-bottom{margin-top:34px}
+  .menu-cta{flex-direction:column;gap:12px}
+  .menu-cta .btn{width:100%}
+}
+@media (prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  .reveal{opacity:1;transform:none;transition:none}
+  *,*::before,*::after{animation-duration:.001ms !important;animation-iteration-count:1 !important;transition-duration:.001ms !important}
+}
+</style>
+</head>
+<body>
+
+<!-- ИКОНКИ -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <symbol id="i-star" viewBox="0 0 24 24"><path d="M12 2l2.9 6.3 6.9.8-5.1 4.7 1.4 6.8L12 17.2 5.9 20.6l1.4-6.8L2.2 9.1l6.9-.8z"/></symbol>
+  <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 0-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 0 0-7-7zm0 9.6A2.6 2.6 0 1 1 12 6.4a2.6 2.6 0 0 1 0 5.2z"/></symbol>
+  <symbol id="i-phone" viewBox="0 0 24 24"><path d="M6.6 2.6a1.6 1.6 0 0 1 2 .6l1.8 2.7a1.6 1.6 0 0 1-.2 2l-1 .9a12.3 12.3 0 0 0 5.6 5.6l.9-1a1.6 1.6 0 0 1 2-.2l2.7 1.8a1.6 1.6 0 0 1 .6 2l-.8 1.7a2.6 2.6 0 0 1-2.6 1.5C10.7 20 4 13.3 3.4 5.9a2.6 2.6 0 0 1 1.5-2.6z"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm1.1 5v5.4l3.7 2.1-1 1.7L11 13.3V7z"/></symbol>
+  <symbol id="i-bean" viewBox="0 0 24 24"><path d="M18.7 5.3c3 3 1.2 9.2-3 13.4s-10.4 6-13.4 3-1.2-9.2 3-13.4 10.4-6 13.4-3z" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M7 17c2-4 3.5-6.4 7-9" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></symbol>
+  <symbol id="i-seat" viewBox="0 0 24 24"><path d="M5 11V9a3 3 0 0 1 3-3h8a3 3 0 0 1 3 3v2" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><path d="M3.2 12.4a2.2 2.2 0 0 1 4.3 0V17h9v-4.6a2.2 2.2 0 0 1 4.3 0v4.9a1.7 1.7 0 0 1-1.7 1.7H4.9a1.7 1.7 0 0 1-1.7-1.7z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M4 12.5l5.2 5.2L20 6.9" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M4 12h15m-6-6.5L19.5 12 13 18.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-cup" viewBox="0 0 24 24"><path d="M4 8h12v7a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M16 9.5h1.8a2.7 2.7 0 0 1 0 5.4H16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M7.5 2.6c-.8.9-.8 1.7 0 2.6M11 2.6c-.8.9-.8 1.7 0 2.6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>
+</svg>
+
+<!-- ХЕДЕР -->
+<header class="site-header" id="top">
+  <div class="wrap header-inner">
+    <a class="logo" href="#top" aria-label="Кофейня «Пар» — на главную">
+      <span class="logo-mark" aria-hidden="true"><svg><use href="#i-cup"/></svg></span>
+      <span class="logo-text">Пар<small>кофейня</small></span>
+    </a>
+    <nav class="nav" aria-label="Основная навигация">
+      <a href="#menu">Меню</a>
+      <a href="#why">О нас</a>
+      <a href="#reviews">Отзывы</a>
+      <a href="#contacts">Контакты</a>
+    </nav>
+    <div class="header-actions">
+      <a class="phone" href="tel:+74951234567">+7 (495) 123-45-67</a>
+      <a class="icon-btn" href="tel:+74951234567" aria-label="Позвонить в кофейню">
+        <svg class="icon" aria-hidden="true"><use href="#i-phone"/></svg>
+      </a>
+      <a class="btn btn-accent btn-sm" href="#menu">Меню</a>
+    </div>
+  </div>
+</header>
+
+<main>
+  <!-- ГЕРОЙ -->
+  <section class="hero">
+    <div class="wrap hero-grid">
+      <div class="hero-copy">
+        <span class="eyebrow">Покровка, 17 · открыто с 7:30</span>
+        <h1>Сварим ваш <em>идеальный</em> день</h1>
+        <p class="lead">Свежая обжарка, честные 250 мл и место, где можно не спешить. Заходите по пути — ваш стакан уже почти готов.</p>
+        <div class="hero-actions">
+          <a class="btn btn-accent" href="#menu">
+            Смотреть меню
+            <svg class="icon" aria-hidden="true"><use href="#i-arrow"/></svg>
+          </a>
+          <a class="btn btn-ghost" href="#contacts">
+            <svg class="icon" aria-hidden="true"><use href="#i-pin"/></svg>
+            Как добраться
+          </a>
+        </div>
+        <div class="rating-badge">
+          <span class="stars" role="img" aria-label="Оценка 5 из 5">
+            <svg class="icon" aria-hidden="true"><use href="#i-star"/></svg>
+            <svg class="icon" aria-hidden="true"><use href="#i-star"/></svg>
+            <svg class="icon" aria-hidden="true"><use href="#i-star"/></svg>
+            <svg class="icon" aria-hidden="true"><use href="#i-star"/></svg>
+            <svg class="icon" aria-hidden="true"><use href="#i-star"/></svg>
+          </span>
+          <span class="score">4.8</span>
+          <span class="divider" aria-hidden="true"></span>
+          <span class="src">214 отзыва в Google</span>
+        </div>
+      </div>
+
+      <div class="hero-art-wrap">
+        <svg class="hero-art" viewBox="0 0 520 500" role="img" aria-label="Чашка кофе с паром на блюдце">
+          <defs>
+            <radialGradient id="glow" cx="50%" cy="44%" r="56%">
+              <stop offset="0%" stop-color="#FFE8C4" stop-opacity=".95"/>
+              <stop offset="58%" stop-color="#FBE3C2" stop-opacity=".45"/>
+              <stop offset="100%" stop-color="#FFF8E1" stop-opacity="0"/>
+            </radialGradient>
+            <linearGradient id="ceramic" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stop-color="#FFFFFF"/>
+              <stop offset="52%" stop-color="#F7EDE3"/>
+              <stop offset="100%" stop-color="#DFCEBD"/>
+            </linearGradient>
+            <linearGradient id="saucerG" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#FFFFFF"/>
+              <stop offset="60%" stop-color="#F4E9DE"/>
+              <stop offset="100%" stop-color="#DFCDBA"/>
+            </linearGradient>
+            <linearGradient id="coffeeG" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stop-color="#6B4531"/>
+              <stop offset="55%" stop-color="#3E2723"/>
+              <stop offset="100%" stop-color="#26140F"/>
+            </linearGradient>
+            <filter id="soft" x="-40%" y="-40%" width="180%" height="180%">
+              <feGaussianBlur stdDeviation="14"/>
+            </filter>
+          </defs>
+
+          <circle cx="260" cy="242" r="232" fill="url(#glow)"/>
+
+          <!-- тень -->
+          <ellipse cx="262" cy="424" rx="152" ry="25" fill="#3E2723" opacity=".14" filter="url(#soft)"/>
+
+          <!-- блюдце -->
+          <ellipse cx="260" cy="392" rx="172" ry="43" fill="url(#saucerG)"/>
+          <ellipse cx="260" cy="386" rx="118" ry="26" fill="#F3E7DA" opacity=".85"/>
+
+          <!-- ручка -->
+          <path d="M366 252 C428 248 437 338 374 350" fill="none" stroke="url(#ceramic)" stroke-width="21" stroke-linecap="round"/>
+
+          <!-- корпус -->
+          <path d="M156 212 C156 212 162 366 260 366 C358 366 364 212 364 212 Z" fill="url(#ceramic)"/>
+          <path d="M170 226 C174 320 200 352 260 356" fill="none" stroke="#FFFFFF" stroke-width="7" stroke-linecap="round" opacity=".55"/>
+
+          <!-- ободок и кофе -->
+          <ellipse cx="260" cy="212" rx="104" ry="26" fill="#FCF5ED"/>
+          <ellipse cx="260" cy="214" rx="91" ry="21" fill="url(#coffeeG)"/>
+          <path d="M260 232c-16-10-26-19-26-29a13 13 0 0 1 26-7 13 13 0 0 1 26 7c0 10-10 19-26 29z" fill="#D6A87F" opacity=".78"/>
+
+          <!-- пар -->
+          <path class="steam s1" d="M222 170 C210 144 236 128 224 96"/>
+          <path class="steam s2" d="M260 164 C248 136 274 118 262 84"/>
+          <path class="steam s3" d="M298 170 C286 148 310 130 300 100"/>
+        </svg>
+        <span class="float-chip"><span class="dot" aria-hidden="true"></span>Свежая обжарка — каждую неделю</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ПРИЧИНЫ -->
+  <section class="section" id="why">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <span class="eyebrow eyebrow--dark">Почему сюда возвращаются</span>
+        <h2>Три причины зайти именно сегодня</h2>
+        <p>Без громких слов — только то, что вы почувствуете с первого глотка.</p>
+      </div>
+      <div class="why-grid" data-stagger>
+        <article class="why-card reveal">
+          <div class="why-icon"><svg class="icon" aria-hidden="true"><use href="#i-bean"/></svg></div>
+          <h3>Обжарка на месте</h3>
+          <p>Зерно обжариваем маленькими партиями каждую неделю. Разницу слышно в первом глотке — и в последнем.</p>
+        </article>
+        <article class="why-card reveal">
+          <div class="why-icon"><svg class="icon" aria-hidden="true"><use href="#i-clock"/></svg></div>
+          <h3>Три минуты — и готово</h3>
+          <p>Утренняя очередь движется быстрее, чем кажется. Мы успеваем поздороваться и сделать ваш заказ.</p>
+        </article>
+        <article class="why-card reveal">
+          <div class="why-icon"><svg class="icon" aria-hidden="true"><use href="#i-seat"/></svg></div>
+          <h3>Есть где сесть</h3>
+          <p>Тихие углы для ноутбука, длинный стол для встреч и розетка у каждого места.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- МЕНЮ -->
+  <section class="section section--sand" id="menu">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <span class="eyebrow eyebrow--dark">Меню</span>
+        <h2>Шесть чашек, с которых стоит начать</h2>
+        <p>Цены — за объём 250 мл. Молоко на выбор: обычное, овсяное, миндальное — без доплаты.</p>
+      </div>
+
+      <div class="menu-grid" data-stagger>
+        <article class="menu-card reveal">
+          <div class="menu-visual" style="--l1:#C79A6E;--l2:#8B5A38" aria-hidden="true">
+            <span class="badge">Хит</span>
+            <div class="cup-top"><div class="liquid"></div></div>
+          </div>
+          <div class="menu-body">
+            <div class="menu-top"><h3>Флэт уайт</h3><span class="price">280 ₽</span></div>
+            <p>Бархатная пенка, которая не даёт остыть вдохновению.</p>
+          </div>
+        </article>
+
+        <article class="menu-card reveal">
+          <div class="menu-visual" style="--l1:#DDBB95;--l2:#A9754B" aria-hidden="true">
+            <div class="cup-top"><div class="liquid"></div></div>
+          </div>
+          <div class="menu-body">
+            <div class="menu-top"><h3>Капучино</h3><span class="price">260 ₽</span></div>
+            <p>Плотная сладкая пена и ореховая крепость эспрессо.</p>
+          </div>
+        </article>
+
+        <article class="menu-card reveal">
+          <div class="menu-visual" style="--l1:#5A3627;--l2:#241310" aria-hidden="true">
+            <div class="cup-top"><div class="liquid"></div></div>
+          </div>
+          <div class="menu-body">
+            <div class="menu-top"><h3>Эспрессо</h3><span class="price">180 ₽</span></div>
+            <p>Двадцать пять секунд — и весь вкус дня в одном глотке.</p>
+          </div>
+        </article>
+
+        <article class="menu-card reveal">
+          <div class="menu-visual" style="--l1:#E0C4A4;--l2:#B08663" aria-hidden="true">
+            <div class="cup-top"><div class="liquid"></div></div>
+          </div>
+          <div class="menu-body">
+            <div class="menu-top"><h3>Латте на овсяном</h3><span class="price">320 ₽</span></div>
+            <p>Мягкий и сливочный — для тех, кто уже опаздывает.</p>
+          </div>
+        </article>
+
+        <article class="menu-card reveal">
+          <div class="menu-visual" style="--l1:#EAD3B9;--l2:#BE9573" aria-hidden="true">
+            <span class="badge">Новинка</span>
+            <div class="cup-top"><div class="liquid"></div></div>
+          </div>
+          <div class="menu-body">
+            <div class="menu-top"><h3>Раф ванильный</h3><span class="price">340 ₽</span></div>
+            <p>Сливки, ваниль и лёгкая сладость — как объятие в чашке.</p>
+          </div>
+        </article>
+
+        <article class="menu-card reveal">
+          <div class="menu-visual" style="--l1:#7A4A34;--l2:#42281D" aria-hidden="true">
+            <div class="cup-top"><div class="liquid"></div></div>
+          </div>
+          <div class="menu-body">
+            <div class="menu-top"><h3>Какао с корицей</h3><span class="price">290 ₽</span></div>
+            <p>Тёплый шоколад с пряной ноткой — для дождливых вечеров.</p>
+          </div>
+        </article>
+      </div>
+
+      <div class="menu-cta reveal">
+        <a class="btn btn-accent" href="#contacts">Попробуйте сегодня</a>
+        <span>Забронировать стол — 30 секунд, без звонка</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ОТЗЫВЫ -->
+  <section class="section" id="reviews">
+    <div class="wrap">
+      <div class="reviews-head">
+        <div class="section-head reveal" style="margin-bottom:0">
+          <span class="eyebrow eyebrow--dark">Отзывы</span>
+          <h2>Что говорят гости</h2>
+          <p>Настоящие отзывы из Google — без редактуры.</p>
+        </div>
+        <div class="rating-panel reveal" data-delay="120">
+          <span class="g-badge" aria-hidden="true">G</span>
+          <span class="big">4.8</span>
+          <span class="meta">
+            <span class="stars" role="img" aria-label="Средняя оценка 4.8 из 5">
+              <svg class="icon" aria-hidden="true"><use href="#i-star"/></svg>
+              <svg class="icon" aria-hidden="true"><use href="#i-star"/></svg>
+              <svg class="icon" aria-hidden="true"><use href="#i-star"/></svg>
+              <svg class="icon" aria-hidden="true"><use href="#i-star"/></svg>
+              <svg class="icon" aria-hidden="true"><use href="#i-star"/></svg>
+            </span>
+            <span class="count">214 отзыва в Google</span>
+          </span>
+        </div>
+      </div>
+
+      <div class="reviews-grid" data-stagger>
+        <article class="review-card reveal">
+          <span class="stars" role="img" aria-label="5 из 5">
+            <svg class="icon" aria-hidden="true"><use href="#i-star"/></svg>
+            <svg class="icon" aria-hidden="true"><use href="#i-star"/></svg>
+            <svg class="icon" aria-hidden="true"><use href="#i-star"/></svg>
+            <svg class="icon" aria-hidden="true"><use href="#i-star"/></svg>
+            <svg class="icon" aria-hidden="true"><use href="#i-star"/></svg>
+          </span>
+          <blockquote>«Флэт уайт здесь лучший в районе. Захожу каждое утро — бариста уже знает мой заказ и не спрашивает лишний раз».</blockquote>
+          <div class="review-author">
+            <span class="avatar" style="--a1:#C0895F;--a2:#8A5A3B" aria-hidden="true">А</span>
+            <span><span class="who">Анна К.</span><br><span class="when">неделю назад</span></span>
+          </div>
+        </article>
+
+        <article class="review-card reveal">
+          <span class="stars" role="img" aria-label="5 из 5">
+            <svg class="icon" aria-hidden="true"><use href="#i-star"/></svg>
+            <svg class="icon" aria-hidden="true"><use href="#i-star"/></svg>
+            <svg class="icon" aria-hidden="true"><use href="#i-star"/></svg>
+            <svg class="icon" aria-hidden="true"><use href="#i-star"/></svg>
+            <svg class="icon" aria-hidden="true"><use href="#i-star"/></svg>
+          </span>
+          <blockquote>«Тихо, светло, розетки у каждого стола. Просидел три часа с ноутбуком — никто не выгонял и даже принесли воды».</blockquote>
+          <div class="review-author">
+            <span class="avatar" style="--a1:#A98A7A;--a2:#6B4B3A" aria-hidden="true">Д</span>
+            <span><span class="who">Дмитрий С.</span><br><span class="when">2 недели назад</span></span>
+          </div>
+        </article>
+
+        <article class="review-card reveal">
+          <span class="stars" role="img" aria-label="5 из 5">
+            <svg class="icon" aria-hidden="true"><use href="#i-star"/></svg>
+            <svg class="icon" aria-hidden="true"><use href="#i-star"/></svg>
+            <svg class="icon" aria-hidden="true"><use href="#i-star"/></svg>
+            <svg class="icon" aria-hidden="true"><use href="#i-star"/></svg>
+            <svg class="icon" aria-hidden="true"><use href="#i-star"/></svg>
+          </span>
+          <blockquote>«Какао с корицей спас меня в дождливый вторник. Теперь это ритуал: прихожу, сажусь у окна и никуда не спешу».</blockquote>
+          <div class="review-author">
+            <span class="avatar" style="--a1:#D3A24E;--a2:#9A6B22" aria-hidden="true">М</span>
+            <span><span class="who">Марина Л.</span><br><span class="when">месяц назад</span></span>
+          </div>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- КОНТАКТЫ -->
+  <section class="section section--sand" id="contacts">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <span class="eyebrow eyebrow--dark">Контакты</span>
+        <h2>Загляните — мы рядом</h2>
+        <p>Покровка, 17 — пять минут пешком от метро Китай-город. Вход со двора, ищите вывеску с паром.</p>
+      </div>
+
+      <div class="contacts-grid">
+        <div class="map-card reveal" role="img" aria-label="Схема расположения кофейни: Покровка, 17">
+          <svg viewBox="0 0 480 480" aria-hidden="true" preserveAspectRatio="xMidYMid slice">
+            <rect width="480" height="480" fill="#E7D9C5"/>
+            <rect x="150" y="250" width="150" height="130" rx="18" fill="#D9E2C2"/>
+            <circle cx="196" cy="300" r="17" fill="#C6D2A8"/>
+            <circle cx="242" cy="336" r="13" fill="#C6D2A8"/>
+            <circle cx="268" cy="288" r="11" fill="#C6D2A8"/>
+            <g stroke="#FBF5EA" stroke-width="30" stroke-linecap="round">
+              <path d="M-20 120 H500"/>
+              <path d="M-20 268 H500"/>
+              <path d="M118 -20 V500"/>
+              <path d="M318 -20 V500"/>
+              <path d="M440 -20 V500"/>
+            </g>
+            <g stroke="#E6D6BF" stroke-width="2" stroke-dasharray="10 13" opacity=".9">
+              <path d="M-20 120 H500"/>
+              <path d="M-20 268 H500"/>
+              <path d="M118 -20 V500"/>
+              <path d="M318 -20 V500"/>
+              <path d="M440 -20 V500"/>
+            </g>
+            <g fill="#DAC9B0" opacity=".75">
+              <rect x="24" y="24" width="70" height="70" rx="12"/>
+              <rect x="150" y="24" width="140" height="70" rx="12"/>
+              <rect x="352" y="24" width="66" height="70" rx="12"/>
+              <rect x="352" y="150" width="66" height="90" rx="12"/>
+              <rect x="24" y="300" width="70" height="140" rx="12"/>
+              <rect x="352" y="300" width="66" height="140" rx="12"/>
+            </g>
+            <circle class="pulse" cx="318" cy="268" r="34" fill="#D84315" opacity=".22"/>
+            <path d="M318 240a25 25 0 0 0-25 25c0 18 25 42 25 42s25-24 25-42a25 25 0 0 0-25-25z" fill="#D84315"/>
+            <circle cx="318" cy="265" r="9.5" fill="#FFF8E1"/>
+          </svg>
+          <span class="map-label"><span class="dot" aria-hidden="true"></span>Кофейня «Пар» · Покровка, 17</span>
+        </div>
+
+        <div class="side-col">
+          <div class="panel reveal" data-delay="80">
+            <ul class="info-list">
+              <li class="info-row">
+                <span class="info-ico"><svg class="icon" aria-hidden="true"><use href="#i-pin"/></svg></span>
+                <div>
+                  <span class="info-label">Адрес</span>
+                  <p>Москва, ул. Покровка, 17<br><span class="muted">5 минут от м. Китай-город</span></p>
+                </div>
+              </li>
+              <li class="info-row">
+                <span class="info-ico"><svg class="icon" aria-hidden="true"><use href="#i-clock"/></svg></span>
+                <div>
+                  <span class="info-label">Часы работы</span>
+                  <p>Пн–Пт — 7:30–21:00<br>Сб–Вс — 8:30–22:00</p>
+                </div>
+              </li>
+              <li class="info-row">
+                <span class="info-ico"><svg class="icon" aria-hidden="true"><use href="#i-phone"/></svg></span>
+                <div>
+                  <span class="info-label">Телефон</span>
+                  <p><a href="tel:+74951234567">+7 (495) 123-45-67</a></p>
+                </div>
+              </li>
+            </ul>
+            <div class="panel-actions">
+              <a class="btn btn-accent" href="https://www.google.com/maps/search/?api=1&amp;query=%D0%9C%D0%BE%D1%81%D0%BA%D0%B2%D0%B0%2C%20%D0%9F%D0%BE%D0%BA%D1%80%D0%BE%D0%B2%D0%BA%D0%B0%2C%2017" target="_blank" rel="noopener">
+                <svg class="icon" aria-hidden="true"><use href="#i-pin"/></svg>
+                Построить маршрут
+              </a>
+              <a class="btn btn-ghost" href="tel:+74951234567">
+                <svg class="icon" aria-hidden="true"><use href="#i-phone"/></svg>
+                Позвонить
+              </a>
+            </div>
+          </div>
+
+          <div class="panel booking reveal" data-delay="160">
+            <h3>Забронировать стол</h3>
+            <p>Оставьте имя и телефон — перезвоним в течение 15 минут и подтвердим бронь.</p>
+            <form id="booking" novalidate>
+              <div class="field">
+                <label for="b-name">Как к вам обращаться</label>
+                <input id="b-name" name="name" type="text" placeholder="Имя" autocomplete="given-name" required>
+                <span class="err">Напишите имя — хотя бы два символа</span>
+              </div>
+              <div class="field">
+                <label for="b-phone">Телефон</label>
+                <input id="b-phone" name="phone" type="tel" placeholder="+7 (___) ___-__-__" autocomplete="tel" inputmode="tel" required>
+                <span class="err">Проверьте номер — нужно не меньше 10 цифр</span>
+              </div>
+              <div class="field">
+                <label for="b-time">Когда</label>
+                <select id="b-time" name="time">
+                  <option>Сегодня, 18:00</option>
+                  <option>Сегодня, 19:30</option>
+                  <option>Завтра, 10:00</option>
+                  <option>Завтра, 13:00</option>
+                  <option>Другое время — обсудим по телефону</option>
+                </select>
+              </div>
+              <button class="btn btn-accent" type="submit">Забронировать стол</button>
+            </form>
+            <div class="form-success" id="booking-success" hidden tabindex="-1" role="status">
+              <span class="ok" aria-hidden="true"><svg class="icon"><use href="#i-check"/></svg></span>
+              <p><strong>Записали.</strong> Перезвоним на указанный номер, чтобы подтвердить бронь. Если планы изменятся — просто позвоните нам.</p>
+            </div>
+            <p class="form-note">Или сразу <a href="tel:+74951234567">+7 (495) 123-45-67</a></p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- ФУТЕР -->
+<footer class="footer">
+  <div class="wrap">
+    <div class="footer-grid">
+      <div class="footer-about">
+        <a class="logo" href="#top" aria-label="Кофейня «Пар» — наверх">
+          <span class="logo-mark" aria-hidden="true"><svg><use href="#i-cup"/></svg></span>
+          <span class="logo-text">Пар<small>кофейня</small></span>
+        </a>
+        <p>Обжариваем, варим и радуемся, когда вы возвращаетесь. Покровка, 17 — с 2020 года.</p>
+      </div>
+
+      <div>
+        <h4>Навигация</h4>
+        <ul>
+          <li><a href="#menu">Меню</a></li>
+          <li><a href="#why">О нас</a></li>
+          <li><a href="#reviews">Отзывы</a></li>
+          <li><a href="#contacts">Контакты</a></li>
+        </ul>
+      </div>
+
+      <div>
+        <h4>Контакты</h4>
+        <ul>
+          <li><a href="tel:+74951234567">+7 (495) 123-45-67</a></li>
+          <li><a href="mailto:hello@par-coffee.ru">hello@par-coffee.ru</a></li>
+          <li><a href="https://www.google.com/maps/search/?api=1&amp;query=%D0%9C%D0%BE%D1%81%D0%BA%D0%B2%D0%B0%2C%20%D0%9F%D0%BE%D0%BA%D1%80%D0%BE%D0%B2%D0%BA%D0%B0%2C%2017" target="_blank" rel="noopener">Москва, Покровка, 17</a></li>
+        </ul>
+        <div class="socials">
+          <a href="https://t.me/" target="_blank" rel="noopener">Telegram</a>
+          <a href="https://vk.com/" target="_blank" rel="noopener">VK</a>
+        </div>
+      </div>
+
+      <div>
+        <h4>Часы работы</h4>
+        <ul>
+          <li class="hours-row"><span>Пн–Пт</span><span>7:30–21:00</span></li>
+          <li class="hours-row"><span>Сб–Вс</span><span>8:30–22:00</span></li>
+          <li class="hours-row"><span>Кухня</span><span>до 20:30</span></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="footer-bottom">
+      <span>© 2025 Кофейня «Пар». Все права защищены.</span>
+      <span>Сделано с любовью к кофе</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+(function () {
+  'use strict';
+
+  /* --- тень хедера при скролле --- */
+  var header = document.querySelector('.site-header');
+  var ticking = false;
+  function updateHeader() {
+    header.classList.toggle('scrolled', window.scrollY > 12);
+    ticking = false;
+  }
+  window.addEventListener('scroll', function () {
+    if (!ticking) {
+      ticking = true;
+      window.requestAnimationFrame(updateHeader);
+    }
+  }, { passive: true });
+  updateHeader();
+
+  /* --- появление блоков при скролле --- */
+  var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var items = Array.prototype.slice.call(document.querySelectorAll('.reveal'));
+
+  items.forEach(function (el) {
+    var group = el.closest('[data-stagger]');
+    if (group) {
+      var siblings = Array.prototype.slice.call(group.querySelectorAll(':scope > .reveal'));
+      var idx = siblings.indexOf(el);
+      if (idx > 0) el.style.transitionDelay = Math.min(idx, 5) * 90 + 'ms';
+    }
+    if (el.dataset.delay) el.style.transitionDelay = el.dataset.delay + 'ms';
+  });
+
+  if (!reduceMotion && 'IntersectionObserver' in window) {
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('in');
+          io.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.12, rootMargin: '0px 0px -6% 0px' });
+    items.forEach(function (el) { io.observe(el); });
+  } else {
+    items.forEach(function (el) { el.classList.add('in'); });
+  }
+
+  /* --- форма бронирования --- */
+  var form = document.getElementById('booking');
+  var success = document.getElementById('booking-success');
+  var nameInput = document.getElementById('b-name');
+  var phoneInput = document.getElementById('b-phone');
+
+  if (!form || !success) return;
+
+  function setInvalid(input, isInvalid) {
+    var field = input.closest('.field');
+    if (field) field.classList.toggle('invalid', isInvalid);
+  }
+
+  [nameInput, phoneInput].forEach(function (input) {
+    input.addEventListener('input', function () {
+      if (input.closest('.field').classList.contains('invalid')) setInvalid(input, false);
+    });
+  });
+
+  form.addEventListener('submit', function (event) {
+    event.preventDefault();
+
+    var nameOk = nameInput.value.trim().length >= 2;
+    var digits = phoneInput.value.replace(/\D/g, '');
+    var phoneOk = digits.length >= 10;
+
+    setInvalid(nameInput, !nameOk);
+    setInvalid(phoneInput, !phoneOk);
+
+    if (!nameOk || !phoneOk) {
+      (!nameOk ? nameInput : phoneInput).focus();
+      return;
+    }
+
+    form.hidden = true;
+    success.hidden = false;
+    success.focus();
+  });
+})();
+</script>
+</body>
+</html>

@@ -32,25 +32,39 @@ def content_for(req, label, variant):
 def judge(judge_model, req, a, b):
     content = [{"type": "text", "text": f"User request: «{req['text']}»"}] + content_for(req, "A", a) + content_for(req, "B", b) + \
               [{"type": "text", "text": "Which result is better for this user? JSON only."}]
-    r = a6.chat({"model": judge_model, "max_tokens": 3000, "messages": [{"role": "system", "content": SYS}, {"role": "user", "content": content}]},
+    r = {"json": None, "status": "exc"}
+    for attempt in range(3):
+        try:
+            r = a6.chat({"model": judge_model, "max_tokens": 3000, "messages": [{"role": "system", "content": SYS}, {"role": "user", "content": content}]},
                 tag=f"jd-{judge_model}-{req['id']}", timeout=600)
+        except Exception as e:
+            r = {"json": None, "status": f"exc {e!r}"}
+        if r["status"] == 200: break
     j = r["json"] or {}
     text = ((j.get("choices") or [{}])[0].get("message") or {}).get("content") or ""
     m = re.search(r"\{.*\}", text, re.S); w = None; why = ""
     try:
-        d = json.loads(m.group(0)); w = str(d.get("winner", "")).strip().upper(); why = d.get("why", "")
+        d = json.loads(m.group(0))
+        w = str(next((d[k] for k in ("winner", "better", "choice", "verdict") if k in d), "")).strip().upper()
+        why = d.get("why") or d.get("reason") or ""
     except Exception: pass
     winner = {"A": a, "B": b, "TIE": "tie"}.get(w)
     return {"judge": judge_model, "id": req["id"], "a": a, "b": b, "winner": winner, "why": why[:300], "status": r["status"]}
 
 if __name__ == "__main__":
     out = os.path.join(HERE, "judgments.jsonl"); lock = threading.Lock()
+    done = set()
+    if os.path.exists(out):
+        keep = [json.loads(l) for l in open(out)]
+        keep = [r for r in keep if r.get("winner")]
+        done = {(r["judge"], r["id"], r["a"], r["b"]) for r in keep}
+        open(out, "w").write("".join(json.dumps(r, ensure_ascii=False) + "\n" for r in keep))
     jobs = []
     for req in RQ.R:
         avail = [v for v in VARIANTS if os.path.exists(os.path.join(OUT, req["id"], f"{v}.{'html' if req['kind'] == 'web' else 'md'}"))]
         for x, y in itertools.combinations(avail, 2):
             for jm in JUDGES:
-                jobs += [(jm, req, x, y), (jm, req, y, x)]
+                jobs += [j for j in [(jm, req, x, y), (jm, req, y, x)] if (j[0], req["id"], j[2], j[3]) not in done]
     def run(a):
         rec = judge(*a)
         with lock: open(out, "a").write(json.dumps(rec, ensure_ascii=False) + "\n")

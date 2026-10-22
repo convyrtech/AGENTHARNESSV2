@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Token Usage — расход токенов по клиентам</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  :root{
+    --bg:#080a0f;
+    --txt:#e9edf6;
+    --muted:#7b869b;
+    --line:rgba(255,255,255,.075);
+    --accent:#6366f1;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{min-height:100%}
+  body{
+    font-family:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;
+    color:var(--txt);
+    -webkit-font-smoothing:antialiased;
+    background:
+      radial-gradient(1200px 620px at 82% -12%, rgba(99,102,241,.20), transparent 62%),
+      radial-gradient(900px 520px at -5% 0%, rgba(34,211,238,.11), transparent 58%),
+      radial-gradient(800px 600px at 50% 120%, rgba(168,85,247,.10), transparent 60%),
+      var(--bg);
+    background-attachment:fixed;
+    padding:26px 24px 40px;
+  }
+  .app{max-width:1420px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+
+  /* ---------- Topbar ---------- */
+  .topbar{display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap}
+  .brand{display:flex;align-items:center;gap:14px}
+  .logo{
+    width:46px;height:46px;border-radius:14px;display:grid;place-items:center;color:#fff;
+    background:linear-gradient(135deg,#6366f1 0%,#22d3ee 100%);
+    box-shadow:0 10px 26px -6px rgba(99,102,241,.55), inset 0 1px 0 rgba(255,255,255,.35);
+  }
+  .logo svg{width:23px;height:23px}
+  .brand h1{font-size:19px;font-weight:700;letter-spacing:-.35px;line-height:1.2}
+  .brand p{font-size:12.5px;color:var(--muted);margin-top:3px}
+  .controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+
+  .seg{display:flex;background:rgba(255,255,255,.045);border:1px solid var(--line);border-radius:12px;padding:4px;gap:2px}
+  .seg button{
+    border:0;background:transparent;color:var(--muted);font:inherit;font-size:12.5px;font-weight:500;
+    padding:8px 15px;border-radius:9px;cursor:pointer;transition:.18s ease;white-space:nowrap;
+  }
+  .seg button:hover{color:var(--txt);background:rgba(255,255,255,.05)}
+  .seg button.active{background:linear-gradient(135deg,#6366f1,#5b5ff0);color:#fff;box-shadow:0 6px 16px -6px rgba(99,102,241,.9)}
+
+  .btn{
+    border:1px solid var(--line);background:rgba(255,255,255,.045);color:var(--txt);
+    font:inherit;font-size:12.5px;font-weight:500;padding:10px 16px;border-radius:11px;cursor:pointer;
+    display:inline-flex;align-items:center;gap:8px;transition:.18s ease;
+  }
+  .btn:hover{background:rgba(255,255,255,.09);border-color:rgba(255,255,255,.18);transform:translateY(-1px)}
+  .btn svg{width:14px;height:14px;opacity:.8}
+
+  /* ---------- Cards ---------- */
+  .card{
+    background:linear-gradient(180deg,rgba(255,255,255,.048),rgba(255,255,255,.014));
+    border:1px solid var(--line);
+    border-radius:17px;
+    box-shadow:0 18px 40px -28px rgba(0,0,0,.95), inset 0 1px 0 rgba(255,255,255,.045);
+    backdrop-filter:blur(8px);
+  }
+
+  /* ---------- KPI ---------- */
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+  @media(max-width:1080px){.kpis{grid-template-columns:repeat(2,1fr)}}
+  @media(max-width:560px){.kpis{grid-template-columns:1fr}}
+  .kpi{padding:18px 19px 17px;position:relative;overflow:hidden}
+  .kpi::before{
+    content:'';position:absolute;top:0;left:0;right:0;height:2px;
+    background:linear-gradient(90deg,var(--accent),transparent 78%);opacity:.9;
+  }
+  .kpi-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:13px}
+  .kpi-ico{width:34px;height:34px;border-radius:10px;display:grid;place-items:center}
+  .kpi-ico svg{width:17px;height:17px}
+  .kpi-value{font-size:28px;font-weight:700;letter-spacing:-1px;line-height:1.05}
+  .kpi-label{font-size:12px;color:var(--muted);font-weight:500;margin-top:6px}
+
+  .delta{font-size:11.5px;font-weight:600;padding:4px 8px;border-radius:8px;display:inline-flex;align-items:center;gap:3px;white-space:nowrap}
+  .delta.up{color:#4ade80;background:rgba(52,211,153,.13)}
+  .delta.down{color:#fb7185;background:rgba(251,113,133,.13)}
+  .delta.flat{color:var(--muted);background:rgba(255,255,255,.06)}
+
+  /* ---------- Charts ---------- */
+  .grid{display:grid;grid-template-columns:minmax(0,2.15fr) minmax(0,1fr);gap:14px}
+  @media(max-width:1080px){.grid{grid-template-columns:1fr}}
+  .chart-card{display:flex;flex-direction:column;padding-bottom:12px;min-width:0}
+  .card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:18px 20px 4px}
+  .card-head h2{font-size:14.5px;font-weight:650;letter-spacing:-.2px}
+  .card-head .sub{font-size:11.5px;color:var(--muted);margin-top:3px;display:block}
+  .chart-wrap{position:relative;flex:1;min-height:300px;margin-top:10px;padding:0 14px 0 8px}
+  .doughnut-wrap{min-height:330px;padding:0 16px 4px}
+
+  /* ---------- Table ---------- */
+  .table-card{overflow:hidden}
+  .table-scroll{overflow-x:auto}
+  table{width:100%;border-collapse:collapse;font-size:13px;min-width:860px}
+  thead th{
+    text-align:left;font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.7px;
+    color:var(--muted);padding:11px 20px;border-bottom:1px solid var(--line);white-space:nowrap;
+  }
+  th.num,td.num{text-align:right}
+  tbody td{padding:12px 20px;border-bottom:1px solid rgba(255,255,255,.042);white-space:nowrap}
+  tbody tr{transition:background .15s ease}
+  tbody tr:hover{background:rgba(255,255,255,.028)}
+  tbody tr:last-child td{border-bottom:1px solid rgba(255,255,255,.042)}
+  tfoot td{
+    padding:14px 20px;font-weight:650;font-size:13px;border-top:1px solid var(--line);
+    background:rgba(255,255,255,.022);white-space:nowrap;
+  }
+
+  .client{display:flex;align-items:center;gap:11px}
+  .avatar{
+    width:33px;height:33px;border-radius:10px;display:grid;place-items:center;
+    font-size:11.5px;font-weight:700;color:#fff;flex:0 0 auto;letter-spacing:.2px;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.28);
+  }
+  .cname{font-weight:550;font-size:13px}
+  .cplan{font-size:11px;color:var(--muted);margin-top:2px}
+
+  .bar{width:72px;height:4px;border-radius:4px;background:rgba(255,255,255,.075);margin-left:auto;margin-top:6px;overflow:hidden}
+  .bar span{display:block;height:100%;border-radius:4px;transition:width .5s ease}
+
+  .trend{display:flex;align-items:center;gap:10px;justify-content:flex-end}
+  .trend svg{display:block;overflow:visible}
+
+  .empty{padding:30px;text-align:center;color:var(--muted);font-size:13px}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <header class="topbar">
+    <div class="brand">
+      <div class="logo">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 2 4 6.5v11L12 22l8-4.5v-11L12 2Z"/><path d="M12 22V11.5"/><path d="m4 6.5 8 5 8-5"/>
+        </svg>
+      </div>
+      <div>
+        <h1>Token Usage</h1>
+        <p>Расход токенов по клиентам</p>
+      </div>
+    </div>
+    <div class="controls">
+      <div class="seg" id="periodSeg">
+        <button data-p="7">7 дней</button>
+        <button data-p="14">14 дней</button>
+        <button data-p="30" class="active">30 дней</button>
+      </div>
+      <button class="btn" id="exportBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+        </svg>
+        Экспорт CSV
+      </button>
+    </div>
+  </header>
+
+  <section class="kpis" id="kpis"></section>
+
+  <section class="grid">
+    <div class="card chart-card">
+      <div class="card-head">
+        <div>
+          <h2>Расход токенов по дням</h2>
+          <span class="sub">Стек по клиентам, input + output</span>
+        </div>
+      </div>
+      <div class="chart-wrap"><canvas id="lineChart"></canvas></div>
+    </div>
+
+    <div class="card chart-card">
+      <div class="card-head">
+        <div>
+          <h2>Доля клиентов</h2>
+          <span class="sub">За выбранный период</span>
+        </div>
+      </div>
+      <div class="chart-wrap doughnut-wrap"><canvas id="doughnutChart"></canvas></div>
+    </div>
+  </section>
+
+  <section class="card table-card">
+    <div class="card-head">
+      <div>
+        <h2>Клиенты</h2>
+        <span class="sub" id="tableSub"></span>
+      </div>
+    </div>
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>Клиент</th>
+            <th class="num">Запросы</th>
+            <th class="num">Input</th>
+            <th class="num">Output</th>
+            <th class="num">Всего токенов</th>
+            <th class="num">Стоимость</th>
+            <th style="text-align:right">Динамика</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+        <tfoot id="tfoot"></tfoot>
+      </table>
+    </div>
+  </section>
+
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ============================================================
+     КОНСТАНТЫ И ГЕНЕРАЦИЯ ДЕМО-ДАННЫХ
+     ============================================================ */
+  const DAYS = 60;                 // глубина истории (нужно >= 2 * макс. период)
+  const PRICE_IN  = 2.00;          // $ за 1M input-токенов
+  const PRICE_OUT = 8.00;          // $ за 1M output-токенов
+
+  function mulberry32(a) {
+    return function () {
+      a |= 0; a = a + 0x6D2B79F5 | 0;
+      let t = Math.imul(a ^ a >>> 15, 1 | a);
+      t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
+  }
+
+  const CLIENTS = [
+    { name: 'Nebula Labs',   plan: 'Enterprise', color: '#6366f1', base: 2400000, growth:  0.013, seed: 11 },
+    { name: 'Kvant Studio',  plan: 'Pro',        color: '#22d3ee', base: 1600000, growth:  0.007, seed: 23 },
+    { name: 'Orbita AI',     plan: 'Enterprise', color: '#a855f7', base: 1300000, growth:  0.019, seed: 37 },
+    { name: 'Sfera Digital', plan: 'Pro',        color: '#34d399', base:  860000, growth: -0.005, seed: 51 },
+    { name: 'Lumen Soft',    plan: 'Team',       color: '#fbbf24', base:  550000, growth:  0.022, seed: 67 },
+    { name: 'Papirus',       plan: 'Team',       color: '#fb7185', base:  400000, growth:  0.004, seed: 83 },
+    { name: 'Gradient',      plan: 'Pro',        color: '#60a5fa', base:  300000, growth:  0.010, seed: 97 }
+  ];
+
+  const TODAY = new Date(); TODAY.setHours(0, 0, 0, 0);
+  const DATES = [];
+  for (let i = DAYS - 1; i >= 0; i--) {
+    const d = new Date(TODAY);
+    d.setDate(d.getDate() - i);
+    DATES.push(d);
+  }
+
+  CLIENTS.forEach(function (c) {
+    const rnd = mulberry32(c.seed);
+    c.series = DATES.map(function (d, i) {
+      const dow = d.getDay();
+      const weekend = (dow === 0 || dow === 6) ? 0.5 : 1;
+      const season = 1 + 0.13 * Math.sin((i / DAYS) * Math.PI * 3 + c.seed * 0.7);
+      const trend = Math.pow(1 + c.growth, i);
+      const noise = 0.78 + rnd() * 0.44;
+      const total = Math.max(5000, Math.round(c.base * weekend * season * trend * noise / 1000) * 1000);
+      const inShare = 0.62 + rnd() * 0.12;
+      const inTok = Math.round(total * inShare);
+      const outTok = total - inTok;
+      const perReq = 380 + Math.round(rnd() * 520);
+      const req = Math.max(5, Math.round(total / perReq));
+      return { inTok: inTok, outTok: outTok, req: req };
+    });
+  });
+
+  /* ============================================================
+     ХЕЛПЕРЫ
+     ============================================================ */
+  function hexA(hex, a) {
+    const n = parseInt(hex.slice(1), 16);
+    return 'rgba(' + ((n >> 16) & 255) + ',' + ((n >> 8) & 255) + ',' + (n & 255) + ',' + a + ')';
+  }
+
+  function fmtTok(n) {
+    if (n >= 1e9) return (n / 1e9).toFixed(2).replace('.', ',') + 'B';
+    if (n >= 1e6) return (n / 1e6).toFixed(2).replace('.', ',') + 'M';
+    if (n >= 1e3) return Math.round(n / 1e3) + 'K';
+    return String(Math.round(n));
+  }
+
+  function fmtInt(n) {
+    return Math.round(n).toLocaleString('ru-RU');
+  }
+
+  function costOf(inTok, outTok) {
+    return (inTok / 1e6) * PRICE_IN + (outTok / 1e6) * PRICE_OUT;
+  }
+
+  function pct(cur, prev) {
+    return prev > 0 ? ((cur - prev) / prev) * 100 : 0;
+  }
+
+  function deltaBadge(value) {
+    if (!isFinite(value) || Math.abs(value) < 0.05) {
+      return '<span class="delta flat">0,0%</span>';
+    }
+    const up = value >= 0;
+    const cls = up ? 'up' : 'down';
+    const arrow = up ? '▲' : '▼';
+    return '<span class="delta ' + cls + '">' + arrow + ' ' +
+      Math.abs(value).toFixed(1).replace('.', ',') + '%</span>';
+  }
+
+  function sparkline(values, color) {
+    const w = 84, h = 26, pad = 3;
+    const min = Math.min.apply(null, values);
+    const max = Math.max.apply(null, values);
+    const span = (max - min) || 1;
+    const pts = values.map(function (v, i) {
+      const x = pad + i * (w - 2 * pad) / Math.max(1, values.length - 1);
+      const y = h - pad - ((v - min) / span) * (h - 2 * pad);
+      return [x, y];
+    });
+    let d = '';
+    pts.forEach(function (p, i) {
+      d += (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1) + ' ';
+    });
+    const area = d + 'L ' + pts[pts.length - 1][0].toFixed(1) + ' ' + h +
+                 ' L ' + pts[0][0].toFixed(1) + ' ' + h + ' Z';
+    return '<svg width="' + w + '" height="' + h + '" viewBox="0 0 ' + w + ' ' + h + '" fill="none">' +
+      '<path d="' + area + '" fill="' + color + '" opacity="0.13"/>' +
+      '<path d="' + d + '" stroke="' + color + '" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/>' +
+      '</svg>';
+  }
+
+  function sumRange(series, start, end) {
+    let inTok = 0, outTok = 0, req = 0;
+    for (let i = start; i < end; i++) {
+      inTok += series[i].inTok;
+      outTok += series[i].outTok;
+      req += series[i].req;
+    }
+    return { inTok: inTok, outTok: outTok, req: req, total: inTok + outTok };
+  }
+
+  /* ============================================================
+     ИКОНКИ
+     ============================================================ */
+  const ICONS = {
+    db: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/><path d="M3 12c0 1.66 4 3 9 3s9-1.34 9-3"/></svg>',
+    zap: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>',
+    act: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>',
+    dollar: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>'
+  };
+
+  /* ============================================================
+     CHART.JS — ГЛОБАЛЬНЫЕ НАСТРОЙКИ И ПЛАГИН ЦЕНТРА
+     ============================================================ */
+  Chart.defaults.font.family = "'Inter', system-ui, sans-serif";
+  Chart.defaults.font.size = 11.5;
+  Chart.defaults.color = '#8b93a7';
+  Chart.defaults.borderColor = 'rgba(255,255,255,0.06)';
+
+  let centerValue = '';
+  const centerTextPlugin = {
+    id: 'centerText',
+    afterDraw: function (chart) {
+      if (chart.config.type !== 'doughnut') return;
+      const area = chart.chartArea;
+      if (!area) return;
+      const ctx = chart.ctx;
+      const x = (area.left + area.right) / 2;
+      const y = (area.top + area.bottom) / 2;
+      ctx.save();
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#eef2fa';
+      ctx.font = '700 23px Inter, sans-serif';
+      ctx.fillText(centerValue, x, y - 7);
+      ctx.fillStyle = '#7b869b';
+      ctx.font = '500 10.5px Inter, sans-serif';
+      ctx.fillText('токенов', x, y + 14);
+      ctx.restore();
+    }
+  };
+  Chart.register(centerTextPlugin);
+
+  const TOOLTIP_STYLE = {
+    backgroundColor: 'rgba(11,14,21,0.96)',
+    borderColor: 'rgba(255,255,255,0.10)',
+    borderWidth: 1,
+    titleColor: '#eef2fa',
+    bodyColor: '#a9b3c7',
+    padding: 12,
+    cornerRadius: 10,
+    boxPadding: 5,
+    usePointStyle: true,
+    titleFont: { size: 12, weight: '600' },
+    bodyFont: { size: 11.5 }
+  };
+
+  /* ============================================================
+     ЭЛЕМЕНТЫ И СОСТОЯНИЕ
+     ============================================================ */
+  const elKpis = document.getElementById('kpis');
+  const elTbody = document.getElementById('tbody');
+  const elTfoot = document.getElementById('tfoot');
+  const elTableSub = document.getElementById('tableSub');
+
+  const state = { period: 30, rows: [] };
+  let lineChart = null;
+  let doughnutChart = null;
+
+  /* ============================================================
+     ОСНОВНОЙ РЕНДЕР
+     ============================================================ */
+  function render(period) {
+    state.period = period;
+
+    const start = DAYS - period;
+    const prevStart = DAYS - period * 2;
+
+    /* ---- агрегация по клиентам ---- */
+    const rows = CLIENTS.map(function (c) {
+      const cur = sumRange(c.series, start, DAYS);
+      const prev = sumRange(c.series, prevStart, start);
+      return {
+        name: c.name,
+        plan: c.plan,
+        color: c.color,
+        series: c.series,
+        inTok: cur.inTok,
+        outTok: cur.outTok,
+        req: cur.req,
+        total: cur.total,
+        cost: costOf(cur.inTok, cur.outTok),
+        prevTotal: prev.total,
+        prevReq: prev.req,
+        prevCost: costOf(prev.inTok, prev.outTok)
+      };
+    }).sort(function (a, b) { return b.total - a.total; });
+
+    /* ---- итоги ---- */
+    const T = rows.reduce(function (a, r) {
+      a.inTok += r.inTok; a.outTok += r.outTok; a.req += r.req;
+      a.total += r.total; a.cost += r.cost;
+      a.prevTotal += r.prevTotal; a.prevReq += r.prevReq; a.prevCost += r.prevCost;
+      return a;
+    }, { inTok: 0, outTok: 0, req: 0, total: 0, cost: 0, prevTotal: 0, prevReq: 0, prevCost: 0 });
+
+    state.rows = rows;
+
+    /* ============================================================
+       KPI
+       ============================================================ */
+    const avgCur = T.req ? T.total / T.req : 0;
+    const avgPrev = T.prevReq ? T.prevTotal / T.prevReq : 0;
+
+    const kpis = [
+      { label: 'Всего токенов',      value: fmtTok(T.total),       delta: pct(T.total, T.prevTotal), icon: ICONS.db,     accent: '#6366f1' },
+      { label: 'Запросов к модели',  value: fmtInt(T.req),         delta: pct(T.req, T.prevReq),     icon: ICONS.zap,    accent: '#22d3ee' },
+      { label: 'Токенов на запрос',  value: fmtInt(avgCur),        delta: pct(avgCur, avgPrev),      icon: ICONS.act,    accent: '#a855f7' },
+      { label: 'Стоимость, USD',     value: '$' + fmtInt(T.cost),  delta: pct(T.cost, T.prevCost),   icon: ICONS.dollar, accent: '#34d399' }
+    ];
+
+    elKpis.innerHTML = kpis.map(function (k) {
+      return '<div class="card kpi" style="--accent:' + k.accent + '">' +
+        '<div class="kpi-top">' +
+          '<span class="kpi-ico" style="color:' + k.accent + ';background:' + hexA(k.accent, 0.13) + '">' + k.icon + '</span>' +
+          deltaBadge(k.delta) +
+        '</div>' +
+        '<div class="kpi-value">' + k.value + '</div>' +
+        '<div class="kpi-label">' + k.label + '</div>' +
+      '</div>';
+    }).join('');
+
+    /* ============================================================
+       ЛИНЕЙНЫЙ ГРАФИК (стек по клиентам)
+       ============================================================ */
+    const labels = DATES.slice(start).map(function (d) {
+      return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
+    });
+
+    const lineDatasets = rows.map(function (r) {
+      return {
+        label: r.name,
+        data: r.series.slice(start).map(function (d) { return d.inTok + d.outTok; }),
+        borderColor: r.color,
+        backgroundColor: hexA(r.color, 0.13),
+        fill: true,
+        tension: 0.38,
+        borderWidth: 1.8,
+        pointRadius: 0,
+        pointHoverRadius: 4.5,
+        pointHoverBackgroundColor: r.color,
+        pointHoverBorderColor: '#0b0e14',
+        pointHoverBorderWidth: 2
+      };
+    });
+
+    if (lineChart) lineChart.destroy();
+    lineChart = new Chart(document.getElementById('lineChart'), {
+      type: 'line',
+      data: { labels: labels, datasets: lineDatasets },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        layout: { padding: { top: 4 } },
+        scales: {
+          x: {
+            stacked: true,
+            grid: { display: false },
+            border: { display: false },
+            ticks: {
+              maxTicksLimit: period <= 7 ? 7 : 10,
+              maxRotation: 0,
+              autoSkip: true,
+              color: '#6f7891',
+              font: { size: 10.5 }
+            }
+          },
+          y: {
+            stacked: true,
+            grid: { color: 'rgba(255,255,255,0.05)', drawTicks: false },
+            border: { display: false },
+            ticks: {
+              padding: 8,
+              color: '#6f7891',
+              font: { size: 10.5 },
+              callback: function (v) { return fmtTok(v); }
+            }
+          }
+        },
+        plugins: {
+          legend: {
+            position: 'top',
+            align: 'end',
+            labels: {
+              boxWidth: 7, boxHeight: 7,
+              usePointStyle: true, pointStyle: 'circle',
+              padding: 13, color: '#96a0b5',
+              font: { size: 10.5 }
+            }
+          },
+          tooltip: Object.assign({}, TOOLTIP_STYLE, {
+            callbacks: {
+              label: function (c) {
+                return ' ' + c.dataset.label + ': ' + fmtTok(c.parsed.y) + ' ток.';
+              }
+            }
+          })
+        }
+      }
+    });
+
+    /* ============================================================
+       ПОНЧИК — ДОЛЯ КЛИЕНТОВ
+       ============================================================ */
+    centerValue = fmtTok(T.total);
+
+    if (doughnutChart) doughnutChart.destroy();
+    doughnutChart = new Chart(document.getElementById('doughnutChart'), {
+      type: 'doughnut',
+      data: {
+        labels: rows.map(function (r) { return r.name; }),
+        datasets: [{
+          data: rows.map(function (r) { return r.total; }),
+          backgroundColor: rows.map(function (r) { return r.color; }),
+          borderColor: '#0d111a',
+          borderWidth: 2,
+          hoverOffset: 9,
+          hoverBorderColor: '#0d111a'
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: '68%',
+        layout: { padding: 6 },
+        plugins: {
+          legend: {
+            position: 'bottom',
+            labels: {
+              boxWidth: 7, boxHeight: 7,
+              usePointStyle: true, pointStyle: 'circle',
+              padding: 9, color: '#96a0b5',
+              font: { size: 10.5 }
+            }
+          },
+          tooltip: Object.assign({}, TOOLTIP_STYLE, {
+            callbacks: {
+              label: function (c) {
+                const share = T.total > 0 ? (c.parsed / T.total * 100).toFixed(1).replace('.', ',') : '0';
+                return ' ' + c.label + ': ' + fmtTok(c.parsed) + ' (' + share + '%)';
+              }
+            }
+          })
+        }
+      }
+    });
+
+    /* ============================================================
+       ТАБЛИЦА КЛИЕНТОВ
+       ============================================================ */
+    const maxTotal = rows.length ? rows[0].total : 1;
+
+    elTbody.innerHTML = rows.map(function (r) {
+      const initials = r.name.split(' ').map(function (w) { return w.charAt(0); })
+        .join('').slice(0, 2).toUpperCase();
+      const spark = sparkline(
+        r.series.slice(start).map(function (d) { return d.inTok + d.outTok; }),
+        r.color
+      );
+
+      return '<tr>' +
+        '<td>' +
+          '<div class="client">' +
+            '<div class="avatar" style="background:linear-gradient(135deg,' + r.color + ' 0%,' + hexA(r.color, 0.55) + ' 100%)">' + initials + '</div>' +
+            '<div>' +
+              '<div class="cname">' + r.name + '</div>' +
+              '<div class="cplan">' + r.plan + '</div>' +
+            '</div>' +
+          '</div>' +
+        '</td>' +
+        '<td class="num">' + fmtInt(r.req) + '</td>' +
+        '<td class="num">' + fmtTok(r.inTok) + '</td>' +
+        '<td class="num">' + fmtTok(r.outTok) + '</td>' +
+        '<td class="num">' +
+          '<div>' + fmtTok(r.total) + '</div>' +
+          '<div class="bar"><span style="width:' + (r.total / maxTotal * 100).toFixed(1) + '%;background:' + r.color + '"></span></div>' +
+        '</td>' +
+        '<td class="num">$' + r.cost.toFixed(2) + '</td>' +
+        '<td>' +
+          '<div class="trend">' + spark + deltaBadge(pct(r.total, r.prevTotal)) + '</div>' +
+        '</td>' +
+      '</tr>';
+    }).join('');
+
+    elTfoot.innerHTML = '<tr>' +
+      '<td>Итого за ' + period + ' дн.</td>' +
+      '<td class="num">' + fmtInt(T.req) + '</td>' +
+      '<td class="num">' + fmtTok(T.inTok) + '</td>' +
+      '<td class="num">' + fmtTok(T.outTok) + '</td>' +
+      '<td class="num">' + fmtTok(T.total) + '</td>' +
+      '<td class="num">$' + T.cost.toFixed(2) + '</td>' +
+      '<td></td>' +
+    '</tr>';
+
+    elTableSub.textContent = 'Период: последние ' + period + ' дн. · ' +
+      rows.length + ' клиентов · сравнение с предыдущими ' + period + ' дн.';
+  }
+
+  /* ============================================================
+     КОНТРОЛЫ
+     ============================================================ */
+  document.querySelectorAll('#periodSeg button').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      document.querySelectorAll('#periodSeg button').forEach(function (b) {
+        b.classList.remove('active');
+      });
+      btn.classList.add('active');
+      render(parseInt(btn.dataset.p, 10));
+    });
+  });
+
+  document.getElementById('exportBtn').addEventListener('click', function () {
+    const header = ['Клиент', 'Тариф', 'Период, дн.', 'Запросы', 'Input токены', 'Output токены', 'Всего токенов', 'Стоимость USD'];
+    const lines = [header.join(';')];
+    state.rows.forEach(function (r) {
+      lines.push([
+        r.name, r.plan, state.period, r.req,
+        r.inTok, r.outTok, r.total, r.cost.toFixed(2)
+      ].join(';'));
+    });
+    const blob = new Blob(['\uFEFF' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'token-usage-' + state.period + 'd.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  });
+
+  /* ============================================================
+     СТАРТ
+     ============================================================ */
+  render(30);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,955 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Анна Верещагина — маникюр в Москве. Онлайн-запись</title>
+<meta name="description" content="Маникюр с покрытием, которое держится 3–4 недели. CND Shellac и Luxio, автоклав. Москва, м. Чистые пруды. Онлайн-запись на свободные окна.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=PT+Sans:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#fbf6f2; --paper:#fffdfb; --ink:#241c19; --muted:#7d6b63; --line:#ecdfd7;
+  --accent:#dd7357; --accent-d:#c85f45; --rose:#c98c85; --nude:#f2e3da;
+  --shadow:0 26px 60px -32px rgba(75,40,28,.55);
+}
+*,*::before,*::after{box-sizing:border-box}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 17px/1.55 'PT Sans',system-ui,-apple-system,'Segoe UI',sans-serif}
+svg{display:block;max-width:100%}
+a{color:inherit}
+h1,h2,h3,h4{font-family:'Montserrat',sans-serif;font-weight:800;letter-spacing:-.025em;line-height:1.07;margin:0}
+p{margin:0}
+.wrap{width:100%;max-width:1140px;margin:0 auto;padding:0 20px}
+.sec{padding:clamp(44px,6.5vw,80px) 0}
+.kicker{display:inline-flex;align-items:center;gap:9px;font:700 11.5px/1 'Montserrat';letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.kicker::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--accent);flex:none}
+h2{font-size:clamp(25px,3.5vw,38px);margin:14px 0 0}
+.sub{margin-top:12px;color:#5f4f48;font-size:16.5px;max-width:46em}
+.sec-head{max-width:660px;margin-bottom:30px}
+
+/* buttons */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:9px;height:54px;padding:0 26px;border-radius:999px;border:0;font:700 15px 'Montserrat';cursor:pointer;text-decoration:none;transition:transform .15s ease,box-shadow .2s,background .2s,border-color .2s,color .2s;white-space:nowrap}
+.btn-primary{background:var(--accent);color:#fff;box-shadow:0 14px 26px -14px rgba(221,115,87,.95)}
+.btn-primary:hover{background:var(--accent-d);transform:translateY(-2px)}
+.btn-ghost{background:transparent;color:var(--ink);border:1.6px solid #dcc8bd}
+.btn-ghost:hover{border-color:var(--accent);color:var(--accent-d)}
+.btn-sm{height:44px;padding:0 18px;font-size:13.5px}
+.btn-full{width:100%}
+
+/* header */
+.top{position:sticky;top:0;z-index:60;background:rgba(251,246,242,.9);backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
+.top .wrap{display:flex;align-items:center;justify-content:space-between;gap:14px;height:66px}
+.brand{display:flex;align-items:center;gap:11px;min-width:0}
+.ava{width:38px;height:38px;border-radius:50%;background:linear-gradient(140deg,#e9bda9,#d8785c);display:grid;place-items:center;color:#fff;font:800 13px 'Montserrat';letter-spacing:.04em;flex:none}
+.brand b{display:block;font:800 15px 'Montserrat';letter-spacing:-.01em;white-space:nowrap}
+.brand small{display:block;font-size:12px;color:var(--muted);white-space:nowrap}
+.nav{display:flex;gap:24px;font-size:14.5px;color:#5f4f48}
+.nav a{text-decoration:none}
+.nav a:hover{color:var(--accent-d)}
+@media(max-width:860px){.nav{display:none}}
+@media(max-width:420px){.brand small{display:none}}
+
+/* hero */
+.hero{padding:clamp(22px,4.5vw,46px) 0 clamp(28px,4.5vw,52px)}
+.hero-grid{display:grid;grid-template-columns:1.06fr .94fr;gap:clamp(24px,4vw,52px);align-items:center}
+.hero h1{font-size:clamp(31px,5.4vw,55px);margin-top:16px}
+.lead{margin-top:16px;font-size:clamp(16px,2.1vw,18.5px);color:#574741;max-width:29em}
+.hero-cta{display:flex;gap:12px;margin-top:26px;flex-wrap:wrap}
+.next-slot{display:inline-flex;align-items:center;gap:9px;margin-top:20px;font-size:14.5px;color:#4d6b55;background:#eef6ef;border:1px solid #d5e8d8;border-radius:999px;padding:8px 14px}
+.next-slot i{width:7px;height:7px;border-radius:50%;background:#57a06f;flex:none;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
+.hero-facts{display:flex;gap:10px 26px;margin-top:26px;flex-wrap:wrap;font-size:14px;color:var(--muted)}
+.hero-facts span{display:flex;align-items:center;gap:7px}
+.hero-facts span::before{content:"";width:5px;height:5px;border-radius:50%;background:#d8c3b7}
+
+.hero-visual{position:relative}
+.hero-card{position:relative;border-radius:30px;overflow:hidden;aspect-ratio:4/4.55;background:linear-gradient(160deg,#f7e6db,#eac4b1);box-shadow:var(--shadow);border:1px solid #f0ddd2}
+.hero-card svg{position:absolute;inset:0;width:100%;height:100%}
+.badge{position:absolute;background:rgba(255,253,251,.95);backdrop-filter:blur(6px);border-radius:15px;padding:11px 15px;box-shadow:0 14px 30px -18px rgba(70,40,30,.65);font:800 13.5px 'Montserrat';line-height:1.25;max-width:74%}
+.badge small{display:block;font:400 12px 'PT Sans';color:var(--muted);margin-top:3px}
+.b1{top:16px;right:16px}
+.b2{bottom:16px;left:16px}
+@media(max-width:880px){
+  .hero-grid{grid-template-columns:1fr}
+  .hero-visual{order:2;max-width:460px}
+  .hero-copy{order:1}
+  .hero-cta .btn{flex:1 1 auto}
+}
+@media(max-width:420px){.badge{font-size:12px;padding:9px 12px}.badge small{font-size:11px}}
+
+/* strip */
+.strip{background:#fff8f4;border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:16px 0}
+.strip .wrap{display:flex;gap:10px 32px;flex-wrap:wrap;font-size:14px;color:#6b5a52}
+.strip b{color:var(--ink);font-family:'Montserrat';font-weight:700}
+
+/* pain */
+.pain-grid{display:grid;grid-template-columns:.85fr 1.15fr;gap:clamp(24px,4vw,56px);align-items:start}
+.pain-list{display:grid;gap:12px}
+.pain-item{display:grid;grid-template-columns:38px 1fr;gap:14px;background:var(--paper);border:1px solid var(--line);border-radius:16px;padding:18px 20px}
+.pain-item .num{width:38px;height:38px;border-radius:11px;background:#f8e6dd;color:var(--accent-d);display:grid;place-items:center;font:800 15px 'Montserrat'}
+.pain-item b{display:block;font:700 16px 'Montserrat';margin-bottom:5px;letter-spacing:-.01em}
+.pain-item p{font-size:15px;color:#584840}
+@media(max-width:880px){.pain-grid{grid-template-columns:1fr}}
+
+/* quiz */
+.quiz-sec{background:#fff8f4;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.quiz-card{background:var(--paper);border:1px solid var(--line);border-radius:26px;padding:clamp(22px,3.5vw,38px);box-shadow:var(--shadow);max-width:820px;margin:0 auto}
+.quiz-head{display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap;justify-content:space-between;margin-bottom:22px}
+.quiz-head h2{font-size:clamp(22px,3vw,30px);margin-top:10px}
+.quiz-head p{color:#5f4f48;margin-top:8px;font-size:15.5px}
+.q-progress{height:5px;border-radius:99px;background:#f0e2da;overflow:hidden;margin-bottom:16px}
+.q-progress span{display:block;height:100%;background:var(--accent);border-radius:99px;transition:width .3s ease}
+.q-count{font:700 11.5px 'Montserrat';letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.q-q{font-size:clamp(19px,2.6vw,25px);margin:10px 0 18px}
+.q-opts{display:grid;gap:10px}
+.q-opt{text-align:left;padding:15px 18px;border-radius:14px;border:1.6px solid #e6d5cc;background:#fffdfb;font:600 15.5px 'Montserrat';cursor:pointer;transition:.18s;color:var(--ink)}
+.q-opt:hover{border-color:var(--accent);background:#fff6f2;transform:translateX(3px)}
+.q-list{margin:0 0 20px;padding:0;list-style:none;display:grid;gap:8px}
+.q-list li{position:relative;padding-left:22px;font-size:15.5px;color:#4d3e38}
+.q-list li::before{content:"";position:absolute;left:0;top:8px;width:8px;height:8px;border-radius:50%;background:var(--accent);opacity:.6}
+.q-actions{display:flex;gap:10px;flex-wrap:wrap}
+@media(max-width:520px){.q-actions .btn{flex:1 1 100%}}
+
+/* works */
+.filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px}
+.filters button{padding:9px 17px;border-radius:999px;border:1.6px solid var(--line);background:var(--paper);font:600 14px 'Montserrat';cursor:pointer;color:#5f4f48;transition:.18s}
+.filters button:hover{border-color:#d9c2b6}
+.filters button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.works{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.work{margin:0;background:var(--paper);border:1px solid var(--line);border-radius:18px;overflow:hidden;transition:transform .22s ease,box-shadow .22s ease}
+.work:hover{transform:translateY(-4px);box-shadow:0 22px 44px -30px rgba(75,40,28,.8)}
+.work .im{aspect-ratio:1}
+.work svg{width:100%;height:100%}
+.work figcaption{display:flex;justify-content:space-between;align-items:baseline;gap:8px;padding:12px 14px;font-size:14px}
+.work figcaption span{color:#5f4f48}
+.work figcaption b{font:800 14px 'Montserrat';white-space:nowrap}
+@media(max-width:960px){.works{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:660px){.works{grid-template-columns:repeat(2,1fr);gap:10px}.work figcaption{flex-direction:column;gap:2px;font-size:13px}}
+.works-note{margin-top:22px;display:flex;gap:14px;align-items:center;flex-wrap:wrap;font-size:15px;color:#5f4f48}
+
+/* proof */
+.proof-sec{background:#fff8f4;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.proof{display:grid;grid-template-columns:1.12fr .88fr;gap:20px;align-items:start}
+.reviews{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.review{background:var(--paper);border:1px solid var(--line);border-radius:18px;padding:19px}
+.review .who{display:flex;align-items:center;gap:11px;margin-bottom:11px}
+.review .av{width:42px;height:42px;border-radius:50%;display:grid;place-items:center;font:800 15px 'Montserrat';color:#fff;flex:none}
+.review .who b{display:block;font:800 14.5px 'Montserrat';letter-spacing:-.01em}
+.review .who small{display:block;color:var(--muted);font-size:12.5px;line-height:1.3}
+.review p{font-size:15px;color:#4a3c36}
+.stars{color:#e0a24a;font-size:13px;letter-spacing:2px;margin-bottom:8px}
+.chat{background:var(--paper);border:1px solid var(--line);border-radius:18px;overflow:hidden;box-shadow:var(--shadow)}
+.chat-top{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--line);background:#fff8f4;font:800 13.5px 'Montserrat'}
+.chat-top .av{width:30px;height:30px;border-radius:50%;font-size:12px}
+.chat-top small{margin-left:auto;font:400 11.5px 'PT Sans';color:#57a06f}
+.chat-body{padding:14px;display:flex;flex-direction:column;gap:9px;background:linear-gradient(180deg,#fdf7f3,#f8efea)}
+.bub{max-width:88%;padding:10px 13px;border-radius:14px;font-size:14px;line-height:1.42}
+.bub.l{background:#fff;border:1px solid #efe2da;border-bottom-left-radius:5px;align-self:flex-start}
+.bub.r{background:#fde8e1;border:1px solid #f5d3c7;border-bottom-right-radius:5px;align-self:flex-end}
+.chat-note{padding:11px 14px;font-size:12.5px;color:var(--muted);border-top:1px solid var(--line);background:#fffdfb}
+@media(max-width:900px){.proof{grid-template-columns:1fr}.reviews{grid-template-columns:1fr 1fr}}
+@media(max-width:620px){.reviews{grid-template-columns:1fr}}
+
+/* prices */
+.prices{display:grid;gap:10px;max-width:860px}
+.price-row{position:relative;display:grid;grid-template-columns:1fr auto;gap:4px 20px;align-items:center;padding:20px 22px;background:var(--paper);border:1px solid var(--line);border-radius:16px;transition:.18s}
+.price-row:hover{border-color:#e0c6b8;transform:translateY(-2px)}
+.price-row .name{font:800 16.5px 'Montserrat';letter-spacing:-.01em}
+.price-row .meta{grid-column:1;font-size:13.5px;color:var(--muted);margin-top:3px}
+.price-row .val{grid-row:1/3;grid-column:2;font:800 21px 'Montserrat';white-space:nowrap;letter-spacing:-.02em}
+.price-row.hit{border-color:#ecc0ad;background:linear-gradient(180deg,#fff8f4,#fffdfb)}
+.hit-badge{position:absolute;top:-9px;left:20px;background:var(--accent);color:#fff;font:800 10.5px 'Montserrat';letter-spacing:.1em;text-transform:uppercase;padding:4px 10px;border-radius:99px}
+.price-note{margin-top:18px;font-size:14.5px;color:#5f4f48;display:flex;gap:9px;align-items:flex-start;max-width:640px}
+.price-note svg{flex:none;margin-top:3px}
+
+/* booking */
+.book-sec{background:#fff8f4;border-top:1px solid var(--line)}
+.book-grid{display:grid;grid-template-columns:.82fr 1.18fr;gap:clamp(22px,3.5vw,44px);align-items:start}
+.book-info h2{margin-top:14px}
+.contacts{display:grid;gap:9px;margin-top:24px}
+.contact{display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--paper);border:1px solid var(--line);border-radius:14px;text-decoration:none;transition:.18s}
+.contact:hover{border-color:var(--accent);transform:translateX(3px)}
+.contact .ico{width:36px;height:36px;border-radius:11px;display:grid;place-items:center;flex:none;color:#fff;font:800 13px 'Montserrat'}
+.contact b{display:block;font:700 14.5px 'Montserrat'}
+.contact small{display:block;color:var(--muted);font-size:12.5px}
+.addr{margin-top:16px;font-size:14.5px;color:#5f4f48;line-height:1.6}
+.book-card{background:var(--paper);border:1px solid var(--line);border-radius:24px;padding:clamp(20px,3vw,30px);box-shadow:var(--shadow)}
+.book-card form{display:grid;gap:15px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:560px){.row2{grid-template-columns:1fr}}
+.field{display:grid;gap:7px}
+.field label{font:700 11.5px 'Montserrat';letter-spacing:.1em;text-transform:uppercase;color:#8a766d}
+.field input,.field select{height:52px;width:100%;border-radius:12px;border:1.6px solid #e6d5cc;background:#fffdfb;padding:0 14px;font:400 16px 'PT Sans';color:var(--ink);transition:.18s}
+.field input:focus,.field select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(221,115,87,.16)}
+.field.invalid input,.field.invalid select{border-color:#cf4f36;background:#fff6f4}
+.err{display:none;color:#c0452f;font-size:13px}
+.field.invalid .err{display:block}
+.slots{display:flex;flex-wrap:wrap;gap:8px}
+.slot{padding:11px 14px;border-radius:11px;border:1.6px solid #e6d5cc;background:#fffdfb;font:700 14px 'Montserrat';color:var(--ink);cursor:pointer;transition:.16s}
+.slot:hover:not(:disabled){border-color:var(--accent);color:var(--accent-d)}
+.slot:disabled{opacity:.33;text-decoration:line-through;cursor:not-allowed}
+.slot.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.hint{font-size:14px;color:var(--muted)}
+.consent{font-size:12.5px;color:var(--muted);line-height:1.45}
+.consent a{color:#8a766d}
+.done{text-align:center;padding:18px 6px}
+.done-ico{width:62px;height:62px;border-radius:50%;background:#e9f4ec;color:#3f8a5b;display:grid;place-items:center;margin:0 auto 16px;font-size:28px;font-weight:700}
+.done h3{font-size:23px}
+.done p{margin-top:10px;color:#4d3e38;font-size:15.5px;text-align:left}
+.done .btn{margin-top:20px}
+@media(max-width:900px){.book-grid{grid-template-columns:1fr}}
+
+/* footer */
+.foot{background:#241c19;color:#e8dbd3;padding:34px 0 40px;font-size:14px}
+.foot .wrap{display:flex;gap:14px 30px;flex-wrap:wrap;justify-content:space-between;align-items:center}
+.foot a{color:#e8dbd3;text-decoration:none;opacity:.75}
+.foot a:hover{opacity:1;color:#fff}
+
+/* sticky mobile cta */
+.sticky-cta{position:fixed;left:0;right:0;bottom:0;z-index:70;display:none;align-items:center;justify-content:space-between;gap:12px;padding:10px 16px calc(10px + env(safe-area-inset-bottom));background:rgba(255,253,251,.97);backdrop-filter:blur(12px);border-top:1px solid var(--line);transition:transform .28s ease}
+.sticky-cta .l b{display:block;font:800 15px 'Montserrat';line-height:1.2}
+.sticky-cta .l span{font-size:12px;color:var(--muted)}
+.sticky-cta.hide{transform:translateY(120%)}
+@media(max-width:760px){.sticky-cta{display:flex}body{padding-bottom:86px}}
+
+/* modal */
+.modal{position:fixed;inset:0;z-index:100;display:none;align-items:center;justify-content:center;padding:18px;background:rgba(36,28,25,.52);backdrop-filter:blur(5px)}
+.modal.on{display:flex}
+.modal-card{position:relative;width:100%;max-width:430px;background:var(--paper);border-radius:24px;padding:28px;box-shadow:0 40px 90px -34px rgba(0,0,0,.6);animation:pop .26s ease}
+@keyframes pop{from{transform:translateY(14px) scale(.97);opacity:0}}
+.modal-close{position:absolute;top:12px;right:12px;width:34px;height:34px;border-radius:50%;border:0;background:#f3e6de;color:#7d6b63;font-size:19px;line-height:1;cursor:pointer}
+.modal-card h3{font-size:22px;margin-top:10px}
+.modal-card p{color:#5f4f48;font-size:15px;margin-top:10px}
+.modal-card form{display:grid;gap:12px;margin-top:18px}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <div class="brand">
+      <div class="ava">АВ</div>
+      <div>
+        <b>Анна Верещагина</b>
+        <small>мастер маникюра · Москва</small>
+      </div>
+    </div>
+    <nav class="nav">
+      <a href="#works">Работы</a>
+      <a href="#reviews">Отзывы</a>
+      <a href="#prices">Цены</a>
+    </nav>
+    <a class="btn btn-primary btn-sm" href="#booking">Записаться</a>
+  </div>
+</header>
+
+<main>
+
+  <!-- 1. HERO -->
+  <section class="hero">
+    <div class="wrap hero-grid">
+      <div class="hero-copy">
+        <span class="kicker">Чистые пруды · 8 лет практики · 1 клиент в окне</span>
+        <h1>Маникюр, который переживёт отпуск</h1>
+        <p class="lead">Гель-лак на CND Shellac и Luxio, сцепка под ваш ноготь. Держится 3–4 недели: без сколов, отслоек и «подмажу дома перед встречей».</p>
+        <div class="hero-cta">
+          <a class="btn btn-primary" href="#booking">Выбрать время</a>
+          <a class="btn btn-ghost" href="#quiz">Подобрать стиль за 20 секунд</a>
+        </div>
+        <div class="next-slot"><i></i><span id="nextSlot">Смотрю свободные окна…</span></div>
+        <div class="hero-facts">
+          <span>Стерилизация в автоклаве</span>
+          <span>412 записей за прошлый год</span>
+          <span>Средняя носка — 27 дней</span>
+        </div>
+      </div>
+
+      <div class="hero-visual">
+        <div class="hero-card">
+          <svg viewBox="0 0 400 460" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+            <defs>
+              <linearGradient id="hbg" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" stop-color="#f9eae1"/><stop offset="1" stop-color="#e9c2af"/>
+              </linearGradient>
+              <linearGradient id="hskin" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" stop-color="#f4d6c4"/><stop offset="1" stop-color="#d7a289"/>
+              </linearGradient>
+              <linearGradient id="hnail" x1="0" y1="0" x2=".8" y2="1">
+                <stop offset="0" stop-color="#fdf5ef"/><stop offset=".45" stop-color="#f3ddcf"/><stop offset="1" stop-color="#e5bfaa"/>
+              </linearGradient>
+              <filter id="blur38"><feGaussianBlur stdDeviation="38"/></filter>
+              <clipPath id="hclip">
+                <path d="M136,150 C136,72 164,26 200,26 C236,26 264,72 264,150 L264,300 C264,372 236,414 200,414 C164,414 136,372 136,300 Z"/>
+              </clipPath>
+            </defs>
+            <rect width="400" height="460" fill="url(#hbg)"/>
+            <circle cx="332" cy="66" r="108" fill="#fff" opacity=".45" filter="url(#blur38)"/>
+            <circle cx="58" cy="404" r="118" fill="#e7b39c" opacity=".5" filter="url(#blur38)"/>
+            <rect x="112" y="146" width="176" height="400" rx="88" fill="url(#hskin)"/>
+            <path d="M136,150 C136,72 164,26 200,26 C236,26 264,72 264,150 L264,300 C264,372 236,414 200,414 C164,414 136,372 136,300 Z" transform="translate(0,7)" fill="#b9836a" opacity=".3"/>
+            <path d="M136,150 C136,72 164,26 200,26 C236,26 264,72 264,150 L264,300 C264,372 236,414 200,414 C164,414 136,372 136,300 Z" fill="url(#hnail)"/>
+            <g clip-path="url(#hclip)">
+              <path d="M110,10 H300 V96 C250,120 150,120 110,96 Z" fill="#fffdfc"/>
+              <ellipse cx="168" cy="232" rx="17" ry="72" fill="#fff" opacity=".5" transform="rotate(-7 168 232)"/>
+              <ellipse cx="158" cy="356" rx="9" ry="30" fill="#fff" opacity=".22" transform="rotate(-7 158 356)"/>
+            </g>
+            <path d="M136,150 C136,72 164,26 200,26 C236,26 264,72 264,150 L264,300 C264,372 236,414 200,414 C164,414 136,372 136,300 Z" fill="none" stroke="#fff" stroke-opacity=".45" stroke-width="2"/>
+          </svg>
+        </div>
+        <div class="badge b1">27 дней носки<small>средний срок у клиенток</small></div>
+        <div class="badge b2">CND Shellac · Luxio<small>база подбирается под пластину</small></div>
+      </div>
+    </div>
+  </section>
+
+  <div class="strip">
+    <div class="wrap">
+      <span><b>1 ч 40 мин</b> на маникюр с покрытием</span>
+      <span><b>Автоклав</b> + крафт-пакеты на каждого</span>
+      <span><b>Вт–сб</b>, 09:30–19:00</span>
+      <span><b>Карта</b> или перевод</span>
+    </div>
+  </div>
+
+  <!-- 2. PAS -->
+  <section class="sec">
+    <div class="wrap pain-grid">
+      <div>
+        <span class="kicker">Почему это не про «плохой гель-лак»</span>
+        <h2>Сколы на третий день лечатся не сменой материала</h2>
+        <p class="sub">А подготовкой. Три вещи, которые я делаю иначе, чем в салоне с очередью в коридоре.</p>
+      </div>
+      <div class="pain-list">
+        <div class="pain-item">
+          <div class="num">1</div>
+          <div>
+            <b>«У всех держится, у меня нет»</b>
+            <p>База подбирается под пластину: каучуковая для тонких ногтей, жёсткая — для слоящихся и с продольными бороздами. Плюс армирование торца, чтобы покрытие не начало отходить с края.</p>
+          </div>
+        </div>
+        <div class="pain-item">
+          <div class="num">2</div>
+          <div>
+            <b>«Мастер торопится»</b>
+            <p>Одно окно — один человек. 1 ч 40 мин только на вас: без второго кресла, без «подождите, я докрашу и вернусь». Обезжиривание и праймер — не «по-быстрому».</p>
+          </div>
+        </div>
+        <div class="pain-item">
+          <div class="num">3</div>
+          <div>
+            <b>«Через две недели отросло — некрасиво»</b>
+            <p>Покрытие кладу под линию кутикулы и вывожу торец так, что отросшая полоска не бросается в глаза до третьей недели. Не приходится идти на коррекцию раньше срока.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3. QUIZ -->
+  <section class="sec quiz-sec" id="quiz">
+    <div class="wrap">
+      <div class="quiz-card">
+        <div class="quiz-head">
+          <div>
+            <span class="kicker">20 секунд</span>
+            <h2>Подберу маникюр под ваш ноготь и ритм</h2>
+            <p>Три вопроса — и я скажу, какую форму, покрытие и дизайн брать. С этим набором сразу можно записаться.</p>
+          </div>
+        </div>
+        <div id="quizBody"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4. WORKS -->
+  <section class="sec" id="works">
+    <div class="wrap">
+      <div class="sec-head">
+        <span class="kicker">Портфолио</span>
+        <h2>12 работ за последний месяц</h2>
+        <p class="sub">Фильтр по стилю. Цена в подписи — финальная за эту работу, вместе со снятием и уходом.</p>
+      </div>
+      <div class="filters" id="filters">
+        <button class="on" data-f="all">Все</button>
+        <button data-f="classic">Классика</button>
+        <button data-f="design">Дизайн</button>
+        <button data-f="strong">Укрепление</button>
+      </div>
+      <div class="works" id="works-grid"></div>
+      <div class="works-note">
+        <span>В архиве — 240 работ с 2022 года. Каждый месяц выкладываю свежие в Telegram.</span>
+        <a class="btn btn-ghost btn-sm" href="https://t.me/anna_nails" target="_blank" rel="noopener">Смотреть архив</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5. PROOF -->
+  <section class="sec proof-sec" id="reviews">
+    <div class="wrap">
+      <div class="sec-head">
+        <span class="kicker">Отзывы</span>
+        <h2>Те, кто ходит не первый год</h2>
+        <p class="sub">Четыре отзыва из 96. Остальные — в закреплённом посте Telegram-канала, вместе с фото «до/после».</p>
+      </div>
+      <div class="proof">
+        <div class="reviews" id="reviews-grid"></div>
+        <div class="chat">
+          <div class="chat-top"><div class="ava" style="background:linear-gradient(140deg,#e9bda9,#d8785c);display:grid;place-items:center;color:#fff;font:800 12px 'Montserrat';width:30px;height:30px;border-radius:50%">АВ</div> Анна · мастер <small>онлайн</small></div>
+          <div class="chat-body">
+            <div class="bub l">Анна, привет! Слушай, четыре недели — ни одного скола 🤍 Даже после моря</div>
+            <div class="bub r">Это же ровно четвёртая неделя 😄 Пора на коррекцию. Есть четверг 12:30 и 17:00</div>
+            <div class="bub l">Давайте 17:00, и в этот раз сделаем френч</div>
+            <div class="bub r">Записала. Напомню в Telegram за день до визита</div>
+          </div>
+          <div class="chat-note">Реальный скрин из переписки с клиенткой Мариной, май 2025</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 6. PRICES -->
+  <section class="sec" id="prices">
+    <div class="wrap">
+      <div class="sec-head">
+        <span class="kicker">Цены</span>
+        <h2>Без доплат «за длину» и «за дизайн»</h2>
+        <p class="sub">В стоимость входят материалы, снятие старого покрытия и уход за кутикулой. Оплата картой или переводом.</p>
+      </div>
+      <div class="prices">
+        <div class="price-row">
+          <div class="name">Комплекс: наращивание / восстановление формы</div>
+          <div class="val">4 900 ₽</div>
+          <div class="meta">2 ч 40 мин · форма, моделирование, покрытие</div>
+        </div>
+        <div class="price-row">
+          <div class="name">Дизайн: мрамор, графика, втирка</div>
+          <div class="val">4 200 ₽</div>
+          <div class="meta">2 ч 10 мин · до 4 ногтей с дизайном</div>
+        </div>
+        <div class="price-row hit">
+          <span class="hit-badge">Берут чаще всего</span>
+          <div class="name">Укрепление гелем + гель-лак</div>
+          <div class="val">3 800 ₽</div>
+          <div class="meta">2 ч · для тонких и слоящихся ногтей</div>
+        </div>
+        <div class="price-row">
+          <div class="name">Маникюр + гель-лак</div>
+          <div class="val">3 400 ₽</div>
+          <div class="meta">1 ч 40 мин · одна база на выбор, один цвет</div>
+        </div>
+        <div class="price-row">
+          <div class="name">Снятие чужого покрытия</div>
+          <div class="val">700 ₽</div>
+          <div class="meta">30 мин · если пришли не со своим мастером</div>
+        </div>
+      </div>
+      <div class="price-note">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#dd7357" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16.5v.01"/></svg>
+        <span>Перенос без потери депозита — за 12 часов до визита. Если окно заняли, предложу два ближайших варианта.</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- 7. BOOKING -->
+  <section class="sec book-sec" id="booking">
+    <div class="wrap book-grid">
+      <div class="book-info">
+        <span class="kicker">Запись</span>
+        <h2>Выберите услугу и время</h2>
+        <p class="sub">Подтверждаю заявку в Telegram до 21:00. Если в это время уже занято — предложу два ближайших окна.</p>
+        <div class="contacts">
+          <a class="contact" href="https://t.me/anna_nails" target="_blank" rel="noopener">
+            <span class="ico" style="background:#3fa9db">TG</span>
+            <span><b>Telegram</b><small>@anna_nails · отвечаю быстрее всего</small></span>
+          </a>
+          <a class="contact" href="https://wa.me/79991204567" target="_blank" rel="noopener">
+            <span class="ico" style="background:#3aa86b">WA</span>
+            <span><b>WhatsApp</b><small>+7 999 120-45-67</small></span>
+          </a>
+          <a class="contact" href="tel:+79991204567">
+            <span class="ico" style="background:#c98c85">☎</span>
+            <span><b>Позвонить</b><small>Пн — выходной, в остальные дни 09:30–19:00</small></span>
+          </a>
+        </div>
+        <div class="addr">
+          Москва, ул. Макаренко, 5, каб. 12<br>
+          3 минуты от м. Чистые пруды, вход со двора
+        </div>
+      </div>
+
+      <div class="book-card">
+        <form id="bookForm" novalidate>
+          <div class="field" id="f-service">
+            <label for="service">Услуга</label>
+            <select id="service"></select>
+            <span class="err" id="e-service"></span>
+          </div>
+          <div class="row2">
+            <div class="field" id="f-date">
+              <label for="date">Дата</label>
+              <input type="date" id="date">
+              <span class="err" id="e-date"></span>
+            </div>
+            <div class="field" id="f-name">
+              <label for="name">Имя</label>
+              <input type="text" id="name" placeholder="Как к вам обращаться" autocomplete="name">
+              <span class="err" id="e-name"></span>
+            </div>
+          </div>
+          <div class="field" id="f-time">
+            <label>Время</label>
+            <div class="slots" id="slots"></div>
+            <span class="err" id="e-time"></span>
+          </div>
+          <div class="field" id="f-phone">
+            <label for="phone">Телефон для подтверждения</label>
+            <input type="tel" id="phone" class="phone" placeholder="+7 (___) ___-__-__" autocomplete="tel" inputmode="tel">
+            <span class="err" id="e-phone"></span>
+          </div>
+          <button class="btn btn-primary btn-full" type="submit">Записаться</button>
+          <p class="consent">Нажимая кнопку, вы соглашаетесь на обработку персональных данных. Номер нужен только для подтверждения визита и напоминания в Telegram.</p>
+        </form>
+
+        <div class="done" id="bookDone" hidden>
+          <div class="done-ico">✓</div>
+          <h3>Заявка у меня</h3>
+          <p id="doneText"></p>
+          <a class="btn btn-ghost" href="https://t.me/anna_nails" target="_blank" rel="noopener">Написать в Telegram</a>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="foot">
+  <div class="wrap">
+    <div>© 2025 Анна Верещагина · самозанятая · Москва</div>
+    <div style="display:flex;gap:22px;flex-wrap:wrap">
+      <a href="https://t.me/anna_nails" target="_blank" rel="noopener">Telegram</a>
+      <a href="https://wa.me/79991204567" target="_blank" rel="noopener">WhatsApp</a>
+      <a href="#booking">Записаться</a>
+    </div>
+  </div>
+</footer>
+
+<div class="sticky-cta" id="stickyCta">
+  <div class="l">
+    <b>от 3 400 ₽</b>
+    <span id="stickySlot">есть свободные окна</span>
+  </div>
+  <a class="btn btn-primary btn-sm" href="#booking">Записаться</a>
+</div>
+
+<div class="modal" id="modal">
+  <div class="modal-card">
+    <button class="modal-close" id="modalClose" aria-label="Закрыть">×</button>
+    <span class="kicker">Не спешите</span>
+    <h3>Пришлю два свободных окна в Telegram</h3>
+    <p>Без звонков и рассылок: только время, которое освободилось на этой неделе. Дальше решаете вы.</p>
+    <form id="quickForm">
+      <div class="field">
+        <input type="text" id="qName" placeholder="Имя" autocomplete="name">
+      </div>
+      <div class="field">
+        <input type="tel" id="qPhone" class="phone" placeholder="+7 (___) ___-__-__" inputmode="tel" autocomplete="tel">
+      </div>
+      <button class="btn btn-primary btn-full" type="submit">Отправить</button>
+      <span class="err" id="qErr" style="display:none"></span>
+    </form>
+  </div>
+</div>
+
+<script>
+(function(){
+  'use strict';
+  var $ = function(s,r){ return (r||document).querySelector(s); };
+  var $$ = function(s,r){ return Array.prototype.slice.call((r||document).querySelectorAll(s)); };
+  var uid = 0;
+
+  /* ============ SVG-арт ============ */
+  var NAIL = 'M112,150 C112,98 128,64 150,64 C172,64 188,98 188,150 L188,196 C188,232 172,250 150,250 C128,250 112,232 112,196 Z';
+
+  function gloss(op){
+    op = (typeof op === 'number') ? op : 0.45;
+    return '<ellipse cx="132" cy="120" rx="8" ry="32" fill="#fff" opacity="' + op + '" transform="rotate(-8 132 120)"/>' +
+           '<ellipse cx="127" cy="196" rx="5" ry="16" fill="#fff" opacity="' + (op*0.5).toFixed(2) + '" transform="rotate(-8 127 196)"/>';
+  }
+  function art(kind,u){
+    var base = function(f){ return '<rect x="100" y="40" width="100" height="230" fill="'+f+'"/>'; };
+    var grad = function(c1,c2,x2,y2){
+      x2 = x2 || '.8'; y2 = y2 || '1';
+      return '<linearGradient id="'+u+'g" x1="0" y1="0" x2="'+x2+'" y2="'+y2+'">' +
+             '<stop offset="0" stop-color="'+c1+'"/><stop offset="1" stop-color="'+c2+'"/></linearGradient>';
+    };
+    switch(kind){
+      case 'nude':   return {defs:grad('#f9e7dc','#e0b49c'), body:base('url(#'+u+'g)')+gloss(.45)};
+      case 'french': return {defs:grad('#f8efe9','#e7cdbd'), body:base('url(#'+u+'g)')+'<path d="M100,26 H200 V100 C182,122 118,122 100,100 Z" fill="#fffdfc"/>'+gloss(.4)};
+      case 'red':    return {defs:grad('#d9564c','#9d2621'), body:base('url(#'+u+'g)')+gloss(.3)};
+      case 'coral':  return {defs:grad('#ef8f74','#cf5540'), body:base('url(#'+u+'g)')+gloss(.32)};
+      case 'mint':   return {defs:grad('#d9ebe0','#a5c8b6'), body:base('url(#'+u+'g)')+'<path d="M100,26 H200 V96 C182,118 118,118 100,96 Z" fill="#fffdfc" opacity=".95"/>'+gloss(.4)};
+      case 'dots':   return {defs:grad('#f8ebe2','#ecd6c6'),
+        body:base('url(#'+u+'g)')+'<g fill="#fff" opacity=".92"><circle cx="132" cy="112" r="6"/><circle cx="160" cy="132" r="5"/><circle cx="140" cy="168" r="5.5"/><circle cx="166" cy="192" r="4.5"/><circle cx="150" cy="220" r="6"/><circle cx="126" cy="204" r="4"/></g>'+gloss(.35)};
+      case 'marble': return {defs:grad('#f8eeec','#e8d2d2'),
+        body:base('url(#'+u+'g)')+'<g fill="none" stroke-linecap="round"><path d="M100,108 C130,84 152,148 200,110" stroke="#cfadad" stroke-width="7" opacity=".8"/><path d="M100,178 C140,148 162,214 200,176" stroke="#ddbfbf" stroke-width="5" opacity=".75"/><path d="M100,222 C132,206 176,240 200,214" stroke="#c9a3a3" stroke-width="4" opacity=".65"/></g>'+gloss(.38)};
+      case 'ombre':  return {defs:grad('#f9ddd0','#d4765e','0','1'), body:base('url(#'+u+'g)')+gloss(.3)};
+      case 'graphic':return {defs:grad('#f7ece4','#e6cdbd'),
+        body:base('url(#'+u+'g)')+'<g stroke="#2b2320" fill="none" stroke-width="2.6" stroke-linecap="round"><path d="M100,214 L200,116"/><path d="M100,116 C130,136 170,136 200,116"/></g><circle cx="150" cy="150" r="7" fill="#2b2320"/>'+gloss(.22)};
+      case 'glitter': {
+        var sp = '';
+        for(var i=0;i<26;i++){
+          var x = 114 + ((i*41)%72), y = 72 + ((i*59)%168), r = 1.4 + (i%3)*0.9;
+          sp += '<circle cx="'+x+'" cy="'+y+'" r="'+r.toFixed(1)+'" fill="#fff" opacity="'+(0.35+(i%5)*0.13).toFixed(2)+'"/>';
+        }
+        return {defs:grad('#f0dcca','#d9b49b'),
+          body:base('url(#'+u+'g)')+sp+'<path d="M150,118 l4,11 11,4 -11,4 -4,11 -4,-11 -11,-4 11,-4 z" fill="#fff" opacity=".85"/>'+gloss(.3)};
+      }
+      case 'chrome': return {defs:'<linearGradient id="'+u+'g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f9f1f4"/><stop offset=".28" stop-color="#dcc6d0"/><stop offset=".52" stop-color="#fdf8fa"/><stop offset=".76" stop-color="#c9b0bf"/><stop offset="1" stop-color="#f2e4ea"/></linearGradient>',
+        body:base('url(#'+u+'g)')+gloss(.55)};
+      case 'pinkmarble': return {defs:grad('#fae9ec','#eed2d8'),
+        body:base('url(#'+u+'g)')+'<g fill="none" stroke-linecap="round"><path d="M100,116 C136,92 154,160 200,118" stroke="#d8a8b0" stroke-width="6" opacity=".8"/><path d="M100,190 C142,162 160,228 200,188" stroke="#e2bcc2" stroke-width="5" opacity=".75"/></g>'+gloss(.4)};
+    }
+    return {defs:'', body:''};
+  }
+
+  /* ============ Работы ============ */
+  var WORKS = [
+    {d:'nude',        s:'classic', t:'Нюд, глянец',          p:'3 400 ₽', bg:['#f8ece4','#eed6c7']},
+    {d:'french',      s:'classic', t:'Тонкий френч',         p:'3 900 ₽', bg:['#f5e9e2','#e8d2c4']},
+    {d:'red',         s:'classic', t:'Красный, классика',    p:'3 400 ₽', bg:['#f6e6e1','#eccfc5']},
+    {d:'mint',        s:'classic', t:'Мята + френч',         p:'3 900 ₽', bg:['#e9f1ec','#d3e4da']},
+    {d:'coral',       s:'design',  t:'Коралл',               p:'3 700 ₽', bg:['#fbe9e2','#f3d0c4']},
+    {d:'dots',        s:'design',  t:'Молочный + точки',     p:'3 700 ₽', bg:['#f9efe8','#eddbcf']},
+    {d:'marble',      s:'design',  t:'Мрамор',               p:'4 200 ₽', bg:['#f7eeee','#e9d8d8']},
+    {d:'ombre',       s:'design',  t:'Омбре, пыльная роза',  p:'4 200 ₽', bg:['#f8e7e0','#eed0c6']},
+    {d:'graphic',     s:'design',  t:'Графика',              p:'4 200 ₽', bg:['#f4ebe6','#e6d6cd']},
+    {d:'glitter',     s:'strong',  t:'Втирка + глиттер',     p:'3 800 ₽', bg:['#f8ecdf','#ecd8c4']},
+    {d:'chrome',      s:'strong',  t:'Жемчужный хром',       p:'3 800 ₽', bg:['#f4ecf0','#e3d2dc']},
+    {d:'pinkmarble',  s:'strong',  t:'Розовый мрамор',       p:'3 800 ₽', bg:['#f9e9ec','#eed2d8']}
+  ];
+
+  function tileHTML(w){
+    var u = 'w' + (++uid);
+    var a = art(w.d, u);
+    return '<figure class="work">' +
+      '<div class="im"><svg viewBox="0 0 300 300" role="img" aria-label="' + w.t + '">' +
+        '<defs>' +
+          '<linearGradient id="'+u+'b" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="'+w.bg[0]+'"/><stop offset="1" stop-color="'+w.bg[1]+'"/></linearGradient>' +
+          '<linearGradient id="'+u+'s" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f4d5c2"/><stop offset="1" stop-color="#dba98f"/></linearGradient>' +
+          a.defs +
+          '<clipPath id="'+u+'c"><path d="'+NAIL+'"/></clipPath>' +
+        '</defs>' +
+        '<rect width="300" height="300" fill="url(#'+u+'b)"/>' +
+        '<circle cx="250" cy="56" r="72" fill="#fff" opacity=".22"/>' +
+        '<circle cx="44" cy="250" r="58" fill="#fff" opacity=".15"/>' +
+        '<rect x="100" y="146" width="100" height="200" rx="50" fill="url(#'+u+'s)"/>' +
+        '<ellipse cx="150" cy="256" rx="42" ry="13" fill="#b8826a" opacity=".28"/>' +
+        '<path d="'+NAIL+'" transform="translate(0,4)" fill="#b17f66" opacity=".22"/>' +
+        '<path d="'+NAIL+'" fill="#fffdfb"/>' +
+        '<g clip-path="url(#'+u+'c)">' + a.body + '</g>' +
+        '<path d="'+NAIL+'" fill="none" stroke="#fff" stroke-opacity=".35" stroke-width="1.6"/>' +
+      '</svg></div>' +
+      '<figcaption><span>'+w.t+'</span><b>'+w.p+'</b></figcaption>' +
+    '</figure>';
+  }
+
+  var worksGrid = $('#works-grid');
+  function renderWorks(filter){
+    worksGrid.innerHTML = WORKS.filter(function(w){
+      return filter === 'all' || w.s === filter;
+    }).map(tileHTML).join('');
+  }
+  renderWorks('all');
+
+  $('#filters').addEventListener('click', function(e){
+    var b = e.target.closest('button[data-f]');
+    if(!b) return;
+    $$('#filters button').forEach(function(x){ x.classList.remove('on'); });
+    b.classList.add('on');
+    renderWorks(b.dataset.f);
+  });
+
+  /* ============ Отзывы ============ */
+  var REVIEWS = [
+    {n:'Марина', age:'34', m:'Хожу 3 года, раз в 4 недели', i:'М', c:['#e9b7a6','#dd8f7b'],
+     t:'Проверила на себе: отпуск, море, две недели посуды без перчаток — покрытие как в день записи. Привыкла только к тому, что Анна не болтает без остановки, а работает.'},
+    {n:'Ксюша', age:'27', m:'Пришла со сломанным ногтём', i:'К', c:['#d9b6c4','#b9849c'],
+     t:'Думала, придётся снимать всё. Анна восстановила форму гелем и подобрала оттенок под остальные — никто не заметил, что один ноготь «ремонтный».'},
+    {n:'Ольга', age:'41', m:'Тонкие слоящиеся ногти', i:'О', c:['#c6b8d4','#9b8ab5'],
+     t:'Раньше гель-лак снимался вместе с верхним слоем. Здесь сначала укрепление, за полгода пластина стала заметно плотнее. Хожу раз в 3,5 недели.'},
+    {n:'Даша', age:'23', m:'Первый раз на дизайн', i:'Д', c:['#e3c39a','#cb9f6b'],
+     t:'Показала скрин из Pinterest — получила то же самое, только аккуратнее. Цена названа заранее, никаких «доплатите за дизайн» в конце.'}
+  ];
+  $('#reviews-grid').innerHTML = REVIEWS.map(function(r){
+    return '<div class="review">' +
+      '<div class="who"><div class="av" style="background:linear-gradient(140deg,'+r.c[0]+','+r.c[1]+')">'+r.i+'</div>' +
+      '<div><b>'+r.n+', '+r.age+'</b><small>'+r.m+'</small></div></div>' +
+      '<div class="stars">★★★★★</div>' +
+      '<p>«'+r.t+'»</p></div>';
+  }).join('');
+
+  /* ============ Слоты ============ */
+  var SLOTS = ['09:30','11:00','12:30','14:00','15:30','17:00','18:30'];
+  var WORKDAYS = [2,3,4,5,6]; /* вт–сб */
+
+  function freeSlots(d){
+    var seed = (d.getDate()*5 + d.getMonth()*11 + d.getDay()*7) % 9;
+    return SLOTS.map(function(t,i){ return {t:t, free: ((seed + i*3) % 7) >= 2}; });
+  }
+  function fmtDate(d){
+    return d.toLocaleDateString('ru-RU', {weekday:'short', day:'numeric', month:'long'});
+  }
+  function isoDate(d){
+    var m = ('0' + (d.getMonth()+1)).slice(-2);
+    var day = ('0' + d.getDate()).slice(-2);
+    return d.getFullYear() + '-' + m + '-' + day;
+  }
+  function nextFree(){
+    var d = new Date();
+    d.setHours(0,0,0,0);
+    for(var i=0;i<16;i++){
+      d.setDate(d.getDate()+1);
+      if(WORKDAYS.indexOf(d.getDay()) === -1) continue;
+      var fs = freeSlots(d).filter(function(s){ return s.free; });
+      if(fs.length) return {date:new Date(d), time: fs[0].t};
+    }
+    return null;
+  }
+
+  var nf = nextFree();
+  if(nf){
+    $('#nextSlot').textContent = 'Ближайшее окно: ' + fmtDate(nf.date) + ', ' + nf.time;
+    $('#stickySlot').textContent = 'ближайшее — ' + fmtDate(nf.date);
+  } else {
+    $('#nextSlot').textContent = 'Свободные окна появятся в начале недели';
+  }
+
+  /* ============ Услуги ============ */
+  var SERVICES = [
+    {v:'Маникюр + гель-лак', p:'3 400 ₽', t:'1 ч 40 мин'},
+    {v:'Укрепление гелем + гель-лак', p:'3 800 ₽', t:'2 ч'},
+    {v:'Дизайн: мрамор, графика, втирка', p:'4 200 ₽', t:'2 ч 10 мин'},
+    {v:'Наращивание / восстановление формы', p:'4 900 ₽', t:'2 ч 40 мин'},
+    {v:'Снятие чужого покрытия', p:'700 ₽', t:'30 мин'}
+  ];
+  var serviceEl = $('#service');
+  serviceEl.innerHTML = '<option value="">Выберите услугу</option>' + SERVICES.map(function(s){
+    return '<option value="'+s.v+'">'+s.v+' — '+s.p+'</option>';
+  }).join('');
+
+  /* ============ Форма записи ============ */
+  var form = $('#bookForm'), dateEl = $('#date'), slotsEl = $('#slots');
+  var pickedTime = null;
+
+  dateEl.min = isoDate(new Date());
+  var def = nf ? nf.date : new Date(Date.now() + 86400000);
+  dateEl.value = isoDate(def);
+
+  function renderSlots(){
+    pickedTime = null;
+    var v = dateEl.value;
+    if(!v){ slotsEl.innerHTML = '<span class="hint">Сначала выберите дату</span>'; return; }
+    var d = new Date(v + 'T00:00:00');
+    if(WORKDAYS.indexOf(d.getDay()) === -1){
+      slotsEl.innerHTML = '<span class="hint">В этот день не работаю — выберите вт–сб</span>';
+      return;
+    }
+    slotsEl.innerHTML = freeSlots(d).map(function(s){
+      return '<button type="button" class="slot" data-t="'+s.t+'"'+(s.free?'':' disabled')+'>'+s.t+'</button>';
+    }).join('');
+  }
+  renderSlots();
+
+  dateEl.addEventListener('change', function(){
+    renderSlots();
+    clearErr('date'); clearErr('time');
+  });
+  slotsEl.addEventListener('click', function(e){
+    var b = e.target.closest('.slot');
+    if(!b || b.disabled) return;
+    $$('.slot', slotsEl).forEach(function(x){ x.classList.remove('on'); });
+    b.classList.add('on');
+    pickedTime = b.dataset.t;
+    clearErr('time');
+  });
+
+  function setErr(id, msg){
+    var f = $('#f-' + id);
+    if(f) f.classList.add('invalid');
+    var e = $('#e-' + id);
+    if(e) e.textContent = msg;
+  }
+  function clearErr(id){
+    var f = $('#f-' + id);
+    if(f) f.classList.remove('invalid');
+  }
+
+  /* маска телефона */
+  function maskPhone(el){
+    el.addEventListener('input', function(){
+      var d = el.value.replace(/\D/g,'');
+      if(!d){ el.value = ''; return; }
+      if(d.charAt(0) === '8') d = '7' + d.slice(1);
+      if(d.charAt(0) !== '7') d = '7' + d;
+      d = d.slice(0,11);
+      var out = '+7';
+      if(d.length > 1) out += ' (' + d.slice(1,4);
+      if(d.length >= 4) out += ') ' + d.slice(4,7);
+      if(d.length >= 7) out += '-' + d.slice(7,9);
+      if(d.length >= 9) out += '-' + d.slice(9,11);
+      el.value = out;
+    });
+  }
+  $$('.phone').forEach(maskPhone);
+
+  form.addEventListener('submit', function(e){
+    e.preventDefault();
+    var ok = true;
+    ['service','date','time','name','phone'].forEach(clearErr);
+
+    if(!serviceEl.value){ setErr('service','Выберите услугу'); ok = false; }
+
+    var d = dateEl.value ? new Date(dateEl.value + 'T00:00:00') : null;
+    if(!d){ setErr('date','Укажите дату'); ok = false; }
+    else if(WORKDAYS.indexOf(d.getDay()) === -1){ setErr('date','Работаю вт–сб, выберите другой день'); ok = false; }
+
+    if(!pickedTime){ setErr('time','Выберите время'); ok = false; }
+
+    var name = $('#name').value.trim();
+    if(name.length < 2){ setErr('name','Как вас зовут?'); ok = false; }
+
+    var phone = $('#phone').value.replace(/\D/g,'');
+    if(phone.length < 11){ setErr('phone','Введите номер полностью'); ok = false; }
+
+    if(!ok) return;
+
+    $('#doneText').innerHTML =
+      'Вы записаны на <b>' + serviceEl.value + '</b>.<br>' +
+      '<b>' + fmtDate(d) + ', ' + pickedTime + '</b>.<br>' +
+      'Подтверждение и напоминание пришлю в Telegram — ' + name + ', номер ' + $('#phone').value + '.';
+    form.hidden = true;
+    $('#bookDone').hidden = false;
+    $('#bookDone').scrollIntoView({behavior:'smooth', block:'center'});
+  });
+
+  /* ============ Квиз ============ */
+  var QUIZ = [
+    {k:'len', q:'Какой длины ногти сейчас?', o:[['Короткие, под ноль','short'],['Средние','mid'],['Длинные или наращивание','long']]},
+    {k:'wear', q:'Что важнее в носке?', o:[['Держалось 4 недели','strong'],['Выглядело как с картинки','look'],['Свои ногти крепче','care']]},
+    {k:'style', q:'Стиль на этот раз', o:[['Нюд, минимум','nude'],['Френч','french'],['Дизайн, цвет, акцент','design']]}
+  ];
+  var qStep = 0, qAns = {};
+  var quizBody = $('#quizBody');
+
+  function renderQuiz(){
+    if(qStep >= QUIZ.length){ renderResult(); return; }
+    var s = QUIZ[qStep];
+    quizBody.innerHTML =
+      '<div class="q-progress"><span style="width:' + Math.round((qStep/QUIZ.length)*100) + '%"></span></div>' +
+      '<p class="q-count">Вопрос ' + (qStep+1) + ' из ' + QUIZ.length + '</p>' +
+      '<h3 class="q-q">' + s.q + '</h3>' +
+      '<div class="q-opts">' + s.o.map(function(o){
+        return '<button type="button" class="q-opt" data-v="'+o[1]+'">'+o[0]+'</button>';
+      }).join('') + '</div>';
+    $$('.q-opt', quizBody).forEach(function(b){
+      b.onclick = function(){ qAns[s.k] = b.dataset.v; qStep++; renderQuiz(); };
+    });
+  }
+
+  function renderResult(){
+    var idx = 0;
+    if(qAns.wear === 'strong' || qAns.wear === 'care') idx = 1;
+    if(qAns.style === 'design') idx = 2;
+    if(qAns.len === 'long' && qAns.style === 'design') idx = 3;
+
+    var shape = qAns.len === 'short' ? 'мягкий квадрат, коротко'
+              : qAns.len === 'mid'   ? 'овал, средняя длина'
+              : 'миндаль, +2 мм к длине';
+    var styleTxt = qAns.style === 'nude' ? 'нюд с глянцем'
+                 : qAns.style === 'french' ? 'тонкий френч'
+                 : 'дизайн: мрамор или графика';
+    var sv = SERVICES[idx];
+
+    quizBody.innerHTML =
+      '<div class="q-progress"><span style="width:100%"></span></div>' +
+      '<p class="q-count">Готово</p>' +
+      '<h3 class="q-q">Вам подойдёт: ' + sv.v + '</h3>' +
+      '<ul class="q-list">' +
+        '<li>Форма: ' + shape + '</li>' +
+        '<li>Стиль: ' + styleTxt + '</li>' +
+        '<li>В кресле: ' + sv.t + '</li>' +
+        '<li>Стоимость: ' + sv.p + ' — без доплат</li>' +
+      '</ul>' +
+      '<div class="q-actions">' +
+        '<button class="btn btn-primary" id="qBook">Записаться с этим набором</button>' +
+        '<button class="btn btn-ghost" id="qReset">Пройти заново</button>' +
+      '</div>';
+
+    $('#qBook').onclick = function(){
+      serviceEl.value = sv.v;
+      clearErr('service');
+      document.getElementById('booking').scrollIntoView({behavior:'smooth'});
+    };
+    $('#qReset').onclick = function(){ qStep = 0; qAns = {}; renderQuiz(); };
+  }
+  renderQuiz();
+
+  /* ============ Sticky CTA ============ */
+  var sticky = $('#stickyCta');
+  if('IntersectionObserver' in window){
+    new IntersectionObserver(function(entries){
+      entries.forEach(function(en){
+        sticky.classList.toggle('hide', en.isIntersecting);
+      });
+    }, {threshold: 0.18}).observe(document.getElementById('booking'));
+  }
+
+  /* ============ Exit-intent ============ */
+  var modal = $('#modal');
+  var exitShown = false;
+
+  function openModal(){
+    if(exitShown || modal.classList.contains('on')) return;
+    exitShown = true;
+    modal.classList.add('on');
+  }
+  function closeModal(){ modal.classList.remove('on'); }
+
+  $('#modalClose').addEventListener('click', closeModal);
+  modal.addEventListener('click', function(e){ if(e.target === modal) closeModal(); });
+  document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closeModal(); });
+
+  document.addEventListener('mouseout', function(e){
+    if(exitShown) return;
+    if(e.relatedTarget || e.clientY > 0) return;
+    if(window.scrollY < 500) return;
+    try{ if(sessionStorage.getItem('exitShown')) return; }catch(err){}
+    try{ sessionStorage.setItem('exitShown','1'); }catch(err){}
+    openModal();
+  });
+
+  if(window.innerWidth < 800){
+    setTimeout(openModal, 60000);
+  }
+
+  $('#quickForm').addEventListener('submit', function(e){
+    e.preventDefault();
+    var n = $('#qName').value.trim();
+    var p = $('#qPhone').value.replace(/\D/g,'');
+    var errEl = $('#qErr');
+    if(n.length < 2){ errEl.textContent = 'Как вас зовут?'; errEl.style.display = 'block'; return; }
+    if(p.length < 11){ errEl.textContent = 'Введите номер полностью'; errEl.style.display = 'block'; return; }
+    errEl.style.display = 'none';
+    modal.querySelector('.modal-card').innerHTML =
+      '<button class="modal-close" id="modalClose2" aria-label="Закрыть">×</button>' +
+      '<span class="kicker">Отправлено</span>' +
+      '<h3>Напишу в Telegram до 21:00</h3>' +
+      '<p>' + n + ', пришлю два ближайших свободных окна. Если не подойдут — просто не отвечайте, больше писать не буду.</p>';
+    $('#modalClose2').onclick = closeModal;
+  });
+
+})();
+</script>
+</body>
+</html>

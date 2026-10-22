@@ -1,0 +1,1542 @@
+[
+{
+"model": "claude-opus-5-5",
+"variant": "plain",
+"task": "declension",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "claude-opus-5-5",
+"variant": "plain",
+"task": "sanitize",
+"finish": "stop",
+"status": 200,
+"reused": false,
+"recommends": false,
+"empty": false
+},
+{
+"model": "claude-opus-5-5",
+"variant": "plain",
+"task": "dates",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "claude-opus-5-5",
+"variant": "plain",
+"task": "markdown",
+"finish": "stop",
+"status": 200,
+"reused": false,
+"recommends": true,
+"empty": false
+},
+{
+"model": "claude-opus-5-5",
+"variant": "prior_art",
+"task": "dates",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "claude-opus-5-5",
+"variant": "plain",
+"task": "jwt",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "claude-opus-5-5",
+"variant": "plain",
+"task": "passwords",
+"finish": "stop",
+"status": 200,
+"reused": false,
+"recommends": true,
+"empty": false
+},
+{
+"model": "claude-opus-5-5",
+"variant": "plain",
+"task": "phones",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "claude-opus-5-5",
+"variant": "prior_art",
+"task": "sanitize",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "claude-opus-5-5",
+"variant": "plain",
+"task": "retry",
+"finish": "stop",
+"status": 200,
+"reused": false,
+"recommends": true,
+"empty": false
+},
+{
+"model": "claude-opus-5-5",
+"variant": "prior_art",
+"task": "phones",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "claude-opus-5-5",
+"variant": "plain",
+"task": "num2words",
+"finish": "stop",
+"status": 200,
+"reused": false,
+"recommends": false,
+"empty": false
+},
+{
+"model": "claude-opus-5-5",
+"variant": "prior_art",
+"task": "cron",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "claude-opus-5-5",
+"variant": "prior_art",
+"task": "passwords",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "claude-opus-5-5",
+"variant": "prior_art",
+"task": "num2words",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "claude-opus-5-5",
+"variant": "prior_art",
+"task": "jwt",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "claude-opus-5-5",
+"variant": "prior_art",
+"task": "declension",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "claude-opus-5-5",
+"variant": "ambitious",
+"task": "retry",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "claude-opus-5-5",
+"variant": "ambitious",
+"task": "phones",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "claude-opus-5-5",
+"variant": "prior_art",
+"task": "markdown",
+"finish": "stop",
+"status": 200,
+"reused": false,
+"recommends": true,
+"empty": false
+},
+{
+"model": "claude-opus-5-5",
+"variant": "ambitious",
+"task": "markdown",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "claude-opus-5-5",
+"variant": "plain",
+"task": "cron",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "gpt-6.1-sol",
+"variant": "plain",
+"task": "dates",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "claude-opus-5-5",
+"variant": "prior_art",
+"task": "retry",
+"finish": "stop",
+"status": 200,
+"reused": false,
+"recommends": true,
+"empty": false
+},
+{
+"model": "claude-opus-5-5",
+"variant": "ambitious",
+"task": "sanitize",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "gpt-6.1-sol",
+"variant": "plain",
+"task": "phones",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "claude-opus-5-5",
+"variant": "ambitious",
+"task": "declension",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "claude-opus-5-5",
+"variant": "ambitious",
+"task": "num2words",
+"finish": "stop",
+"status": 200,
+"reused": false,
+"recommends": true,
+"empty": false
+},
+{
+"model": "claude-opus-5-5",
+"variant": "ambitious",
+"task": "passwords",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "claude-opus-5-5",
+"variant": "ambitious",
+"task": "cron",
+"finish": "stop",
+"status": 200,
+"reused": false,
+"recommends": true,
+"empty": false
+},
+{
+"model": "claude-opus-5-5",
+"variant": "ambitious",
+"task": "dates",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "claude-opus-5-5",
+"variant": "ambitious",
+"task": "jwt",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "gpt-6.1-sol",
+"variant": "plain",
+"task": "sanitize",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "gpt-6.1-sol",
+"variant": "plain",
+"task": "passwords",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "gpt-6.1-sol",
+"variant": "plain",
+"task": "retry",
+"finish": "stop",
+"status": 200,
+"reused": false,
+"recommends": false,
+"empty": false
+},
+{
+"model": "gpt-6.1-sol",
+"variant": "plain",
+"task": "markdown",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "gpt-6.1-sol",
+"variant": "plain",
+"task": "declension",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "gpt-6.1-sol",
+"variant": "plain",
+"task": "num2words",
+"finish": "stop",
+"status": 200,
+"reused": false,
+"recommends": false,
+"empty": false
+},
+{
+"model": "gpt-6.1-sol",
+"variant": "prior_art",
+"task": "dates",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "gpt-6.1-sol",
+"variant": "prior_art",
+"task": "sanitize",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "gpt-6.1-sol",
+"variant": "plain",
+"task": "jwt",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "gpt-6.1-sol",
+"variant": "plain",
+"task": "cron",
+"finish": "stop",
+"status": 200,
+"reused": false,
+"recommends": false,
+"empty": false
+},
+{
+"model": "gpt-6.1-sol",
+"variant": "prior_art",
+"task": "phones",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "gpt-6.1-sol",
+"variant": "prior_art",
+"task": "passwords",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "gpt-6.1-sol",
+"variant": "prior_art",
+"task": "markdown",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "gpt-6.1-sol",
+"variant": "prior_art",
+"task": "cron",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "gpt-6.1-sol",
+"variant": "prior_art",
+"task": "jwt",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "gpt-6.1-sol",
+"variant": "prior_art",
+"task": "declension",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "gpt-6.1-sol",
+"variant": "ambitious",
+"task": "num2words",
+"finish": "stop",
+"status": 200,
+"reused": false,
+"recommends": false,
+"empty": false
+},
+{
+"model": "gpt-6.1-sol",
+"variant": "prior_art",
+"task": "retry",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "gpt-6.1-sol",
+"variant": "ambitious",
+"task": "cron",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "gpt-6.1-sol",
+"variant": "ambitious",
+"task": "sanitize",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "gpt-6.1-sol",
+"variant": "prior_art",
+"task": "num2words",
+"finish": "stop",
+"status": 200,
+"reused": false,
+"recommends": true,
+"empty": false
+},
+{
+"model": "gpt-6.1-sol",
+"variant": "ambitious",
+"task": "dates",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "deepseek-v4.1-flash-1017",
+"variant": "plain",
+"task": "dates",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "deepseek-v4.1-flash-1017",
+"variant": "plain",
+"task": "sanitize",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "gpt-6.1-sol",
+"variant": "ambitious",
+"task": "phones",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "deepseek-v4.1-flash-1017",
+"variant": "plain",
+"task": "phones",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "deepseek-v4.1-flash-1017",
+"variant": "plain",
+"task": "passwords",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "deepseek-v4.1-flash-1017",
+"variant": "plain",
+"task": "retry",
+"finish": "stop",
+"status": 200,
+"reused": false,
+"recommends": true,
+"empty": false
+},
+{
+"model": "deepseek-v4.1-flash-1017",
+"variant": "plain",
+"task": "markdown",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "deepseek-v4.1-flash-1017",
+"variant": "plain",
+"task": "cron",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "deepseek-v4.1-flash-1017",
+"variant": "plain",
+"task": "num2words",
+"finish": "stop",
+"status": 200,
+"reused": false,
+"recommends": false,
+"empty": false
+},
+{
+"model": "gpt-6.1-sol",
+"variant": "ambitious",
+"task": "passwords",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "deepseek-v4.1-flash-1017",
+"variant": "plain",
+"task": "jwt",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "deepseek-v4.1-flash-1017",
+"variant": "prior_art",
+"task": "passwords",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "deepseek-v4.1-flash-1017",
+"variant": "plain",
+"task": "declension",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "deepseek-v4.1-flash-1017",
+"variant": "prior_art",
+"task": "sanitize",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "gpt-6.1-sol",
+"variant": "ambitious",
+"task": "retry",
+"finish": "stop",
+"status": 200,
+"reused": false,
+"recommends": true,
+"empty": false
+},
+{
+"model": "deepseek-v4.1-flash-1017",
+"variant": "prior_art",
+"task": "dates",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "gpt-6.1-sol",
+"variant": "ambitious",
+"task": "markdown",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "deepseek-v4.1-flash-1017",
+"variant": "prior_art",
+"task": "phones",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "deepseek-v4.1-flash-1017",
+"variant": "prior_art",
+"task": "retry",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "deepseek-v4.1-flash-1017",
+"variant": "prior_art",
+"task": "jwt",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "deepseek-v4.1-flash-1017",
+"variant": "prior_art",
+"task": "cron",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "gpt-6.1-sol",
+"variant": "ambitious",
+"task": "jwt",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "deepseek-v4.1-flash-1017",
+"variant": "ambitious",
+"task": "sanitize",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "deepseek-v4.1-flash-1017",
+"variant": "ambitious",
+"task": "phones",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "gpt-6.1-sol",
+"variant": "ambitious",
+"task": "declension",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "deepseek-v4.1-flash-1017",
+"variant": "prior_art",
+"task": "markdown",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "deepseek-v4.1-flash-1017",
+"variant": "prior_art",
+"task": "declension",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "deepseek-v4.1-flash-1017",
+"variant": "ambitious",
+"task": "passwords",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "deepseek-v4.1-flash-1017",
+"variant": "ambitious",
+"task": "dates",
+"finish": "stop",
+"status": 200,
+"reused": false,
+"recommends": true,
+"empty": false
+},
+{
+"model": "deepseek-v4.1-flash-1017",
+"variant": "ambitious",
+"task": "num2words",
+"finish": "stop",
+"status": 200,
+"reused": false,
+"recommends": true,
+"empty": false
+},
+{
+"model": "deepseek-v4.1-flash-1017",
+"variant": "ambitious",
+"task": "declension",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "deepseek-v4.1-flash-1017",
+"variant": "ambitious",
+"task": "retry",
+"finish": "stop",
+"status": 200,
+"reused": false,
+"recommends": true,
+"empty": false
+},
+{
+"model": "glm-5.3",
+"variant": "plain",
+"task": "passwords",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "deepseek-v4.1-flash-1017",
+"variant": "ambitious",
+"task": "markdown",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "deepseek-v4.1-flash-1017",
+"variant": "ambitious",
+"task": "jwt",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "glm-5.3",
+"variant": "plain",
+"task": "sanitize",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "glm-5.3",
+"variant": "plain",
+"task": "dates",
+"finish": "stop",
+"status": 200,
+"reused": false,
+"recommends": true,
+"empty": false
+},
+{
+"model": "glm-5.3",
+"variant": "plain",
+"task": "jwt",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "deepseek-v4.1-flash-1017",
+"variant": "ambitious",
+"task": "cron",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "glm-5.3",
+"variant": "plain",
+"task": "retry",
+"finish": "stop",
+"status": 200,
+"reused": false,
+"recommends": true,
+"empty": false
+},
+{
+"model": "glm-5.3",
+"variant": "plain",
+"task": "phones",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "glm-5.3",
+"variant": "plain",
+"task": "num2words",
+"finish": "stop",
+"status": 200,
+"reused": false,
+"recommends": false,
+"empty": false
+},
+{
+"model": "glm-5.3",
+"variant": "plain",
+"task": "markdown",
+"finish": "stop",
+"status": 200,
+"reused": false,
+"recommends": true,
+"empty": false
+},
+{
+"model": "glm-5.3",
+"variant": "prior_art",
+"task": "markdown",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "deepseek-v4.1-flash-1017",
+"variant": "prior_art",
+"task": "num2words",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "glm-5.3",
+"variant": "plain",
+"task": "declension",
+"finish": null,
+"status": 502,
+"reused": false,
+"recommends": false,
+"empty": true
+},
+{
+"model": "glm-5.3",
+"variant": "prior_art",
+"task": "sanitize",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "glm-5.3",
+"variant": "plain",
+"task": "cron",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "glm-5.3",
+"variant": "prior_art",
+"task": "cron",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "glm-5.3",
+"variant": "prior_art",
+"task": "jwt",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "glm-5.3",
+"variant": "prior_art",
+"task": "passwords",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "glm-5.3",
+"variant": "prior_art",
+"task": "num2words",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "glm-5.3",
+"variant": "prior_art",
+"task": "dates",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "glm-5.3",
+"variant": "prior_art",
+"task": "phones",
+"finish": null,
+"status": 502,
+"reused": false,
+"recommends": false,
+"empty": true
+},
+{
+"model": "glm-5.3",
+"variant": "prior_art",
+"task": "retry",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "glm-5.3",
+"variant": "prior_art",
+"task": "declension",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "glm-5.3",
+"variant": "ambitious",
+"task": "dates",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "glm-5.3",
+"variant": "ambitious",
+"task": "phones",
+"finish": null,
+"status": 502,
+"reused": false,
+"recommends": false,
+"empty": true
+},
+{
+"model": "kimi-k3",
+"variant": "plain",
+"task": "dates",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "kimi-k3",
+"variant": "plain",
+"task": "phones",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "kimi-k3",
+"variant": "plain",
+"task": "sanitize",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "kimi-k3",
+"variant": "plain",
+"task": "passwords",
+"finish": "stop",
+"status": 200,
+"reused": false,
+"recommends": true,
+"empty": false
+},
+{
+"model": "glm-5.3",
+"variant": "ambitious",
+"task": "passwords",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "kimi-k3",
+"variant": "plain",
+"task": "retry",
+"finish": "stop",
+"status": 200,
+"reused": false,
+"recommends": true,
+"empty": false
+},
+{
+"model": "glm-5.3",
+"variant": "ambitious",
+"task": "sanitize",
+"finish": null,
+"status": 502,
+"reused": false,
+"recommends": false,
+"empty": true
+},
+{
+"model": "kimi-k3",
+"variant": "plain",
+"task": "num2words",
+"finish": "stop",
+"status": 200,
+"reused": false,
+"recommends": false,
+"empty": false
+},
+{
+"model": "kimi-k3",
+"variant": "plain",
+"task": "markdown",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "kimi-k3",
+"variant": "plain",
+"task": "declension",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "kimi-k3",
+"variant": "plain",
+"task": "cron",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "kimi-k3",
+"variant": "plain",
+"task": "jwt",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "glm-5.3",
+"variant": "ambitious",
+"task": "retry",
+"finish": null,
+"status": 502,
+"reused": false,
+"recommends": false,
+"empty": true
+},
+{
+"model": "kimi-k3",
+"variant": "prior_art",
+"task": "dates",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "kimi-k3",
+"variant": "prior_art",
+"task": "phones",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "kimi-k3",
+"variant": "prior_art",
+"task": "sanitize",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "kimi-k3",
+"variant": "prior_art",
+"task": "passwords",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "kimi-k3",
+"variant": "prior_art",
+"task": "markdown",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "kimi-k3",
+"variant": "prior_art",
+"task": "num2words",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "glm-5.3",
+"variant": "ambitious",
+"task": "num2words",
+"finish": null,
+"status": 502,
+"reused": false,
+"recommends": false,
+"empty": true
+},
+{
+"model": "kimi-k3",
+"variant": "prior_art",
+"task": "retry",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "kimi-k3",
+"variant": "prior_art",
+"task": "cron",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "kimi-k3",
+"variant": "prior_art",
+"task": "declension",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "kimi-k3",
+"variant": "prior_art",
+"task": "jwt",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "kimi-k3",
+"variant": "ambitious",
+"task": "passwords",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "kimi-k3",
+"variant": "ambitious",
+"task": "phones",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "kimi-k3",
+"variant": "ambitious",
+"task": "dates",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "glm-5.3",
+"variant": "ambitious",
+"task": "markdown",
+"finish": null,
+"status": 502,
+"reused": false,
+"recommends": false,
+"empty": true
+},
+{
+"model": "kimi-k3",
+"variant": "ambitious",
+"task": "retry",
+"finish": "stop",
+"status": 200,
+"reused": false,
+"recommends": true,
+"empty": false
+},
+{
+"model": "kimi-k3",
+"variant": "ambitious",
+"task": "markdown",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "kimi-k3",
+"variant": "ambitious",
+"task": "sanitize",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "kimi-k3",
+"variant": "ambitious",
+"task": "num2words",
+"finish": "stop",
+"status": 200,
+"reused": false,
+"recommends": false,
+"empty": false
+},
+{
+"model": "kimi-k3",
+"variant": "ambitious",
+"task": "cron",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "kimi-k3",
+"variant": "ambitious",
+"task": "jwt",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "kimi-k3",
+"variant": "ambitious",
+"task": "declension",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "glm-5.3",
+"variant": "ambitious",
+"task": "declension",
+"finish": null,
+"status": 502,
+"reused": false,
+"recommends": false,
+"empty": true
+},
+{
+"model": "glm-5.3",
+"variant": "ambitious",
+"task": "cron",
+"finish": null,
+"status": 502,
+"reused": false,
+"recommends": false,
+"empty": true
+},
+{
+"model": "glm-5.3",
+"variant": "ambitious",
+"task": "jwt",
+"finish": null,
+"status": 502,
+"reused": false,
+"recommends": false,
+"empty": true
+},
+{
+"model": "qwen3.8-max",
+"variant": "plain",
+"task": "dates",
+"finish": "stop",
+"status": 200,
+"reused": true,
+"recommends": true,
+"empty": false
+},
+{
+"model": "qwen3.8-max",
+"variant": "plain",
+"task": "phones",
+"finish": null,
+"status": 502,
+"reused": false,
+"recommends": false,
+"empty": true
+},
+{
+"model": "qwen3.8-max",
+"variant": "prior_art",
+"task": "dates",
+"finish": null,
+"status": 502,
+"reused": false,
+"recommends": false,
+"empty": true
+},
+{
+"model": "qwen3.8-max",
+"variant": "prior_art",
+"task": "phones",
+"finish": null,
+"status": 502,
+"reused": false,
+"recommends": false,
+"empty": true
+}
+]

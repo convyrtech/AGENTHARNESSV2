@@ -1,0 +1,1493 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ONEKEY — все нейросети через один API-ключ</title>
+<meta name="description" content="GPT, Claude, Gemini и DeepSeek по одному ключу. OpenAI-совместимый API, до 70% дешевле официальных цен, без VPN и зарубежных карт.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,300..800&family=Inter+Tight:wght@300..700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ============ TOKENS ============ */
+:root{
+  --bg:#07080B;
+  --bg-2:#0A0C11;
+  --ink:#F4F5F7;
+  --muted:#8B909E;
+  --line:rgba(255,255,255,.08);
+  --line-2:rgba(255,255,255,.16);
+  --lime:#C6FF4A;
+  --violet:#8B5CF6;
+  --cyan:#3BE8FF;
+  --ease:cubic-bezier(.16,1,.3,1);
+  --radius:24px;
+}
+
+*,*::before,*::after{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:100px;-webkit-text-size-adjust:100%}
+body{
+  margin:0;background:var(--bg);color:var(--ink);
+  font-family:'Inter Tight',system-ui,-apple-system,sans-serif;
+  font-size:16px;line-height:1.55;font-weight:400;
+  -webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;
+  overflow-x:hidden;
+}
+::selection{background:var(--lime);color:#08090C}
+img,svg{display:block;max-width:100%}
+a{color:inherit;text-decoration:none}
+button{font:inherit;color:inherit;background:none;border:none}
+h1,h2,h3,h4,p{margin:0}
+
+/* ============ LAYOUT UTILS ============ */
+.wrap{width:min(1240px,92vw);margin-inline:auto}
+section{position:relative;padding:clamp(64px,9vw,132px) 0;z-index:2}
+.mono{font-family:'JetBrains Mono',ui-monospace,monospace}
+.display{font-family:'Bricolage Grotesque','Inter Tight',sans-serif;letter-spacing:-.035em;line-height:.96}
+
+.eyebrow{
+  display:inline-flex;align-items:center;gap:9px;
+  font-size:.7rem;letter-spacing:.2em;text-transform:uppercase;
+  color:var(--muted);font-weight:500;font-family:'JetBrains Mono',monospace;
+}
+.eyebrow .dot{width:6px;height:6px;border-radius:50%;background:var(--lime);box-shadow:0 0 12px var(--lime);animation:blink 2.4s ease-in-out infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.35}}
+
+.sec-head{max-width:760px;margin-bottom:clamp(36px,5vw,64px)}
+.sec-title{
+  font-family:'Bricolage Grotesque',sans-serif;font-weight:600;
+  font-size:clamp(2rem,4.6vw,3.5rem);line-height:.98;letter-spacing:-.035em;
+  margin:.35em 0 .4em;
+}
+.sec-sub{color:var(--muted);font-size:clamp(1rem,1.3vw,1.1rem);max-width:56ch;line-height:1.6}
+
+/* ============ BUTTONS ============ */
+.btn{
+  position:relative;display:inline-flex;align-items:center;justify-content:center;gap:.55em;
+  padding:.9em 1.4em;border-radius:999px;font-weight:600;font-size:.94rem;
+  border:1px solid var(--line);background:rgba(255,255,255,.035);
+  transition:transform .45s var(--ease),background .3s,border-color .3s,box-shadow .45s,color .3s;
+  will-change:transform;white-space:nowrap;
+}
+.btn:hover{transform:translateY(-2px)}
+.btn svg{width:1em;height:1em;flex:none}
+.btn-lime{
+  background:var(--lime);color:#08090C;border-color:transparent;
+  box-shadow:0 0 0 0 rgba(198,255,74,.45),0 14px 44px -16px rgba(198,255,74,.85);
+}
+.btn-lime:hover{box-shadow:0 0 0 6px rgba(198,255,74,.13),0 22px 60px -18px rgba(198,255,74,.95)}
+.btn-ghost{color:var(--ink)}
+.btn-ghost:hover{background:rgba(255,255,255,.075);border-color:var(--line-2)}
+.btn-lg{padding:1.05em 1.75em;font-size:1rem}
+
+/* ============ AMBIENT / BG ============ */
+.aurora{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}
+.blob{position:absolute;border-radius:50%;filter:blur(90px);opacity:.5;will-change:transform}
+.b1{width:62vw;height:62vw;left:-18vw;top:-24vw;background:radial-gradient(circle,rgba(139,92,246,.55),transparent 65%);animation:drift1 26s ease-in-out infinite alternate}
+.b2{width:52vw;height:52vw;right:-16vw;top:6vh;background:radial-gradient(circle,rgba(198,255,74,.30),transparent 65%);animation:drift2 32s ease-in-out infinite alternate}
+.b3{width:56vw;height:56vw;left:16vw;bottom:-28vw;background:radial-gradient(circle,rgba(59,232,255,.22),transparent 65%);animation:drift3 29s ease-in-out infinite alternate}
+@keyframes drift1{to{transform:translate3d(8vw,6vh,0) scale(1.12)}}
+@keyframes drift2{to{transform:translate3d(-7vw,10vh,0) scale(.9)}}
+@keyframes drift3{to{transform:translate3d(6vw,-8vh,0) scale(1.15)}}
+
+#bg{position:fixed;inset:0;z-index:1;pointer-events:none;opacity:.85}
+
+.grain{
+  position:fixed;inset:0;z-index:90;pointer-events:none;opacity:.05;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.82' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* ============ CURSOR / PROGRESS ============ */
+.progress{position:fixed;top:0;left:0;height:2px;width:100%;z-index:95;transform:scaleX(0);transform-origin:0 50%;
+  background:linear-gradient(90deg,var(--violet),var(--cyan),var(--lime));box-shadow:0 0 16px rgba(198,255,74,.6)}
+.cursor,.cursor-dot{position:fixed;left:0;top:0;pointer-events:none;z-index:9999;will-change:transform}
+.cursor{width:36px;height:36px;border-radius:50%;border:1px solid rgba(255,255,255,.55);mix-blend-mode:difference;transition:width .3s var(--ease),height .3s var(--ease),background .3s,border-color .3s}
+.cursor.grow{width:70px;height:70px;background:#fff;border-color:#fff}
+.cursor-dot{width:5px;height:5px;border-radius:50%;background:var(--lime);box-shadow:0 0 10px var(--lime)}
+@media (pointer:fine){body,a,button,input,summary{cursor:none}}
+@media (pointer:coarse){.cursor,.cursor-dot{display:none}}
+
+/* ============ NAV ============ */
+.nav{
+  position:fixed;top:0;left:0;right:0;z-index:50;
+  display:flex;align-items:center;justify-content:space-between;gap:24px;
+  padding:18px clamp(16px,4vw,44px);
+  transition:background .45s,border-color .45s,padding .45s var(--ease),backdrop-filter .45s;
+  border-bottom:1px solid transparent;
+}
+.nav.scrolled{
+  padding-block:12px;background:rgba(7,8,11,.72);
+  backdrop-filter:blur(18px) saturate(140%);-webkit-backdrop-filter:blur(18px) saturate(140%);
+  border-bottom-color:var(--line);
+}
+.brand{display:flex;align-items:center;gap:10px;font-family:'Bricolage Grotesque',sans-serif;font-weight:700;font-size:1.15rem;letter-spacing:-.03em}
+.brand-mark{
+  width:34px;height:34px;border-radius:11px;display:grid;place-items:center;
+  background:linear-gradient(140deg,var(--lime),#7BE000 55%,#4cd6a0);
+  color:#07080B;box-shadow:0 0 28px -6px rgba(198,255,74,.7);
+  transition:transform .6s var(--ease);
+}
+.brand:hover .brand-mark{transform:rotate(-12deg) scale(1.06)}
+.brand-mark svg{width:17px;height:17px}
+.nav-links{display:flex;align-items:center;gap:30px;font-size:.9rem;color:var(--muted)}
+.nav-links a{position:relative;transition:color .3s}
+.nav-links a::after{content:'';position:absolute;left:0;bottom:-5px;width:100%;height:1px;background:var(--lime);transform:scaleX(0);transform-origin:0 50%;transition:transform .45s var(--ease)}
+.nav-links a:hover{color:var(--ink)}
+.nav-links a:hover::after{transform:scaleX(1)}
+.nav-cta{display:flex;align-items:center;gap:10px}
+.nav-cta .btn{padding:.68em 1.15em;font-size:.86rem}
+
+/* ============ HERO ============ */
+.hero{padding-top:clamp(130px,17vh,190px);padding-bottom:clamp(40px,6vw,70px);overflow:hidden}
+.hero-inner{display:grid;grid-template-columns:1.06fr .94fr;gap:clamp(24px,4vw,56px);align-items:center}
+.hero-left{position:relative;z-index:3}
+.h1{
+  font-family:'Bricolage Grotesque',sans-serif;font-weight:600;
+  font-size:clamp(2.85rem,7.2vw,5.6rem);line-height:.92;letter-spacing:-.045em;
+  margin:.42em 0 .3em;
+}
+.h1 .line{display:block;overflow:hidden;padding-bottom:.06em}
+.h1 .line>span{display:block;transform:translateY(115%);animation:lineUp 1.15s var(--ease) forwards}
+.h1 .line:nth-child(2)>span{animation-delay:.12s}
+@keyframes lineUp{to{transform:translateY(0)}}
+.h1 em{
+  font-style:normal;position:relative;display:inline-block;
+  background:linear-gradient(100deg,var(--lime) 0%,#9CFF6E 35%,var(--cyan) 70%,var(--violet) 100%);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  background-size:220% 100%;animation:shift 9s ease-in-out infinite;
+}
+@keyframes shift{0%,100%{background-position:0% 50%}50%{background-position:100% 50%}}
+.lead{
+  color:var(--muted);font-size:clamp(1rem,1.35vw,1.13rem);line-height:1.62;max-width:48ch;
+  opacity:0;animation:fadeUp .9s var(--ease) .55s forwards;
+}
+.hero-actions{display:flex;flex-wrap:wrap;gap:12px;margin-top:32px;opacity:0;animation:fadeUp .9s var(--ease) .7s forwards}
+.hero-note{
+  margin-top:20px;font-size:.82rem;color:var(--muted);display:flex;align-items:center;gap:8px;
+  opacity:0;animation:fadeUp .9s var(--ease) .85s forwards;
+}
+.hero-note svg{width:15px;height:15px;color:var(--lime)}
+@keyframes fadeUp{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}
+
+/* ---- ORBIT ---- */
+.hero-right{position:relative;display:grid;place-items:center;min-height:min(560px,72vw)}
+.orbit{position:relative;width:min(520px,86vw);aspect-ratio:1;display:grid;place-items:center}
+.orbit::before{
+  content:'';position:absolute;inset:16%;border-radius:50%;
+  background:radial-gradient(circle at 50% 50%,rgba(198,255,74,.16),rgba(139,92,246,.18) 45%,transparent 72%);
+  filter:blur(38px);animation:breathe 7s ease-in-out infinite;
+}
+@keyframes breathe{0%,100%{transform:scale(1);opacity:.85}50%{transform:scale(1.12);opacity:1}}
+.ring{position:absolute;border-radius:50%;border:1px solid rgba(255,255,255,.07);pointer-events:none}
+.ring.r1{inset:32%}
+.ring.r2{inset:19%;border-style:dashed;border-color:rgba(255,255,255,.06);animation:spinSlow 70s linear infinite}
+.ring.r3{inset:5%;border-color:rgba(255,255,255,.05)}
+@keyframes spinSlow{to{transform:rotate(360deg)}}
+
+.sat{position:absolute;left:50%;top:50%;--a:0deg;--r:150px;--dur:24s;animation:orbit var(--dur) linear infinite;will-change:transform}
+@keyframes orbit{
+  from{transform:translate(-50%,-50%) rotate(var(--a)) translateX(var(--r)) rotate(calc(-1 * var(--a)))}
+  to{transform:translate(-50%,-50%) rotate(calc(var(--a) + 360deg)) translateX(var(--r)) rotate(calc(-1 * var(--a) - 360deg))}
+}
+.pill{
+  display:flex;align-items:center;gap:8px;padding:9px 14px;border-radius:999px;
+  background:rgba(11,13,18,.88);border:1px solid rgba(255,255,255,.13);
+  backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  font-size:.78rem;font-weight:500;white-space:nowrap;
+  box-shadow:0 14px 34px -16px rgba(0,0,0,.9),inset 0 1px 0 rgba(255,255,255,.06);
+}
+.pill i{width:7px;height:7px;border-radius:50%;flex:none;background:var(--lime);box-shadow:0 0 10px var(--lime)}
+.pill.p2 i{background:var(--violet);box-shadow:0 0 10px var(--violet)}
+.pill.p3 i{background:var(--cyan);box-shadow:0 0 10px var(--cyan)}
+.pill.p4 i{background:#FF9F45;box-shadow:0 0 10px #FF9F45}
+
+.core{
+  position:relative;width:clamp(100px,17vw,136px);aspect-ratio:1;border-radius:50%;
+  display:grid;place-items:center;z-index:3;
+  background:radial-gradient(circle at 32% 26%,#1c2233,#08090d 72%);
+  border:1px solid rgba(255,255,255,.15);
+  box-shadow:0 0 70px -12px rgba(198,255,74,.5),inset 0 0 44px rgba(139,92,246,.28);
+}
+.core svg{width:42%;height:42%;color:var(--lime);filter:drop-shadow(0 0 10px rgba(198,255,74,.7))}
+.core::after{content:'';position:absolute;inset:-9px;border-radius:50%;border:1px solid rgba(198,255,74,.35);animation:pulseRing 3s ease-out infinite}
+@keyframes pulseRing{0%{transform:scale(.94);opacity:.9}70%{transform:scale(1.28);opacity:0}100%{opacity:0}}
+
+.chip-float{
+  position:absolute;padding:11px 15px;border-radius:16px;z-index:4;
+  background:rgba(11,13,18,.82);border:1px solid var(--line-2);
+  backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+  box-shadow:0 24px 60px -28px rgba(0,0,0,.95);
+  animation:floaty 6s ease-in-out infinite;
+}
+.chip-float b{display:block;font-family:'Bricolage Grotesque',sans-serif;font-size:1.15rem;letter-spacing:-.02em;line-height:1.1}
+.chip-float span{font-size:.68rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;font-family:'JetBrains Mono',monospace}
+.chip-a{left:-4%;top:16%;animation-delay:-1s}
+.chip-b{right:-2%;bottom:14%;animation-delay:-3s}
+.chip-a b{color:var(--lime)}
+.chip-b b{color:var(--cyan)}
+@keyframes floaty{0%,100%{transform:translateY(0)}50%{transform:translateY(-14px)}}
+
+/* ============ MARQUEE ============ */
+.marquee{
+  position:relative;z-index:2;overflow:hidden;padding:20px 0;
+  border-top:1px solid var(--line);border-bottom:1px solid var(--line);
+  mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent);
+  -webkit-mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent);
+}
+.marquee-track{display:flex;align-items:center;gap:44px;width:max-content;animation:scrollX 42s linear infinite}
+.marquee:hover .marquee-track{animation-play-state:paused}
+@keyframes scrollX{to{transform:translateX(-50%)}}
+.marquee-track span{
+  font-family:'Bricolage Grotesque',sans-serif;font-size:clamp(1.5rem,3.2vw,2.6rem);
+  font-weight:600;letter-spacing:-.03em;color:rgba(255,255,255,.09);white-space:nowrap;
+}
+@supports (-webkit-text-stroke:1px #fff){
+  .marquee-track span{color:transparent;-webkit-text-stroke:1px rgba(255,255,255,.22)}
+}
+.marquee-track i{color:var(--lime);font-style:normal;font-size:1rem;opacity:.6}
+
+/* ============ STATS ============ */
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--line);border:1px solid var(--line);border-radius:22px;overflow:hidden;margin-top:clamp(40px,6vw,70px)}
+.stat{background:var(--bg);padding:clamp(22px,3vw,34px);text-align:left;position:relative;transition:background .4s}
+.stat:hover{background:rgba(255,255,255,.022)}
+.stat b{display:block;font-family:'Bricolage Grotesque',sans-serif;font-size:clamp(1.8rem,3.4vw,2.7rem);letter-spacing:-.04em;line-height:1;font-weight:600;font-variant-numeric:tabular-nums}
+.stat b em{font-style:normal;font-size:.55em;color:var(--muted);margin-left:2px}
+.stat span{display:block;margin-top:9px;font-size:.82rem;color:var(--muted);line-height:1.4}
+.stat:nth-child(1) b{color:var(--lime)}
+.stat:nth-child(3) b{color:var(--cyan)}
+
+/* ============ HOW IT WORKS ============ */
+.how-grid{display:grid;grid-template-columns:.92fr 1.08fr;gap:clamp(28px,4vw,60px);align-items:start}
+.steps{display:flex;flex-direction:column;gap:6px}
+.step{
+  display:grid;grid-template-columns:auto 1fr;gap:18px;padding:22px 0;
+  border-top:1px solid var(--line);transition:padding-left .5s var(--ease)
+}
+.step:last-child{border-bottom:1px solid var(--line)}
+.step:hover{padding-left:8px}
+.step-num{
+  width:38px;height:38px;border-radius:12px;display:grid;place-items:center;flex:none;
+  font-family:'JetBrains Mono',monospace;font-size:.78rem;color:var(--lime);
+  border:1px solid rgba(198,255,74,.3);background:rgba(198,255,74,.07);
+  transition:background .4s,box-shadow .4s,transform .5s var(--ease);
+}
+.step:hover .step-num{background:var(--lime);color:#08090C;box-shadow:0 0 30px -6px rgba(198,255,74,.8);transform:rotate(-6deg)}
+.step h3{font-size:1.06rem;font-weight:600;margin-bottom:5px;letter-spacing:-.015em}
+.step p{font-size:.92rem;color:var(--muted);line-height:1.55;margin:0}
+
+/* ---- CODE CARD ---- */
+.code-card{
+  border-radius:22px;border:1px solid var(--line);overflow:hidden;
+  background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.012));
+  box-shadow:0 40px 100px -50px rgba(0,0,0,1);
+  transition:transform .6s var(--ease),border-color .4s;
+  transform-style:preserve-3d;
+}
+.code-card:hover{border-color:var(--line-2)}
+.code-top{display:flex;align-items:center;gap:14px;padding:14px 16px;border-bottom:1px solid var(--line);background:rgba(0,0,0,.25)}
+.dots{display:flex;gap:6px;flex:none}
+.dots i{width:9px;height:9px;border-radius:50%;background:rgba(255,255,255,.14)}
+.dots i:first-child{background:#ff5f57;opacity:.75}
+.dots i:nth-child(2){background:#febc2e;opacity:.75}
+.dots i:nth-child(3){background:#28c840;opacity:.75}
+.tabs{display:flex;gap:4px;margin-left:auto;margin-right:auto}
+.tab{
+  padding:6px 13px;border-radius:8px;font-size:.78rem;font-family:'JetBrains Mono',monospace;
+  color:var(--muted);transition:color .3s,background .3s;
+}
+.tab:hover{color:var(--ink)}
+.tab.active{color:var(--lime);background:rgba(198,255,74,.1)}
+.badge-live{
+  font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--lime);
+  padding:4px 9px;border-radius:999px;border:1px solid rgba(198,255,74,.28);flex:none;
+  display:flex;align-items:center;gap:6px;
+}
+.badge-live::before{content:'';width:5px;height:5px;border-radius:50%;background:var(--lime);box-shadow:0 0 8px var(--lime);animation:blink 1.6s infinite}
+pre.code{
+  margin:0;padding:22px 20px 26px;min-height:290px;
+  font-family:'JetBrains Mono',monospace;font-size:.795rem;line-height:1.75;
+  white-space:pre-wrap;word-break:break-word;color:#C7CCD9;
+  background:linear-gradient(180deg,rgba(0,0,0,.28),rgba(0,0,0,.12));
+}
+pre.code code{font-family:inherit;color:inherit;white-space:pre-wrap}
+.t-kw{color:#C792EA}
+.t-str{color:#9CE37D}
+.t-com{color:#5D6472;font-style:italic}
+.caret{display:inline-block;width:8px;height:15px;background:var(--lime);vertical-align:-2px;margin-left:2px;animation:blink 1s steps(2) infinite;box-shadow:0 0 12px var(--lime)}
+.code-foot{padding:12px 18px;border-top:1px solid var(--line);font-size:.76rem;color:var(--muted);display:flex;align-items:center;gap:8px;background:rgba(0,0,0,.2)}
+.code-foot svg{width:14px;height:14px;color:var(--lime);flex:none}
+
+/* ============ BENTO ============ */
+.bento{display:grid;grid-template-columns:repeat(6,1fr);gap:16px}
+.b{
+  position:relative;border-radius:22px;padding:26px;overflow:hidden;
+  border:1px solid var(--line);
+  background:linear-gradient(180deg,rgba(255,255,255,.045),rgba(255,255,255,.012));
+  transition:transform .6s var(--ease),border-color .4s;
+  display:flex;flex-direction:column;gap:12px;
+}
+.b::before{
+  content:'';position:absolute;inset:0;pointer-events:none;opacity:0;transition:opacity .45s;
+  background:radial-gradient(340px circle at var(--mx,50%) var(--my,50%),rgba(198,255,74,.13),transparent 62%);
+}
+.b:hover{transform:translateY(-4px);border-color:var(--line-2)}
+.b:hover::before{opacity:1}
+.b-ico{
+  width:42px;height:42px;border-radius:13px;display:grid;place-items:center;flex:none;
+  border:1px solid rgba(255,255,255,.11);background:rgba(255,255,255,.045);color:var(--lime);
+  transition:transform .6s var(--ease),background .4s;
+}
+.b:hover .b-ico{transform:rotate(-8deg) scale(1.06);background:rgba(198,255,74,.13)}
+.b-ico svg{width:20px;height:20px}
+.b h3{font-size:1.06rem;font-weight:600;letter-spacing:-.018em;margin:0}
+.b p{font-size:.885rem;color:var(--muted);line-height:1.55;margin:0}
+.b1{grid-column:span 3}
+.b2{grid-column:span 3}
+.b3{grid-column:span 2}
+.b4{grid-column:span 2}
+.b5{grid-column:span 2}
+.b6{grid-column:span 3}
+.b7{grid-column:span 3}
+
+.chips{display:flex;flex-wrap:wrap;gap:7px;margin-top:auto;padding-top:14px}
+.chips span{
+  font-size:.72rem;padding:5px 11px;border-radius:999px;
+  border:1px solid var(--line-2);color:#C4C9D4;background:rgba(255,255,255,.04);
+  font-family:'JetBrains Mono',monospace;transition:all .35s
+}
+.b:hover .chips span{border-color:rgba(198,255,74,.35);color:var(--lime);background:rgba(198,255,74,.07)}
+
+.bars{display:flex;align-items:flex-end;gap:10px;height:74px;margin-top:auto;padding-top:16px}
+.bars i{flex:1;border-radius:6px 6px 3px 3px;background:rgba(255,255,255,.1);position:relative;transition:height .7s var(--ease),background .4s}
+.bars i::after{content:attr(data-v);position:absolute;top:-19px;left:50%;transform:translateX(-50%);font-size:.6rem;color:var(--muted);font-family:'JetBrains Mono',monospace}
+.b:hover .bars i{background:rgba(198,255,74,.18)}
+.b:hover .bars i:last-child{background:var(--lime);box-shadow:0 0 24px -4px rgba(198,255,74,.9)}
+.spark{width:100%;height:66px;margin-top:auto;overflow:visible}
+.spark path{fill:none;stroke:var(--lime);stroke-width:2;stroke-linecap:round;stroke-linejoin:round;
+  stroke-dasharray:400;stroke-dashoffset:400;transition:stroke-dashoffset 1.8s var(--ease)}
+.b.in .spark path{stroke-dashoffset:0}
+.spark .area{fill:url(#gradLime);stroke:none;opacity:.28}
+
+/* ============ SAVINGS ============ */
+.save-grid{display:grid;grid-template-columns:1fr 1.05fr;gap:clamp(24px,3.4vw,48px);align-items:start}
+.calc{
+  border-radius:26px;padding:clamp(24px,3vw,34px);
+  border:1px solid var(--line-2);
+  background:linear-gradient(160deg,rgba(198,255,74,.1),rgba(139,92,246,.07) 55%,rgba(255,255,255,.015));
+  position:relative;overflow:hidden;
+}
+.calc::after{content:'';position:absolute;width:280px;height:280px;border-radius:50%;right:-110px;top:-110px;
+  background:radial-gradient(circle,rgba(198,255,74,.3),transparent 65%);filter:blur(40px);pointer-events:none}
+.calc h3{font-family:'Bricolage Grotesque',sans-serif;font-size:1.42rem;letter-spacing:-.025em;margin-bottom:6px}
+.calc-sub{font-size:.86rem;color:var(--muted);margin-bottom:26px}
+.calc-label{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:14px;font-size:.86rem;color:var(--muted)}
+.calc-label b{font-family:'Bricolage Grotesque',sans-serif;font-size:1.5rem;color:var(--ink);letter-spacing:-.02em}
+input[type=range]{
+  -webkit-appearance:none;appearance:none;width:100%;height:6px;border-radius:99px;outline:none;
+  background:linear-gradient(90deg,var(--lime) var(--fill,20%),rgba(255,255,255,.11) var(--fill,20%));
+  transition:background .15s;
+}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none;width:24px;height:24px;border-radius:50%;background:var(--lime);
+  border:5px solid #0B0C11;box-shadow:0 0 0 1px rgba(198,255,74,.55),0 0 26px rgba(198,255,74,.75);
+  transition:transform .2s var(--ease);
+}
+input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.12)}
+input[type=range]::-moz-range-thumb{
+  width:22px;height:22px;border-radius:50%;background:var(--lime);border:5px solid #0B0C11;
+  box-shadow:0 0 0 1px rgba(198,255,74,.55),0 0 26px rgba(198,255,74,.75);
+}
+.calc-out{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:26px}
+.calc-cell{padding:16px 14px;border-radius:16px;border:1px solid var(--line);background:rgba(0,0,0,.28)}
+.calc-cell span{display:block;font-size:.68rem;letter-spacing:.11em;text-transform:uppercase;color:var(--muted);font-family:'JetBrains Mono',monospace;margin-bottom:7px}
+.calc-cell b{font-family:'Bricolage Grotesque',sans-serif;font-size:clamp(1.15rem,1.9vw,1.5rem);letter-spacing:-.03em;font-variant-numeric:tabular-nums}
+.calc-cell.accent{border-color:rgba(198,255,74,.35);background:rgba(198,255,74,.08)}
+.calc-cell.accent b{color:var(--lime)}
+.calc-cell.save b{color:var(--cyan)}
+
+.table-card{border:1px solid var(--line);border-radius:24px;overflow:hidden;background:linear-gradient(180deg,rgba(255,255,255,.04),rgba(255,255,255,.01))}
+table{width:100%;border-collapse:collapse;font-size:.885rem}
+thead th{
+  text-align:left;padding:16px 20px;font-size:.68rem;letter-spacing:.13em;text-transform:uppercase;
+  color:var(--muted);font-weight:500;font-family:'JetBrains Mono',monospace;border-bottom:1px solid var(--line);
+}
+tbody td{padding:15px 20px;border-bottom:1px solid rgba(255,255,255,.045);color:#C9CEDB;font-variant-numeric:tabular-nums}
+tbody tr:last-child td{border-bottom:none}
+tbody tr{transition:background .3s}
+tbody tr:hover{background:rgba(255,255,255,.028)}
+td:first-child{color:var(--ink);font-weight:500}
+td:nth-child(2){color:var(--muted);text-decoration:line-through;text-decoration-color:rgba(255,255,255,.3)}
+td.hl{color:var(--lime);font-weight:600}
+.badge{display:inline-block;font-size:.7rem;padding:3px 8px;border-radius:7px;
+  background:rgba(198,255,74,.13);color:var(--lime);border:1px solid rgba(198,255,74,.25);
+  font-family:'JetBrains Mono',monospace}
+.table-note{padding:14px 20px;font-size:.75rem;color:var(--muted);border-top:1px solid var(--line);background:rgba(0,0,0,.22)}
+
+/* ============ PRICING ============ */
+.plans{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;align-items:stretch}
+.plan-wrap{display:flex}
+.plan{
+  position:relative;display:flex;flex-direction:column;width:100%;padding:30px 26px;border-radius:26px;
+  border:1px solid var(--line);overflow:hidden;
+  background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.012));
+  transition:transform .6s var(--ease),border-color .4s,box-shadow .5s;
+  transform-style:preserve-3d;
+}
+.plan::before{
+  content:'';position:absolute;inset:0;pointer-events:none;opacity:0;transition:opacity .45s;
+  background:radial-gradient(360px circle at var(--mx,50%) var(--my,50%),rgba(198,255,74,.13),transparent 62%);
+}
+.plan:hover{border-color:var(--line-2);box-shadow:0 40px 90px -50px rgba(0,0,0,1)}
+.plan:hover::before{opacity:1}
+.plan.featured{
+  border-color:rgba(198,255,74,.32);
+  background:linear-gradient(170deg,rgba(198,255,74,.11),rgba(139,92,246,.07) 50%,rgba(255,255,255,.015));
+  box-shadow:0 0 80px -40px rgba(198,255,74,.75);
+}
+.plan-tag{
+  position:absolute;top:18px;right:18px;font-size:.66rem;letter-spacing:.13em;text-transform:uppercase;
+  font-family:'JetBrains Mono',monospace;color:#08090C;background:var(--lime);padding:5px 10px;border-radius:999px;font-weight:600;
+}
+.plan h3{font-family:'Bricolage Grotesque',sans-serif;font-size:1.1rem;letter-spacing:.02em;text-transform:uppercase;color:var(--muted);font-weight:600;margin-bottom:14px}
+.plan .price{display:flex;align-items:baseline;gap:6px;font-family:'Bricolage Grotesque',sans-serif;letter-spacing:-.04em;line-height:1}
+.plan .price b{font-size:clamp(2.1rem,3.6vw,2.9rem);font-weight:600}
+.plan .price i{font-style:normal;font-size:.92rem;color:var(--muted);letter-spacing:0}
+.plan .plan-sub{font-size:.85rem;color:var(--muted);margin-top:10px;min-height:2.6em}
+.plan ul{list-style:none;margin:22px 0 0;padding:0;display:flex;flex-direction:column;gap:11px}
+.plan li{display:flex;gap:10px;font-size:.885rem;color:#C4C9D4;line-height:1.45}
+.plan li svg{width:16px;height:16px;flex:none;margin-top:2px;color:var(--lime)}
+.plan .btn{margin-top:auto;width:100%;margin-top:26px}
+.plans-note{margin-top:20px;font-size:.8rem;color:var(--muted);text-align:center}
+
+/* ============ FAQ ============ */
+.faq{display:flex;flex-direction:column;gap:0;border-top:1px solid var(--line)}
+.faq-item{border-bottom:1px solid var(--line)}
+.faq-q{
+  width:100%;display:flex;align-items:center;justify-content:space-between;gap:20px;
+  padding:24px 4px;text-align:left;font-size:clamp(1rem,1.5vw,1.14rem);font-weight:500;
+  letter-spacing:-.015em;transition:color .3s,padding-left .45s var(--ease);
+}
+.faq-q:hover{color:var(--lime);padding-left:10px}
+.faq-ico{width:26px;height:26px;border-radius:50%;border:1px solid var(--line-2);position:relative;flex:none;transition:transform .5s var(--ease),background .4s,border-color .4s}
+.faq-ico::before,.faq-ico::after{content:'';position:absolute;left:50%;top:50%;background:currentColor;transform:translate(-50%,-50%);transition:opacity .3s}
+.faq-ico::before{width:11px;height:1.5px}
+.faq-ico::after{width:1.5px;height:11px}
+.faq-item.open .faq-ico{transform:rotate(135deg);background:var(--lime);color:#08090C;border-color:transparent}
+.faq-a{max-height:0;overflow:hidden;transition:max-height .55s var(--ease)}
+.faq-a p{padding:0 4px 26px;color:var(--muted);font-size:.94rem;line-height:1.65;max-width:75ch;margin:0}
+
+/* ============ CTA ============ */
+.cta{
+  position:relative;text-align:center;overflow:hidden;
+  padding:clamp(70px,11vw,140px) 0 clamp(60px,9vw,110px);
+  border-top:1px solid var(--line);
+}
+.cta-glow{
+  position:absolute;left:50%;top:6%;width:min(900px,120vw);height:min(900px,120vw);
+  transform:translateX(-50%);border-radius:50%;pointer-events:none;
+  background:radial-gradient(circle,rgba(198,255,74,.16),rgba(139,92,246,.12) 42%,transparent 68%);
+  filter:blur(50px);
+}
+.cta h2{
+  position:relative;font-family:'Bricolage Grotesque',sans-serif;font-weight:600;
+  font-size:clamp(2.4rem,6.4vw,4.8rem);line-height:.94;letter-spacing:-.045em;margin-bottom:.45em;
+}
+.cta h2 span{background:linear-gradient(100deg,var(--lime),var(--cyan) 55%,var(--violet));-webkit-background-clip:text;background-clip:text;color:transparent}
+.cta p{position:relative;color:var(--muted);max-width:52ch;margin:0 auto 34px;font-size:clamp(1rem,1.3vw,1.08rem)}
+.cta-form{position:relative;display:flex;gap:10px;max-width:480px;margin:0 auto;flex-wrap:wrap}
+.cta-form input{
+  flex:1;min-width:220px;padding:1.02em 1.3em;border-radius:999px;
+  background:rgba(255,255,255,.045);border:1px solid var(--line-2);color:var(--ink);
+  font-family:inherit;font-size:.95rem;outline:none;transition:border-color .3s,background .3s,box-shadow .3s;
+}
+.cta-form input::placeholder{color:rgba(255,255,255,.3)}
+.cta-form input:focus{border-color:rgba(198,255,74,.55);background:rgba(198,255,74,.06);box-shadow:0 0 0 4px rgba(198,255,74,.1)}
+.cta-form .btn{flex:none}
+.cta small{position:relative;display:block;margin-top:18px;font-size:.78rem;color:var(--muted)}
+
+/* ============ FOOTER ============ */
+footer{position:relative;z-index:2;border-top:1px solid var(--line);padding:clamp(40px,6vw,64px) 0 34px;background:rgba(0,0,0,.32)}
+.foot-grid{display:grid;grid-template-columns:1.6fr 1fr 1fr 1fr;gap:36px}
+.foot-brand p{color:var(--muted);font-size:.86rem;margin-top:14px;max-width:30ch;line-height:1.6}
+.foot-col h4{font-size:.72rem;letter-spacing:.15em;text-transform:uppercase;color:var(--muted);font-family:'JetBrains Mono',monospace;font-weight:500;margin-bottom:16px}
+.foot-col a{display:block;font-size:.88rem;color:#B9BEC9;padding:5px 0;transition:color .3s,transform .35s var(--ease)}
+.foot-col a:hover{color:var(--lime);transform:translateX(4px)}
+.foot-bottom{display:flex;justify-content:space-between;align-items:center;gap:20px;flex-wrap:wrap;
+  margin-top:clamp(36px,5vw,56px);padding-top:24px;border-top:1px solid var(--line);
+  font-size:.76rem;color:var(--muted)}
+.foot-bottom p{max-width:64ch;line-height:1.6}
+
+/* ============ REVEAL ============ */
+[data-reveal]{opacity:0;transform:translateY(30px);filter:blur(7px);
+  transition:opacity .95s var(--ease),transform .95s var(--ease),filter .95s var(--ease)}
+[data-reveal].in{opacity:1;transform:none;filter:none}
+
+/* ============ RESPONSIVE ============ */
+@media (max-width:1080px){
+  .hero-inner{grid-template-columns:1fr;gap:54px}
+  .hero-right{min-height:auto}
+  .how-grid{grid-template-columns:1fr}
+  .save-grid{grid-template-columns:1fr}
+  .bento{grid-template-columns:repeat(2,1fr)}
+  .b1,.b2,.b3,.b4,.b5,.b6,.b7{grid-column:span 1}
+  .b1,.b2{grid-column:span 2}
+  .plans{grid-template-columns:1fr;max-width:520px;margin-inline:auto}
+  .foot-grid{grid-template-columns:1fr 1fr}
+}
+@media (max-width:820px){
+  .nav-links{display:none}
+  .stats{grid-template-columns:repeat(2,1fr)}
+  .chip-a,.chip-b{display:none}
+}
+@media (max-width:620px){
+  .hero{padding-top:120px}
+  .calc-out{grid-template-columns:1fr;gap:8px}
+  .calc-cell{display:flex;align-items:center;justify-content:space-between}
+  .calc-cell span{margin-bottom:0}
+  .foot-grid{grid-template-columns:1fr;gap:28px}
+  .nav-cta .btn-ghost{display:none}
+  .cta-form{flex-direction:column}
+  .cta-form .btn{width:100%}
+  .b1,.b2{grid-column:span 1}
+  .bento{grid-template-columns:1fr}
+  .b{padding:22px}
+  thead th,tbody td{padding:13px 14px;font-size:.8rem}
+  td:nth-child(2){display:none}
+  thead th:nth-child(2){display:none}
+}
+
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important;scroll-behavior:auto!important}
+  [data-reveal]{opacity:1;transform:none;filter:none}
+  .h1 .line>span{transform:none}
+  .lead,.hero-actions,.hero-note{opacity:1}
+}
+</style>
+</head>
+<body>
+
+<div class="progress" id="progress"></div>
+<div class="grain"></div>
+<div class="cursor" id="cursor"></div>
+<div class="cursor-dot" id="cursorDot"></div>
+
+<div class="aurora" aria-hidden="true">
+  <div class="blob b1"></div>
+  <div class="blob b2"></div>
+  <div class="blob b3"></div>
+</div>
+<canvas id="bg" aria-hidden="true"></canvas>
+
+<!-- ================= NAV ================= -->
+<header class="nav" id="nav">
+  <a class="brand" href="#top" aria-label="ONEKEY — на главную">
+    <span class="brand-mark">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="8" cy="8" r="4.2"/><path d="M11.2 11.2 20 20"/><path d="M16.6 16.6 19 14.2"/><path d="M13.8 13.8 16 11.6"/>
+      </svg>
+    </span>
+    <span class="brand-name">onekey</span>
+  </a>
+  <nav class="nav-links">
+    <a href="#how">Как работает</a>
+    <a href="#features">Возможности</a>
+    <a href="#savings">Экономия</a>
+    <a href="#pricing">Тарифы</a>
+    <a href="#faq">FAQ</a>
+  </nav>
+  <div class="nav-cta">
+    <a class="btn btn-ghost" href="#">Войти</a>
+    <a class="btn btn-lime magnetic" href="#pricing">Получить ключ</a>
+  </div>
+</header>
+
+<main id="top">
+
+<!-- ================= HERO ================= -->
+<section class="hero">
+  <div class="wrap hero-inner">
+    <div class="hero-left">
+      <div class="eyebrow"><span class="dot"></span> GPT · Claude · Gemini · DeepSeek</div>
+      <h1 class="h1">
+        <span class="line"><span>Все нейросети.</span></span>
+        <span class="line"><span>Один <em>ключ</em>.</span></span>
+      </h1>
+      <p class="lead">
+        Единый OpenAI-совместимый API к топовым моделям мира. До 70% дешевле официальных цен,
+        без VPN и зарубежной карты. Меняете модель — меняете одну строку в коде.
+      </p>
+      <div class="hero-actions">
+        <a class="btn btn-lime btn-lg magnetic" href="#pricing">
+          Начать бесплатно
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        </a>
+        <a class="btn btn-ghost btn-lg" href="#how">Как это работает</a>
+      </div>
+      <div class="hero-note">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+        50 000 токенов в подарок · карта не нужна · ключ за 40 секунд
+      </div>
+    </div>
+
+    <div class="hero-right">
+      <div class="orbit">
+        <div class="ring r1"></div>
+        <div class="ring r2"></div>
+        <div class="ring r3"></div>
+
+        <div class="core">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="8" cy="8" r="4.2"/><path d="M11.2 11.2 20 20"/><path d="M16.6 16.6 19 14.2"/><path d="M13.8 13.8 16 11.6"/>
+          </svg>
+        </div>
+
+        <div class="sat" style="--a:0deg;--r:min(92px,15vw);--dur:16s">
+          <div class="pill"><i></i>GPT-5</div>
+        </div>
+        <div class="sat" style="--a:180deg;--r:min(92px,15vw);--dur:16s">
+          <div class="pill p2"><i></i>Claude 4.5</div>
+        </div>
+
+        <div class="sat" style="--a:65deg;--r:min(150px,24vw);--dur:23s">
+          <div class="pill p3"><i></i>Gemini 2.5</div>
+        </div>
+        <div class="sat" style="--a:245deg;--r:min(150px,24vw);--dur:23s">
+          <div class="pill p4"><i></i>DeepSeek V3</div>
+        </div>
+
+        <div class="sat" style="--a:130deg;--r:min(210px,34vw);--dur:31s">
+          <div class="pill"><i></i>o3</div>
+        </div>
+        <div class="sat" style="--a:310deg;--r:min(210px,34vw);--dur:31s">
+          <div class="pill p2"><i></i>Llama 4</div>
+        </div>
+      </div>
+
+      <div class="chip-float chip-a">
+        <b>−68%</b>
+        <span>к цене API</span>
+      </div>
+      <div class="chip-float chip-b">
+        <b>42 ms</b>
+        <span>p50 latency</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= MARQUEE ================= -->
+<div class="marquee" aria-hidden="true">
+  <div class="marquee-track" id="marqueeTrack"></div>
+</div>
+
+<!-- ================= STATS ================= -->
+<section style="padding-top:0">
+  <div class="wrap">
+    <div class="stats">
+      <div class="stat"><b data-count="99.98" data-dec="2">0</b><span>uptime за последние 12 месяцев</span></div>
+      <div class="stat"><b data-count="42">0</b><span>мс медианная задержка ответа</span></div>
+      <div class="stat"><b data-count="12" data-suffix="+">0</b><span>моделей под одним ключом</span></div>
+      <div class="stat"><b data-count="8400" data-suffix="+">0</b><span>разработчиков уже внутри</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= HOW ================= -->
+<section id="how">
+  <div class="wrap">
+    <div class="sec-head" data-reveal>
+      <div class="eyebrow">01 — Как это работает</div>
+      <h2 class="sec-title">Три шага<br>до первой строчки кода</h2>
+      <p class="sec-sub">Никакой миграции и переписывания сервиса. ONEKEY полностью повторяет формат OpenAI API — тот же SDK, те же эндпоинты, другие цены.</p>
+    </div>
+
+    <div class="how-grid">
+      <div class="steps" data-reveal>
+        <div class="step">
+          <div class="step-num">01</div>
+          <div>
+            <h3>Регистрация без карты</h3>
+            <p>Подтверждаете почту и сразу получаете 50 000 токенов на тест. Никаких зарубежных карт и верификаций.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">02</div>
+          <div>
+            <h3>Один ключ на все модели</h3>
+            <p>Формат <span class="mono" style="color:var(--lime);font-size:.85em">ok_live_...</span> подходит к GPT, Claude, Gemini и DeepSeek. Модель выбирается полем <span class="mono" style="color:#C9CEDB;font-size:.85em">model</span>.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">03</div>
+          <div>
+            <h3>Меняете base_url — готово</h3>
+            <p>Подставьте <span class="mono" style="color:var(--lime);font-size:.85em">api.onekey.ai/v1</span> вместо адреса OpenAI. Ваш код, SDK и цепочки LangChain продолжат работать как раньше.</p>
+          </div>
+        </div>
+      </div>
+
+      <div data-reveal data-delay=".12s">
+        <div class="code-card" data-tilt>
+          <div class="code-top">
+            <div class="dots"><i></i><i></i><i></i></div>
+            <div class="tabs" role="tablist">
+              <button class="tab active" data-lang="curl" role="tab">cURL</button>
+              <button class="tab" data-lang="python" role="tab">Python</button>
+              <button class="tab" data-lang="js" role="tab">JavaScript</button>
+            </div>
+            <div class="badge-live">live</div>
+          </div>
+          <pre class="code"><code id="codeOut"></code><span class="caret"></span></pre>
+          <div class="code-foot">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+            Совместимо с OpenAI SDK, LangChain, LlamaIndex, Vercel AI SDK
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= FEATURES ================= -->
+<section id="features">
+  <div class="wrap">
+    <div class="sec-head" data-reveal>
+      <div class="eyebrow">02 — Возможности</div>
+      <h2 class="sec-title">Инфраструктура,<br>а не перепродажа в чате</h2>
+      <p class="sec-sub">Маршрутизация, фоллбэки, лимиты и аналитика — уже встроены. Вам остаётся только писать продукт.</p>
+    </div>
+
+    <div class="bento">
+      <div class="b b1" data-reveal>
+        <div class="b-ico">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="4"/><path d="M11 11l9 9M17 17l2-2M14 14l2-2"/></svg>
+        </div>
+        <h3>Один ключ — все модели</h3>
+        <p>Никаких десяти личных кабинетов и пяти биллингов. Один токен доступа, один баланс, один счёт за месяц.</p>
+        <div class="chips">
+          <span>gpt-5</span><span>claude-sonnet-4.5</span><span>gemini-2.5-pro</span><span>deepseek-v3</span><span>o3</span><span>llama-4</span>
+        </div>
+      </div>
+
+      <div class="b b2" data-reveal data-delay=".08s">
+        <div class="b-ico">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="7" r="3"/><circle cx="17" cy="17" r="3"/><path d="M19 5 5 19"/></svg>
+        </div>
+        <h3>До 70% ниже официальных цен</h3>
+        <p>Мы закупаем объём оптом и делимся скидкой. Чем больше токенов — тем ниже цена за миллион.</p>
+        <div class="bars">
+          <i data-v="100%" style="height:100%"></i>
+          <i data-v="82%" style="height:82%"></i>
+          <i data-v="64%" style="height:64%"></i>
+          <i data-v="48%" style="height:48%"></i>
+          <i data-v="32%" style="height:32%"></i>
+        </div>
+      </div>
+
+      <div class="b b3" data-reveal data-delay=".04s">
+        <div class="b-ico">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8z"/></svg>
+        </div>
+        <h3>Задержка от 42 мс</h3>
+        <p>Edge-ноды в Европе и Азии, стриминг ответов включён по умолчанию.</p>
+      </div>
+
+      <div class="b b4" data-reveal data-delay=".1s">
+        <div class="b-ico">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6l8-3z"/></svg>
+        </div>
+        <h3>Без VPN и зарубежных карт</h3>
+        <p>Оплата картой РФ, СБП или криптой. Серверы отдают ответы без блокировок.</p>
+      </div>
+
+      <div class="b b5" data-reveal data-delay=".16s">
+        <div class="b-ico">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5M21 3l-7 7M8 21H3v-5M3 21l7-7M21 16v5h-5M14 14l7 7M3 8V3h5M10 10 3 3"/></svg>
+        </div>
+        <h3>Автофоллбэк</h3>
+        <p>Модель недоступна — запрос автоматически уходит на резервную. Ваш сервис не падает.</p>
+      </div>
+
+      <div class="b b6" data-reveal data-delay=".06s">
+        <div class="b-ico">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V11M10 20V4M16 20v-6M22 20H2"/></svg>
+        </div>
+        <h3>Аналитика в реальном времени</h3>
+        <p>Расход по моделям, стоимость каждого запроса, кэш-хиты и ошибки — в одном дашборде.</p>
+        <svg class="spark" viewBox="0 0 300 66" preserveAspectRatio="none">
+          <defs>
+            <linearGradient id="gradLime" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#C6FF4A" stop-opacity=".55"/>
+              <stop offset="100%" stop-color="#C6FF4A" stop-opacity="0"/>
+            </linearGradient>
+          </defs>
+          <path class="area" d="M0,54 L24,48 L48,50 L72,38 L96,42 L120,28 L144,32 L168,20 L192,26 L216,14 L240,18 L264,8 L288,12 L300,6 L300,66 L0,66 Z"/>
+          <path d="M0,54 L24,48 L48,50 L72,38 L96,42 L120,28 L144,32 L168,20 L192,26 L216,14 L240,18 L264,8 L288,12 L300,6"/>
+        </svg>
+      </div>
+
+      <div class="b b7" data-reveal data-delay=".12s">
+        <div class="b-ico">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="m8 8-4 4 4 4M16 8l4 4-4 4M14 4l-4 16"/></svg>
+        </div>
+        <h3>Полная совместимость с OpenAI SDK</h3>
+        <p>Меняется одна переменная окружения. Все библиотеки, готовые сниппеты и агентные фреймворки работают без правок.</p>
+        <div class="chips">
+          <span>openai</span><span>langchain</span><span>llamaindex</span><span>ai-sdk</span><span>litellm</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= SAVINGS ================= -->
+<section id="savings">
+  <div class="wrap">
+    <div class="sec-head" data-reveal>
+      <div class="eyebrow">03 — Экономия</div>
+      <h2 class="sec-title">Посчитайте<br>на своих объёмах</h2>
+      <p class="sec-sub">Двигайте ползунок и смотрите, сколько останется в бюджете. Расчёт по средней цене смешанного трафика.</p>
+    </div>
+
+    <div class="save-grid">
+      <div class="calc" data-reveal>
+        <h3>Калькулятор экономии</h3>
+        <div class="calc-sub">Объём токенов в месяц (вход + выход)</div>
+
+        <div class="calc-label">
+          <span>Токенов в месяц</span>
+          <b id="calcVal">20 млн</b>
+        </div>
+        <input type="range" id="calcRange" min="1" max="200" value="20" step="1" aria-label="Объём токенов в месяц">
+
+        <div class="calc-out">
+          <div class="calc-cell">
+            <span>Официально</span>
+            <b id="calcOfficial">$200</b>
+          </div>
+          <div class="calc-cell accent">
+            <span>С ONEKEY</span>
+            <b id="calcOurs">$64</b>
+          </div>
+          <div class="calc-cell save">
+            <span>Экономия</span>
+            <b id="calcSave">$136</b>
+          </div>
+        </div>
+      </div>
+
+      <div class="table-card" data-reveal data-delay=".1s">
+        <table>
+          <thead>
+            <tr>
+              <th>Модель</th>
+              <th>Официально</th>
+              <th>ONEKEY</th>
+              <th>Выгода</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>GPT-5</td><td>$5.00</td><td class="hl">$1.60</td><td><span class="badge">−68%</span></td></tr>
+            <tr><td>Claude Sonnet 4.5</td><td>$9.00</td><td class="hl">$2.90</td><td><span class="badge">−68%</span></td></tr>
+            <tr><td>Gemini 2.5 Pro</td><td>$3.50</td><td class="hl">$1.20</td><td><span class="badge">−66%</span></td></tr>
+            <tr><td>DeepSeek V3.2</td><td>$1.10</td><td class="hl">$0.35</td><td><span class="badge">−68%</span></td></tr>
+            <tr><td>o3</td><td>$12.00</td><td class="hl">$4.20</td><td><span class="badge">−65%</span></td></tr>
+            <tr><td>GPT-5 mini</td><td>$0.60</td><td class="hl">$0.19</td><td><span class="badge">−68%</span></td></tr>
+          </tbody>
+        </table>
+        <div class="table-note">Цены за 1 млн токенов, усреднённо вход/выход. Актуальный прайс — в личном кабинете.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= PRICING ================= -->
+<section id="pricing">
+  <div class="wrap">
+    <div class="sec-head" data-reveal>
+      <div class="eyebrow">04 — Тарифы</div>
+      <h2 class="sec-title">Платите за токены,<br>а не за подписку</h2>
+      <p class="sec-sub">Никаких скрытых списаний. Неиспользованные токены переносятся на следующий месяц.</p>
+    </div>
+
+    <div class="plans">
+      <div class="plan-wrap" data-reveal>
+        <div class="plan" data-tilt>
+          <h3>Старт</h3>
+          <div class="price"><b>490</b><i>₽ / мес</i></div>
+          <div class="plan-sub">Для пет-проектов, экспериментов и первых прототипов.</div>
+          <ul>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> 2 млн токенов включено</li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Все 12 моделей без ограничений</li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> OpenAI-совместимый API</li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Оплата картой РФ и СБП</li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Логи и статистика — 7 дней</li>
+          </ul>
+          <a class="btn btn-ghost" href="#">Выбрать Старт</a>
+        </div>
+      </div>
+
+      <div class="plan-wrap" data-reveal data-delay=".09s">
+        <div class="plan featured" data-tilt>
+          <span class="plan-tag">Популярный</span>
+          <h3>Про</h3>
+          <div class="price"><b>1 490</b><i>₽ / мес</i></div>
+          <div class="plan-sub">Для продакшена, фриланса и небольших команд.</div>
+          <ul>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> 8 млн токенов включено</li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Приоритетная очередь, p50 &lt; 400 мс</li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Автофоллбэк между моделями</li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Логи и статистика — 90 дней</li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Командный доступ: 3 ключа</li>
+          </ul>
+          <a class="btn btn-lime" href="#">Выбрать Про</a>
+        </div>
+      </div>
+
+      <div class="plan-wrap" data-reveal data-delay=".18s">
+        <div class="plan" data-tilt>
+          <h3>Скейл</h3>
+          <div class="price"><b>4 900</b><i>₽ / мес</i></div>
+          <div class="plan-sub">Для команд с высокими нагрузками и SLA-требованиями.</div>
+          <ul>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> 30 млн токенов включено</li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Выделенные лимиты и SLA 99.99%</li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Персональный менеджер</li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Вебхуки и кастомные лимиты</li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Неограниченное число ключей</li>
+          </ul>
+          <a class="btn btn-ghost" href="#">Выбрать Скейл</a>
+        </div>
+      </div>
+    </div>
+
+    <p class="plans-note" data-reveal>Токены сверх пакета списываются по тарифу модели. Нужен объём больше 100 млн — напишите нам, соберём индивидуальный контракт.</p>
+  </div>
+</section>
+
+<!-- ================= FAQ ================= -->
+<section id="faq">
+  <div class="wrap">
+    <div class="sec-head" data-reveal>
+      <div class="eyebrow">05 — Вопросы</div>
+      <h2 class="sec-title">Коротко о главном</h2>
+    </div>
+
+    <div class="faq" data-reveal>
+      <div class="faq-item open">
+        <button class="faq-q" type="button">
+          Откуда такие низкие цены?
+          <span class="faq-ico"></span>
+        </button>
+        <div class="faq-a">
+          <p>ONEKEY закупает токены крупным оптом у провайдеров и распределяет скидку между пользователями. Мы зарабатываем на марже в доли цента, а не на наценке в 300%. Поэтому цена выходит на 60–70% ниже официального прайса — при том же качестве ответов и той же модели на бэкенде.</p>
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <button class="faq-q" type="button">
+          Это работает с моим кодом на OpenAI SDK?
+          <span class="faq-ico"></span>
+        </button>
+        <div class="faq-a">
+          <p>Да, полностью. ONEKEY реализует тот же контракт <span class="mono">/v1/chat/completions</span>, включая стриминг, function calling, JSON mode и vision. Достаточно заменить <span class="mono">base_url</span> на <span class="mono">https://api.onekey.ai/v1</span> и подставить свой ключ — остальной код трогать не нужно.</p>
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <button class="faq-q" type="button">
+          Что будет, если модель недоступна?
+          <span class="faq-ico"></span>
+        </button>
+        <div class="faq-a">
+          <p>Сработает автофоллбэк: запрос уйдёт на резервную модель того же класса, а в ответе придёт заголовок с фактически использованной моделью. Если резерв тоже недоступен — вы получите ошибку 503 и автоматический возврат токенов на баланс.</p>
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <button class="faq-q" type="button">
+          Мои данные сохраняются?
+          <span class="faq-ico"></span>
+        </button>
+        <div class="faq-a">
+          <p>Нет. Промпты и ответы не логируются по умолчанию и не используются для обучения. В дашборде хранятся только технические метаданные: модель, число токенов, время ответа и статус. Логирование содержимого можно включить самостоятельно — для отладки.</p>
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <button class="faq-q" type="button">
+          Как пополнить баланс и вывести чек?
+          <span class="faq-ico"></span>
+        </button>
+        <div class="faq-a">
+          <p>Поддерживаются карты РФ, СБП, ЮMoney и криптовалюта (USDT, BTC). Юридическим лицам выставляем счёт и закрывающие документы. Токены не сгорают в конце месяца и переносятся на следующий период.</p>
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <button class="faq-q" type="button">
+          Есть ли бесплатный тест?
+          <span class="faq-ico"></span>
+        </button>
+        <div class="faq-a">
+          <p>Да — при регистрации начисляется 50 000 токенов на любые модели, без привязки карты. Этого хватает, чтобы прогнать несколько сотен коротких запросов и сравнить качество с официальным API.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= CTA ================= -->
+<section class="cta">
+  <div class="cta-glow" aria-hidden="true"></div>
+  <div class="wrap">
+    <h2 data-reveal>Один ключ.<br><span>Все модели.</span></h2>
+    <p data-reveal data-delay=".08s">Зарегистрируйтесь, получите 50 000 токенов и сделайте первый запрос через минуту. Карта не нужна.</p>
+    <form class="cta-form" data-reveal data-delay=".16s" id="ctaForm">
+      <input type="email" placeholder="you@email.com" required aria-label="Email">
+      <button class="btn btn-lime" type="submit">Получить ключ</button>
+    </form>
+    <small data-reveal data-delay=".24s">Без спама. Только ключ и инструкция по подключению.</small>
+  </div>
+</section>
+
+</main>
+
+<!-- ================= FOOTER ================= -->
+<footer>
+  <div class="wrap">
+    <div class="foot-grid">
+      <div class="foot-brand">
+        <a class="brand" href="#top">
+          <span class="brand-mark">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="8" cy="8" r="4.2"/><path d="M11.2 11.2 20 20"/><path d="M16.6 16.6 19 14.2"/><path d="M13.8 13.8 16 11.6"/>
+            </svg>
+          </span>
+          <span class="brand-name">onekey</span>
+        </a>
+        <p>Единый API к GPT, Claude, Gemini и DeepSeek. Дешевле, быстрее, без VPN.</p>
+      </div>
+      <div class="foot-col">
+        <h4>Продукт</h4>
+        <a href="#features">Возможности</a>
+        <a href="#savings">Цены на модели</a>
+        <a href="#pricing">Тарифы</a>
+        <a href="#how">Документация</a>
+      </div>
+      <div class="foot-col">
+        <h4>Ресурсы</h4>
+        <a href="#">Статус сервиса</a>
+        <a href="#">Changelog</a>
+        <a href="#">Примеры интеграций</a>
+        <a href="#faq">FAQ</a>
+      </div>
+      <div class="foot-col">
+        <h4>Компания</h4>
+        <a href="#">О нас</a>
+        <a href="#">Поддержка 24/7</a>
+        <a href="#">Telegram-канал</a>
+        <a href="#">Условия и оферта</a>
+      </div>
+    </div>
+    <div class="foot-bottom">
+      <p>© 2025 ONEKEY. Независимый агрегатор API-доступа. Не аффилирован с OpenAI, Anthropic, Google и DeepSeek. Названия моделей принадлежат их правообладателям.</p>
+      <p class="mono" style="opacity:.6">v4.1 · all systems operational</p>
+    </div>
+  </div>
+</footer>
+
+<script>
+(function(){
+  "use strict";
+  const RM = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const $ = (s, c) => (c || document).querySelector(s);
+  const $$ = (s, c) => Array.from((c || document).querySelectorAll(s));
+
+  /* ---------- MARQUEE ---------- */
+  const models = ['GPT-5','Claude Sonnet 4.5','Gemini 2.5 Pro','DeepSeek V3','o3','Llama 4','Mistral Large','Qwen 3','Grok 4'];
+  const track = $('#marqueeTrack');
+  if (track) {
+    const html = models.map(m => '<span>' + m + '</span><i>✦</i>').join('');
+    track.innerHTML = html + html;
+  }
+
+  /* ---------- CURSOR ---------- */
+  const cursor = $('#cursor'), dot = $('#cursorDot');
+  const fine = window.matchMedia('(pointer:fine)').matches;
+  if (cursor && dot && fine && !RM) {
+    let cx = innerWidth / 2, cy = innerHeight / 2, tx = cx, ty = cy;
+    addEventListener('mousemove', e => {
+      tx = e.clientX; ty = e.clientY;
+      dot.style.transform = 'translate(' + tx + 'px,' + ty + 'px) translate(-50%,-50%)';
+    }, { passive: true });
+    (function loop() {
+      cx += (tx - cx) * 0.17;
+      cy += (ty - cy) * 0.17;
+      cursor.style.transform = 'translate(' + cx + 'px,' + cy + 'px) translate(-50%,-50%)';
+      requestAnimationFrame(loop);
+    })();
+    $$('a, button, input, .b, .plan, .faq-q').forEach(el => {
+      el.addEventListener('mouseenter', () => cursor.classList.add('grow'));
+      el.addEventListener('mouseleave', () => cursor.classList.remove('grow'));
+    });
+  } else if (cursor && dot) {
+    cursor.style.display = 'none'; dot.style.display = 'none';
+  }
+
+  /* ---------- SCROLL PROGRESS + NAV ---------- */
+  const progress = $('#progress');
+  const nav = $('#nav');
+  function onScroll() {
+    const h = document.documentElement.scrollHeight - innerHeight;
+    const p = h > 0 ? scrollY / h : 0;
+    if (progress) progress.style.transform = 'scaleX(' + Math.min(1, Math.max(0, p)) + ')';
+    if (nav) nav.classList.toggle('scrolled', scrollY > 40);
+  }
+  addEventListener('scroll', onScroll, { passive: true });
+  onScroll();
+
+  /* ---------- REVEAL ---------- */
+  const revealEls = $$('[data-reveal]');
+  if ('IntersectionObserver' in window && !RM) {
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach(en => {
+        if (en.isIntersecting) {
+          const d = en.target.dataset.delay;
+          if (d) en.target.style.transitionDelay = d;
+          en.target.classList.add('in');
+          io.unobserve(en.target);
+        }
+      });
+    }, { threshold: 0.12, rootMargin: '0px 0px -60px 0px' });
+    revealEls.forEach(el => io.observe(el));
+  } else {
+    revealEls.forEach(el => el.classList.add('in'));
+  }
+
+  /* ---------- SPOTLIGHT ON CARDS ---------- */
+  $$('.b, .plan').forEach(card => {
+    card.addEventListener('mousemove', e => {
+      const r = card.getBoundingClientRect();
+      card.style.setProperty('--mx', ((e.clientX - r.left) / r.width * 100).toFixed(1) + '%');
+      card.style.setProperty('--my', ((e.clientY - r.top) / r.height * 100).toFixed(1) + '%');
+    });
+  });
+
+  /* ---------- TILT ---------- */
+  if (!RM) {
+    $$('[data-tilt]').forEach(el => {
+      el.addEventListener('mousemove', e => {
+        const r = el.getBoundingClientRect();
+        const px = (e.clientX - r.left) / r.width;
+        const py = (e.clientY - r.top) / r.height;
+        el.style.transform = 'perspective(1000px) rotateX(' + ((0.5 - py) * 5).toFixed(2) + 'deg) rotateY(' + ((px - 0.5) * 5).toFixed(2) + 'deg)';
+      });
+      el.addEventListener('mouseleave', () => { el.style.transform = ''; });
+    });
+  }
+
+  /* ---------- MAGNETIC BUTTONS ---------- */
+  if (!RM && fine) {
+    $$('.magnetic').forEach(btn => {
+      btn.addEventListener('mousemove', e => {
+        const r = btn.getBoundingClientRect();
+        const x = (e.clientX - r.left - r.width / 2) * 0.22;
+        const y = (e.clientY - r.top - r.height / 2) * 0.3;
+        btn.style.transform = 'translate(' + x.toFixed(1) + 'px,' + (y - 2).toFixed(1) + 'px)';
+      });
+      btn.addEventListener('mouseleave', () => { btn.style.transform = ''; });
+    });
+  }
+
+  /* ---------- COUNTERS ---------- */
+  function animateCount(el) {
+    const target = parseFloat(el.dataset.count);
+    const dec = parseInt(el.dataset.dec || '0', 10);
+    const suffix = el.dataset.suffix || '';
+    const dur = 1700;
+    const start = performance.now();
+    function frame(t) {
+      const p = Math.min(1, (t - start) / dur);
+      const e = 1 - Math.pow(1 - p, 3);
+      const v = target * e;
+      el.textContent = (dec ? v.toFixed(dec) : Math.round(v).toLocaleString('ru-RU')) + suffix;
+      if (p < 1) requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+  }
+  const counters = $$('[data-count]');
+  if ('IntersectionObserver' in window && !RM) {
+    const cio = new IntersectionObserver((entries) => {
+      entries.forEach(en => {
+        if (en.isIntersecting) { animateCount(en.target); cio.unobserve(en.target); }
+      });
+    }, { threshold: 0.6 });
+    counters.forEach(c => cio.observe(c));
+  } else {
+    counters.forEach(c => {
+      const dec = parseInt(c.dataset.dec || '0', 10);
+      c.textContent = (dec ? parseFloat(c.dataset.count).toFixed(dec) : parseFloat(c.dataset.count).toLocaleString('ru-RU')) + (c.dataset.suffix || '');
+    });
+  }
+
+  /* ---------- CODE TYPING ---------- */
+  const codeSamples = {
+    curl: 'curl https://api.onekey.ai/v1/chat/completions \\\n  -H "Authorization: Bearer ok_live_7f3a9c..." \\\n  -H "Content-Type: application/json" \\\n  -d \'{\n    "model": "claude-sonnet-4.5",\n    "messages": [{"role": "user", "content": "Привет!"}]\n  }\'',
+    python: 'from openai import OpenAI\n\nclient = OpenAI(\n    base_url="https://api.onekey.ai/v1",\n    api_key="ok_live_7f3a9c..."\n)\n\nr = client.chat.completions.create(\n    model="gpt-5",\n    messages=[{"role": "user", "content": "Привет!"}]\n)\nprint(r.choices[0].message.content)',
+    js: 'import OpenAI from "openai";\n\nconst ai = new OpenAI({\n  baseURL: "https://api.onekey.ai/v1",\n  apiKey: "ok_live_7f3a9c..."\n});\n\nconst r = await ai.chat.completions.create({\n  model: "gemini-2.5-pro",\n  messages: [{ role: "user", content: "Привет!" }]\n});\nconsole.log(r.choices[0].message.content);'
+  };
+
+  const codeOut = $('#codeOut');
+  let typeTimer = null, codeStarted = false, currentLang = 'curl';
+
+  function esc(s) {
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+  function highlight(s) {
+    return esc(s).replace(
+      /("(?:[^"\\]|\\.)*")|\b(from|import|const|await|new|curl|def|return|print|async|model|messages)\b|(#.*)$/gm,
+      function (m, str, kw, com) {
+        if (str) return '<span class="t-str">' + str + '</span>';
+        if (kw) return '<span class="t-kw">' + kw + '</span>';
+        if (com) return '<span class="t-com">' + com + '</span>';
+        return m;
+      }
+    );
+  }
+
+  function typeCode(lang) {
+    if (!codeOut) return;
+    clearTimeout(typeTimer);
+    currentLang = lang;
+    const text = codeSamples[lang];
+    if (RM) {
+      codeOut.innerHTML = highlight(text);
+      return;
+    }
+    let i = 0;
+    codeOut.innerHTML = '';
+    (function step() {
+      i++;
+      codeOut.innerHTML = highlight(text.slice(0, i));
+      if (i < text.length) {
+        const ch = text[i - 1];
+        const pause = ch === '\n' ? 55 : (ch === ' ' ? 18 : 11);
+        typeTimer = setTimeout(step, pause);
+      }
+    })();
+  }
+
+  const codeCard = $('.code-card');
+  if (codeCard && 'IntersectionObserver' in window) {
+    const co = new IntersectionObserver((entries) => {
+      entries.forEach(en => {
+        if (en.isIntersecting && !codeStarted) {
+          codeStarted = true;
+          typeCode(currentLang);
+          co.disconnect();
+        }
+      });
+    }, { threshold: 0.35 });
+    co.observe(codeCard);
+  } else if (codeCard) {
+    codeStarted = true;
+    typeCode(currentLang);
+  }
+
+  $$('.tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      $$('.tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      if (codeStarted) typeCode(tab.dataset.lang);
+      else currentLang = tab.dataset.lang;
+    });
+  });
+
+  /* ---------- CALCULATOR ---------- */
+  const range = $('#calcRange');
+  const valEl = $('#calcVal');
+  const offEl = $('#calcOfficial');
+  const ourEl = $('#calcOurs');
+  const savEl = $('#calcSave');
+
+  function fmt(n) {
+    return '$' + (n >= 1000 ? Math.round(n).toLocaleString('ru-RU') : (Math.round(n * 10) / 10).toString());
+  }
+  function updateCalc() {
+    if (!range) return;
+    const m = parseFloat(range.value);
+    const off = m * 10;
+    const ours = m * 3.2;
+    const save = off - ours;
+
+    valEl.textContent = m + ' млн';
+    offEl.textContent = fmt(off);
+    ourEl.textContent = fmt(ours);
+    savEl.textContent = fmt(save);
+
+    const pct = ((range.value - range.min) / (range.max - range.min)) * 100;
+    range.style.setProperty('--fill', pct + '%');
+  }
+  if (range) {
+    range.addEventListener('input', updateCalc);
+    updateCalc();
+  }
+
+  /* ---------- FAQ ---------- */
+  $$('.faq-item').forEach(item => {
+    const q = $('.faq-q', item);
+    const a = $('.faq-a', item);
+    if (item.classList.contains('open')) a.style.maxHeight = a.scrollHeight + 'px';
+    q.addEventListener('click', () => {
+      const isOpen = item.classList.contains('open');
+      $$('.faq-item.open').forEach(o => {
+        o.classList.remove('open');
+        $('.faq-a', o).style.maxHeight = '0px';
+      });
+      if (!isOpen) {
+        item.classList.add('open');
+        a.style.maxHeight = a.scrollHeight + 'px';
+      }
+    });
+  });
+  window.addEventListener('resize', () => {
+    $$('.faq-item.open .faq-a').forEach(a => { a.style.maxHeight = a.scrollHeight + 'px'; });
+  });
+
+  /* ---------- CTA FORM ---------- */
+  const form = $('#ctaForm');
+  if (form) {
+    form.addEventListener('submit', e => {
+      e.preventDefault();
+      const btn = form.querySelector('button');
+      const input = form.querySelector('input');
+      btn.textContent = 'Ключ отправлен ✓';
+      btn.style.background = 'var(--cyan)';
+      input.value = '';
+      input.placeholder = 'Проверьте почту';
+      setTimeout(() => {
+        btn.textContent = 'Получить ключ';
+        btn.style.background = '';
+        input.placeholder = 'you@email.com';
+      }, 3200);
+    });
+  }
+
+  /* ---------- CANVAS PARTICLES ---------- */
+  const canvas = $('#bg');
+  if (canvas && canvas.getContext) {
+    const ctx = canvas.getContext('2d');
+    let W = 0, H = 0, dpr = Math.min(devicePixelRatio || 1, 2);
+    let parts = [];
+    const mouse = { x: 0, y: 0, tx: 0, ty: 0 };
+
+    function resize() {
+      W = innerWidth; H = innerHeight;
+      canvas.width = Math.floor(W * dpr);
+      canvas.height = Math.floor(H * dpr);
+      canvas.style.width = W + 'px';
+      canvas.style.height = H + 'px';
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      build();
+    }
+
+    function build() {
+      const count = Math.min(78, Math.max(24, Math.round(W * H / 19000)));
+      parts = [];
+      const palette = [
+        'rgba(198,255,74,',
+        'rgba(139,92,246,',
+        'rgba(59,232,255,',
+        'rgba(255,255,255,'
+      ];
+      for (let i = 0; i < count; i++) {
+        const c = palette[i % palette.length];
+        const a = c === 'rgba(255,255,255,' ? 0.28 : 0.55;
+        parts.push({
+          x: Math.random() * W,
+          y: Math.random() * H,
+          r: Math.random() * 1.7 + 0.5,
+          vx: (Math.random() - 0.5) * 0.22,
+          vy: (Math.random() - 0.5) * 0.22,
+          d: Math.random() * 1.6 + 0.35,
+          c: c + (a * (0.4 + Math.random() * 0.6)).toFixed(2) + ')'
+        });
+      }
+    }
+
+    let raf = null;
+    function draw() {
+      ctx.clearRect(0, 0, W, H);
+      mouse.x += (mouse.tx - mouse.x) * 0.05;
+      mouse.y += (mouse.ty - mouse.y) * 0.05;
+
+      for (let i = 0; i < parts.length; i++) {
+        const p = parts[i];
+        p.x += p.vx; p.y += p.vy;
+        if (p.x < -20) p.x = W + 20;
+        if (p.x > W + 20) p.x = -20;
+        if (p.y < -20) p.y = H + 20;
+        if (p.y > H + 20) p.y = -20;
+
+        const ox = p.x + mouse.x * p.d * 26;
+        const oy = p.y + mouse.y * p.d * 26;
+
+        ctx.beginPath();
+        ctx.arc(ox, oy, p.r, 0, Math.PI * 2);
+        ctx.fillStyle = p.c;
+        ctx.fill();
+
+        for (let j = i + 1; j < parts.length; j++) {
+          const q = parts[j];
+          const qx = q.x + mouse.x * q.d * 26;
+          const qy = q.y + mouse.y * q.d * 26;
+          const dx = ox - qx, dy = oy - qy;
+          const dist2 = dx * dx + dy * dy;
+          if (dist2 < 15500) {
+            const alpha = (1 - dist2 / 15500) * 0.1;
+            ctx.beginPath();
+            ctx.moveTo(ox, oy);
+            ctx.lineTo(qx, qy);
+            ctx.strokeStyle = 'rgba(180,200,255,' + alpha.toFixed(3) + ')';
+            ctx.lineWidth = 0.6;
+            ctx.stroke();
+          }
+        }
+      }
+      raf = requestAnimationFrame(draw);
+    }
+
+    addEventListener('mousemove', e => {
+      mouse.tx = (e.clientX / innerWidth - 0.5) * 2;
+      mouse.ty = (e.clientY / innerHeight - 0.5) * 2;
+    }, { passive: true });
+
+    let rt = null;
+    addEventListener('resize', () => {
+      clearTimeout(rt);
+      rt = setTimeout(resize, 180);
+    });
+
+    resize();
+    if (!RM) draw();
+    else {
+      // static render for reduced motion
+      for (let i = 0; i < parts.length; i++) {
+        const p = parts[i];
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        ctx.fillStyle = p.c;
+        ctx.fill();
+      }
+    }
+
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) { if (raf) cancelAnimationFrame(raf); raf = null; }
+      else if (!RM && !raf) draw();
+    });
+  }
+})();
+</script>
+</body>
+</html>

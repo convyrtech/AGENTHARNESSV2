@@ -1,0 +1,722 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Сколько вы переплачиваете за нейросети — калькулятор экономии</title>
+<meta name="description" content="Посчитайте, сколько денег уходит провайдеру нейросетей и сколько вернётся в бюджет с нашим сервисом.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0A0E27; --violet:#7C3AED; --violet-2:#A78BFA;
+    --green:#10B981; --green-2:#34D399; --red:#FB7185;
+    --txt:#E8EAF6; --muted:#8B90B5; --line:rgba(255,255,255,.08);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    font-family:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+    color:var(--txt); background:#0A0E27; min-height:100vh;
+    -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
+  }
+  body::before{
+    content:''; position:fixed; inset:0; pointer-events:none; z-index:0;
+    background:
+      radial-gradient(900px 520px at 12% -8%, rgba(124,58,237,.30), transparent 62%),
+      radial-gradient(720px 420px at 94% 0%, rgba(16,185,129,.11), transparent 58%),
+      radial-gradient(700px 460px at 55% 112%, rgba(124,58,237,.14), transparent 62%);
+  }
+  .wrap{position:relative; z-index:1; max-width:1140px; margin:0 auto; padding:36px 20px 64px}
+
+  /* ---------- header ---------- */
+  .eyebrow{
+    display:inline-flex; align-items:center; gap:7px;
+    font-size:11.5px; letter-spacing:.09em; text-transform:uppercase; font-weight:600;
+    color:#C4B5FD; background:rgba(124,58,237,.13);
+    border:1px solid rgba(124,58,237,.28); border-radius:99px; padding:6px 12px;
+  }
+  .eyebrow .dot{width:6px;height:6px;border-radius:50%;background:#34D399;box-shadow:0 0 0 3px rgba(52,211,153,.18)}
+  h1{
+    font-size:clamp(26px,3.7vw,42px); line-height:1.07; letter-spacing:-.032em;
+    font-weight:800; margin:12px 0 10px; max-width:760px;
+  }
+  .hl{background:linear-gradient(100deg,#C4B5FD,#7C3AED 70%);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .sub{color:var(--muted);font-size:14.5px;line-height:1.55;max-width:610px;margin:0 0 24px}
+
+  /* ---------- layout ---------- */
+  .grid{display:grid;grid-template-columns:1fr 1.03fr;gap:20px;align-items:start}
+  .panel{
+    background:linear-gradient(180deg,rgba(255,255,255,.055),rgba(255,255,255,.018));
+    border:1px solid var(--line); border-radius:20px; padding:22px;
+  }
+  .result{
+    border-color:rgba(124,58,237,.3);
+    box-shadow:0 24px 70px -34px rgba(124,58,237,.95), inset 0 1px 0 rgba(255,255,255,.06);
+  }
+
+  /* ---------- profiles ---------- */
+  .profiles{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .chip{
+    text-align:left;padding:10px 12px;border-radius:12px;font-family:inherit;cursor:pointer;
+    background:rgba(255,255,255,.03);border:1px solid var(--line);color:var(--txt);
+    transition:border-color .18s,background .18s,box-shadow .18s,transform .12s;
+  }
+  .chip strong{display:block;font-size:13.5px;font-weight:600;letter-spacing:-.01em}
+  .chip small{display:block;font-size:11px;color:var(--muted);margin-top:3px;font-variant-numeric:tabular-nums}
+  .chip:hover{border-color:rgba(124,58,237,.55);background:rgba(124,58,237,.09)}
+  .chip.active{border-color:var(--violet);background:rgba(124,58,237,.17);box-shadow:0 0 0 3px rgba(124,58,237,.13)}
+
+  /* ---------- fields ---------- */
+  .field{margin-top:19px}
+  .field-head{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:10px}
+  .field-lbl{font-size:13px;color:var(--muted);font-weight:500}
+  .field-val{font-size:15.5px;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+  .field-val small{font-size:11.5px;color:var(--muted);font-weight:500;margin-left:4px;letter-spacing:0}
+
+  input[type=range]{
+    -webkit-appearance:none; appearance:none; display:block; width:100%;
+    height:8px; border-radius:99px; outline:none; cursor:pointer;
+    background:rgba(255,255,255,.09);
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none; width:22px;height:22px;border-radius:50%;
+    background:#fff;border:4px solid var(--violet);
+    box-shadow:0 0 0 4px rgba(124,58,237,.2),0 6px 16px rgba(0,0,0,.55);
+    cursor:grab;transition:box-shadow .18s,transform .12s;
+  }
+  input[type=range]:active::-webkit-slider-thumb{transform:scale(1.08);cursor:grabbing}
+  input[type=range]::-moz-range-track{background:transparent;height:8px;border-radius:99px}
+  input[type=range]::-moz-range-thumb{
+    width:16px;height:16px;border-radius:50%;background:#fff;border:4px solid var(--violet);
+    box-shadow:0 0 0 4px rgba(124,58,237,.2),0 6px 16px rgba(0,0,0,.55);cursor:grab;
+  }
+
+  /* ---------- model segmented ---------- */
+  .seg{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  .seg-btn{
+    padding:9px 6px;border-radius:11px;font-family:inherit;cursor:pointer;text-align:center;
+    background:rgba(255,255,255,.03);border:1px solid var(--line);color:var(--txt);
+    transition:border-color .18s,background .18s,box-shadow .18s;
+  }
+  .seg-btn span{display:block;font-size:12.5px;font-weight:600;letter-spacing:-.01em}
+  .seg-btn small{display:block;font-size:10.5px;color:var(--muted);margin-top:3px;font-variant-numeric:tabular-nums}
+  .seg-btn:hover{border-color:rgba(124,58,237,.55);background:rgba(124,58,237,.09)}
+  .seg-btn.active{border-color:var(--violet);background:rgba(124,58,237,.19);box-shadow:0 0 0 3px rgba(124,58,237,.13)}
+  .seg-btn.active small{color:#C4B5FD}
+
+  /* ---------- result: stats ---------- */
+  .stats{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .stat{background:rgba(255,255,255,.032);border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:12px 14px}
+  .stat-lbl{font-size:11.5px;color:var(--muted);letter-spacing:.015em}
+  .stat-val{font-size:clamp(21px,2.6vw,27px);font-weight:800;letter-spacing:-.028em;font-variant-numeric:tabular-nums;margin-top:4px;line-height:1.1}
+  .stat-val.bad{color:var(--red)}
+  .stat-val.good{color:var(--green-2)}
+  .stat-foot{font-size:10.5px;color:var(--muted);margin-top:3px}
+
+  /* ---------- bar ---------- */
+  .bar-wrap{margin-top:16px}
+  .bar-head{display:flex;justify-content:space-between;font-size:11.5px;color:var(--muted);margin-bottom:7px;letter-spacing:.02em}
+  .pct{color:var(--green-2);font-weight:700;font-variant-numeric:tabular-nums}
+  .bar{height:8px;border-radius:99px;background:rgba(255,255,255,.07);overflow:hidden}
+  .bar-fill{
+    height:100%;width:55%;border-radius:99px;
+    background:linear-gradient(90deg,#F43F5E,#7C3AED 46%,#10B981);
+    transition:width .5s cubic-bezier(.22,1,.36,1);
+  }
+
+  /* ---------- savings ---------- */
+  .savings{
+    margin-top:16px;padding:15px 16px 14px;border-radius:16px;
+    background:radial-gradient(130% 150% at 0% 0%,rgba(16,185,129,.17),rgba(124,58,237,.11) 58%,rgba(255,255,255,.02));
+    border:1px solid rgba(16,185,129,.26);
+  }
+  .savings-lbl{font-size:10.5px;text-transform:uppercase;letter-spacing:.13em;color:#9FE9CE;font-weight:700}
+  .savings-big{display:flex;align-items:baseline;gap:7px;margin-top:7px}
+  .savings-big .num{
+    font-size:clamp(36px,5.4vw,54px);font-weight:800;letter-spacing:-.038em;line-height:1;
+    font-variant-numeric:tabular-nums;
+    background:linear-gradient(100deg,#34D399,#A78BFA 78%);
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+  }
+  .savings-big .per{font-size:15px;font-weight:600;color:#8B90B5}
+  .savings-year{margin-top:6px;font-size:13px;color:#C3C7E4}
+  .savings-year b{color:#fff;font-variant-numeric:tabular-nums;font-weight:700}
+
+  .tips{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:11px}
+  .tip{
+    font-size:11px;line-height:1.35;color:var(--muted);
+    background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);
+    border-radius:10px;padding:8px 10px;
+  }
+  .tip b{color:#E8EAF6;font-variant-numeric:tabular-nums;font-weight:700}
+
+  /* ---------- cta ---------- */
+  .btn-primary{
+    width:100%;margin-top:15px;padding:14px 18px;border:0;border-radius:14px;
+    font-family:inherit;font-size:15px;font-weight:700;color:#fff;cursor:pointer;letter-spacing:-.01em;
+    background:linear-gradient(100deg,#7C3AED,#6D28D9 55%,#5B21B6);
+    box-shadow:0 12px 34px -12px rgba(124,58,237,.95), inset 0 1px 0 rgba(255,255,255,.18);
+    transition:transform .16s,box-shadow .16s,filter .16s;
+  }
+  .btn-primary:hover{transform:translateY(-1px);box-shadow:0 18px 44px -14px rgba(124,58,237,1)}
+  .btn-primary:active{transform:translateY(0) scale(.995);filter:brightness(.96)}
+
+  .payback{margin-top:10px;font-size:11.5px;color:#A5AACB;text-align:center;line-height:1.4}
+  .payback b{color:#E8EAF6;font-variant-numeric:tabular-nums}
+
+  /* ---------- case ---------- */
+  .case{display:flex;gap:10px;margin-top:14px;padding:11px 12px;border-radius:12px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07)}
+  .case-ava{
+    width:30px;height:30px;flex:0 0 30px;border-radius:9px;display:grid;place-items:center;
+    font-size:11px;font-weight:800;color:#0A0E27;letter-spacing:-.02em;
+    background:linear-gradient(135deg,#A78BFA,#34D399);
+  }
+  .case-txt{font-size:11.5px;line-height:1.45;color:#C3C7E4}
+  .case-txt b{color:#fff;font-variant-numeric:tabular-nums}
+  .case-meta{font-size:10px;color:#7B80A6;margin-top:4px;letter-spacing:.03em;text-transform:uppercase;font-weight:600}
+
+  /* ---------- details ---------- */
+  .btn-ghost{
+    width:100%;margin-top:14px;padding:11px;border-radius:12px;cursor:pointer;font-family:inherit;
+    border:1px solid rgba(255,255,255,.12);background:transparent;color:#C9CDEB;
+    font-size:13px;font-weight:600;transition:background .18s,color .18s,border-color .18s;
+  }
+  .btn-ghost:hover{background:rgba(255,255,255,.05);color:#fff;border-color:rgba(255,255,255,.2)}
+  .caret{display:inline-block;margin-left:6px;font-size:9px;transition:transform .25s;transform:translateY(-1px)}
+  .btn-ghost[aria-expanded="true"] .caret{transform:rotate(180deg) translateY(1px)}
+
+  .breakdown{
+    margin-top:12px;padding-top:13px;border-top:1px solid rgba(255,255,255,.08);
+    display:grid;gap:9px;animation:fadeIn .3s ease;
+  }
+  .breakdown[hidden]{display:none}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(-5px)}to{opacity:1;transform:none}}
+  .bd-row{display:flex;justify-content:space-between;gap:14px;font-size:12.5px}
+  .bd-row .k{color:var(--muted)}
+  .bd-row .v{color:#E8EAF6;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .bd-row .v.neg{color:var(--green-2)}
+  .bd-row .v.off{color:#6E7397}
+  .bd-row.total{border-top:1px solid rgba(255,255,255,.08);padding-top:9px;font-weight:700}
+  .bd-row.total .k{color:#fff}
+  .bd-note{font-size:10.5px;color:#6E7397;line-height:1.45;margin-top:2px}
+
+  .disclaimer{font-size:10.5px;color:#6E7397;line-height:1.55;margin:24px 0 0;max-width:780px}
+
+  /* ---------- mobile sticky bar ---------- */
+  .mobilebar{display:none}
+
+  /* ---------- confetti ---------- */
+  #confetti{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:99}
+
+  :focus-visible{outline:2px solid #A78BFA;outline-offset:2px}
+
+  @media (max-width:900px){
+    .wrap{padding:26px 16px 108px}
+    .grid{grid-template-columns:1fr;gap:16px}
+    .panel{padding:18px}
+    .sub{margin-bottom:18px}
+    .mobilebar{
+      display:flex;align-items:center;justify-content:space-between;gap:12px;
+      position:fixed;left:12px;right:12px;bottom:12px;z-index:60;
+      padding:11px 12px 11px 16px;border-radius:16px;
+      background:rgba(14,18,48,.92);border:1px solid rgba(124,58,237,.4);
+      box-shadow:0 18px 50px -18px rgba(0,0,0,.9),0 0 0 1px rgba(255,255,255,.03) inset;
+      backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+    }
+    .mb-lbl{font-size:10px;text-transform:uppercase;letter-spacing:.12em;color:#9FE9CE;font-weight:700}
+    .mb-val{font-size:20px;font-weight:800;letter-spacing:-.03em;font-variant-numeric:tabular-nums;line-height:1.15;
+      background:linear-gradient(100deg,#34D399,#A78BFA);-webkit-background-clip:text;background-clip:text;color:transparent}
+    .mb-per{font-size:11px;color:#8B90B5;-webkit-text-fill-color:#8B90B5;margin-left:2px}
+    .mb-btn{
+      flex:0 0 auto;padding:11px 16px;border:0;border-radius:11px;font-family:inherit;font-size:13px;font-weight:700;color:#fff;
+      background:linear-gradient(100deg,#7C3AED,#5B21B6);cursor:pointer;
+      box-shadow:0 8px 22px -10px rgba(124,58,237,1);
+    }
+  }
+  @media (max-width:420px){
+    .profiles{grid-template-columns:1fr}
+    .tips{grid-template-columns:1fr}
+    .seg-btn span{font-size:11.5px}
+  }
+</style>
+</head>
+<body>
+<canvas id="confetti" aria-hidden="true"></canvas>
+
+<main class="wrap">
+  <header>
+    <div class="eyebrow"><span class="dot"></span>расчёт по публичным тарифам</div>
+    <h1>Сколько вы <span class="hl">переплачиваете</span> за нейросети?</h1>
+    <p class="sub">Три параметра — и видно, сколько уходит провайдеру, а сколько возвращается в бюджет. Без звонков и аудита.</p>
+  </header>
+
+  <div class="grid">
+    <!-- ================= CONTROLS ================= -->
+    <section class="panel" aria-label="Параметры расчёта">
+      <div class="profiles" role="group" aria-label="Профиль компании">
+        <button class="chip" data-profile="dev" type="button">
+          <strong>Разработчик</strong><small>800 запросов/день · код</small>
+        </button>
+        <button class="chip active" data-profile="startup" type="button">
+          <strong>Стартап</strong><small>5 000 запросов/день</small>
+        </button>
+        <button class="chip" data-profile="agency" type="button">
+          <strong>Агентство</strong><small>20 000 запросов/день</small>
+        </button>
+        <button class="chip" data-profile="corp" type="button">
+          <strong>Корпорация</strong><small>80 000 запросов/день</small>
+        </button>
+      </div>
+
+      <div class="field">
+        <div class="field-head">
+          <span class="field-lbl">Запросов в день</span>
+          <span class="field-val"><span id="vReq">5 000</span></span>
+        </div>
+        <input id="reqRange" type="range" min="0" max="1000" step="1" value="566" aria-label="Запросов в день">
+      </div>
+
+      <div class="field">
+        <div class="field-head">
+          <span class="field-lbl">Средняя длина запроса</span>
+          <span class="field-val"><span id="vTok">900</span><small>токенов</small></span>
+        </div>
+        <input id="tokRange" type="range" min="100" max="8000" step="50" value="900" aria-label="Средняя длина запроса в токенах">
+      </div>
+
+      <div class="field">
+        <div class="field-head">
+          <span class="field-lbl">Модель</span>
+        </div>
+        <div class="seg" role="group" aria-label="Модель">
+          <button class="seg-btn active" data-model="gpt4o" type="button" aria-pressed="true">
+            <span>GPT-4o</span><small>$4,38 / 1M</small>
+          </button>
+          <button class="seg-btn" data-model="claude" type="button" aria-pressed="false">
+            <span>Claude</span><small>$6,00 / 1M</small>
+          </button>
+          <button class="seg-btn" data-model="gemini" type="button" aria-pressed="false">
+            <span>Gemini</span><small>$3,44 / 1M</small>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= RESULT ================= -->
+    <aside class="panel result" aria-label="Результат расчёта">
+      <div class="stats">
+        <div class="stat">
+          <div class="stat-lbl">Вы платите сейчас</div>
+          <div class="stat-val bad" id="vRetail">$599</div>
+          <div class="stat-foot">в месяц провайдеру</div>
+        </div>
+        <div class="stat">
+          <div class="stat-lbl">С нами</div>
+          <div class="stat-val good" id="vOur">$449</div>
+          <div class="stat-foot">в месяц по договору</div>
+        </div>
+      </div>
+
+      <div class="bar-wrap">
+        <div class="bar-head"><span>Снижение счёта</span><span class="pct" id="vPct">−25%</span></div>
+        <div class="bar"><div class="bar-fill" id="barFill"></div></div>
+      </div>
+
+      <div class="savings">
+        <div class="savings-lbl">Экономия с нами</div>
+        <div class="savings-big">
+          <span class="num" id="vSaveMonth">$150</span>
+          <span class="per">/мес</span>
+        </div>
+        <div class="savings-year"><b id="vSaveYear">$1 800</b> за год</div>
+      </div>
+
+      <div class="tips">
+        <div class="tip">≈ <b id="vHoursDev">27</b> ч работы senior-разработчика</div>
+        <div class="tip">≈ <b id="vHoursDesign">40</b> ч работы дизайнера</div>
+      </div>
+
+      <button class="btn-primary" id="cta" type="button">Начать экономить</button>
+
+      <div class="payback" id="payback">Внедрение (≈4 ч разработчика) окупится за 41 дн.</div>
+
+      <div class="case">
+        <div class="case-ava" id="caseAva">NA</div>
+        <div>
+          <div class="case-txt" id="caseTxt">«Nimbus AI» — SaaS, 18 человек, с похожим объёмом. Экономит <b>$150/мес</b> уже 6 месяцев.</div>
+          <div class="case-meta" id="caseMeta">кейс · 6 месяцев подряд</div>
+        </div>
+      </div>
+
+      <button class="btn-ghost" id="toggleDetails" type="button" aria-expanded="false" aria-controls="breakdown">
+        Показать детальный расчёт<span class="caret">▼</span>
+      </button>
+
+      <div class="breakdown" id="breakdown" hidden>
+        <div class="bd-row"><span class="k">Запросов в месяц</span><span class="v" id="bdReq">152 000</span></div>
+        <div class="bd-row"><span class="k">Токенов в месяц</span><span class="v" id="bdTok">136,8 млн</span></div>
+        <div class="bd-row"><span class="k">Прайс провайдера</span><span class="v" id="bdModel">GPT-4o · $4,38 / 1M</span></div>
+        <div class="bd-row"><span class="k">Стоимость у провайдера</span><span class="v" id="bdRetail">$599</span></div>
+        <div class="bd-row"><span class="k" id="bdBaseLbl">Маршрутизация, кэш, батчи (−20%)</span><span class="v neg" id="bdBase">−$120</span></div>
+        <div class="bd-row"><span class="k" id="bdVolLbl">Скидка за объём (−5%)</span><span class="v neg" id="bdVol">−$30</span></div>
+        <div class="bd-row total"><span class="k">Итого с нами</span><span class="v" id="bdOur">$449</span></div>
+        <div class="bd-row total"><span class="k">Ваша экономия</span><span class="v neg" id="bdSave">$150 (−25%)</span></div>
+        <div class="bd-note">Публичные тарифы на 1M токенов, mix 75% вход / 25% выход. Итог округлён до доллара.</div>
+      </div>
+    </aside>
+  </div>
+
+  <p class="disclaimer">
+    Расчёт примерный: он не учитывает кэширование на вашей стороне, ретраи и пиковые всплески.
+    Точная цена фиксируется после аудита реального объёма — обычно она ниже расчётной на 3–7%.
+    Цены провайдеров взяты из открытых прайсов и могут меняться.
+  </p>
+</main>
+
+<div class="mobilebar" id="mobileBar">
+  <div>
+    <div class="mb-lbl">Экономия</div>
+    <div class="mb-val"><span id="mSave">$150</span><span class="mb-per">/мес</span></div>
+  </div>
+  <button class="mb-btn" type="button" id="mCta">Начать экономить</button>
+</div>
+
+<script>
+(function(){
+  'use strict';
+
+  /* ===================== DATA ===================== */
+  // Цены за 1M токенов, mix 75% вход / 25% выход
+  var MODELS = {
+    gpt4o:  { label:'GPT-4o',        price:4.38, note:'$2,50 вход / $10 выход' },
+    claude: { label:'Claude Sonnet', price:6.00, note:'$3,00 вход / $15 выход' },
+    gemini: { label:'Gemini Pro',    price:3.44, note:'$1,25 вход / $10 выход' }
+  };
+
+  var PROFILES = {
+    dev:     { req:800,   tok:2000, model:'claude' },
+    startup: { req:5000,  tok:900,  model:'gpt4o'  },
+    agency:  { req:20000, tok:1500, model:'gpt4o'  },
+    corp:    { req:80000, tok:2200, model:'claude' }
+  };
+
+  var COMPANIES = {
+    dev:     { name:'Codefy',       desc:'3 разработчика, бот для код-ревью',  months:4 },
+    startup: { name:'Nimbus AI',    desc:'SaaS, 18 человек',                   months:6 },
+    agency:  { name:'Studio Nord',  desc:'digital-агентство, 40 клиентов',     months:7 },
+    corp:    { name:'Merkur Group', desc:'поддержка на 6 языках',              months:9 }
+  };
+
+  var DAYS = 30.4, BASE = 0.20, MAX_DISCOUNT = 0.35;
+  var REQ_MIN = 100, REQ_MAX = 100000, REQ_LOG = Math.log(REQ_MAX / REQ_MIN);
+  var TOK_MIN = 100, TOK_MAX = 8000;
+  var SETUP_COST = 200;      // ~4 часа разработчика
+  var DEV_HOUR = 65, DES_HOUR = 45;
+  var DPR = Math.min(window.devicePixelRatio || 1, 2);
+
+  var state = { req:5000, tok:900, model:'gpt4o', profile:'startup' };
+
+  /* ===================== HELPERS ===================== */
+  function q(id){ return document.getElementById(id); }
+  var intFmt = new Intl.NumberFormat('ru-RU', { maximumFractionDigits:0 });
+  var oneFmt = new Intl.NumberFormat('ru-RU', { maximumFractionDigits:1 });
+
+  function money(v){ return '$' + intFmt.format(Math.round(v)); }
+  function pctStr(v){ return '−' + Math.round(v * 100) + '%'; }
+
+  function fmtTokens(t){
+    if (t >= 1e6) return oneFmt.format(t / 1e6) + ' млн';
+    return intFmt.format(Math.round(t / 1e3)) + ' тыс.';
+  }
+
+  function niceReq(v){
+    if (v < 1000) return Math.max(REQ_MIN, Math.round(v / 10) * 10);
+    if (v < 10000) return Math.round(v / 100) * 100;
+    return Math.round(v / 1000) * 1000;
+  }
+  function reqToSlider(r){
+    var v = Math.log(Math.min(REQ_MAX, Math.max(REQ_MIN, r)) / REQ_MIN) / REQ_LOG * 1000;
+    return Math.round(v);
+  }
+  function sliderToReq(v){
+    return niceReq(REQ_MIN * Math.exp(REQ_LOG * (v / 1000)));
+  }
+
+  /* ===================== ANIMATED NUMBERS ===================== */
+  function setNum(el, target, fmt){
+    if (!el) return;
+    if (el._raf) cancelAnimationFrame(el._raf);
+    var from = (typeof el._shown === 'number') ? el._shown : target;
+    if (Math.abs(target - from) < 0.4){
+      el._shown = target; el.textContent = fmt(target); return;
+    }
+    var t0 = performance.now(), dur = 420;
+    function tick(t){
+      var p = Math.min(1, (t - t0) / dur);
+      var e = 1 - Math.pow(1 - p, 3);
+      var v = from + (target - from) * e;
+      el._shown = v;
+      el.textContent = fmt(v);
+      if (p < 1) el._raf = requestAnimationFrame(tick);
+      else el._raf = null;
+    }
+    el._raf = requestAnimationFrame(tick);
+  }
+
+  /* ===================== CONFETTI ===================== */
+  var cvs = q('confetti'), ctx = cvs.getContext('2d');
+  var parts = [], confRaf = null, fired = false;
+
+  function sizeCanvas(){
+    var w = window.innerWidth, h = window.innerHeight;
+    cvs.width = Math.floor(w * DPR);
+    cvs.height = Math.floor(h * DPR);
+    cvs.style.width = w + 'px';
+    cvs.style.height = h + 'px';
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  }
+  sizeCanvas();
+  window.addEventListener('resize', sizeCanvas);
+
+  var COLORS = ['#7C3AED','#A78BFA','#10B981','#34D399','#FDE68A','#FFFFFF'];
+
+  function fireConfetti(){
+    var w = window.innerWidth, h = window.innerHeight;
+    for (var i = 0; i < 130; i++){
+      parts.push({
+        x: w * (0.35 + Math.random() * 0.3),
+        y: h * 0.26 + Math.random() * 50,
+        vx: (Math.random() - 0.5) * 10,
+        vy: -Math.random() * 12 - 4,
+        g: 0.34 + Math.random() * 0.16,
+        w: 5 + Math.random() * 7,
+        h: 8 + Math.random() * 8,
+        rot: Math.random() * Math.PI * 2,
+        vr: (Math.random() - 0.5) * 0.35,
+        col: COLORS[(Math.random() * COLORS.length) | 0],
+        a: 1
+      });
+    }
+    if (!confRaf) confRaf = requestAnimationFrame(loopConfetti);
+  }
+
+  function loopConfetti(){
+    var w = window.innerWidth, h = window.innerHeight;
+    ctx.clearRect(0, 0, w, h);
+    for (var i = 0; i < parts.length; i++){
+      var p = parts[i];
+      p.vy += p.g; p.x += p.vx; p.y += p.vy; p.vx *= 0.995; p.rot += p.vr;
+      if (p.y > h + 40) p.a = 0;
+      else if (p.y > h * 0.6) p.a -= 0.012;
+      if (p.a <= 0) continue;
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, p.a);
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.rot);
+      ctx.fillStyle = p.col;
+      ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+      ctx.restore();
+    }
+    parts = parts.filter(function(p){ return p.a > 0 && p.y < h + 60; });
+    if (parts.length){ confRaf = requestAnimationFrame(loopConfetti); }
+    else { confRaf = null; ctx.clearRect(0, 0, w, h); }
+  }
+
+  /* ===================== DOM REFS ===================== */
+  var reqRange = q('reqRange'), tokRange = q('tokRange');
+  var elVReq = q('vReq'), elVTok = q('vTok');
+  var elRetail = q('vRetail'), elOur = q('vOur'), elPct = q('vPct'), elFill = q('barFill');
+  var elSaveM = q('vSaveMonth'), elSaveY = q('vSaveYear');
+  var elHDev = q('vHoursDev'), elHDes = q('vHoursDesign');
+  var elPayback = q('payback'), elCaseTxt = q('caseTxt'), elCaseAva = q('caseAva'), elCaseMeta = q('caseMeta');
+  var elBdReq = q('bdReq'), elBdTok = q('bdTok'), elBdModel = q('bdModel'), elBdRetail = q('bdRetail');
+  var elBdBase = q('bdBase'), elBdBaseLbl = q('bdBaseLbl');
+  var elBdVol = q('bdVol'), elBdVolLbl = q('bdVolLbl');
+  var elBdOur = q('bdOur'), elBdSave = q('bdSave');
+  var elMSave = q('mSave');
+  var breakdown = q('breakdown'), toggleBtn = q('toggleDetails');
+
+  /* ===================== PAINT RANGE ===================== */
+  function paintRange(el, pct){
+    pct = Math.max(0, Math.min(100, pct));
+    el.style.background =
+      'linear-gradient(90deg,#7C3AED 0%,#A78BFA ' + pct + '%,rgba(255,255,255,.09) ' + pct + '%,rgba(255,255,255,.09) 100%)';
+  }
+
+  function syncControls(){
+    paintRange(reqRange, (+reqRange.value) / 1000 * 100);
+    paintRange(tokRange, (state.tok - TOK_MIN) / (TOK_MAX - TOK_MIN) * 100);
+    elVReq.textContent = intFmt.format(state.req);
+    elVTok.textContent = intFmt.format(state.tok);
+
+    var btns = document.querySelectorAll('.seg-btn');
+    for (var i = 0; i < btns.length; i++){
+      var on = btns[i].dataset.model === state.model;
+      btns[i].classList.toggle('active', on);
+      btns[i].setAttribute('aria-pressed', on ? 'true' : 'false');
+    }
+  }
+
+  /* ===================== CALC ===================== */
+  function calc(){
+    var m = MODELS[state.model];
+    var reqMonth = state.req * DAYS;
+    var tokensMonth = reqMonth * state.tok;
+    var retail = tokensMonth / 1e6 * m.price;
+    var vol = retail < 500 ? 0 : retail < 2000 ? 0.05 : retail < 10000 ? 0.10 : 0.15;
+    var total = Math.min(BASE + vol, MAX_DISCOUNT);
+    var our = retail * (1 - total);
+    var save = retail - our;
+    return {
+      reqMonth: reqMonth, tokensMonth: tokensMonth, retail: retail,
+      vol: vol, total: total, our: our, save: save, saveYear: save * 12, model: m
+    };
+  }
+
+  /* ===================== RENDER ===================== */
+  function render(){
+    var c = calc();
+
+    setNum(elRetail, c.retail, money);
+    setNum(elOur, c.our, money);
+    setNum(elSaveM, c.save, money);
+    elSaveY.textContent = money(c.saveYear);
+    elPct.textContent = pctStr(c.total);
+    elFill.style.width = Math.max(2, Math.min(100, c.total / MAX_DISCOUNT * 100)) + '%';
+
+    setNum(elHDev, c.saveYear / DEV_HOUR, function(v){ return intFmt.format(Math.round(v)); });
+    setNum(elHDes, c.saveYear / DES_HOUR, function(v){ return intFmt.format(Math.round(v)); });
+
+    // payback
+    var daily = c.save / DAYS;
+    var pb;
+    if (c.save < 0.5) {
+      pb = 'Сумма слишком мала для окупаемости внедрения — начните с большего объёма.';
+    } else {
+      var d = SETUP_COST / daily;
+      if (d < 1) pb = 'Внедрение (<b>$' + SETUP_COST + '</b>, ≈4 ч разработчика) окупится меньше чем за день.';
+      else if (d < 60) pb = 'Внедрение (<b>$' + SETUP_COST + '</b>, ≈4 ч разработчика) окупится за <b>' + Math.round(d) + ' дн.</b>';
+      else pb = 'Внедрение (<b>$' + SETUP_COST + '</b>, ≈4 ч разработчика) окупится за <b>' + Math.round(d / DAYS) + ' мес.</b>';
+    }
+    elPayback.innerHTML = pb;
+
+    // social proof
+    var comp = COMPANIES[state.profile] || COMPANIES.startup;
+    elCaseTxt.innerHTML = '«' + comp.name + '» — ' + comp.desc + ', с похожим объёмом. Экономит <b>' +
+      money(c.save) + '/мес</b> уже ' + comp.months + ' месяцев.';
+    elCaseMeta.textContent = 'кейс · ' + comp.months + ' месяцев подряд';
+    elCaseAva.textContent = comp.name.split(' ').slice(0, 2).map(function(w){ return w.charAt(0); }).join('').toUpperCase();
+
+    // breakdown
+    elBdReq.textContent = intFmt.format(Math.round(c.reqMonth));
+    elBdTok.textContent = fmtTokens(c.tokensMonth);
+    elBdModel.textContent = c.model.label + ' · $' + c.model.price.toFixed(2).replace('.', ',') + ' / 1M';
+    elBdRetail.textContent = money(c.retail);
+    elBdBaseLbl.textContent = 'Маршрутизация, кэш, батчи (−20%)';
+    elBdBase.textContent = '−' + money(c.retail * BASE);
+    if (c.vol > 0){
+      elBdVolLbl.textContent = 'Скидка за объём (−' + Math.round(c.vol * 100) + '%)';
+      elBdVol.textContent = '−' + money(c.retail * c.vol);
+      elBdVol.className = 'v neg';
+    } else {
+      elBdVolLbl.textContent = 'Скидка за объём';
+      elBdVol.textContent = 'не применяется';
+      elBdVol.className = 'v off';
+    }
+    elBdOur.textContent = money(c.our);
+    elBdSave.textContent = money(c.save) + ' (' + pctStr(c.total) + ')';
+
+    elMSave.textContent = money(c.save);
+
+    // confetti
+    if (c.save >= 1000 && !fired){ fired = true; fireConfetti(); }
+    else if (c.save < 900){ fired = false; }
+  }
+
+  /* ===================== EVENTS ===================== */
+  reqRange.addEventListener('input', function(){
+    state.req = sliderToReq(+reqRange.value);
+    clearChipActive();
+    syncControls();
+    render();
+  });
+
+  tokRange.addEventListener('input', function(){
+    state.tok = +tokRange.value;
+    clearChipActive();
+    syncControls();
+    render();
+  });
+
+  function clearChipActive(){
+    var chips = document.querySelectorAll('.chip');
+    for (var i = 0; i < chips.length; i++) chips[i].classList.remove('active');
+  }
+
+  var chips = document.querySelectorAll('.chip');
+  for (var i = 0; i < chips.length; i++){
+    chips[i].addEventListener('click', function(){
+      var key = this.dataset.profile;
+      var p = PROFILES[key];
+      if (!p) return;
+      state.profile = key;
+      state.req = p.req;
+      state.tok = p.tok;
+      state.model = p.model;
+      reqRange.value = reqToSlider(p.req);
+      tokRange.value = p.tok;
+      clearChipActive();
+      this.classList.add('active');
+      syncControls();
+      render();
+    });
+  }
+
+  var segBtns = document.querySelectorAll('.seg-btn');
+  for (var j = 0; j < segBtns.length; j++){
+    segBtns[j].addEventListener('click', function(){
+      state.model = this.dataset.model;
+      syncControls();
+      render();
+    });
+  }
+
+  toggleBtn.addEventListener('click', function(){
+    var open = this.getAttribute('aria-expanded') === 'true';
+    this.setAttribute('aria-expanded', open ? 'false' : 'true');
+    breakdown.hidden = open;
+    this.innerHTML = (open ? 'Показать детальный расчёт' : 'Скрыть детальный расчёт') + '<span class="caret">▼</span>';
+  });
+
+  var cta = q('cta'), mCta = q('mCta');
+  function ctaPulse(el){
+    el.animate(
+      [{ transform:'scale(1)' }, { transform:'scale(.97)' }, { transform:'scale(1)' }],
+      { duration: 220, easing: 'ease-out' }
+    );
+  }
+  cta.addEventListener('click', function(){ ctaPulse(cta); });
+  mCta.addEventListener('click', function(){
+    ctaPulse(mCta);
+    cta.scrollIntoView({ behavior:'smooth', block:'center' });
+    setTimeout(function(){ ctaPulse(cta); }, 380);
+  });
+
+  /* ===================== INIT ===================== */
+  (function init(){
+    var p = PROFILES.startup;
+    reqRange.value = reqToSlider(p.req);
+    tokRange.value = p.tok;
+    syncControls();
+    render();
+    // первый рендер — без «прыжка» цифр
+    [elRetail, elOur, elSaveM, elHDev, elHDes].forEach(function(el){
+      if (el && el._raf){ cancelAnimationFrame(el._raf); el._raf = null; }
+    });
+  })();
+})();
+</script>
+</body>
+</html>

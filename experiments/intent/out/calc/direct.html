@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Калькулятор экономии на нейросетях — НЕЙРО.ОПТ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0;
+    font-family:'Manrope',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+    background:#07070c;
+    color:#eef0f7;
+    -webkit-font-smoothing:antialiased;
+    overflow-x:hidden;
+  }
+  body::before{
+    content:'';
+    position:fixed;inset:0;z-index:0;pointer-events:none;
+    background:
+      radial-gradient(900px 620px at 10% -12%, rgba(124,92,255,.30), transparent 62%),
+      radial-gradient(760px 560px at 94% -8%, rgba(34,211,165,.16), transparent 60%),
+      radial-gradient(700px 700px at 50% 118%, rgba(56,189,248,.10), transparent 62%);
+  }
+  .wrap{position:relative;z-index:1;max-width:1180px;margin:0 auto;padding:0 20px 56px}
+
+  /* ---------- NAV ---------- */
+  .nav{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:22px 0 8px}
+  .logo{display:flex;align-items:center;gap:10px;font-weight:800;font-size:17px;letter-spacing:-.02em}
+  .logo-mark{
+    width:31px;height:31px;border-radius:9px;display:grid;place-items:center;
+    background:linear-gradient(135deg,#7c5cff,#38bdf8);
+    color:#fff;font-size:14px;font-weight:800;
+    box-shadow:0 8px 22px -6px rgba(124,92,255,.9);
+  }
+  .logo .dot{color:#5eead4}
+  .nav-badge{
+    font-size:12.5px;font-weight:600;color:#a9aec6;
+    border:1px solid rgba(255,255,255,.1);
+    background:rgba(255,255,255,.035);
+    padding:8px 14px;border-radius:99px;white-space:nowrap;
+  }
+
+  /* ---------- HERO ---------- */
+  .hero{text-align:center;max-width:780px;margin:0 auto;padding:34px 0 36px}
+  .hero h1{
+    margin:0 0 16px;
+    font-size:clamp(29px,4.6vw,50px);
+    line-height:1.07;letter-spacing:-.035em;font-weight:800;
+  }
+  .grad{
+    background:linear-gradient(100deg,#a78bfa,#5eead4 55%,#38bdf8);
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+  }
+  .hero p{
+    margin:0;color:#8b90a6;
+    font-size:clamp(14px,1.6vw,16.5px);line-height:1.6;
+  }
+
+  /* ---------- LAYOUT ---------- */
+  .app{display:grid;grid-template-columns:1.06fr .94fr;gap:20px;align-items:start}
+  .panel{
+    background:linear-gradient(180deg,rgba(255,255,255,.055),rgba(255,255,255,.018));
+    border:1px solid rgba(255,255,255,.09);
+    border-radius:22px;
+    padding:24px;
+    backdrop-filter:blur(14px);
+    -webkit-backdrop-filter:blur(14px);
+  }
+
+  /* ---------- FIELDS ---------- */
+  .field{margin-bottom:24px}
+  .field:last-child{margin-bottom:0}
+  .field-head{
+    display:flex;align-items:center;justify-content:space-between;
+    gap:12px;margin-bottom:13px;flex-wrap:wrap;
+  }
+  .field-head > label{font-size:14px;font-weight:700;color:#e7e9f3}
+  .hint{font-size:11.5px;font-weight:600;color:#6f748c}
+
+  .num-wrap{
+    display:flex;align-items:center;gap:6px;
+    background:rgba(255,255,255,.06);
+    border:1px solid rgba(255,255,255,.11);
+    border-radius:10px;padding:6px 10px;
+  }
+  .num-wrap input{
+    width:66px;background:transparent;border:none;outline:none;
+    color:#fff;font:inherit;font-weight:700;font-size:14px;
+    text-align:right;font-variant-numeric:tabular-nums;
+    -moz-appearance:textfield;
+  }
+  .num-wrap input::-webkit-outer-spin-button,
+  .num-wrap input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+  .num-wrap span{font-size:12px;color:#8b90a6;font-weight:600}
+
+  .ratio-val{font-size:12.5px;color:#8b90a6;font-weight:600;font-variant-numeric:tabular-nums}
+  .ratio-val b{color:#eef0f7;font-weight:700}
+
+  input[type="range"]{
+    -webkit-appearance:none;appearance:none;
+    width:100%;height:8px;border-radius:99px;outline:none;cursor:pointer;
+    background:linear-gradient(90deg,#8b6cff 0%,#5eead4 var(--p,50%),rgba(255,255,255,.10) var(--p,50%));
+  }
+  input[type="range"]::-webkit-slider-thumb{
+    -webkit-appearance:none;width:21px;height:21px;border-radius:50%;
+    background:#fff;border:3px solid #7c5cff;
+    box-shadow:0 4px 16px rgba(124,92,255,.65);
+    transition:transform .15s ease;
+  }
+  input[type="range"]::-webkit-slider-thumb:hover{transform:scale(1.12)}
+  input[type="range"]::-moz-range-track{background:transparent;border:none}
+  input[type="range"]::-moz-range-thumb{
+    width:19px;height:19px;border-radius:50%;background:#fff;
+    border:3px solid #7c5cff;box-shadow:0 4px 16px rgba(124,92,255,.65);cursor:pointer;
+  }
+  .scale{display:flex;justify-content:space-between;font-size:11.5px;color:#6f748c;margin-top:9px;font-weight:500}
+
+  /* ---------- MODELS ---------- */
+  .models{display:grid;gap:10px}
+  .model{position:relative;cursor:pointer;display:block}
+  .model input{position:absolute;opacity:0;pointer-events:none}
+  .model-body{
+    display:flex;align-items:center;justify-content:space-between;gap:14px;
+    padding:13px 15px;border-radius:14px;
+    border:1px solid rgba(255,255,255,.09);
+    background:rgba(255,255,255,.025);
+    transition:border-color .18s, background .18s, box-shadow .18s;
+  }
+  .model:hover .model-body{border-color:rgba(255,255,255,.2)}
+  .model input:checked + .model-body{
+    border-color:rgba(124,92,255,.75);
+    background:linear-gradient(110deg,rgba(124,92,255,.18),rgba(94,234,212,.08));
+    box-shadow:0 0 0 1px rgba(124,92,255,.28), 0 14px 34px -16px rgba(124,92,255,.9);
+  }
+  .model-main{display:flex;flex-direction:column;gap:2px;min-width:0}
+  .model-name{font-weight:700;font-size:14.5px}
+  .model-sub{font-size:11.5px;color:#8b90a6;font-weight:500}
+  .model-price{text-align:right;font-size:12.5px;font-weight:700;color:#c9cbe0;white-space:nowrap;font-variant-numeric:tabular-nums}
+  .model-price small{display:block;font-size:10.5px;font-weight:500;color:#6f748c;margin-top:2px}
+
+  /* ---------- TOGGLES ---------- */
+  .toggle{display:flex;align-items:flex-start;gap:12px;padding:11px 0;cursor:pointer;user-select:none}
+  .toggle input{display:none}
+  .switch{
+    flex:0 0 auto;width:40px;height:23px;border-radius:99px;position:relative;
+    background:rgba(255,255,255,.13);transition:background .2s;margin-top:1px;
+  }
+  .switch::after{
+    content:'';position:absolute;top:3px;left:3px;width:17px;height:17px;border-radius:50%;
+    background:#fff;transition:transform .2s cubic-bezier(.34,1.56,.64,1);box-shadow:0 2px 6px rgba(0,0,0,.35);
+  }
+  .toggle input:checked + .switch{background:linear-gradient(135deg,#7c5cff,#5eead4)}
+  .toggle input:checked + .switch::after{transform:translateX(17px)}
+  .toggle-text{display:flex;flex-direction:column;gap:2px}
+  .toggle-text b{font-size:13.5px;font-weight:700;color:#e7e9f3}
+  .toggle-text small{font-size:11.5px;color:#7d8299;font-weight:500;line-height:1.45}
+
+  /* ---------- RESULT ---------- */
+  .result{position:sticky;top:22px;overflow:hidden}
+  .res-glow{
+    position:absolute;left:-15%;right:-15%;top:-140px;height:260px;pointer-events:none;
+    background:radial-gradient(closest-side, rgba(124,92,255,.45), transparent 72%);
+    filter:blur(26px);opacity:.85;
+  }
+  .res-inner{position:relative}
+  .tag{
+    display:inline-block;font-size:11.5px;font-weight:700;letter-spacing:.08em;
+    text-transform:uppercase;color:#9aa0b8;
+  }
+  .big{
+    display:flex;align-items:baseline;gap:8px;margin:8px 0 0;
+    font-size:clamp(38px,5.2vw,54px);font-weight:800;
+    letter-spacing:-.04em;line-height:1;
+    font-variant-numeric:tabular-nums;
+  }
+  .big #saveMonth{
+    background:linear-gradient(100deg,#c4b5fd,#5eead4 60%,#7dd3fc);
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+  }
+  .big .cur{font-size:.42em;font-weight:700;color:#8b90a6}
+
+  .pill{
+    display:inline-flex;align-items:center;gap:6px;margin-top:14px;
+    font-size:12.5px;font-weight:800;color:#08111a;
+    background:linear-gradient(100deg,#5eead4,#7dd3fc);
+    padding:6px 12px;border-radius:99px;
+    font-variant-numeric:tabular-nums;
+  }
+
+  .cmp{margin-top:24px;display:grid;gap:14px}
+  .cmp-line{display:flex;justify-content:space-between;align-items:baseline;gap:10px;font-size:12.5px;font-weight:600;color:#9aa0b8;margin-bottom:7px}
+  .cmp-line b{font-size:13.5px;color:#eef0f7;font-weight:700;font-variant-numeric:tabular-nums}
+  .bar{height:9px;border-radius:99px;background:rgba(255,255,255,.075);overflow:hidden}
+  .bar > i{display:block;height:100%;border-radius:99px;width:0;transition:width .55s cubic-bezier(.22,1,.36,1)}
+  #barNow{background:rgba(255,255,255,.32)}
+  #barOurs{background:linear-gradient(90deg,#7c5cff,#5eead4)}
+
+  .year{
+    display:flex;justify-content:space-between;align-items:baseline;gap:12px;
+    margin-top:20px;padding:16px 0;
+    border-top:1px solid rgba(255,255,255,.08);
+    border-bottom:1px solid rgba(255,255,255,.08);
+    font-size:13.5px;font-weight:600;color:#9aa0b8;
+  }
+  .year b{font-size:22px;font-weight:800;color:#fff;letter-spacing:-.025em;font-variant-numeric:tabular-nums}
+
+  .sources{display:grid;gap:8px;margin:18px 0 20px}
+  .src{
+    display:flex;justify-content:space-between;gap:10px;
+    font-size:12.5px;font-weight:600;color:#a9aec6;
+    padding:9px 12px;border-radius:10px;
+    background:rgba(255,255,255,.035);
+    border:1px solid rgba(255,255,255,.06);
+  }
+  .src b{color:#5eead4;font-weight:800;font-variant-numeric:tabular-nums}
+  .src.muted b{color:#7d8299}
+
+  .lead{display:flex;flex-direction:column;gap:10px}
+  .lead input{
+    width:100%;padding:13px 15px;border-radius:12px;
+    background:rgba(255,255,255,.05);
+    border:1px solid rgba(255,255,255,.12);
+    color:#fff;font:inherit;font-size:14px;font-weight:600;outline:none;
+    transition:border-color .18s, background .18s;
+  }
+  .lead input::placeholder{color:#6f748c;font-weight:500}
+  .lead input:focus{border-color:rgba(124,92,255,.8);background:rgba(124,92,255,.09)}
+  .lead input.err{border-color:#ff6b8a;background:rgba(255,107,138,.09)}
+
+  .cta{
+    width:100%;padding:15px;border:none;border-radius:12px;cursor:pointer;
+    font:inherit;font-size:14.5px;font-weight:800;color:#080d14;
+    background:linear-gradient(100deg,#a78bfa,#5eead4);
+    box-shadow:0 14px 32px -14px rgba(124,92,255,.95);
+    transition:transform .18s, filter .18s;
+  }
+  .cta:hover{transform:translateY(-2px);filter:brightness(1.07)}
+  .cta:active{transform:translateY(0)}
+
+  .lead-ok{
+    padding:14px 16px;border-radius:12px;font-size:13.5px;font-weight:600;color:#c9f7e9;
+    background:rgba(34,211,165,.12);
+    border:1px solid rgba(34,211,165,.35);
+    line-height:1.5;
+  }
+  .lead-ok b{color:#5eead4}
+
+  .fine{margin:14px 0 0;font-size:11.5px;line-height:1.55;color:#666b82}
+
+  /* ---------- TRUST ---------- */
+  .trust{
+    display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:26px;
+  }
+  .trust-item{
+    display:flex;gap:12px;align-items:flex-start;
+    padding:16px 18px;border-radius:16px;
+    background:rgba(255,255,255,.03);
+    border:1px solid rgba(255,255,255,.07);
+  }
+  .ti-ico{
+    flex:0 0 auto;width:24px;height:24px;border-radius:50%;display:grid;place-items:center;
+    background:linear-gradient(135deg,rgba(124,92,255,.9),rgba(94,234,212,.9));
+    color:#07070c;font-size:12px;font-weight:800;
+  }
+  .trust-item b{display:block;font-size:13.5px;font-weight:700;margin-bottom:3px}
+  .trust-item small{font-size:11.5px;color:#7d8299;line-height:1.45;font-weight:500}
+  footer{
+    margin-top:32px;text-align:center;font-size:11.5px;color:#525770;line-height:1.6;
+  }
+
+  @media(max-width:900px){
+    .app{grid-template-columns:1fr}
+    .result{position:static}
+    .trust{grid-template-columns:1fr}
+    .hero{padding:24px 0 28px}
+    .panel{padding:20px}
+  }
+  @media(max-width:420px){
+    .nav-badge{display:none}
+    .model-body{flex-wrap:wrap}
+    .model-price{text-align:left}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="nav">
+    <div class="logo"><span class="logo-mark">N</span>НЕЙРО<span class="dot">.</span>ОПТ</div>
+    <div class="nav-badge">Экономия до 57% на LLM</div>
+  </header>
+
+  <section class="hero">
+    <h1>Сколько вы <span class="grad">переплачиваете</span> за нейросети?</h1>
+    <p>Подвиньте ползунки — калькулятор посчитает, сколько вы тратите на модели прямо сейчас и сколько сэкономите, подключившись к нашему сервису.</p>
+  </section>
+
+  <div class="app">
+
+    <!-- ================= FORM ================= -->
+    <section class="panel form">
+
+      <div class="field">
+        <div class="field-head">
+          <label for="tokensRange">Объём токенов в месяц</label>
+          <div class="num-wrap">
+            <input type="number" id="tokensNum" min="1" max="1000" step="1" value="80" inputmode="numeric">
+            <span>млн</span>
+          </div>
+        </div>
+        <input type="range" id="tokensRange" min="1" max="1000" step="1" value="80">
+        <div class="scale"><span>1 млн</span><span>500 млн</span><span>1 млрд</span></div>
+      </div>
+
+      <div class="field">
+        <div class="field-head">
+          <label for="ratioRange">Соотношение вход / выход</label>
+          <div class="ratio-val"><b id="ratioIn">70%</b> ввод · <b id="ratioOut">30%</b> вывод</div>
+        </div>
+        <input type="range" id="ratioRange" min="10" max="90" step="5" value="70">
+        <div class="scale"><span>короткие ответы</span><span>50 / 50</span><span>много контекста</span></div>
+      </div>
+
+      <div class="field">
+        <div class="field-head">
+          <label>Класс моделей</label>
+          <span class="hint">цены за 1 млн токенов</span>
+        </div>
+        <div class="models" id="models">
+          <label class="model">
+            <input type="radio" name="model" value="flagship" checked>
+            <span class="model-body">
+              <span class="model-main">
+                <span class="model-name">Топовые</span>
+                <span class="model-sub">GPT-4o · Claude Sonnet</span>
+              </span>
+              <span class="model-price">250 / 1 100 ₽<small>ввод / вывод</small></span>
+            </span>
+          </label>
+
+          <label class="model">
+            <input type="radio" name="model" value="mid">
+            <span class="model-body">
+              <span class="model-main">
+                <span class="model-name">Рабочие</span>
+                <span class="model-sub">GPT-4o mini · Gemini Flash</span>
+              </span>
+              <span class="model-price">15 / 60 ₽<small>ввод / вывод</small></span>
+            </span>
+          </label>
+
+          <label class="model">
+            <input type="radio" name="model" value="open">
+            <span class="model-body">
+              <span class="model-main">
+                <span class="model-name">Открытые</span>
+                <span class="model-sub">DeepSeek V3 · Llama 3.3</span>
+              </span>
+              <span class="model-price">25 / 100 ₽<small>ввод / вывод</small></span>
+            </span>
+          </label>
+        </div>
+      </div>
+
+      <div class="field">
+        <div class="field-head">
+          <label>Что есть в вашем сценарии</label>
+          <span class="hint">отметьте подходящее</span>
+        </div>
+
+        <label class="toggle">
+          <input type="checkbox" id="optCache" checked>
+          <span class="switch"></span>
+          <span class="toggle-text">
+            <b>Повторяющийся контекст</b>
+            <small>Системные промпты, база знаний, одинаковые инструкции</small>
+          </span>
+        </label>
+
+        <label class="toggle">
+          <input type="checkbox" id="optRoute" checked>
+          <span class="switch"></span>
+          <span class="toggle-text">
+            <b>Простые запросы</b>
+            <small>Часть задач можно отдать более дешёвой модели</small>
+          </span>
+        </label>
+
+        <label class="toggle">
+          <input type="checkbox" id="optBatch" checked>
+          <span class="switch"></span>
+          <span class="toggle-text">
+            <b>Фоновые задачи</b>
+            <small>Обработка документов, разметка, отчёты — не в реальном времени</small>
+          </span>
+        </label>
+      </div>
+
+    </section>
+
+    <!-- ================= RESULT ================= -->
+    <aside class="panel result">
+      <div class="res-glow"></div>
+      <div class="res-inner">
+
+        <span class="tag">Экономия в месяц</span>
+        <div class="big"><span id="saveMonth">0</span><span class="cur">₽</span></div>
+        <div class="pill"><span id="savePct">0</span>% дешевле, чем напрямую</div>
+
+        <div class="cmp">
+          <div class="cmp-item">
+            <div class="cmp-line"><span>Платите сейчас</span><b id="costNow">0 ₽</b></div>
+            <div class="bar"><i id="barNow"></i></div>
+          </div>
+          <div class="cmp-item">
+            <div class="cmp-line"><span>С НЕЙРО.ОПТ</span><b id="costOurs">0 ₽</b></div>
+            <div class="bar"><i id="barOurs"></i></div>
+          </div>
+        </div>
+
+        <div class="year">
+          <span>Экономия за год</span>
+          <b><span id="saveYear">0</span> ₽</b>
+        </div>
+
+        <div class="sources" id="sources"></div>
+
+        <form class="lead" id="lead">
+          <input type="email" id="leadEmail" placeholder="Рабочий e-mail" autocomplete="email" required>
+          <button type="submit" class="cta">Получить точный расчёт</button>
+        </form>
+        <div class="lead-ok" id="leadOk" hidden>
+          Готово! Отправили расчёт на <b id="leadMail"></b> — проверим ваш сценарий и вернёмся с точными цифрами.
+        </div>
+
+        <p class="fine">Расчёт ориентировочный: цены провайдеров и профиль нагрузки могут отличаться. Точную смету считаем по вашему логу запросов.</p>
+
+      </div>
+    </aside>
+
+  </div>
+
+  <!-- ================= TRUST ================= -->
+  <section class="trust">
+    <div class="trust-item">
+      <span class="ti-ico">✓</span>
+      <div>
+        <b>Без абонентской платы</b>
+        <small>Платите только за использованные токены</small>
+      </div>
+    </div>
+    <div class="trust-item">
+      <span class="ti-ico">✓</span>
+      <div>
+        <b>Один API-ключ</b>
+        <small>Все модели через единый шлюз</small>
+      </div>
+    </div>
+    <div class="trust-item">
+      <span class="ti-ico">✓</span>
+      <div>
+        <b>Закрывающие документы</b>
+        <small>Договор и счёт для бухгалтерии</small>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    © 2025 НЕЙРО.ОПТ · Расчёт не является публичной офертой
+  </footer>
+
+</div>
+
+<script>
+(function(){
+  'use strict';
+
+  /* ---------- данные ---------- */
+  var MODELS = {
+    flagship: { pin: 250, pout: 1100 },
+    mid:      { pin: 15,  pout: 60   },
+    open:     { pin: 25,  pout: 100  }
+  };
+
+  var MULT = { cache: 0.65, route: 0.78, batch: 0.85 };
+
+  var SOURCE_META = [
+    { key: 'cache', label: 'Кэширование промптов', val: '−35%' },
+    { key: 'route', label: 'Умный роутинг',        val: '−22%' },
+    { key: 'batch', label: 'Батч-обработка',       val: '−15%' }
+  ];
+
+  var model = 'flagship';
+
+  var nf = new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 0 });
+  function fmt(n){ return nf.format(Math.round(n || 0)); }
+  function clamp(v, a, b){ return Math.min(b, Math.max(a, v)); }
+
+  /* ---------- элементы ---------- */
+  var el = {
+    tokensNum:   document.getElementById('tokensNum'),
+    tokensRange: document.getElementById('tokensRange'),
+    ratioRange:  document.getElementById('ratioRange'),
+    ratioIn:     document.getElementById('ratioIn'),
+    ratioOut:    document.getElementById('ratioOut'),
+    optCache:    document.getElementById('optCache'),
+    optRoute:    document.getElementById('optRoute'),
+    optBatch:    document.getElementById('optBatch'),
+    saveMonth:   document.getElementById('saveMonth'),
+    savePct:     document.getElementById('savePct'),
+    costNow:     document.getElementById('costNow'),
+    costOurs:    document.getElementById('costOurs'),
+    barNow:      document.getElementById('barNow'),
+    barOurs:     document.getElementById('barOurs'),
+    saveYear:    document.getElementById('saveYear'),
+    sources:     document.getElementById('sources')
+  };
+
+  /* ---------- анимация чисел ---------- */
+  function animateNumber(node, to, formatter){
+    var from = (node._val === undefined) ? 0 : node._val;
+    if (node._raf) cancelAnimationFrame(node._raf);
+    var start = performance.now();
+    var dur = 450;
+
+    function step(now){
+      var p = Math.min(1, (now - start) / dur);
+      var e = 1 - Math.pow(1 - p, 3);
+      var v = from + (to - from) * e;
+      node._val = v;
+      node.textContent = formatter(v);
+      if (p < 1) node._raf = requestAnimationFrame(step);
+      else node._val = to;
+    }
+    node._raf = requestAnimationFrame(step);
+  }
+
+  /* ---------- заливка ползунка ---------- */
+  function paintRange(r){
+    var min = parseFloat(r.min);
+    var max = parseFloat(r.max);
+    var v = parseFloat(r.value);
+    var p = ((v - min) / (max - min)) * 100;
+    r.style.setProperty('--p', p + '%');
+  }
+
+  /* ---------- состояние ---------- */
+  function readState(){
+    var tokens = parseFloat(el.tokensNum.value);
+    if (!isFinite(tokens) || tokens < 1) tokens = 1;
+    tokens = clamp(tokens, 1, 1000);
+
+    return {
+      tokens:  tokens,
+      ratio:   parseFloat(el.ratioRange.value),
+      cache:   el.optCache.checked,
+      route:   el.optRoute.checked,
+      batch:   el.optBatch.checked
+    };
+  }
+
+  /* ---------- расчёт ---------- */
+  function compute(s){
+    var m = MODELS[model];
+
+    var tin  = s.tokens * (s.ratio / 100);
+    var tout = s.tokens - tin;
+
+    var now = tin * m.pin + tout * m.pout;
+
+    var mult = 1;
+    if (s.cache) mult *= MULT.cache;
+    if (s.route) mult *= MULT.route;
+    if (s.batch) mult *= MULT.batch;
+
+    var ours = now * mult;
+
+    return {
+      now:  now,
+      ours: ours,
+      save: now - ours,
+      pct:  (1 - mult) * 100
+    };
+  }
+
+  /* ---------- рендер ---------- */
+  function render(){
+    var s = readState();
+
+    paintRange(el.tokensRange);
+    paintRange(el.ratioRange);
+
+    el.ratioIn.textContent  = s.ratio + '%';
+    el.ratioOut.textContent = (100 - s.ratio) + '%';
+
+    if (parseFloat(el.tokensRange.value) !== s.tokens){
+      el.tokensRange.value = s.tokens;
+      paintRange(el.tokensRange);
+    }
+
+    var r = compute(s);
+
+    animateNumber(el.saveMonth, r.save,      function(v){ return fmt(v); });
+    animateNumber(el.costNow,   r.now,       function(v){ return fmt(v) + ' ₽'; });
+    animateNumber(el.costOurs,  r.ours,      function(v){ return fmt(v) + ' ₽'; });
+    animateNumber(el.saveYear,  r.save * 12, function(v){ return fmt(v); });
+
+    el.savePct.textContent = Math.round(r.pct);
+
+    el.barNow.style.width  = '100%';
+    el.barOurs.style.width = (r.now > 0 ? Math.max(2, (r.ours / r.now) * 100) : 0) + '%';
+
+    /* источники экономии */
+    var html = '';
+    var active = 0;
+
+    for (var i = 0; i < SOURCE_META.length; i++){
+      var meta = SOURCE_META[i];
+      if (s[meta.key]){
+        active++;
+        html += '<div class="src"><span>' + meta.label + '</span><b>' + meta.val + '</b></div>';
+      }
+    }
+
+    if (active === 0){
+      html = '<div class="src muted"><span>Оптимизации не выбраны</span><b>0%</b></div>';
+    }
+
+    el.sources.innerHTML = html;
+  }
+
+  /* ---------- события ---------- */
+  el.tokensRange.addEventListener('input', function(){
+    el.tokensNum.value = el.tokensRange.value;
+    render();
+  });
+
+  el.tokensNum.addEventListener('input', function(){
+    var v = parseFloat(el.tokensNum.value);
+    if (!isFinite(v)) v = 1;
+    v = clamp(v, 1, 1000);
+    el.tokensRange.value = v;
+    render();
+  });
+
+  el.tokensNum.addEventListener('blur', function(){
+    var v = parseFloat(el.tokensNum.value);
+    if (!isFinite(v) || v < 1) v = 1;
+    v = clamp(Math.round(v), 1, 1000);
+    el.tokensNum.value = v;
+    el.tokensRange.value = v;
+    render();
+  });
+
+  el.ratioRange.addEventListener('input', render);
+  el.optCache.addEventListener('change', render);
+  el.optRoute.addEventListener('change', render);
+  el.optBatch.addEventListener('change', render);
+
+  var radios = document.querySelectorAll('input[name="model"]');
+  for (var i = 0; i < radios.length; i++){
+    radios[i].addEventListener('change', function(){
+      model = this.value;
+      render();
+    });
+  }
+
+  /* ---------- форма заявки ---------- */
+  var lead    = document.getElementById('lead');
+  var leadOk  = document.getElementById('leadOk');
+  var leadMail = document.getElementById('leadMail');
+
+  lead.addEventListener('submit', function(e){
+    e.preventDefault();
+    var input = document.getElementById('leadEmail');
+    var value = (input.value || '').trim();
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(value)){
+      input.classList.add('err');
+      input.focus();
+      return;
+    }
+
+    input.classList.remove('err');
+    leadMail.textContent = value;
+    lead.style.display = 'none';
+    leadOk.hidden = false;
+  });
+
+  document.getElementById('leadEmail').addEventListener('input', function(){
+    this.classList.remove('err');
+  });
+
+  /* ---------- старт ---------- */
+  render();
+})();
+</script>
+</body>
+</html>

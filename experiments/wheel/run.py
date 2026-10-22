@@ -40,9 +40,15 @@ def call(model, variant, task):
         msgs = [{"role": "system", "content": SYS["plain"]}, {"role": "user", "content": AMBITIOUS + prompt}]
     else:
         msgs = [{"role": "system", "content": SYS[variant]}, {"role": "user", "content": prompt}]
-    r = a6.chat({"model": model, "messages": msgs, "max_tokens": int(os.environ.get("MAXTOK", "32000"))}, tag=f"wh-{model}-{variant}-{name}", timeout=400)
-    j = r["json"] or {}
-    text = ((j.get("choices") or [{}])[0].get("message") or {}).get("content") or ""
+    try:
+        rs = a6.chat_stream({"model": model, "messages": msgs, "max_tokens": int(os.environ.get("MAXTOK", "32000")), "stream_options": {"include_usage": True}},
+                            tag=f"wh-{model}-{variant}-{name}", timeout=1200)
+    except Exception as e:
+        rs = {"status": f"exc {e!r}", "chunks": []}
+    text = "".join(((c.get("choices") or [{}])[0].get("delta") or {}).get("content") or "" for c in rs["chunks"] if isinstance(c, dict))
+    fin = next((((c.get("choices") or [{}])[0].get("finish_reason")) for c in reversed(rs["chunks"]) if isinstance(c, dict) and (c.get("choices") or [{}])[0].get("finish_reason")), None)
+    j = {"choices": [{"message": {"content": text}, "finish_reason": fin}], "usage": next((c.get("usage") for c in reversed(rs["chunks"]) if isinstance(c, dict) and c.get("usage")), {})}
+    r = {"status": rs["status"]}
     blocks = re.findall(r"```(\w*)[^\n]*\n(.*?)```", text, re.S)
     code = "\n".join(b for lang, b in blocks if lang.lower() in ("", "python", "py", "python3")) or text
     imports = "\n".join(l for l in code.splitlines() if re.match(r"\s*(import|from)\s", l))

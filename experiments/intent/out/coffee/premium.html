@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Кофейня "Аромат" — Лучший кофе в городе</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Montserrat:wght@300;400;600&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --coffee-dark: #3e2723;
+            --coffee-medium: #6d4c41;
+            --coffee-light: #a1887f;
+            --cream: #f5f5dc;
+            --accent: #d4a574;
+            --white: #ffffff;
+        }
+
+        body {
+            font-family: 'Montserrat', sans-serif;
+            color: var(--coffee-dark);
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        h1, h2, h3 {
+            font-family: 'Playfair Display', serif;
+        }
+
+        header {
+            position: fixed;
+            top: 0;
+            width: 100%;
+            background: rgba(62, 39, 35, 0.95);
+            backdrop-filter: blur(10px);
+            z-index: 1000;
+            padding: 1rem 0;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        nav {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 2rem;
+        }
+
+        .logo {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: var(--accent);
+            font-family: 'Playfair Display', serif;
+        }
+
+        nav ul {
+            display: flex;
+            list-style: none;
+            gap: 2rem;
+        }
+
+        nav a {
+            color: var(--cream);
+            text-decoration: none;
+            font-weight: 400;
+            transition: color 0.3s;
+        }
+
+        nav a:hover {
+            color: var(--accent);
+        }
+
+        .hero {
+            height: 100vh;
+            background: linear-gradient(135deg, var(--coffee-dark) 0%, var(--coffee-medium) 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .coffee-beans {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            opacity: 0.1;
+        }
+
+        .bean {
+            position: absolute;
+            width: 40px;
+            height: 50px;
+            background: var(--cream);
+            border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+            animation: float 20s infinite ease-in-out;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0) rotate(0deg); }
+            50% { transform: translateY(-30px) rotate(180deg); }
+        }
+
+        .hero-content {
+            text-align: center;
+            color: var(--cream);
+            z-index: 2;
+            padding: 2rem;
+        }
+
+        .hero h1 {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+            animation: fadeInUp 1s ease-out;
+        }
+
+        .hero p {
+            font-size: 1.5rem;
+            margin-bottom: 2rem;
+            animation: fadeInUp 1s ease-out 0.3s both;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .cta-button {
+            display: inline-block;
+            padding: 1rem 2.5rem;
+            background: var(--accent);
+            color: var(--coffee-dark);
+            text-decoration: none;
+            border-radius: 50px;
+            font-weight: 600;
+            transition: all 0.3s;
+            animation: fadeInUp 1s ease-out 0.6s both;
+        }
+
+        .cta-button:hover {
+            background: var(--cream);
+            transform: translateY(-3px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+        }
+
+        section {
+            padding: 5rem 2rem;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .section-title {
+            text-align: center;
+            font-size: 2.5rem;
+            margin-bottom: 3rem;
+            color: var(--coffee-dark);
+            position: relative;
+        }
+
+        .section-title::after {
+            content: '';
+            display: block;
+            width: 80px;
+            height: 4px;
+            background: var(--accent);
+            margin: 1rem auto;
+            border-radius: 2px;
+        }
+
+        .menu-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 2rem;
+        }
+
+        .menu-item {
+            background: var(--white);
+            border-radius: 15px;
+            padding: 2rem;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+            transition: transform 0.3s, box-shadow 0.3s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .menu-item::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 5px;
+            background: linear-gradient(90deg, var(--accent), var(--coffee-light));
+        }
+
+        .menu-item:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 15px 35px rgba(0,0,0,0.15);
+        }
+
+        .menu-item h3 {
+            font-size: 1.5rem;
+            margin-bottom: 0.5rem;
+            color: var(--coffee-dark);
+        }
+
+        .menu-item .price {
+            font-size: 1.3rem;
+            color: var(--accent);
+            font-weight: 600;
+            margin-bottom: 1rem;
+        }
+
+        .menu-item p {
+            color: var(--coffee-medium);
+            font-size: 0.95rem;
+        }
+
+        .coffee-icon {
+            width: 60px;
+            height: 60px;
+            margin: 0 auto 1rem;
+            fill: var(--accent);
+        }
+
+        .about {
+            background: var(--cream);
+        }
+
+        .about-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 3rem;
+            align-items: center;
+        }
+
+        .about-text h2 {
+            font-size: 2.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .about-text p {
+            margin-bottom: 1rem;
+            font-size: 1.1rem;
+            color: var(--coffee-medium);
+        }
+
+        .about-image {
+            width: 100%;
+            height: 400px;
+            background: linear-gradient(135deg, var(--coffee-light), var(--accent));
+            border-radius: 20px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .cup-svg {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 200px;
+            height: 200px;
+            opacity: 0.3;
+        }
+
+        .gallery {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .gallery-item {
+            height: 250px;
+            border-radius: 15px;
+            background: linear-gradient(135deg, var(--coffee-dark), var(--coffee-medium));
+            position: relative;
+            overflow: hidden;
+            cursor: pointer;
+            transition: transform 0.3s;
+        }
+
+        .gallery-item:hover {
+            transform: scale(1.05);
+        }
+
+        .gallery-item::after {
+            content: attr(data-label);
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            padding: 1rem;
+            background: linear-gradient(to top, rgba(0,0,0,0.8), transparent);
+            color: white;
+            font-weight: 600;
+        }
+
+        .contact {
+            background: var(--coffee-dark);
+            color: var(--cream);
+        }
+
+        .contact-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 3rem;
+        }
+
+        .contact-info h3 {
+            font-size: 1.8rem;
+            margin-bottom: 1.5rem;
+            color: var(--accent);
+        }
+
+        .contact-item {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .contact-icon {
+            width: 30px;
+            height: 30px;
+            fill: var(--accent);
+        }
+
+        .map {
+            width: 100%;
+            height: 300px;
+            background: var(--coffee-medium);
+            border-radius: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--cream);
+            font-size: 1.2rem;
+        }
+
+        footer {
+            background: var(--coffee-dark);
+            color: var(--cream);
+            text-align: center;
+            padding: 2rem;
+            border-top: 3px solid var(--accent);
+        }
+
+        @media (max-width: 768px) {
+            .hero h1 {
+                font-size: 2.5rem;
+            }
+
+            .hero p {
+                font-size: 1.2rem;
+            }
+
+            nav ul {
+                gap: 1rem;
+            }
+
+            .about-content,
+            .contact-content {
+                grid-template-columns: 1fr;
+            }
+
+            .menu-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <nav>
+            <div class="logo">Аромат</div>
+            <ul>
+                <li><a href="#home">Главная</a></li>
+                <li><a href="#menu">Меню</a></li>
+                <li><a href="#about">О нас</a></li>
+                <li><a href="#gallery">Галерея</a></li>
+                <li><a href="#contact">Контакты</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <section id="home" class="hero">
+        <div class="coffee-beans">
+            <div class="bean" style="top: 10%; left: 10%; animation-delay: 0s;"></div>
+            <div class="bean" style="top: 60%; left: 80%; animation-delay: 2s;"></div>
+            <div class="bean" style="top: 30%; left: 70%; animation-delay: 4s;"></div>
+            <div class="bean" style="top: 80%; left: 20%; animation-delay: 1s;"></div>
+            <div class="bean" style="top: 20%; left: 50%; animation-delay: 3s;"></div>
+        </div>
+        <div class="hero-content">
+            <h1>Кофейня "Аромат"</h1>
+            <p>Где каждая чашка — это история</p>
+            <a href="#menu" class="cta-button">Посмотреть меню</a>
+        </div>
+    </section>
+
+    <section id="menu">
+        <h2 class="section-title">Наше меню</h2>
+        <div class="menu-grid">
+            <div class="menu-item">
+                <svg class="coffee-icon" viewBox="0 0 24 24">
+                    <path d="M18.5 3H6c-1.1 0-2 .9-2 2v5.71c0 3.83 2.95 7.18 6.78 7.29 3.96.12 7.22-3.06 7.22-7v-1h.5c1.93 0 3.5-1.57 3.5-3.5S20.43 3 18.5 3zM16 5v3H6V5h10zm2.5 3H18V5h.5c.83 0 1.5.67 1.5 1.5S19.33 8 18.5 8zM4 19h16v2H4z"/>
+                </svg>
+                <h3>Эспрессо</h3>
+                <div class="price">120 ₽</div>
+                <p>Классический итальянский кофе, насыщенный и крепкий, с плотной золотистой пенкой</p>
+            </div>
+            <div class="menu-item">
+                <svg class="coffee-icon" viewBox="0 0 24 24">
+                    <path d="M18.5 3H6c-1.1 0-2 .9-2 2v5.71c0 3.83 2.95 7.18 6.78 7.29 3.96.12 7.22-3.06 7.22-7v-1h.5c1.93 0 3.5-1.57 3.5-3.5S20.43 3 18.5 3zM16 5v3H6V5h10zm2.5 3H18V5h.5c.83 0 1.5.67 1.5 1.5S19.33 8 18.5 8zM4 19h16v2H4z"/>
+                </svg>
+                <h3>Капучино</h3>
+                <div class="price">180 ₽</div>
+                <p>Идеальное сочетание эспрессо и взбитого молока с нежной молочной пенкой</p>
+            </div>
+            <div class="menu-item">
+                <svg class="coffee-icon" viewBox="0 0 24 24">
+                    <path d="M18.5 3H6c-1.1 0-2 .9-2 2v5.71c0 3.83 2.95 7.18 6.78 7.29 3.96.12 7.22-3.06 7.22-7v-1h.5c1.93 0 3.5-1.57 3.5-3.5S20.43 3 18.5 3zM16 5v3H6V5h10zm2.5 3H18V5h.5c.83 0 1.5.67 1.5 1.5S19.33 8 18.5 8zM4 19h16v2H4z"/>
+                </svg>
+                <h3>Латте</h3>
+                <div class="price">190 ₽</div>
+                <p>Мягкий кофейный напиток с большим количеством молока и легкой пенкой</p>
+            </div>
+            <div class="menu-item">
+                <svg class="coffee-icon" viewBox="0 0 24 24">
+                    <path d="M18.5 3H6c-1.1 0-2 .9-2 2v5.71c0 3.83 2.95 7.18 6.78 7.29 3.96.12 7.22-3.06 7.22-7v-1h.5c1.93 0 3.5-1.57 3.5-3.5S20.43 3 18.5 3zM16 5v3H6V5h10zm2.5 3H18V5h.5c.83 0 1.5.67 1.5 1.5S19.33 8 18.5 8zM4 19h16v2H4z"/>
+                </svg>
+                <h3>Американо</h3>
+                <div class="price">140 ₽</div>
+                <p>Эспрессо, разбавленный горячей водой — для тех, кто любит кофе покрепче</p>
+            </div>
+            <div class="menu-item">
+                <svg class="coffee-icon" viewBox="0 0 24 24">
+                    <path d="M18.5 3H6c-1.1 0-2 .9-2 2v5.71c0 3.83 2.95 7.18 6.78 7.29 3.96.12 7.22-3.06 7.22-7v-1h.5c1.93 0 3.5-1.57 3.5-3.5S20.43 3 18.5 3zM16 5v3H6V5h10zm2.5 3H18V5h.5c.83 0 1.5.67 1.5 1.5S19.33 8 18.5 8zM4 19h16v2H4z"/>
+                </svg>
+                <h3>Флэт Уайт</h3>
+                <div class="price">200 ₽</div>
+                <p>Двойной эспрессо с бархатистой микропеной — для истинных ценителей</p>
+            </div>
+            <div class="menu-item">
+                <svg class="coffee-icon" viewBox="0 0 24 24">
+                    <path d="M18.5 3H6c-1.1 0-2 .9-2 2v5.71c0 3.83 2.95 7.18 6.78 7.29 3.96.12 7.22-3.06 7.22-7v-1h.5c1.93 0 3.5-1.57 3.5-3.5S20.43 3 18.5 3zM16 5v3H6V5h10zm2.5 3H18V5h.5c.83 0 1.5.67 1.5 1.5S19.33 8 18.5 8zM4 19h16v2H4z"/>
+                </svg>
+                <h3>Раф кофе</h3>
+                <div class="price">210 ₽</div>
+                <p>Нежный напиток из эспрессо, сливок и ванильного сахара — наша гордость</p>
+            </div>
+        </div>
+    </section>
+
+    <section id="about" class="about">
+        <div class="about-content">
+            <div class="about-text">
+                <h2>О нашей кофейне</h2>
+                <p>Мы открылись в 2020 году с одной простой миссией — делиться любовью к настоящему кофе с каждым нашим гостем.</p>
+                <p>Наши бариста проходят строгий отбор и регулярное обучение, чтобы каждая чашка была безупречной. Мы используем только свежеобжаренные зерна от лучших поставщиков со всего мира.</p>
+                <p>В "Аромате" вы найдете уютную атмосферу, где можно насладиться моментом наедине с собой или встретиться с друзьями за чашечкой ароматного кофе.</p>
+            </div>
+            <div class="about-image">
+                <svg class="cup-svg" viewBox="0 0 200 200" fill="rgba(255,255,255,0.5)">
+                    <ellipse cx="100" cy="170" rx="60" ry="10"/>
+                    <path d="M50 170 L50 80 Q50 60 70 60 L130 60 Q150 60 150 80 L150 170 Z"/>
+                    <path d="M150 100 Q170 100 170 120 Q170 140 150 140" stroke="rgba(255,255,255,0.5)" fill="none" stroke-width="3"/>
+                    <path d="M70 50 Q80 30 90 50" stroke="rgba(255,255,255,0.3)" fill="none" stroke-width="2"/>
+                    <path d="M100 45 Q110 25 120 45" stroke="rgba(255,255,255,0.3)" fill="none" stroke-width="2"/>
+                    <path d="M110 50 Q120 30 130 50" stroke="rgba(255,255,255,0.3)" fill="none" stroke-width="2"/>
+                </svg>
+            </div>
+        </div>
+    </section>
+
+    <section id="gallery">
+        <h2 class="section-title">Атмосфера</h2>
+        <div class="gallery">
+            <div class="gallery-item" data-label="Наш интерьер" style="background: linear-gradient(135deg, #6d4c41, #a1887f);"></div>
+            <div class="gallery-item" data-label="Свежая выпечка" style="background: linear-gradient(135deg, #8d6e63, #bcaaa4);"></div>
+            <div class="gallery-item" data-label="Барная стойка" style="background: linear-gradient(135deg, #5d4037, #795548);"></div>
+            <div class="gallery-item" data-label="Латте-арт" style="background: linear-gradient(135deg, #4e342e, #6d4c41);"></div>
+        </div>
+    </section>
+
+    <section id="contact" class="contact">
+        <h2 class="section-title" style="color: var(--cream);">Контакты</h2>
+        <div class="contact-content">
+            <div class="contact-info">
+                <h3>Мы всегда рады видеть вас</h3>
+                <div class="contact-item">
+                    <svg class="contact-icon" viewBox="0 0 24 24">
+                        <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+                    </svg>
+                    <div>
+                        <strong>Адрес:</strong><br>
+                        ул. Пушкина, д. 15, Москва
+                    </div>
+                </div>
+                <div class="contact-item">
+                    <svg class="contact-icon" viewBox="0 0 24 24">
+                        <path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/>
+                    </svg>
+                    <div>
+                        <strong>Телефон:</strong><br>
+                        +7 (495) 123-45-67
+                    </div>
+                </div>
+                <div class="contact-item">
+                    <svg class="contact-icon" viewBox="0 0 24 24">
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/>
+                    </svg>
+                    <div>
+                        <strong>Часы работы:</strong><br>
+                        Пн-Пт: 8:00 — 22:00<br>
+                        Сб-Вс: 9:00 — 23:00
+                    </div>
+                </div>
+            </div>
+            <div class="map">
+                <svg width="60" height="60" viewBox="0 0 24 24" fill="var(--accent)">
+                    <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+                </svg>
+                <p>Карта</p>
+            </div>
+        </div>
+    </section>
+
+    <footer>
+        <p>&copy; 2025 Кофейня "Аромат". Все права защищены.</p>
+        <p>Создано с любовью к кофе ☕</p>
+    </footer>
+
+    <script>
+        // Smooth scrolling
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
+                }
+            });
+        });
+
+        // Intersection Observer for animations
+        const observerOptions = {
+            threshold: 0.1,
+            rootMargin: '0px 0px -50px 0px'
+        };
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.style.opacity = '1';
+                    entry.target.style.transform = 'translateY(0)';
+                }
+            });
+        }, observerOptions);
+
+        document.querySelectorAll('.menu-item, .gallery-item').forEach(el => {
+            el.style.opacity = '0';
+            el.style.transform = 'translateY(20px)';
+            el.style.transition = 'opacity 0.6s, transform 0.6s';
+            observer.observe(el);
+        });
+
+        // Header background on scroll
+        window.addEventListener('scroll', () => {
+            const header = document.querySelector('header');
+            if (window.scrollY > 100) {
+                header.style.background = 'rgba(62, 39, 35, 1)';
+            } else {
+                header.style.background = 'rgba(62, 39, 35, 0.95)';
+            }
+        });
+    </script>
+</body>
+</html>

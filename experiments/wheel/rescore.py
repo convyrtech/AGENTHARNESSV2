@@ -9,6 +9,10 @@ for f in sorted(glob.glob(os.path.join(HERE, "..", "logs", "*-wh-*.json"))):
 rows, redo = [], []
 for name, f in latest.items():
     d = json.load(open(f)); r = d.get("response") or {}
+    if "chunks" in d:
+        txt = "".join(((c.get("choices") or [{}])[0].get("delta") or {}).get("content") or "" for c in d["chunks"] if isinstance(c, dict))
+        fin = next((((c.get("choices") or [{}])[0].get("finish_reason")) for c in reversed(d["chunks"]) if isinstance(c, dict) and (c.get("choices") or [{}])[0].get("finish_reason")), None)
+        r = {"choices": [{"message": {"content": txt}, "finish_reason": fin}]}
     m = d["request"]["model"]; _, rest = name.split("wh-", 1)
     variant = next(v for v in ("plain", "prior_art", "ambitious") if f"-{v}-" in rest); task = rest.rsplit("-", 1)[1]
     ch = (r.get("choices") or [{}])[0] if isinstance(r, dict) else {}

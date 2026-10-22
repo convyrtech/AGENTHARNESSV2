@@ -1,0 +1,1154 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NeuralHub — Все нейросети по одному ключу</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #6366f1;
+            --primary-dark: #4f46e5;
+            --secondary: #ec4899;
+            --accent: #06b6d4;
+            --bg: #0a0a0f;
+            --bg-card: #13131a;
+            --text: #e4e4e7;
+            --text-muted: #a1a1aa;
+            --border: #27272a;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            overflow-x: hidden;
+            line-height: 1.6;
+        }
+
+        .grain {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            opacity: 0.03;
+            z-index: 9999;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 2rem;
+        }
+
+        nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+            background: rgba(10, 10, 15, 0.8);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border);
+            padding: 1.5rem 0;
+            transition: all 0.3s ease;
+        }
+
+        nav.scrolled {
+            padding: 1rem 0;
+            background: rgba(10, 10, 15, 0.95);
+        }
+
+        nav .container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--primary), var(--secondary), var(--accent));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            letter-spacing: -0.02em;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 2.5rem;
+            align-items: center;
+        }
+
+        .nav-links a {
+            color: var(--text-muted);
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 0.95rem;
+            transition: color 0.3s ease;
+            position: relative;
+        }
+
+        .nav-links a:hover {
+            color: var(--text);
+        }
+
+        .nav-links a::after {
+            content: '';
+            position: absolute;
+            bottom: -4px;
+            left: 0;
+            width: 0;
+            height: 2px;
+            background: linear-gradient(90deg, var(--primary), var(--secondary));
+            transition: width 0.3s ease;
+        }
+
+        .nav-links a:hover::after {
+            width: 100%;
+        }
+
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border-radius: 12px;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            border: none;
+            font-size: 0.95rem;
+            display: inline-block;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: white;
+            box-shadow: 0 4px 20px rgba(99, 102, 241, 0.3);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px rgba(99, 102, 241, 0.4);
+        }
+
+        .btn-secondary {
+            background: rgba(99, 102, 241, 0.1);
+            color: var(--primary);
+            border: 1px solid var(--primary);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(99, 102, 241, 0.2);
+            transform: translateY(-2px);
+        }
+
+        .hero {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+            padding: 8rem 0 4rem;
+        }
+
+        .hero-bg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        .orb {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(80px);
+            opacity: 0.3;
+            animation: float 20s ease-in-out infinite;
+        }
+
+        .orb-1 {
+            width: 600px;
+            height: 600px;
+            background: var(--primary);
+            top: -200px;
+            left: -200px;
+            animation-delay: 0s;
+        }
+
+        .orb-2 {
+            width: 500px;
+            height: 500px;
+            background: var(--secondary);
+            bottom: -150px;
+            right: -150px;
+            animation-delay: -7s;
+        }
+
+        .orb-3 {
+            width: 400px;
+            height: 400px;
+            background: var(--accent);
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            animation-delay: -14s;
+        }
+
+        @keyframes float {
+            0%, 100% {
+                transform: translate(0, 0) scale(1);
+            }
+            33% {
+                transform: translate(100px, -50px) scale(1.1);
+            }
+            66% {
+                transform: translate(-50px, 100px) scale(0.9);
+            }
+        }
+
+        .hero-content {
+            position: relative;
+            z-index: 10;
+            text-align: center;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            background: rgba(99, 102, 241, 0.1);
+            border: 1px solid rgba(99, 102, 241, 0.3);
+            border-radius: 50px;
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: var(--primary);
+            margin-bottom: 2rem;
+            animation: slideDown 0.8s ease-out;
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        h1 {
+            font-size: clamp(2.5rem, 7vw, 5rem);
+            font-weight: 900;
+            line-height: 1.1;
+            margin-bottom: 1.5rem;
+            letter-spacing: -0.03em;
+            animation: slideUp 0.8s ease-out 0.2s both;
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .gradient-text {
+            background: linear-gradient(135deg, var(--primary), var(--secondary), var(--accent));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            background-size: 200% 200%;
+            animation: gradientShift 5s ease infinite;
+        }
+
+        @keyframes gradientShift {
+            0%, 100% {
+                background-position: 0% 50%;
+            }
+            50% {
+                background-position: 100% 50%;
+            }
+        }
+
+        .hero-description {
+            font-size: 1.25rem;
+            color: var(--text-muted);
+            margin-bottom: 3rem;
+            max-width: 700px;
+            margin-left: auto;
+            margin-right: auto;
+            animation: slideUp 0.8s ease-out 0.4s both;
+        }
+
+        .hero-cta {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+            animation: slideUp 0.8s ease-out 0.6s both;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 2rem;
+            margin-top: 5rem;
+            animation: slideUp 0.8s ease-out 0.8s both;
+        }
+
+        .stat-item {
+            text-align: center;
+            padding: 2rem;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+        }
+
+        .stat-item:hover {
+            transform: translateY(-5px);
+            border-color: var(--primary);
+            background: rgba(99, 102, 241, 0.05);
+        }
+
+        .stat-number {
+            font-size: 2.5rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-label {
+            color: var(--text-muted);
+            font-size: 0.95rem;
+        }
+
+        section {
+            padding: 8rem 0;
+            position: relative;
+        }
+
+        h2 {
+            font-size: clamp(2rem, 5vw, 3.5rem);
+            font-weight: 800;
+            margin-bottom: 1rem;
+            text-align: center;
+            letter-spacing: -0.02em;
+        }
+
+        .section-subtitle {
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 1.1rem;
+            max-width: 600px;
+            margin: 0 auto 4rem;
+        }
+
+        .models-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 2rem;
+            margin-top: 4rem;
+        }
+
+        .model-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 2rem;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .model-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--primary), var(--secondary), var(--accent));
+            transform: translateX(-100%);
+            transition: transform 0.4s ease;
+        }
+
+        .model-card:hover::before {
+            transform: translateX(0);
+        }
+
+        .model-card:hover {
+            transform: translateY(-10px);
+            border-color: var(--primary);
+            box-shadow: 0 20px 60px rgba(99, 102, 241, 0.2);
+        }
+
+        .model-icon {
+            width: 60px;
+            height: 60px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 1.5rem;
+            font-size: 1.8rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+        }
+
+        .model-name {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .model-description {
+            color: var(--text-muted);
+            font-size: 0.95rem;
+            line-height: 1.6;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin-top: 4rem;
+        }
+
+        .feature-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 2.5rem;
+            transition: all 0.3s ease;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-5px);
+            border-color: var(--primary);
+        }
+
+        .feature-icon {
+            width: 70px;
+            height: 70px;
+            border-radius: 16px;
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(236, 72, 153, 0.2));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 1.5rem;
+            font-size: 2rem;
+        }
+
+        .feature-title {
+            font-size: 1.3rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+        }
+
+        .feature-text {
+            color: var(--text-muted);
+            line-height: 1.7;
+        }
+
+        .pricing {
+            background: var(--bg-card);
+            border-radius: 30px;
+            padding: 4rem;
+            border: 1px solid var(--border);
+            max-width: 1000px;
+            margin: 4rem auto;
+        }
+
+        .pricing-header {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+
+        .pricing-title {
+            font-size: 2.5rem;
+            font-weight: 800;
+            margin-bottom: 1rem;
+        }
+
+        .pricing-subtitle {
+            color: var(--text-muted);
+            font-size: 1.1rem;
+        }
+
+        .comparison-table {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            margin-top: 3rem;
+        }
+
+        .price-column {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 2.5rem;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .price-column.highlighted {
+            border-color: var(--primary);
+            background: rgba(99, 102, 241, 0.05);
+            transform: scale(1.05);
+        }
+
+        .price-label {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-bottom: 1rem;
+        }
+
+        .price-amount {
+            font-size: 3rem;
+            font-weight: 900;
+            margin-bottom: 0.5rem;
+        }
+
+        .highlighted .price-amount {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .price-period {
+            color: var(--text-muted);
+            font-size: 0.95rem;
+            margin-bottom: 2rem;
+        }
+
+        .price-features {
+            list-style: none;
+            text-align: left;
+            margin-bottom: 2rem;
+        }
+
+        .price-features li {
+            padding: 0.75rem 0;
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .price-features li::before {
+            content: '✓';
+            color: var(--primary);
+            font-weight: 800;
+            font-size: 1.2rem;
+        }
+
+        .cta-section {
+            text-align: center;
+            padding: 8rem 2rem;
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(236, 72, 153, 0.1));
+            border-radius: 30px;
+            margin: 4rem 0;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .cta-section::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(99, 102, 241, 0.1) 0%, transparent 70%);
+            animation: rotate 20s linear infinite;
+        }
+
+        @keyframes rotate {
+            from {
+                transform: rotate(0deg);
+            }
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .cta-content {
+            position: relative;
+            z-index: 1;
+        }
+
+        .cta-title {
+            font-size: clamp(2rem, 5vw, 3rem);
+            font-weight: 900;
+            margin-bottom: 1.5rem;
+        }
+
+        .cta-description {
+            font-size: 1.2rem;
+            color: var(--text-muted);
+            margin-bottom: 2.5rem;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        footer {
+            border-top: 1px solid var(--border);
+            padding: 4rem 0 2rem;
+            margin-top: 8rem;
+        }
+
+        .footer-content {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 3rem;
+            margin-bottom: 3rem;
+        }
+
+        .footer-column h3 {
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin-bottom: 1.5rem;
+        }
+
+        .footer-column ul {
+            list-style: none;
+        }
+
+        .footer-column ul li {
+            margin-bottom: 0.75rem;
+        }
+
+        .footer-column a {
+            color: var(--text-muted);
+            text-decoration: none;
+            transition: color 0.3s ease;
+        }
+
+        .footer-column a:hover {
+            color: var(--primary);
+        }
+
+        .footer-bottom {
+            text-align: center;
+            padding-top: 2rem;
+            border-top: 1px solid var(--border);
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+
+        .scroll-indicator {
+            position: absolute;
+            bottom: 3rem;
+            left: 50%;
+            transform: translateX(-50%);
+            animation: bounce 2s ease-in-out infinite;
+        }
+
+        @keyframes bounce {
+            0%, 100% {
+                transform: translateX(-50%) translateY(0);
+            }
+            50% {
+                transform: translateX(-50%) translateY(10px);
+            }
+        }
+
+        .scroll-indicator::after {
+            content: '↓';
+            font-size: 2rem;
+            color: var(--primary);
+            display: block;
+        }
+
+        @media (max-width: 768px) {
+            .nav-links {
+                display: none;
+            }
+
+            .hero {
+                padding: 6rem 0 3rem;
+            }
+
+            section {
+                padding: 4rem 0;
+            }
+
+            .comparison-table {
+                grid-template-columns: 1fr;
+            }
+
+            .price-column.highlighted {
+                transform: scale(1);
+            }
+
+            .stats {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .api-demo {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 2rem;
+            margin: 4rem auto;
+            max-width: 800px;
+            font-family: 'Courier New', monospace;
+            overflow-x: auto;
+        }
+
+        .code-line {
+            padding: 0.5rem 0;
+            color: var(--text);
+        }
+
+        .code-comment {
+            color: var(--text-muted);
+        }
+
+        .code-string {
+            color: #10b981;
+        }
+
+        .code-key {
+            color: var(--accent);
+        }
+
+        .code-value {
+            color: var(--secondary);
+        }
+    </style>
+</head>
+<body>
+    <div class="grain"></div>
+    
+    <nav id="nav">
+        <div class="container">
+            <div class="logo">NeuralHub</div>
+            <div class="nav-links">
+                <a href="#models">Модели</a>
+                <a href="#features">Преимущества</a>
+                <a href="#pricing">Цены</a>
+                <a href="#cta" class="btn btn-primary">Начать</a>
+            </div>
+        </div>
+    </nav>
+
+    <section class="hero">
+        <div class="hero-bg">
+            <div class="orb orb-1"></div>
+            <div class="orb orb-2"></div>
+            <div class="orb orb-3"></div>
+        </div>
+        
+        <div class="container">
+            <div class="hero-content">
+                <div class="hero-badge">
+                    <span>⚡</span>
+                    <span>Единый ключ для всех нейросетей</span>
+                </div>
+                
+                <h1>
+                    Доступ к <span class="gradient-text">GPT, Claude, Gemini</span> по одному ключу
+                </h1>
+                
+                <p class="hero-description">
+                    Забудьте про десятки API-ключей. NeuralHub объединяет лучшие нейросети мира в единый интерфейс с ценами до 70% ниже официальных.
+                </p>
+                
+                <div class="hero-cta">
+                    <a href="#cta" class="btn btn-primary">Получить доступ</a>
+                    <a href="#api" class="btn btn-secondary">Документация API</a>
+                </div>
+
+                <div class="stats">
+                    <div class="stat-item">
+                        <div class="stat-number">15+</div>
+                        <div class="stat-label">Моделей нейросетей</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-number">99.9%</div>
+                        <div class="stat-label">Аптайм сервиса</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-number">-70%</div>
+                        <div class="stat-label">Экономия средств</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-number">24/7</div>
+                        <div class="stat-label">Техподдержка</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="scroll-indicator"></div>
+    </section>
+
+    <section id="models">
+        <div class="container">
+            <h2>Все топовые модели <span class="gradient-text">в одном месте</span></h2>
+            <p class="section-subtitle">
+                Переключайтесь между моделями одной строчкой кода. Без регистрации на десятках платформ.
+            </p>
+
+            <div class="models-grid">
+                <div class="model-card">
+                    <div class="model-icon">G</div>
+                    <div class="model-name">GPT-4 Turbo</div>
+                    <div class="model-description">
+                        Самая мощная языковая модель OpenAI с контекстом 128K токенов. Идеально для сложных задач и анализа больших объёмов текста.
+                    </div>
+                </div>
+
+                <div class="model-card">
+                    <div class="model-icon">C</div>
+                    <div class="model-name">Claude 3.5 Sonnet</div>
+                    <div class="model-description">
+                        Флагман Anthropic с превосходным пониманием контекста и безопасностью. Лучший выбор для работы с кодом и аналитики.
+                    </div>
+                </div>
+
+                <div class="model-card">
+                    <div class="model-icon">G</div>
+                    <div class="model-name">Gemini Pro</div>
+                    <div class="model-description">
+                        Мультимодальная модель Google с поддержкой изображений, видео и аудио. Отличная производительность за разумную цену.
+                    </div>
+                </div>
+
+                <div class="model-card">
+                    <div class="model-icon">D</div>
+                    <div class="model-name">DeepSeek V3</div>
+                    <div class="model-description">
+                        Новейшая open-source модель с соотношением цена/качество, превосходящим конкурентов. Специализация на коде и математике.
+                    </div>
+                </div>
+
+                <div class="model-card">
+                    <div class="model-icon">L</div>
+                    <div class="model-name">Llama 3.3</div>
+                    <div class="model-description">
+                        Топовая открытая модель от Meta. Отличная альтернатива коммерческим решениям для большинства задач.
+                    </div>
+                </div>
+
+                <div class="model-card">
+                    <div class="model-icon">+</div>
+                    <div class="model-name">И ещё 10+</div>
+                    <div class="model-description">
+                        Постоянно добавляем новые модели: Mistral, Cohere, Grok и другие. Всегда актуальные версии.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="api">
+        <div class="container">
+            <h2>Простой <span class="gradient-text">как 2×2</span> API</h2>
+            <p class="section-subtitle">
+                Совместимость с OpenAI API. Меняете endpoint — всё работает.
+            </p>
+
+            <div class="api-demo">
+                <div class="code-line"><span class="code-comment"># Вместо OpenAI:</span></div>
+                <div class="code-line"><span class="code-key">openai.api_base</span> = <span class="code-string">"https://api.openai.com/v1"</span></div>
+                <div class="code-line"></div>
+                <div class="code-line"><span class="code-comment"># Используйте NeuralHub:</span></div>
+                <div class="code-line"><span class="code-key">openai.api_base</span> = <span class="code-string">"https://api.neuralhub.dev/v1"</span></div>
+                <div class="code-line"><span class="code-key">openai.api_key</span> = <span class="code-string">"your-neuralhub-key"</span></div>
+                <div class="code-line"></div>
+                <div class="code-line"><span class="code-comment"># Переключение между моделями:</span></div>
+                <div class="code-line"><span class="code-key">model</span> = <span class="code-string">"gpt-4-turbo"</span>  <span class="code-comment"># OpenAI</span></div>
+                <div class="code-line"><span class="code-key">model</span> = <span class="code-string">"claude-3.5-sonnet"</span>  <span class="code-comment"># Anthropic</span></div>
+                <div class="code-line"><span class="code-key">model</span> = <span class="code-string">"gemini-pro"</span>  <span class="code-comment"># Google</span></div>
+                <div class="code-line"><span class="code-key">model</span> = <span class="code-string">"deepseek-v3"</span>  <span class="code-comment"># DeepSeek</span></div>
+            </div>
+        </div>
+    </section>
+
+    <section id="features">
+        <div class="container">
+            <h2>Почему выбирают <span class="gradient-text">NeuralHub</span></h2>
+            <p class="section-subtitle">
+                Мы не просто реселлер API — мы инфраструктурная платформа для работы с нейросетями.
+            </p>
+
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">💰</div>
+                    <div class="feature-title">Экономия до 70%</div>
+                    <div class="feature-text">
+                        Оптовые тарифы и прямые контракты с провайдерами позволяют предлагать цены значительно ниже официальных, сохраняя качество.
+                    </div>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">🔑</div>
+                    <div class="feature-title">Один ключ для всех</div>
+                    <div class="feature-text">
+                        Забудьте про управление десятками API-ключей. Единый ключ NeuralHub работает со всеми моделями и провайдерами.
+                    </div>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">⚡</div>
+                    <div class="feature-title">Низкая latency</div>
+                    <div class="feature-text">
+                        Оптимизированная инфраструктура с балансировкой нагрузки и кешированием. Среднее время ответа ниже, чем у оригинальных API.
+                    </div>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">🛡️</div>
+                    <div class="feature-title">Надёжность 99.9%</div>
+                    <div class="feature-text">
+                        Автоматический failover между провайдерами. Если один API недоступен — запрос автоматически уходит к альтернативному.
+                    </div>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">📊</div>
+                    <div class="feature-title">Аналитика и мониторинг</div>
+                    <div class="feature-text">
+                        Детальная статистика использования, логи запросов, контроль расходов и alertы. Всё в удобном дашборде.
+                    </div>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">🔒</div>
+                    <div class="feature-title">Безопасность данных</div>
+                    <div class="feature-text">
+                        Ваши запросы не логируются и не используются для обучения моделей. Полное шифрование и соответствие GDPR.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="pricing">
+        <div class="container">
+            <div class="pricing">
+                <div class="pricing-header">
+                    <div class="pricing-title">Честное сравнение цен</div>
+                    <div class="pricing-subtitle">Экономия очевидна. Качество идентично.</div>
+                </div>
+
+                <div class="comparison-table">
+                    <div class="price-column">
+                        <div class="price-label">Официально</div>
+                        <div class="price-amount">$30</div>
+                        <div class="price-period">за 1M токенов GPT-4 Turbo</div>
+                        <ul class="price-features">
+                            <li>Несколько API-ключей</li>
+                            <li>Отдельные биллинги</li>
+                            <li>Базовая поддержка</li>
+                            <li>Нет аналитики</li>
+                            <li>Простои при обновлениях</li>
+                        </ul>
+                    </div>
+
+                    <div class="price-column highlighted">
+                        <div class="price-label">NeuralHub</div>
+                        <div class="price-amount">$9</div>
+                        <div class="price-period">за 1M токенов GPT-4 Turbo</div>
+                        <ul class="price-features">
+                            <li>Единый API-ключ</li>
+                            <li>Один баланс для всех моделей</li>
+                            <li>Приоритетная поддержка 24/7</li>
+                            <li>Расширенная аналитика</li>
+                            <li>Автоматический failover</li>
+                            <li>Кастомные лимиты</li>
+                        </ul>
+                        <a href="#cta" class="btn btn-primary" style="width: 100%;">Начать экономить</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="cta">
+        <div class="container">
+            <div class="cta-section">
+                <div class="cta-content">
+                    <h2 class="cta-title">Готовы начать экономить?</h2>
+                    <p class="cta-description">
+                        Получите $10 на баланс при первом пополнении. Никаких скрытых комиссий и минимальных платежей.
+                    </p>
+                    <div style="display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;">
+                        <a href="#" class="btn btn-primary" style="font-size: 1.1rem; padding: 1rem 2.5rem;">Зарегистрироваться →</a>
+                        <a href="#" class="btn btn-secondary" style="font-size: 1.1rem; padding: 1rem 2.5rem;">Документация</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <footer>
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-column">
+                    <h3>NeuralHub</h3>
+                    <p style="color: var(--text-muted); line-height: 1.7;">
+                        Единый доступ к лучшим нейросетям мира. Быстро, надёжно, выгодно.
+                    </p>
+                </div>
+
+                <div class="footer-column">
+                    <h3>Продукт</h3>
+                    <ul>
+                        <li><a href="#models">Модели</a></li>
+                        <li><a href="#pricing">Цены</a></li>
+                        <li><a href="#">Документация API</a></li>
+                        <li><a href="#">Статус сервиса</a></li>
+                    </ul>
+                </div>
+
+                <div class="footer-column">
+                    <h3>Компания</h3>
+                    <ul>
+                        <li><a href="#">О нас</a></li>
+                        <li><a href="#">Блог</a></li>
+                        <li><a href="#">Карьера</a></li>
+                        <li><a href="#">Контакты</a></li>
+                    </ul>
+                </div>
+
+                <div class="footer-column">
+                    <h3>Поддержка</h3>
+                    <ul>
+                        <li><a href="#">FAQ</a></li>
+                        <li><a href="#">Telegram чат</a></li>
+                        <li><a href="#">Email: support@neuralhub.dev</a></li>
+                        <li><a href="#">Discord сообщество</a></li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="footer-bottom">
+                <p>&copy; 2025 NeuralHub. Все права защищены. <a href="#" style="color: var(--primary);">Пользовательское соглашение</a> · <a href="#" style="color: var(--primary);">Политика конфиденциальности</a></p>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // Smooth scroll
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            });
+        });
+
+        // Nav scroll effect
+        const nav = document.getElementById('nav');
+        window.addEventListener('scroll', () => {
+            if (window.scrollY > 100) {
+                nav.classList.add('scrolled');
+            } else {
+                nav.classList.remove('scrolled');
+            }
+        });
+
+        // Intersection Observer for animations
+        const observerOptions = {
+            threshold: 0.1,
+            rootMargin: '0px 0px -100px 0px'
+        };
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.style.opacity = '1';
+                    entry.target.style.transform = 'translateY(0)';
+                }
+            });
+        }, observerOptions);
+
+        document.querySelectorAll('.model-card, .feature-card, .stat-item').forEach(el => {
+            el.style.opacity = '0';
+            el.style.transform = 'translateY(30px)';
+            el.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
+            observer.observe(el);
+        });
+
+        // Parallax effect for orbs
+        document.addEventListener('mousemove', (e) => {
+            const orbs = document.querySelectorAll('.orb');
+            const x = e.clientX / window.innerWidth;
+            const y = e.clientY / window.innerHeight;
+
+            orbs.forEach((orb, index) => {
+                const speed = (index + 1) * 20;
+                orb.style.transform = `translate(${x * speed}px, ${y * speed}px)`;
+            });
+        });
+
+        // Add subtle cursor follower effect
+        const createCursorFollower = () => {
+            const follower = document.createElement('div');
+            follower.style.cssText = `
+                position: fixed;
+                width: 8px;
+                height: 8px;
+                border-radius: 50%;
+                background: var(--primary);
+                pointer-events: none;
+                z-index: 10000;
+                opacity: 0.5;
+                transition: transform 0.15s ease;
+            `;
+            document.body.appendChild(follower);
+
+            document.addEventListener('mousemove', (e) => {
+                follower.style.left = e.clientX + 'px';
+                follower.style.top = e.clientY + 'px';
+            });
+        };
+
+        createCursorFollower();
+    </script>
+</body>
+</html>

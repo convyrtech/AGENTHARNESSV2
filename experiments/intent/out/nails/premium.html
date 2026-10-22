@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Запись на маникюр</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600&family=Montserrat:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Montserrat', sans-serif;
+            background: linear-gradient(135deg, #fce4ec 0%, #f8bbd0 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+            overflow: hidden;
+        }
+
+        header {
+            background: linear-gradient(135deg, #ec407a 0%, #d81b60 100%);
+            color: white;
+            padding: 50px 30px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        header::before {
+            content: '';
+            position: absolute;
+            width: 200px;
+            height: 200px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 50%;
+            top: -100px;
+            right: -50px;
+        }
+
+        header::after {
+            content: '';
+            position: absolute;
+            width: 150px;
+            height: 150px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 50%;
+            bottom: -75px;
+            left: -30px;
+        }
+
+        h1 {
+            font-family: 'Playfair Display', serif;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .subtitle {
+            font-size: 1.1em;
+            font-weight: 300;
+            opacity: 0.95;
+            position: relative;
+            z-index: 1;
+        }
+
+        .services {
+            padding: 40px 30px;
+            background: #fafafa;
+        }
+
+        .services h2 {
+            font-family: 'Playfair Display', serif;
+            color: #d81b60;
+            margin-bottom: 25px;
+            font-size: 1.8em;
+        }
+
+        .service-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .service-card {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .service-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.12);
+        }
+
+        .service-icon {
+            width: 50px;
+            height: 50px;
+            margin-bottom: 15px;
+        }
+
+        .service-card h3 {
+            color: #d81b60;
+            margin-bottom: 8px;
+            font-size: 1.2em;
+        }
+
+        .service-card p {
+            color: #666;
+            font-size: 0.95em;
+            line-height: 1.5;
+        }
+
+        .price {
+            color: #ec407a;
+            font-weight: 600;
+            font-size: 1.1em;
+            margin-top: 10px;
+        }
+
+        .booking-section {
+            padding: 40px 30px;
+        }
+
+        .booking-section h2 {
+            font-family: 'Playfair Display', serif;
+            color: #d81b60;
+            margin-bottom: 25px;
+            font-size: 1.8em;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 500;
+            font-size: 0.95em;
+        }
+
+        input, select, textarea {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #f0f0f0;
+            border-radius: 8px;
+            font-family: 'Montserrat', sans-serif;
+            font-size: 1em;
+            transition: border-color 0.3s ease;
+        }
+
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: #ec407a;
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        button {
+            background: linear-gradient(135deg, #ec407a 0%, #d81b60 100%);
+            color: white;
+            padding: 15px 40px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.1em;
+            font-weight: 600;
+            cursor: pointer;
+            width: 100%;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            font-family: 'Montserrat', sans-serif;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(236, 64, 122, 0.3);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        .contact-info {
+            background: #fafafa;
+            padding: 30px;
+            text-align: center;
+            border-top: 1px solid #f0f0f0;
+        }
+
+        .contact-info h3 {
+            color: #d81b60;
+            margin-bottom: 15px;
+            font-family: 'Playfair Display', serif;
+        }
+
+        .contact-info p {
+            color: #666;
+            margin-bottom: 8px;
+        }
+
+        .success-message {
+            display: none;
+            background: #4caf50;
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+            text-align: center;
+            animation: slideIn 0.5s ease;
+        }
+
+        .success-message.show {
+            display: block;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @media (max-width: 600px) {
+            h1 {
+                font-size: 2em;
+            }
+
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+
+            .service-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>💅 Маникюрный Салон</h1>
+            <p class="subtitle">Профессиональный уход за вашими ногтями</p>
+        </header>
+
+        <section class="services">
+            <h2>Наши услуги</h2>
+            <div class="service-grid">
+                <div class="service-card">
+                    <svg class="service-icon" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <circle cx="32" cy="32" r="28" fill="#fce4ec"/>
+                        <path d="M32 10 L34 28 L32 38 L30 28 Z" fill="#ec407a"/>
+                        <circle cx="32" cy="32" r="8" fill="#d81b60"/>
+                    </svg>
+                    <h3>Классический маникюр</h3>
+                    <p>Обработка ногтей и кутикулы, покрытие лаком</p>
+                    <div class="price">от 800 ₽</div>
+                </div>
+
+                <div class="service-card">
+                    <svg class="service-icon" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <circle cx="32" cy="32" r="28" fill="#fce4ec"/>
+                        <rect x="20" y="20" width="24" height="24" rx="4" fill="#ec407a"/>
+                        <circle cx="32" cy="32" r="6" fill="#fff"/>
+                    </svg>
+                    <h3>Гель-лак</h3>
+                    <p>Стойкое покрытие гель-лаком на 2-3 недели</p>
+                    <div class="price">от 1200 ₽</div>
+                </div>
+
+                <div class="service-card">
+                    <svg class="service-icon" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <circle cx="32" cy="32" r="28" fill="#fce4ec"/>
+                        <path d="M25 25 L39 25 L39 39 L25 39 Z" fill="#ec407a"/>
+                        <circle cx="29" cy="29" r="2" fill="#fff"/>
+                        <circle cx="35" cy="29" r="2" fill="#fff"/>
+                        <circle cx="29" cy="35" r="2" fill="#fff"/>
+                        <circle cx="35" cy="35" r="2" fill="#fff"/>
+                    </svg>
+                    <h3>Дизайн ногтей</h3>
+                    <p>Художественная роспись, стразы, наклейки</p>
+                    <div class="price">от 200 ₽/ноготь</div>
+                </div>
+
+                <div class="service-card">
+                    <svg class="service-icon" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <circle cx="32" cy="32" r="28" fill="#fce4ec"/>
+                        <path d="M32 15 L40 32 L32 49 L24 32 Z" fill="#ec407a"/>
+                        <ellipse cx="32" cy="32" rx="6" ry="10" fill="#d81b60"/>
+                    </svg>
+                    <h3>Наращивание</h3>
+                    <p>Наращивание ногтей гелем или акрилом</p>
+                    <div class="price">от 2000 ₽</div>
+                </div>
+            </div>
+        </section>
+
+        <section class="booking-section">
+            <h2>Записаться на прием</h2>
+            <form id="bookingForm">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="name">Ваше имя *</label>
+                        <input type="text" id="name" name="name" required placeholder="Анна">
+                    </div>
+                    <div class="form-group">
+                        <label for="phone">Телефон *</label>
+                        <input type="tel" id="phone" name="phone" required placeholder="+7 (999) 123-45-67">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="service">Выберите услугу *</label>
+                        <select id="service" name="service" required>
+                            <option value="">-- Выберите услугу --</option>
+                            <option value="classic">Классический маникюр (800 ₽)</option>
+                            <option value="gel">Гель-лак (1200 ₽)</option>
+                            <option value="design">Дизайн ногтей (от 200 ₽)</option>
+                            <option value="extension">Наращивание (2000 ₽)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="date">Желаемая дата *</label>
+                        <input type="date" id="date" name="date" required>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="time">Предпочтительное время *</label>
+                    <select id="time" name="time" required>
+                        <option value="">-- Выберите время --</option>
+                        <option value="09:00">09:00</option>
+                        <option value="10:00">10:00</option>
+                        <option value="11:00">11:00</option>
+                        <option value="12:00">12:00</option>
+                        <option value="13:00">13:00</option>
+                        <option value="14:00">14:00</option>
+                        <option value="15:00">15:00</option>
+                        <option value="16:00">16:00</option>
+                        <option value="17:00">17:00</option>
+                        <option value="18:00">18:00</option>
+                        <option value="19:00">19:00</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="comment">Комментарий</label>
+                    <textarea id="comment" name="comment" placeholder="Укажите дополнительные пожелания..."></textarea>
+                </div>
+
+                <button type="submit">Отправить заявку</button>
+
+                <div class="success-message" id="successMessage">
+                    ✅ Спасибо за запись! Мы свяжемся с вами в ближайшее время для подтверждения.
+                </div>
+            </form>
+        </section>
+
+        <div class="contact-info">
+            <h3>Контакты</h3>
+            <p>📞 Телефон: +7 (999) 123-45-67</p>
+            <p>📍 Адрес: г. Москва, ул. Примерная, д. 123</p>
+            <p>🕐 Режим работы: Пн-Вс 9:00 - 20:00</p>
+        </div>
+    </div>
+
+    <script>
+        // Set minimum date to today
+        const dateInput = document.getElementById('date');
+        const today = new Date().toISOString().split('T')[0];
+        dateInput.setAttribute('min', today);
+
+        // Handle form submission
+        document.getElementById('bookingForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            const formData = {
+                name: document.getElementById('name').value,
+                phone: document.getElementById('phone').value,
+                service: document.getElementById('service').value,
+                date: document.getElementById('date').value,
+                time: document.getElementById('time').value,
+                comment: document.getElementById('comment').value
+            };
+
+            // In a real application, you would send this data to a server
+            console.log('Booking data:', formData);
+
+            // Show success message
+            document.getElementById('successMessage').classList.add('show');
+
+            // Reset form
+            this.reset();
+
+            // Hide success message after 5 seconds
+            setTimeout(function() {
+                document.getElementById('successMessage').classList.remove('show');
+            }, 5000);
+
+            // Scroll to success message
+            document.getElementById('successMessage').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        });
+
+        // Phone number formatting
+        document.getElementById('phone').addEventListener('input', function(e) {
+            let value = e.target.value.replace(/\D/g, '');
+            if (value.length > 0) {
+                if (value[0] === '8') value = '7' + value.slice(1);
+                if (value[0] !== '7') value = '7' + value;
+            }
+            
+            let formatted = '+7';
+            if (value.length > 1) {
+                formatted += ' (' + value.substring(1, 4);
+            }
+            if (value.length >= 5) {
+                formatted += ') ' + value.substring(4, 7);
+            }
+            if (value.length >= 8) {
+                formatted += '-' + value.substring(7, 9);
+            }
+            if (value.length >= 10) {
+                formatted += '-' + value.substring(9, 11);
+            }
+            
+            e.target.value = formatted;
+        });
+    </script>
+</body>
+</html>

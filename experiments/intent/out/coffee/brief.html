@@ -1,0 +1,878 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ЗЁРНО — кофейня и обжарка</title>
+<meta name="description" content="Обжариваем сами, готовим с душой. Свежий кофе, десерты и тихое место в центре города.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,500;1,600&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --cream:#f7f1e8;
+  --cream-2:#efe4d5;
+  --card:#fffaf3;
+  --ink:#1c1310;
+  --mocha:#241610;
+  --mocha-2:#2f1d15;
+  --accent:#c8873f;
+  --accent-hi:#e0a75e;
+  --muted:#7c6a5e;
+  --line:rgba(28,19,16,.13);
+  --serif:'Cormorant Garamond',Georgia,'Times New Roman',serif;
+  --sans:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  --shadow:0 26px 60px -34px rgba(44,26,17,.55);
+}
+*,*::before,*::after{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0;font-family:var(--sans);font-weight:300;line-height:1.65;
+  color:var(--ink);background:var(--cream);overflow-x:hidden;
+  -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
+}
+body::after{
+  content:"";position:fixed;inset:0;z-index:9998;pointer-events:none;opacity:.045;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+img,svg{display:block;max-width:100%}
+h1,h2,h3,h4{font-family:var(--serif);font-weight:500;margin:0;line-height:1.1;letter-spacing:-.012em}
+p{margin:0}
+a{color:inherit}
+button{font:inherit}
+::selection{background:var(--accent);color:#fff}
+.container{width:min(1180px,100% - 44px);margin-inline:auto}
+.section{padding:clamp(64px,9vw,120px) 0}
+section[id]{scroll-margin-top:92px}
+
+/* ---------- typography helpers ---------- */
+.eyebrow{
+  display:inline-flex;align-items:center;gap:10px;
+  font-size:.7rem;letter-spacing:.22em;text-transform:uppercase;
+  color:var(--accent);font-weight:500;
+}
+.eyebrow::before{content:"";width:26px;height:1px;background:currentColor;opacity:.65}
+h2{font-size:clamp(1.95rem,4.2vw,3.3rem);letter-spacing:-.02em}
+.section-head{max-width:660px}
+.section-head.center{margin-inline:auto;text-align:center}
+.section-head h2{margin:16px 0 18px}
+.section-head p{color:var(--muted);font-size:1.02rem}
+
+/* ---------- buttons ---------- */
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:10px;
+  padding:15px 30px;border-radius:999px;border:1px solid transparent;
+  background:var(--ink);color:var(--cream);text-decoration:none;
+  font-size:.9rem;font-weight:500;letter-spacing:.02em;cursor:pointer;
+  transition:background .28s ease,transform .28s ease,border-color .28s,color .28s,box-shadow .28s;
+}
+.btn:hover{background:var(--mocha-2);transform:translateY(-2px);box-shadow:0 14px 28px -18px rgba(44,26,17,.9)}
+.btn:active{transform:translateY(0)}
+.btn-ghost{background:transparent;color:var(--ink);border-color:rgba(28,19,16,.26)}
+.btn-ghost:hover{background:rgba(28,19,16,.055);border-color:var(--ink);box-shadow:none}
+.btn-sm{padding:11px 21px;font-size:.82rem}
+
+/* ---------- header ---------- */
+.site-header{position:fixed;inset:0 0 auto 0;z-index:100;padding:14px 0;transition:background .35s ease,box-shadow .35s ease,backdrop-filter .35s ease,padding .35s ease}
+.site-header.scrolled{background:rgba(247,241,232,.88);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);box-shadow:0 1px 0 var(--line);padding:8px 0}
+.header-inner{display:flex;align-items:center;gap:30px}
+.logo{display:flex;align-items:center;gap:11px;text-decoration:none;color:var(--ink);margin-right:auto;transition:opacity .25s}
+.logo:hover{opacity:.75}
+.logo-mark{width:29px;height:29px;color:var(--mocha);flex:none}
+.logo-mark path{stroke:var(--cream);transition:stroke .3s}
+.logo-text{font-family:var(--serif);font-size:1.32rem;font-weight:600;letter-spacing:.18em;line-height:1}
+.nav{display:flex;gap:28px}
+.nav a{position:relative;padding:6px 0;text-decoration:none;font-size:.87rem;letter-spacing:.015em;opacity:.78;transition:opacity .25s}
+.nav a::after{content:"";position:absolute;left:0;right:100%;bottom:0;height:1px;background:var(--accent);transition:right .32s cubic-bezier(.2,.7,.2,1)}
+.nav a:hover{opacity:1}
+.nav a:hover::after{right:0}
+.burger{display:none;flex-direction:column;justify-content:center;gap:5px;width:44px;height:44px;border-radius:50%;border:1px solid rgba(28,19,16,.16);background:transparent;cursor:pointer;position:relative;z-index:130;flex:none}
+.burger span{display:block;width:18px;height:1.6px;background:var(--ink);margin-inline:auto;transition:transform .3s ease,opacity .3s ease}
+.burger.open span:nth-child(1){transform:translateY(6.6px) rotate(45deg)}
+.burger.open span:nth-child(2){opacity:0}
+.burger.open span:nth-child(3){transform:translateY(-6.6px) rotate(-45deg)}
+
+/* ---------- hero ---------- */
+.hero{position:relative;padding:clamp(118px,16vh,180px) 0 clamp(56px,7vw,92px);overflow:hidden}
+.hero::before{content:"";position:absolute;width:min(680px,90vw);height:min(680px,90vw);right:-14%;top:-22%;border-radius:50%;background:radial-gradient(circle,rgba(200,135,63,.16),transparent 64%);pointer-events:none}
+.hero-inner{position:relative;display:grid;grid-template-columns:1.06fr .94fr;gap:clamp(24px,5vw,56px);align-items:center}
+.hero h1{font-size:clamp(2.5rem,6.1vw,4.8rem);line-height:1.02;letter-spacing:-.028em;margin:18px 0 22px}
+.hero h1 em{font-style:italic;color:var(--accent);position:relative}
+.lead{max-width:46ch;color:#4d3c31;font-size:clamp(1rem,1.35vw,1.09rem)}
+.hero-actions{display:flex;flex-wrap:wrap;gap:13px;margin:34px 0 42px}
+.stats{display:flex;flex-wrap:wrap;gap:clamp(20px,3.6vw,46px);margin:0;padding-top:26px;border-top:1px solid var(--line)}
+.stats > div{display:flex;flex-direction:column;gap:3px}
+.stats dt{font-family:var(--serif);font-size:clamp(1.75rem,3vw,2.35rem);line-height:1;color:var(--mocha);font-weight:600}
+.stats dd{margin:0;font-size:.72rem;letter-spacing:.15em;text-transform:uppercase;color:var(--muted)}
+
+.hero-art{position:relative;display:grid;place-items:center;min-height:min(84vw,500px)}
+.halo{position:absolute;inset:7% 3%;border-radius:50%;background:radial-gradient(58% 58% at 42% 36%,#fdf8f0,#f0e1cc 56%,#e2cdb0);box-shadow:inset 0 0 90px rgba(200,135,63,.22),0 40px 80px -50px rgba(44,26,17,.6)}
+.cup{position:relative;width:min(100%,430px);filter:drop-shadow(0 34px 44px rgba(52,30,18,.2))}
+.steam path{animation:steam 4.6s ease-in-out infinite;transform-box:fill-box;transform-origin:bottom center}
+.steam path:nth-child(2){animation-delay:.75s}
+.steam path:nth-child(3){animation-delay:1.5s}
+@keyframes steam{
+  0%,100%{opacity:.1;transform:translateY(7px) scaleY(.9)}
+  50%{opacity:.72;transform:translateY(-9px) scaleY(1.08)}
+}
+.bean{position:absolute;width:36px;filter:drop-shadow(0 12px 16px rgba(52,30,18,.22))}
+.bean-1{top:5%;left:1%;animation:float 7.5s ease-in-out infinite}
+.bean-2{bottom:9%;right:-1%;width:29px;animation:float 9s ease-in-out infinite reverse}
+.bean-3{top:19%;right:6%;width:23px;opacity:.7;animation:float 8.2s ease-in-out infinite .9s}
+@keyframes float{
+  0%,100%{transform:translateY(0) rotate(-14deg)}
+  50%{transform:translateY(-18px) rotate(11deg)}
+}
+.hero-chip{
+  position:absolute;left:-2%;bottom:6%;display:flex;flex-direction:column;gap:1px;
+  padding:13px 20px;border-radius:15px;border:1px solid rgba(255,255,255,.75);
+  background:rgba(255,251,245,.84);backdrop-filter:blur(9px);-webkit-backdrop-filter:blur(9px);
+  box-shadow:var(--shadow);
+}
+.hero-chip span{font-size:.65rem;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+.hero-chip strong{font-family:var(--serif);font-size:1.12rem;font-weight:600}
+
+/* ---------- about ---------- */
+.about-grid{display:grid;grid-template-columns:1fr 1fr;gap:clamp(32px,6vw,80px);align-items:start}
+.about-copy h2{margin:16px 0 20px}
+.about-copy p{color:var(--muted);font-size:1.02rem;max-width:44ch}
+.about-copy p + p{margin-top:14px}
+.values{display:grid}
+.value{display:grid;grid-template-columns:auto 1fr;gap:18px;padding:23px 0;border-top:1px solid var(--line)}
+.value:last-child{border-bottom:1px solid var(--line)}
+.value .num{font-family:var(--serif);font-size:1.05rem;color:var(--accent);padding-top:3px;font-weight:600}
+.value h3{font-size:1.2rem;font-weight:600;margin-bottom:6px}
+.value p{font-size:.92rem;color:var(--muted);max-width:40ch}
+
+/* ---------- menu ---------- */
+.menu{background:var(--cream-2);position:relative}
+.menu-head{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:24px;margin-bottom:34px}
+.tabs{display:flex;gap:6px;padding:6px;border-radius:999px;background:rgba(255,255,255,.66);border:1px solid rgba(28,19,16,.07)}
+.tab{border:0;background:transparent;padding:10px 21px;border-radius:999px;font-size:.85rem;font-weight:500;color:var(--muted);cursor:pointer;transition:background .25s,color .25s}
+.tab:hover:not(.is-active){color:var(--ink);background:rgba(28,19,16,.05)}
+.tab.is-active{background:var(--ink);color:var(--cream)}
+.menu-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 clamp(32px,5vw,70px)}
+.m-item{padding:20px 0;border-bottom:1px solid rgba(28,19,16,.12);animation:fadeUp .45s ease backwards}
+.m-top{display:flex;align-items:baseline;gap:10px}
+.m-top h3{font-family:var(--serif);font-size:1.28rem;font-weight:600;line-height:1.25}
+.m-dots{flex:1;border-bottom:1px dotted rgba(28,19,16,.3);transform:translateY(-4px);min-width:18px}
+.m-price{font-family:var(--serif);font-size:1.13rem;font-weight:600;color:var(--accent);white-space:nowrap}
+.m-desc{font-size:.87rem;color:var(--muted);margin-top:5px;max-width:38ch;line-height:1.5}
+.menu-foot{margin-top:34px;font-size:.85rem;color:var(--muted);display:flex;flex-wrap:wrap;gap:6px 18px;align-items:center}
+.menu-foot b{font-weight:500;color:var(--ink)}
+@keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+/* ---------- process ---------- */
+.process{background:var(--mocha);color:#f3e9dc;position:relative;overflow:hidden}
+.process::before{content:"";position:absolute;width:620px;height:620px;left:-180px;bottom:-320px;border-radius:50%;background:radial-gradient(circle,rgba(224,167,94,.18),transparent 62%);pointer-events:none}
+.process h2{color:#fbf4ea}
+.process .eyebrow{color:var(--accent-hi)}
+.process .section-head p{color:rgba(243,233,220,.66)}
+.steps{display:grid;grid-template-columns:repeat(4,1fr);gap:clamp(14px,2.2vw,24px);margin-top:clamp(34px,5vw,54px);position:relative}
+.step{padding:26px 22px 28px;border-radius:18px;background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.09);transition:background .3s,transform .35s,border-color .3s}
+.step:hover{background:rgba(255,255,255,.085);border-color:rgba(224,167,94,.35);transform:translateY(-5px)}
+.step .n{font-family:var(--serif);font-size:2.1rem;line-height:1;color:var(--accent-hi);font-weight:600}
+.step h3{font-size:1.13rem;color:#fbf4ea;margin:14px 0 8px;font-weight:600}
+.step p{font-size:.87rem;color:rgba(243,233,220,.66);line-height:1.55}
+
+/* ---------- gallery ---------- */
+.gallery-grid{display:grid;grid-template-columns:repeat(4,1fr);grid-auto-rows:172px;gap:14px;margin-top:clamp(30px,4vw,44px)}
+.tile{position:relative;border-radius:18px;overflow:hidden;border:1px solid rgba(28,19,16,.08);background:var(--cream-2);transition:transform .55s cubic-bezier(.2,.7,.2,1),box-shadow .45s}
+.tile:hover{transform:translateY(-4px);box-shadow:0 26px 46px -34px rgba(44,26,17,.75)}
+.tile .art{position:absolute;inset:0}
+.tile .cap{position:absolute;left:17px;bottom:15px;z-index:3;font-family:var(--serif);font-size:1.05rem;letter-spacing:.01em;color:#fffaf3;text-shadow:0 2px 12px rgba(0,0,0,.45)}
+.tile .art::after{content:"";position:absolute;inset:0;background:linear-gradient(to top,rgba(20,12,8,.55),rgba(20,12,8,0) 58%)}
+.tile.big{grid-column:span 2;grid-row:span 2}
+.tile.wide{grid-column:span 2}
+/* tile art 1 — latte art */
+.t1 .art{background:radial-gradient(120% 100% at 30% 20%,#5c3520,#2c1a11 70%)}
+.t1 .art::before{content:"";position:absolute;width:62%;aspect-ratio:1;left:50%;top:46%;transform:translate(-50%,-50%);border-radius:50%;background:radial-gradient(circle at 40% 34%,#e3b183,#a9642f 55%,#6a3a1c);box-shadow:inset 0 0 40px rgba(40,20,10,.55),0 0 0 14px rgba(247,241,232,.07)}
+.t1 .art span{position:absolute;left:50%;top:46%;width:26%;aspect-ratio:1;transform:translate(-50%,-50%);border-radius:50% 50% 50% 50%/60% 60% 40% 40%;background:radial-gradient(circle at 50% 30%,#fbf1df,#e6cba6);opacity:.92}
+/* tile art 2 — window light */
+.t2 .art{background:linear-gradient(155deg,#3a2218,#7a4a2c 64%,#c8873f)}
+.t2 .art::before{content:"";position:absolute;inset:-30% -10%;background:repeating-linear-gradient(102deg,rgba(255,246,232,.16) 0 26px,transparent 26px 78px)}
+/* tile art 3 — beans pattern */
+.t3 .art{background:radial-gradient(120% 120% at 80% 10%,#efdfc9,#dcc4a6)}
+.t3 .art::before{content:"";position:absolute;inset:0;background-image:radial-gradient(ellipse 26% 15% at 50% 50%,#7b4a29 62%,transparent 64%),radial-gradient(ellipse 26% 15% at 50% 50%,#8b5a33 62%,transparent 64%);background-size:74px 58px,74px 58px;background-position:0 0,37px 29px;opacity:.72}
+/* tile art 4 — sun / terrace */
+.t4 .art{background:linear-gradient(180deg,#e9c793,#c8873f 70%,#8d5526)}
+.t4 .art::before{content:"";position:absolute;width:58%;aspect-ratio:1;left:50%;top:34%;transform:translate(-50%,-50%);border-radius:50%;background:radial-gradient(circle,#fdf6e9,#f2d9b4 60%,rgba(242,217,180,0));opacity:.95}
+/* tile art 5 — bar counter */
+.t5 .art{background:linear-gradient(180deg,#241610,#4a2c1c)}
+.t5 .art::before{content:"";position:absolute;inset:0;background:repeating-linear-gradient(90deg,rgba(224,167,94,.28) 0 3px,transparent 3px 34px)}
+.t5 .art::after{background:linear-gradient(to top,rgba(20,12,8,.62),transparent 62%)}
+/* tile art 6 — dessert showcase */
+.t6 .art{background:linear-gradient(140deg,#f3e3cd,#e0c6a4)}
+.t6 .art::before{content:"";position:absolute;inset:0;background-image:radial-gradient(circle at 15px 15px,#c8873f 3px,transparent 4px);background-size:40px 40px;opacity:.5}
+.t6 .cap{color:#3b2418;text-shadow:none}
+.t6 .art::after{background:linear-gradient(to top,rgba(255,250,243,.72),transparent 55%)}
+.t3 .cap{color:#3b2418;text-shadow:none}
+.t3 .art::after{background:linear-gradient(to top,rgba(255,250,243,.7),transparent 55%)}
+
+/* ---------- reviews ---------- */
+.reviews{background:var(--cream-2)}
+.quotes{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:clamp(30px,4vw,44px)}
+.quote{display:flex;flex-direction:column;gap:16px;padding:30px 26px;border-radius:20px;background:var(--card);border:1px solid rgba(28,19,16,.07);box-shadow:0 22px 44px -38px rgba(44,26,17,.8);transition:transform .4s ease}
+.quote:hover{transform:translateY(-4px)}
+.quote .stars{color:var(--accent);letter-spacing:4px;font-size:.85rem}
+.quote p{font-family:var(--serif);font-size:1.13rem;line-height:1.5;font-weight:500}
+.quote footer{margin-top:auto;font-size:.72rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+
+/* ---------- contacts ---------- */
+.contacts-grid{display:grid;grid-template-columns:.92fr 1.08fr;gap:clamp(30px,5vw,64px);align-items:start}
+.info-list{list-style:none;margin:26px 0 0;padding:0;display:grid;gap:24px}
+.info-item{display:grid;grid-template-columns:auto 1fr;gap:14px;align-items:start}
+.info-item .ico{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;background:rgba(200,135,63,.14);color:var(--accent);flex:none}
+.info-item .ico svg{width:17px;height:17px}
+.info-item .k{display:block;font-size:.68rem;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin-bottom:3px}
+.info-item a{text-decoration:none;border-bottom:1px solid rgba(28,19,16,.22);transition:border-color .25s,color .25s}
+.info-item a:hover{color:var(--accent);border-color:var(--accent)}
+.hours{margin-top:8px;display:grid;gap:0;max-width:340px}
+.hours .row{display:flex;align-items:baseline;gap:10px;padding:8px 0;font-size:.9rem}
+.hours .row span:first-child{color:var(--muted)}
+.hours .row .dots{flex:1;border-bottom:1px dotted rgba(28,19,16,.25);transform:translateY(-4px)}
+.form-card{padding:clamp(24px,3.6vw,40px);border-radius:24px;background:var(--card);border:1px solid rgba(28,19,16,.08);box-shadow:var(--shadow)}
+.form-card h3{font-size:1.55rem;font-weight:600;margin-bottom:6px}
+.form-card > p{font-size:.9rem;color:var(--muted);margin-bottom:24px}
+.field{display:flex;flex-direction:column;gap:6px;margin-bottom:15px}
+.field label{font-size:.68rem;letter-spacing:.15em;text-transform:uppercase;color:var(--muted)}
+.field input,.field textarea{
+  width:100%;padding:13px 16px;border-radius:12px;font-family:var(--sans);font-size:.94rem;font-weight:300;
+  color:var(--ink);background:#fffdf9;border:1px solid rgba(28,19,16,.16);
+  transition:border-color .25s,box-shadow .25s;appearance:none;
+}
+.field textarea{resize:vertical;min-height:92px}
+.field input::placeholder,.field textarea::placeholder{color:#b3a396}
+.field input:focus,.field textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(200,135,63,.16)}
+.form-card .btn{width:100%;margin-top:6px}
+.form-note{font-size:.76rem;color:var(--muted);margin-top:12px;line-height:1.5}
+.form-ok{display:none;margin-top:16px;padding:14px 16px;border-radius:12px;font-size:.88rem;background:rgba(200,135,63,.12);border:1px solid rgba(200,135,63,.35)}
+.form-ok.show{display:block;animation:fadeUp .45s ease}
+.map{margin-top:clamp(34px,5vw,54px);border-radius:22px;overflow:hidden;border:1px solid rgba(28,19,16,.1);box-shadow:0 26px 54px -44px rgba(44,26,17,.9)}
+.map svg{width:100%;height:clamp(200px,26vw,320px);display:block}
+.map-ping{transform-box:fill-box;transform-origin:center;animation:ping 2.8s ease-out infinite}
+@keyframes ping{0%{opacity:.65;transform:scale(.65)}70%{opacity:0;transform:scale(1.35)}100%{opacity:0;transform:scale(1.35)}}
+
+/* ---------- footer ---------- */
+.site-footer{background:var(--mocha);color:rgba(243,233,220,.72);padding:clamp(46px,6vw,72px) 0 26px}
+.footer-top{display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:clamp(28px,5vw,56px);padding-bottom:38px;border-bottom:1px solid rgba(255,255,255,.1)}
+.site-footer .logo{color:#fbf4ea;margin:0 0 16px}
+.site-footer .logo-mark{color:#f0e0c8}
+.site-footer .logo-mark path{stroke:var(--mocha)}
+.footer-top p{font-size:.9rem;max-width:34ch;line-height:1.6}
+.f-col h4{font-family:var(--sans);font-size:.68rem;letter-spacing:.18em;text-transform:uppercase;color:var(--accent-hi);font-weight:500;margin-bottom:14px}
+.f-col a{display:block;text-decoration:none;font-size:.9rem;padding:5px 0;transition:color .25s,transform .25s}
+.f-col a:hover{color:#fbf4ea;transform:translateX(3px)}
+.footer-bottom{display:flex;flex-wrap:wrap;gap:10px 24px;justify-content:space-between;padding-top:22px;font-size:.78rem;color:rgba(243,233,220,.5)}
+
+/* ---------- reveal ---------- */
+.reveal{opacity:0;transform:translateY(26px);transition:opacity .8s ease,transform .8s cubic-bezier(.2,.7,.2,1)}
+.reveal.in{opacity:1;transform:none}
+
+/* ---------- responsive ---------- */
+@media (max-width:980px){
+  .hero-inner{grid-template-columns:1fr;gap:34px}
+  .hero-art{order:-1;min-height:min(72vw,380px);margin-top:6px}
+  .hero-chip{left:auto;right:0;bottom:2%}
+  .cup{width:min(100%,330px)}
+  .about-grid,.contacts-grid{grid-template-columns:1fr}
+  .steps{grid-template-columns:repeat(2,1fr)}
+  .quotes{grid-template-columns:1fr 1fr}
+  .quotes .quote:last-child{grid-column:span 2}
+  .footer-top{grid-template-columns:1fr 1fr}
+  .footer-top .f-brand{grid-column:span 2}
+}
+@media (max-width:900px){
+  .nav{
+    position:fixed;top:0;right:0;height:100dvh;width:min(320px,86vw);z-index:120;
+    flex-direction:column;justify-content:center;gap:24px;padding:48px 40px;
+    background:var(--cream);box-shadow:-24px 0 70px -32px rgba(20,12,8,.6);
+    transform:translateX(106%);transition:transform .45s cubic-bezier(.2,.7,.2,1);
+  }
+  .nav.open{transform:none}
+  .nav a{font-family:var(--serif);font-size:1.35rem;opacity:1}
+  .header-inner > .btn-sm{display:none}
+  .burger{display:flex}
+}
+@media (max-width:760px){
+  .menu-grid{grid-template-columns:1fr}
+  .menu-head{flex-direction:column;align-items:flex-start}
+  .gallery-grid{grid-template-columns:repeat(2,1fr);grid-auto-rows:150px}
+  .tile.big{grid-column:span 2;grid-row:span 1}
+  .tile.wide{grid-column:span 2}
+  .stats{gap:22px 30px}
+  .quotes{grid-template-columns:1fr}
+  .quotes .quote:last-child{grid-column:auto}
+}
+@media (max-width:560px){
+  .container{width:calc(100% - 34px)}
+  .steps{grid-template-columns:1fr}
+  .footer-top{grid-template-columns:1fr}
+  .footer-top .f-brand{grid-column:auto}
+  .tabs{width:100%;justify-content:space-between}
+  .tab{padding:9px 14px;font-size:.8rem}
+  .hero-actions .btn{flex:1 1 auto}
+}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.001ms !important;animation-iteration-count:1 !important;transition-duration:.001ms !important}
+  .reveal{opacity:1;transform:none}
+  html{scroll-behavior:auto}
+}
+html{scroll-behavior:smooth}
+</style>
+</head>
+<body>
+
+<header class="site-header" id="siteHeader">
+  <div class="container header-inner">
+    <a class="logo" href="#top" aria-label="ЗЁРНО — на главную">
+      <svg class="logo-mark" viewBox="0 0 40 40" aria-hidden="true">
+        <ellipse cx="20" cy="20" rx="10.5" ry="16" transform="rotate(-26 20 20)" fill="currentColor"/>
+        <path d="M13 10.5C17.2 15.8 22.8 24.2 27 29.5" fill="none" stroke-width="1.9" stroke-linecap="round"/>
+      </svg>
+      <span class="logo-text">ЗЁРНО</span>
+    </a>
+    <nav class="nav" id="nav">
+      <a href="#about">О нас</a>
+      <a href="#menu">Меню</a>
+      <a href="#process">Обжарка</a>
+      <a href="#gallery">Атмосфера</a>
+      <a href="#contacts">Контакты</a>
+    </nav>
+    <a class="btn btn-sm" href="#contacts">Забронировать стол</a>
+    <button class="burger" id="burger" aria-label="Открыть меню" aria-expanded="false" aria-controls="nav">
+      <span></span><span></span><span></span>
+    </button>
+  </div>
+</header>
+
+<main id="top">
+
+  <!-- HERO -->
+  <section class="hero">
+    <div class="container hero-inner">
+      <div class="hero-copy">
+        <p class="eyebrow">Кофейня и обжарка · с 2013 года</p>
+        <h1>Кофе, который<br><em>помнит</em>, откуда он</h1>
+        <p class="lead">Обжариваем зерно маленькими партиями каждую неделю, мелем перед самой чашкой и не торопим ни вас, ни себя.</p>
+        <div class="hero-actions">
+          <a class="btn" href="#menu">Смотреть меню</a>
+          <a class="btn btn-ghost" href="#contacts">Как нас найти</a>
+        </div>
+        <dl class="stats">
+          <div><dt>12</dt><dd>лет обжарки</dd></div>
+          <div><dt>8</dt><dd>сортов в ротации</dd></div>
+          <div><dt>100%</dt><dd>арабика</dd></div>
+        </dl>
+      </div>
+
+      <div class="hero-art">
+        <div class="halo" aria-hidden="true"></div>
+
+        <svg class="bean bean-1" viewBox="0 0 40 56" aria-hidden="true">
+          <ellipse cx="20" cy="28" rx="16" ry="25" fill="#4a2c1c"/>
+          <path d="M20 6c-7 12-7 32 0 44" fill="none" stroke="#9a6b45" stroke-width="3" stroke-linecap="round"/>
+        </svg>
+        <svg class="bean bean-2" viewBox="0 0 40 56" aria-hidden="true">
+          <ellipse cx="20" cy="28" rx="16" ry="25" fill="#5c3722"/>
+          <path d="M20 6c7 12 7 32 0 44" fill="none" stroke="#a97a51" stroke-width="3" stroke-linecap="round"/>
+        </svg>
+        <svg class="bean bean-3" viewBox="0 0 40 56" aria-hidden="true">
+          <ellipse cx="20" cy="28" rx="16" ry="25" fill="#6b4227"/>
+          <path d="M20 6c-7 12-7 32 0 44" fill="none" stroke="#b08a62" stroke-width="3" stroke-linecap="round"/>
+        </svg>
+
+        <svg class="cup" viewBox="0 0 340 340" role="img" aria-label="Чашка кофе на блюдце">
+          <defs>
+            <linearGradient id="gCup" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#fffdf9"/>
+              <stop offset=".55" stop-color="#f3e8d8"/>
+              <stop offset="1" stop-color="#d9c6ae"/>
+            </linearGradient>
+            <linearGradient id="gCoffee" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#c08a52"/>
+              <stop offset=".5" stop-color="#8b4f2a"/>
+              <stop offset="1" stop-color="#4d2a16"/>
+            </linearGradient>
+            <radialGradient id="gCrema" cx=".35" cy=".3" r=".85">
+              <stop offset="0" stop-color="#eed0a4"/>
+              <stop offset="1" stop-color="#b9793f"/>
+            </radialGradient>
+            <radialGradient id="gShadow" cx=".5" cy=".5" r=".5">
+              <stop offset="0" stop-color="rgba(60,36,20,.28)"/>
+              <stop offset="1" stop-color="rgba(60,36,20,0)"/>
+            </radialGradient>
+          </defs>
+
+          <ellipse cx="170" cy="292" rx="128" ry="20" fill="url(#gShadow)"/>
+
+          <g class="steam" fill="none" stroke="#bda88f" stroke-width="5" stroke-linecap="round">
+            <path d="M128 118c-13-16 11-27 0-46"/>
+            <path d="M170 112c-13-17 11-31 0-53"/>
+            <path d="M212 118c-13-16 11-27 0-46"/>
+          </g>
+
+          <path d="M258 166c46-6 48 62-2 68" fill="none" stroke="#e9dbc8" stroke-width="17" stroke-linecap="round"/>
+          <ellipse cx="170" cy="282" rx="128" ry="21" fill="#eee2d1"/>
+          <ellipse cx="170" cy="277" rx="128" ry="21" fill="#f8efe2"/>
+
+          <path d="M80 140 L108 252 Q113 268 130 268 L210 268 Q227 268 232 252 L260 140 Z" fill="url(#gCup)"/>
+          <path d="M232 252 L260 140 L245 140 L219 250 Q215 264 200 266 L206 268 Q227 268 232 252 Z" fill="rgba(120,92,64,.13)"/>
+
+          <ellipse cx="170" cy="140" rx="90" ry="20" fill="#fbf4e9"/>
+          <ellipse cx="170" cy="141" rx="82" ry="16.5" fill="url(#gCoffee)"/>
+          <ellipse cx="170" cy="140" rx="63" ry="11.5" fill="url(#gCrema)" opacity=".92"/>
+          <ellipse cx="152" cy="137" rx="16" ry="4" fill="#f6e3c5" opacity=".55"/>
+          <path d="M170 131c13 4 17 11 0 20c-17-9-13-16 0-20z" fill="#fdf3e0" opacity=".85"/>
+          <path d="M170 136c7 3 9 7 0 12c-9-5-7-9 0-12z" fill="#c68f58" opacity=".8"/>
+        </svg>
+
+        <div class="hero-chip">
+          <span>Сегодня в фильтре</span>
+          <strong>Ethiopia Guji</strong>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ABOUT -->
+  <section class="section" id="about">
+    <div class="container about-grid">
+      <div class="about-copy reveal">
+        <p class="eyebrow">О нас</p>
+        <h2>Три столика<br>и один ростер</h2>
+        <p>Мы открылись в 2013-м с одним ростером, тремя столиками и упрямой идеей: кофе должен пахнуть так, чтобы его хотелось пить медленно.</p>
+        <p>С тех пор поменялось почти всё — кроме привычки пробовать каждую партию зерна до того, как она попадёт в меню.</p>
+      </div>
+      <div class="values reveal">
+        <div class="value">
+          <span class="num">01</span>
+          <div>
+            <h3>Своя обжарка</h3>
+            <p>Ростер стоит прямо в зале. Обжариваем по вторникам и пятницам — вы можете посмотреть.</p>
+          </div>
+        </div>
+        <div class="value">
+          <span class="num">02</span>
+          <div>
+            <h3>Прямые поставки</h3>
+            <p>Работаем с шестью фермами напрямую: Эфиопия, Кения, Колумбия, Бразилия, Гватемала, Руанда.</p>
+          </div>
+        </div>
+        <div class="value">
+          <span class="num">03</span>
+          <div>
+            <h3>Без спешки</h3>
+            <p>Тихое место в центре, розетки у каждого стола и никто не смотрит на часы, пока вы читаете.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- MENU -->
+  <section class="section menu" id="menu">
+    <div class="container">
+      <div class="menu-head">
+        <div class="section-head reveal">
+          <p class="eyebrow">Меню</p>
+          <h2>Что сегодня в чашке</h2>
+        </div>
+        <div class="tabs reveal" role="tablist" aria-label="Категории меню">
+          <button class="tab is-active" role="tab" aria-selected="true" data-tab="coffee">Кофе</button>
+          <button class="tab" role="tab" aria-selected="false" data-tab="other">Не кофе</button>
+          <button class="tab" role="tab" aria-selected="false" data-tab="dessert">Десерты</button>
+        </div>
+      </div>
+      <div class="menu-grid reveal" id="menuGrid" aria-live="polite"></div>
+      <div class="menu-foot reveal">
+        <span><b>Альтернативное молоко:</b> овсяное, миндальное, кокосовое — +50 ₽</span>
+        <span>·</span>
+        <span>Свой стакан — скидка 30 ₽</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- PROCESS -->
+  <section class="section process" id="process">
+    <div class="container">
+      <div class="section-head center reveal">
+        <p class="eyebrow">От зерна до чашки</p>
+        <h2>Четыре шага,<br>которые нельзя сократить</h2>
+        <p>Каждый этап занимает время. Мы не ускоряем ни один из них — и вы это чувствуете на вкус.</p>
+      </div>
+      <div class="steps">
+        <article class="step reveal">
+          <div class="n">01</div>
+          <h3>Отбор</h3>
+          <p>Пробуем зерно на каппинге и оставляем только партии с чистым, живым вкусом.</p>
+        </article>
+        <article class="step reveal">
+          <div class="n">02</div>
+          <h3>Обжарка</h3>
+          <p>12–16 минут в барабане. Каждый сорт — по своему профилю, под запись в журнале.</p>
+        </article>
+        <article class="step reveal">
+          <div class="n">03</div>
+          <h3>Отдых и помол</h3>
+          <p>Зерно отдыхает 3–10 дней, а мелем мы его прямо перед экстракцией.</p>
+        </article>
+        <article class="step reveal">
+          <div class="n">04</div>
+          <h3>Чашка</h3>
+          <p>Настраиваем помол и воду каждое утро: 92–94 °C и фильтр с минерализацией.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- GALLERY -->
+  <section class="section" id="gallery">
+    <div class="container">
+      <div class="section-head reveal">
+        <p class="eyebrow">Атмосфера</p>
+        <h2>Тёплый свет,<br>дерево и запах обжарки</h2>
+      </div>
+      <div class="gallery-grid">
+        <figure class="tile t1 big reveal" style="margin:0">
+          <div class="art"><span></span></div>
+          <figcaption class="cap">Латте-арт</figcaption>
+        </figure>
+        <figure class="tile t2 wide reveal" style="margin:0">
+          <div class="art"></div>
+          <figcaption class="cap">Зал утром</figcaption>
+        </figure>
+        <figure class="tile t3 reveal" style="margin:0">
+          <div class="art"></div>
+          <figcaption class="cap">Зерно</figcaption>
+        </figure>
+        <figure class="tile t4 reveal" style="margin:0">
+          <div class="art"></div>
+          <figcaption class="cap">Терраса</figcaption>
+        </figure>
+        <figure class="tile t5 wide reveal" style="margin:0">
+          <div class="art"></div>
+          <figcaption class="cap">Барная стойка</figcaption>
+        </figure>
+        <figure class="tile t6 wide reveal" style="margin:0">
+          <div class="art"></div>
+          <figcaption class="cap">Витрина с десертами</figcaption>
+        </figure>
+      </div>
+    </div>
+  </section>
+
+  <!-- REVIEWS -->
+  <section class="section reviews" id="reviews">
+    <div class="container">
+      <div class="section-head center reveal">
+        <p class="eyebrow">Гости</p>
+        <h2>Что о нас говорят</h2>
+      </div>
+      <div class="quotes">
+        <blockquote class="quote reveal" style="margin:0">
+          <div class="stars" aria-label="5 из 5">★★★★★</div>
+          <p>«Лучший флэт уайт в городе. И единственное место, где бариста помнит, что я пью без сахара».</p>
+          <footer>Марина · постоянный гость</footer>
+        </blockquote>
+        <blockquote class="quote reveal" style="margin:0">
+          <div class="stars" aria-label="5 из 5">★★★★★</div>
+          <p>«Прихожу работать по утрам: тихо, розетки, и фильтр меняется каждую неделю — не надоедает».</p>
+          <footer>Артём · дизайнер</footer>
+        </blockquote>
+        <blockquote class="quote reveal" style="margin:0">
+          <div class="stars" aria-label="5 из 5">★★★★★</div>
+          <p>«Взяли зерно домой по совету бариста — теперь варим только их обжарку. Спасибо за честность».</p>
+          <footer>Ольга и Дмитрий</footer>
+        </blockquote>
+      </div>
+    </div>
+  </section>
+
+  <!-- CONTACTS -->
+  <section class="section" id="contacts">
+    <div class="container">
+      <div class="contacts-grid">
+        <div class="reveal">
+          <p class="eyebrow">Контакты</p>
+          <h2 style="margin:16px 0 0">Заходите<br>на чашку</h2>
+          <ul class="info-list">
+            <li class="info-item">
+              <span class="ico" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+              </span>
+              <div>
+                <span class="k">Адрес</span>
+                ул. Малая Садовая, 14<br>вход со двора, 1-й этаж
+              </div>
+            </li>
+            <li class="info-item">
+              <span class="ico" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+              </span>
+              <div>
+                <span class="k">Часы работы</span>
+                <div class="hours">
+                  <div class="row"><span>Пн — Пт</span><span class="dots"></span><span>08:00 — 21:00</span></div>
+                  <div class="row"><span>Сб — Вс</span><span class="dots"></span><span>09:00 — 22:00</span></div>
+                </div>
+              </div>
+            </li>
+            <li class="info-item">
+              <span class="ico" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8.1 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2Z"/></svg>
+              </span>
+              <div>
+                <span class="k">Телефон</span>
+                <a href="tel:+74951234567">+7 (495) 123-45-67</a>
+              </div>
+            </li>
+            <li class="info-item">
+              <span class="ico" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="3"/><path d="m3 7 9 6 9-6"/></svg>
+              </span>
+              <div>
+                <span class="k">Почта</span>
+                <a href="mailto:hello@zerno.coffee">hello@zerno.coffee</a>
+              </div>
+            </li>
+          </ul>
+        </div>
+
+        <div class="form-card reveal">
+          <h3>Забронировать стол</h3>
+          <p>Оставьте заявку — перезвоним в течение 15 минут и подтвердим время.</p>
+          <form id="bookForm" novalidate>
+            <div class="field">
+              <label for="fName">Имя</label>
+              <input id="fName" name="name" type="text" placeholder="Как к вам обращаться" required autocomplete="name">
+            </div>
+            <div class="field">
+              <label for="fPhone">Телефон</label>
+              <input id="fPhone" name="phone" type="tel" placeholder="+7 (___) ___-__-__" required autocomplete="tel">
+            </div>
+            <div class="field">
+              <label for="fMsg">Пожелания</label>
+              <textarea id="fMsg" name="message" placeholder="Дата, время, количество гостей"></textarea>
+            </div>
+            <button class="btn" type="submit">Отправить заявку</button>
+            <p class="form-note">Нажимая кнопку, вы соглашаетесь на обработку персональных данных.</p>
+            <div class="form-ok" id="formOk">Спасибо! Заявка принята — мы свяжемся с вами в ближайшее время.</div>
+          </form>
+        </div>
+      </div>
+
+      <div class="map reveal">
+        <svg viewBox="0 0 1200 340" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Схематичная карта расположения кофейни">
+          <rect width="1200" height="340" fill="#ece1d1"/>
+          <g fill="#e3d6c3">
+            <rect x="40" y="30" width="150" height="80" rx="8"/>
+            <rect x="40" y="180" width="150" height="120" rx="8"/>
+            <rect x="220" y="30" width="200" height="80" rx="8"/>
+            <rect x="220" y="180" width="200" height="120" rx="8"/>
+            <rect x="520" y="30" width="180" height="80" rx="8"/>
+            <rect x="520" y="180" width="180" height="120" rx="8"/>
+            <rect x="760" y="180" width="150" height="120" rx="8"/>
+            <rect x="960" y="30" width="200" height="80" rx="8"/>
+            <rect x="960" y="180" width="200" height="120" rx="8"/>
+          </g>
+          <rect x="760" y="30" width="150" height="80" rx="14" fill="#d9dfc6"/>
+          <g stroke="#f8f2e9" fill="none" stroke-linecap="round">
+            <path d="M0 150 H1200" stroke-width="28"/>
+            <path d="M470 0 V340" stroke-width="22"/>
+            <path d="M900 0 V340" stroke-width="16"/>
+            <path d="M120 0 V340" stroke-width="10"/>
+            <path d="M0 270 H1200" stroke-width="12"/>
+          </g>
+          <g stroke="#dccdb8" stroke-width="2" stroke-dasharray="14 16" fill="none">
+            <path d="M0 150 H1200"/>
+          </g>
+          <path d="M1100 0 C1040 90 1080 150 1010 340" stroke="#c9d8d3" stroke-width="16" fill="none" stroke-linecap="round"/>
+          <g transform="translate(560 148)">
+            <circle class="map-ping" r="34" fill="#c8873f" opacity=".35"/>
+            <circle r="16" fill="#c8873f" stroke="#fffaf3" stroke-width="4"/>
+            <circle r="5" fill="#fffaf3"/>
+            <text y="52" text-anchor="middle" font-family="Georgia,serif" font-size="21" fill="#3b2418" letter-spacing="2">ЗЁРНО</text>
+          </g>
+        </svg>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="site-footer">
+  <div class="container">
+    <div class="footer-top">
+      <div class="f-brand">
+        <a class="logo" href="#top" aria-label="ЗЁРНО — на главную">
+          <svg class="logo-mark" viewBox="0 0 40 40" aria-hidden="true">
+            <ellipse cx="20" cy="20" rx="10.5" ry="16" transform="rotate(-26 20 20)" fill="currentColor"/>
+            <path d="M13 10.5C17.2 15.8 22.8 24.2 27 29.5" fill="none" stroke-width="1.9" stroke-linecap="round"/>
+          </svg>
+          <span class="logo-text">ЗЁРНО</span>
+        </a>
+        <p>Обжариваем сами, готовим с душой.<br>Каждый день с 8:00, вход со двора.</p>
+      </div>
+      <div class="f-col">
+        <h4>Кофейня</h4>
+        <a href="#about">О нас</a>
+        <a href="#menu">Меню</a>
+        <a href="#process">Обжарка</a>
+        <a href="#gallery">Атмосфера</a>
+      </div>
+      <div class="f-col">
+        <h4>Связаться</h4>
+        <a href="tel:+74951234567">+7 (495) 123-45-67</a>
+        <a href="mailto:hello@zerno.coffee">hello@zerno.coffee</a>
+        <a href="#contacts">Забронировать стол</a>
+        <a href="#top">Наверх ↑</a>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>© <span id="year">2025</span> Кофейня «ЗЁРНО»</span>
+      <span>Сделано с любовью к кофе и вниманием к деталям</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+(function(){
+  'use strict';
+
+  /* ---------- header scroll state ---------- */
+  var header = document.getElementById('siteHeader');
+  function onScroll(){
+    if (window.scrollY > 24) header.classList.add('scrolled');
+    else header.classList.remove('scrolled');
+  }
+  onScroll();
+  window.addEventListener('scroll', onScroll, {passive:true});
+
+  /* ---------- mobile nav ---------- */
+  var burger = document.getElementById('burger');
+  var nav = document.getElementById('nav');
+  function closeNav(){
+    nav.classList.remove('open');
+    burger.classList.remove('open');
+    burger.setAttribute('aria-expanded','false');
+    burger.setAttribute('aria-label','Открыть меню');
+  }
+  burger.addEventListener('click', function(){
+    var open = nav.classList.toggle('open');
+    burger.classList.toggle('open', open);
+    burger.setAttribute('aria-expanded', open ? 'true' : 'false');
+    burger.setAttribute('aria-label', open ? 'Закрыть меню' : 'Открыть меню');
+  });
+  Array.prototype.forEach.call(nav.querySelectorAll('a'), function(a){
+    a.addEventListener('click', closeNav);
+  });
+  document.addEventListener('keydown', function(e){
+    if (e.key === 'Escape') closeNav();
+  });
+  document.addEventListener('click', function(e){
+    if (nav.classList.contains('open') && !nav.contains(e.target) && !burger.contains(e.target)) closeNav();
+  });
+
+  /* ---------- menu ---------- */
+  var MENU = {
+    coffee: [
+      ['Эспрессо', 180, 'Плотный, с горьким шоколадом и карамелью в послевкусии.'],
+      ['Американо', 220, 'Тот же эспрессо, но длиннее: 180 мл горячей воды.'],
+      ['Капучино', 290, 'Мягкая молочная пена, классика в объёме 200 мл.'],
+      ['Флэт уайт', 320, 'Двойной эспрессо и тонкий слой микропены.'],
+      ['Латте', 310, 'Много молока, тонкий кофейный характер.'],
+      ['Раф ванильный', 340, 'Сливки, ваниль и щепотка соли.'],
+      ['Фильтр V60', 350, 'Светлая обжарка: цветы и цитрус. Сорт меняется каждую неделю.'],
+      ['Колд брю', 360, '12 часов холодной экстракции. Подаём со льдом.']
+    ],
+    other: [
+      ['Какао на молоке', 280, 'Бельгийский шоколад, без сахара в составе.'],
+      ['Матча-латте', 330, 'Церемониальная матча, взбитая венчиком.'],
+      ['Облепиховый чай', 290, 'Чайник на двоих: облепиха, апельсин, мёд.'],
+      ['Лимонад «Цитрус-розмарин»', 260, 'Свежий, с веточкой розмарина и лаймом.'],
+      ['Глинтвейн безалкогольный', 300, 'Яблоко, корица, бадьян. Варим только зимой.']
+    ],
+    dessert: [
+      ['Круассан', 180, 'Слоёный, из французского масла. Печём в 8:00.'],
+      ['Синнабон', 240, 'С корицей и сливочной глазурью.'],
+      ['Чизкейк', 320, 'Нью-йоркский, на песочной основе.'],
+      ['Лимонный тарт', 300, 'Кислый, с меренгой и цедрой.'],
+      ['Брауни', 260, 'Тёмный шоколад 70%, влажная середина.'],
+      ['Сырники', 290, 'Со сметаной и вареньем из чёрной смородины.']
+    ]
+  };
+
+  var menuGrid = document.getElementById('menuGrid');
+  var tabs = Array.prototype.slice.call(document.querySelectorAll('.tab'));
+
+  function renderMenu(cat){
+    var items = MENU[cat] || [];
+    menuGrid.innerHTML = items.map(function(item, i){
+      return '<article class="m-item" style="animation-delay:' + (i * 45) + 'ms">' +
+challenge:
+        '<div class="m-top"><h3>' + item[0] + '</h3><span class="m-dots"></span><span class="m-price">' + item[1] + ' ₽</span></div>' +
+        '<p class="m-desc">' + item[2] + '</p>' +
+      '</article>';
+    }).join('');
+  }
+
+  tabs.forEach(function(tab){
+    tab.addEventListener('click', function(){
+      tabs.forEach(function(t){
+        t.classList.remove('is-active');
+        t.setAttribute('aria-selected','false');
+      });
+      tab.classList.add('is-active');
+      tab.setAttribute('aria-selected','true');
+      renderMenu(tab.dataset.tab);
+    });
+  });
+  renderMenu('coffee');
+
+  /* ---------- reveal on scroll ---------- */
+  var revealEls = Array.prototype.slice.call(document.querySelectorAll('.reveal'));
+  if ('IntersectionObserver' in window){
+    var io = new IntersectionObserver(function(entries){
+      entries.forEach(function(entry){
+        if (entry.isIntersecting){
+          entry.target.classList.add('in');
+          io.unobserve(entry.target);
+        }
+      });
+    }, {threshold: 0.14, rootMargin: '0px 0px -40px 0px'});
+    revealEls.forEach(function(el){ io.observe(el); });
+  } else {
+    revealEls.forEach(function(el){ el.classList.add('in'); });
+  }
+
+  /* ---------- form ---------- */
+  var form = document.getElementById('bookForm');
+  var formOk = document.getElementById('formOk');
+  form.addEventListener('submit', function(e){
+    e.preventDefault();
+    var name = form.elements.name;
+    var phone = form.elements.phone;
+    var valid = true;
+
+    [name, phone].forEach(function(input){
+      if (!input.value.trim()){
+        input.style.borderColor = '#c0533f';
+        valid = false;
+      } else {
+        input.style.borderColor = '';
+      }
+    });
+
+    if (!valid) return;
+
+    formOk.classList.add('show');
+    formOk.textContent = 'Спасибо, ' + name.value.trim() + '! Заявка принята — перезвоним в течение 15 минут.';
+    form.reset();
+  });
+
+  /* ---------- year ---------- */
+  document.getElementById('year').textContent = new Date().getFullYear();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Дашборд расхода токенов</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 2rem;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        header {
+            background: white;
+            padding: 2rem;
+            border-radius: 16px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            margin-bottom: 2rem;
+        }
+
+        h1 {
+            font-size: 2rem;
+            color: #667eea;
+            margin-bottom: 0.5rem;
+        }
+
+        .subtitle {
+            color: #64748b;
+            font-size: 0.95rem;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+            transition: transform 0.2s;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-4px);
+        }
+
+        .stat-label {
+            font-size: 0.85rem;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #1e293b;
+            margin-bottom: 0.25rem;
+        }
+
+        .stat-change {
+            font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+
+        .stat-change.positive {
+            color: #10b981;
+        }
+
+        .stat-change.negative {
+            color: #ef4444;
+        }
+
+        .charts-container {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .chart-card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+        }
+
+        .chart-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #1e293b;
+            margin-bottom: 1rem;
+        }
+
+        .clients-table {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+            overflow: hidden;
+        }
+
+        .table-header {
+            padding: 1.5rem;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        thead {
+            background: #f8fafc;
+        }
+
+        th {
+            padding: 1rem 1.5rem;
+            text-align: left;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        td {
+            padding: 1rem 1.5rem;
+            border-top: 1px solid #e2e8f0;
+            font-size: 0.95rem;
+        }
+
+        tbody tr:hover {
+            background: #f8fafc;
+        }
+
+        .client-name {
+            font-weight: 500;
+            color: #1e293b;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+
+        .badge.premium {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .badge.standard {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+
+        .badge.basic {
+            background: #e5e7eb;
+            color: #374151;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #e5e7eb;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            transition: width 0.3s;
+        }
+
+        @media (max-width: 1024px) {
+            .charts-container {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 768px) {
+            body {
+                padding: 1rem;
+            }
+
+            h1 {
+                font-size: 1.5rem;
+            }
+
+            .stat-value {
+                font-size: 1.5rem;
+            }
+
+            th, td {
+                padding: 0.75rem 1rem;
+            }
+
+            table {
+                font-size: 0.9rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📊 Дашборд расхода токенов</h1>
+            <p class="subtitle">Мониторинг использования API клиентами за текущий месяц</p>
+        </header>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-label">Всего токенов</div>
+                <div class="stat-value">47.2М</div>
+                <div class="stat-change positive">
+                    <span>↑ 23%</span>
+                    <span>vs прошлый месяц</span>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-label">Активных клиентов</div>
+                <div class="stat-value">128</div>
+                <div class="stat-change positive">
+                    <span>↑ 12</span>
+                    <span>новых клиентов</span>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-label">Средний расход</div>
+                <div class="stat-value">368K</div>
+                <div class="stat-change negative">
+                    <span>↓ 5%</span>
+                    <span>на клиента</span>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-label">Выручка</div>
+                <div class="stat-value">$14,280</div>
+                <div class="stat-change positive">
+                    <span>↑ 31%</span>
+                    <span>рост дохода</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="charts-container">
+            <div class="chart-card">
+                <div class="chart-title">Расход токенов за последние 30 дней</div>
+                <canvas id="usageChart"></canvas>
+            </div>
+
+            <div class="chart-card">
+                <div class="chart-title">Распределение по тарифам</div>
+                <canvas id="plansChart"></canvas>
+            </div>
+        </div>
+
+        <div class="clients-table">
+            <div class="table-header">
+                <h2 class="chart-title">Топ клиентов по расходу токенов</h2>
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Клиент</th>
+                        <th>Тариф</th>
+                        <th>Использовано</th>
+                        <th>Лимит</th>
+                        <th>Прогресс</th>
+                        <th>Стоимость</th>
+                    </tr>
+                </thead>
+                <tbody id="clientsTableBody">
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        // Данные клиентов
+        const clients = [
+            { name: 'TechCorp Solutions', plan: 'premium', used: 8450000, limit: 10000000, cost: 2535 },
+            { name: 'DataStream Analytics', plan: 'premium', used: 7230000, limit: 10000000, cost: 2169 },
+            { name: 'CloudVision Inc', plan: 'standard', used: 4890000, limit: 5000000, cost: 978 },
+            { name: 'AI Innovations Ltd', plan: 'premium', used: 4120000, limit: 10000000, cost: 1236 },
+            { name: 'Digital Dynamics', plan: 'standard', used: 3650000, limit: 5000000, cost: 730 },
+            { name: 'Smart Systems Group', plan: 'standard', used: 3240000, limit: 5000000, cost: 648 },
+            { name: 'Nexus Technologies', plan: 'basic', used: 2890000, limit: 3000000, cost: 434 },
+            { name: 'Quantum Labs', plan: 'premium', used: 2670000, limit: 10000000, cost: 801 },
+            { name: 'FutureTech Partners', plan: 'standard', used: 2450000, limit: 5000000, cost: 490 },
+            { name: 'InnovateSoft', plan: 'basic', used: 2180000, limit: 3000000, cost: 327 },
+            { name: 'CodeCraft Studios', plan: 'standard', used: 1920000, limit: 5000000, cost: 384 },
+            { name: 'ByteForge Systems', plan: 'basic', used: 1750000, limit: 3000000, cost: 263 },
+            { name: 'DevOps Experts', plan: 'standard', used: 1540000, limit: 5000000, cost: 308 },
+            { name: 'AgileFlow Tech', plan: 'basic', used: 980000, limit: 3000000, cost: 147 },
+            { name: 'ScaleUp Solutions', plan: 'basic', used: 820000, limit: 3000000, cost: 123 }
+        ];
+
+        // Заполнение таблицы
+        const tableBody = document.getElementById('clientsTableBody');
+        clients.forEach(client => {
+            const percentage = (client.used / client.limit * 100).toFixed(1);
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td><span class="client-name">${client.name}</span></td>
+                <td><span class="badge ${client.plan}">${client.plan === 'premium' ? 'Premium' : client.plan === 'standard' ? 'Standard' : 'Basic'}</span></td>
+                <td>${(client.used / 1000000).toFixed(2)}М</td>
+                <td>${(client.limit / 1000000).toFixed(0)}М</td>
+                <td>
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: ${percentage}%"></div>
+                    </div>
+                    <small style="color: #64748b; margin-top: 0.25rem; display: block;">${percentage}%</small>
+                </td>
+                <td style="font-weight: 600;">$${client.cost.toLocaleString()}</td>
+            `;
+            tableBody.appendChild(row);
+        });
+
+        // График использования за 30 дней
+        const usageCtx = document.getElementById('usageChart').getContext('2d');
+        const days = 30;
+        const labels = [];
+        const data = [];
+        
+        for (let i = days - 1; i >= 0; i--) {
+            const date = new Date();
+            date.setDate(date.getDate() - i);
+            labels.push(date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' }));
+            data.push(Math.floor(1200000 + Math.random() * 400000 + (days - i) * 15000));
+        }
+
+        new Chart(usageCtx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Токены',
+                    data: data,
+                    borderColor: '#667eea',
+                    backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                    tension: 0.4,
+                    fill: true,
+                    pointRadius: 0,
+                    pointHoverRadius: 6,
+                    borderWidth: 3
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                aspectRatio: 2.5,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return (context.parsed.y / 1000000).toFixed(2) + 'М токенов';
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return (value / 1000000).toFixed(1) + 'М';
+                            }
+                        },
+                        grid: {
+                            color: '#f1f5f9'
+                        }
+                    },
+                    x: {
+                        grid: {
+                            display: false
+                        }
+                    }
+                }
+            }
+        });
+
+        // График распределения по тарифам
+        const plansCtx = document.getElementById('plansChart').getContext('2d');
+        const planStats = {
+            premium: clients.filter(c => c.plan === 'premium').reduce((sum, c) => sum + c.used, 0),
+            standard: clients.filter(c => c.plan === 'standard').reduce((sum, c) => sum + c.used, 0),
+            basic: clients.filter(c => c.plan === 'basic').reduce((sum, c) => sum + c.used, 0)
+        };
+
+        new Chart(plansCtx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Premium', 'Standard', 'Basic'],
+                datasets: [{
+                    data: [planStats.premium, planStats.standard, planStats.basic],
+                    backgroundColor: [
+                        '#fbbf24',
+                        '#3b82f6',
+                        '#6b7280'
+                    ],
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                aspectRatio: 1.2,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            padding: 20,
+                            font: {
+                                size: 13
+                            }
+                        }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const percentage = ((context.parsed / total) * 100).toFixed(1);
+                                return context.label + ': ' + (context.parsed / 1000000).toFixed(1) + 'М (' + percentage + '%)';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    </script>
+</body>
+</html>

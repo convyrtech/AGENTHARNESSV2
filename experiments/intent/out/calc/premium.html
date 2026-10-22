@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Калькулятор экономии на нейросетях</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .container {
+            max-width: 900px;
+            width: 100%;
+            background: white;
+            border-radius: 24px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 16px;
+            opacity: 0.9;
+        }
+
+        .content {
+            padding: 40px;
+        }
+
+        .section {
+            margin-bottom: 32px;
+        }
+
+        .section-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #1a202c;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .icon {
+            width: 24px;
+            height: 24px;
+        }
+
+        .input-group {
+            margin-bottom: 24px;
+        }
+
+        label {
+            display: block;
+            font-size: 14px;
+            font-weight: 500;
+            color: #4a5568;
+            margin-bottom: 8px;
+        }
+
+        input[type="number"],
+        select {
+            width: 100%;
+            padding: 12px 16px;
+            font-size: 16px;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            transition: all 0.3s;
+            font-family: 'Inter', sans-serif;
+        }
+
+        input[type="number"]:focus,
+        select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .model-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+
+        .model-option {
+            padding: 16px;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-align: center;
+        }
+
+        .model-option:hover {
+            border-color: #667eea;
+            background: #f7fafc;
+        }
+
+        .model-option.selected {
+            border-color: #667eea;
+            background: #eef2ff;
+        }
+
+        .model-option .model-name {
+            font-weight: 600;
+            color: #1a202c;
+            margin-bottom: 4px;
+        }
+
+        .model-option .model-price {
+            font-size: 13px;
+            color: #718096;
+        }
+
+        .results {
+            background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%);
+            padding: 32px;
+            border-radius: 16px;
+            margin-top: 32px;
+        }
+
+        .result-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 0;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .result-item:last-child {
+            border-bottom: none;
+        }
+
+        .result-label {
+            font-size: 15px;
+            color: #4a5568;
+            font-weight: 500;
+        }
+
+        .result-value {
+            font-size: 20px;
+            font-weight: 700;
+            color: #1a202c;
+        }
+
+        .savings-highlight {
+            background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+            color: white;
+            padding: 24px;
+            border-radius: 12px;
+            text-align: center;
+            margin-top: 24px;
+        }
+
+        .savings-highlight .label {
+            font-size: 14px;
+            opacity: 0.9;
+            margin-bottom: 8px;
+        }
+
+        .savings-highlight .value {
+            font-size: 48px;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .savings-highlight .percent {
+            font-size: 24px;
+            font-weight: 600;
+        }
+
+        .chart-container {
+            margin-top: 32px;
+            padding: 24px;
+            background: white;
+            border-radius: 12px;
+        }
+
+        .chart-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #1a202c;
+            margin-bottom: 16px;
+            text-align: center;
+        }
+
+        .bar-chart {
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-around;
+            height: 200px;
+            margin-bottom: 16px;
+        }
+
+        .bar {
+            flex: 1;
+            max-width: 120px;
+            margin: 0 8px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .bar-fill {
+            width: 100%;
+            background: linear-gradient(180deg, #667eea 0%, #764ba2 100%);
+            border-radius: 8px 8px 0 0;
+            transition: height 0.6s ease;
+            position: relative;
+        }
+
+        .bar-fill.savings {
+            background: linear-gradient(180deg, #48bb78 0%, #38a169 100%);
+        }
+
+        .bar-value {
+            font-size: 14px;
+            font-weight: 600;
+            color: white;
+            padding: 4px 8px;
+            position: absolute;
+            top: -24px;
+            left: 50%;
+            transform: translateX(-50%);
+            white-space: nowrap;
+        }
+
+        .bar-label {
+            font-size: 13px;
+            font-weight: 500;
+            color: #4a5568;
+            text-align: center;
+        }
+
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 24px;
+            }
+
+            .content {
+                padding: 24px;
+            }
+
+            .model-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .savings-highlight .value {
+                font-size: 36px;
+            }
+
+            .bar-chart {
+                height: 150px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>💰 Калькулятор экономии</h1>
+            <p>Посчитайте, сколько сэкономите на использовании нейросетей через наш сервис</p>
+        </div>
+
+        <div class="content">
+            <div class="section">
+                <div class="section-title">
+                    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+                        <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
+                        <line x1="12" y1="22.08" x2="12" y2="12"/>
+                    </svg>
+                    Выберите модель
+                </div>
+
+                <div class="model-grid">
+                    <div class="model-option selected" data-model="gpt4" data-competitor="20" data-our="12">
+                        <div class="model-name">GPT-4</div>
+                        <div class="model-price">Другие: $20/1M токенов</div>
+                        <div class="model-price">Мы: $12/1M токенов</div>
+                    </div>
+                    <div class="model-option" data-model="claude" data-competitor="15" data-our="9">
+                        <div class="model-name">Claude 3</div>
+                        <div class="model-price">Другие: $15/1M токенов</div>
+                        <div class="model-price">Мы: $9/1M токенов</div>
+                    </div>
+                    <div class="model-option" data-model="gpt35" data-competitor="2" data-our="1.2">
+                        <div class="model-name">GPT-3.5</div>
+                        <div class="model-price">Другие: $2/1M токенов</div>
+                        <div class="model-price">Мы: $1.2/1M токенов</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="section-title">
+                    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="12" y1="1" x2="12" y2="23"/>
+                        <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+                    </svg>
+                    Параметры использования
+                </div>
+
+                <div class="input-group">
+                    <label>Количество запросов в месяц</label>
+                    <input type="number" id="requests" value="10000" min="1" step="1000">
+                </div>
+
+                <div class="input-group">
+                    <label>Средний размер запроса (токенов)</label>
+                    <input type="number" id="inputTokens" value="500" min="1" step="100">
+                </div>
+
+                <div class="input-group">
+                    <label>Средний размер ответа (токенов)</label>
+                    <input type="number" id="outputTokens" value="1500" min="1" step="100">
+                </div>
+            </div>
+
+            <div class="results">
+                <div class="result-item">
+                    <span class="result-label">Стоимость у конкурентов</span>
+                    <span class="result-value" id="competitorCost">$0</span>
+                </div>
+                <div class="result-item">
+                    <span class="result-label">Стоимость у нас</span>
+                    <span class="result-value" id="ourCost">$0</span>
+                </div>
+                <div class="result-item">
+                    <span class="result-label">Экономия в месяц</span>
+                    <span class="result-value" id="monthlySavings">$0</span>
+                </div>
+                <div class="result-item">
+                    <span class="result-label">Экономия в год</span>
+                    <span class="result-value" id="yearlySavings">$0</span>
+                </div>
+            </div>
+
+            <div class="savings-highlight">
+                <div class="label">Вы экономите</div>
+                <div class="value" id="savingsPercent">0%</div>
+                <div class="percent">от общих расходов на нейросети</div>
+            </div>
+
+            <div class="chart-container">
+                <div class="chart-title">Сравнение затрат</div>
+                <div class="bar-chart">
+                    <div class="bar">
+                        <div class="bar-fill" id="competitorBar" style="height: 0%">
+                            <div class="bar-value" id="competitorBarValue">$0</div>
+                        </div>
+                        <div class="bar-label">Конкуренты</div>
+                    </div>
+                    <div class="bar">
+                        <div class="bar-fill" id="ourBar" style="height: 0%">
+                            <div class="bar-value" id="ourBarValue">$0</div>
+                        </div>
+                        <div class="bar-label">Наш сервис</div>
+                    </div>
+                    <div class="bar">
+                        <div class="bar-fill savings" id="savingsBar" style="height: 0%">
+                            <div class="bar-value" id="savingsBarValue">$0</div>
+                        </div>
+                        <div class="bar-label">Экономия</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let selectedModel = {
+            competitor: 20,
+            our: 12
+        };
+
+        const modelOptions = document.querySelectorAll('.model-option');
+        const requestsInput = document.getElementById('requests');
+        const inputTokensInput = document.getElementById('inputTokens');
+        const outputTokensInput = document.getElementById('outputTokens');
+
+        modelOptions.forEach(option => {
+            option.addEventListener('click', () => {
+                modelOptions.forEach(opt => opt.classList.remove('selected'));
+                option.classList.add('selected');
+                selectedModel.competitor = parseFloat(option.dataset.competitor);
+                selectedModel.our = parseFloat(option.dataset.our);
+                calculate();
+            });
+        });
+
+        requestsInput.addEventListener('input', calculate);
+        inputTokensInput.addEventListener('input', calculate);
+        outputTokensInput.addEventListener('input', calculate);
+
+        function calculate() {
+            const requests = parseInt(requestsInput.value) || 0;
+            const inputTokens = parseInt(inputTokensInput.value) || 0;
+            const outputTokens = parseInt(outputTokensInput.value) || 0;
+
+            const totalTokens = (inputTokens + outputTokens) * requests;
+            const totalMillions = totalTokens / 1000000;
+
+            const competitorCost = totalMillions * selectedModel.competitor;
+            const ourCost = totalMillions * selectedModel.our;
+            const monthlySavings = competitorCost - ourCost;
+            const yearlySavings = monthlySavings * 12;
+            const savingsPercent = competitorCost > 0 ? ((monthlySavings / competitorCost) * 100) : 0;
+
+            document.getElementById('competitorCost').textContent = `$${competitorCost.toFixed(2)}`;
+            document.getElementById('ourCost').textContent = `$${ourCost.toFixed(2)}`;
+            document.getElementById('monthlySavings').textContent = `$${monthlySavings.toFixed(2)}`;
+            document.getElementById('yearlySavings').textContent = `$${yearlySavings.toFixed(2)}`;
+            document.getElementById('savingsPercent').textContent = `${savingsPercent.toFixed(0)}%`;
+
+            updateChart(competitorCost, ourCost, monthlySavings);
+        }
+
+        function updateChart(competitor, our, savings) {
+            const maxValue = Math.max(competitor, our, savings);
+            
+            const competitorHeight = maxValue > 0 ? (competitor / maxValue) * 100 : 0;
+            const ourHeight = maxValue > 0 ? (our / maxValue) * 100 : 0;
+            const savingsHeight = maxValue > 0 ? (savings / maxValue) * 100 : 0;
+
+            document.getElementById('competitorBar').style.height = `${competitorHeight}%`;
+            document.getElementById('ourBar').style.height = `${ourHeight}%`;
+            document.getElementById('savingsBar').style.height = `${savingsHeight}%`;
+
+            document.getElementById('competitorBarValue').textContent = `$${competitor.toFixed(2)}`;
+            document.getElementById('ourBarValue').textContent = `$${our.toFixed(2)}`;
+            document.getElementById('savingsBarValue').textContent = `$${savings.toFixed(2)}`;
+        }
+
+        calculate();
+    </script>
+</body>
+</html>

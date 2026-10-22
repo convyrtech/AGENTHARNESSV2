@@ -1,0 +1,1369 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>keyra — один ключ ко всем нейросетям</title>
+<meta name="description" content="Доступ к GPT, Claude, Gemini и DeepSeek через один API-ключ. Дешевле официальных цен, без VPN и зарубежных карт.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500&family=JetBrains+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#07070B;
+  --bg2:#0B0B11;
+  --ink:#F3F4F6;
+  --muted:#8A8A99;
+  --lime:#C9FF3D;
+  --violet:#7C5CFF;
+  --cyan:#34E7E4;
+  --line:rgba(255,255,255,.08);
+  --ease:cubic-bezier(.16,1,.3,1);
+}
+*,*::before,*::after{box-sizing:border-box}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+body{
+  margin:0;background:var(--bg);color:var(--ink);
+  font-family:'Inter',system-ui,-apple-system,sans-serif;font-weight:300;
+  line-height:1.6;overflow-x:hidden;-webkit-font-smoothing:antialiased;
+  font-feature-settings:"ss01" on;
+}
+::selection{background:var(--lime);color:#07070B}
+a{color:inherit}
+img,svg{display:block;max-width:100%}
+button{font:inherit}
+
+/* ---------- overlays ---------- */
+.grain{
+  position:fixed;inset:0;pointer-events:none;z-index:9998;opacity:.035;mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+.cursor{
+  position:fixed;top:0;left:0;width:420px;height:420px;border-radius:50%;
+  pointer-events:none;z-index:9997;mix-blend-mode:screen;opacity:0;
+  background:radial-gradient(circle,rgba(201,255,61,.10) 0%,rgba(124,92,255,.07) 40%,transparent 68%);
+  transition:opacity .6s ease;will-change:transform;
+}
+body.has-mouse .cursor{opacity:1}
+.progress{position:fixed;top:0;left:0;right:0;height:2px;z-index:200;pointer-events:none}
+.progress i{display:block;height:100%;background:linear-gradient(90deg,var(--lime),var(--cyan));transform:scaleX(0);transform-origin:0 50%;will-change:transform}
+
+/* ---------- layout ---------- */
+.wrap{width:min(1240px,92vw);margin-inline:auto}
+section{position:relative}
+.sect{padding:clamp(72px,11vw,150px) 0}
+.eyebrow{
+  display:inline-flex;align-items:center;gap:10px;
+  font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:500;
+  letter-spacing:.22em;text-transform:uppercase;color:var(--lime);margin:0 0 22px;
+}
+.eyebrow::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--lime);box-shadow:0 0 14px var(--lime)}
+h2{
+  font-family:'Space Grotesk',sans-serif;font-weight:600;
+  font-size:clamp(34px,5.4vw,72px);line-height:1.02;letter-spacing:-.035em;margin:0;
+}
+h2 em,.accent{font-family:'Instrument Serif',serif;font-style:italic;font-weight:400;color:var(--lime);letter-spacing:-.01em}
+.lead{color:var(--muted);font-size:clamp(15px,1.6vw,18px);max-width:56ch;margin:22px 0 0}
+
+/* ---------- reveal ---------- */
+[data-reveal]{opacity:0;transform:translateY(30px);transition:opacity 1s var(--ease),transform 1s var(--ease);transition-delay:var(--d,0s)}
+[data-reveal].in{opacity:1;transform:none}
+
+/* ---------- nav ---------- */
+nav{
+  position:fixed;top:0;left:0;right:0;z-index:100;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:24px clamp(18px,4vw,48px);transition:padding .45s var(--ease),background .45s ease,border-color .45s ease;
+  border-bottom:1px solid transparent;
+}
+nav.stuck{
+  padding-top:14px;padding-bottom:14px;background:rgba(7,7,11,.7);
+  -webkit-backdrop-filter:blur(20px) saturate(140%);backdrop-filter:blur(20px) saturate(140%);
+  border-bottom-color:var(--line);
+}
+.logo{
+  font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:21px;letter-spacing:-.045em;
+  text-decoration:none;display:flex;align-items:center;gap:2px;
+}
+.logo b{color:var(--lime)}
+.navlinks{display:flex;gap:34px}
+.navlinks a{
+  font-size:13.5px;color:var(--muted);text-decoration:none;letter-spacing:.01em;
+  transition:color .3s;position:relative;
+}
+.navlinks a::after{
+  content:'';position:absolute;left:0;right:0;bottom:-6px;height:1px;background:var(--lime);
+  transform:scaleX(0);transform-origin:0 50%;transition:transform .4s var(--ease);
+}
+.navlinks a:hover{color:var(--ink)}
+.navlinks a:hover::after{transform:scaleX(1)}
+.btn{
+  position:relative;display:inline-flex;align-items:center;justify-content:center;gap:9px;
+  padding:15px 28px;border-radius:999px;border:1px solid transparent;
+  font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:14.5px;letter-spacing:-.01em;
+  text-decoration:none;cursor:pointer;transition:transform .4s var(--ease),box-shadow .4s var(--ease),background .3s,border-color .3s,color .3s;
+  will-change:transform;white-space:nowrap;
+}
+.btn-sm{padding:11px 20px;font-size:13px}
+.btn-lime{background:var(--lime);color:#07070B}
+.btn-lime:hover{transform:translateY(-2px);box-shadow:0 14px 44px -10px rgba(201,255,61,.6)}
+.btn-ghost{background:rgba(255,255,255,.03);border-color:rgba(255,255,255,.13);color:var(--ink);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+.btn-ghost:hover{background:rgba(255,255,255,.075);border-color:rgba(255,255,255,.28);transform:translateY(-2px)}
+.btn .arw{transition:transform .4s var(--ease)}
+.btn:hover .arw{transform:translateX(4px)}
+
+/* ---------- hero ---------- */
+.hero{
+  position:relative;padding:clamp(130px,18vw,210px) 0 0;overflow:hidden;text-align:center;
+}
+.hero canvas{position:absolute;inset:0;width:100%;height:100%;z-index:0;opacity:.75}
+.hero .glow{position:absolute;border-radius:50%;filter:blur(90px);pointer-events:none;z-index:0}
+.g1{width:620px;height:620px;left:50%;top:-260px;transform:translateX(-50%);background:radial-gradient(circle,rgba(124,92,255,.32),transparent 70%);animation:drift 16s ease-in-out infinite}
+.g2{width:520px;height:520px;left:-10%;top:220px;background:radial-gradient(circle,rgba(201,255,61,.16),transparent 70%);animation:drift 20s ease-in-out infinite reverse}
+.g3{width:560px;height:560px;right:-12%;top:120px;background:radial-gradient(circle,rgba(52,231,228,.14),transparent 70%);animation:drift 24s ease-in-out infinite}
+@keyframes drift{
+  0%,100%{transform:translate3d(0,0,0) scale(1)}
+  50%{transform:translate3d(40px,-40px,0) scale(1.12)}
+}
+.hero .wrap{position:relative;z-index:2}
+.hero h1{
+  font-family:'Space Grotesk',sans-serif;font-weight:600;
+  font-size:clamp(46px,10.5vw,148px);line-height:.9;letter-spacing:-.05em;
+  margin:26px 0 0;text-wrap:balance;
+}
+.line{display:block;overflow:hidden;padding-bottom:.06em}
+.line>span{display:block;transform:translateY(108%);animation:lineUp 1.15s var(--ease) forwards;animation-delay:var(--d,0s)}
+@keyframes lineUp{to{transform:translateY(0)}}
+.hero h1 em{
+  font-family:'Instrument Serif',serif;font-style:italic;font-weight:400;
+  background:linear-gradient(100deg,var(--lime),var(--cyan) 55%,var(--violet));
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  padding-right:.06em;
+}
+.hero .sub{
+  max-width:60ch;margin:30px auto 0;color:var(--muted);
+  font-size:clamp(15px,1.7vw,18.5px);line-height:1.65;
+  opacity:0;animation:fadeUp 1s var(--ease) .75s forwards;
+}
+.hero .cta{
+  display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin-top:40px;
+  opacity:0;animation:fadeUp 1s var(--ease) .9s forwards;
+}
+.hero .trust{
+  display:flex;gap:26px;justify-content:center;flex-wrap:wrap;margin-top:38px;
+  font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.13em;text-transform:uppercase;color:rgba(255,255,255,.4);
+  opacity:0;animation:fadeUp 1s var(--ease) 1.05s forwards;
+}
+.hero .trust span{display:inline-flex;align-items:center;gap:8px}
+.hero .trust span::before{content:'';width:5px;height:5px;border-radius:50%;background:var(--lime);box-shadow:0 0 10px var(--lime)}
+@keyframes fadeUp{from{opacity:0;transform:translateY(22px)}to{opacity:1;transform:none}}
+
+/* ---------- mock window ---------- */
+.mockwrap{
+  position:relative;z-index:2;margin-top:clamp(56px,8vw,90px);
+  perspective:1400px;opacity:0;animation:fadeUp 1.3s var(--ease) 1.15s forwards;
+}
+.mock{
+  position:relative;max-width:1060px;margin:0 auto;border-radius:20px;overflow:hidden;
+  background:linear-gradient(180deg,#101018,#0A0A11);
+  border:1px solid rgba(255,255,255,.1);
+  box-shadow:0 60px 140px -50px rgba(0,0,0,.95),0 0 0 1px rgba(255,255,255,.02),0 0 90px -30px rgba(124,92,255,.35);
+  transform:rotateX(6deg) scale(.985);transform-style:preserve-3d;
+  transition:transform .8s var(--ease);
+}
+.mock:hover{transform:rotateX(0deg) scale(1)}
+.mock-bar{
+  display:flex;align-items:center;gap:8px;padding:14px 18px;
+  border-bottom:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.02);
+}
+.mock-bar span{width:10px;height:10px;border-radius:50%;background:rgba(255,255,255,.15)}
+.mock-bar span:nth-child(1){background:#FF5F57}
+.mock-bar span:nth-child(2){background:#FEBC2E}
+.mock-bar span:nth-child(3){background:#28C840}
+.mock-bar em{
+  margin-left:12px;font-style:normal;font-family:'JetBrains Mono',monospace;
+  font-size:11.5px;color:rgba(255,255,255,.35);letter-spacing:.04em;
+}
+.mock-bar .live{
+  margin-left:auto;display:inline-flex;align-items:center;gap:7px;
+  font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--lime);
+}
+.mock-bar .live i{width:6px;height:6px;border-radius:50%;background:var(--lime);animation:pulse 1.8s infinite}
+@keyframes pulse{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(201,255,61,.6)}50%{opacity:.5;box-shadow:0 0 0 6px rgba(201,255,61,0)}}
+.mock-body{display:grid;grid-template-columns:230px 1fr;min-height:340px}
+.mock-side{border-right:1px solid rgba(255,255,255,.07);padding:16px 12px;background:rgba(0,0,0,.18)}
+.mock-side h6{
+  margin:0 0 12px 8px;font-family:'JetBrains Mono',monospace;font-size:9.5px;
+  letter-spacing:.2em;text-transform:uppercase;color:rgba(255,255,255,.3);font-weight:400;
+}
+.mitem{
+  display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:9px;
+  font-size:12.5px;color:rgba(255,255,255,.55);transition:.3s;cursor:default;
+}
+.mitem:hover{background:rgba(255,255,255,.04);color:#fff}
+.mitem.on{background:rgba(201,255,61,.1);color:var(--lime);box-shadow:inset 0 0 0 1px rgba(201,255,61,.22)}
+.mitem i{width:7px;height:7px;border-radius:50%;background:currentColor;opacity:.85;flex:none}
+.mock-chat{padding:22px 24px;display:flex;flex-direction:column;gap:16px}
+.msg{display:flex;gap:12px;font-size:13.5px;line-height:1.6}
+.msg .av{
+  width:26px;height:26px;border-radius:8px;flex:none;display:grid;place-items:center;
+  font-family:'Space Grotesk',sans-serif;font-size:11px;font-weight:700;color:#07070B;background:var(--lime);
+}
+.msg.bot .av{background:linear-gradient(135deg,var(--violet),var(--cyan));color:#fff}
+.msg p{margin:0;color:rgba(255,255,255,.72)}
+.msg .meta{
+  display:block;font-family:'JetBrains Mono',monospace;font-size:10px;
+  letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.26);margin-bottom:5px;
+}
+.typing{display:inline-flex;gap:4px;align-items:center;padding:4px 0}
+.typing b{width:5px;height:5px;border-radius:50%;background:var(--lime);animation:tp 1.3s infinite}
+.typing b:nth-child(2){animation-delay:.16s}
+.typing b:nth-child(3){animation-delay:.32s}
+@keyframes tp{0%,60%,100%{opacity:.22;transform:translateY(0)}30%{opacity:1;transform:translateY(-3px)}}
+
+/* ---------- marquee ---------- */
+.marquee{
+  position:relative;margin-top:clamp(60px,8vw,100px);padding:26px 0;overflow:hidden;
+  border-top:1px solid var(--line);border-bottom:1px solid var(--line);
+  background:linear-gradient(90deg,rgba(201,255,61,.03),transparent 30%,transparent 70%,rgba(124,92,255,.04));
+  -webkit-mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent);
+  mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent);
+}
+.mq-track{display:flex;width:max-content;animation:mq 34s linear infinite}
+.marquee:hover .mq-track{animation-play-state:paused}
+@keyframes mq{to{transform:translateX(-50%)}}
+.mq-track ul{display:flex;gap:52px;list-style:none;margin:0;padding:0 26px;align-items:center}
+.mq-track li{
+  font-family:'Space Grotesk',sans-serif;font-weight:500;font-size:clamp(15px,1.8vw,20px);
+  letter-spacing:-.02em;color:rgba(255,255,255,.45);white-space:nowrap;
+  display:flex;align-items:center;gap:14px;transition:color .3s;
+}
+.mq-track li::after{content:'';width:5px;height:5px;border-radius:50%;background:rgba(201,255,61,.45)}
+.mq-track li:hover{color:var(--lime)}
+
+/* ---------- models ---------- */
+.grid-models{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:52px}
+.model{
+  position:relative;padding:24px 22px 20px;border-radius:18px;overflow:hidden;
+  background:linear-gradient(180deg,rgba(255,255,255,.035),rgba(255,255,255,.012));
+  border:1px solid rgba(255,255,255,.07);
+  transition:transform .5s var(--ease),border-color .4s,background .4s;
+  cursor:default;will-change:transform;
+}
+.model::before{
+  content:'';position:absolute;inset:0;opacity:0;transition:opacity .45s;
+  background:radial-gradient(340px circle at var(--mx,50%) var(--my,50%),rgba(201,255,61,.12),transparent 65%);
+  pointer-events:none;
+}
+.model:hover{transform:translateY(-5px);border-color:rgba(201,255,61,.35);background:linear-gradient(180deg,rgba(255,255,255,.055),rgba(255,255,255,.015))}
+.model:hover::before{opacity:1}
+.model-top{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.model-top .dot{width:9px;height:9px;border-radius:50%;background:var(--c,var(--lime));box-shadow:0 0 14px var(--c,var(--lime));flex:none}
+.model-name{font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:16.5px;letter-spacing:-.025em}
+.model p{margin:0 0 20px;font-size:13px;color:var(--muted);line-height:1.55;min-height:40px}
+.model-foot{
+  display:flex;align-items:center;justify-content:space-between;padding-top:14px;
+  border-top:1px solid rgba(255,255,255,.06);
+  font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.03em;color:rgba(255,255,255,.42);
+}
+.model-foot .arw{color:var(--lime);opacity:0;transform:translateX(-6px);transition:.4s var(--ease)}
+.model:hover .model-foot .arw{opacity:1;transform:none}
+
+/* ---------- stats ---------- */
+.stats{display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid var(--line);border-bottom:1px solid var(--line);margin-top:clamp(60px,8vw,90px)}
+.stat{padding:38px 26px;border-right:1px solid var(--line);position:relative;overflow:hidden}
+.stat:last-child{border-right:0}
+.stat .num{
+  font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:clamp(30px,4.4vw,52px);
+  letter-spacing:-.045em;line-height:1;display:flex;align-items:baseline;gap:2px;
+}
+.stat .num small{font-size:.45em;color:var(--lime);font-weight:500;letter-spacing:-.02em}
+.stat .lbl{
+  margin-top:12px;font-family:'JetBrains Mono',monospace;font-size:10.5px;
+  letter-spacing:.16em;text-transform:uppercase;color:rgba(255,255,255,.38);
+}
+
+/* ---------- steps ---------- */
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:56px;counter-reset:s}
+.step{
+  position:relative;padding:34px 28px 30px;border-radius:20px;
+  background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(255,255,255,.008));
+  border:1px solid rgba(255,255,255,.07);overflow:hidden;
+  transition:border-color .4s,transform .5s var(--ease);
+}
+.step:hover{border-color:rgba(255,255,255,.2);transform:translateY(-4px)}
+.step .n{
+  font-family:'Instrument Serif',serif;font-style:italic;font-size:64px;line-height:1;
+  color:transparent;-webkit-text-stroke:1px rgba(201,255,61,.5);margin-bottom:18px;
+}
+.step h3{font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:20px;letter-spacing:-.025em;margin:0 0 10px}
+.step p{margin:0;color:var(--muted);font-size:14px;line-height:1.65}
+.step::after{
+  content:'';position:absolute;right:-40px;bottom:-40px;width:130px;height:130px;border-radius:50%;
+  background:radial-gradient(circle,rgba(201,255,61,.14),transparent 70%);opacity:0;transition:opacity .5s;
+}
+.step:hover::after{opacity:1}
+
+/* ---------- code ---------- */
+.code-shell{
+  margin-top:48px;border-radius:20px;overflow:hidden;border:1px solid rgba(255,255,255,.09);
+  background:linear-gradient(180deg,#0D0D15,#08080E);
+  box-shadow:0 50px 120px -60px rgba(0,0,0,.9),0 0 80px -40px rgba(124,92,255,.4);
+}
+.code-head{
+  display:flex;align-items:center;gap:6px;padding:12px 14px;
+  border-bottom:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.022);flex-wrap:wrap;
+}
+.tab{
+  padding:8px 15px;border-radius:8px;border:1px solid transparent;background:transparent;
+  color:rgba(255,255,255,.45);font-family:'JetBrains Mono',monospace;font-size:12px;
+  cursor:pointer;transition:.3s;letter-spacing:.02em;
+}
+.tab:hover{color:#fff;background:rgba(255,255,255,.05)}
+.tab.on{background:rgba(201,255,61,.12);color:var(--lime);border-color:rgba(201,255,61,.25)}
+.copy{
+  margin-left:auto;display:inline-flex;align-items:center;gap:7px;padding:8px 14px;
+  border-radius:8px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.035);
+  color:rgba(255,255,255,.6);font-family:'JetBrains Mono',monospace;font-size:11.5px;
+  cursor:pointer;transition:.3s;
+}
+.copy:hover{color:var(--lime);border-color:rgba(201,255,61,.35);background:rgba(201,255,61,.08)}
+.copy.done{color:var(--lime);border-color:rgba(201,255,61,.45)}
+.code-body{padding:26px 24px;overflow-x:auto}
+pre{
+  margin:0;font-family:'JetBrains Mono',monospace;font-size:13px;line-height:1.85;
+  color:rgba(255,255,255,.82);white-space:pre;tab-size:2;
+}
+pre .c-kw{color:var(--violet);font-weight:500}
+pre .c-str{color:var(--lime)}
+pre .c-com{color:rgba(255,255,255,.28);font-style:italic}
+pre .c-num{color:var(--cyan)}
+.pane{display:none}
+.pane.on{display:block;animation:paneIn .5s var(--ease)}
+@keyframes paneIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+/* ---------- pricing ---------- */
+.toggles{display:flex;gap:12px;flex-wrap:wrap;margin-top:36px;align-items:center}
+.seg{
+  display:inline-flex;padding:4px;border-radius:999px;
+  background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.09);
+}
+.seg button{
+  padding:9px 18px;border:0;background:transparent;border-radius:999px;cursor:pointer;
+  font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:500;color:rgba(255,255,255,.5);
+  transition:.35s var(--ease);letter-spacing:-.01em;
+}
+.seg button.on{background:var(--lime);color:#07070B;box-shadow:0 6px 22px -8px rgba(201,255,61,.7)}
+.save{
+  font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--lime);opacity:0;transform:translateX(-8px);transition:.4s var(--ease);
+}
+.save.on{opacity:1;transform:none}
+
+.plans{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:44px;align-items:start}
+.plan{
+  position:relative;padding:34px 28px 30px;border-radius:22px;
+  background:linear-gradient(180deg,rgba(255,255,255,.035),rgba(255,255,255,.008));
+  border:1px solid rgba(255,255,255,.08);
+  transition:transform .5s var(--ease),border-color .4s,box-shadow .5s;
+  overflow:hidden;
+}
+.plan:hover{transform:translateY(-6px);border-color:rgba(255,255,255,.2)}
+.plan.hot{
+  border-color:rgba(201,255,61,.4);
+  background:linear-gradient(180deg,rgba(201,255,61,.07),rgba(255,255,255,.012));
+  box-shadow:0 0 70px -30px rgba(201,255,61,.5);
+}
+.plan.hot::before{
+  content:'';position:absolute;inset:-1px;border-radius:inherit;padding:1px;pointer-events:none;
+  background:linear-gradient(140deg,rgba(201,255,61,.7),transparent 42%,transparent 62%,rgba(124,92,255,.55));
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+  -webkit-mask-composite:xor;mask-composite:exclude;
+}
+.plan .tag{
+  position:absolute;top:18px;right:18px;padding:5px 11px;border-radius:999px;
+  background:var(--lime);color:#07070B;font-family:'JetBrains Mono',monospace;
+  font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;font-weight:500;
+}
+.plan h3{font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:17px;letter-spacing:.02em;text-transform:uppercase;margin:0 0 22px;color:rgba(255,255,255,.65)}
+.price{display:flex;align-items:baseline;gap:6px;font-family:'Space Grotesk',sans-serif;letter-spacing:-.045em}
+.price .amt{font-size:clamp(38px,4.6vw,52px);font-weight:600;line-height:1;transition:opacity .25s}
+.price .cur{font-size:.42em;font-weight:500;color:rgba(255,255,255,.5);letter-spacing:-.01em}
+.price .per{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.32);margin-left:4px}
+.plan .desc{margin:14px 0 26px;font-size:13px;color:var(--muted);line-height:1.6;min-height:42px}
+.plan ul{list-style:none;margin:0 0 30px;padding:0;display:flex;flex-direction:column;gap:11px}
+.plan li{display:flex;gap:10px;font-size:13.5px;color:rgba(255,255,255,.72);line-height:1.5}
+.plan li::before{
+  content:'';flex:none;width:15px;height:15px;margin-top:3px;border-radius:50%;
+  background:rgba(201,255,61,.14);border:1px solid rgba(201,255,61,.4);
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23C9FF3D' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3.5 8.5l3 3 6-7'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:center;background-size:11px;
+}
+.plan .btn{width:100%}
+.plans-note{
+  margin-top:26px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;
+  font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.05em;color:rgba(255,255,255,.33);
+}
+.plans-note b{color:rgba(255,255,255,.6);font-weight:400}
+
+/* ---------- compare ---------- */
+.tablewrap{margin-top:48px;border-radius:20px;overflow:hidden;border:1px solid var(--line);background:rgba(255,255,255,.014)}
+table{width:100%;border-collapse:collapse;min-width:620px}
+thead th{
+  padding:20px 18px;text-align:left;font-family:'Space Grotesk',sans-serif;font-weight:600;
+  font-size:12.5px;letter-spacing:.06em;text-transform:uppercase;color:rgba(255,255,255,.45);
+  border-bottom:1px solid var(--line);background:rgba(255,255,255,.02);
+}
+thead th.hi{color:var(--lime);position:relative}
+thead th.hi::after{content:'';position:absolute;left:0;right:0;bottom:-1px;height:1px;background:var(--lime);box-shadow:0 0 18px var(--lime)}
+tbody td{
+  padding:17px 18px;font-size:13.5px;border-bottom:1px solid rgba(255,255,255,.05);
+  color:rgba(255,255,255,.6);transition:background .3s;
+}
+tbody tr:last-child td{border-bottom:0}
+tbody tr:hover td{background:rgba(255,255,255,.022)}
+tbody td:first-child{color:rgba(255,255,255,.85);font-weight:400}
+tbody td.hi{color:var(--lime);font-weight:500;background:rgba(201,255,61,.045)}
+tbody tr:hover td.hi{background:rgba(201,255,61,.075)}
+.yes{color:var(--lime)}
+.no{color:rgba(255,255,255,.24)}
+.mid{color:rgba(201,255,61,.55)}
+
+/* ---------- faq ---------- */
+.faqs{margin-top:46px;border-top:1px solid var(--line)}
+.acc{border-bottom:1px solid var(--line)}
+.acc-btn{
+  width:100%;display:flex;align-items:center;gap:20px;justify-content:space-between;
+  padding:26px 4px;background:none;border:0;cursor:pointer;text-align:left;color:var(--ink);
+  font-family:'Space Grotesk',sans-serif;font-weight:500;font-size:clamp(15px,2vw,19px);
+  letter-spacing:-.02em;transition:color .3s;
+}
+.acc-btn:hover{color:var(--lime)}
+.acc-ico{position:relative;width:20px;height:20px;flex:none}
+.acc-ico::before,.acc-ico::after{
+  content:'';position:absolute;background:currentColor;border-radius:2px;transition:transform .45s var(--ease),opacity .3s;
+}
+.acc-ico::before{left:0;top:9px;width:20px;height:1.6px}
+.acc-ico::after{left:9px;top:0;width:1.6px;height:20px}
+.acc.open .acc-ico::after{transform:rotate(90deg);opacity:0}
+.acc.open .acc-ico::before{transform:rotate(180deg)}
+.acc-body{display:grid;grid-template-rows:0fr;transition:grid-template-rows .55s var(--ease)}
+.acc.open .acc-body{grid-template-rows:1fr}
+.acc-body>div{overflow:hidden}
+.acc-body p{margin:0;padding:0 60px 28px 4px;color:var(--muted);font-size:14.5px;line-height:1.75;max-width:78ch}
+
+/* ---------- final cta ---------- */
+.final{
+  position:relative;margin-top:clamp(60px,9vw,110px);padding:clamp(56px,9vw,110px) clamp(24px,5vw,70px);
+  border-radius:28px;text-align:center;overflow:hidden;
+  background:radial-gradient(circle at 50% 0%,rgba(201,255,61,.13),transparent 62%),linear-gradient(180deg,#0C0C13,#08080D);
+  border:1px solid rgba(255,255,255,.09);
+}
+.final::before{
+  content:'';position:absolute;inset:0;pointer-events:none;
+  background:radial-gradient(circle at 50% 120%,rgba(124,92,255,.24),transparent 58%);
+}
+.final>*{position:relative;z-index:1}
+.final h2{font-size:clamp(32px,6vw,80px)}
+.final p{color:var(--muted);max-width:50ch;margin:22px auto 0;font-size:clamp(14px,1.6vw,17px)}
+.final .cta{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin-top:38px}
+
+/* ---------- footer ---------- */
+footer{padding:60px 0 40px;margin-top:clamp(60px,9vw,110px);border-top:1px solid var(--line)}
+.foot{display:flex;justify-content:space-between;gap:40px;flex-wrap:wrap;align-items:flex-start}
+.foot .brand{max-width:280px}
+.foot .brand p{font-size:13px;color:var(--muted);margin:14px 0 0;line-height:1.65}
+.foot-cols{display:flex;gap:clamp(30px,6vw,80px);flex-wrap:wrap}
+.foot-cols h6{
+  margin:0 0 14px;font-family:'JetBrains Mono',monospace;font-size:10px;
+  letter-spacing:.2em;text-transform:uppercase;color:rgba(255,255,255,.3);font-weight:400;
+}
+.foot-cols a{display:block;font-size:13.5px;color:rgba(255,255,255,.6);text-decoration:none;margin-bottom:9px;transition:color .3s}
+.foot-cols a:hover{color:var(--lime)}
+.foot-bottom{
+  margin-top:52px;padding-top:24px;border-top:1px solid rgba(255,255,255,.05);
+  display:flex;justify-content:space-between;gap:18px;flex-wrap:wrap;
+  font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.04em;color:rgba(255,255,255,.28);
+}
+
+/* ---------- responsive ---------- */
+@media(max-width:1024px){
+  .grid-models{grid-template-columns:repeat(2,1fr)}
+  .stats{grid-template-columns:repeat(2,1fr)}
+  .stat:nth-child(2){border-right:0}
+  .stat:nth-child(1),.stat:nth-child(2){border-bottom:1px solid var(--line)}
+  .plans{grid-template-columns:1fr;max-width:520px;margin-inline:auto}
+  .steps{grid-template-columns:1fr}
+  .mock-body{grid-template-columns:1fr}
+  .mock-side{display:none}
+}
+@media(max-width:820px){
+  .navlinks{display:none}
+  nav{padding-top:16px;padding-bottom:16px}
+  .cursor{display:none}
+  .mock{transform:none}
+  .mock:hover{transform:none}
+  .acc-body p{padding-right:20px}
+}
+@media(max-width:560px){
+  .grid-models{grid-template-columns:1fr}
+  .stats{grid-template-columns:1fr}
+  .stat{border-right:0;border-bottom:1px solid var(--line)}
+  .stat:last-child{border-bottom:0}
+  .price .amt{font-size:40px}
+  .hero .cta .btn,.final .cta .btn{width:100%}
+}
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important}
+  [data-reveal]{opacity:1!important;transform:none!important}
+  .line>span{transform:none!important}
+  .hero .sub,.hero .cta,.hero .trust,.mockwrap{opacity:1!important}
+}
+</style>
+</head>
+<body>
+
+<div class="grain"></div>
+<div class="cursor" id="cursor"></div>
+<div class="progress"><i id="bar"></i></div>
+
+<nav id="nav">
+  <a href="#" class="logo">keyra<b>.</b></a>
+  <div class="navlinks">
+    <a href="#models">Модели</a>
+    <a href="#how">Как это работает</a>
+    <a href="#pricing">Тарифы</a>
+    <a href="#faq">FAQ</a>
+  </div>
+  <a href="#pricing" class="btn btn-lime btn-sm" data-magnet>Получить ключ <span class="arw">→</span></a>
+</nav>
+
+<main>
+
+<!-- HERO -->
+<section class="hero">
+  <canvas id="net"></canvas>
+  <div class="glow g1"></div>
+  <div class="glow g2"></div>
+  <div class="glow g3"></div>
+
+  <div class="wrap">
+    <p class="eyebrow" style="justify-content:center">GPT-5.1 · Claude 4.5 · Gemini 2.5 · DeepSeek V3.2</p>
+    <h1>
+      <span class="line"><span style="--d:.12s">Все нейросети.</span></span>
+      <span class="line"><span style="--d:.26s"><em>Один ключ.</em></span></span>
+    </h1>
+    <p class="sub">
+      GPT, Claude, Gemini и DeepSeek через один API-ключ. Без VPN, зарубежных карт и очередей.
+      Совместимо с OpenAI SDK — просто меняешь <b style="color:var(--ink);font-weight:500">baseURL</b> и работаешь.
+    </p>
+    <div class="cta">
+      <a href="#pricing" class="btn btn-lime" data-magnet>Начать бесплатно <span class="arw">→</span></a>
+      <a href="#how" class="btn btn-ghost" data-magnet>Как это работает</a>
+    </div>
+    <div class="trust">
+      <span>5 000+ разработчиков</span>
+      <span>99.9% uptime</span>
+      <span>Без лимита ключей</span>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <div class="mockwrap">
+      <div class="mock" data-tilt>
+        <div class="mock-bar">
+          <span></span><span></span><span></span>
+          <em>api.keyra.ai / playground</em>
+          <span class="live"><i></i>online</span>
+        </div>
+        <div class="mock-body">
+          <aside class="mock-side">
+            <h6>Модели</h6>
+            <div class="mitem on"><i></i>GPT-5.1</div>
+            <div class="mitem"><i></i>Claude Sonnet 4.5</div>
+            <div class="mitem"><i></i>Gemini 2.5 Pro</div>
+            <div class="mitem"><i></i>DeepSeek V3.2</div>
+            <div class="mitem"><i></i>o3</div>
+            <div class="mitem"><i></i>Grok 4</div>
+          </aside>
+          <div class="mock-chat">
+            <div class="msg">
+              <div class="av">Вы</div>
+              <div>
+                <span class="meta">you · 14:02</span>
+                <p>Сгенерируй production-ready Dockerfile для Next.js с multi-stage build и кэшем.</p>
+              </div>
+            </div>
+            <div class="msg bot">
+              <div class="av">AI</div>
+              <div>
+                <span class="meta">gpt-5.1 · 1.4s · 812 токенов</span>
+                <p>Готово. Использую <code style="color:var(--lime);font-family:'JetBrains Mono',monospace;font-size:12px">node:22-alpine</code> как базу, три стадии: deps → builder → runner. Кэш зависимостей монтируется через BuildKit…</p>
+                <span class="typing"><b></b><b></b><b></b></span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="marquee">
+    <div class="mq-track" id="mq">
+      <ul>
+        <li>GPT-5.1</li><li>Claude Sonnet 4.5</li><li>Gemini 2.5 Pro</li><li>DeepSeek V3.2</li>
+        <li>o3</li><li>Grok 4</li><li>Llama 4 Maverick</li><li>Qwen 3 Max</li><li>Mistral Large 3</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- MODELS -->
+<section class="sect" id="models">
+  <div class="wrap">
+    <p class="eyebrow" data-reveal>Каталог</p>
+    <h2 data-reveal style="--d:.06s">Все топовые модели<br>в <em>одном</em> эндпоинте</h2>
+    <p class="lead" data-reveal style="--d:.12s">Никаких отдельных аккаунтов, отдельных биллингов и отдельных ключей. Один запрос — любая нейросеть. Меняешь только параметр <span style="font-family:'JetBrains Mono',monospace;color:var(--lime);font-size:.92em">model</span>.</p>
+
+    <div class="grid-models">
+      <article class="model" data-reveal style="--d:.02s">
+        <div class="model-top"><span class="dot" style="--c:#10A37F"></span><span class="model-name">GPT-5.1</span></div>
+        <p>Флагман OpenAI. Сложные рассуждения, код, агенты.</p>
+        <div class="model-foot"><span>от $1.80 / 1M</span><span class="arw">→</span></div>
+      </article>
+      <article class="model" data-reveal style="--d:.06s">
+        <div class="model-top"><span class="dot" style="--c:#D97757"></span><span class="model-name">Claude Sonnet 4.5</span></div>
+        <p>Лучший в мире код и работа с длинным контекстом.</p>
+        <div class="model-foot"><span>от $2.40 / 1M</span><span class="arw">→</span></div>
+      </article>
+      <article class="model" data-reveal style="--d:.10s">
+        <div class="model-top"><span class="dot" style="--c:#4285F4"></span><span class="model-name">Gemini 2.5 Pro</span></div>
+        <p>Мультимодальность: текст, изображения, видео, аудио.</p>
+        <div class="model-foot"><span>от $1.10 / 1M</span><span class="arw">→</span></div>
+      </article>
+      <article class="model" data-reveal style="--d:.14s">
+        <div class="model-top"><span class="dot" style="--c:#4D6BFE"></span><span class="model-name">DeepSeek V3.2</span></div>
+        <p>Максимум качества на рубль. Идеален для потоков задач.</p>
+        <div class="model-foot"><span>от $0.20 / 1M</span><span class="arw">→</span></div>
+      </article>
+      <article class="model" data-reveal style="--d:.18s">
+        <div class="model-top"><span class="dot" style="--c:#9B7BFF"></span><span class="model-name">o3</span></div>
+        <p>Глубокие рассуждения для математики и аналитики.</p>
+        <div class="model-foot"><span>от $8.00 / 1M</span><span class="arw">→</span></div>
+      </article>
+      <article class="model" data-reveal style="--d:.22s">
+        <div class="model-top"><span class="dot" style="--c:#34E7E4"></span><span class="model-name">Grok 4</span></div>
+        <p>Свежие данные и нестандартный взгляд на задачи.</p>
+        <div class="model-foot"><span>от $2.00 / 1M</span><span class="arw">→</span></div>
+      </article>
+      <article class="model" data-reveal style="--d:.26s">
+        <div class="model-top"><span class="dot" style="--c:#0866FF"></span><span class="model-name">Llama 4 Maverick</span></div>
+        <p>Открытая модель для приватных пайплайнов.</p>
+        <div class="model-foot"><span>от $0.18 / 1M</span><span class="arw">→</span></div>
+      </article>
+      <article class="model" data-reveal style="--d:.30s">
+        <div class="model-top"><span class="dot" style="--c:#C9FF3D"></span><span class="model-name">Qwen 3 Max</span></div>
+        <p>Сильная мультиязычность и работа с азиатским контекстом.</p>
+        <div class="model-foot"><span>от $0.35 / 1M</span><span class="arw">→</span></div>
+      </article>
+    </div>
+
+    <div class="stats">
+      <div class="stat" data-reveal style="--d:.02s">
+        <div class="num"><span data-count="12">0</span><small>+</small></div>
+        <div class="lbl">моделей в доступе</div>
+      </div>
+      <div class="stat" data-reveal style="--d:.08s">
+        <div class="num"><span data-count="70">0</span><small>%</small></div>
+        <div class="lbl">дешевле официальных цен</div>
+      </div>
+      <div class="stat" data-reveal style="--d:.14s">
+        <div class="num"><span data-count="99.9" data-dec="1">0</span><small>%</small></div>
+        <div class="lbl">uptime за последний год</div>
+      </div>
+      <div class="stat" data-reveal style="--d:.20s">
+        <div class="num"><span data-count="120">0</span><small>мс</small></div>
+        <div class="lbl">медианная задержка</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- HOW -->
+<section class="sect" id="how">
+  <div class="wrap">
+    <p class="eyebrow" data-reveal>Процесс</p>
+    <h2 data-reveal style="--d:.06s">От регистрации до первого<br>запроса — <em>3 минуты</em></h2>
+
+    <div class="steps">
+      <div class="step" data-reveal style="--d:.04s">
+        <div class="n">01</div>
+        <h3>Регистрация</h3>
+        <p>Почта и пароль. Никаких паспортов, верификаций и зарубежных номеров. Первые 100 000 токенов — сразу на баланс.</p>
+      </div>
+      <div class="step" data-reveal style="--d:.12s">
+        <div class="n">02</div>
+        <h3>Пополнение</h3>
+        <p>Карта РФ, СБП, ЮMoney или крипта. Зачисление мгновенно, чек приходит на почту. Работаем с НДС и выдаём документы.</p>
+      </div>
+      <div class="step" data-reveal style="--d:.20s">
+        <div class="n">03</div>
+        <h3>Один ключ</h3>
+        <p>Получаешь один API-ключ и меняешь только поле <span style="font-family:'JetBrains Mono',monospace;color:var(--lime);font-size:.9em">model</span>. Всё остальное — как в официальном OpenAI SDK.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CODE -->
+<section class="sect" id="code">
+  <div class="wrap">
+    <p class="eyebrow" data-reveal>Интеграция</p>
+    <h2 data-reveal style="--d:.06s">Совместимо с <em>OpenAI SDK</em></h2>
+    <p class="lead" data-reveal style="--d:.12s">Ни одной новой библиотеки. Меняешь одну строку — получаешь доступ ко всем моделям сразу. Работает с LangChain, LlamaIndex, Vercel AI SDK и всем, что умеет в OpenAI-совместимый API.</p>
+
+    <div class="code-shell" data-reveal style="--d:.16s">
+      <div class="code-head">
+        <button class="tab on" data-tab="node">Node.js</button>
+        <button class="tab" data-tab="python">Python</button>
+        <button class="tab" data-tab="curl">cURL</button>
+        <button class="copy" id="copyBtn">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>
+          <span>Копировать</span>
+        </button>
+      </div>
+      <div class="code-body">
+        <pre class="pane on" id="pane-node"></pre>
+        <pre class="pane" id="pane-python"></pre>
+        <pre class="pane" id="pane-curl"></pre>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PRICING -->
+<section class="sect" id="pricing">
+  <div class="wrap">
+    <p class="eyebrow" data-reveal>Тарифы</p>
+    <h2 data-reveal style="--d:.06s">Платишь за токены,<br>а не за <em>посредников</em></h2>
+
+    <div class="toggles" data-reveal style="--d:.12s">
+      <div class="seg" id="periodSeg">
+        <button class="on" data-period="m">Месяц</button>
+        <button data-period="y">Год</button>
+      </div>
+      <div class="seg" id="curSeg">
+        <button class="on" data-cur="rub">₽ RUB</button>
+        <button data-cur="usd">$ USD</button>
+      </div>
+      <span class="save" id="saveBadge">−20% при оплате за год</span>
+    </div>
+
+    <div class="plans">
+      <div class="plan" data-reveal style="--d:.05s">
+        <h3>Start</h3>
+        <div class="price">
+          <span class="amt" data-price data-rub-m="990" data-rub-y="790" data-usd-m="12" data-usd-y="9">990</span>
+          <span class="cur" data-cur-label>₽</span>
+          <span class="per">/ мес</span>
+        </div>
+        <p class="desc">Чтобы попробовать и собрать первый прототип на нормальной модели.</p>
+        <ul>
+          <li>3 млн токенов в месяц</li>
+          <li>Все модели в базовом доступе</li>
+          <li>2 API-ключа</li>
+          <li>Логи запросов — 7 дней</li>
+          <li>Поддержка в чате</li>
+        </ul>
+        <a href="#" class="btn btn-ghost" data-magnet>Выбрать Start</a>
+      </div>
+
+      <div class="plan hot" data-reveal style="--d:.12s">
+        <span class="tag">Хит</span>
+        <h3>Pro</h3>
+        <div class="price">
+          <span class="amt" data-price data-rub-m="2490" data-rub-y="1990" data-usd-m="29" data-usd-y="23">2490</span>
+          <span class="cur" data-cur-label>₽</span>
+          <span class="per">/ мес</span>
+        </div>
+        <p class="desc">Для продакшена: reasoning-модели, приоритетная очередь, нормальные лимиты.</p>
+        <ul>
+          <li>15 млн токенов в месяц</li>
+          <li>Все модели + o3 и DeepSeek R1</li>
+          <li>10 API-ключей</li>
+          <li>Логи запросов — 90 дней</li>
+          <li>Приоритетная очередь</li>
+          <li>Поддержка 24/7</li>
+        </ul>
+        <a href="#" class="btn btn-lime" data-magnet>Выбрать Pro <span class="arw">→</span></a>
+      </div>
+
+      <div class="plan" data-reveal style="--d:.19s">
+        <h3>Ultra</h3>
+        <div class="price">
+          <span class="amt" data-price data-rub-m="5990" data-rub-y="4790" data-usd-m="69" data-usd-y="55">5990</span>
+          <span class="cur" data-cur-label>₽</span>
+          <span class="per">/ мес</span>
+        </div>
+        <p class="desc">Для команд и продуктов, где нейросеть — часть инфраструктуры.</p>
+        <ul>
+          <li>50 млн токенов в месяц</li>
+          <li>Все модели без ограничений</li>
+          <li>Неограниченно API-ключей</li>
+          <li>Логи навсегда + экспорт</li>
+          <li>Выделенные каналы</li>
+          <li>Личный менеджер</li>
+        </ul>
+        <a href="#" class="btn btn-ghost" data-magnet>Выбрать Ultra</a>
+      </div>
+    </div>
+
+    <div class="plans-note" data-reveal style="--d:.24s">
+      <b>Без скрытых списаний.</b> Неиспользованные токены переносятся на следующий месяц. Отмена — в один клик.
+    </div>
+  </div>
+</section>
+
+<!-- COMPARE -->
+<section class="sect">
+  <div class="wrap">
+    <p class="eyebrow" data-reveal>Сравнение</p>
+    <h2 data-reveal style="--d:.06s">Почему не <em>напрямую</em></h2>
+
+    <div class="tablewrap" data-reveal style="--d:.12s">
+      <table>
+        <thead>
+          <tr>
+            <th>Параметр</th>
+            <th class="hi">keyra</th>
+            <th>Официально</th>
+            <th>Посредники</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Оплата картой РФ</td>
+            <td class="hi"><span class="yes">Да</span></td>
+            <td><span class="no">Нет</span></td>
+            <td><span class="mid">Частично</span></td>
+          </tr>
+          <tr>
+            <td>Нужен VPN</td>
+            <td class="hi"><span class="yes">Нет</span></td>
+            <td><span class="no">Да</span></td>
+            <td><span class="mid">Иногда</span></td>
+          </tr>
+          <tr>
+            <td>Один ключ на все модели</td>
+            <td class="hi"><span class="yes">Да</span></td>
+            <td><span class="no">Нет</span></td>
+            <td><span class="no">Нет</span></td>
+          </tr>
+          <tr>
+            <td>Цена за токен</td>
+            <td class="hi">от 0.6×</td>
+            <td>1×</td>
+            <td>1.4× — 2×</td>
+          </tr>
+          <tr>
+            <td>Медианная задержка</td>
+            <td class="hi">120 мс</td>
+            <td>90 мс</td>
+            <td>400 мс+</td>
+          </tr>
+          <tr>
+            <td>Поддержка на русском</td>
+            <td class="hi"><span class="yes">24/7</span></td>
+            <td><span class="no">Нет</span></td>
+            <td><span class="mid">По будням</span></td>
+          </tr>
+          <tr>
+            <td>Стабильность</td>
+            <td class="hi">99.9%</td>
+            <td>99.9%</td>
+            <td>~95%</td>
+          </tr>
+          <tr>
+            <td>Документы для юрлиц</td>
+            <td class="hi"><span class="yes">Да</span></td>
+            <td><span class="no">Нет</span></td>
+            <td><span class="mid">Редко</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- FAQ -->
+<section class="sect" id="faq">
+  <div class="wrap">
+    <p class="eyebrow" data-reveal>Вопросы</p>
+    <h2 data-reveal style="--d:.06s">Коротко о <em>главном</em></h2>
+
+    <div class="faqs" data-reveal style="--d:.12s">
+      <div class="acc">
+        <button class="acc-btn">Это легально? <span class="acc-ico"></span></button>
+        <div class="acc-body"><div><p>Да. Мы работаем как официальный реселлер API-доступа и предоставляем инфраструктуру с оплатой в рублях. Юридическим лицам выдаём закрывающие документы, счета и акты. Сервис не хранит и не перепродаёт ваши диалоги — запросы проксируются напрямую к провайдеру модели.</p></div></div>
+      </div>
+      <div class="acc">
+        <button class="acc-btn">Чем это отличается от официального API? <span class="acc-ico"></span></button>
+        <div class="acc-body"><div><p>Технически — ничем: тот же формат запросов и ответов, те же модели, та же скорость. Разница в трёх вещах: оплата российской картой, один ключ на все провайдеры и цена ниже за счёт оптовых контрактов и общей инфраструктуры.</p></div></div>
+      </div>
+      <div class="acc">
+        <button class="acc-btn">Нужно ли переписывать код? <span class="acc-ico"></span></button>
+        <div class="acc-body"><div><p>Нет. Достаточно заменить <code style="font-family:'JetBrains Mono',monospace;color:var(--lime);font-size:.92em">baseURL</code> на <code style="font-family:'JetBrains Mono',monospace;color:var(--lime);font-size:.92em">https://api.keyra.ai/v1</code> и подставить наш ключ. Всё остальное — включая стриминг, функции и vision — работает как раньше. Поддерживаем OpenAI-, Anthropic- и Gemini-совместимые форматы.</p></div></div>
+      </div>
+      <div class="acc">
+        <button class="acc-btn">Что будет, если токены закончатся в середине месяца? <span class="acc-ico"></span></button>
+        <div class="acc-body"><div><p>Запросы не отвалятся: включится режим pay-as-you-go по базовой цене. Вы можете отключить его в настройках или настроить автопополнение с баланса. Никаких «тихих» блокировок и обрывов в продакшене.</p></div></div>
+      </div>
+      <div class="acc">
+        <button class="acc-btn">Насколько это быстро и надёжно? <span class="acc-ico"></span></button>
+        <div class="acc-body"><div><p>Медианная задержка — 120 мс поверх провайдера, uptime за последний год — 99.9%. У нас несколько географических точек входа, автоматический фейловер между каналами и статус-страница с публичной историей инцидентов.</p></div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FINAL -->
+<div class="wrap">
+  <div class="final" data-reveal>
+    <p class="eyebrow" style="justify-content:center">Готов?</p>
+    <h2>Первые <em>100 000</em> токенов<br>бесплатно</h2>
+    <p>Без карты, без верификации, без звонков. Регистрируешься — и через минуту у тебя в терминале работает любая модель.</p>
+    <div class="cta">
+      <a href="#" class="btn btn-lime" data-magnet>Создать аккаунт <span class="arw">→</span></a>
+      <a href="#pricing" class="btn btn-ghost" data-magnet>Посмотреть тарифы</a>
+    </div>
+  </div>
+</div>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="foot">
+      <div class="brand">
+        <a href="#" class="logo">keyra<b>.</b></a>
+        <p>Один API-ключ ко всем нейросетям. Дешевле, быстрее и без головной боли с оплатой.</p>
+      </div>
+      <div class="foot-cols">
+        <div>
+          <h6>Продукт</h6>
+          <a href="#models">Модели</a>
+          <a href="#pricing">Тарифы</a>
+          <a href="#code">Документация</a>
+          <a href="#">Статус</a>
+        </div>
+        <div>
+          <h6>Компания</h6>
+          <a href="#">О нас</a>
+          <a href="#">Блог</a>
+          <a href="#">Партнёрам</a>
+          <a href="#">Контакты</a>
+        </div>
+        <div>
+          <h6>Правовое</h6>
+          <a href="#">Условия</a>
+          <a href="#">Конфиденциальность</a>
+          <a href="#">Оферта</a>
+        </div>
+      </div>
+    </div>
+    <div class="foot-bottom">
+      <span>© 2025 keyra. Все права защищены.</span>
+      <span>Сделано с любовью к API</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+(function(){
+  "use strict";
+  var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* ---------- cursor + progress ---------- */
+  var cursor = document.getElementById('cursor');
+  var barEl  = document.getElementById('bar');
+  var nav    = document.getElementById('nav');
+  var mx = window.innerWidth/2, my = window.innerHeight/2, cx = mx, cy = my;
+
+  window.addEventListener('mousemove', function(e){
+    mx = e.clientX; my = e.clientY;
+    document.body.classList.add('has-mouse');
+  }, {passive:true});
+
+  function raf(){
+    cx += (mx - cx) * 0.14;
+    cy += (my - cy) * 0.14;
+    if (cursor) cursor.style.transform = 'translate3d(' + (cx - 210) + 'px,' + (cy - 210) + 'px,0)';
+    requestAnimationFrame(raf);
+  }
+  if (!reduce && window.matchMedia('(pointer:fine)').matches) requestAnimationFrame(raf);
+
+  var ticking = false;
+  window.addEventListener('scroll', function(){
+    if (ticking) return;
+    ticking = true;
+    requestAnimationFrame(function(){
+      var h = document.documentElement;
+      var max = h.scrollHeight - h.clientHeight;
+      var p = max > 0 ? h.scrollTop / max : 0;
+      if (barEl) barEl.style.transform = 'scaleX(' + p + ')';
+      if (nav) nav.classList.toggle('stuck', h.scrollTop > 40);
+      ticking = false;
+    });
+  }, {passive:true});
+
+  /* ---------- particle network ---------- */
+  var cvs = document.getElementById('net');
+  if (cvs && !reduce) {
+    var ctx = cvs.getContext('2d');
+    var W = 0, H = 0, DPR = 1, dots = [], mouse = {x:-9999, y:-9999};
+
+    function resize(){
+      DPR = Math.min(window.devicePixelRatio || 1, 2);
+      W = cvs.clientWidth; H = cvs.clientHeight;
+      cvs.width = Math.max(1, W*DPR);
+      cvs.height = Math.max(1, H*DPR);
+      ctx.setTransform(DPR,0,0,DPR,0,0);
+      var count = Math.min(90, Math.max(24, Math.round(W*H/17000)));
+      dots = [];
+      for (var i=0;i<count;i++){
+        dots.push({
+          x: Math.random()*W,
+          y: Math.random()*H,
+          vx: (Math.random()-.5)*0.22,
+          vy: (Math.random()-.5)*0.22,
+          r: Math.random()*1.4 + 0.5
+        });
+      }
+    }
+
+    window.addEventListener('resize', resize);
+    cvs.addEventListener('mousemove', function(e){
+      var r = cvs.getBoundingClientRect();
+      mouse.x = e.clientX - r.left;
+      mouse.y = e.clientY - r.top;
+    });
+    cvs.addEventListener('mouseleave', function(){ mouse.x = -9999; mouse.y = -9999; });
+
+    function draw(){
+      ctx.clearRect(0,0,W,H);
+
+      for (var i=0;i<dots.length;i++){
+        var d = dots[i];
+        d.x += d.vx; d.y += d.vy;
+
+        if (d.x < 0 || d.x > W) d.vx *= -1;
+        if (d.y < 0 || d.y > H) d.vy *= -1;
+
+        var dxm = d.x - mouse.x, dym = d.y - mouse.y;
+        var dm = Math.sqrt(dxm*dxm + dym*dym);
+        if (dm < 140 && dm > 0.01){
+          var f = (140 - dm) / 140 * 1.6;
+          d.x += (dxm/dm) * f;
+          d.y += (dym/dm) * f;
+        }
+
+        ctx.beginPath();
+        ctx.arc(d.x, d.y, d.r, 0, Math.PI*2);
+        ctx.fillStyle = 'rgba(201,255,61,0.55)';
+        ctx.fill();
+      }
+
+      for (var a=0;a<dots.length;a++){
+        for (var b=a+1;b<dots.length;b++){
+          var ddx = dots[a].x - dots[b].x;
+          var ddy = dots[a].y - dots[b].y;
+          var dist = Math.sqrt(ddx*ddx + ddy*ddy);
+          if (dist < 135){
+            ctx.beginPath();
+            ctx.moveTo(dots[a].x, dots[a].y);
+            ctx.lineTo(dots[b].x, dots[b].y);
+            ctx.strokeStyle = 'rgba(124,92,255,' + (0.16 * (1 - dist/135)).toFixed(3) + ')';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+          }
+        }
+      }
+      requestAnimationFrame(draw);
+    }
+
+    resize();
+    requestAnimationFrame(draw);
+  } else if (cvs) {
+    cvs.style.display = 'none';
+  }
+
+  /* ---------- reveal on scroll ---------- */
+  var revealEls = document.querySelectorAll('[data-reveal]');
+  if ('IntersectionObserver' in window && !reduce){
+    var io = new IntersectionObserver(function(entries){
+      entries.forEach(function(en){
+        if (en.isIntersecting){
+          en.target.classList.add('in');
+          io.unobserve(en.target);
+        }
+      });
+    }, {threshold: 0.12, rootMargin: '0px 0px -8% 0px'});
+    revealEls.forEach(function(el){ io.observe(el); });
+  } else {
+    revealEls.forEach(function(el){ el.classList.add('in'); });
+  }
+
+  /* ---------- counters ---------- */
+  var counters = document.querySelectorAll('[data-count]');
+  function animateCount(el){
+    var target = parseFloat(el.getAttribute('data-count'));
+    var dec = parseInt(el.getAttribute('data-dec') || '0', 10);
+    var dur = 1500, start = null;
+    function step(t){
+      if (!start) start = t;
+      var p = Math.min((t - start)/dur, 1);
+      var e = 1 - Math.pow(1 - p, 3);
+      var val = target * e;
+      el.textContent = dec ? val.toFixed(dec) : Math.round(val).toString();
+      if (p < 1) requestAnimationFrame(step);
+      else el.textContent = dec ? target.toFixed(dec) : target.toString();
+    }
+    requestAnimationFrame(step);
+  }
+  if ('IntersectionObserver' in window && !reduce){
+    var cio = new IntersectionObserver(function(entries){
+      entries.forEach(function(en){
+        if (en.isIntersecting){ animateCount(en.target); cio.unobserve(en.target); }
+      });
+    }, {threshold: 0.6});
+    counters.forEach(function(el){ cio.observe(el); });
+  } else {
+    counters.forEach(function(el){
+      var t = el.getAttribute('data-count');
+      el.textContent = el.getAttribute('data-dec') ? parseFloat(t).toFixed(parseInt(el.getAttribute('data-dec'),10)) : t;
+    });
+  }
+
+  /* ---------- card spotlight ---------- */
+  document.querySelectorAll('.model').forEach(function(card){
+    card.addEventListener('mousemove', function(e){
+      var r = card.getBoundingClientRect();
+      card.style.setProperty('--mx', (e.clientX - r.left) + 'px');
+      card.style.setProperty('--my', (e.clientY - r.top) + 'px');
+    });
+  });
+
+  /* ---------- tilt ---------- */
+  if (!reduce && window.matchMedia('(pointer:fine)').matches){
+    document.querySelectorAll('[data-tilt]').forEach(function(el){
+      el.addEventListener('mousemove', function(e){
+        var r = el.getBoundingClientRect();
+        var px = (e.clientX - r.left) / r.width - 0.5;
+        var py = (e.clientY - r.top) / r.height - 0.5;
+        el.style.transform = 'rotateX(' + (-py*5 + 2) + 'deg) rotateY(' + (px*6) + 'deg) scale(1)';
+      });
+      el.addEventListener('mouseleave', function(){
+        el.style.transform = '';
+      });
+    });
+  }
+
+  /* ---------- magnetic buttons ---------- */
+  if (!reduce && window.matchMedia('(pointer:fine)').matches){
+    document.querySelectorAll('[data-magnet]').forEach(function(btn){
+      btn.addEventListener('mousemove', function(e){
+        var r = btn.getBoundingClientRect();
+        var x = (e.clientX - r.left - r.width/2) * 0.18;
+        var y = (e.clientY - r.top - r.height/2) * 0.28;
+        btn.style.transform = 'translate(' + x + 'px,' + y + 'px)';
+      });
+      btn.addEventListener('mouseleave', function(){
+        btn.style.transform = '';
+      });
+    });
+  }
+
+  /* ---------- marquee duplication ---------- */
+  var mq = document.getElementById('mq');
+  if (mq){
+    var list = mq.querySelector('ul');
+    if (list) mq.appendChild(list.cloneNode(true));
+  }
+
+  /* ---------- code highlighting ---------- */
+  function esc(s){
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+  function hl(code){
+    var re = /(\/\/[^\n]*|\/\*[\s\S]*?\*\/)|("(?:[^"\\]|\\.)*")|\b(import|from|const|let|var|await|async|new|print|return|for|in|def|function|echo)\b|(\b\d+(?:\.\d+)?\b)/g;
+    var out = '', last = 0, m;
+    while ((m = re.exec(code)) !== null){
+      out += esc(code.slice(last, m.index));
+      if (m[1])      out += '<span class="c-com">' + esc(m[1]) + '</span>';
+      else if (m[2]) out += '<span class="c-str">' + esc(m[2]) + '</span>';
+      else if (m[3]) out += '<span class="c-kw">' + esc(m[3]) + '</span>';
+      else if (m[4]) out += '<span class="c-num">' + esc(m[4]) + '</span>';
+      last = m.index + m[0].length;
+    }
+    out += esc(code.slice(last));
+    return out;
+  }
+
+  var CODE = {
+    node: [
+      'import OpenAI from "openai";',
+      '',
+      'const ai = new OpenAI({',
+      '  baseURL: "https://api.keyra.ai/v1",',
+      '  apiKey: process.env.KEYRA_KEY,',
+      '});',
+      '',
+      '// меняешь одну строку — меняешь нейросеть',
+      'const res = await ai.chat.completions.create({',
+      '  model: "claude-sonnet-4.5",',
+      '  messages: [{ role: "user", content: "Привет!" }],',
+      '});',
+      '',
+      'console.log(res.choices[0].message.content);'
+    ].join('\n'),
+
+    python: [
+      'import os',
+      'from openai import OpenAI',
+      '',
+      'ai = OpenAI(',
+      '    base_url="https://api.keyra.ai/v1",',
+      '    api_key=os.environ["KEYRA_KEY"],',
+      ')',
+      '',
+      '# тот же клиент — любая модель',
+      'res = ai.chat.completions.create(',
+      '    model="gpt-5.1",',
+      '    messages=[{"role": "user", "content": "Привет!"}],',
+      ')',
+      '',
+      'print(res.choices[0].message.content)'
+    ].join('\n'),
+
+    curl: [
+      'curl https://api.keyra.ai/v1/chat/completions \\',
+      '  -H "Authorization: Bearer $KEYRA_KEY" \\',
+      '  -H "Content-Type: application/json" \\',
+      '  -d \'{',
+      '    "model": "deepseek-v3.2",',
+      '    "messages": [{"role": "user", "content": "Привет!"}]',
+      '  }\''
+    ].join('\n')
+  };
+
+  Object.keys(CODE).forEach(function(k){
+    var pane = document.getElementById('pane-' + k);
+    if (pane) pane.innerHTML = hl(CODE[k]);
+  });
+
+  document.querySelectorAll('.tab').forEach(function(tab){
+    tab.addEventListener('click', function(){
+      document.querySelectorAll('.tab').forEach(function(t){ t.classList.remove('on'); });
+      document.querySelectorAll('.pane').forEach(function(p){ p.classList.remove('on'); });
+      tab.classList.add('on');
+      var p = document.getElementById('pane-' + tab.getAttribute('data-tab'));
+      if (p) p.classList.add('on');
+    });
+  });
+
+  var copyBtn = document.getElementById('copyBtn');
+  if (copyBtn){
+    copyBtn.addEventListener('click', function(){
+      var active = document.querySelector('.pane.on');
+      if (!active) return;
+      var txt = active.textContent;
+      var done = function(){
+        copyBtn.classList.add('done');
+        var span = copyBtn.querySelector('span');
+        var old = span.textContent;
+        span.textContent = 'Скопировано';
+        setTimeout(function(){ copyBtn.classList.remove('done'); span.textContent = old; }, 1800);
+      };
+      if (navigator.clipboard && navigator.clipboard.writeText){
+        navigator.clipboard.writeText(txt).then(done).catch(done);
+      } else {
+        done();
+      }
+    });
+  }
+
+  /* ---------- pricing toggles ---------- */
+  var state = { period: 'm', cur: 'rub' };
+  var priceEls = document.querySelectorAll('[data-price]');
+  var curLabels = document.querySelectorAll('[data-cur-label]');
+  var saveBadge = document.getElementById('saveBadge');
+
+  function fmt(n){
+    var s = String(n);
+    return s.replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+  }
+
+  function renderPrices(){
+    priceEls.forEach(function(el){
+      var v = el.getAttribute('data-' + state.cur + '-' + state.period);
+      if (!v) return;
+      el.style.opacity = '0';
+      setTimeout(function(){
+        el.textContent = fmt(v);
+        el.style.opacity = '1';
+      }, 90);
+    });
+    curLabels.forEach(function(l){
+      l.textContent = state.cur === 'rub' ? '₽' : '$';
+    });
+    if (saveBadge) saveBadge.classList.toggle('on', state.period === 'y');
+  }
+
+  document.querySelectorAll('#periodSeg button').forEach(function(b){
+    b.addEventListener('click', function(){
+      document.querySelectorAll('#periodSeg button').forEach(function(x){ x.classList.remove('on'); });
+      b.classList.add('on');
+      state.period = b.getAttribute('data-period');
+      renderPrices();
+    });
+  });
+
+  document.querySelectorAll('#curSeg button').forEach(function(b){
+    b.addEventListener('click', function(){
+      document.querySelectorAll('#curSeg button').forEach(function(x){ x.classList.remove('on'); });
+      b.classList.add('on');
+      state.cur = b.getAttribute('data-cur');
+      renderPrices();
+    });
+  });
+
+  /* ---------- accordion ---------- */
+  document.querySelectorAll('.acc').forEach(function(acc){
+    var btn = acc.querySelector('.acc-btn');
+    btn.addEventListener('click', function(){
+      var isOpen = acc.classList.contains('open');
+      document.querySelectorAll('.acc').forEach(function(a){ a.classList.remove('open'); });
+      if (!isOpen) acc.classList.add('open');
+    });
+  });
+  var firstAcc = document.querySelector('.acc');
+  if (firstAcc) firstAcc.classList.add('open');
+
+  /* ---------- smooth anchor offset ---------- */
+  document.querySelectorAll('a[href^="#"]').forEach(function(a){
+    a.addEventListener('click', function(e){
+      var id = a.getAttribute('href');
+      if (id.length < 2) return;
+      var target = document.querySelector(id);
+      if (!target) return;
+      e.preventDefault();
+      var top = target.getBoundingClientRect().top + window.pageYOffset - 80;
+      window.scrollTo({ top: top, behavior: reduce ? 'auto' : 'smooth' });
+    });
+  });
+
+})();
+</script>
+</body>
+</html>

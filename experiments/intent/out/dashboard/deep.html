@@ -1,0 +1,977 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Token Spend Control — дашборд расходов клиентов</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    min-height:100vh;
+    background:
+      radial-gradient(1100px 560px at 8% -12%, rgba(34,211,238,.13), transparent 62%),
+      radial-gradient(900px 520px at 102% -6%, rgba(167,139,250,.12), transparent 58%),
+      radial-gradient(800px 600px at 50% 120%, rgba(52,211,153,.06), transparent 60%),
+      #060c16;
+    color:#e6edf7;
+    font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+    font-size:14px;line-height:1.45;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1460px;margin:0 auto;padding:26px 26px 64px}
+  ::selection{background:rgba(34,211,238,.3)}
+
+  /* ---------- scrollbars ---------- */
+  ::-webkit-scrollbar{width:10px;height:10px}
+  ::-webkit-scrollbar-track{background:transparent}
+  ::-webkit-scrollbar-thumb{background:#1c2b42;border-radius:8px;border:2px solid #0b1524}
+  ::-webkit-scrollbar-thumb:hover{background:#2a3d5c}
+
+  /* ---------- topbar ---------- */
+  .topbar{display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap;margin-bottom:22px}
+  .brand{display:flex;align-items:center;gap:13px}
+  .logo{width:40px;height:40px;border-radius:12px;background:linear-gradient(140deg,#22d3ee,#a78bfa);display:grid;place-items:center;box-shadow:0 8px 26px rgba(34,211,238,.26);flex:none}
+  h1{font-size:17px;font-weight:600;letter-spacing:-.2px;margin:0}
+  .sub{font-size:12px;color:#8ea0bd;display:flex;align-items:center;gap:7px;margin-top:2px}
+  .live-dot{width:6px;height:6px;border-radius:50%;background:#34d399;box-shadow:0 0 0 3px rgba(52,211,153,.16);animation:pulse 2.4s ease-in-out infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+  .top-right{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .seg{display:flex;background:#0c1626;border:1px solid #1e2c44;border-radius:11px;padding:3px;gap:2px}
+  .seg button{
+    border:0;background:transparent;color:#8ea0bd;font:inherit;font-size:12.5px;font-weight:500;
+    padding:7px 14px;border-radius:8px;cursor:pointer;transition:all .16s ease;white-space:nowrap;
+  }
+  .seg button:hover{color:#dbe6f5;background:rgba(255,255,255,.04)}
+  .seg button.active{background:linear-gradient(180deg,#1b3a52,#16304a);color:#8ff0ff;box-shadow:inset 0 0 0 1px rgba(34,211,238,.28),0 2px 10px rgba(34,211,238,.12)}
+  .ghost-btn{
+    border:1px solid #1e2c44;background:#0c1626;color:#9fb2cc;font:inherit;font-size:12.5px;font-weight:500;
+    padding:8px 13px;border-radius:10px;cursor:pointer;display:flex;align-items:center;gap:7px;transition:all .15s;
+  }
+  .ghost-btn:hover{border-color:#2a3d5c;color:#dbe6f5;background:#111d30}
+
+  /* ---------- KPI ---------- */
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:16px}
+  .kpi{
+    position:relative;overflow:hidden;
+    background:linear-gradient(180deg,#101c2e 0%,#0b1626 100%);
+    border:1px solid #1c2b42;border-radius:15px;padding:15px 16px 14px;
+    box-shadow:0 1px 0 rgba(255,255,255,.03) inset, 0 12px 30px -18px rgba(0,0,0,.9);
+    animation:fadeUp .45s ease both;
+  }
+  .kpi::after{content:'';position:absolute;inset:0 0 auto 0;height:1px;background:linear-gradient(90deg,transparent,rgba(34,211,238,.35),transparent)}
+  .kpi .label{font-size:11px;color:#8296b4;text-transform:uppercase;letter-spacing:.075em;font-weight:600}
+  .kpi .val{font-size:27px;font-weight:650;letter-spacing:-1px;margin-top:9px;font-variant-numeric:tabular-nums;display:flex;align-items:baseline;gap:8px}
+  .kpi .val-sub{font-size:13px;font-weight:500;color:#7d8fab;letter-spacing:0}
+  .kpi .foot{margin-top:9px;font-size:12px;color:#7d8fab;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .delta{display:inline-flex;align-items:center;gap:4px;font-size:11.5px;font-weight:600;padding:2px 7px;border-radius:6px;font-variant-numeric:tabular-nums}
+  .delta.up{color:#fb7185;background:rgba(251,113,133,.12)}
+  .delta.down{color:#34d399;background:rgba(52,211,153,.12)}
+  .delta.flat{color:#8296b4;background:rgba(130,150,180,.12)}
+  .sdot{width:7px;height:7px;border-radius:50%;display:inline-block;flex:none}
+
+  @keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+  /* ---------- top 5 ---------- */
+  .grid5{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:16px}
+  .tcard{
+    background:linear-gradient(180deg,#101c2e,#0b1524);border:1px solid #1c2b42;border-radius:14px;
+    padding:13px 14px 12px;cursor:pointer;transition:transform .16s ease,border-color .16s ease,box-shadow .16s ease;
+    position:relative;overflow:hidden;animation:fadeUp .5s ease both;
+  }
+  .tcard:hover{transform:translateY(-2px);border-color:#2b4b6b;box-shadow:0 16px 32px -20px rgba(34,211,238,.5)}
+  .tcard-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:9px}
+  .rank{font-size:10.5px;font-weight:700;color:#5d7architecture;color:#5d7290;letter-spacing:.06em}
+  .plan-badge{font-size:10px;font-weight:600;color:#7fd8e8;background:rgba(34,211,238,.09);border:1px solid rgba(34,211,238,.18);padding:2px 7px;border-radius:5px;letter-spacing:.02em}
+  .tname{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:-.1px}
+  .tspend{font-size:21px;font-weight:650;letter-spacing:-.7px;margin-top:6px;font-variant-numeric:tabular-nums}
+  .tmeta{font-size:11.5px;color:#7d8fab;display:flex;align-items:center;gap:6px;margin-top:2px;font-variant-numeric:tabular-nums}
+  .spark{display:block;width:100%;height:34px;margin:9px 0 8px}
+  .mini-limit{height:4px;border-radius:4px;background:#16243a;overflow:hidden}
+  .mini-limit i{display:block;height:100%;border-radius:4px;transition:width .5s ease}
+
+  /* ---------- card ---------- */
+  .card{
+    background:linear-gradient(180deg,#0e1a2b,#0b1524);border:1px solid #1c2b42;border-radius:16px;
+    overflow:hidden;margin-bottom:16px;box-shadow:0 24px 50px -34px rgba(0,0,0,.95);
+  }
+  .card-head{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:14px 18px;border-bottom:1px solid #16233a;flex-wrap:wrap}
+  .ch-left{display:flex;align-items:center;gap:10px}
+  .ch-left h2{font-size:14px;font-weight:600;margin:0;letter-spacing:-.1px}
+  .pill{font-size:11px;font-weight:600;color:#7d8fab;background:#132135;border:1px solid #1e2c44;padding:2px 8px;border-radius:20px;font-variant-numeric:tabular-nums}
+  .ch-right{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .chips{display:flex;gap:6px;flex-wrap:wrap}
+  .chip{
+    border:1px solid #1e2c44;background:#0c1626;color:#8ea0bd;font:inherit;font-size:12px;font-weight:500;
+    padding:5px 10px;border-radius:8px;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:6px;
+  }
+  .chip b{font-weight:600;font-variant-numeric:tabular-nums;opacity:.75}
+  .chip:hover{color:#dbe6f5;border-color:#2a3d5c}
+  .chip.active{background:rgba(34,211,238,.1);border-color:rgba(34,211,238,.35);color:#8ff0ff}
+  .chip.active b{opacity:1}
+  .search{position:relative}
+  .search svg{position:absolute;left:10px;top:50%;transform:translateY(-50%);opacity:.45}
+  .search input{
+    background:#0c1626;border:1px solid #1e2c44;border-radius:9px;color:#e6edf7;font:inherit;font-size:12.5px;
+    padding:7px 11px 7px 31px;width:200px;outline:none;transition:border-color .15s,box-shadow .15s;
+  }
+  .search input::placeholder{color:#5d7290}
+  .search input:focus{border-color:rgba(34,211,238,.45);box-shadow:0 0 0 3px rgba(34,211,238,.09)}
+  .forecast-chip{
+    font-size:12px;color:#9fb2cc;background:#101f32;border:1px solid #1e2c44;border-radius:9px;padding:6px 11px;
+    display:flex;align-items:center;gap:7px;font-variant-numeric:tabular-nums;
+  }
+  .forecast-chip b{color:#8ff0ff;font-weight:600}
+
+  /* ---------- chart ---------- */
+  .chart-wrap{position:relative;padding:8px 12px 0}
+  .tt{
+    position:absolute;pointer-events:none;background:rgba(10,20,36,.97);border:1px solid #22334d;border-radius:10px;
+    padding:9px 11px;font-size:11.5px;box-shadow:0 16px 36px rgba(0,0,0,.6);opacity:0;transition:opacity .11s;
+    z-index:6;min-width:180px;backdrop-filter:blur(8px);
+  }
+  .tt .tt-d{font-weight:600;margin-bottom:6px;color:#dbe6f5;font-variant-numeric:tabular-nums}
+  .tt .tt-r{display:flex;align-items:center;gap:7px;justify-content:space-between;color:#9fb2cc;padding:1.5px 0}
+  .tt .tt-r span:first-child{display:flex;align-items:center;gap:6px;white-space:nowrap}
+  .tt .tt-r b{color:#e6edf7;font-weight:600;font-variant-numeric:tabular-nums}
+  .tt .tt-tot{border-top:1px solid #22334d;margin-top:6px;padding-top:6px;display:flex;justify-content:space-between;color:#8ff0ff;font-weight:600}
+  .legend{display:flex;gap:16px;flex-wrap:wrap;padding:10px 20px 16px;font-size:11.5px;color:#8ea0bd}
+  .legend i{width:8px;height:8px;border-radius:2.5px;display:inline-block;margin-right:6px;vertical-align:middle}
+
+  /* ---------- table ---------- */
+  .tbl-wrap{max-height:472px;overflow:auto;position:relative}
+  table{width:100%;border-collapse:collapse}
+  thead th{
+    position:sticky;top:0;z-index:3;background:#0d1828;text-align:left;font-size:10.5px;letter-spacing:.07em;
+    text-transform:uppercase;color:#7d8fab;font-weight:600;padding:10px 14px;border-bottom:1px solid #1c2b42;
+    cursor:pointer;user-select:none;white-space:nowrap;transition:color .15s;
+  }
+  thead th:hover{color:#b9c9df}
+  thead th.num{text-align:right}
+  thead th .ar{opacity:.3;margin-left:5px;font-size:9px}
+  thead th.sorted{color:#8ff0ff}
+  thead th.sorted .ar{opacity:1}
+  tbody td{padding:11px 14px;border-bottom:1px solid rgba(28,43,66,.55);font-size:13px;vertical-align:middle}
+  tbody tr.row{cursor:pointer;transition:background .13s}
+  tbody tr.row:hover{background:rgba(34,211,238,.045)}
+  tbody tr.row.open{background:rgba(34,211,238,.06)}
+  td.num{text-align:right;font-variant-numeric:tabular-nums}
+  .cell-client{display:flex;align-items:center;gap:11px}
+  .avatar{
+    width:31px;height:31px;border-radius:9px;display:grid;place-items:center;font-size:11px;font-weight:700;
+    color:#06121f;flex:none;letter-spacing:-.2px;
+  }
+  .cname{font-weight:600;font-size:13px;letter-spacing:-.1px;white-space:nowrap}
+  .cplan{font-size:11px;color:#6f83a1;margin-top:1px}
+  .tokens-cell{font-weight:600;font-variant-numeric:tabular-nums}
+  .money-cell{font-variant-numeric:tabular-nums;color:#c8d6e8}
+  .tr-up{color:#fb7185;font-weight:600;font-variant-numeric:tabular-nums;font-size:12.5px}
+  .tr-down{color:#34d399;font-weight:600;font-variant-numeric:tabular-nums;font-size:12.5px}
+  .tr-flat{color:#7d8fab;font-variant-numeric:tabular-nums;font-size:12.5px}
+  .lcell{min-width:158px}
+  .lbar{height:5px;border-radius:5px;background:#16243a;overflow:hidden}
+  .lbar i{display:block;height:100%;border-radius:5px;transition:width .5s ease}
+  .ltxt{font-size:11px;color:#7d8fab;margin-top:5px;font-variant-numeric:tabular-nums}
+  .ltxt b{color:#c8d6e8;font-weight:600}
+  .badge{
+    display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:600;
+    padding:3px 9px;border-radius:20px;white-space:nowrap;
+  }
+  .badge i{width:6px;height:6px;border-radius:50%;display:block}
+  .chev{color:#4a5f7d;font-size:10px;text-align:center;transition:transform .18s,color .18s;width:26px}
+  tr.row.open .chev{transform:rotate(180deg);color:#8ff0ff}
+
+  /* ---------- drilldown ---------- */
+  .drill-cell{padding:0!important;background:rgba(9,18,30,.75);border-bottom:1px solid rgba(28,43,66,.8)!important}
+  .drill{padding:16px 18px 18px;animation:expand .22s ease both}
+  @keyframes expand{from{opacity:0;transform:translateY(-5px)}to{opacity:1;transform:none}}
+  .drill-head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px;font-size:12.5px;color:#9fb2cc}
+  .drill-head b{color:#e6edf7;font-weight:600}
+  .drill-grid{display:grid;grid-template-columns:1.15fr 1fr 1.25fr;gap:26px}
+  .dh{font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:#6f83a1;font-weight:600;margin-bottom:10px}
+  .brow{display:grid;grid-template-columns:1fr 74px 52px 34px;align-items:center;gap:9px;margin-bottom:7px;font-size:11.5px}
+  .bname{color:#b9c9df;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .btrack{height:5px;border-radius:5px;background:#16243a;overflow:hidden}
+  .btrack i{display:block;height:100%;border-radius:5px;transition:width .5s ease}
+  .bval{color:#8ea0bd;text-align:right;font-variant-numeric:tabular-nums}
+  .bpct{color:#6f83a1;text-align:right;font-variant-numeric:tabular-nums}
+  .hours{display:flex;align-items:flex-end;gap:3px;height:66px}
+  .hbar{flex:1;height:100%;display:flex;align-items:flex-end;cursor:default}
+  .hbar i{display:block;width:100%;border-radius:2px 2px 1px 1px;background:linear-gradient(180deg,#22d3ee,#0e7490);opacity:.85;transition:opacity .12s,height .4s ease}
+  .hbar:hover i{opacity:1;background:linear-gradient(180deg,#67e8f9,#0891b2)}
+  .hours-x{display:flex;justify-content:space-between;font-size:10px;color:#5d7290;margin-top:5px;font-variant-numeric:tabular-nums}
+
+  /* ---------- skeleton ---------- */
+  .sk-bar{height:12px;border-radius:6px;background:linear-gradient(90deg,#132135 25%,#1c2d46 37%,#132135 63%);background-size:400% 100%;animation:shimmer 1.3s ease infinite}
+  @keyframes shimmer{0%{background-position:100% 0}100%{background-position:-100% 0}}
+  .sk-row td{padding:15px 14px;border-bottom:1px solid rgba(28,43,66,.45)}
+  .sk-card{height:118px;border-radius:14px;border:1px solid #16233a;background:linear-gradient(90deg,#0f1a2b 25%,#16243a 37%,#0f1a2b 63%);background-size:400% 100%;animation:shimmer 1.4s ease infinite}
+
+  .empty{padding:44px 20px;text-align:center;color:#6f83a1;font-size:13px}
+
+  @media (max-width:1240px){
+    .grid5{grid-template-columns:repeat(3,1fr)}
+    .kpis{grid-template-columns:repeat(2,1fr)}
+    .drill-grid{grid-template-columns:1fr 1fr}
+  }
+  @media (max-width:820px){
+    .wrap{padding:18px 14px 50px}
+    .grid5{grid-template-columns:repeat(2,1fr)}
+    .drill-grid{grid-template-columns:1fr}
+    .search input{width:140px}
+    .kpi .val{font-size:22px}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="topbar">
+    <div class="brand">
+      <div class="logo">
+        <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#06121f" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 17l5-6 4 3 5-8 4 5"/>
+        </svg>
+      </div>
+      <div>
+        <h1>Token Spend Control</h1>
+        <div class="sub">
+          <span class="live-dot"></span>
+          <span id="rangeLabel">—</span>
+        </div>
+      </div>
+    </div>
+    <div class="top-right">
+      <div class="seg" id="periodSeg">
+        <button data-p="7">7 дней</button>
+        <button data-p="30" class="active">30 дней</button>
+        <button data-p="90">90 дней</button>
+      </div>
+      <button class="ghost-btn" id="exportBtn" title="Экспорт CSV (демо)">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 19h16"/></svg>
+        Экспорт
+      </button>
+    </div>
+  </header>
+
+  <section class="kpis" id="kpis">
+    <div class="kpi" style="animation-delay:.02s"><div class="label">Расход за период</div><div class="val" id="kpiCost">—</div><div class="foot" id="kpiCostFoot">&nbsp;</div></div>
+    <div class="kpi" style="animation-delay:.06s"><div class="label">Токены за период</div><div class="val" id="kpiTokens">—</div><div class="foot" id="kpiTokensFoot">&nbsp;</div></div>
+    <div class="kpi" style="animation-delay:.10s"><div class="label">Средний расход на клиента</div><div class="val" id="kpiAvg">—</div><div class="foot" id="kpiAvgFoot">&nbsp;</div></div>
+    <div class="kpi" style="animation-delay:.14s"><div class="label">Требуют внимания</div><div class="val" id="kpiAlert">—</div><div class="foot" id="kpiAlertFoot">&nbsp;</div></div>
+  </section>
+
+  <section class="grid5" id="top5">
+    <div class="sk-card"></div><div class="sk-card"></div><div class="sk-card"></div><div class="sk-card"></div><div class="sk-card"></div>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <div class="ch-left">
+        <h2>Расход токенов по дням</h2>
+        <span class="pill" id="tlRange">—</span>
+      </div>
+      <div class="ch-right">
+        <span class="forecast-chip" id="forecastChip">—</span>
+      </div>
+    </div>
+    <div class="chart-wrap" id="chartWrap">
+      <div class="tt" id="tt"></div>
+      <svg id="tlSvg" height="300" width="100%"></svg>
+    </div>
+    <div class="legend" id="legend"></div>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <div class="ch-left">
+        <h2>Клиенты</h2>
+        <span class="pill" id="rowCount">—</span>
+      </div>
+      <div class="ch-right">
+        <div class="chips" id="chips">
+          <button class="chip active" data-f="all">Все <b id="cntAll">0</b></button>
+          <button class="chip" data-f="ok">В норме <b id="cntOk">0</b></button>
+          <button class="chip" data-f="warn">Внимание <b id="cntWarn">0</b></button>
+          <button class="chip" data-f="over">Превышен <b id="cntOver">0</b></button>
+        </div>
+        <div class="search">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+          <input id="search" type="text" placeholder="Поиск клиента…" autocomplete="off"/>
+        </div>
+      </div>
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th data-sort="name">Клиент<span class="ar">↕</span></th>
+            <th data-sort="tokens" class="num sorted">Токены за период<span class="ar">↕</span></th>
+            <th data-sort="cost" class="num">Стоимость<span class="ar">↕</span></th>
+            <th data-sort="trend" class="num">Динамика<span class="ar">↕</span></th>
+            <th data-sort="ratio">Лимит · 30 дней<span class="ar">↕</span></th>
+            <th data-sort="status">Статус<span class="ar">↕</span></th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="tbody">
+          <tr class="sk-row"><td colspan="7"><div class="sk-bar" style="width:82%"></div></td></tr>
+          <tr class="sk-row"><td colspan="7"><div class="sk-bar" style="width:64%"></div></td></tr>
+          <tr class="sk-row"><td colspan="7"><div class="sk-bar" style="width:91%"></div></td></tr>
+          <tr class="sk-row"><td colspan="7"><div class="sk-bar" style="width:55%"></div></td></tr>
+          <tr class="sk-row"><td colspan="7"><div class="sk-bar" style="width:76%"></div></td></tr>
+          <tr class="sk-row"><td colspan="7"><div class="sk-bar" style="width:47%"></div></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <div style="text-align:center;color:#3f5372;font-size:11px;padding:10px 0 0">
+    Демонстрационные данные · расчёт стоимости по blended-тарифу клиента
+  </div>
+</div>
+
+<script>
+(function(){
+  'use strict';
+
+  /* ============ utils ============ */
+  const DAY = 86400000;
+  const HISTORY = 180;
+  const now = new Date();
+  const TODAY = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+
+  const PALETTE = ['#22d3ee','#34d399','#a78bfa','#fbbf24','#fb7185','#60a5fa','#a3e635','#f472b6'];
+  const AVATAR_COLORS = ['#22d3ee','#34d399','#a78bfa','#fbbf24','#fb7185','#60a5fa','#a3e635','#f472b6','#f97316','#2dd4bf'];
+
+  function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return ((t^t>>>14)>>>0)/4294967296;};}
+  const sum = arr => arr.reduce((a,b)=>a+b,0);
+  const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
+
+  function fmtTokens(v){
+    if(v>=1e6) return (v/1e6).toFixed(2).replace(/\.?0+$/,'')+'M';
+    if(v>=1e3) return (v/1e3).toFixed(v>=1e4?0:1).replace(/\.?0+$/,'')+'K';
+    return Math.round(v).toString();
+  }
+  function fmtUSD(v){
+    if(v>=10000) return '$'+Math.round(v).toLocaleString('en-US');
+    return '$'+v.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+  }
+  const MON = ['янв','фев','мар','апр','мая','июн','июл','авг','сен','окт','ноя','дек'];
+  function fmtDate(ms,withYear){
+    const d = new Date(ms);
+    return d.getUTCDate()+' '+MON[d.getUTCMonth()]+(withYear?' '+d.getUTCFullYear():'');
+  }
+  function fmtDateShort(ms){
+    const d = new Date(ms);
+    return String(d.getUTCDate()).padStart(2,'0')+'.'+String(d.getUTCMonth()+1).padStart(2,'0');
+  }
+
+  /* ============ definitions ============ */
+  const DEFS = [
+    {name:'Nova Retail',         plan:'Scale',      target:3100000, limit:2500000, rate:18.5, growth: 0.34},
+    {name:'Zephyr Cloud',        plan:'Enterprise', target:3850000, limit:4000000, rate:21.0, growth: 0.18},
+    {name:'Lumen Health',        plan:'Enterprise', target:3440000, limit:4000000, rate:19.5, growth: 0.26},
+    {name:'Atlas Manufacturing', plan:'Enterprise', target:3000000, limit:5000000, rate:16.0, growth:-0.08},
+    {name:'Meridian Bank',       plan:'Enterprise', target:2600000, limit:4000000, rate:22.5, growth: 0.09},
+    {name:'Aero Logistics',      plan:'Scale',      target:2200000, limit:3000000, rate:17.0, growth: 0.12},
+    {name:'Bluefin Analytics',   plan:'Scale',      target:1900000, limit:3000000, rate:15.5, growth:-0.15},
+    {name:'Solaris Energy',      plan:'Scale',      target:1850000, limit:2200000, rate:18.0, growth: 0.41},
+    {name:'Halcyon Games',       plan:'Scale',      target:1450000, limit:3500000, rate:14.0, growth: 0.05},
+    {name:'Kite Fintech',        plan:'Growth',     target:1350000, limit:2000000, rate:20.0, growth: 0.22},
+    {name:'Redwood Media',       plan:'Growth',     target:1150000, limit:1800000, rate:13.5, growth:-0.21},
+    {name:'Orchid Travel',       plan:'Growth',     target: 890000, limit:2000000, rate:16.5, growth: 0.16},
+    {name:'Polar Freight',       plan:'Growth',     target: 700000, limit:2000000, rate:15.0, growth:-0.06},
+    {name:'Onyx Studio',         plan:'Growth',     target: 620000, limit:1200000, rate:12.5, growth: 0.28},
+    {name:'Vertex Legal',        plan:'Starter',    target: 480000, limit:1000000, rate:24.0, growth: 0.03},
+    {name:'Aurora Cosmetics',    plan:'Starter',    target: 410000, limit:1500000, rate:14.5, growth:-0.12},
+    {name:'Delta Foods',         plan:'Starter',    target: 380000, limit:1500000, rate:13.0, growth: 0.19},
+    {name:'Kupfer & Sohn',       plan:'Starter',    target: 240000, limit:1000000, rate:26.0, growth:-0.30},
+    {name:'Terra Farms',         plan:'Starter',    target: 120000, limit: 750000, rate:11.5, growth: 0.44},
+    {name:'Northwind Labs',      plan:'Starter',    target:  62000, limit: 500000, rate:28.0, growth: 0.36}
+  ];
+
+  const MODEL_DEFS = [
+    {name:'gpt-4o',                color:'#22d3ee', w:1.0},
+    {name:'claude-3.7-sonnet',     color:'#a78bfa', w:0.9},
+    {name:'gpt-4o-mini',           color:'#34d399', w:1.1},
+    {name:'gemini-2.5-pro',        color:'#fbbf24', w:0.6},
+    {name:'text-embedding-3-large',color:'#60a5fa', w:0.45}
+  ];
+  const TYPE_DEFS = [
+    {name:'Чат',        color:'#22d3ee', w:1.0},
+    {name:'Генерация',  color:'#a78bfa', w:0.8},
+    {name:'Embeddings', color:'#60a5fa', w:0.55},
+    {name:'Vision',     color:'#fbbf24', w:0.35}
+  ];
+
+  function statusOf(r){
+    if(r>=1)    return {key:'over', label:'Превышен', color:'#f43f5e', bg:'rgba(244,63,94,.13)'};
+    if(r>=0.95) return {key:'crit', label:'Критично', color:'#fb923c', bg:'rgba(251,146,60,.13)'};
+    if(r>=0.80) return {key:'warn', label:'Внимание', color:'#fbbf24', bg:'rgba(251,191,36,.13)'};
+    return {key:'ok', label:'В норме', color:'#34d399', bg:'rgba(52,211,153,.12)'};
+  }
+
+  /* ============ data build ============ */
+  const clients = DEFS.map(function(c, i){
+    const r = mulberry32(9173 + i*7919);
+    const base = c.target/30;
+    const series = new Array(HISTORY);
+
+    for(let k=0;k<HISTORY;k++){
+      const daysAgo = HISTORY-1-k;
+      const ms = TODAY - daysAgo*DAY;
+      const dow = new Date(ms).getUTCDay();
+      const eff = Math.min(daysAgo,90);
+      const trend = Math.pow(1+c.growth, -eff/30);
+      const weekly = (dow===0||dow===6) ? 0.56 : (dow===1 ? 1.07 : 1.0);
+      let noise = 0.76 + r()*0.48;
+      if(r()<0.035) noise *= 1.7;
+      series[k] = Math.max(40, base*trend*weekly*noise);
+    }
+    // нормализуем последние 30 дней ровно к target
+    const s30 = sum(series.slice(HISTORY-30));
+    const kNorm = c.target/s30;
+    for(let j=0;j<HISTORY;j++) series[j] *= kNorm;
+
+    // распределение по моделям
+    const mw = MODEL_DEFS.map(m=>m.w*(0.35+r()*1.3));
+    const msum = sum(mw);
+    const models = MODEL_DEFS.map((m,j)=>({name:m.name, color:m.color, share:mw[j]/msum}));
+
+    // типы запросов
+    const tw = TYPE_DEFS.map(t=>t.w*(0.35+r()*1.3));
+    const tsum = sum(tw);
+    const types = TYPE_DEFS.map((t,j)=>({name:t.name, color:t.color, share:tw[j]/tsum}));
+
+    // почасовой профиль
+    const peak = 9 + Math.floor(r()*7);
+    let hours = Array.from({length:24}, function(_,h){
+      const dist = Math.min(Math.abs(h-peak), 24-Math.abs(h-peak));
+      return Math.max(0.05, Math.exp(-dist*dist/16)) * (0.7+r()*0.6);
+    });
+    const hmax = Math.max.apply(null,hours);
+    hours = hours.map(v=>v/hmax);
+
+    const initials = c.name.replace(/[&.]/g,'').split(/\s+/).filter(Boolean).slice(0,2).map(w=>w[0].toUpperCase()).join('');
+
+    return {
+      id:'c'+i, name:c.name, plan:c.plan, limit:c.limit, rate:c.rate, growth:c.growth,
+      series:series, models:models, types:types, hours:hours,
+      initials:initials, color:AVATAR_COLORS[i%AVATAR_COLORS.length]
+    };
+  });
+
+  // прогноз месяца
+  const dObj = new Date(TODAY);
+  const dom = dObj.getUTCDate();
+  const dim = new Date(Date.UTC(dObj.getUTCFullYear(), dObj.getUTCMonth()+1, 0)).getUTCDate();
+
+  /* ============ state ============ */
+  const state = { period:30, sortKey:'tokens', sortDir:'desc', query:'', filter:'all', expanded:null };
+
+  function computeMetrics(){
+    const n = state.period;
+    clients.forEach(function(c){
+      c.tokens     = sum(c.series.slice(HISTORY-n));
+      c.prevTokens = sum(c.series.slice(HISTORY-2*n, HISTORY-n));
+      c.cost       = c.tokens/1e6*c.rate;
+      c.prevCost   = c.prevTokens/1e6*c.rate;
+      c.trend      = c.prevTokens>0 ? c.tokens/c.prevTokens-1 : 0;
+      c.usage30    = sum(c.series.slice(HISTORY-30));
+      c.ratio      = c.usage30/c.limit;
+      c.status     = statusOf(c.ratio);
+      c.mtd        = sum(c.series.slice(HISTORY-dom));
+      c.forecastTokens = c.mtd/dom*dim;
+      c.forecastCost   = c.forecastTokens/1e6*c.rate;
+    });
+  }
+
+  /* ============ KPI ============ */
+  function deltaHTML(cur, prev){
+    if(!prev) return '<span class="delta flat">—</span>';
+    const p = (cur-prev)/prev*100;
+    const up = p>=0;
+    return '<span class="delta '+(up?'up':'down')+'">'+(up?'▲':'▼')+' '+Math.abs(p).toFixed(1)+'%</span>';
+  }
+
+  function renderKPIs(){
+    const n = state.period;
+    const totalCost   = sum(clients.map(c=>c.cost));
+    const prevCost    = sum(clients.map(c=>c.prevCost));
+    const totalTokens = sum(clients.map(c=>c.tokens));
+    const prevTokens  = sum(clients.map(c=>c.prevTokens));
+    const avg         = totalCost/clients.length;
+    const prevAvg     = prevCost/clients.length;
+
+    document.getElementById('kpiCost').textContent   = fmtUSD(totalCost);
+    document.getElementById('kpiCostFoot').innerHTML = deltaHTML(totalCost,prevCost)+'<span>vs предыдущие '+n+' дн.</span>';
+
+    document.getElementById('kpiTokens').innerHTML = fmtTokens(totalTokens)+' <span class="val-sub">токенов</span>';
+    document.getElementById('kpiTokensFoot').innerHTML = deltaHTML(totalTokens,prevTokens)+'<span>vs предыдущие '+n+' дн.</span>';
+
+    document.getElementById('kpiAvg').textContent = fmtUSD(avg);
+    document.getElementById('kpiAvgFoot').innerHTML = deltaHTML(avg,prevAvg)+'<span>на '+clients.length+' клиентов</span>';
+
+    const over = clients.filter(c=>c.status.key==='over').length;
+    const crit = clients.filter(c=>c.status.key==='crit').length;
+    const warn = clients.filter(c=>c.status.key==='warn').length;
+    const attention = over+crit+warn;
+
+    document.getElementById('kpiAlert').innerHTML = attention+' <span class="val-sub">из '+clients.length+'</span>';
+    document.getElementById('kpiAlertFoot').innerHTML =
+      '<span class="sdot" style="background:#f43f5e"></span>'+over+' превышение &nbsp;'+
+      '<span class="sdot" style="background:#fb923c"></span>'+crit+' критично &nbsp;'+
+      '<span class="sdot" style="background:#fbbf24"></span>'+warn+' внимание';
+  }
+
+  /* ============ sparkline ============ */
+  let sparkUid = 0;
+  function sparkline(values, color, w, h){
+    w = w||160; h = h||34;
+    const min = Math.min.apply(null,values), max = Math.max.apply(null,values);
+    const span = (max-min)||1;
+    const pts = values.map(function(v,i){
+      return [ i/(values.length-1)*w, h-2 - (v-min)/span*(h-5) ];
+    });
+    const d = pts.map(function(p,i){ return (i?'L':'M')+p[0].toFixed(1)+','+p[1].toFixed(1); }).join(' ');
+    const area = d+' L'+w+','+h+' L0,'+h+' Z';
+    const gid = 'sg'+(sparkUid++);
+    return '<svg class="spark" viewBox="0 0 '+w+' '+h+'" preserveAspectRatio="none">'+
+      '<defs><linearGradient id="'+gid+'" x1="0" y1="0" x2="0" y2="1">'+
+        '<stop offset="0" stop-color="'+color+'" stop-opacity=".34"/>'+
+        '<stop offset="1" stop-color="'+color+'" stop-opacity="0"/>'+
+      '</linearGradient></defs>'+
+      '<path d="'+area+'" fill="url(#'+gid+')"/>'+
+      '<path d="'+d+'" fill="none" stroke="'+color+'" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/>'+
+      '</svg>';
+  }
+
+  /* ============ top 5 ============ */
+  function renderTop5(){
+    const top = clients.slice().sort((a,b)=>b.cost-a.cost).slice(0,5);
+    const el = document.getElementById('top5');
+    el.innerHTML = top.map(function(c,i){
+      const trendUp = c.trend>=0;
+      const pct = Math.min(100, c.ratio*100);
+      return '<div class="tcard" data-id="'+c.id+'" style="animation-delay:'+(i*0.04)+'s">'+
+        '<div class="tcard-top">'+
+          '<span class="rank">'+String(i+1).padStart(2,'0')+'</span>'+
+          '<span class="plan-badge">'+c.plan+'</span>'+
+        '</div>'+
+        '<div class="tname" title="'+c.name+'">'+c.name+'</div>'+
+        '<div class="tspend">'+fmtUSD(c.cost)+'</div>'+
+        '<div class="tmeta">'+fmtTokens(c.tokens)+' токенов · '+
+          '<span class="'+(trendUp?'tr-up':'tr-down')+'">'+(trendUp?'▲':'▼')+' '+Math.abs(c.trend*100).toFixed(1)+'%</span>'+
+        '</div>'+
+        sparkline(c.series.slice(HISTORY-state.period), c.status.key==='ok' ? '#22d3ee' : c.status.color, 200, 34)+
+        '<div class="mini-limit"><i style="width:'+pct+'%;background:'+c.status.color+'"></i></div>'+
+      '</div>';
+    }).join('');
+
+    Array.prototype.forEach.call(el.querySelectorAll('.tcard'), function(card){
+      card.addEventListener('click', function(){
+        const id = card.getAttribute('data-id');
+        state.expanded = (state.expanded===id) ? null : id;
+        state.query = '';
+        document.getElementById('search').value = '';
+        state.filter = 'all';
+        Array.prototype.forEach.call(document.querySelectorAll('#chips .chip'), function(x){
+          x.classList.toggle('active', x.getAttribute('data-f')==='all');
+        });
+        renderTable();
+        const row = document.querySelector('tr.row[data-id="'+id+'"]');
+        if(row) row.scrollIntoView({behavior:'smooth', block:'center'});
+      });
+    });
+  }
+
+  /* ============ timeline chart ============ */
+  const tt = document.getElementById('tt');
+  const chartWrap = document.getElementById('chartWrap');
+  const tlSvg = document.getElementById('tlSvg');
+  let tlGeo = null;
+
+  function renderTimeline(){
+    const W = Math.max(340, chartWrap.clientWidth || 900);
+    const H = 300;
+    const padL = 56, padR = 16, padT = 14, padB = 30;
+    const iw = W-padL-padR, ih = H-padT-padB;
+    const n = state.period;
+    const start = HISTORY-n;
+
+    const sorted = clients.slice().sort((a,b)=>b.tokens-a.tokens);
+    const top = sorted.slice(0,6);
+    const rest = sorted.slice(6);
+
+    const stacks = top.map(function(c,i){
+      return {name:c.name, color:PALETTE[i%PALETTE.length], vals:c.series.slice(start)};
+    });
+    if(rest.length){
+      const vals = [];
+      for(let i=0;i<n;i++){
+        let s = 0;
+        for(let j=0;j<rest.length;j++) s += rest[j].series[start+i];
+        vals.push(s);
+      }
+      stacks.push({name:'Другие ('+rest.length+')', color:'#3f4f66', vals:vals});
+    }
+
+    const totals = [];
+    for(let i=0;i<n;i++){
+      let s = 0;
+      for(let j=0;j<stacks.length;j++) s += stacks[j].vals[i];
+      totals.push(s);
+    }
+    const rawMax = Math.max.apply(null,totals);
+    const niceMax = niceCeil(rawMax);
+
+    const bw = iw/n;
+    const gap = Math.min(2.5, bw*0.28);
+    const barW = Math.max(1, bw-gap);
+
+    const y = v => padT + ih - (v/niceMax)*ih;
+
+    let svg = '<g>';
+    // grid
+    for(let g=0; g<=4; g++){
+      const val = niceMax/4*g;
+      const yy = y(val);
+      svg += '<line x1="'+padL+'" y1="'+yy.toFixed(1)+'" x2="'+(W-padR)+'" y2="'+yy.toFixed(1)+'" stroke="#1a2740" stroke-width="1" stroke-dasharray="'+(g===0?'':'3 4')+'"/>';
+      svg += '<text x="'+(padL-10)+'" y="'+(yy+3.5).toFixed(1)+'" fill="#5d7290" font-size="10.5" text-anchor="end" font-family="Inter,sans-serif">'+fmtTokens(val)+'</text>';
+    }
+
+    // bars
+    for(let i=0;i<n;i++){
+      let acc = 0;
+      const x = padL + i*bw + gap/2;
+      for(let s=0;s<stacks.length;s++){
+        const v = stacks[s].vals[i];
+        if(v<=0) continue;
+        const y0 = y(acc+v);
+        const hgt = Math.max(0.6, (v/niceMax)*ih);
+        const isLast = (s===stacks.length-1);
+        const r = barW>4 ? (isLast?2:0) : 0;
+        svg += '<rect x="'+x.toFixed(1)+'" y="'+y0.toFixed(1)+'" width="'+barW.toFixed(1)+'" height="'+hgt.toFixed(1)+'" fill="'+stacks[s].color+'" opacity="'+(s===stacks.length-1&&rest.length?0.6:0.92)+'" rx="'+r+'"/>';
+        acc += v;
+      }
+    }
+
+    // x labels
+    const step = Math.max(1, Math.ceil(n/8));
+    for(let i=0;i<n;i+=step){
+      const ms = TODAY - (n-1-i)*DAY;
+      svg += '<text x="'+(padL+i*bw+bw/2).toFixed(1)+'" y="'+(H-9)+'" fill="#5d7290" font-size="10.5" text-anchor="middle" font-family="Inter,sans-serif">'+fmtDateShort(ms)+'</text>';
+    }
+
+    // hit areas
+    for(let i=0;i<n;i++){
+      svg += '<rect class="hit" data-i="'+i+'" x="'+(padL+i*bw).toFixed(1)+'" y="'+padT+'" width="'+bw.toFixed(1)+'" height="'+ih+'" fill="transparent" style="cursor:crosshair"/>';
+    }
+    svg += '</g>';
+
+    tlSvg.setAttribute('viewBox','0 0 '+W+' '+H);
+    tlSvg.setAttribute('width','100%');
+    tlSvg.setAttribute('height',H);
+    tlSvg.innerHTML = svg;
+
+    tlGeo = {W:W,H:H,padL:padL,padR:padR,padT:padT,padB:padB,iw:iw,ih:ih,n:n,bw:bw,stacks:stacks,totals:totals,start:start};
+
+    // legend
+    document.getElementById('legend').innerHTML = stacks.map(function(s){
+      return '<span><i style="background:'+s.color+'"></i>'+s.name+'</span>';
+    }).join('');
+
+    // range pill
+    document.getElementById('tlRange').textContent =
+      fmtDate(TODAY-(n-1)*DAY) + ' — ' + fmtDate(TODAY, true);
+
+    // forecast chip
+    const fc = sum(clients.map(c=>c.forecastCost));
+    const fcTok = sum(clients.map(c=>c.forecastTokens));
+    document.getElementById('forecastChip').innerHTML =
+      'Прогноз до конца месяца · <b>'+fmtUSD(fc)+'</b> · '+fmtTokens(fcTok)+' токенов';
+
+    document.getElementById('rangeLabel').textContent =
+      fmtDate(TODAY-(n-1)*DAY) + ' — ' + fmtDate(TODAY, true) + ' · ' + clients.length + ' клиентов';
+  }
+
+  function niceCeil(v){
+    if(v<=0) return 1;
+    const exp = Math.floor(Math.log10(v));
+    const base = Math.pow(10,exp);
+    const f = v/base;
+    let nf;
+    if(f<=1) nf=1; else if(f<=1.5) nf=1.5; else if(f<=2) nf=2; else if(f<=2.5) nf=2.5;
+    else if(f<=3) nf=3; else if(f<=4) nf=4; else if(f<=5) nf=5; else if(f<=7.5) nf=7.5; else nf=10;
+    return nf*base;
+  }
+
+  // tooltip
+  tlSvg.addEventListener('mousemove', function(e){
+    if(!tlGeo) return;
+    const rect = tlSvg.getBoundingClientRect();
+    const scale = tlGeo.W / rect.width;
+    const x = (e.clientX - rect.left)*scale;
+    const i = Math.floor((x - tlGeo.padL)/tlGeo.bw);
+    if(i<0 || i>=tlGeo.n){ tt.style.opacity = 0; return; }
+    const ms = TODAY - (tlGeo.n-1-i)*DAY;
+    const g = tlGeo;
+
+    let rows = '';
+    const items = g.stacks.map(function(s,idx){ return {name:s.name, color:s.color, v:s.vals[i], idx:idx}; })
+      .filter(o=>o.v>0).sort((a,b)=>b.v-a.v).slice(0,4);
+    items.forEach(function(o){
+      rows += '<div class="tt-r"><span><i class="sdot" style="background:'+o.color+'"></i>'+o.name+'</span><b>'+fmtTokens(o.v)+'</b></div>';
+    });
+    tt.innerHTML = '<div class="tt-d">'+fmtDate(ms,true)+'</div>'+rows+
+      '<div class="tt-tot"><span>Всего</span><b>'+fmtTokens(g.totals[i])+'</b></div>';
+
+    const px = (tlGeo.padL + i*tlGeo.bw + tlGeo.bw/2)/scale;
+    const ttW = 210;
+    let left = px + 16;
+    if(left + ttW > rect.width) left = px - ttW - 16;
+    tt.style.left = Math.max(8, left)+'px';
+    tt.style.top = Math.max(8, (e.clientY - rect.top) - 40)+'px';
+    tt.style.opacity = 1;
+  });
+  tlSvg.addEventListener('mouseleave', function(){ tt.style.opacity = 0; });
+
+  /* ============ table ============ */
+  function visibleClients(){
+    let list = clients.slice();
+    const q = state.query.trim().toLowerCase();
+    if(q) list = list.filter(c=>c.name.toLowerCase().indexOf(q)>-1);
+    if(state.filter==='ok')   list = list.filter(c=>c.ratio<0.8);
+    if(state.filter==='warn') list = list.filter(c=>c.ratio>=0.8 && c.ratio<1);
+    if(state.filter==='over') list = list.filter(c=>c.ratio>=1);
+
+    const dir = state.sortDir==='asc' ? 1 : -1;
+    list.sort(function(a,b){
+      let va, vb;
+      switch(state.sortKey){
+        case 'name':  va=a.name.toLowerCase(); vb=b.name.toLowerCase(); break;
+        case 'cost':  va=a.cost;  vb=b.cost;  break;
+        case 'trend': va=a.trend; vb=b.trend; break;
+        case 'ratio': va=a.ratio; vb=b.ratio; break;
+        case 'status':
+          const ord = {ok:0,warn:1,crit:2,over:3};
+          va = ord[a.status.key]; vb = ord[b.status.key]; break;
+        default: va=a.tokens; vb=b.tokens;
+      }
+      if(va<vb) return -1*dir;
+      if(va>vb) return 1*dir;
+      return 0;
+    });
+    return list;
+  }
+
+  function drillHTML(c){
+    const total = c.tokens;
+    const models = c.models.map(function(m){
+      return '<div class="brow">'+
+        '<span class="bname" title="'+m.name+'">'+m.name+'</span>'+
+        '<span class="btrack"><i style="width:'+(m.share*100).toFixed(1)+'%;background:'+m.color+'"></i></span>'+
+        '<span class="bval">'+fmtTokens(total*m.share)+'</span>'+
+        '<span class="bpct">'+(m.share*100).toFixed(0)+'%</span>'+
+      '</div>';
+    }).join('');
+    const types = c.types.map(function(t){
+      return '<div class="brow">'+
+        '<span class="bname">'+t.name+'</span>'+
+        '<span class="btrack"><i style="width:'+(t.share*100).toFixed(1)+'%;background:'+t.color+'"></i></span>'+
+        '<span class="bval">'+fmtTokens(total*t.share)+'</span>'+
+        '<span class="bpct">'+(t.share*100).toFixed(0)+'%</span>'+
+      '</div>';
+    }).join('');
+    const hours = c.hours.map(function(v,i){
+      return '<div class="hbar" title="'+String(i).padStart(2,'0')+':00 UTC"><i style="height:'+Math.max(5,v*100).toFixed(0)+'%"></i></div>';
+    }).join('');
+
+    return '<div class="drill">'+
+      '<div class="drill-head">'+
+        '<div><b>'+c.name+'</b> · '+c.plan+' · тариф '+fmtUSD(c.rate)+' / 1M токенов</div>'+
+        '<div>Прогноз на месяц: <b>'+fmtTokens(c.forecastTokens)+'</b> токенов · <b>'+fmtUSD(c.forecastCost)+'</b></div>'+
+      '</div>'+
+      '<div class="drill-grid">'+
+        '<div><div class="dh">Разбивка по моделям</div>'+models+'</div>'+
+        '<div><div class="dh">Тип запросов</div>'+types+'</div>'+
+        '<div><div class="dh">Активность по часам (UTC)</div>'+
+          '<div class="hours">'+hours+'</div>'+
+          '<div class="hours-x"><span>00</span><span>06</span><span>12</span><span>18</span><span>23</span></div>'+
+        '</div>'+
+      '</div>'+
+    '</div>';
+  }
+
+  function renderTable(){
+    const list = visibleClients();
+    const tbody = document.getElementById('tbody');
+
+    document.getElementById('rowCount').textContent = list.length + ' из ' + clients.length;
+
+    document.getElementById('cntAll').textContent  = clients.length;
+    document.getElementById('cntOk').textContent   = clients.filter(c=>c.ratio<0.8).length;
+    document.getElementById('cntWarn').textContent = clients.filter(c=>c.ratio>=0.8 && c.ratio<1).length;
+    document.getElementById('cntOver').textContent = clients.filter(c=>c.ratio>=1).length;
+
+    if(!list.length){
+      tbody.innerHTML = '<tr><td colspan="7"><div class="empty">Ничего не найдено — измените фильтр или запрос.</div></td></tr>';
+      return;
+    }
+
+    let html = '';
+    list.forEach(function(c){
+      const st = c.status;
+      const pct = c.ratio*100;
+      const barW = Math.min(100, pct);
+      const isOpen = state.expanded === c.id;
+      const trendCls = c.trend>0.0005 ? 'tr-up' : (c.trend<-0.0005 ? 'tr-down' : 'tr-flat');
+      const trendArrow = c.trend>0.0005 ? '▲' : (c.trend<-0.0005 ? '▼' : '—');
+
+      html += '<tr class="row'+(isOpen?' open':'')+'" data-id="'+c.id+'">'+
+        '<td><div class="cell-client">'+
+          '<span class="avatar" style="background:'+c.color+'">'+c.initials+'</span>'+
+          '<div><div class="cname">'+c.name+'</div><div class="cplan">'+c.plan+'</div></div>'+
+        '</div></td>'+
+        '<td class="num tokens-cell">'+fmtTokens(c.tokens)+'</td>'+
+        '<td class="num money-cell">'+fmtUSD(c.cost)+'</td>'+
+        '<td class="num"><span class="'+trendCls+'">'+trendArrow+' '+Math.abs(c.trend*100).toFixed(1)+'%</span></td>'+
+        '<td><div class="lcell">'+
+          '<div class="lbar"><i style="width:'+barW.toFixed(1)+'%;background:'+st.color+'"></i></div>'+
+          '<div class="ltxt"><b>'+Math.round(pct)+'%</b> · '+fmtTokens(c.usage30)+' / '+fmtTokens(c.limit)+'</div>'+
+        '</div></td>'+
+        '<td><span class="badge" style="color:'+st.color+';background:'+st.bg+'"><i style="background:'+st.color+'"></i>'+st.label+'</span></td>'+
+        '<td class="chev">▾</td>'+
+      '</tr>';
+
+      if(isOpen){
+        html += '<tr class="drill-row"><td class="drill-cell" colspan="7">'+drillHTML(c)+'</td></tr>';
+      }
+    });
+
+    tbody.innerHTML = html;
+
+    Array.prototype.forEach.call(tbody.querySelectorAll('tr.row'), function(row){
+      row.addEventListener('click', function(){
+        const id = row.getAttribute('data-id');
+        state.expanded = (state.expanded===id) ? null : id;
+        renderTable();
+      });
+    });
+  }
+
+  /* ============ header sorting ============ */
+  function updateSortIndicators(){
+    Array.prototype.forEach.call(document.querySelectorAll('thead th[data-sort]'), function(th){
+      const key = th.getAttribute('data-sort');
+      const ar = th.querySelector('.ar');
+      if(key===state.sortKey){
+        th.classList.add('sorted');
+        ar.textContent = state.sortDir==='asc' ? '↑' : '↓';
+      } else {
+        th.classList.remove('sorted');
+        ar.textContent = '↕';
+      }
+    });
+  }
+
+  document.querySelectorAll('thead th[data-sort]').forEach(function(th){
+    th.addEventListener('click', function(){
+      const key = th.getAttribute('data-sort');
+      if(state.sortKey===key){
+        state.sortDir = state.sortDir==='asc' ? 'desc' : 'asc';
+      } else {
+        state.sortKey = key;
+        state.sortDir = (key==='name') ? 'asc' : 'desc';
+      }
+      updateSortIndicators();
+      renderTable();
+    });
+  });
+
+  /* ============ toolbar events ============ */
+  document.getElementById('periodSeg').addEventListener('click', function(e){
+    const btn = e.target.closest('button[data-p]');
+    if(!btn) return;
+    Array.prototype.forEach.call(this.querySelectorAll('button'), b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    state.period = parseInt(btn.getAttribute('data-p'),10);
+    render();
+  });
+
+  document.getElementById('chips').addEventListener('click', function(e){
+    const chip = e.target.closest('.chip');
+    if(!chip) return;
+    Array.prototype.forEach.call(this.querySelectorAll('.chip'), c=>c.classList.remove('active'));
+    chip.classList.add('active');
+    state.filter = chip.getAttribute('data-f');
+    renderTable();
+  });
+
+  let searchTimer;
+  document.getElementById('search').addEventListener('input', function(e){
+    clearTimeout(searchTimer);
+    const v = e.target.value;
+    searchTimer = setTimeout(function(){
+      state.query = v;
+      renderTable();
+    }, 130);
+  });
+
+  document.getElementById('exportBtn').addEventListener('click', function(){
+    const rows = [['Клиент','План','Токены','Стоимость, $','Динамика, %','Лимит, 30д','Использование, %','Статус']];
+    visibleClients().forEach(function(c){
+      rows.push([c.name, c.plan, Math.round(c.tokens), c.cost.toFixed(2), (c.trend*100).toFixed(1), c.limit, (c.ratio*100).toFixed(1), c.status.label]);
+    });
+    const csv = rows.map(r=>r.map(x=>'"'+String(x).replace(/"/g,'""')+'"').join(',')).join('\n');
+    const blob = new Blob(['\ufeff'+csv], {type:'text/csv;charset=utf-8;'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'token-spend-'+state.period+'d.csv';
+    a.click();
+    URL.revokeObjectURL(a.href);
+  });
+
+  /* ============ resize ============ */
+  let lastW = 0;
+  let resizeTimer;
+  if(typeof ResizeObserver !== 'undefined'){
+    new ResizeObserver(function(){
+      const w = chartWrap.clientWidth;
+      if(Math.abs(w-lastW) > 4){
+        lastW = w;
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(renderTimeline, 90);
+      }
+    }).observe(chartWrap);
+  } else {
+    window.addEventListener('resize', function(){
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(renderTimeline, 120);
+    });
+  }
+
+  /* ============ main render ============ */
+  function render(){
+    computeMetrics();
+    renderKPIs();
+    renderTop5();
+    renderTimeline();
+    updateSortIndicators();
+    renderTable();
+  }
+
+  computeMetrics();
+  renderTimeline();
+  setTimeout(function(){
+    render();
+  }, 420);
+
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Токены клиентов — дашборд</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  *,*::before,*::after{box-sizing:border-box}
+  body{
+    margin:0;background:#070a10;color:#e7eef8;font-size:14px;
+    font-family:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  body::before{
+    content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
+    background:
+      radial-gradient(760px 420px at 12% -8%, rgba(110,231,255,.13), transparent 65%),
+      radial-gradient(720px 420px at 88% -4%, rgba(167,139,250,.13), transparent 65%),
+      radial-gradient(900px 600px at 50% 112%, rgba(74,222,128,.06), transparent 70%);
+  }
+  .wrap{position:relative;z-index:1;max-width:1400px;margin:0 auto;padding:26px 22px 60px}
+
+  header{display:flex;flex-wrap:wrap;gap:18px;align-items:center;justify-content:space-between;margin-bottom:22px}
+  .brand{display:flex;align-items:center;gap:14px}
+  .logo{
+    width:42px;height:42px;border-radius:13px;display:grid;place-items:center;
+    background:linear-gradient(140deg,#6ee7ff,#a78bfa);color:#06121a;font-weight:800;font-size:17px;
+    box-shadow:0 8px 26px rgba(110,231,255,.25);
+  }
+  h1{margin:0;font-size:19px;letter-spacing:-.01em;font-weight:700}
+  .sub{margin:3px 0 0;font-size:12.5px;color:#7f8ea6}
+  .controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .seg{display:flex;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:11px;padding:3px}
+  .seg button{
+    border:0;background:transparent;color:#93a3ba;font:inherit;font-size:12.5px;font-weight:600;
+    padding:7px 13px;border-radius:8px;cursor:pointer;transition:.18s;
+  }
+  .seg button:hover{color:#dfe8f5}
+  .seg button.active{background:rgba(110,231,255,.14);color:#6ee7ff;box-shadow:inset 0 0 0 1px rgba(110,231,255,.25)}
+  .btn{
+    border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);color:#cfdcec;
+    font:inherit;font-size:12.5px;font-weight:600;padding:9px 15px;border-radius:11px;cursor:pointer;transition:.18s;
+  }
+  .btn:hover{background:rgba(255,255,255,.09);color:#fff;border-color:rgba(255,255,255,.18)}
+  .btn:active{transform:translateY(1px)}
+
+  .kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+  .kpi{
+    position:relative;overflow:hidden;padding:17px 18px 15px;border-radius:16px;
+    background:linear-gradient(180deg,rgba(255,255,255,.055),rgba(255,255,255,.015));
+    border:1px solid rgba(255,255,255,.075);
+  }
+  .kpi::after{
+    content:'';position:absolute;left:18px;right:18px;top:0;height:1px;
+    background:linear-gradient(90deg,transparent,rgba(110,231,255,.55),transparent);opacity:.7;
+  }
+  .kpi .label{font-size:10.5px;text-transform:uppercase;letter-spacing:.1em;color:#7f8ea6;font-weight:600}
+  .kpi .value{font-size:27px;font-weight:700;letter-spacing:-.025em;margin-top:9px;font-variant-numeric:tabular-nums}
+  .kpi .row{display:flex;align-items:center;gap:8px;margin-top:9px;font-size:11.5px;color:#7f8ea6}
+  .badge{font-size:11px;font-weight:700;padding:2px 7px;border-radius:7px;white-space:nowrap}
+  .badge.up{color:#4ade80;background:rgba(74,222,128,.13)}
+  .badge.down{color:#fb7185;background:rgba(251,113,133,.13)}
+  .badge.flat{color:#93a3ba;background:rgba(255,255,255,.06)}
+
+  .grid{display:grid;gap:14px;margin-top:14px}
+  .row-main{grid-template-columns:minmax(0,1.75fr) minmax(0,1fr)}
+  .row-bottom{grid-template-columns:minmax(0,1fr) minmax(0,1.9fr)}
+  .card{
+    background:linear-gradient(180deg,rgba(255,255,255,.045),rgba(255,255,255,.012));
+    border:1px solid rgba(255,255,255,.075);border-radius:18px;padding:17px 18px;min-width:0;
+  }
+  .card-head{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;margin-bottom:12px}
+  .card h3{margin:0;font-size:13.5px;font-weight:650;letter-spacing:.005em}
+  .hint{font-size:11.5px;color:#7f8ea6;margin-top:3px}
+  .chart-box{position:relative;width:100%}
+  .legend{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:10px}
+  .legend span{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;color:#9aabc2}
+  .dot{width:8px;height:8px;border-radius:3px;flex:none;display:inline-block}
+
+  .model-list{display:flex;flex-direction:column;gap:10px;margin-top:12px}
+  .m-row{display:grid;grid-template-columns:10px 1fr auto auto;gap:9px;align-items:center;font-size:12px}
+  .m-name{color:#c3d0e2;font-weight:500}
+  .m-val{color:#e7eef8;font-variant-numeric:tabular-nums;font-weight:600}
+  .m-pct{color:#7f8ea6;font-variant-numeric:tabular-nums;width:40px;text-align:right}
+
+  .search{
+    border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);color:#e7eef8;
+    font:inherit;font-size:12.5px;padding:8px 12px;border-radius:10px;outline:none;width:190px;transition:.18s;
+  }
+  .search::placeholder{color:#65758c}
+  .search:focus{border-color:rgba(110,231,255,.45);background:rgba(110,231,255,.06)}
+  .table-wrap{max-height:352px;overflow:auto;margin:0 -6px;padding:0 6px}
+  table{width:100%;border-collapse:collapse;font-size:12.5px}
+  thead th{
+    position:sticky;top:0;z-index:2;background:#0d131c;text-align:right;
+    font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;color:#77869d;font-weight:600;
+    padding:8px 10px;white-space:nowrap;cursor:pointer;user-select:none;
+    border-bottom:1px solid rgba(255,255,255,.08);
+  }
+  thead th:first-child{text-align:left}
+  thead th:hover{color:#c3d0e2}
+  thead th.sorted{color:#6ee7ff}
+  tbody td{
+    padding:10px;border-bottom:1px solid rgba(255,255,255,.045);text-align:right;
+    font-variant-numeric:tabular-nums;color:#cfdcec;white-space:nowrap;
+  }
+  tbody td:first-child{text-align:left}
+  tbody tr{transition:background .15s}
+  tbody tr:hover td{background:rgba(110,231,255,.04)}
+  .client{display:flex;align-items:center;gap:9px}
+  .client .dot{width:9px;height:9px;border-radius:3px}
+  .cname{font-weight:600;color:#e7eef8;font-size:12.5px;display:flex;align-items:center;gap:6px}
+  .new{
+    font-size:9.5px;font-weight:700;letter-spacing:.05em;padding:1px 5px;border-radius:5px;
+    background:rgba(74,222,128,.15);color:#4ade80;text-transform:uppercase;
+  }
+  .cplan{font-size:10.5px;color:#7f8ea6;margin-top:2px}
+  .share-cell{display:flex;align-items:center;gap:8px;justify-content:flex-end}
+  .bar{width:60px;height:5px;border-radius:99px;background:rgba(255,255,255,.08);overflow:hidden;flex:none}
+  .bar i{display:block;height:100%;border-radius:99px}
+  .spark{display:block;margin-left:auto;overflow:visible}
+
+  footer{margin-top:26px;display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;font-size:11.5px;color:#66758c}
+  footer b{color:#93a3ba;font-weight:600}
+
+  ::-webkit-scrollbar{width:9px;height:9px}
+  ::-webkit-scrollbar-thumb{background:rgba(255,255,255,.12);border-radius:99px}
+  ::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.2)}
+  ::-webkit-scrollbar-track{background:transparent}
+
+  @media (max-width:1100px){
+    .kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .row-main,.row-bottom{grid-template-columns:minmax(0,1fr)}
+  }
+  @media (max-width:600px){
+    .kpis{grid-template-columns:minmax(0,1fr)}
+    .wrap{padding:18px 14px 44px}
+    h1{font-size:16px}
+    .search{width:100%}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="brand">
+      <div class="logo">◆</div>
+      <div>
+        <h1>Расход токенов по клиентам</h1>
+        <p class="sub">Мониторинг потребления API · демонстрационные данные</p>
+      </div>
+    </div>
+    <div class="controls">
+      <div class="seg" id="periodSeg">
+        <button data-days="7">7 дней</button>
+        <button data-days="30" class="active">30 дней</button>
+        <button data-days="90">90 дней</button>
+      </div>
+      <button class="btn" id="refresh">↻ Обновить</button>
+    </div>
+  </header>
+
+  <section class="kpis" id="kpis"></section>
+
+  <section class="grid row-main">
+    <div class="card">
+      <div class="card-head">
+        <div>
+          <h3>Потребление по дням</h3>
+          <div class="hint">Токены в разрезе клиентов, накопительный стек</div>
+        </div>
+      </div>
+      <div class="legend" id="legend"></div>
+      <div class="chart-box" style="height:318px"><canvas id="mainChart"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-head">
+        <div>
+          <h3>По моделям</h3>
+          <div class="hint">Распределение токенов</div>
+        </div>
+      </div>
+      <div class="chart-box" style="height:228px"><canvas id="modelChart"></canvas></div>
+      <div class="model-list" id="modelList"></div>
+    </div>
+  </section>
+
+  <section class="grid row-bottom">
+    <div class="card">
+      <div class="card-head">
+        <div>
+          <h3>Топ клиентов</h3>
+          <div class="hint">За выбранный период</div>
+        </div>
+      </div>
+      <div class="chart-box" style="height:268px"><canvas id="clientChart"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-head">
+        <div>
+          <h3>Клиенты</h3>
+          <div class="hint" id="tableHint"></div>
+        </div>
+        <input class="search" id="search" placeholder="Поиск клиента…" autocomplete="off" />
+      </div>
+      <div class="table-wrap">
+        <table id="clientTable">
+          <thead>
+            <tr>
+              <th data-key="name">Клиент</th>
+              <th data-key="tokens" class="sorted">Токены</th>
+              <th data-key="requests">Запросы</th>
+              <th data-key="cost">Стоимость</th>
+              <th>Тренд</th>
+              <th data-key="share">Доля</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <div>Демо-данные сгенерированы локально · <b id="stamp"></b></div>
+    <div>Оценка стоимости считается по тарифам моделей за 1M токенов</div>
+  </footer>
+</div>
+
+<script>
+/* ------------------------------------------------------------------ */
+/*  Модели и клиенты                                                   */
+/* ------------------------------------------------------------------ */
+const MODELS = [
+  { key:'nova-large', name:'Nova-Large', price:6.00,  color:'#6ee7ff' },
+  { key:'nova-mini',  name:'Nova-Mini',  price:0.60,  color:'#4ade80' },
+  { key:'reason-xl',  name:'Reason-XL',  price:15.00, color:'#a78bfa' }
+];
+
+const CLIENTS = [
+  { id:'acme',    name:'Acme Corp',      plan:'Enterprise', color:'#6ee7ff', weight:.24, mix:{'nova-large':.55,'nova-mini':.30,'reason-xl':.15} },
+  { id:'nord',    name:'Nordwind Labs',  plan:'Pro',        color:'#a78bfa', weight:.19, mix:{'nova-large':.35,'nova-mini':.45,'reason-xl':.20} },
+  { id:'orbit',   name:'Orbita Digital', plan:'Pro',        color:'#4ade80', weight:.16, mix:{'nova-large':.30,'nova-mini':.60,'reason-xl':.10} },
+  { id:'quant',   name:'Quantum Retail', plan:'Enterprise', color:'#fbbf24', weight:.14, mix:{'nova-large':.45,'nova-mini':.35,'reason-xl':.20} },
+  { id:'sfera',   name:'Sfera Studio',   plan:'Starter',    color:'#f472b6', weight:.10, mix:{'nova-large':.20,'nova-mini':.70,'reason-xl':.10} },
+  { id:'genezis', name:'Genezis Health', plan:'Pro',        color:'#38bdf8', weight:.08, mix:{'nova-large':.40,'nova-mini':.40,'reason-xl':.20} },
+  { id:'lumen',   name:'Lumen AI',       plan:'Starter',    color:'#c084fc', weight:.05, mix:{'nova-large':.25,'nova-mini':.65,'reason-xl':.10} },
+  { id:'dt',      name:'DataTech Group', plan:'Enterprise', color:'#fb7185', weight:.04, mix:{'nova-large':.50,'nova-mini':.30,'reason-xl':.20} }
+];
+
+/* ------------------------------------------------------------------ */
+/*  Утилиты                                                            */
+/* ------------------------------------------------------------------ */
+function mulberry32(a){
+  return function(){
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+function hexA(hex, a){
+  const h = hex.replace('#','');
+  return `rgba(${parseInt(h.slice(0,2),16)},${parseInt(h.slice(2,4),16)},${parseInt(h.slice(4,6),16)},${a})`;
+}
+function fmtCompact(n){
+  if (n >= 1e9) return (n/1e9).toFixed(2).replace('.',',') + 'B';
+  if (n >= 1e6) return (n/1e6).toFixed(2).replace('.',',') + 'M';
+  if (n >= 1e3) return (n/1e3).toFixed(1).replace('.',',') + 'K';
+  return Math.round(n).toString();
+}
+function fmtNum(n){ return Math.round(n).toLocaleString('ru-RU'); }
+function money(n){ return '$' + Math.round(n).toLocaleString('ru-RU'); }
+function pct(cur, prev){ return prev > 0 ? (cur - prev) / prev * 100 : null; }
+function fmtDate(d){
+  return d.toLocaleDateString('ru-RU', { day:'numeric', month:'short' }).replace('.','');
+}
+function sparkline(values, color){
+  const w = 88, h = 26, pad = 2;
+  const max = Math.max(...values, 1);
+  const min = Math.min(...values);
+  const range = (max - min) || 1;
+  const pts = values.map((v, i) => {
+    const x = pad + (i / Math.max(1, values.length - 1)) * (w - 2 * pad);
+    const y = h - pad - ((v - min) / range) * (h - 2 * pad);
+    return [x, y];
+  });
+  const line = pts.map(p => p[0].toFixed(1) + ',' + p[1].toFixed(1)).join(' ');
+  const area = `${pad},${h - pad} ${line} ${w - pad},${h - pad}`;
+  return `<svg class="spark" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" preserveAspectRatio="none">
+    <polygon points="${area}" fill="${hexA(color,.14)}"></polygon>
+    <polyline points="${line}" fill="none" stroke="${color}" stroke-width="1.6"
+      stroke-linejoin="round" stroke-linecap="round"></polyline>
+  </svg>`;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Генерация данных                                                   */
+/* ------------------------------------------------------------------ */
+function buildData(seed){
+  const rnd = mulberry32(seed);
+  const N = 180;
+  const today = new Date(); today.setHours(0,0,0,0);
+  const start = new Date(today); start.setDate(start.getDate() - (N - 1));
+
+  // индекс дня, с которого клиент начал пользоваться сервисом
+  const ACTIVE_FROM = { lumen: 118, genezis: 62 };
+
+  const out = [];
+  for (let i = 0; i < N; i++){
+    const date = new Date(start); date.setDate(start.getDate() + i);
+    const growth = 0.72 + i * 0.0022;
+    const weekend = (date.getDay() === 0 || date.getDay() === 6) ? 0.58 : 1;
+    const dayTotal = 480000 * growth * weekend * (0.88 + rnd() * 0.24);
+
+    const active = CLIENTS.filter(c => (ACTIVE_FROM[c.id] ?? 0) <= i);
+    const weights = active.map(c => c.weight * (0.78 + rnd() * 0.44));
+    const wSum = weights.reduce((a, b) => a + b, 0) || 1;
+
+    const clients = {};
+    active.forEach((c, ci) => {
+      const tokens = Math.max(0, Math.round(dayTotal * (weights[ci] / wSum)));
+      const mw = MODELS.map(m => (c.mix[m.key] || 0) * (0.8 + rnd() * 0.4));
+      const mSum = mw.reduce((a, b) => a + b, 0) || 1;
+      const models = {};
+      let allocated = 0;
+      MODELS.forEach((m, mi) => {
+        models[m.key] = Math.round(tokens * mw[mi] / mSum);
+        allocated += models[m.key];
+      });
+      models[MODELS[0].key] += tokens - allocated;
+      clients[c.id] = {
+        tokens,
+        requests: Math.max(1, Math.round(tokens / (820 + rnd() * 760))),
+        models
+      };
+    });
+
+    out.push({ date, clients });
+  }
+  return out;
+}
+
+let DATA = buildData(1337);
+
+/* ------------------------------------------------------------------ */
+/*  Агрегация                                                          */
+/* ------------------------------------------------------------------ */
+function computeData(period){
+  const N = DATA.length;
+  const cur  = DATA.slice(N - period);
+  const prev = DATA.slice(Math.max(0, N - 2 * period), N - period);
+
+  const stats = CLIENTS.map(c => ({
+    ...c, tokens:0, requests:0, cost:0, models:{}, series:[], firstIdx:-1, share:0
+  }));
+  const byId = {};
+  stats.forEach(s => byId[s.id] = s);
+
+  const modelsTotal = {};
+  MODELS.forEach(m => modelsTotal[m.key] = 0);
+
+  let tokens = 0, requests = 0, cost = 0;
+  const daySeries = [];
+
+  cur.forEach((day, di) => {
+    let daySum = 0;
+    CLIENTS.forEach(c => {
+      const s = byId[c.id];
+      const dc = day.clients[c.id];
+      if (!dc){ s.series.push(0); return; }
+
+      s.tokens   += dc.tokens;
+      s.requests += dc.requests;
+      s.series.push(dc.tokens);
+      if (s.firstIdx < 0) s.firstIdx = di;
+
+      MODELS.forEach(m => {
+        const t = dc.models[m.key] || 0;
+        s.models[m.key] = (s.models[m.key] || 0) + t;
+        modelsTotal[m.key] += t;
+        const c0 = t * m.price / 1e6;
+        s.cost += c0;
+        cost += c0;
+      });
+
+      tokens += dc.tokens;
+      requests += dc.requests;
+      daySum += dc.tokens;
+    });
+    daySeries.push(daySum);
+  });
+
+  let pTokens = 0, pRequests = 0, pCost = 0;
+  prev.forEach(day => CLIENTS.forEach(c => {
+    const dc = day.clients[c.id];
+    if (!dc) return;
+    pTokens   += dc.tokens;
+    pRequests += dc.requests;
+    MODELS.forEach(m => { pCost += (dc.models[m.key] || 0) * m.price / 1e6; });
+  }));
+
+  stats.forEach(s => { s.share = tokens ? s.tokens / tokens : 0; });
+
+  return {
+    cur, stats, modelsTotal, tokens, requests, cost, daySeries,
+    prev: { tokens: pTokens, requests: pRequests, cost: pCost }
+  };
+}
+
+/* ------------------------------------------------------------------ */
+/*  Состояние                                                          */
+/* ------------------------------------------------------------------ */
+const state = { days: 30, search: '', sortKey: 'tokens', sortDir: -1 };
+let lastAgg = null;
+const charts = {};
+
+/* ------------------------------------------------------------------ */
+/*  KPI                                                                */
+/* ------------------------------------------------------------------ */
+function badge(d){
+  if (d === null || !isFinite(d)) return '<span class="badge flat">—</span>';
+  const cls = d >= 0.05 ? 'up' : (d <= -0.05 ? 'down' : 'flat');
+  const sign = d > 0 ? '+' : '';
+  return `<span class="badge ${cls}">${sign}${d.toFixed(1)}%</span>`;
+}
+
+function renderKPIs(agg){
+  const avg  = agg.requests ? agg.tokens / agg.requests : 0;
+  const pAvg = agg.prev.requests ? agg.prev.tokens / agg.prev.requests : 0;
+
+  const cards = [
+    { label:'Всего токенов',    value: fmtCompact(agg.tokens),           sub:`за ${state.days} дн.`,   delta: pct(agg.tokens, agg.prev.tokens) },
+    { label:'Запросов',         value: fmtCompact(agg.requests),         sub:'вызовов API',            delta: pct(agg.requests, agg.prev.requests) },
+    { label:'Стоимость',        value: money(agg.cost),                  sub:'по тарифам моделей',     delta: pct(agg.cost, agg.prev.cost) },
+    { label:'Токенов на запрос', value: fmtNum(avg),                     sub:'среднее значение',       delta: pct(avg, pAvg) }
+  ];
+
+  document.getElementById('kpis').innerHTML = cards.map(c => `
+    <div class="kpi">
+      <div class="label">${c.label}</div>
+      <div class="value">${c.value}</div>
+      <div class="row">${badge(c.delta)}<span>${c.sub}</span></div>
+    </div>`).join('');
+}
+
+/* ------------------------------------------------------------------ */
+/*  Основной график (стек по клиентам)                                 */
+/* ------------------------------------------------------------------ */
+function renderMain(agg){
+  const labels = agg.cur.map(d => fmtDate(d.date));
+  const rows = [...agg.stats].sort((a, b) => b.tokens - a.tokens).filter(s => s.tokens > 0);
+
+  document.getElementById('legend').innerHTML = rows
+    .map(s => `<span><i class="dot" style="background:${s.color}"></i>${s.name}</span>`).join('');
+
+  const datasets = rows.map(s => ({
+    label: s.name,
+    data: s.series,
+    borderColor: s.color,
+    backgroundColor: hexA(s.color, .16),
+    fill: true,
+    tension: .35,
+    borderWidth: 1.6,
+    pointRadius: 0,
+    pointHoverRadius: 3,
+    pointHoverBackgroundColor: s.color,
+    pointHoverBorderColor: '#070a10',
+    pointHoverBorderWidth: 2
+  }));
+
+  if (charts.main) charts.main.destroy();
+  charts.main = new Chart(document.getElementById('mainChart'), {
+    type: 'line',
+    data: { labels, datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      animation: { duration: 500 },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: 'rgba(11,17,26,.96)',
+          borderColor: 'rgba(255,255,255,.12)',
+          borderWidth: 1,
+          padding: 10,
+          cornerRadius: 9,
+          titleColor: '#e7eef8',
+          bodyColor: '#b3c0d3',
+          boxWidth: 8,
+          boxHeight: 8,
+          usePointStyle: true,
+          callbacks: {
+            label: ctx => ` ${ctx.dataset.label}: ${fmtNum(ctx.parsed.y)}`,
+            footer: items => 'Всего: ' + fmtNum(items.reduce((s, i) => s + i.parsed.y, 0))
+          }
+        }
+      },
+      scales: {
+        x: {
+          stacked: true,
+          grid: { display: false },
+          border: { display: false },
+          ticks: { color: '#77869d', maxTicksLimit: 8, maxRotation: 0, autoSkip: true }
+        },
+        y: {
+          stacked: true,
+          grid: { color: 'rgba(255,255,255,.05)' },
+          border: { display: false },
+          ticks: { color: '#77869d', callback: v => fmtCompact(v), maxTicksLimit: 6 }
+        }
+      }
+    }
+  });
+}
+
+/* ------------------------------------------------------------------ */
+/*  Донат по моделям                                                   */
+/* ------------------------------------------------------------------ */
+const centerText = {
+  id: 'centerText',
+  afterDraw(chart, args, opts){
+    if (!opts || !opts.value) return;
+    const meta = chart.getDatasetMeta(0);
+    if (!meta || !meta.data.length) return;
+    const { x, y } = meta.data[0];
+    const ctx = chart.ctx;
+    ctx.save();
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#e7eef8';
+    ctx.font = '700 19px Inter, sans-serif';
+    ctx.fillText(opts.value, x, y - 7);
+    ctx.fillStyle = '#7f8ea6';
+    ctx.font = '500 10px Inter, sans-serif';
+    ctx.fillText(opts.label, x, y + 13);
+    ctx.restore();
+  }
+};
+Chart.register(centerText);
+
+function renderModels(agg){
+  const total = MODELS.reduce((s, m) => s + (agg.modelsTotal[m.key] || 0), 0) || 1;
+
+  if (charts.models) charts.models.destroy();
+  charts.models = new Chart(document.getElementById('modelChart'), {
+    type: 'doughnut',
+    data: {
+      labels: MODELS.map(m => m.name),
+      datasets: [{
+        data: MODELS.map(m => agg.modelsTotal[m.key] || 0),
+        backgroundColor: MODELS.map(m => m.color),
+        borderColor: '#0b111a',
+        borderWidth: 3,
+        hoverOffset: 7
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      cutout: '70%',
+      animation: { duration: 600 },
+      plugins: {
+        legend: { display: false },
+        centerText: { value: fmtCompact(agg.tokens), label: 'токенов' },
+        tooltip: {
+          backgroundColor: 'rgba(11,17,26,.96)',
+          borderColor: 'rgba(255,255,255,.12)',
+          borderWidth: 1,
+          padding: 10,
+          cornerRadius: 9,
+          titleColor: '#e7eef8',
+          bodyColor: '#b3c0d3',
+          boxWidth: 8,
+          boxHeight: 8,
+          usePointStyle: true,
+          callbacks: {
+            label: c => ` ${c.label}: ${fmtCompact(c.parsed)} · ${(c.parsed / total * 100).toFixed(1)}%`
+          }
+        }
+      }
+    }
+  });
+
+  document.getElementById('modelList').innerHTML = MODELS.map(m => {
+    const v = agg.modelsTotal[m.key] || 0;
+    return `<div class="m-row">
+      <i class="dot" style="background:${m.color}"></i>
+      <span class="m-name">${m.name}</span>
+      <span class="m-val">${fmtCompact(v)}</span>
+      <span class="m-pct">${(v / total * 100).toFixed(0)}%</span>
+    </div>`;
+  }).join('');
+}
+
+/* ------------------------------------------------------------------ */
+/*  Топ клиентов (горизонтальные бары)                                 */
+/* ------------------------------------------------------------------ */
+function renderClients(agg){
+  const rows = [...agg.stats].sort((a, b) => b.tokens - a.tokens).filter(s => s.tokens > 0).slice(0, 6);
+
+  if (charts.clients) charts.clients.destroy();
+  charts.clients = new Chart(document.getElementById('clientChart'), {
+    type: 'bar',
+    data: {
+      labels: rows.map(s => s.name),
+      datasets: [{
+        data: rows.map(s => s.tokens),
+        backgroundColor: rows.map(s => hexA(s.color, .72)),
+        hoverBackgroundColor: rows.map(s => s.color),
+        borderRadius: 7,
+        borderSkipped: false
+      }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: { duration: 500 },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: 'rgba(11,17,26,.96)',
+          borderColor: 'rgba(255,255,255,.12)',
+          borderWidth: 1,
+          padding: 10,
+          cornerRadius: 9,
+          titleColor: '#e7eef8',
+          bodyColor: '#b3c0d3',
+          displayColors: false,
+          callbacks: { label: c => fmtNum(c.parsed.x) + ' токенов' }
+        }
+      },
+      scales: {
+        x: {
+          grid: { color: 'rgba(255,255,255,.05)' },
+          border: { display: false },
+          ticks: { color: '#77869d', callback: v => fmtCompact(v), maxTicksLimit: 5 }
+        },
+        y: {
+          grid: { display: false },
+          border: { display: false },
+          ticks: { color: '#b3c0d3', font: { size: 11.5, weight: '500' } }
+        }
+      }
+    }
+  });
+}
+
+/* ------------------------------------------------------------------ */
+/*  Таблица                                                            */
+/* ------------------------------------------------------------------ */
+function renderTable(agg){
+  const q = state.search.trim().toLowerCase();
+  const maxTok = Math.max(...agg.stats.map(s => s.tokens), 1);
+
+  let rows = agg.stats.filter(s =>
+    s.tokens > 0 &&
+    (!q || s.name.toLowerCase().includes(q) || s.plan.toLowerCase().includes(q))
+  );
+
+  rows.sort((a, b) => {
+    if (state.sortKey === 'name') return a.name.localeCompare(b.name, 'ru') * state.sortDir;
+    return (a[state.sortKey] - b[state.sortKey]) * state.sortDir;
+  });
+
+  const tb = document.querySelector('#clientTable tbody');
+  tb.innerHTML = rows.length ? rows.map(s => {
+    const isNew = s.firstIdx > 0;
+    const w = Math.max(2, s.tokens / maxTok * 100);
+    return `<tr>
+      <td>
+        <div class="client">
+          <i class="dot" style="background:${s.color}"></i>
+          <div>
+            <div class="cname">${s.name}${isNew ? '<span class="new">новый</span>' : ''}</div>
+            <div class="cplan">${s.plan}</div>
+          </div>
+        </div>
+      </td>
+      <td>${fmtCompact(s.tokens)}</td>
+      <td>${fmtCompact(s.requests)}</td>
+      <td>${money(s.cost)}</td>
+      <td>${sparkline(s.series, s.color)}</td>
+      <td>
+        <div class="share-cell">
+          <div class="bar"><i style="width:${w.toFixed(1)}%;background:${s.color}"></i></div>
+          <span>${(s.share * 100).toFixed(1)}%</span>
+        </div>
+      </td>
+    </tr>`;
+  }).join('')
+  : `<tr><td colspan="6" style="text-align:center;color:#7f8ea6;padding:26px">Ничего не найдено</td></tr>`;
+
+  const active = agg.stats.filter(s => s.tokens > 0).length;
+  document.getElementById('tableHint').textContent =
+    `Последние ${state.days} дн. · ${active} активных · сортировка по «${state.sortKey === 'name' ? 'имени' : state.sortKey === 'tokens' ? 'токенам' : state.sortKey === 'requests' ? 'запросам' : state.sortKey === 'cost' ? 'стоимости' : 'доле'}»`;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Общий рендер                                                       */
+/* ------------------------------------------------------------------ */
+function render(){
+  const agg = computeData(state.days);
+  lastAgg = agg;
+  renderKPIs(agg);
+  renderMain(agg);
+  renderModels(agg);
+  renderClients(agg);
+  renderTable(agg);
+  document.getElementById('stamp').textContent =
+    new Date().toLocaleString('ru-RU', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' });
+}
+
+/* ------------------------------------------------------------------ */
+/*  События                                                            */
+/* ------------------------------------------------------------------ */
+document.getElementById('periodSeg').addEventListener('click', e => {
+  const btn = e.target.closest('button[data-days]');
+  if (!btn) return;
+  document.querySelectorAll('#periodSeg button').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  state.days = Number(btn.dataset.days);
+  render();
+});
+
+document.getElementById('refresh').addEventListener('click', () => {
+  DATA = buildData(Math.floor(Math.random() * 1e6) + 1);
+  render();
+});
+
+document.getElementById('search').addEventListener('input', e => {
+  state.search = e.target.value;
+  if (lastAgg) renderTable(lastAgg);
+});
+
+document.querySelectorAll('#clientTable thead th[data-key]').forEach(th => {
+  th.addEventListener('click', () => {
+    const k = th.dataset.key;
+    if (state.sortKey === k) state.sortDir *= -1;
+    else { state.sortKey = k; state.sortDir = (k === 'name' ? 1 : -1); }
+    document.querySelectorAll('#clientTable thead th').forEach(x => x.classList.remove('sorted'));
+    th.classList.add('sorted');
+    if (lastAgg) renderTable(lastAgg);
+  });
+});
+
+render();
+</script>
+</body>
+</html>
