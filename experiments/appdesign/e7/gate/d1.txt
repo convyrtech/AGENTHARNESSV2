@@ -1,0 +1,24 @@
+ГЕЙТ: FAIL   file:///home/user/agentharnessv2/experiments/appdesign/e7/d1-final.html
+- Визуал (G1–G8): ПРОВАЛ
+    G1 ок · G2 ок · G3 ок · G4 ПРОВАЛ · G5 ок · G6 глаза · G7 ок · G8 ок
+    G4 доступность (axe) [chromium 1440, chromium 390, chromium 768]: color-contrast .f-kick (y=0); color-contrast .cta-handle (y=0); color-contrast #bake > .shell > .sec-head.in.reveal > .accent.mono (y=1568); color-contrast .bake-media > figcaption > span:nth-child(1) (y=2352)
+    G6 цели нажатия [chromium 390]: header#top > div.shell > a.logo:nth-of-type(1) 85×23; header#top > div.shell > a.tg:nth-of-type(2) 173×39; button#burger 42×36; body > footer.footer > div.shell > div.footer-bottom > a 350×16
+- Текст: слоп: ПРОВАЛ
+    [DASH] длинное тире: «круассаны и синнабоны — каждое утро»  @ div.shell > div.hero-grid:nth-of-type(1) > div.hero-copy > p.hero-tags:nth-of-type(2) > span:nth-of-type(2)
+    [COUNTER] счётчик-украшение: «01:14»  @ div.shell > div.hero-foot:nth-of-type(2) > div.cell:nth-of-type(3) > span.v:nth-of-type(2) > span.clock:nth-of-type(1)
+    [DASH] длинное тире: «01 — о нас»  @ section#about > div.shell > div.sec-head:nth-of-type(1) > span.mono:nth-of-type(1)
+    [COUNTER] счётчик-украшение: «01 — о нас»  @ section#about > div.shell > div.sec-head:nth-of-type(1) > span.mono:nth-of-type(1)
+    [DASH] длинное тире: «В меню — эспрессо, капучино, латте, раф и фильтр. Каждое утро достаём …»  @ section#about > div.shell > div.about-grid:nth-of-type(2) > div.about-side > p.about-p
+    [DASH] длинное тире: «02 — меню»  @ section#menu > div.shell > div.sec-head:nth-of-type(1) > span.mono:nth-of-type(1)
+    [COUNTER] счётчик-украшение: «02 — меню»  @ section#menu > div.shell > div.sec-head:nth-of-type(1) > span.mono:nth-of-type(1)
+- Текст: сверка с источником: ПРОВАЛ
+    ПРОПАЛО: «кофейня «Зерно», Москва, ул.» (совпало 75%; нет слов: зерно)
+    ПРОПАЛО: «Работаем каждый день 8:00–22:00.» (совпало 86%; нет слов: работаем)
+    ПРОПАЛО: «Варим кофе (эспрессо, капучино, латте, раф, фильтр), свежая выпечка каждое утро (круассаны, синнабоны).» (совпало 85%; нет слов: варим свежая)
+    ПРОПАЛО: «Заказ навынос через Telegram @zerno_coffee, телефон +7 900 123-45-67.» (совпало 83%; нет слов: заказ через)
+    ЛИШНЕЕ: «кофейня москва ул»
+    ЛИШНЕЕ: «кофе каждый день»
+    ЛИШНЕЕ: «круассаны и синнабоны каждое утро капучино 8 00 часы работы»
+- Обещания не сверены с FACTS.md (нет --facts): план мог попасть на страницу.
+Итог: НЕ готово — исправить пункты ПРОВАЛ и перезапустить gate.
+отчёт: /tmp/claude-0/-home-user-agentharnessv2/a2168356-4e49-54b0-8478-8ce494ada718/scratchpad/gate-e7/d1/design-gate.json

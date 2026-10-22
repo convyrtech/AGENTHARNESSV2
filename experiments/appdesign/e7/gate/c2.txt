@@ -1,0 +1,23 @@
+ГЕЙТ: FAIL   file:///home/user/agentharnessv2/experiments/appdesign/e7/c2-final.html
+- Визуал (G1–G8): ПРОВАЛ
+    G1 ок · G2 ок · G3 ок · G4 ПРОВАЛ · G5 ок · G6 глаза · G7 ок · G8 ок
+    G4 доступность (axe) [chromium 1440, chromium 390, chromium 768]: color-contrast .logo > .logo__sub (y=0); color-contrast .hero__text > .kicker (y=0); color-contrast .fact:nth-child(1) > .fact__label (y=0); color-contrast .fact:nth-child(2) > .fact__label (y=0)
+    G6 цели нажатия [chromium 390]: body > header.site-header > div.container > a.logo:nth-of-type(1) 67×36; main#top > section.order:nth-of-type(4) > div.container > div.order__actions:nth-of-type(2) > a.order__phone:nth-of-type(2) 127×28; footer#contacts
+- Текст: слоп: ПРОВАЛ
+    [DASH] длинное тире: «…ино, латте, раф и фильтр — в зале или навынос.»  @ main#top > section.hero:nth-of-type(1) > div.container > div.hero__text > p.hero__lead:nth-of-type(2)
+    [DASH] длинное тире: «Варим кофе — можно сесть за столик в зале или забрать заказ с собой.»  @ section#about > div.container > div.about__text > p:nth-of-type(2)
+    [DASH] длинное тире: «…чку, напишите в Telegram — заказ можно забрать в кофейне.»  @ main#top > section.order:nth-of-type(4) > div.container > div.order__text:nth-of-type(1) > p:nth-of-type(2)
+    [DASH] длинное тире: «Кофейня «Зерно» — в начало страницы»  @ body > header.site-header > div.container > a.logo:nth-of-type(1)[aria-label]
+    [DASH] длинное тире: «Кофейня «Зерно» — Москва, ул. Ленина, 12»  @ title
+    [REPEAT] повтор подписи ×2: «Часы работы»  @ div.container > div.hero__text > ul.facts > li.fact:nth-of-type(2) > span.fact__label:nth-of-type(1)
+- Текст: сверка с источником: ПРОВАЛ
+    ПРОПАЛО: «кофейня «Зерно», Москва, ул.» (совпало 100%; нет слов: )
+    ПРОПАЛО: «Работаем каждый день 8:00–22:00.» (совпало 86%; нет слов: работаем)
+    ПРОПАЛО: «Варим кофе (эспрессо, капучино, латте, раф, фильтр), свежая выпечка каждое утро (круассаны, синнабоны).» (совпало 77%; нет слов: свежая каждое утро)
+    ПРОПАЛО: «Заказ навынос через Telegram @zerno_coffee, телефон +7 900 123-45-67.» (совпало 57%; нет слов: заказ через zerno coffee телефон)
+    ЛИШНЕЕ: «кофе и свежая выпечка каждое утро эспрессо капучино латте раф и фильтр в зале или навынос заказать навынос в telegram»
+    ЛИШНЕЕ: «адрес ул»
+    ЛИШНЕЕ: «москва на карте часы работы»
+- Обещания не сверены с FACTS.md (нет --facts): план мог попасть на страницу.
+Итог: НЕ готово — исправить пункты ПРОВАЛ и перезапустить gate.
+отчёт: /tmp/claude-0/-home-user-agentharnessv2/a2168356-4e49-54b0-8478-8ce494ada718/scratchpad/gate-e7/c2/design-gate.json

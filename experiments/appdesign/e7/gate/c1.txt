@@ -1,0 +1,22 @@
+ГЕЙТ: FAIL   file:///home/user/agentharnessv2/experiments/appdesign/e7/c1-final.html
+- Визуал (G1–G8): на глаза человеку
+    G1 ок · G2 ок · G3 ок · G4 глаза · G5 ок · G6 глаза · G7 ок · G8 ок
+    G4 доступность (axe) [chromium 1440, chromium 390, chromium 768]: контраст не определён у 1 узл. — проверить глазами
+    G6 цели нажатия [chromium 390]: body > header.site-header > nav.nav > a.nav-logo 105×37; section#menu > div.menu-inner > div.menu-text > a.link-more 173×27; div.contacts-text:nth-of-type(1) > dl.contact-rows > div.contact-row:nth-of-type(3) > dd.contac
+- Текст: слоп: ПРОВАЛ
+    [DASH] длинное тире: «Зерно — наверх»  @ body > header.site-header > nav.nav > a.nav-logo[aria-label]
+    [DASH] длинное тире: «Чашка капучино — кофейня «Зерно»»  @ section#hero > div.hero-img-wrap:nth-of-type(2) > img[alt]
+    [DASH] длинное тире: «Круассаны и синнабоны — свежая выпечка кофейни «Зерно»»  @ section#menu > div.menu-inner > figure.menu-photo > img[alt]
+    [DASH] длинное тире: «Зерно — наверх»  @ body > footer.footer > a.nav-logo[aria-label]
+    [DASH] длинное тире: «Кофейня «Зерно» — Москва, ул. Ленина, 12»  @ title
+- Текст: сверка с источником: ПРОВАЛ
+    ПРОПАЛО: «кофейня «Зерно», Москва, ул.» (совпало 100%; нет слов: )
+    ПРОПАЛО: «Работаем каждый день 8:00–22:00.» (совпало 56%; нет слов: работаем каждый день)
+    ПРОПАЛО: «Варим кофе (эспрессо, капучино, латте, раф, фильтр), свежая выпечка каждое утро (круассаны, синнабоны).» (совпало 77%; нет слов: варим круассаны синнабоны)
+    ПРОПАЛО: «Заказ навынос через Telegram @zerno_coffee, телефон +7 900 123-45-67.» (совпало 57%; нет слов: заказ навынос через zerno coffee)
+    ЛИШНЕЕ: «кофейня зерно кофе и свежая выпечка каждое утро ул»
+    ЛИШНЕЕ: «ежедневно»
+    ЛИШНЕЕ: «заказать в telegram посмотреть меню меню кофе и выпечка»
+- Обещания не сверены с FACTS.md (нет --facts): план мог попасть на страницу.
+Итог: НЕ готово — исправить пункты ПРОВАЛ и перезапустить gate.
+отчёт: /tmp/claude-0/-home-user-agentharnessv2/a2168356-4e49-54b0-8478-8ce494ada718/scratchpad/gate-e7/c1/design-gate.json

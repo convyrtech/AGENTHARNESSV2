@@ -1,0 +1,23 @@
+ГЕЙТ: FAIL   file:///home/user/agentharnessv2/experiments/appdesign/e7/a2-final.html
+- Визуал (G1–G8): на глаза человеку
+    G1 ок · G2 ок · G3 ок · G4 ок · G5 ок · G6 глаза · G7 ок · G8 ок
+    G6 цели нажатия [chromium 390]: header#top > div.container > a.logo:nth-of-type(1) 101×27; section.hero:nth-of-type(1) > div.container > div > div.hero-actions > a.text-link:nth-of-type(2) 83×23; div.visit-details > dl.contacts > div.contact-row:nth-of
+- Текст: слоп: ПРОВАЛ
+    [COUNTER] счётчик-украшение: «01»  @ section#coffee > div.container > ul.coffee-list > li:nth-of-type(1) > span.number:nth-of-type(1)
+    [COUNTER] счётчик-украшение: «02»  @ section#coffee > div.container > ul.coffee-list > li:nth-of-type(2) > span.number:nth-of-type(1)
+    [COUNTER] счётчик-украшение: «03»  @ section#coffee > div.container > ul.coffee-list > li:nth-of-type(3) > span.number:nth-of-type(1)
+    [COUNTER] счётчик-украшение: «04»  @ section#coffee > div.container > ul.coffee-list > li:nth-of-type(4) > span.number:nth-of-type(1)
+    [COUNTER] счётчик-украшение: «05»  @ section#coffee > div.container > ul.coffee-list > li:nth-of-type(5) > span.number:nth-of-type(1)
+    [DASH] длинное тире: «Зерно — наверх»  @ header#top > div.container > a.logo:nth-of-type(1)[aria-label]
+    [DASH] длинное тире: «Зерно — наверх»  @ body > footer.footer > div.container > a.logo[aria-label]
+- Текст: сверка с источником: ПРОВАЛ
+    ПРОПАЛО: «кофейня «Зерно», Москва, ул.» (совпало 100%; нет слов: )
+    ПРОПАЛО: «Работаем каждый день 8:00–22:00.» (совпало 86%; нет слов: работаем)
+    ПРОПАЛО: «Варим кофе (эспрессо, капучино, латте, раф, фильтр), свежая выпечка каждое утро (круассаны, синнабоны).» (совпало 100%; нет слов: )
+    ПРОПАЛО: «Заказ навынос через Telegram @zerno_coffee, телефон +7 900 123-45-67.» (совпало 57%; нет слов: заказ навынос через zerno coffee)
+    ЛИШНЕЕ: «москва каждый день кофейня зерно кофе и свежая выпечка каждое утро москва ул»
+    ЛИШНЕЕ: «заказать в telegram что варим кофе что варим 01 эспрессо короткий и насыщенный 02 капучино с молочной пеной 03 латте мяг»
+    ЛИШНЕЕ: «контакты и заказ как нас найти адрес москва ул»
+- Обещания не сверены с FACTS.md (нет --facts): план мог попасть на страницу.
+Итог: НЕ готово — исправить пункты ПРОВАЛ и перезапустить gate.
+отчёт: /tmp/claude-0/-home-user-agentharnessv2/a2168356-4e49-54b0-8478-8ce494ada718/scratchpad/gate-e7/a2/design-gate.json

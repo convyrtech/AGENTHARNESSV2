@@ -1,0 +1,25 @@
+ГЕЙТ: FAIL   file:///home/user/agentharnessv2/experiments/appdesign/e7/d2-final.html
+- Визуал (G1–G8): ПРОВАЛ
+    G1 ок · G2 ок · G3 ок · G4 ПРОВАЛ · G5 ок · G6 глаза · G7 ок · G8 ПРОВАЛ
+    G4 доступность (axe) [chromium 1440, chromium 390, chromium 768]: color-contrast #coffee > .wrap > .head > .head__num (y=0); color-contrast #coffee > .wrap > .head > .head__note (y=0); color-contrast article:nth-child(1) > .menu__idx (y=0); color-contrast article:nth-child(1) > div > .
+    G6 цели нажатия [chromium 390]: header#nav > a.nav__brand:nth-of-type(1) 141×22; header#nav > a.btn:nth-of-type(2) 189×42; section#pastry > div.pastry__text:nth-of-type(2) > a.link-arrow 180×28; div:nth-of-type(2) > dl.contacts > div.contacts__row:nth-
+    G8 подмена шрифта [chromium 1440, chromium 390, chromium 768]: Inter нет «→» в section#pastry > div.pastry__text:nth-of-type(2) > a.link-arrow > span (y=2839)
+- Текст: слоп: ПРОВАЛ
+    [DASH] длинное тире: «…ино, латте, раф и фильтр — каждый день с восьми утра»  @ body#top > main > section.hero:nth-of-type(1) > div.hero__text:nth-of-type(1) > p.hero__sub:nth-of-type(2)
+    [DASH] длинное тире: «навынос — @zerno_coffee»  @ main > section.hero:nth-of-type(1) > div.hero__text:nth-of-type(1) > div.hero__meta:nth-of-type(2) > span:nth-of-type(2)
+    [DASH] длинное тире: «выпечка — каждое утро»  @ main > section.hero:nth-of-type(1) > div.hero__text:nth-of-type(1) > div.hero__meta:nth-of-type(2) > span:nth-of-type(3)
+    [COUNTER] счётчик-украшение: «01»  @ section#coffee > div.wrap > div.head:nth-of-type(1) > span.head__num
+    [COUNTER] счётчик-украшение: «01»  @ div.wrap > div.coffee:nth-of-type(2) > div.menu > article.menu__item:nth-of-type(1) > span.menu__idx
+    [COUNTER] счётчик-украшение: «02»  @ div.wrap > div.coffee:nth-of-type(2) > div.menu > article.menu__item:nth-of-type(2) > span.menu__idx
+    [COUNTER] счётчик-украшение: «03»  @ div.wrap > div.coffee:nth-of-type(2) > div.menu > article.menu__item:nth-of-type(3) > span.menu__idx
+- Текст: сверка с источником: ПРОВАЛ
+    ПРОПАЛО: «кофейня «Зерно», Москва, ул.» (совпало 50%; нет слов: кофейня зерно)
+    ПРОПАЛО: «Работаем каждый день 8:00–22:00.» (совпало 86%; нет слов: работаем)
+    ПРОПАЛО: «Варим кофе (эспрессо, капучино, латте, раф, фильтр), свежая выпечка каждое утро (круассаны, синнабоны).» (совпало 92%; нет слов: свежая)
+    ПРОПАЛО: «Заказ навынос через Telegram @zerno_coffee, телефон +7 900 123-45-67.» (совпало 75%; нет слов: заказ навынос через)
+    ЛИШНЕЕ: «москва ул»
+    ЛИШНЕЕ: «зерно эспрессо капучино латте раф и фильтр каждый день с восьми утра кофейня на»
+    ЛИШНЕЕ: «варим кофе каждое утро печем круассаны и синнабоны двери открыты с 8 00 до 22 00 заходите в зал или забирайте с собой за»
+- Обещания не сверены с FACTS.md (нет --facts): план мог попасть на страницу.
+Итог: НЕ готово — исправить пункты ПРОВАЛ и перезапустить gate.
+отчёт: /tmp/claude-0/-home-user-agentharnessv2/a2168356-4e49-54b0-8478-8ce494ada718/scratchpad/gate-e7/d2/design-gate.json
