@@ -1,16 +1,53 @@
 {
-  "providers": {
-    "a6": {
-      "name": "a6api",
-      "baseUrl": "https://a6api.com/v1",
-      "api": "openai-completions",
-      "apiKey": "!cat /home/user/agentharnessv2/experiments/.a6key",
-      "compat": { "supportsStore": false, "supportsDeveloperRole": false, "maxTokensField": "max_tokens", "supportsReasoningEffort": false, "requiresReasoningContentOnAssistantMessages": false },
-      "models": [
-        { "id": "deepseek-v4.1-flash-1017", "name": "DeepSeek V4.1 Flash 1017 (a6)", "reasoning": false, "input": ["text", "image"],
-          "contextWindow": 128000, "maxTokens": 64000,
-          "cost": { "input": 0.0276, "output": 0.1104, "cacheRead": 0.0276, "cacheWrite": 0.0276 } }
-      ]
+ "providers": {
+  "a6": {
+   "name": "a6api",
+   "baseUrl": "https://a6api.com/v1",
+   "api": "openai-completions",
+   "apiKey": "!cat <path to .a6key>",
+   "compat": {
+    "supportsStore": false,
+    "supportsDeveloperRole": false,
+    "maxTokensField": "max_tokens",
+    "supportsReasoningEffort": false,
+    "requiresReasoningContentOnAssistantMessages": false
+   },
+   "models": [
+    {
+     "id": "deepseek-v4.1-flash-1017",
+     "name": "DeepSeek V4.1 Flash 1017 (a6)",
+     "reasoning": false,
+     "input": [
+      "text",
+      "image"
+     ],
+     "contextWindow": 128000,
+     "maxTokens": 64000,
+     "cost": {
+      "input": 0.0276,
+      "output": 0.1104,
+      "cacheRead": 0.0276,
+      "cacheWrite": 0.0276
+     }
+    },
+    {
+     "id": "claude-opus-5-5",
+     "name": "Claude Opus 5.5 (a6)",
+     "reasoning": false,
+     "input": [
+      "text",
+      "image"
+     ],
+     "contextWindow": 200000,
+     "maxTokens": 32000,
+     "cost": {
+      "input": 0.084,
+      "output": 0.42,
+      "cacheRead": 0.0042,
+      "cacheWrite": 0.084
+     }
     }
+   ]
   }
+ }
 }
