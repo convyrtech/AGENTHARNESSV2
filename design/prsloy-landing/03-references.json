@@ -1,0 +1,47 @@
+{
+ "tool": "compare_sheet",
+ "mode": "screens",
+ "variants": [
+  {
+   "label": "2 railway",
+   "target": "03-refs/ref-2-railway.png",
+   "path": "/home/user/agentharnessv2/design/prsloy-landing/03-refs/ref-2-railway.png",
+   "sha256": null
+  },
+  {
+   "label": "3 openrouter",
+   "target": "03-refs/ref-3-openrouter.png",
+   "path": "/home/user/agentharnessv2/design/prsloy-landing/03-refs/ref-3-openrouter.png",
+   "sha256": null
+  },
+  {
+   "label": "1 val.town",
+   "target": "03-refs/ref-1-val.png",
+   "path": "/home/user/agentharnessv2/design/prsloy-landing/03-refs/ref-1-val.png",
+   "sha256": null
+  },
+  {
+   "label": "4 teenage",
+   "target": "03-refs/ref-4-teenage-op1.png",
+   "path": "/home/user/agentharnessv2/design/prsloy-landing/03-refs/ref-4-teenage-op1.png",
+   "sha256": null
+  },
+  {
+   "label": "5 planetscale",
+   "target": "03-refs/ref-5-planetscale.png",
+   "path": "/home/user/agentharnessv2/design/prsloy-landing/03-refs/ref-5-planetscale.png",
+   "sha256": null
+  },
+  {
+   "label": "6 resend",
+   "target": "03-refs/ref-6-resend.png",
+   "path": "/home/user/agentharnessv2/design/prsloy-landing/03-refs/ref-6-resend.png",
+   "sha256": null
+  }
+ ],
+ "size": [
+  1182,
+  1896
+ ],
+ "generatedAt": "2026-10-23T10:15:07"
+}
