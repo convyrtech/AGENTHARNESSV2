@@ -1,0 +1,25 @@
+{
+ "tool": "compare_sheet",
+ "mode": "page",
+ "variants": [
+  {
+   "label": "A",
+   "target": "design/prsloy-landing/05-storyboard/a/index.html",
+   "path": "/home/user/agentharnessv2/design/prsloy-landing/05-storyboard/a/index.html",
+   "sha256": "1509b7a41291574c6e5c3fe95336d01cc6efd9660f002ede4ca5f78b8325c1e7",
+   "pageHeight": 6752
+  },
+  {
+   "label": "B",
+   "target": "design/prsloy-landing/05-storyboard/b/index.html",
+   "path": "/home/user/agentharnessv2/design/prsloy-landing/05-storyboard/b/index.html",
+   "sha256": "46516272296f5f1584eb21a7ef82bd297bf57a167c8e3d3fb4655627a4ef4b83",
+   "pageHeight": 6752
+  }
+ ],
+ "size": [
+  1266,
+  1904
+ ],
+ "generatedAt": "2026-10-23T10:31:25"
+}
