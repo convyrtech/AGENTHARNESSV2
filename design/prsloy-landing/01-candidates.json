@@ -1,0 +1,29 @@
+{
+ "tool": "compare_sheet",
+ "mode": "screens",
+ "variants": [
+  {
+   "label": "A",
+   "target": "design/prsloy-landing/01-candidates-src/cand-teenage.png",
+   "path": "/home/user/agentharnessv2/design/prsloy-landing/01-candidates-src/cand-teenage.png",
+   "sha256": null
+  },
+  {
+   "label": "B",
+   "target": "design/prsloy-landing/01-candidates-src/cand-warp.png",
+   "path": "/home/user/agentharnessv2/design/prsloy-landing/01-candidates-src/cand-warp.png",
+   "sha256": null
+  },
+  {
+   "label": "C",
+   "target": "design/prsloy-landing/01-candidates-src/cand-anthropic.png",
+   "path": "/home/user/agentharnessv2/design/prsloy-landing/01-candidates-src/cand-anthropic.png",
+   "sha256": null
+  }
+ ],
+ "size": [
+  3498,
+  948
+ ],
+ "generatedAt": "2026-10-23T06:26:29"
+}
