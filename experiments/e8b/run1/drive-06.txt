@@ -1,0 +1,30 @@
+TURN 6 · 1079 s · exit 0 · tool calls 13 · tokens in 74599 out 3824 · cost $0.0288
+   bash: {"command": "cd /home/user/e8b-ds && tail -2 owner/messages.jsonl"}
+   bash: {"command": "cd /home/user/e8b-ds && python3 - <<'EOF'\nfrom pathlib import Path\ns=Path('design/home/STATUS.md'); t=s.read_text(encoding='u
+   bash: {"command": "cd /home/user/e8b-ds && sed -n 1,60p design-pipeline/tools/motion_probe.py; cat design-pipeline/templates/MOTION-CONTRACT.md"}
+   write: {"content": "# Motion Contract — лендинг PRSLOY (api)\n\n> Заполнено до кода. Сверять будет `tools/motion_probe.py`.\n\nДвижение здесь одно 
+   bash: {"command": "cd /home/user/e8b-ds && timeout 90 python3 -I design-pipeline/tools/flow.py --page design/home 2>&1 | tail -12"}
+   bash: {"command": "cd /home/user/e8b-ds && grep -n \"после {after\" -B10 design-pipeline/tools/flow.py | head -5; grep -n \"def said\" -A40 design
+   bash: {"command": "cd /home/user/e8b-ds && cat design/home/00-intake.md"}
+   bash: {"command": "cd /home/user/e8b-ds && python3 - <<'EOF'\nfrom pathlib import Path\n# 1. intake: separate the \"which reference\" question out
+   bash: {"command": "cd /home/user/e8b-ds && python3 -c \"\nimport re,sys\nsys.path.insert(0,'design-pipeline/tools')\nt=open('design/home/00-intake
+   bash: {"command": "cd /home/user/e8b-ds && grep -rn \"def section\" -A14 design-pipeline/tools/*.py | head -25"}
+   bash: {"command": "cd /home/user/e8b-ds && python3 - <<'EOF'\nfrom pathlib import Path\ns=Path('design/home/STATUS.md'); t=s.read_text(encoding='u
+   write: {"content": "design/home/05-candidates.png\nA ProxyAPI: без VPN, без блокировок, оплата в рублях. B OpenRouter: кнопка во всю ширину и ряд ч
+   bash: {"command": "cd /home/user/e8b-ds && timeout 90 python3 -I design-pipeline/tools/flow.py --lint-message design/home/outbox/05.md --page desi
+---- AGENT SAYS ----
+Понял, беру как рекомендовал: **А** — три пункта про Россию и оплату (от ProxyAPI), кнопка во всю ширину и ряд чисел (от OpenRouter), воздух и крупный serif-заголовок (от Resend). Фиолетовый и чёрный не берём.
+
+Что уже готово за это время:
+- `design/home/04-motion.md` — контракт движения: дрейф сетки 24 с линейно, точка статуса 3 с, стрелка кнопки 180 мс; при `prefers-reduced-motion` всё стоит. Перф-бюджет: ≥55 fps, 0 layout-shift.
+- `design/home/03-references.md` — шесть референсов с оценками и кадрами в `03-refs/`.
+- `design/home/05-candidates.png` — лист для этого вопроса, проверен линтером.
+
+Дальше нужен ваш один ответ на лист, чтобы закрылись ворота 3 (правило: буква из вопроса, пришедшая после листа):
+
+**Вопрос (`design/home/REFERENCE-QUESTION.md`):**
+- А. От A три коротких пункта про Россию и оплату, от B кнопка и ряд чисел, от C воздух (рекомендую)
+- Б. Только A: три галочки и кнопка, ничего больше
+- В. Только C: воздух и крупный serif-заголовок, минимум деталей
+
+Берём **А**?

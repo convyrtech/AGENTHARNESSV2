@@ -1,0 +1,31 @@
+--- /home/user/agentharnessv2/../design-pipeline/tools/flow.py	2026-10-22 22:11:19.245809277 +0000
++++ design-pipeline/tools/flow.py	2026-10-23 13:25:14.479463777 +0000
+@@ -476,10 +476,26 @@
+ 
+ def born(path):
+     """When the artifact first appeared on disk: creation time where the OS keeps it, else mtime."""
+-    st = Path(path).stat()
++    path = Path(path)
++    st = path.stat()
+     t = getattr(st, "st_birthtime", None)
++    if t is None and os.name == "nt":
++        t = st.st_ctime
+     if t is None:
+-        t = st.st_ctime if os.name == "nt" else st.st_mtime
++        # Linux keeps no creation time and mtime moves on every edit: remember the first time we saw the file.
++        reg = path.parent / ".flow-born.json"
++        try:
++            seen = json.loads(reg.read_text(encoding="utf-8"))
++        except (OSError, ValueError):
++            seen = {}
++        t = seen.get(path.name)
++        if t is None or st.st_mtime < t:
++            t = st.st_mtime
++            seen[path.name] = t
++            try:
++                reg.write_text(json.dumps(seen, ensure_ascii=False, indent=1), encoding="utf-8")
++            except OSError:
++                pass
+     return dt.datetime.fromtimestamp(t, dt.timezone.utc)
+ 
+ 
