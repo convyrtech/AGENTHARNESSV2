@@ -11,9 +11,14 @@ with open(os.path.join(HERE, "owner", "messages.jsonl"), "a", encoding="utf-8") 
 text = msg + ("\n\n[владелец прислал файлы: " + ", ".join(files) + "]" if files else "")
 args = ["pi", "--mode", "json", "--model", MODEL, "--session", SESSION, text]
 t0 = time.time()
+# harness block (code, not prompt): shims for other AI CLIs go first on PATH
+HARNESS_BIN = os.path.join(HERE, ".harness-bin")
+env = dict(os.environ)
+if os.path.isdir(HARNESS_BIN):
+    env["PATH"] = HARNESS_BIN + os.pathsep + env.get("PATH", "")
 log = os.path.join(HERE, "logs", f"turn-{n:02d}.jsonl")
 with open(log, "w", encoding="utf-8") as out:
-    p = subprocess.run(args, cwd=HERE, stdin=subprocess.DEVNULL, stdout=out, stderr=subprocess.STDOUT, timeout=int(os.environ.get("E8B_TIMEOUT", "2400")))
+    p = subprocess.run(args, cwd=HERE, env=env, stdin=subprocess.DEVNULL, stdout=out, stderr=subprocess.STDOUT, timeout=int(os.environ.get("E8B_TIMEOUT", "2400")))
 tools, final, usage = [], "", {"in": 0, "out": 0, "cost": 0.0}
 for ln in open(log, encoding="utf-8"):
     try: e = json.loads(ln)
