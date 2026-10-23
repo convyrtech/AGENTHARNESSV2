@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PRSLOY · прототип A «Чертёж»</title>
+<style>
+@font-face{font-family:Piazzolla;src:url(../../fonts/Piazzolla-VF.ttf) format('truetype');font-weight:300 600;font-display:swap}
+@font-face{font-family:Geologica;src:url(../../fonts/Geologica-VF.ttf) format('truetype');font-weight:300 500;font-display:swap}
+@font-face{font-family:'IBM Plex Mono';src:url(../../fonts/IBMPlexMono-Regular.ttf) format('truetype');font-weight:400;font-display:swap}
+:root{--paper:#f3eee3;--card:#faf7f0;--ink:#3b2a1e;--mid:#7a6352;--lo:#b9a894;--line:#ddd2c1;--accent:#a4472c;--btn-press:#53412d;--ease:cubic-bezier(.4,0,.2,1)}
+*{box-sizing:border-box;margin:0;padding:0}
+html{background:var(--paper)}
+body{background:var(--paper);color:var(--ink);font-family:Geologica,system-ui,sans-serif;font-weight:350;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1180px;margin:0 auto;padding:0 20px}
+nav{display:flex;justify-content:space-between;align-items:center;padding:22px 0;border-bottom:1px solid var(--line)}
+.mark{font-family:Piazzolla,serif;font-size:22px;letter-spacing:.08em;font-weight:400}
+.status{font-size:14px;color:var(--mid);display:flex;align-items:center;gap:8px}
+.status i{width:9px;height:9px;border-radius:50%;background:var(--ink);display:inline-block}
+.hero{display:grid;gap:28px;padding:40px 0 56px}
+.tag{font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--mid);border:1px solid var(--line);padding:5px 9px;justify-self:start}
+h1{font-family:Piazzolla,serif;font-weight:350;font-size:clamp(36px,6vw,64px);line-height:1.04;letter-spacing:-.01em;max-width:16ch}
+.lead{font-size:18px;line-height:1.45;color:var(--mid);max-width:44ch}
+.cta{display:flex;gap:12px;flex-wrap:wrap}
+.btn{font:inherit;font-size:17px;font-weight:400;padding:16px 26px;border:1px solid var(--ink);background:var(--ink);color:var(--card);text-decoration:none;min-height:52px;display:inline-flex;align-items:center;transition:background-color 180ms var(--ease)}
+.btn:hover,.btn:active{background:var(--btn-press)}
+.btn.ghost{background:transparent;color:var(--ink)}
+.btn.ghost:hover{background:var(--card)}
+.fig{position:relative;border:1px solid var(--ink);background:var(--card);padding:16px 16px 12px}
+.fig .rv{position:absolute;width:10px;height:10px;border:1px solid var(--lo);border-radius:50%}
+.fig .rv:after{content:'';position:absolute;left:1px;top:4px;width:6px;height:1px;background:var(--lo);transform:rotate(-45deg)}
+.rv.tl{left:8px;top:8px}.rv.tr{right:8px;top:8px}.rv.bl{left:8px;bottom:8px}.rv.br{right:8px;bottom:8px}
+.figcap{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--mid);text-align:center;letter-spacing:.04em;margin-bottom:8px}
+svg{display:block;width:100%;height:auto}
+.legend{display:flex;gap:18px;justify-content:center;flex-wrap:wrap;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--mid);margin-top:8px}
+.legend span:before{content:'';display:inline-block;width:8px;height:8px;margin-right:6px;vertical-align:middle}
+.legend .q:before{background:var(--ink)}.legend .a:before{border:1px solid var(--ink)}.legend .c:before{background:var(--accent)}
+@media (min-width:980px){.hero{grid-template-columns:1fr 1.25fr;align-items:center}.hero .text{display:grid;gap:22px}}
+@media (max-width:979px){.hero .text{display:grid;gap:20px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav><div class="mark">PRSLOY</div><div class="status"><i></i>работает</div></nav>
+  <section class="hero">
+    <div class="text">
+      <div class="tag">API для разработчиков</div>
+      <h1>Один ключ к Claude, GPT и Gemini из России без VPN</h1>
+      <p class="lead">Подключается к Cursor, Claude Code и Cline одной строкой адреса. Каждое списание видно в рублях.</p>
+      <div class="cta"><a class="btn" href="#key">Получить ключ</a><a class="btn ghost" href="#models">Модели и цены</a></div>
+    </div>
+    <figure class="fig" aria-label="Схема: запрос из вашей программы идёт через шлюз PRSLOY к модели">
+      <span class="rv tl"></span><span class="rv tr"></span><span class="rv bl"></span><span class="rv br"></span>
+      <div class="figcap">[ fig. 1 · запрос через PRSLOY ]</div>
+      <svg id="fig1" viewBox="0 0 640 360" role="img">
+        <defs><pattern id="hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="6" stroke="#b9a894" stroke-width="1"/></pattern></defs>
+        <g id="lines" stroke="#ddd2c1" stroke-width="1" fill="none"></g>
+        <g id="nodes" font-family="IBM Plex Mono, monospace" font-size="12" fill="#3b2a1e"></g>
+        <g id="gw"></g>
+        <rect id="packet" x="-5" y="-5" width="10" height="10" fill="#3b2a1e"/>
+      </svg>
+      <div class="legend"><span class="q">запрос</span><span class="a">ответ</span><span class="c">списание</span></div>
+    </figure>
+  </section>
+</div>
+<script>
+(() => {
+  const NS = 'http://www.w3.org/2000/svg';
+  const svg = document.getElementById('fig1');
+  const progs = ['Cursor', 'Claude Code', 'Cline', 'Свой код'];
+  const models = ['Claude Opus 5.5', 'GPT-6.1', 'Gemini 4', 'DeepSeek V4.1'];
+  const L = { x: 20, w: 120 }, R = { x: 500, w: 120 }, G = { x: 250, y: 120, w: 140, h: 120 };
+  const ys = i => 40 + i * 86;
+  const el = (tag, attrs, parent, text) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (text) e.textContent = text; parent.appendChild(e); return e; };
+  const lines = document.getElementById('lines'), nodes = document.getElementById('nodes'), gw = document.getElementById('gw');
+  const nodeEls = { p: [], m: [] };
+  progs.forEach((t, i) => { el('path', { d: `M${L.x + L.w} ${ys(i) + 18} H200 V${G.y + G.h / 2} H${G.x}` }, lines);
+    nodeEls.p.push(el('rect', { x: L.x, y: ys(i), width: L.w, height: 36, fill: '#faf7f0', stroke: '#3b2a1e' }, nodes)); el('text', { x: L.x + 10, y: ys(i) + 23 }, nodes, t); });
+  models.forEach((t, i) => { el('path', { d: `M${G.x + G.w} ${G.y + G.h / 2} H450 V${ys(i) + 18} H${R.x}` }, lines);
+    nodeEls.m.push(el('rect', { x: R.x, y: ys(i), width: R.w, height: 36, fill: '#faf7f0', stroke: '#3b2a1e', class: 'live' }, nodes)); el('text', { x: R.x + 8, y: ys(i) + 23, 'font-size': 11 }, nodes, t); });
+  const gwRect = el('rect', { x: G.x, y: G.y, width: G.w, height: G.h, fill: '#faf7f0', stroke: '#3b2a1e' }, gw);
+  el('text', { x: G.x + G.w / 2, y: G.y + 28, 'text-anchor': 'middle', 'font-family': 'Piazzolla, serif', 'font-size': 18, fill: '#3b2a1e', 'letter-spacing': '1.5' }, gw, 'PRSLOY');
+  el('text', { x: G.x + G.w / 2, y: G.y + 50, 'text-anchor': 'middle', 'font-family': 'IBM Plex Mono, monospace', 'font-size': 10, fill: '#7a6352' }, gw, 'списано, ₽');
+  // odometer: 5 digit cells
+  const odo = [], cellW = 18, ox = G.x + (G.w - 5 * cellW - 6) / 2, oy = G.y + 60;
+  let value = 3241; // 32,41 ₽ (пример, тестовый прогон)
+  const clip = el('clipPath', { id: 'odoClip' }, svg.querySelector('defs'));
+  for (let i = 0; i < 5; i++) {
+    const x = ox + i * cellW + (i >= 3 ? 6 : 0);
+    el('rect', { x, y: oy, width: cellW - 2, height: 30, fill: '#faf7f0', stroke: '#3b2a1e' }, gw);
+    el('rect', { x, y: oy, width: cellW - 2, height: 30 }, clip);
+    const g = el('g', { 'clip-path': 'url(#odoClip)' }, gw);
+    const col = el('g', {}, g);
+    for (let d = 0; d <= 10; d++) el('text', { x: x + (cellW - 2) / 2, y: oy + 22 + d * 30, 'text-anchor': 'middle', 'font-family': 'IBM Plex Mono, monospace', 'font-size': 18, fill: i >= 3 ? '#7a6352' : '#3b2a1e' }, col, String(d % 10));
+    odo.push(col);
+  }
+  el('text', { x: ox + 3 * cellW + 1, y: oy + 24, 'text-anchor': 'middle', 'font-family': 'IBM Plex Mono, monospace', 'font-size': 16, fill: '#3b2a1e' }, gw, ',');
+  const setOdo = (v, animate) => { const s = String(v).padStart(5, '0');
+    [...s].forEach((ch, i) => { const col = odo[i]; const y = -Number(ch) * 30;
+      if (animate) col.animate([{ transform: col.style.transform || 'translateY(0px)' }, { transform: `translateY(${y}px)` }], { duration: 360, delay: (4 - i) * 40, easing: 'cubic-bezier(.4,0,.2,1)', fill: 'forwards' });
+      col.style.transform = `translateY(${y}px)`; }); };
+  setOdo(value, false);
+  const pkt = document.getElementById('packet');
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const ptsTo = (i, j) => [[L.x + L.w, ys(i) + 18], [200, ys(i) + 18], [200, G.y + G.h / 2], [G.x, G.y + G.h / 2]];
+  const ptsFrom = j => [[G.x + G.w, G.y + G.h / 2], [450, G.y + G.h / 2], [450, ys(j) + 18], [R.x, ys(j) + 18]];
+  const move = (pts, dur) => pkt.animate(pts.map(([x, y]) => ({ transform: `translate(${x}px,${y}px)` })), { duration: dur, easing: 'cubic-bezier(.4,0,.2,1)', fill: 'forwards' }).finished;
+  const glow = (r, on) => r.animate([{ stroke: on ? '#3b2a1e' : '#a4472c' }, { stroke: on ? '#a4472c' : '#3b2a1e' }], { duration: 180, easing: 'cubic-bezier(.4,0,.2,1)', fill: 'forwards' });
+  nodeEls.m.forEach(r => r.animate([{ opacity: 1 }, { opacity: .55 }, { opacity: 1 }], { duration: 1800, iterations: reduce ? 1 : Infinity, easing: 'linear' }));
+  if (reduce) { pkt.setAttribute('transform', `translate(${R.x},${ys(0) + 18})`); nodeEls.m[0].setAttribute('stroke', '#a4472c'); return; }
+  let route = 0, running = true, visible = true;
+  document.addEventListener('visibilitychange', () => { running = !document.hidden; });
+  new IntersectionObserver(es => { visible = es[0].isIntersecting; }).observe(svg);
+  const wait = ms => new Promise(r => setTimeout(r, ms));
+  (async function loop() {
+    while (true) {
+      if (!running || !visible) { await wait(300); continue; }
+      const i = route % 4, j = route % 4; route++;
+      glow(nodeEls.p[i], true);
+      await move(ptsTo(i, j), 360);
+      glow(gwRect, true); await wait(180);
+      await move([[G.x, G.y + G.h / 2], [G.x + G.w, G.y + G.h / 2]].concat(ptsFrom(j)), 360);
+      glow(nodeEls.m[j], true);
+      await move(ptsFrom(j).reverse().concat([[G.x, G.y + G.h / 2]]), 360);
+      value += 4; setOdo(value, true); await wait(180);
+      await move(ptsTo(i, j).reverse(), 360);
+      glow(nodeEls.p[i], false); glow(gwRect, false); glow(nodeEls.m[j], false);
+      await wait(780);
+    }
+  })();
+})();
+</script>
+</body>
+</html>

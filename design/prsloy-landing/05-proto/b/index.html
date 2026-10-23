@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PRSLOY · прототип B «Прибор»</title>
+<style>
+@font-face{font-family:Piazzolla;src:url(../../fonts/Piazzolla-VF.ttf) format('truetype');font-weight:300 600;font-display:swap}
+@font-face{font-family:Geologica;src:url(../../fonts/Geologica-VF.ttf) format('truetype');font-weight:300 500;font-display:swap}
+@font-face{font-family:'IBM Plex Mono';src:url(../../fonts/IBMPlexMono-Regular.ttf) format('truetype');font-weight:400;font-display:swap}
+:root{--paper:#f3eee3;--card:#faf7f0;--ink:#3b2a1e;--mid:#7a6352;--lo:#b9a894;--line:#ddd2c1;--accent:#a4472c;--btn-press:#53412d;--ease:cubic-bezier(.4,0,.2,1)}
+*{box-sizing:border-box;margin:0;padding:0}
+html{background:var(--paper)}
+body{background:var(--paper);color:var(--ink);font-family:Geologica,system-ui,sans-serif;font-weight:350;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1180px;margin:0 auto;padding:0 20px}
+nav{display:flex;justify-content:space-between;align-items:center;padding:22px 0;border-bottom:1px solid var(--line)}
+.mark{font-family:Piazzolla,serif;font-size:22px;letter-spacing:.08em}
+.status{font-size:14px;color:var(--mid);display:flex;align-items:center;gap:8px}
+.status i{width:9px;height:9px;border-radius:50%;background:var(--ink);display:inline-block}
+.hero{display:grid;gap:24px;padding:36px 0 56px}
+h1{font-family:Piazzolla,serif;font-weight:350;font-size:clamp(34px,5.4vw,58px);line-height:1.05;max-width:18ch}
+.lead{font-size:18px;line-height:1.45;color:var(--mid);max-width:46ch}
+.btn{font:inherit;font-size:17px;padding:16px 26px;border:1px solid var(--ink);background:var(--ink);color:var(--card);text-decoration:none;min-height:52px;display:inline-flex;align-items:center;transition:background-color 180ms var(--ease);justify-self:start}
+.btn:hover,.btn:active{background:var(--btn-press)}
+.panel{position:relative;border:1px solid var(--ink);background:var(--card);display:grid;grid-template-columns:120px 1fr;gap:18px;padding:22px 20px 18px}
+.rv{position:absolute;width:10px;height:10px;border:1px solid var(--lo);border-radius:50%}
+.rv:after{content:'';position:absolute;left:1px;top:4px;width:6px;height:1px;background:var(--lo);transform:rotate(-45deg)}
+.rv.tl{left:8px;top:8px}.rv.tr{right:8px;top:8px}.rv.bl{left:8px;bottom:8px}.rv.br{right:8px;bottom:8px}
+.cap{grid-column:1/-1;font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--mid);letter-spacing:.04em}
+.tube{position:relative;height:300px;display:flex;gap:8px}
+.scale{display:flex;flex-direction:column;justify-content:space-between;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--mid);text-align:right;padding:2px 0}
+.glass{position:relative;width:48px;border:2px solid var(--ink);border-radius:0 0 14px 14px;overflow:hidden;background:var(--card)}
+.fill{position:absolute;left:0;right:0;bottom:0;height:100%;transform-origin:bottom;transform:scaleY(.47);background:repeating-linear-gradient(45deg,transparent 0 5px,var(--lo) 5px 6px);transition:transform 720ms var(--ease)}
+.right{display:grid;gap:14px;align-content:start}
+.odo{display:flex;align-items:baseline;gap:4px}
+.cell{width:40px;height:56px;border:1px solid var(--ink);overflow:hidden;position:relative;background:var(--card)}
+.cell .col{position:absolute;left:0;right:0;top:0;transition:transform 360ms var(--ease)}
+.cell .col span{display:block;height:56px;line-height:56px;text-align:center;font-family:'IBM Plex Mono',monospace;font-size:38px}
+.cell.tail .col span{color:var(--lo)}
+.comma{font-family:'IBM Plex Mono',monospace;font-size:30px}
+.rub{font-family:Piazzolla,serif;font-size:30px;color:var(--mid);margin-left:6px}
+.note{font-size:15px;color:var(--mid)}
+.limit{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--accent)}
+.journal{border-top:1px solid var(--line);height:180px;overflow:hidden;position:relative}
+.rows{transition:transform 360ms var(--ease)}
+.row{display:grid;grid-template-columns:1fr auto auto;gap:12px;height:36px;align-items:center;border-bottom:1px solid var(--line);font-family:'IBM Plex Mono',monospace;font-size:12px}
+.row b{font-weight:400;color:var(--ink)}.row s{text-decoration:none;color:var(--mid)}
+@media (min-width:980px){.hero{grid-template-columns:1fr 1.15fr;align-items:center}.text{display:grid;gap:22px}}
+@media (max-width:979px){.text{display:grid;gap:18px}.panel{grid-template-columns:84px 1fr}.cell{width:30px;height:44px}.cell .col span{height:44px;line-height:44px;font-size:28px}}
+@media (prefers-reduced-motion: reduce){.fill,.cell .col,.rows{transition:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav><div class="mark">PRSLOY</div><div class="status"><i></i>работает</div></nav>
+  <section class="hero">
+    <div class="text">
+      <h1>Один ключ к Claude, GPT и Gemini из России без VPN</h1>
+      <p class="lead">Каждое списание видно в рублях, у каждого ключа свой дневной лимит. Подключается к Cursor, Claude Code и Cline одной строкой адреса.</p>
+      <a class="btn" href="#key">Получить ключ</a>
+    </div>
+    <div class="panel" aria-label="Пример кабинета: баланс, лимит и журнал списаний">
+      <span class="rv tl"></span><span class="rv tr"></span><span class="rv bl"></span><span class="rv br"></span>
+      <div class="cap">[ ключ «работа» · Claude Code ]</div>
+      <div class="tube"><div class="scale"><span>50 ₽</span><span>25 ₽</span><span>0 ₽</span></div><div class="glass"><div class="fill" id="fill"></div></div></div>
+      <div class="right">
+        <div class="odo" id="odo"></div>
+        <div class="note">из 50 ₽ сегодня</div>
+        <div class="limit">◀ лимит ключа: 50 ₽ в день</div>
+        <div class="journal"><div class="rows" id="rows"></div></div>
+      </div>
+    </div>
+  </section>
+</div>
+<script>
+(() => {
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const odo = document.getElementById('odo');
+  const cells = [];
+  for (let i = 0; i < 5; i++) {
+    if (i === 3) { const c = document.createElement('span'); c.className = 'comma'; c.textContent = ','; odo.appendChild(c); }
+    const cell = document.createElement('div'); cell.className = 'cell' + (i === 4 ? ' tail' : '');
+    const col = document.createElement('div'); col.className = 'col';
+    for (let d = 0; d < 10; d++) { const s = document.createElement('span'); s.textContent = d; col.appendChild(s); }
+    cell.appendChild(col); odo.appendChild(cell); cells.push(col);
+  }
+  const rub = document.createElement('span'); rub.className = 'rub'; rub.textContent = '₽'; odo.appendChild(rub);
+  let kop = 3241; // 32,41 ₽, пример
+  const show = v => { const s = String(v).padStart(5, '0'); [...s].forEach((ch, i) => { const h = cells[i].firstChild.offsetHeight; cells[i].style.transitionDelay = ((4 - i) * 40) + 'ms'; cells[i].style.transform = `translateY(${-Number(ch) * h}px)`; }); };
+  show(kop);
+  const fill = document.getElementById('fill');
+  const setFill = () => { fill.style.transform = `scaleY(${Math.min(1, kop / 5000)})`; };
+  setFill();
+  const rows = document.getElementById('rows');
+  const models = [['Claude Opus 5.5', 12], ['GPT-6.1', 3], ['Gemini 4', 7], ['DeepSeek V4.1', 1], ['Claude Opus 5.5', 9], ['Kimi K3', 2]];
+  let n = 0, t = 14 * 60 + 2;
+  const addRow = () => { const [m, c] = models[n % models.length]; n++; t += 1;
+    const r = document.createElement('div'); r.className = 'row';
+    const hh = String(Math.floor(t / 60) % 24).padStart(2, '0'), mm = String(t % 60).padStart(2, '0');
+    r.innerHTML = `<b>${m}</b><s>${hh}:${mm}</s><span>−${(c / 100).toFixed(2).replace('.', ',')} ₽</span>`;
+    rows.prepend(r); return c; };
+  for (let i = 0; i < 5; i++) addRow();
+  if (reduce) return;
+  let running = true, visible = true;
+  document.addEventListener('visibilitychange', () => { running = !document.hidden; });
+  new IntersectionObserver(es => { visible = es[0].isIntersecting; }).observe(document.querySelector('.panel'));
+  setInterval(() => {
+    if (!running || !visible) return;
+    const c = addRow(); rows.style.transition = 'none'; rows.style.transform = 'translateY(-36px)';
+    requestAnimationFrame(() => { rows.style.transition = ''; rows.style.transform = 'translateY(0)'; });
+    while (rows.children.length > 8) rows.lastChild.remove();
+    kop = Math.min(5000, kop + c); show(kop); setFill();
+    if (kop >= 4900) kop = 3241;
+  }, 1800);
+})();
+</script>
+</body>
+</html>

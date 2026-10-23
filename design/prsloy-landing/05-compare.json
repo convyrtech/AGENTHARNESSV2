@@ -1,0 +1,23 @@
+{
+ "tool": "compare_sheet",
+ "mode": "screens",
+ "variants": [
+  {
+   "label": "A",
+   "target": "design/prsloy-landing/05-proto/a/index.html",
+   "path": "/home/user/agentharnessv2/design/prsloy-landing/05-proto/a/index.html",
+   "sha256": "7b5c925bd27568806d359bca201397413a2f7471551f944d543a407cecffc32a"
+  },
+  {
+   "label": "B",
+   "target": "design/prsloy-landing/05-proto/b/index.html",
+   "path": "/home/user/agentharnessv2/design/prsloy-landing/05-proto/b/index.html",
+   "sha256": "350bea00ffa060db321c7f4184798529ae864f5af5cd89b2eec99da222f641af"
+  }
+ ],
+ "size": [
+  2340,
+  948
+ ],
+ "generatedAt": "2026-10-23T10:37:21"
+}
