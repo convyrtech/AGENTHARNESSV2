@@ -1,0 +1,580 @@
+{
+ "d": {
+  "height": 9363,
+  "canvas": 2,
+  "svg": 23,
+  "video": 0,
+  "lenis": false,
+  "gsap": false,
+  "framer": false,
+  "anims": [
+   {
+    "name": "CSSTransition",
+    "dur": 300,
+    "easing": "cubic-bezier(0.4, 0, 0.2, 1)",
+    "iter": 1,
+    "target": "flex aspect-square cursor-default items-center justify-cente"
+   },
+   {
+    "name": "CSSTransition",
+    "dur": 300,
+    "easing": "cubic-bezier(0.4, 0, 0.2, 1)",
+    "iter": 1,
+    "target": "flex aspect-square cursor-default items-center justify-cente"
+   },
+   {
+    "name": "CSSTransition",
+    "dur": 300,
+    "easing": "cubic-bezier(0.4, 0, 0.2, 1)",
+    "iter": 1,
+    "target": "flex aspect-square cursor-default items-center justify-cente"
+   },
+   {
+    "name": "CSSTransition",
+    "dur": 300,
+    "easing": "cubic-bezier(0.4, 0, 0.2, 1)",
+    "iter": 1,
+    "target": "flex aspect-square cursor-default items-center justify-cente"
+   },
+   {
+    "name": "CSSTransition",
+    "dur": 300,
+    "easing": "cubic-bezier(0.4, 0, 0.2, 1)",
+    "iter": 1,
+    "target": "flex aspect-square cursor-default items-center justify-cente"
+   },
+   {
+    "name": "CSSTransition",
+    "dur": 300,
+    "easing": "cubic-bezier(0.4, 0, 0.2, 1)",
+    "iter": 1,
+    "target": "flex aspect-square cursor-default items-center justify-cente"
+   },
+   {
+    "name": "CSSTransition",
+    "dur": 300,
+    "easing": "cubic-bezier(0.4, 0, 0.2, 1)",
+    "iter": 1,
+    "target": "flex aspect-square cursor-default items-center justify-cente"
+   },
+   {
+    "name": "CSSTransition",
+    "dur": 300,
+    "easing": "cubic-bezier(0.4, 0, 0.2, 1)",
+    "iter": 1,
+    "target": "flex aspect-square cursor-default items-center justify-cente"
+   },
+   {
+    "name": "CSSTransition",
+    "dur": 300,
+    "easing": "cubic-bezier(0.4, 0, 0.2, 1)",
+    "iter": 1,
+    "target": "flex aspect-square cursor-default items-center justify-cente"
+   },
+   {
+    "name": "CSSTransition",
+    "dur": 300,
+    "easing": "cubic-bezier(0.4, 0, 0.2, 1)",
+    "iter": 1,
+    "target": "flex aspect-square cursor-default items-center justify-cente"
+   },
+   {
+    "name": "CSSTransition",
+    "dur": 300,
+    "easing": "cubic-bezier(0.4, 0, 0.2, 1)",
+    "iter": 1,
+    "target": "flex aspect-square cursor-default items-center justify-cente"
+   },
+   {
+    "name": "CSSTransition",
+    "dur": 550,
+    "easing": "ease",
+    "iter": 1,
+    "target": "cu-window shown"
+   },
+   {
+    "name": "CSSTransition",
+    "dur": 450,
+    "easing": "ease",
+    "iter": 1,
+    "target": "cu-window shown"
+   },
+   {
+    "name": "CSSTransition",
+    "dur": 450,
+    "easing": "ease",
+    "iter": 1,
+    "target": "cu-window shown"
+   },
+   {
+    "name": "pulse",
+    "dur": 1800,
+    "easing": "linear",
+    "iter": null,
+    "target": "flex aspect-square cursor-default items-center justify-cente"
+   },
+   {
+    "name": "scroll-left",
+    "dur": 38000,
+    "easing": "linear",
+    "iter": null,
+    "target": "logos-track"
+   },
+   {
+    "name": "tag-type",
+    "dur": 900,
+    "easing": "linear",
+    "iter": 1,
+    "target": "tag"
+   },
+   {
+    "name": "tag-online",
+    "dur": 1300,
+    "easing": "linear",
+    "iter": 1,
+    "target": "tag"
+   },
+   {
+    "name": "tag-type",
+    "dur": 900,
+    "easing": "linear",
+    "iter": 1,
+    "target": "tag"
+   },
+   {
+    "name": "tag-online",
+    "dur": 1300,
+    "easing": "linear",
+    "iter": 1,
+    "target": "tag"
+   },
+   {
+    "name": "tag-type",
+    "dur": 900,
+    "easing": "linear",
+    "iter": 1,
+    "target": "tag"
+   },
+   {
+    "name": "tag-online",
+    "dur": 1300,
+    "easing": "linear",
+    "iter": 1,
+    "target": "tag"
+   },
+   {
+    "name": "tag-type",
+    "dur": 900,
+    "easing": "linear",
+    "iter": 1,
+    "target": "tag"
+   },
+   {
+    "name": "tag-online",
+    "dur": 1300,
+    "easing": "linear",
+    "iter": 1,
+    "target": "tag"
+   },
+   {
+    "name": "tag-type",
+    "dur": 900,
+    "easing": "linear",
+    "iter": 1,
+    "target": "tag"
+   },
+   {
+    "name": "tag-online",
+    "dur": 1300,
+    "easing": "linear",
+    "iter": 1,
+    "target": "tag"
+   },
+   {
+    "name": "tag-type",
+    "dur": 900,
+    "easing": "linear",
+    "iter": 1,
+    "target": "tag"
+   },
+   {
+    "name": "tag-online",
+    "dur": 1300,
+    "easing": "linear",
+    "iter": 1,
+    "target": "tag"
+   },
+   {
+    "name": "pulse",
+    "dur": 2400,
+    "easing": "linear",
+    "iter": null,
+    "target": "size-1.5 flex-none rounded-full bg-(--ta) animate-pulse [ani"
+   },
+   {
+    "name": "pulse",
+    "dur": 2400,
+    "easing": "linear",
+    "iter": null,
+    "target": "size-1.5 flex-none rounded-full bg-(--ta) animate-pulse [ani"
+   },
+   {
+    "name": "pulse",
+    "dur": 2400,
+    "easing": "linear",
+    "iter": null,
+    "target": "size-1.5 flex-none rounded-full bg-(--ta) animate-pulse [ani"
+   },
+   {
+    "name": "factories-cu-dots",
+    "dur": 1100,
+    "easing": "linear",
+    "iter": null,
+    "target": ""
+   },
+   {
+    "name": "factories-cu-dots",
+    "dur": 1100,
+    "easing": "linear",
+    "iter": null,
+    "target": ""
+   },
+   {
+    "name": "factories-cu-dots",
+    "dur": 1100,
+    "easing": "linear",
+    "iter": null,
+    "target": ""
+   },
+   {
+    "name": "factories-cu-marquee",
+    "dur": 26000,
+    "easing": "linear",
+    "iter": null,
+    "target": "cu-marquee-track"
+   }
+  ],
+  "animCount": 35,
+  "h1": {
+   "font": "azeretSemiMono, \"azeretSemiMono Fallback\", \"Azeret SemiMono\", ui-monospace, mono",
+   "size": "54px",
+   "weight": "400",
+   "color": "rgb(26, 21, 34)",
+   "ls": "-2px"
+  },
+  "p": {
+   "font": "azeretSemiMono, \"azeretSemiMono Fallback\", \"Azeret SemiMono\", ui-monospace, mono",
+   "size": "16px",
+   "weight": "400",
+   "color": "rgba(26, 21, 34, 0.62)",
+   "ls": "normal"
+  },
+  "body": "rgba(0, 0, 0, 0)",
+  "fonts": [
+   "azeretSemiMono"
+  ],
+  "scripts": [
+   "https://www.warp.dev/_next/static/immutable/chunks/39m9bfmoogtjs.css",
+   "https://www.warp.dev/_next/static/immutable/chunks/0rzakylhr0_d7.css",
+   "https://www.warp.dev/_next/static/immutable/chunks/42f8o5iiepy73.css",
+   "https://www.warp.dev/_next/static/immutable/chunks/3f61um29d56n4.css",
+   "https://www.warp.dev/_next/static/immutable/chunks/1_t_nkacjz650.css",
+   "https://www.warp.dev/_next/static/immutable/chunks/3gzh4-xwuxvqd.css",
+   "https://www.warp.dev/_next/static/immutable/chunks/3d0--p4_b_iha.css",
+   "https://js.hs-scripts.com/41605963.js",
+   "https://tag.tvads.ai/tag/v1/tag.js",
+   "https://snap.licdn.com/li.lms-analytics/insight.min.js",
+   "https://assets.apollo.io/micro/website-tracker/tracker.iife.js?nocache=cfe5",
+   "https://connect.facebook.net/en_US/fbevents.js",
+   "https://cdn.rudderlabs.com/v3/legacy/rsa.min.js",
+   "https://pixel.byspotify.com/ping.min.js",
+   "https://cdn.sy-d.io/syftnext/syft.umd.js",
+   "https://www.googletagmanager.com/gtm.js?id=GTM-5M2NGC28",
+   "https://cdn.drda.io/scripts/analytics/next/dreamdata.cl.min.js",
+   "https://www.warp.dev/_next/static/immutable/chunks/16_qvicbxuplk.js",
+   "https://www.warp.dev/_next/static/immutable/chunks/1-siyjdkrp2y5.js",
+   "https://www.redditstatic.com/ads/pixel.js",
+   "https://cdn.dreamdata.cloud/scripts/analytics/next/dreamdata.min.js",
+   "https://www.warp.dev/_next/static/immutable/chunks/2nxa4c4s0hb12.js",
+   "https://www.warp.dev/_next/static/immutable/chunks/0b03ve--0no1c.js",
+   "https://www.warp.dev/_next/static/immutable/chunks/turbopack-2nrcodgnju4se.js",
+   "https://www.warp.dev/_next/static/immutable/chunks/1t_1bmox4lxwa.js",
+   "https://www.warp.dev/_next/static/immutable/chunks/3aw5dhxsjeetj.js",
+   "https://www.warp.dev/_next/static/immutable/chunks/1dxaccszx_jlw.js",
+   "https://dev.visualwebsiteoptimizer.com/cdn/edrv/worker-1812c0acae942a04cd4f8b40cf6cf31a.br.js",
+   "https://www.warp.dev/_next/static/immutable/chunks/295pc4awo1uel.js",
+   "https://dev.visualwebsiteoptimizer.com/cdn/edrv/va_gq-6581d5c0e6f8bd1fa564683a7853a317.br.js",
+   "https://www.warp.dev/_next/static/immutable/chunks/04tk4lrdulyrx.js",
+   "https://www.warp.dev/_next/static/immutable/chunks/2xipsz_2dr1rd.js",
+   "https://www.warp.dev/_next/static/immutable/chunks/27r3p1qmdiwrp.js",
+   "https://www.warp.dev/_next/static/immutable/chunks/37wcj6n98b3l0.js",
+   "https://js.hs-banner.com/v2/41605963/banner.js",
+   "https://js.hs-analytics.net/analytics/1792738200000/41605963.js",
+   "https://www.warp.dev/_next/static/immutable/chunks/2jkz5lj2g3ipk.js",
+   "https://js.hsadspixel.net/pixels.js",
+   "https://www.warp.dev/_next/static/immutable/chunks/0pvdtbvr44h6u.js",
+   "https://www.warp.dev/_next/static/immutable/chunks/2tgnxzeot4ai2.js"
+  ]
+ },
+ "m": {
+  "height": 14029,
+  "canvas": 2,
+  "svg": 23,
+  "video": 0,
+  "lenis": false,
+  "gsap": false,
+  "framer": false,
+  "anims": [
+   {
+    "name": "CSSTransition",
+    "dur": 400,
+    "easing": "ease",
+    "iter": 1,
+    "target": "cu-addr shown"
+   },
+   {
+    "name": "CSSTransition",
+    "dur": 450,
+    "easing": "ease",
+    "iter": 1,
+    "target": "cu-page shown"
+   },
+   {
+    "name": "pulse",
+    "dur": 1800,
+    "easing": "linear",
+    "iter": null,
+    "target": "flex aspect-square cursor-default items-center justify-cente"
+   },
+   {
+    "name": "pulse",
+    "dur": 1800,
+    "easing": "linear",
+    "iter": null,
+    "target": "flex aspect-square cursor-default items-center justify-cente"
+   },
+   {
+    "name": "pulse",
+    "dur": 1800,
+    "easing": "linear",
+    "iter": null,
+    "target": "flex aspect-square cursor-default items-center justify-cente"
+   },
+   {
+    "name": "pulse",
+    "dur": 1800,
+    "easing": "linear",
+    "iter": null,
+    "target": "flex aspect-square cursor-default items-center justify-cente"
+   },
+   {
+    "name": "pulse",
+    "dur": 1800,
+    "easing": "linear",
+    "iter": null,
+    "target": "flex aspect-square cursor-default items-center justify-cente"
+   },
+   {
+    "name": "scroll-left",
+    "dur": 38000,
+    "easing": "linear",
+    "iter": null,
+    "target": "logos-track"
+   },
+   {
+    "name": "tag-type",
+    "dur": 900,
+    "easing": "linear",
+    "iter": 1,
+    "target": "tag"
+   },
+   {
+    "name": "tag-online",
+    "dur": 1300,
+    "easing": "linear",
+    "iter": 1,
+    "target": "tag"
+   },
+   {
+    "name": "tag-type",
+    "dur": 900,
+    "easing": "linear",
+    "iter": 1,
+    "target": "tag"
+   },
+   {
+    "name": "tag-online",
+    "dur": 1300,
+    "easing": "linear",
+    "iter": 1,
+    "target": "tag"
+   },
+   {
+    "name": "tag-type",
+    "dur": 900,
+    "easing": "linear",
+    "iter": 1,
+    "target": "tag"
+   },
+   {
+    "name": "tag-online",
+    "dur": 1300,
+    "easing": "linear",
+    "iter": 1,
+    "target": "tag"
+   },
+   {
+    "name": "tag-type",
+    "dur": 900,
+    "easing": "linear",
+    "iter": 1,
+    "target": "tag"
+   },
+   {
+    "name": "tag-online",
+    "dur": 1300,
+    "easing": "linear",
+    "iter": 1,
+    "target": "tag"
+   },
+   {
+    "name": "tag-type",
+    "dur": 900,
+    "easing": "linear",
+    "iter": 1,
+    "target": "tag"
+   },
+   {
+    "name": "tag-online",
+    "dur": 1300,
+    "easing": "linear",
+    "iter": 1,
+    "target": "tag"
+   },
+   {
+    "name": "tag-type",
+    "dur": 900,
+    "easing": "linear",
+    "iter": 1,
+    "target": "tag"
+   },
+   {
+    "name": "tag-online",
+    "dur": 1300,
+    "easing": "linear",
+    "iter": 1,
+    "target": "tag"
+   },
+   {
+    "name": "pulse",
+    "dur": 2400,
+    "easing": "linear",
+    "iter": null,
+    "target": "size-1.5 flex-none rounded-full bg-(--ta) animate-pulse [ani"
+   },
+   {
+    "name": "pulse",
+    "dur": 2400,
+    "easing": "linear",
+    "iter": null,
+    "target": "size-1.5 flex-none rounded-full bg-(--ta) animate-pulse [ani"
+   },
+   {
+    "name": "pulse",
+    "dur": 2400,
+    "easing": "linear",
+    "iter": null,
+    "target": "size-1.5 flex-none rounded-full bg-(--ta) animate-pulse [ani"
+   },
+   {
+    "name": "factories-cu-dots",
+    "dur": 1100,
+    "easing": "linear",
+    "iter": null,
+    "target": ""
+   },
+   {
+    "name": "factories-cu-dots",
+    "dur": 1100,
+    "easing": "linear",
+    "iter": null,
+    "target": ""
+   },
+   {
+    "name": "factories-cu-dots",
+    "dur": 1100,
+    "easing": "linear",
+    "iter": null,
+    "target": ""
+   },
+   {
+    "name": "factories-cu-marquee",
+    "dur": 26000,
+    "easing": "linear",
+    "iter": null,
+    "target": "cu-marquee-track"
+   }
+  ],
+  "animCount": 27,
+  "h1": {
+   "font": "azeretSemiMono, \"azeretSemiMono Fallback\", \"Azeret SemiMono\", ui-monospace, mono",
+   "size": "32px",
+   "weight": "400",
+   "color": "rgb(26, 21, 34)",
+   "ls": "-2px"
+  },
+  "p": {
+   "font": "azeretSemiMono, \"azeretSemiMono Fallback\", \"Azeret SemiMono\", ui-monospace, mono",
+   "size": "16px",
+   "weight": "400",
+   "color": "rgba(26, 21, 34, 0.62)",
+   "ls": "normal"
+  },
+  "body": "rgba(0, 0, 0, 0)",
+  "fonts": [
+   "azeretSemiMono"
+  ],
+  "scripts": [
+   "https://www.warp.dev/_next/static/immutable/chunks/3f61um29d56n4.css",
+   "https://www.warp.dev/_next/static/immutable/chunks/0rzakylhr0_d7.css",
+   "https://www.warp.dev/_next/static/immutable/chunks/1_t_nkacjz650.css",
+   "https://www.warp.dev/_next/static/immutable/chunks/39m9bfmoogtjs.css",
+   "https://www.warp.dev/_next/static/immutable/chunks/42f8o5iiepy73.css",
+   "https://www.warp.dev/_next/static/immutable/chunks/3gzh4-xwuxvqd.css",
+   "https://www.warp.dev/_next/static/immutable/chunks/3d0--p4_b_iha.css",
+   "https://js.hs-scripts.com/41605963.js",
+   "https://tag.tvads.ai/tag/v1/tag.js",
+   "https://cdn.rudderlabs.com/v3/legacy/rsa.min.js",
+   "https://assets.apollo.io/micro/website-tracker/tracker.iife.js?nocache=kneden",
+   "https://www.redditstatic.com/ads/pixel.js",
+   "https://dev.visualwebsiteoptimizer.com/cdn/edrv/worker-1812c0acae942a04cd4f8b40cf6cf31a.br.js",
+   "https://dev.visualwebsiteoptimizer.com/cdn/edrv/va_gq-6581d5c0e6f8bd1fa564683a7853a317.br.js",
+   "https://www.googletagmanager.com/gtm.js?id=GTM-5M2NGC28",
+   "https://connect.facebook.net/en_US/fbevents.js",
+   "https://pixel.byspotify.com/ping.min.js",
+   "https://www.warp.dev/_next/static/immutable/chunks/2nxa4c4s0hb12.js",
+   "https://cdn.sy-d.io/syftnext/syft.umd.js",
+   "https://snap.licdn.com/li.lms-analytics/insight.min.js",
+   "https://www.warp.dev/_next/static/immutable/chunks/16_qvicbxuplk.js",
+   "https://www.warp.dev/_next/static/immutable/chunks/1-siyjdkrp2y5.js",
+   "https://www.warp.dev/_next/static/immutable/chunks/3aw5dhxsjeetj.js",
+   "https://cdn.drda.io/scripts/analytics/next/dreamdata.cl.min.js",
+   "https://www.warp.dev/_next/static/immutable/chunks/1t_1bmox4lxwa.js",
+   "https://www.warp.dev/_next/static/immutable/chunks/turbopack-2nrcodgnju4se.js",
+   "https://dev.visualwebsiteoptimizer.com/cdn/edrv/nc-dd9e0c7dab1bf38311adad8bb210147f.br.js",
+   "https://www.warp.dev/_next/static/immutable/chunks/1dxaccszx_jlw.js",
+   "https://www.warp.dev/_next/static/immutable/chunks/295pc4awo1uel.js",
+   "https://www.warp.dev/_next/static/immutable/chunks/0b03ve--0no1c.js",
+   "https://www.warp.dev/_next/static/immutable/chunks/27r3p1qmdiwrp.js",
+   "https://cdn.dreamdata.cloud/scripts/analytics/next/dreamdata.min.js",
+   "https://js.hs-banner.com/v2/41605963/banner.js",
+   "https://js.hs-analytics.net/analytics/1792738200000/41605963.js",
+   "https://www.warp.dev/_next/static/immutable/chunks/2xipsz_2dr1rd.js",
+   "https://js.hsadspixel.net/pixels.js",
+   "https://www.warp.dev/_next/static/immutable/chunks/04tk4lrdulyrx.js",
+   "https://www.warp.dev/_next/static/immutable/chunks/37wcj6n98b3l0.js",
+   "https://www.warp.dev/_next/static/immutable/chunks/0vcc0s_lp4e8l.js",
+   "https://www.warp.dev/_next/static/immutable/chunks/2jkz5lj2g3ipk.js"
+  ]
+ }
+}
