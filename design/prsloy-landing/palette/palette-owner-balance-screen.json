@@ -1,0 +1,137 @@
+{
+ "image": "brand-src/owner-balance-screen.jpg",
+ "size": [
+  780,
+  1688
+ ],
+ "k": 10,
+ "keep_closest": 0.4,
+ "edge_pixels_excluded_pct": 7.0,
+ "colors": [
+  {
+   "hex": "#faf7f0",
+   "rgb": [
+    250,
+    247,
+    240
+   ],
+   "lab": [
+    97.28,
+    -0.21,
+    3.71
+   ],
+   "share": 0.9356,
+   "clean_pixels": 100670,
+   "cluster_mean_hex": "#faf7f0"
+  },
+  {
+   "hex": "#73665d",
+   "rgb": [
+    115,
+    102,
+    93
+   ],
+   "lab": [
+    44.14,
+    3.54,
+    6.97
+   ],
+   "share": 0.0553,
+   "clean_pixels": 7343,
+   "cluster_mean_hex": "#73665d"
+  },
+  {
+   "hex": "#372d23",
+   "rgb": [
+    55,
+    45,
+    35
+   ],
+   "lab": [
+    19.27,
+    2.72,
+    8.18
+   ],
+   "share": 0.0065,
+   "clean_pixels": 451,
+   "cluster_mean_hex": "#382d22"
+  },
+  {
+   "hex": "#bfb8b0",
+   "rgb": [
+    191,
+    184,
+    176
+   ],
+   "lab": [
+    75.13,
+    1.05,
+    4.94
+   ],
+   "share": 0.0026,
+   "clean_pixels": 236,
+   "cluster_mean_hex": "#bfb8b1"
+  }
+ ],
+ "dropped_small": [
+  {
+   "hex": "#a24630",
+   "rgb": [
+    162,
+    70,
+    48
+   ],
+   "lab": [
+    41.57,
+    36.43,
+    31.51
+   ],
+   "share": 0.0,
+   "clean_pixels": 2,
+   "cluster_mean_hex": "#9f452e"
+  }
+ ],
+ "naive_mean": [
+  {
+   "hex": "#faf7f0",
+   "share": 0.6655
+  },
+  {
+   "hex": "#f2eee3",
+   "share": 0.2402
+  },
+  {
+   "hex": "#72665d",
+   "share": 0.0574
+  },
+  {
+   "hex": "#362d24",
+   "share": 0.0214
+  },
+  {
+   "hex": "#b9b3aa",
+   "share": 0.0067
+  },
+  {
+   "hex": "#d3ccc4",
+   "share": 0.0043
+  },
+  {
+   "hex": "#8e867d",
+   "share": 0.0021
+  },
+  {
+   "hex": "#2f271d",
+   "share": 0.0016
+  },
+  {
+   "hex": "#8f584b",
+   "share": 0.0004
+  },
+  {
+   "hex": "#dbb5a9",
+   "share": 0.0003
+  }
+ ],
+ "swatch": "palette/swatch-owner-balance-screen.png"
+}

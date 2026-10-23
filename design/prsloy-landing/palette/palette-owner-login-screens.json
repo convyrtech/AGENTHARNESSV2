@@ -1,0 +1,136 @@
+{
+ "image": "brand-src/owner-login-screens.jpg",
+ "size": [
+  1800,
+  1329
+ ],
+ "k": 10,
+ "keep_closest": 0.4,
+ "edge_pixels_excluded_pct": 7.9,
+ "colors": [
+  {
+   "hex": "#f1ede2",
+   "rgb": [
+    241,
+    237,
+    226
+   ],
+   "lab": [
+    93.78,
+    -0.54,
+    5.8
+   ],
+   "share": 0.9085,
+   "clean_pixels": 43611,
+   "cluster_mean_hex": "#f1ede2"
+  },
+  {
+   "hex": "#e2d6c0",
+   "rgb": [
+    226,
+    214,
+    192
+   ],
+   "lab": [
+    86.04,
+    0.51,
+    12.35
+   ],
+   "share": 0.0307,
+   "clean_pixels": 2203,
+   "cluster_mean_hex": "#dfd3be"
+  },
+  {
+   "hex": "#53412d",
+   "rgb": [
+    83,
+    65,
+    45
+   ],
+   "lab": [
+    28.93,
+    4.68,
+    15.16
+   ],
+   "share": 0.0241,
+   "clean_pixels": 2136,
+   "cluster_mean_hex": "#55422e"
+  },
+  {
+   "hex": "#3f2c1d",
+   "rgb": [
+    63,
+    44,
+    29
+   ],
+   "lab": [
+    19.83,
+    6.54,
+    13.16
+   ],
+   "share": 0.0198,
+   "clean_pixels": 1805,
+   "cluster_mean_hex": "#3f2d1e"
+  },
+  {
+   "hex": "#ffffff",
+   "rgb": [
+    255,
+    255,
+    255
+   ],
+   "lab": [
+    100.0,
+    -0.0,
+    0.0
+   ],
+   "share": 0.017,
+   "clean_pixels": 2150,
+   "cluster_mean_hex": "#fffffe"
+  }
+ ],
+ "dropped_small": [],
+ "naive_mean": [
+  {
+   "hex": "#f2eee3",
+   "share": 0.4424
+  },
+  {
+   "hex": "#f2ecdd",
+   "share": 0.4153
+  },
+  {
+   "hex": "#dfd4c1",
+   "share": 0.0462
+  },
+  {
+   "hex": "#53422e",
+   "share": 0.0276
+  },
+  {
+   "hex": "#3e2d1e",
+   "share": 0.0233
+  },
+  {
+   "hex": "#fffffe",
+   "share": 0.0158
+  },
+  {
+   "hex": "#bdb3a3",
+   "share": 0.0092
+  },
+  {
+   "hex": "#9c9282",
+   "share": 0.0073
+  },
+  {
+   "hex": "#7e7060",
+   "share": 0.0066
+  },
+  {
+   "hex": "#605647",
+   "share": 0.0064
+  }
+ ],
+ "swatch": "palette/swatch-owner-login-screens.png"
+}

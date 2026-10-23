@@ -1,0 +1,121 @@
+{
+ "image": "brand-src/prsloy-b4.png",
+ "size": [
+  1350,
+  807
+ ],
+ "k": 10,
+ "keep_closest": 0.4,
+ "edge_pixels_excluded_pct": 10.2,
+ "colors": [
+  {
+   "hex": "#f3eee3",
+   "rgb": [
+    243,
+    238,
+    227
+   ],
+   "lab": [
+    94.21,
+    -0.2,
+    5.91
+   ],
+   "share": 0.9646,
+   "clean_pixels": 106739,
+   "cluster_mean_hex": "#f3eee3"
+  },
+  {
+   "hex": "#3b2a1e",
+   "rgb": [
+    59,
+    42,
+    30
+   ],
+   "lab": [
+    18.71,
+    6.0,
+    10.92
+   ],
+   "share": 0.0304,
+   "clean_pixels": 4948,
+   "cluster_mean_hex": "#3b2a1e"
+  },
+  {
+   "hex": "#e2d8c8",
+   "rgb": [
+    226,
+    216,
+    200
+   ],
+   "lab": [
+    86.73,
+    0.74,
+    9.11
+   ],
+   "share": 0.0051,
+   "clean_pixels": 760,
+   "cluster_mean_hex": "#e2d8c8"
+  }
+ ],
+ "dropped_small": [
+  {
+   "hex": "#a4472c",
+   "rgb": [
+    164,
+    71,
+    44
+   ],
+   "lab": [
+    42.13,
+    36.68,
+    34.51
+   ],
+   "share": 0.0,
+   "clean_pixels": 1,
+   "cluster_mean_hex": "#a4472c"
+  }
+ ],
+ "naive_mean": [
+  {
+   "hex": "#f3eee3",
+   "share": 0.6321
+  },
+  {
+   "hex": "#faf7f0",
+   "share": 0.3019
+  },
+  {
+   "hex": "#3b2a1e",
+   "share": 0.0446
+  },
+  {
+   "hex": "#c1b4a7",
+   "share": 0.0074
+  },
+  {
+   "hex": "#8e7770",
+   "share": 0.0034
+  },
+  {
+   "hex": "#a0b9d3",
+   "share": 0.0025
+  },
+  {
+   "hex": "#daa56c",
+   "share": 0.0024
+  },
+  {
+   "hex": "#f0dfad",
+   "share": 0.0023
+  },
+  {
+   "hex": "#686d94",
+   "share": 0.002
+  },
+  {
+   "hex": "#9a5a3c",
+   "share": 0.0013
+  }
+ ],
+ "swatch": "palette/swatch-prsloy-b4.png"
+}

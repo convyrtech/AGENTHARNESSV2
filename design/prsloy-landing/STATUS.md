@@ -6,8 +6,8 @@
 
 - Владелец: владелец PRSLOY (собеседник в этой переписке)
 - Текст владельца: нет
-- Бренд: design/prsloy-landing/brand-src/prsloy-b4.png, design/prsloy-landing/brand-src/cabinet-b4.html
-- Материалы владельца: ждём
+- Бренд: design/prsloy-landing/brand-src/prsloy-b4.png, design/prsloy-landing/brand-src/cabinet-b4.html, design/prsloy-landing/brand-src/owner-login-screens.jpg, design/prsloy-landing/brand-src/owner-balance-screen.jpg
+- Материалы владельца: есть
 - Решения: design/DECISIONS.md
 - Эталон: https://www.warp.dev
 - Экранов: нет
@@ -39,7 +39,7 @@
 ВЫБОР 1: B · «б» · 2026-10-23
 
 ## Словарь (договорились с владельцем)
-- «сайт» = <адрес, где живёт новая версия>
+- «сайт» = prsloy.online (логотипа нет, знак — слово PRSLOY шрифтом с засечками)
 - «выложить» = <куда именно>
 
 ## Правки владельца (дословно)
