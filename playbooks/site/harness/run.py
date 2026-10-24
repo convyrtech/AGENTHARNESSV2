@@ -155,12 +155,15 @@ def run_judge(ws):
     return r.returncode, r.stdout.strip()
 
 
-def second_opinion(ws, text, model):
+def second_opinion(ws, text, model, gate=""):
     fam = family(model)
     checker = next((m for m in CFG["ladder"] if family(m) != fam), CFG["ladder"][0]).split("/", 1)[1]
     mf = ws.h / f"msg-{ws.state['outbox'] + 1:02d}.txt"
     mf.write_text(text, encoding="utf-8")
-    r = subprocess.run([PY, "-I", str(ws.h / "second_opinion.py"), str(ws.root), str(mf), "--model", checker],
+    sent = [o for o in owner_messages(ws, limit=50)]
+    known = "\n".join(f"- «{o.get('text')}»" + (f" + файлы: {', '.join(o['files'])}" if o.get("files") else "") for o in sent)
+    r = subprocess.run([PY, "-I", str(ws.h / "second_opinion.py"), str(ws.root), str(mf), "--model", checker,
+                        "--gate", gate, "--known", known[-3000:]],
                        capture_output=True, text=True, encoding="utf-8")
     try:
         op = json.loads(r.stdout)
@@ -370,7 +373,7 @@ def say(a):
                 continue
             fails = 0
             while True:
-                op = second_opinion(ws, text, model)
+                op = second_opinion(ws, text, model, gate)
                 if not op or op.get("verdict") != "FAIL" or fails >= CFG["checker_retries"]:
                     break
                 fails += 1
