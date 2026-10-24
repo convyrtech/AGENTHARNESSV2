@@ -159,14 +159,17 @@ class H(http.server.BaseHTTPRequestHandler):
                         break
                     if isinstance(item, Exception):
                         att["err"] = repr(item)[:160]; break
-                    last = time.time()
                     lines.append(item)
                     s = item.decode("utf-8", "replace").strip()
                     if not s.startswith("data:"):
+                        # поставщик после конца ответа шлёт пустые строки и «: keep-alive» минутами (E9: +75 с на вызов)
+                        if finished and time.time() - last > 2:
+                            break
                         continue
+                    last = time.time()
                     d = s[5:].strip()
                     if d == "[DONE]":
-                        done = True; break
+                        done = True; att["done_s"] = round(time.time() - t0, 2); break
                     if looks_like_error(d):
                         att["err"] = d[:300]; break
                     try:
@@ -175,13 +178,16 @@ class H(http.server.BaseHTTPRequestHandler):
                         att["err"] = "bad json chunk"; break
                     if j.get("usage"):
                         self._usage(rec, j["usage"])
+                        if finished and not j.get("choices"):    # итог по токенам приходит последним
+                            break
                     for ch in j.get("choices") or []:
                         dl = ch.get("delta") or {}
                         if not useful and (dl.get("content") or dl.get("tool_calls") or dl.get("reasoning_content") or dl.get("reasoning")):
                             useful = True
                             att["ttft_s"] = rec["ttft_s"] = round(time.time() - t0, 2)
-                        if ch.get("finish_reason"):
+                        if ch.get("finish_reason") and not finished:
                             finished = True
+                            att["fin_s"] = round(time.time() - t0, 2)
                 try:
                     c.close()
                 except Exception:
