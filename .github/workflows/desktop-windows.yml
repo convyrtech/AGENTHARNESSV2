@@ -5,7 +5,7 @@ name: desktop-windows
 
 on:
   push:
-    branches: [main]
+    branches: [main, desktop/ci]
     paths: ["app/**", ".github/workflows/desktop-windows.yml"]
     tags: ["desktop-v*"]
   workflow_dispatch:
