@@ -44,7 +44,7 @@ import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { basename, isAbsolute, join, win32 } from "node:path";
+import { basename, dirname, isAbsolute, join, resolve, sep, win32 } from "node:path";
 import {
   createPortableExtensionUiBridge,
   type ExtensionUiRequestEvent,
@@ -244,6 +244,18 @@ export interface CreateZenoRuntimeOptions {
   sessionDir?: string;
   projectTrusted?: boolean;
   onExtensionUiRequest?: (request: ExtensionUiRequestEvent) => void;
+  /**
+   * Provider API keys applied as pi runtime keys on every session (never written to
+   * auth.json / models.json). PRSLOY desktop keeps its gateway key encrypted on disk.
+   */
+  runtimeApiKeys?: Record<string, string>;
+  /** Extra extension sources loaded for every session (e.g. the prsloy-harness package). */
+  extensionPaths?: string[];
+  /**
+   * When true, project AGENTS.md / CLAUDE.md (outside agentDir) load only after the
+   * folder is trusted, and such files make trust "required" so the UI asks once.
+   */
+  contextFilesRequireTrust?: boolean;
 }
 
 export interface ZenoRuntimeHandle {
@@ -362,8 +374,55 @@ export interface PixProjectTrust {
 
 export type SnapshotDiagnostic = HostSnapshot["diagnostics"][number];
 
+/** Pi context file names (resource-loader `loadContextFileFromDir`). */
+const PROJECT_CONTEXT_FILE_NAMES = ["AGENTS.md", "AGENTS.MD", "CLAUDE.md", "CLAUDE.MD"];
+
+let contextFilesRequireTrustPolicy = false;
+
+/** Process-wide: gate project context files behind folder trust (set by createPixRuntime). */
+export function setContextFilesRequireTrust(enabled: boolean): void {
+  contextFilesRequireTrustPolicy = enabled;
+}
+
+function normalizeForCompare(path: string): string {
+  const resolved = resolve(path);
+  return process.platform === "win32" ? resolved.toLowerCase() : resolved;
+}
+
+/** True when `path` is `dir` or inside it. */
+function isPathInside(path: string, dir: string): boolean {
+  const a = normalizeForCompare(path);
+  const b = normalizeForCompare(dir);
+  return a === b || a.startsWith(b.endsWith(sep) ? b : `${b}${sep}`);
+}
+
+/** Whether cwd or an ancestor carries an AGENTS.md / CLAUDE.md that pi would load. */
+export function hasProjectContextFiles(cwd: string, agentDir: string): boolean {
+  let current = resolve(cwd);
+  while (true) {
+    if (!isPathInside(current, agentDir)) {
+      for (const name of PROJECT_CONTEXT_FILE_NAMES) {
+        if (existsSync(join(current, name))) return true;
+      }
+    }
+    const parent = dirname(current);
+    if (parent === current) return false;
+    current = parent;
+  }
+}
+
+/** Drop context files that live outside agentDir (project / ancestor files). */
+export function filterUntrustedContextFiles<T extends { path: string }>(
+  files: T[],
+  agentDir: string,
+): T[] {
+  return files.filter((file) => isPathInside(file.path, agentDir));
+}
+
 export function resolvePixProjectTrust(cwd: string, agentDir = getAgentDir()): PixProjectTrust {
-  const required = hasTrustRequiringProjectResources(cwd);
+  const required =
+    hasTrustRequiringProjectResources(cwd) ||
+    (contextFilesRequireTrustPolicy && hasProjectContextFiles(cwd, agentDir));
   const savedDecision = new ProjectTrustStore(agentDir).get(cwd);
   const globalSettings = SettingsManager.create(cwd, agentDir, { projectTrusted: false });
   const fallback = globalSettings.getDefaultProjectTrust();
@@ -1490,12 +1549,16 @@ export async function createPixRuntime(
   options: CreateZenoRuntimeOptions,
 ): Promise<ZenoRuntimeHandle> {
   const agentDir = options.agentDir ?? getAgentDir();
+  if (options.contextFilesRequireTrust !== undefined) {
+    setContextFilesRequireTrust(options.contextFilesRequireTrust);
+  }
   const projectTrusted =
     options.projectTrusted ?? resolvePixProjectTrust(options.cwd, agentDir).trusted;
   const runtimeId = randomUUID();
   const extensionErrors: ExtensionError[] = [];
   const configDiagnostics: SnapshotDiagnostic[] = [];
-  const temporaryExtensionPaths: string[] = [];
+  // Shared by reference with the resource loader: temporary installs push into it later.
+  const temporaryExtensionPaths: string[] = [...(options.extensionPaths ?? [])];
   const extensionUi = createPortableExtensionUiBridge({
     runtimeId,
     onRequest: (request) => {
@@ -1531,8 +1594,22 @@ export async function createPixRuntime(
       cwd,
       agentDir,
       settingsManager,
-      resourceLoaderOptions: { additionalExtensionPaths: temporaryExtensionPaths },
+      resourceLoaderOptions: {
+        additionalExtensionPaths: temporaryExtensionPaths,
+        ...(options.contextFilesRequireTrust
+          ? {
+              // Read trust at load time: setTrust() flips the same SettingsManager, then reloads.
+              agentsFilesOverride: (base: { agentsFiles: { path: string; content: string }[] }) =>
+                settingsManager.isProjectTrusted()
+                  ? base
+                  : { agentsFiles: filterUntrustedContextFiles(base.agentsFiles, agentDir) },
+            }
+          : {}),
+      },
     });
+    for (const [provider, key] of Object.entries(options.runtimeApiKeys ?? {})) {
+      if (key) await services.modelRuntime.setRuntimeApiKey(provider, key);
+    }
     // Keep only the latest service-layer config diagnostics for this session instance.
     configDiagnostics.length = 0;
     configDiagnostics.push(...collectConfigDiagnostics(services));

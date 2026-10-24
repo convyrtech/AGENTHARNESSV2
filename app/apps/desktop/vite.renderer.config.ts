@@ -58,6 +58,7 @@ export default defineConfig({
       "**/*.test.tsx",
       "../agent-host/**/*.test.ts",
       "../main/**/*.test.ts",
+      "../shared/**/*.test.ts",
     ],
     exclude: ["**/e2e/**", "**/node_modules/**"],
   },
