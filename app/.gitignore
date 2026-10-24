@@ -38,6 +38,7 @@ session-*.jsonl
 
 # Local planning docs (not part of the published tree); llm-wiki product rules are shared.
 docs/*
+!docs/prsloy/
 !docs/llm-wiki/
 
 # Local agent knowledge (not part of the published tree)
