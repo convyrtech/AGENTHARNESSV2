@@ -20,7 +20,7 @@ import type {
 } from "@zeno/contracts";
 import { validateThemeCustomCss } from "../shared/theme-css.ts";
 
-export const BUILTIN_THEME_SKIN_IDS = ["miku-stage", "zhang-ruonan"] as const;
+export const BUILTIN_THEME_SKIN_IDS: readonly string[] = [];
 /** Selects the original shell without loading a skin configuration. */
 export const DEFAULT_THEME_SELECTION_ID = "default";
 

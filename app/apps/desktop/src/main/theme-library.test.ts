@@ -40,8 +40,8 @@ describe("ThemeLibrary", () => {
     const library = new ThemeLibrary(root);
 
     expect(library.list()).toMatchObject({ activeId: "default", skins: [] });
-    expect(BUILTIN_THEME_SKIN_IDS).toEqual(["miku-stage", "zhang-ruonan"]);
-    expect(library.activate("miku-stage").activeId).toBe("miku-stage");
+    expect(BUILTIN_THEME_SKIN_IDS).toEqual([]);
+    expect(() => library.activate("miku-stage")).toThrow("Unknown theme skin");
     expect(library.activate("default").activeId).toBe("default");
     expect(new ThemeLibrary(root).list().activeId).toBe("default");
   });
@@ -60,12 +60,13 @@ describe("ThemeLibrary", () => {
     );
 
     const library = new ThemeLibrary(root);
-    library.activate("zhang-ruonan");
+    const custom = library.save({ config: { schemaVersion: 1, name: "Mine" } }).skins[0]!;
+    library.activate(custom.id);
     const snapshot = library.importDirectory(packageDir);
 
-    expect(snapshot.activeId).toBe("zhang-ruonan");
-    expect(snapshot.skins).toHaveLength(1);
-    expect(snapshot.skins[0]?.config.name).toBe("Imported tide");
+    expect(snapshot.activeId).toBe(custom.id);
+    expect(snapshot.skins).toHaveLength(2);
+    expect(snapshot.skins.map((skin) => skin.config.name)).toContain("Imported tide");
   });
 
   it("uses the renderer's safe CSS contract for stored configuration", () => {
@@ -159,45 +160,11 @@ describe("ThemeLibrary", () => {
     expect(afterRemoval.skins).toHaveLength(0);
   });
 
-  it("edits a built-in theme in place under the same id", () => {
-    const root = temporaryRoot("zeno-theme-library-");
-    const library = new ThemeLibrary(root);
-
-    const snapshot = library.save({
-      id: "miku-stage",
-      config: {
-        schemaVersion: 1,
-        id: "miku-stage",
-        name: "初音未来 · 我的舞台",
-        light: { colors: { accent: "#00aabb" } },
-      },
-      backgroundBuiltinId: "miku-stage",
-    });
-
-    const edited = snapshot.skins[0]!;
-    expect(edited.id).toBe("miku-stage");
-    expect(edited.backgroundBuiltinId).toBe("miku-stage");
-    expect(edited.backgroundUrl).toBeUndefined();
-    expect(edited.config.name).toBe("初音未来 · 我的舞台");
-    expect(edited.config.light?.colors?.accent).toBe("#00aabb");
-    expect(snapshot.activeId).toBe("miku-stage");
-    expect(snapshot.skins).toHaveLength(1);
-
-    const again = library.save({
-      id: "miku-stage",
-      config: {
-        schemaVersion: 1,
-        id: "miku-stage",
-        name: "初音未来 · 二次修改",
-      },
-    });
-    expect(again.skins).toHaveLength(1);
-    expect(again.skins[0]?.id).toBe("miku-stage");
-    expect(again.skins[0]?.config.name).toBe("初音未来 · 二次修改");
-
-    const restored = library.remove("miku-stage");
-    expect(restored.skins).toHaveLength(0);
-    expect(restored.activeId).toBe("miku-stage");
+  it("refuses to save under a removed built-in id", () => {
+    const library = new ThemeLibrary(temporaryRoot("zeno-theme-library-"));
+    expect(() =>
+      library.save({ id: "miku-stage", config: { schemaVersion: 1, name: "Old preset" } }),
+    ).toThrow("Unknown theme skin");
   });
 
   it("still creates uuid skins when no id is provided", () => {
@@ -208,11 +175,17 @@ describe("ThemeLibrary", () => {
       backgroundBuiltinId: "zhang-ruonan",
     });
     expect(snapshot.skins[0]?.id).toMatch(/^skin-/);
-    expect(snapshot.skins[0]?.backgroundBuiltinId).toBe("zhang-ruonan");
+    expect(snapshot.skins[0]?.backgroundBuiltinId).toBeUndefined();
   });
 
   it("migrates removed built-in presets to the unskinned default", () => {
-    for (const activeId of ["classic-light", "classic-dark", "lagoon"]) {
+    for (const activeId of [
+      "classic-light",
+      "classic-dark",
+      "lagoon",
+      "miku-stage",
+      "zhang-ruonan",
+    ]) {
       const root = temporaryRoot("zeno-theme-library-");
       const libraryRoot = join(root, "theme-library");
       mkdirSync(libraryRoot);

@@ -20,6 +20,7 @@ import {
   THEME_IMAGE_PRESET_IDS,
   THEME_PRESET_IDS,
   THEME_PRESETS,
+  normalizeThemeSelection,
 } from "./theme-packs.ts";
 
 function contrastRatio(foreground: string | undefined, background: string | undefined): number {
@@ -119,15 +120,14 @@ describe("theme-packs", () => {
     expect(resolveThemeVariant(pack, "dark").tokens?.primary).toBe("#f1ae80");
   });
 
-  it("starts new themes with neutral, readable glass defaults", () => {
+  it("starts new themes with readable glass defaults", () => {
     const draft = createThemeSkinDraft("Aurora");
 
     expect(draft.description).toBeUndefined();
-    expect(draft.light?.background).toBe("linear-gradient(135deg, #f4f8ff 0%, #e7effa 100%)");
-    expect(draft.dark?.background).toBe("linear-gradient(135deg, #1f1f1f 0%, #252525 100%)");
-    expect(draft.light?.colors?.accent).toBe("#379cfc");
-    expect(draft.dark?.colors?.accent).toBe("#379cfc");
-    expect(draft.light?.colors?.secondary).toBe("#379cfc");
+    expect(draft.light?.background).toBe("#f3eee3");
+    expect(draft.dark?.background).toBe("#1c1612");
+    expect(draft.light?.colors?.accent).toBe("#a4472c");
+    expect(draft.dark?.colors?.accent).toBe("#d0714f");
     expect(draft.materials).toMatchObject({
       sidebarOpacity: 0.64,
       pageOpacity: 0.35,
@@ -154,16 +154,28 @@ describe("theme-packs", () => {
     expect(wallpaperFitToCssSize("stretch")).toBe("100% 100%");
   });
 
-  it("ships image presets with adaptive palettes", () => {
-    expect(THEME_PRESET_IDS).toEqual(THEME_IMAGE_PRESET_IDS);
-    for (const id of THEME_IMAGE_PRESET_IDS) {
-      expect(THEME_PRESETS[id].appearance).toBe("auto");
-      expect(THEME_PRESETS[id].light?.colors?.text).toBeTruthy();
-      expect(THEME_PRESETS[id].dark?.colors?.text).toBeTruthy();
-      expect(BUILTIN_THEME_BACKGROUNDS[id]).toMatch(/\.jpg$/);
-      expect(THEME_PRESETS[id].art).toMatchObject(ART_DEFAULTS);
-      expect(THEME_PRESETS[id].materials).toMatchObject(MATERIAL_DEFAULTS);
-    }
+  it("ships no bundled wallpaper presets", () => {
+    expect(THEME_PRESET_IDS).toEqual([]);
+    expect(THEME_IMAGE_PRESET_IDS).toEqual([]);
+    expect(Object.keys(THEME_PRESETS)).toEqual([]);
+    expect(Object.keys(BUILTIN_THEME_BACKGROUNDS)).toEqual([]);
+  });
+
+  it("starts new skins from the PRSLOY palette", () => {
+    const draft = createThemeSkinDraft("");
+    expect(draft.name).toBe("PRSLOY");
+    expect(draft.appearance).toBe("auto");
+    expect(draft.light?.colors).toMatchObject({
+      background: "#f3eee3",
+      panel: "#faf7f0",
+      text: "#3b2a1e",
+      muted: "#7a6352",
+      line: "#ddd2c1",
+      accent: "#a4472c",
+    });
+    expect(draft.dark?.colors?.text).toBeTruthy();
+    expect(draft.art).toMatchObject(ART_DEFAULTS);
+    expect(draft.materials).toMatchObject(MATERIAL_DEFAULTS);
   });
 
   it("rejects remote images, unsafe CSS, and unsupported token names", () => {
@@ -257,7 +269,7 @@ describe("theme-packs", () => {
   });
 
   it("derives readable semantic foregrounds without using text colors as fills", () => {
-    for (const id of THEME_IMAGE_PRESET_IDS) {
+    for (const id of ["removed-skin"]) {
       for (const mode of ["light", "dark"] as const) {
         applyThemeSelection({ id }, mode);
         expect(styles.get("--muted")).toBe(styles.get("--surface-muted"));
@@ -339,105 +351,50 @@ describe("theme-packs", () => {
     expect(styles.get("--skin-composer-border")).toBe("#60a5fa");
   });
 
-  it("resolves built-ins and a saved library record without leaking unknown ids", () => {
-    for (const id of THEME_IMAGE_PRESET_IDS) {
-      expect(activeThemePack({ id })).toEqual({
-        config: THEME_PRESETS[id],
-        backgroundUrl: BUILTIN_THEME_BACKGROUNDS[id],
-      });
+  it("falls back to the PRSLOY palette for an unknown or removed skin id", () => {
+    for (const id of ["unknown", "miku-stage", "zhang-ruonan"]) {
+      expect(activeThemePack({ id })).toEqual({ config: createThemeSkinDraft("PRSLOY") });
     }
-    expect(activeThemePack({ id: "unknown" })).toEqual({
-      config: THEME_PRESETS["miku-stage"],
-      backgroundUrl: BUILTIN_THEME_BACKGROUNDS["miku-stage"],
-    });
+  });
+
+  it("forgets a stored selection of a removed wallpaper skin", () => {
+    expect(normalizeThemeSelection({ id: "miku-stage" })).toEqual(DEFAULT_THEME_SELECTION);
+    expect(normalizeThemeSelection({ id: "zhang-ruonan" })).toEqual(DEFAULT_THEME_SELECTION);
   });
 
   it("keeps the outer native translucent setting and material opacity mutually exclusive", () => {
-    expect(isSidebarGlassSkin(THEME_PRESETS["miku-stage"].materials)).toBe(true);
-    expect(resolveSidebarMaterialGlass(THEME_PRESETS["miku-stage"], false)).toBe(true);
-    expect(resolveSidebarMaterialGlass(THEME_PRESETS["miku-stage"], true)).toBe(false);
+    expect(isSidebarGlassSkin(createThemeSkinDraft("Glass").materials)).toBe(true);
+    expect(resolveSidebarMaterialGlass(createThemeSkinDraft("Glass"), false)).toBe(true);
+    expect(resolveSidebarMaterialGlass(createThemeSkinDraft("Glass"), true)).toBe(false);
     expect(isSidebarGlassSkin({ sidebarOpacity: 1, blur: 36 })).toBe(false);
   });
 
   it("marks image skins as glass in the studio preview", () => {
-    expect(isGlassThemeMaterials(THEME_PRESETS["miku-stage"].materials, true)).toBe(true);
-    expect(isSidebarGlassSkin(THEME_PRESETS["miku-stage"].materials)).toBe(true);
-    const mikuLight = themeEditorPreview(THEME_PRESETS["miku-stage"], "light", {
+    expect(isGlassThemeMaterials(createThemeSkinDraft("Glass").materials, true)).toBe(true);
+    expect(isSidebarGlassSkin(createThemeSkinDraft("Glass").materials)).toBe(true);
+    const mikuLight = themeEditorPreview(createThemeSkinDraft("Glass"), "light", {
       hasWallpaper: true,
     });
     expect(mikuLight.glass).toBe(true);
     expect(mikuLight.sidebarTranslucent).toBe(false);
     expect(mikuLight.sidebarGlass).toBe(true);
-    expect(mikuLight.surface).toBe("#f3fffc");
-    const nativeMikuLight = themeEditorPreview(THEME_PRESETS["miku-stage"], "light", {
+    expect(mikuLight.surface).toBe("#faf7f0");
+    const nativeMikuLight = themeEditorPreview(createThemeSkinDraft("Glass"), "light", {
       hasWallpaper: true,
       sidebarTranslucent: true,
     });
     expect(nativeMikuLight.sidebarTranslucent).toBe(true);
     expect(nativeMikuLight.sidebarGlass).toBe(false);
-    const mikuDark = themeEditorPreview(THEME_PRESETS["miku-stage"], "dark", {
+    const mikuDark = themeEditorPreview(createThemeSkinDraft("Glass"), "dark", {
       hasWallpaper: true,
     });
-    expect(mikuDark.surface).toBe("#12343b");
-    expect(mikuDark.text).toBe("#eefffd");
-  });
-
-  it("keeps the selected bundled wallpaper for an editable built-in copy", () => {
-    const copied: ThemeSkinRecord = {
-      id: "skin-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
-      createdAt: "2026-01-01T00:00:00.000Z",
-      updatedAt: "2026-01-01T00:00:00.000Z",
-      backgroundBuiltinId: "miku-stage",
-      config: { schemaVersion: 1, name: "初音未来 · 我的舞台" },
-    };
-
-    expect(activeThemePack({ id: copied.id }, [copied])).toEqual({
-      config: copied.config,
-      backgroundUrl: BUILTIN_THEME_BACKGROUNDS["miku-stage"],
-    });
-  });
-
-  it("prefers an in-place built-in override over the factory preset", () => {
-    const override: ThemeSkinRecord = {
-      id: "zhang-ruonan",
-      createdAt: "2026-01-01T00:00:00.000Z",
-      updatedAt: "2026-01-01T00:00:00.000Z",
-      backgroundBuiltinId: "zhang-ruonan",
-      config: {
-        schemaVersion: 1,
-        id: "zhang-ruonan",
-        name: "章若楠 · 我的映画",
-        light: { colors: { accent: "#112233" } },
-      },
-    };
-
-    expect(activeThemePack({ id: "zhang-ruonan" }, [override])).toEqual({
-      config: override.config,
-      backgroundUrl: BUILTIN_THEME_BACKGROUNDS["zhang-ruonan"],
-    });
-  });
-
-  it("keeps the active wallpaper when a live color preview omits backgroundUrl", () => {
-    const preview = activeThemePack({ id: "zhang-ruonan" }, [], {
-      config: {
-        ...THEME_PRESETS["zhang-ruonan"],
-        light: {
-          ...THEME_PRESETS["zhang-ruonan"].light,
-          colors: {
-            ...THEME_PRESETS["zhang-ruonan"].light?.colors,
-            accent: "#ff0000",
-          },
-        },
-      },
-    });
-
-    expect(preview.backgroundUrl).toBe(BUILTIN_THEME_BACKGROUNDS["zhang-ruonan"]);
-    expect(preview.config.light?.colors?.accent).toBe("#ff0000");
+    expect(mikuDark.surface).toBe("#262019");
+    expect(mikuDark.text).toBe("#efe6d8");
   });
 
   it("allows an explicit empty backgroundUrl to clear the wallpaper in studio", () => {
-    const preview = activeThemePack({ id: "zhang-ruonan" }, [], {
-      config: THEME_PRESETS["zhang-ruonan"],
+    const preview = activeThemePack({ id: "removed-skin" }, [], {
+      config: createThemeSkinDraft("Preview"),
       backgroundUrl: "",
     });
 
