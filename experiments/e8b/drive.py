@@ -18,7 +18,11 @@ if os.path.exists(LAST_CHECK):
 t0 = time.time()
 # harness block (code, not prompt): shims for other AI CLIs go first on PATH
 HARNESS_BIN = os.path.join(HERE, ".harness-bin")
-env = dict(os.environ)
+# clean environment (code, not prompt): the agent sees no credentials of the machine (E8d: Claude Code, E8p: AWS keys)
+SAFE = ("PATH", "HOME", "LANG", "LC_ALL", "TERM", "TMPDIR", "PLAYWRIGHT_BROWSERS_PATH", "PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD",
+        "HTTPS_PROXY", "HTTP_PROXY", "NO_PROXY", "https_proxy", "http_proxy", "no_proxy", "SSL_CERT_FILE",
+        "REQUESTS_CA_BUNDLE", "NODE_EXTRA_CA_CERTS", "CURL_CA_BUNDLE")
+env = {k: v for k, v in os.environ.items() if k in SAFE}
 if os.path.isdir(HARNESS_BIN):
     env["PATH"] = HARNESS_BIN + os.pathsep + env.get("PATH", "")
 def run_pi(prompt, log):
