@@ -1118,6 +1118,7 @@ export const zh = {
   "appearance.themeSkinSave": "保存",
   "appearance.language": "语言",
   "appearance.languageAuto": "跟随系统",
+  "appearance.languageRu": "Русский",
   "appearance.languageZh": "中文",
   "appearance.languageEn": "English",
   "appearance.sidebarTranslucent": "侧边栏半透明",
@@ -1403,4 +1404,9 @@ export const zh = {
   "pet.bubble.progressDone": "已完成",
   "slash.pet": "宠物",
   "slash.petDesc": "显示或隐藏桌面宠物",
+  "timeline.process.searchInVerb": "在",
+  "timeline.process.searchInMid": "中搜索",
+  "auth.usage.resetSoon": "即将重置",
+  "auth.usage.resetIn": "{duration}后重置",
+  "auth.usage.window": "{duration}窗口",
 } as const;

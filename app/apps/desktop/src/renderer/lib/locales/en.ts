@@ -1138,6 +1138,7 @@ export const en = {
   "appearance.themeSkinSave": "Save",
   "appearance.language": "Language",
   "appearance.languageAuto": "Follow system",
+  "appearance.languageRu": "Русский",
   "appearance.languageZh": "中文",
   "appearance.languageEn": "English",
   "appearance.sidebarTranslucent": "Translucent sidebar",
@@ -1433,4 +1434,9 @@ export const en = {
   "pet.bubble.progressDone": "Completed",
   "slash.pet": "Pet",
   "slash.petDesc": "Show or hide the desktop pet",
+  "timeline.process.searchInVerb": "Searched",
+  "timeline.process.searchInMid": "for",
+  "auth.usage.resetSoon": "Resetting soon",
+  "auth.usage.resetIn": "Resets in {duration}",
+  "auth.usage.window": "{duration} window",
 } as const;

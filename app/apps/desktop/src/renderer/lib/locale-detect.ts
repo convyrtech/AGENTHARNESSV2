@@ -1,8 +1,9 @@
 /**
  * First-run language detection.
  *
- * Zeno ships `zh` + `en`. A fresh install picks Chinese for Chinese-reading users
- * and English for everyone else. Two signals are consulted because neither is
+ * PRSLOY ships `ru` + `zh` + `en`. A fresh install picks Chinese for Chinese-reading
+ * users and Russian for everyone else: the product is built for Russian readers, many of
+ * whom run an English Windows, so English is only ever an explicit choice. Two signals are consulted because neither is
  * sufficient alone: the OS language misses a Chinese user running an English
  * Windows, and the time zone misses a Chinese user who is currently abroad.
  *
@@ -31,12 +32,12 @@ export interface LocaleSignals {
 
 /**
  * Pure: map environment signals onto a locale. Chinese-reading users get `zh`,
- * everything else gets `en`.
+ * everything else gets `ru`.
  */
 export function detectLocale(signals: LocaleSignals): Locale {
   if (signals.language?.trim().toLowerCase().startsWith("zh")) return "zh";
   if (signals.timeZone && CHINESE_TIMEZONES.has(signals.timeZone.trim())) return "zh";
-  return "en";
+  return "ru";
 }
 
 /**
@@ -50,13 +51,13 @@ export function detectLocaleFromEnvironment(): Locale {
       timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
     });
   } catch {
-    return "en";
+    return "ru";
   }
 }
 
 /**
- * Resolve the user's setting into the locale `t()` consumes. An explicit `zh` /
- * `en` preference is returned as-is; `auto` defers to the environment.
+ * Resolve the user's setting into the locale `t()` consumes. An explicit locale
+ * preference is returned as-is; `auto` defers to the environment.
  *
  * `auto` is resolved on demand rather than cached, so it reflects the environment
  * at the moment of the call. The shell calls it at boot and whenever the setting

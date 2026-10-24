@@ -1,4 +1,5 @@
 import type { HostEvent, SessionHistoryMessage, ZenoRunState } from "@zeno/contracts";
+import { localeTag, type Locale } from "./i18n.ts";
 
 export type ThreadRunState = ZenoRunState;
 
@@ -824,12 +825,12 @@ function toolSummaryLine(value: unknown): string {
   return "";
 }
 
-export function formatMessageTime(iso: string | undefined, locale: "zh" | "en"): string {
+export function formatMessageTime(iso: string | undefined, locale: Locale): string {
   if (!iso) return "";
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "";
   try {
-    const tag = locale === "zh" ? "zh-CN" : "en-US";
+    const tag = localeTag(locale);
     // Format parts separately so zh keeps a space: "周四 10:32" (not "周四10:32").
     const weekday = d.toLocaleDateString(tag, { weekday: "short" });
     const time = d.toLocaleTimeString(tag, {
@@ -849,7 +850,7 @@ export function formatMessageTime(iso: string | undefined, locale: "zh" | "en"):
  * - zh: "1 秒" / "1 分 30 秒" / "1 时 5 分" / "1 天 2 时"
  * - en: "1 s" / "1 m 30 s" / "1 h 5 m" / "1 d 2 h"
  */
-export function formatDurationMs(ms: number, locale: "zh" | "en" = "en"): string {
+export function formatDurationMs(ms: number, locale: Locale = "en"): string {
   const totalSec = Math.max(0, Math.floor(ms / 1000));
   const days = Math.floor(totalSec / 86_400);
   const hours = Math.floor((totalSec % 86_400) / 3_600);
@@ -863,6 +864,13 @@ export function formatDurationMs(ms: number, locale: "zh" | "en" = "en"): string
     return `${seconds} 秒`;
   }
 
+  if (locale === "ru") {
+    if (days > 0) return hours > 0 ? `${days} д ${hours} ч` : `${days} д`;
+    if (hours > 0) return minutes > 0 ? `${hours} ч ${minutes} мин` : `${hours} ч`;
+    if (minutes > 0) return seconds > 0 ? `${minutes} мин ${seconds} с` : `${minutes} мин`;
+    return `${seconds} с`;
+  }
+
   if (days > 0) return hours > 0 ? `${days} d ${hours} h` : `${days} d`;
   if (hours > 0) return minutes > 0 ? `${hours} h ${minutes} m` : `${hours} h`;
   if (minutes > 0) return seconds > 0 ? `${minutes} m ${seconds} s` : `${minutes} m`;
@@ -874,7 +882,7 @@ export function elapsedDurationLabel(
   startedAt: string | undefined,
   endedAt: string | undefined,
   nowMs: number = Date.now(),
-  locale: "zh" | "en" = "en",
+  locale: Locale = "en",
 ): string | undefined {
   if (!startedAt) return undefined;
   const start = new Date(startedAt).getTime();

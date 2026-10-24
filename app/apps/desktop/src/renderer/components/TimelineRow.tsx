@@ -400,7 +400,7 @@ function MetaActions(props: {
   copied?: boolean | undefined;
   className?: string | undefined;
 }) {
-  const timeLabel = formatMessageTime(props.time, props.locale === "zh" ? "zh" : "en");
+  const timeLabel = formatMessageTime(props.time, props.locale);
 
   function renderAction(kind: MetaActionKind) {
     if (kind === "time") {
@@ -958,9 +958,9 @@ function toolRowParts(
     } else if (view.path) {
       parts = {
         // ZH: 在 a.ts 中搜索 “render” · EN: Searched a.ts for “render”
-        verb: locale === "zh" ? "在" : tr("timeline.process.search"),
+        verb: tr("timeline.process.searchInVerb"),
         path: view.path,
-        mid: locale === "zh" ? "中搜索" : "for",
+        mid: tr("timeline.process.searchInMid"),
         detail: `“${view.detail}”`,
         detailTone: "query",
       };

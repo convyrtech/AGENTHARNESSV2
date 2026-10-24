@@ -2108,6 +2108,7 @@ function GeneralSection(
               onChange={(v) => props.onLocalePreference(v as LocalePreference)}
               options={[
                 { value: "auto", label: tr("appearance.languageAuto") },
+                { value: "ru", label: tr("appearance.languageRu") },
                 { value: "zh", label: tr("appearance.languageZh") },
                 { value: "en", label: tr("appearance.languageEn") },
               ]}

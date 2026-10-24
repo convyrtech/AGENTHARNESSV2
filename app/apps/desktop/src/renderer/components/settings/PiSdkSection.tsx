@@ -5,7 +5,7 @@
 import type { PiConfigFileInfo, PiSdkCandidate, PiSdkSource, PiSdkStatus } from "@zeno/contracts";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useState } from "react";
-import { t, type Locale, type MessageKey } from "../../lib/i18n.ts";
+import { localeTag, t, type Locale, type MessageKey } from "../../lib/i18n.ts";
 import { cn } from "../../lib/utils.ts";
 import { forceForSwitch, shouldRetryOnBusy, type SwitchConfirm } from "../../lib/pi-sdk-switch.ts";
 import { useShellStore } from "../../store/shell-store.ts";
@@ -31,7 +31,7 @@ function formatBytes(n: number | undefined): string {
 function formatMtime(ms: number | undefined, locale: Locale): string {
   if (ms === undefined || !Number.isFinite(ms)) return "";
   try {
-    return new Date(ms).toLocaleString(locale === "zh" ? "zh-CN" : "en-US", {
+    return new Date(ms).toLocaleString(localeTag(locale), {
       year: "numeric",
       month: "2-digit",
       day: "2-digit",

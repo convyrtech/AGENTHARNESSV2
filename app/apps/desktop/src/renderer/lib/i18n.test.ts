@@ -2,8 +2,10 @@ import { describe, expect, it } from "vite-plus/test";
 import { DEFAULT_LOCALE, isLocale, isLocalePreference, messages, t } from "./i18n.ts";
 
 describe("i18n", () => {
-  it("defaults to Chinese", () => {
-    expect(DEFAULT_LOCALE).toBe("zh");
+  it("defaults to Russian", () => {
+    expect(DEFAULT_LOCALE).toBe("ru");
+    expect(t("ru", "nav.newThread")).toBe("Новый чат");
+    expect(t("ru", "app.name")).toBe("PRSLOY");
     expect(t("zh", "nav.newThread")).toBe("新建会话");
     expect(t("en", "nav.newThread")).toBe("New session");
   });
@@ -12,6 +14,7 @@ describe("i18n", () => {
     expect(t("zh", "empty.title", { name: "zeno" })).toBe("我们应该在 zeno 中构建什么？");
     expect(t("zh", "empty.titleNoWorkspace")).toBe("打开工作区以开始");
     expect(isLocale("zh")).toBe(true);
+    expect(isLocale("ru")).toBe(true);
     expect(isLocale("fr")).toBe(false);
   });
 
@@ -19,6 +22,7 @@ describe("i18n", () => {
     expect(isLocalePreference("auto")).toBe(true);
     expect(isLocalePreference("zh")).toBe(true);
     expect(isLocalePreference("en")).toBe(true);
+    expect(isLocalePreference("ru")).toBe(true);
     expect(isLocalePreference("fr")).toBe(false);
     expect(isLocalePreference(undefined)).toBe(false);
     expect(isLocalePreference("")).toBe(false);
@@ -136,6 +140,33 @@ describe("context menu labels", () => {
 });
 
 describe("i18n key sync", () => {
+  it("keeps ru keys in lockstep with zh", () => {
+    const zhSet = new Set(Object.keys(messages.zh));
+    const ruSet = new Set(Object.keys(messages.ru));
+    const onlyInZh = [...zhSet].filter((key) => !ruSet.has(key));
+    const onlyInRu = [...ruSet].filter((key) => !zhSet.has(key));
+    expect(onlyInRu, `keys missing from zh (present in ru): ${onlyInRu.join(", ")}`).toEqual([]);
+    expect(onlyInZh, `keys missing from ru (present in zh): ${onlyInZh.join(", ")}`).toEqual([]);
+  });
+
+  it("keeps every ru placeholder that en has", () => {
+    const missing: string[] = [];
+    for (const [key, en] of Object.entries(messages.en)) {
+      const ru: string = messages.ru[key as keyof typeof messages.ru];
+      for (const name of en.match(/\{[a-zA-Z]+\}/g) ?? []) {
+        if (!ru.includes(name)) missing.push(`${key} ${name}`);
+      }
+    }
+    expect(missing).toEqual([]);
+  });
+
+  it("never names Zeno in Russian", () => {
+    const leaks = Object.entries(messages.ru)
+      .filter(([, value]) => /\bZeno\b(?!Desktop)/.test(value))
+      .map(([key]) => key);
+    expect(leaks).toEqual([]);
+  });
+
   it("keeps zh and en keys in lockstep", () => {
     const zh = Object.keys(messages.zh);
     const en = Object.keys(messages.en);
