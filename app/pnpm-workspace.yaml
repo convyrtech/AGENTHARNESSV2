@@ -84,4 +84,3 @@ allowBuilds:
   esbuild: false
   node-pty: true
   protobufjs: false
-
