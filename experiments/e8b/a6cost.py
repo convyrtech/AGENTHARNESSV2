@@ -4,8 +4,9 @@ import sys, os, json, glob, time, urllib.request, datetime as dt
 HERE = os.path.dirname(os.path.abspath(__file__))
 key = open(os.path.join(os.path.dirname(HERE), ".a6key")).read().strip()
 ws = sys.argv[1] if len(sys.argv) > 1 else "/home/user/e8b-ds"
+prefix = sys.argv[2] if len(sys.argv) > 2 else "deepseek"
 req = urllib.request.Request("https://a6api.com/api/log/token", headers={"Authorization": "Bearer " + key})
-rows = [x for x in json.load(urllib.request.urlopen(req, timeout=90))["data"] if x["model_name"].startswith("deepseek")]
+rows = [x for x in json.load(urllib.request.urlopen(req, timeout=90))["data"] if x["model_name"].startswith(prefix)]
 
 
 def starts(ws):

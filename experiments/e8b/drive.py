@@ -9,6 +9,12 @@ now = datetime.datetime.now()
 with open(os.path.join(HERE, "owner", "messages.jsonl"), "a", encoding="utf-8") as f:
     f.write(json.dumps({"id": n, "date": now.strftime("%Y%m%d-%H%M%S"), "text": msg, "forward_from": None, "files": files}, ensure_ascii=False) + "\n")
 text = msg + ("\n\n[владелец прислал файлы: " + ", ".join(files) + "]" if files else "")
+# harness feedback from the last turn's code checks goes to the agent (not into the owner's channel)
+LAST_CHECK = os.path.join(HERE, "harness", "last-check.txt")
+if os.path.exists(LAST_CHECK):
+    note = open(LAST_CHECK, encoding="utf-8").read().strip()
+    if "FAIL" in note:
+        text = "[проверка харнесса, не владелец: страницу владельцу не показывать, пока это не исправлено]\n" + note + "\n\n[сообщение владельца]\n" + text
 args = ["pi", "--mode", "json", "--model", MODEL, "--session", SESSION, text]
 t0 = time.time()
 # harness block (code, not prompt): shims for other AI CLIs go first on PATH
@@ -35,3 +41,10 @@ for ln in open(log, encoding="utf-8"):
 print(f"TURN {n} · {round(time.time()-t0)} s · exit {p.returncode} · tool calls {len(tools)} · tokens in {usage['in']} out {usage['out']} · cost ${usage['cost']:.4f}")
 for t in tools[-25:]: print("  ", t)
 print("---- AGENT SAYS ----"); print(final)
+# code checks after the turn: no raster UI, signature move present
+pages = [d for d in (os.path.join(HERE, "design", x) for x in sorted(os.listdir(os.path.join(HERE, "design")))) if os.path.exists(os.path.join(d, "STATUS.md"))] if os.path.isdir(os.path.join(HERE, "design")) else []
+site = os.path.join(HERE, "site")
+if pages and os.path.isdir(site) and any(f.endswith(".html") for _, _, fs in os.walk(site) for f in fs):
+    r = subprocess.run([sys.executable, "-I", os.path.join(HERE, "harness", "check.py"), site, pages[0]], capture_output=True, text=True)
+    open(LAST_CHECK, "w", encoding="utf-8").write(r.stdout)
+    print("---- HARNESS CHECK ----"); print(r.stdout.strip())
