@@ -1,0 +1,25 @@
+TURN 7 · 424 s · exit 0 · tool calls 13 · tokens in 218901 out 14688 · cost $0.1415
+   bash: {"command": "cd /home/user/e8q-qwen && grep -n -A45 \"^def g5\" design-pipeline/tools/flow.py && grep -n -A10 \"def norm_words\" design-pipe
+   bash: {"command": "cd /home/user/e8q-qwen && python3 - <<'PY'\nfrom pathlib import Path\np=Path('design/landing/STATUS.md'); t=p.read_text(encodin
+   read: {"path": "/home/user/e8q-qwen/design-pipeline/templates/MOTION-CONTRACT.md"}
+   write: {"content": "# Motion Contract — бумажный прибор PRSLOY (лендинг, 390 приоритет)\n\nЗаполнен ДО кода (24.10.2026). `tools/motion_probe.py` с
+   bash: {"command": "cd /home/user/e8q-qwen && python3 -I design-pipeline/tools/flow.py --page design/landing; echo exit=$?"}
+   bash: {"command": "cd /home/user/e8q-qwen && python3 - <<'PY'\nfrom pathlib import Path\np=Path('design/landing/04-motion.md'); t=p.read_text(enco
+   bash: {"command": "cd /home/user/e8q-qwen && cat design-pipeline/templates/STORYBOARD.md && grep -n -A25 \"def storyboard_problems\" design-pipeli
+   write: {"content": "<!DOCTYPE html>\n<html lang=\"ru\"><head><meta charset=\"utf-8\"><title>Раскадровка A · PRSLOY</title>\n<link rel=\"stylesheet\
+   write: {"content": "<!DOCTYPE html>\n<html lang=\"ru\"><head><meta charset=\"utf-8\"><title>Раскадровка B · PRSLOY</title>\n<link rel=\"stylesheet\
+   write: {"content": "@font-face{font-family:'Piazzolla';src:url('../../fonts/piazzolla-400.woff2') format('woff2');font-weight:400;font-display:bloc
+   bash: {"command": "cd /home/user/e8q-qwen && python3 -I design-pipeline/tools/compare_sheet.py --engine chromium --mode page --variant design/land
+   read: {"path": "/home/user/e8q-qwen/design/landing/05-storyboard.png"}
+   bash: {"command": "cd /home/user/e8q-qwen && python3 -c \"\nimport json;d=json.load(open('design/landing/05-storyboard.json'));print(d.get('mode')
+---- AGENT SAYS ----
+Шаг 4 закрыт: контракт движения в `04-motion.md` до кода. Там таблица «время/прогресс → что видно → свойство → слой → easing» с точными кривыми (`cubic-bezier(.22,1,.36,1)` для линии и барабана, `cubic-bezier(.32,.72,0,1)` дословно из `--anatomy-ease` вашего `kabinet.html`), перф-бюджет числами (≥ 55 fps, кадр < 18 мс, 0 сдвигов вёрстки, максимум 3 слоя одновременно), reduced-motion, прерывания (быстрый реверс скролла, тап на 100-й мс интро, «назад» из Telegram), и раздел «Фирменный приём» с привязкой к кадру `f02-003.8s.png` эталона: линия чертится, по ней бегут 41 деление, на правом конце вырастает размерная линия с живым числом. Носитель на странице `data-signature="ink-rail"`.
+
+По вашему ответу записал: ВЫБОР 3 (референсы А) и решение, что факт про Россию и VPN на странице пишется простым утверждением, без замеров, ссылок и бейджей «проверено». Обе строки в `DECISIONS.md`, цитата в `STATUS.md` дословно.
+
+Дальше шаг 5, там нужен ваш выбор глазами:
+
+design/landing/05-storyboard.png
+Раскадровка всей страницы, оба варианта в вашей бумаге и линиях. Слева A: история сверху вниз, кнопка входа в самом конце. Справа B: сразу строка запуска и вход, доказательства короткими экранами после.
+Рекомендую B: гость с телефона видит, как подключиться и войти, на первом экране.
+Какую раскадровку берём: A, B или смешать?
