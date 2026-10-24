@@ -7,14 +7,15 @@
   - держит ключ сам: в конфиге Pi стоит адрес прокси и ключ-заглушка;
   - ждёт первый полезный кусок ответа не дольше --ttft секунд, иначе рвёт и повторяет (a6 при повторе выбирает
     поставщика заново); повторяет и на 429/5xx, на ошибку a6 в теле или в первом событии потока, на пустой ответ;
-  - после первого полезного куска отдаёт поток агенту без задержки; молчание дольше --idle посреди потока — ошибка;
+  - поток копит целиком и отдаёт агенту после конца ответа: пока агент не получил ни одного события, любой обрыв
+    повторяется; пока копит, шлёт «: ping»; молчание дольше --idle посреди потока — повтор;
   - пишет строку метрик на каждый вызов в --log (JSONL): модель, попытки, время до первого токена, всего,
     prompt/cached/completion/reasoning токены — для замеров (research/16 §6.8).
 
 Запуск:  a6proxy.py --port 8787 --key-file experiments/.a6key --log logs/a6proxy.jsonl
 Pi:      провайдер с baseUrl http://127.0.0.1:8787/v1 и apiKey "local".
 """
-import argparse, http.client, http.server, json, os, socket, ssl, sys, threading, time, urllib.parse
+import argparse, http.client, http.server, json, os, queue, socket, ssl, sys, threading, time, urllib.parse
 
 ap = argparse.ArgumentParser()
 ap.add_argument("--port", type=int, default=8787)
@@ -88,6 +89,7 @@ class H(http.server.BaseHTTPRequestHandler):
         payload = json.dumps(req).encode()
         rec = {"model": req.get("model"), "stream": stream, "attempts": [], "path": self.path}
         t_all = time.time()
+        hs = {"sent": False}
         for n in range(1, a.attempts + 1):
             t0 = time.time()
             att = {"n": n}
@@ -106,6 +108,10 @@ class H(http.server.BaseHTTPRequestHandler):
                     data = r.read()
                     rec.update(status=r.status, total_s=round(time.time() - t_all, 2))
                     log(rec)
+                    if hs["sent"]:
+                        self._chunk(b'data: ' + json.dumps({"error": {"message": data[:300].decode("utf-8", "replace")}}).encode() + b"\n\n")
+                        self.wfile.write(b"0\r\n\r\n")
+                        return
                     return self._send(r.status, data, r.getheader("Content-Type") or "application/json")
                 if not stream:
                     data = r.read()
@@ -123,74 +129,73 @@ class H(http.server.BaseHTTPRequestHandler):
                     rec.update(status=200, ttft_s=round(time.time() - t0, 2), total_s=round(time.time() - t_all, 2))
                     log(rec)
                     return self._send(200, data)
-                # поток: ждём первое полезное событие не дольше ttft
-                pending, first = [], None
+                # поток копим целиком: пока Pi не получил ни одного события data, запрос можно повторить при любом
+                # обрыве (E9: поставщик рвал соединение посреди ответа, повтор в начатый ответ ломал поток у Pi).
+                # Чтобы Pi не счёл тишину зависанием, шлём SSE-комментарии «: ping».
+                q = queue.Queue()
+
+                def reader(fp=r.fp, q=q):
+                    try:
+                        for ln in fp:
+                            q.put(ln)
+                        q.put(None)
+                    except Exception as e:                 # noqa: BLE001 — любой обрыв = повтор
+                        q.put(e)
+                threading.Thread(target=reader, daemon=True).start()
+                lines, useful, done, finished, last = [], False, False, False, time.time()
                 while True:
-                    if time.time() - t0 > a.ttft:          # пинги «: keep-alive» не продлевают ожидание первого токена
-                        att["err"] = "ttft deadline"; break
-                    line = r.fp.readline()
-                    if not line:
+                    try:
+                        item = q.get(timeout=2 if finished else 10)
+                    except queue.Empty:
+                        if finished:                       # конец ответа уже пришёл, а [DONE] поставщик не шлёт
+                            break
+                        if not useful and time.time() - t0 > a.ttft:
+                            att["err"] = "ttft deadline"; break
+                        if useful and time.time() - last > a.idle:
+                            att["err"] = "idle"; break
+                        self._ping(hs)
+                        continue
+                    if item is None:
                         break
-                    pending.append(line)
-                    s = line.decode("utf-8", "replace").strip()
+                    if isinstance(item, Exception):
+                        att["err"] = repr(item)[:160]; break
+                    last = time.time()
+                    lines.append(item)
+                    s = item.decode("utf-8", "replace").strip()
                     if not s.startswith("data:"):
                         continue
                     d = s[5:].strip()
                     if d == "[DONE]":
-                        break
+                        done = True; break
                     if looks_like_error(d):
-                        first = "error"; att["err"] = d[:300]; break
+                        att["err"] = d[:300]; break
                     try:
-                        ch = (json.loads(d).get("choices") or [{}])[0].get("delta") or {}
+                        j = json.loads(d)
                     except ValueError:
-                        continue
-                    if ch.get("content") or ch.get("tool_calls") or ch.get("reasoning_content") or ch.get("reasoning"):
-                        first = "ok"; break
-                if first != "ok":
-                    att.setdefault("err", "empty stream")
-                    try:
-                        c.close()
-                    except Exception:
-                        pass
-                    continue
-                att["ttft_s"] = rec["ttft_s"] = round(time.time() - t0, 2)
-                self.send_response(200)
-                self.send_header("Content-Type", "text/event-stream")
-                self.send_header("Cache-Control", "no-cache")
-                self.send_header("Transfer-Encoding", "chunked")
-                self.end_headers()
-                for ln in pending:
-                    self._chunk(ln)
-                done_early = any(x.strip() == b"data: [DONE]" for x in pending)
-                try:
-                    c.sock.settimeout(a.idle)
-                except Exception:
-                    pass
-                try:
-                    while not done_early:
-                        line = r.fp.readline()
-                        if not line:
-                            break
-                        self._chunk(line)
-                        s = line.decode("utf-8", "replace").strip()
-                        if s == "data: [DONE]":           # поставщик держит соединение после конца — не ждём
-                            break
-                        if s.startswith("data:") and '"usage"' in s:
-                            try:
-                                u = json.loads(s[5:]).get("usage")
-                                if u:
-                                    self._usage(rec, u)
-                            except ValueError:
-                                pass
-                    rec["status"] = 200
-                except (socket.timeout, TimeoutError) as e:
-                    rec["status"] = "idle-timeout"; rec["err"] = repr(e)[:120]
-                    self._chunk(b'data: {"error":{"message":"a6proxy: stream stalled"}}\n\n')
-                self.wfile.write(b"0\r\n\r\n")
+                        att["err"] = "bad json chunk"; break
+                    if j.get("usage"):
+                        self._usage(rec, j["usage"])
+                    for ch in j.get("choices") or []:
+                        dl = ch.get("delta") or {}
+                        if not useful and (dl.get("content") or dl.get("tool_calls") or dl.get("reasoning_content") or dl.get("reasoning")):
+                            useful = True
+                            att["ttft_s"] = rec["ttft_s"] = round(time.time() - t0, 2)
+                        if ch.get("finish_reason"):
+                            finished = True
                 try:
                     c.close()
                 except Exception:
                     pass
+                if not (useful and (done or finished)) or "err" in att and not finished:
+                    att.setdefault("err", "stream ended early")
+                    continue
+                self._headers(hs)
+                for ln in lines:
+                    self._chunk(ln)
+                if not done:
+                    self._chunk(b"data: [DONE]\n\n")
+                self.wfile.write(b"0\r\n\r\n")
+                rec["status"] = 200
                 rec["total_s"] = round(time.time() - t_all, 2)
                 log(rec)
                 return
@@ -199,8 +204,26 @@ class H(http.server.BaseHTTPRequestHandler):
                 continue
         rec.update(status="failed", total_s=round(time.time() - t_all, 2))
         log(rec)
+        if hs["sent"]:                                  # пинги уже ушли: ошибка событием потока
+            self._chunk(b'data: {"error":{"message":"a6proxy: all attempts failed"}}\n\n')
+            self.wfile.write(b"0\r\n\r\n")
+            return
         self._send(502, json.dumps({"error": {"message": "a6proxy: all attempts failed", "attempts": rec["attempts"]}},
                                    ensure_ascii=False))
+
+    def _headers(self, hs):
+        if hs["sent"]:
+            return
+        hs["sent"] = True
+        self.send_response(200)
+        self.send_header("Content-Type", "text/event-stream")
+        self.send_header("Cache-Control", "no-cache")
+        self.send_header("Transfer-Encoding", "chunked")
+        self.end_headers()
+
+    def _ping(self, hs):
+        self._headers(hs)
+        self._chunk(b": ping\n\n")
 
     def _chunk(self, b):
         self.wfile.write(f"{len(b):x}\r\n".encode() + b + b"\r\n")

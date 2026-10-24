@@ -1,0 +1,29 @@
+{
+ "_doc": "Шаг пайплайна → модель, бюджет, правила. Читает run.py. Лестница: дешевле вверху; при провале шага харнесс поднимается на ступень и пишет причину в ledger. Модели вкуса — Kimi K3.1 Pro (E8p: лучшая типографика, своя работа), механика — DeepSeek (E8b/E8d), судья — Opus (judge.py).",
+ "ladder": ["a6p/deepseek-v4.1-flash-1017", "a6p/kimi-k3.1-pro", "a6p/qwen3.8-max", "a6p/claude-opus-5-5"],
+ "family": {"deepseek": "deepseek", "kimi": "moonshot", "qwen": "alibaba", "claude": "anthropic", "gpt": "openai"},
+ "judge": {"model": "claude-opus-5-5", "max_rounds": 3},
+ "checker_retries": 2,
+ "max_stages_per_turn": 8,
+ "defaults": {"start": 0, "max_attempts": 2, "max_calls": 70, "max_minutes": 30, "same_call_limit": 3, "edits_without_check": 15},
+ "stages": {
+  "0":  {"start": 0, "max_calls": 30, "max_minutes": 10, "pipeline": "Шаг 0.",
+         "note": "Паспорт заполняешь из того, что уже известно (сообщения владельца, materials/). Не знаешь: «нет». Владельцу ничего не пишешь, если материалов ещё нет — тогда одна строка-просьба прислать, что есть."},
+  "0a": {"start": 1, "max_calls": 30, "max_minutes": 12, "pipeline": "Шаг 0a.",
+         "note": "Варианты настроения выводишь из материалов владельца (его цвета, шрифты, характер экранов), адрес-пример у каждого варианта."},
+  "1":  {"start": 1, "max_calls": 60, "max_minutes": 25, "pipeline": "Шаг 1.",
+         "note": "Эталоны ищешь в каталоге etalons/skillry-index.json по правилам AGENTS.md, не из памяти. Три РАЗНЫХ кандидата одним листом."},
+  "2":  {"start": 1, "max_calls": 60, "max_minutes": 25, "pipeline": "Шаг 2."},
+  "2a": {"start": 1, "max_calls": 40, "max_minutes": 15, "pipeline": "Шаг 2a.",
+         "note": "Числа и обещания только из FACTS.md и сообщений владельца. «План» на этом шаге не блокирует: помечай статусом."},
+  "3":  {"start": 1, "max_calls": 60, "max_minutes": 25, "pipeline": "Шаг 3."},
+  "4":  {"start": 1, "max_calls": 40, "max_minutes": 15, "pipeline": "Шаг 4.",
+         "note": "Приёмы движения берёшь из design-pipeline/motion/VOCAB.md (2–3 приёма, одно правило-метафора), готовые компоненты motion.js. Раздел «## Фирменный приём» обязателен."},
+  "5":  {"start": 1, "max_calls": 90, "max_minutes": 40, "pipeline": "Шаг 5.",
+         "note": "Движение ставишь готовыми компонентами design-pipeline/motion (motion.js, motion.css, токены бренда), не пишешь своё с нуля. Растровых картинок интерфейса нет."},
+  "6":  {"start": 1, "max_calls": 90, "max_minutes": 40, "pipeline": "Шаг 6."},
+  "7":  {"start": 0, "max_calls": 70, "max_minutes": 30, "pipeline": "Шаг 7.",
+         "note": "Судью зовёт харнесс сам (judge.py), ты его не вызываешь. Твоя работа: гейт, правки по находкам, подтверждённым кадром, колонка «Статус» в JUDGE.md, новый гейт. Когда гейт зелёный, а осталась только судья — закончи «ЭТАП ГОТОВ»."},
+  "8":  {"start": 0, "max_calls": 40, "max_minutes": 15, "pipeline": "Шаг 8."}
+ }
+}

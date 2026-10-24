@@ -1,0 +1,51 @@
+--- a/tools/flow.py
++++ b/tools/flow.py
+@@ -476,10 +476,26 @@
+ 
+ def born(path):
+     """When the artifact first appeared on disk: creation time where the OS keeps it, else mtime."""
+-    st = Path(path).stat()
++    path = Path(path)
++    st = path.stat()
+     t = getattr(st, "st_birthtime", None)
++    if t is None and os.name == "nt":
++        t = st.st_ctime
+     if t is None:
+-        t = st.st_ctime if os.name == "nt" else st.st_mtime
++        # Linux keeps no creation time and mtime moves on every edit: remember the first time we saw the file.
++        reg = path.parent / ".flow-born.json"
++        try:
++            seen = json.loads(reg.read_text(encoding="utf-8"))
++        except (OSError, ValueError):
++            seen = {}
++        t = seen.get(path.name)
++        if t is None or st.st_mtime < t:
++            t = st.st_mtime
++            seen[path.name] = t
++            try:
++                reg.write_text(json.dumps(seen, ensure_ascii=False, indent=1), encoding="utf-8")
++            except OSError:
++                pass
+     return dt.datetime.fromtimestamp(t, dt.timezone.utc)
+ 
+ 
+@@ -779,6 +795,10 @@
+     if t is None:
+         return pr + ["нет 01-teardown.md"], hint
+     wow = [rows for head, rows in tables(t) if any("вау" in h.lower() for h in head)]
++    if not wow:
++        # the template puts «вау» in the section heading, not in the table header: take the tables of that section
++        sec = re.search(r"^#+[^\n]*вау[^\n]*\n(.*?)(?=^#+\s|\Z)", t, re.M | re.S | re.I)
++        wow = [rows for head, rows in tables(sec.group(1))] if sec else []
+     rows = [r for rows in wow for r in rows if any(re.search(r"берём|берем|нет", c, re.I) for c in r)]
+     if len(rows) < 3:
+         pr.append(f"в таблице «что даёт вау» строк с решением «берём/нет» {len(rows)}, нужно ≥ 3")
+@@ -1201,7 +1221,7 @@
+     return made
+ 
+ 
+-SHEETS = re.compile(r"(0[125]-(compare|storyboard|directions|candidates)|02a-message)\.png$", re.I)
++SHEETS = re.compile(r"(0[125]-(compare|storyboard|directions|candidates)|02a-message|03-(references|refs|compare))\.png$", re.I)
+ MEANING_LINK = re.compile(r"/(MESSAGE|FACTS)\.md([?#]\S*)?$", re.I)   # step 2a: the meaning itself, not the built page
+ OPTION = re.compile(r"^\s*[-*]?\s*[А-ЯA-Z][.)]\s+\S")
+ MATERIALS = re.compile(r"^\s*[-*]?\s*(пришлите|пришлёте|пришлете|скиньте|отправьте|если есть)\b", re.I)
