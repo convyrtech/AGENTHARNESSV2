@@ -46,3 +46,4 @@ docs/*
 
 # «Дизайн» bundle (built by apps/desktop/scripts/fetch-design.mjs)
 apps/desktop/design-bundle/
+smoke-out/

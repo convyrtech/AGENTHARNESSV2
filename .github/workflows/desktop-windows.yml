@@ -72,8 +72,83 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-  release:
+  # Installs the built exe silently on a fresh runner, launches the installed PRSLOY.exe with a
+  # fake model and checks window → runtime extraction → Agent Host → reply → bash tool call.
+  smoke:
     needs: package
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11.15.1
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: app/pnpm-lock.yaml
+      - name: Install test deps
+        run: pnpm install --frozen-lockfile
+      - uses: actions/download-artifact@v4
+        with:
+          name: prsloy-win-x64
+          path: app/installer
+      - name: Silent install (per-user)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          New-Item -ItemType Directory -Force smoke-out | Out-Null
+          $setup = Get-ChildItem installer -Filter 'PRSLOY-*-win-x64.exe' | Select-Object -First 1
+          if (-not $setup) { throw 'installer exe not found' }
+          $sizeMb = [math]::Round($setup.Length / 1MB, 1)
+          $sw = [Diagnostics.Stopwatch]::StartNew()
+          $p = Start-Process $setup.FullName -ArgumentList '/S','/currentuser' -Wait -PassThru
+          $sw.Stop()
+          if ($p.ExitCode -ne 0) { throw "installer exit code $($p.ExitCode)" }
+          $exe = Join-Path $env:LOCALAPPDATA 'Programs\PRSLOY\PRSLOY.exe'
+          if (-not (Test-Path $exe)) {
+            $hit = Get-ChildItem $env:LOCALAPPDATA, $env:ProgramFiles -Filter PRSLOY.exe -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+            if (-not $hit) { throw 'PRSLOY.exe not found after install' }
+            $exe = $hit.FullName
+          }
+          $installMb = [math]::Round(((Get-ChildItem (Split-Path $exe) -Recurse -File | Measure-Object Length -Sum).Sum) / 1MB, 1)
+          "PRSLOY_EXE=$exe" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
+          @{ installer = $setup.Name; installerMb = $sizeMb; installSeconds = [math]::Round($sw.Elapsed.TotalSeconds, 1); installedMb = $installMb; exe = $exe } |
+            ConvertTo-Json | Out-File -Encoding utf8 smoke-out/install.json
+          Get-Content smoke-out/install.json
+      - name: Smoke test (installed app)
+        working-directory: app/apps/desktop
+        env:
+          SMOKE_OUT: ${{ github.workspace }}/app/smoke-out
+        run: pnpm exec playwright test -c playwright.smoke.config.ts
+      - name: Collect app logs
+        if: always()
+        shell: pwsh
+        run: |
+          Get-ChildItem $env:TEMP -Directory -Filter 'prsloy-smoke-*' -ErrorAction SilentlyContinue | ForEach-Object {
+            $dest = Join-Path smoke-out "userData-$($_.Name)"
+            robocopy (Join-Path $_.FullName 'userData') $dest /E /XD runtimes npm-prefix python-venv Cache 'Code Cache' GPUCache DawnCache /NFL /NDL /NJH /NJS | Out-Null
+          }
+          $global:LASTEXITCODE = 0
+      - name: Summary
+        if: always()
+        shell: pwsh
+        run: |
+          "## Smoke" | Out-File -Append $env:GITHUB_STEP_SUMMARY
+          foreach ($f in 'install.json','metrics.json','bash-runner.json','bash-clean.json') {
+            $path = Join-Path smoke-out $f
+            if (Test-Path $path) { "### $f", '```json', (Get-Content $path -Raw), '```' | Out-File -Append $env:GITHUB_STEP_SUMMARY }
+          }
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: prsloy-win-smoke
+          path: app/smoke-out
+          retention-days: 14
+
+  release:
+    needs: [package, smoke]
     if: github.ref_type == 'tag'
     runs-on: ubuntu-latest
     permissions:
