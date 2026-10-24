@@ -1,0 +1,35 @@
+# PRSLOY Desktop: быстрая проверка на Linux (типы, тесты, сборка) на каждый push и PR в app/.
+name: desktop-ci
+
+on:
+  push:
+    paths: ["app/**", ".github/workflows/desktop-ci.yml"]
+  pull_request:
+    paths: ["app/**"]
+
+concurrency:
+  group: desktop-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: app
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11.15.1
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: app/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm check
+      - run: pnpm test
+      - run: pnpm build

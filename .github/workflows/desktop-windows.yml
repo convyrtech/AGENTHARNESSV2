@@ -1,0 +1,95 @@
+# PRSLOY Desktop (app/, форк Zeno): установщик Windows на каждый push в app/ и релиз по тегу desktop-v*.
+# Push в main → артефакт prsloy-win-x64 (exe + latest.yml) на 14 дней.
+# Тег desktop-v0.1.0-alpha.1 → GitHub Release с exe + latest.yml (фид автообновления electron-updater).
+name: desktop-windows
+
+on:
+  push:
+    branches: [main]
+    paths: ["app/**", ".github/workflows/desktop-windows.yml"]
+    tags: ["desktop-v*"]
+  workflow_dispatch:
+
+concurrency:
+  group: desktop-windows-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: app
+
+jobs:
+  package:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    env:
+      ELECTRON_BUILDER_CACHE: ${{ github.workspace }}/../.cache/electron-builder
+      ELECTRON_CACHE: ${{ github.workspace }}/../.cache/electron
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11.15.1
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: app/pnpm-lock.yaml
+      - name: Version from tag
+        if: github.ref_type == 'tag'
+        shell: bash
+        run: |
+          VERSION="${GITHUB_REF_NAME#desktop-v}"
+          node -e "const f='./apps/desktop/package.json';const p=require(f);p.version='${VERSION}';require('fs').writeFileSync(f,JSON.stringify(p,null,2)+'\n')"
+      - name: Install
+        run: pnpm install --frozen-lockfile
+      - name: Build
+        run: pnpm build
+      - name: Electron binary
+        run: pnpm electron:install
+      - name: Package (unsigned unless CSC secrets are set)
+        shell: bash
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${CSC_LINK:-}" || -z "${CSC_KEY_PASSWORD:-}" ]]; then
+            unset CSC_LINK CSC_KEY_PASSWORD || true
+            export CSC_IDENTITY_AUTO_DISCOVERY=false
+          fi
+          pnpm package
+      - name: Collect
+        shell: bash
+        run: node scripts/release-assets.mjs collect apps/desktop/release/app artifacts --platform win --arch "${{ runner.arch }}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: prsloy-win-x64
+          path: app/artifacts/*
+          if-no-files-found: error
+          retention-days: 14
+
+  release:
+    needs: package
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    defaults:
+      run:
+        working-directory: .
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: prsloy-win-x64
+          path: release-assets
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: PRSLOY ${{ github.ref_name }}
+          prerelease: true
+          fail_on_unmatched_files: true
+          files: release-assets/*
