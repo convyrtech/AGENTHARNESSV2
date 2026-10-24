@@ -188,8 +188,10 @@ class H(http.server.BaseHTTPRequestHandler):
                         if ch.get("finish_reason") and not finished:
                             finished = True
                             att["fin_s"] = round(time.time() - t0, 2)
+                # не c.close(): закрытие ждёт замок буфера, который держит поток-читатель, пока поставщик сам не порвёт
+                # связь (E9: +75 с на вызов). shutdown рвёт сокет сразу, читатель выходит с ошибкой.
                 try:
-                    c.close()
+                    c.sock.shutdown(socket.SHUT_RDWR)
                 except Exception:
                     pass
                 if not (useful and (done or finished)) or "err" in att and not finished:
