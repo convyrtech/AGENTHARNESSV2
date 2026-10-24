@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Приёмы движения</title>
+<script>
+  // ?brand=prsloy|raki — токены бренда; ?move=<id> — показать один приём (для листа и видео); ?t=0.4 — замереть
+  (function () {
+    var q = new URLSearchParams(location.search), b = q.get("brand") || "prsloy";
+    document.write('<link rel="stylesheet" href="../brands/' + b.replace(/[^a-z0-9-]/g, "") + '.css">');
+    if (q.get("move")) document.documentElement.setAttribute("data-solo", q.get("move"));
+  })();
+</script>
+<link rel="stylesheet" href="../motion.css">
+<style>
+  * { box-sizing: border-box; }
+  html { background: var(--paper); }
+  body { margin: 0; color: var(--ink); font: 400 17px/1.5 var(--body); background: var(--paper); }
+  main { max-width: 1040px; margin: 0 auto; padding: 48px 20px 96px; }
+  h1, h2, h3 { font-family: var(--head); font-weight: 400; letter-spacing: -.01em; margin: 0; }
+  h1 { font-size: clamp(34px, 6vw, 56px); line-height: 1.05; }
+  .tag { font: 400 12px/1.4 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--mid); }
+  section.demo { border-top: 1px solid var(--line); padding: 40px 0 48px; display: grid; gap: 18px; }
+  section.demo > header { display: flex; gap: 14px; align-items: baseline; flex-wrap: wrap; }
+  section.demo > header h2 { font-size: 26px; }
+  .stage { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 32px; min-height: 220px;
+    display: grid; place-items: center; position: relative; overflow: hidden; }
+  .big { font-family: var(--head); font-size: clamp(40px, 8vw, 72px); line-height: 1; }
+  .mono { font-family: var(--mono); }
+  .btn { font: 500 15px/1 var(--body); color: var(--card); background: transparent; border: 0; padding: 16px 26px; border-radius: 999px; cursor: pointer; }
+  .card { background: var(--paper); border: 1px solid var(--ink); border-radius: var(--radius); padding: 18px 20px; min-width: 260px; display: grid; gap: 6px; }
+  .stampbox { position: absolute; right: 18%; bottom: 22%; font: 500 13px/1 var(--mono); letter-spacing: .1em; color: var(--stamp);
+    border: 1.5px solid var(--stamp); padding: 7px 10px; border-radius: 3px; background: color-mix(in srgb, var(--card) 80%, transparent); }
+  .trail svg { width: 100%; height: auto; display: block; }
+  .trail [data-node] circle { fill: var(--card); stroke: var(--ink); stroke-width: 1.4; }
+  .trail [data-node].is-lit circle { stroke: var(--accent); fill: var(--accent); }
+  .trail [data-node] text { font: 400 13px var(--mono); fill: var(--mid); }
+  .trail [data-node].is-lit text { fill: var(--ink); }
+  .cascade { width: 100%; height: 240px; position: relative; }
+  .cascade [data-dot-label] { position: absolute; font: 400 13px var(--mono); color: var(--ink); background: var(--card); border: 1px solid var(--ink);
+    padding: 4px 8px; border-radius: 3px; white-space: nowrap; }
+  .shutter { width: 100%; height: 240px; padding: 0; border: 0; }
+  .shutter .layer { position: absolute; inset: 0; display: grid; place-items: center; font-family: var(--head); font-size: 34px; }
+  .shutter .l1 { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); }
+  .shutter [data-shutter-to] { background: var(--ink); color: var(--card); border-radius: var(--radius); }
+  .slot { width: 300px; height: 150px; display: flex; align-items: flex-end; justify-content: center; }
+  .slot .card { margin-bottom: 0; border-bottom: 0; border-radius: var(--radius) var(--radius) 0 0; }
+  .scene .m-stage { display: grid; grid-template-columns: 1fr 1fr; align-items: center; gap: 24px; padding: 0 20px; max-width: 1040px; margin: 0 auto; }
+  .scene ol { list-style: none; padding: 0; margin: 0; display: grid; gap: 22px; }
+  .scene li h3 { font-size: 28px; }
+  .scene .instrument { position: relative; display: grid; place-items: center; height: 60svh; }
+  @media (max-width: 720px) {
+    .stage { padding: 22px 16px; }
+    .scene .m-stage { grid-template-columns: 1fr; align-content: center; }
+    .scene .instrument { height: 34svh; }
+    .scene li h3 { font-size: 22px; }
+    .stampbox { right: 8%; }
+  }
+  /* один приём на экране: для листа приёмов и видео */
+  [data-solo] main > header, [data-solo] section.demo { display: none !important; }
+  [data-solo] main { padding-top: 24px; }
+  [data-solo="ring"] #ring, [data-solo="rail"] #rail, [data-solo="odometer"] #odometer, [data-solo="stamp"] #stamp,
+  [data-solo="slot"] #slot, [data-solo="trail"] #trail, [data-solo="morph"] #morph, [data-solo="cascade"] #cascade,
+  [data-solo="lineword"] #lineword, [data-solo="shutter"] #shutter { display: grid !important; border-top: 0; }
+  [data-solo="director"] main { display: none; }
+  [data-solo] #scene-wrap { display: none; }
+  [data-solo="director"] #scene-wrap { display: block; }
+  [data-solo="director"] .scene { height: 100svh; }
+</style>
+</head>
+<body>
+<main>
+  <header style="display:grid;gap:12px;margin-bottom:28px">
+    <span class="tag">playbooks/site/motion · motion.js</span>
+    <h1>Приёмы движения</h1>
+  </header>
+
+  <section class="demo" id="ring">
+    <header><span class="tag">1 · ringHead</span><h2>Кольцо с головкой</h2></header>
+    <div class="stage"><div data-move="ringHead" data-opts='{"pad":26}' data-signature="ring"><span class="big mono">32,41 ₽</span></div></div>
+  </section>
+
+  <section class="demo" id="rail">
+    <header><span class="tag">6 · stepsRail</span><h2>Рельс шагов</h2></header>
+    <div class="stage" style="place-items:stretch">
+      <ol data-move="stepsRail" class="m-rail-row-wide">
+        <li><div><h3 style="font-size:21px">Войдите</h3><span style="color:var(--mid)">почта или Telegram</span></div></li>
+        <li><div><h3 style="font-size:21px">Получите ключ</h3><span style="color:var(--mid)">его видно один раз</span></div></li>
+        <li><div><h3 style="font-size:21px">Вставьте адрес</h3><span class="mono" style="color:var(--mid)">api.prsloy.online/v1</span></div></li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="demo" id="odometer">
+    <header><span class="tag">13 · odometer</span><h2>Число с торможением</h2></header>
+    <div class="stage"><div style="display:grid;gap:6px;justify-items:center"><span class="tag">лимит ключа на день</span>
+      <span class="big" data-move="odometer">1 250 ₽</span></div></div>
+  </section>
+
+  <section class="demo" id="stamp">
+    <header><span class="tag">14 · stamp</span><h2>Печать-штамп</h2></header>
+    <div class="stage">
+      <div class="card"><span class="tag">ключ «работа»</span><span class="mono">sk-prs-…7qF2</span><span style="color:var(--mid)">Claude Code</span></div>
+      <span class="stampbox" data-move="stamp" data-delay="250">КЛЮЧ ВЫДАН</span>
+    </div>
+  </section>
+
+  <section class="demo" id="slot">
+    <header><span class="tag">12 · slotLift</span><h2>Выезд из-под кромки</h2></header>
+    <div class="stage"><div class="slot" data-move="slotLift"><div class="card" data-lift><span class="tag">новый ключ</span><span class="mono">sk-prs-…7qF2</span></div></div></div>
+  </section>
+
+  <section class="demo" id="trail">
+    <header><span class="tag">5 · trailDot</span><h2>Тропа с точкой</h2></header>
+    <div class="stage trail" style="padding:20px 12px">
+      <div data-move="trailDot" data-opts='{"dur":2600}' style="width:100%">
+        <svg viewBox="0 0 1000 240" aria-hidden="true">
+          <path data-trail d="M40 170 C 180 40, 300 40, 360 120 S 520 220, 600 140 S 780 40, 900 110 L 960 110"/>
+          <g data-node data-at="0.18"><circle r="9"/><text x="-26" y="34">вход</text></g>
+          <g data-node data-at="0.52"><circle r="9"/><text x="-22" y="34">ключ</text></g>
+          <g data-node data-at="0.86"><circle r="9"/><text x="-26" y="34">адрес</text></g>
+        </svg>
+      </div>
+    </div>
+  </section>
+
+  <section class="demo" id="morph">
+    <header><span class="tag">8 · morph</span><h2>Одна фигура — все состояния</h2></header>
+    <div class="stage" style="gap:14px"><span class="mono" style="color:var(--mid)">https://api.prsloy.online/v1</span>
+      <button class="btn" data-move="morph" data-signature="copy">Скопировать адрес</button></div>
+  </section>
+
+  <section class="demo" id="cascade">
+    <header><span class="tag">10 · dotCascade</span><h2>Каскад точек</h2></header>
+    <div class="stage" style="padding:16px">
+      <div class="cascade" data-move="dotCascade">
+        <span data-dot style="left:8%;top:30%"></span><span data-dot style="left:16%;top:62%"></span><span data-dot style="left:24%;top:22%"></span>
+        <span data-dot style="left:31%;top:54%"></span><span data-dot style="left:38%;top:80%"></span><span data-dot style="left:44%;top:36%"></span>
+        <span data-dot class="is-pick" style="left:52%;top:58%"></span><span data-dot style="left:58%;top:18%"></span><span data-dot style="left:64%;top:70%"></span>
+        <span data-dot style="left:71%;top:40%"></span><span data-dot style="left:78%;top:24%"></span><span data-dot style="left:84%;top:64%"></span>
+        <span data-dot style="left:90%;top:38%"></span><span data-dot style="left:12%;top:86%"></span><span data-dot style="left:68%;top:88%"></span>
+        <span data-dot-label style="left:55%;top:66%">+12 рядом</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="demo" id="lineword">
+    <header><span class="tag">15 · lineWord</span><h2>Линия-строка</h2></header>
+    <div class="stage"><h2 class="big" data-move="lineWord">Расход в <span data-rise>рублях</span></h2></div>
+  </section>
+
+  <section class="demo" id="shutter">
+    <header><span class="tag">2 · shutter</span><h2>Предмет-шторка</h2></header>
+    <div class="stage shutter" data-move="shutter" data-opts='{"x":24,"y":60}'>
+      <div class="layer l1">Глава 1</div>
+      <div class="layer" data-shutter-to>Глава 2</div>
+    </div>
+  </section>
+
+  <section class="demo" id="director-note">
+    <header><span class="tag">4 · director</span><h2>Режиссёр-t</h2></header>
+    <p style="margin:0;color:var(--mid)">Сцена ниже закреплена на экране, всё в ней ведёт прокрутка.</p>
+  </section>
+</main>
+
+<div id="scene-wrap">
+  <section class="scene" data-move="director" data-opts='{"screens":3}'>
+    <div class="m-stage">
+      <ol>
+        <li data-step-at="0"><span class="tag">ключ</span><h3>Ключ на программу</h3></li>
+        <li data-step-at="0.4"><span class="tag">лимит</span><h3>Лимит в рублях на день</h3></li>
+        <li data-step-at="0.75"><span class="tag">расход</span><h3>Расход видно сразу</h3></li>
+      </ol>
+      <div class="instrument">
+        <div data-move="ringHead" data-at="0-0.45" data-opts='{"pad":30}' data-signature="director-ring">
+          <span class="big" data-move="odometer" data-at="0.35-0.8">50 ₽</span>
+        </div>
+        <span class="stampbox" data-move="stamp" data-at="0.82-0.95" style="right:6%;bottom:18%">ЛИМИТ ЗАДАН</span>
+      </div>
+    </div>
+  </section>
+</div>
+<main style="padding-top:0"><p style="color:var(--mid)">Конец демо.</p></main>
+
+<script src="../motion.js"></script>
+<script>
+  // рельс горизонтальный на широком экране
+  (function () { var r = document.querySelector("#rail ol"); if (matchMedia("(min-width: 721px)").matches) r.classList.add("m-rail-row"); })();
+</script>
+</body>
+</html>

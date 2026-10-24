@@ -1,0 +1,91 @@
+/* motion.css — стили приёмов из motion.js. Облик задают токены бренда:
+   --m-ink (линии), --m-accent (точка, галочка, штамп), --m-paper (фон под пилюлей),
+   --m-line (тонкие связки), --m-stroke (толщина линии), --m-ease (кривая), --m-num (шрифт цифр). */
+:where(:root) {
+  --m-ink: currentColor;
+  --m-accent: #c0392b;
+  --m-paper: #fff;
+  --m-line: color-mix(in srgb, currentColor 35%, transparent);
+  --m-stroke: 1.5px;
+  --m-ease: cubic-bezier(.22, 1, .36, 1);
+  --m-num: inherit;
+}
+
+/* 1. кольцо с головкой */
+.m-ringHead { position: relative; }
+.m-ring-svg { position: absolute; overflow: visible; pointer-events: none; }
+.m-ring-line { fill: none; stroke: var(--m-ink); stroke-dasharray: 1; stroke-linecap: round; }
+.m-ring-head { fill: var(--m-accent); }
+
+/* 6. рельс шагов: по умолчанию вертикальный, на широком экране — горизонтальный (класс .m-rail-row) */
+.m-stepsRail { list-style: none; padding: 0; margin: 0; display: grid; gap: 1.25rem; }
+.m-step { position: relative; display: grid; grid-template-columns: 1.6rem 1fr; column-gap: .9rem; align-items: start; }
+.m-step-node { width: 1.6rem; height: 1.6rem; display: block; }
+.m-step-node svg { width: 100%; height: 100%; overflow: visible; }
+.m-step-ring { fill: none; stroke: var(--m-ink); stroke-width: 1.4; stroke-dasharray: 1; }
+.m-step-fill { fill: var(--m-ink); transform-origin: 12px 12px; transform-box: view-box; }
+.m-step-tick { fill: none; stroke: var(--m-paper); stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 1; }
+.m-step-link { position: absolute; left: .8rem; top: 1.6rem; width: var(--m-stroke); height: calc(100% - .3rem);
+  background: var(--m-ink); transform-origin: top center; }
+.m-rail-row { grid-auto-flow: column; grid-auto-columns: 1fr; gap: 0; }
+.m-rail-row .m-step { grid-template-columns: 1fr; row-gap: .7rem; padding-right: 1rem; }
+.m-rail-row .m-step-link { left: 2rem; top: .8rem; width: calc(100% - 2.4rem); height: var(--m-stroke); transform-origin: left center; }
+
+/* 13. одометр */
+.m-odo { font-family: var(--m-num); font-variant-numeric: tabular-nums lining-nums; white-space: nowrap; }
+.m-odo-vis { display: inline-flex; align-items: flex-start; line-height: 1.15em; }
+.m-odo-win { display: block; height: 1.15em; overflow: hidden; }
+.m-odo-col { display: flex; flex-direction: column; will-change: transform; }
+.m-odo-col > span { display: block; height: 1.15em; line-height: 1.15em; text-align: center; }
+.m-odo-sym { display: block; height: 1.15em; line-height: 1.15em; white-space: pre; }
+
+/* 14. штамп */
+.m-stamp { display: inline-block; transform-origin: 50% 60%; }
+
+/* 12. выезд из-под кромки */
+.m-slotLift { position: relative; overflow: hidden; }
+.m-slotLift::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: var(--m-stroke); background: var(--m-ink); }
+.m-slotLift > [data-lift] { will-change: transform; }
+
+/* 5. тропа с точкой */
+.m-trailDot { position: relative; }
+.m-trail-line { fill: none; stroke: var(--m-ink); stroke-dasharray: 1; vector-effect: non-scaling-stroke; stroke-width: var(--m-stroke); stroke-linecap: round; }
+.m-trail-dot { fill: var(--m-accent); }
+.m-trail-arrow { fill: none; stroke: var(--m-ink); stroke-width: var(--m-stroke); vector-effect: non-scaling-stroke; stroke-linecap: round; stroke-linejoin: round; }
+.m-trailDot [data-node] { transition: color .24s var(--m-ease), border-color .24s var(--m-ease); }
+.m-trailDot [data-node].is-lit { color: var(--m-accent); border-color: var(--m-accent); }
+
+/* 2. шторка */
+.m-shutter { position: relative; }
+.m-shutter [data-shutter-to] { position: absolute; inset: 0; }
+
+/* 8. одна фигура — все состояния */
+.m-morph { position: relative; isolation: isolate; }
+.m-morph-pill { position: absolute; inset: 0; border-radius: 999px; background: var(--m-ink); z-index: -1; transform-origin: center; }
+.m-morph-label { display: inline-block; }
+.m-morph-tick { position: absolute; left: 50%; top: 50%; width: 1.3em; height: 1.3em; margin: -.65em 0 0 -.65em; opacity: 0; pointer-events: none; }
+.m-morph-tick path { fill: none; stroke: var(--m-paper); stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 1; stroke-dashoffset: 1; }
+
+/* 10. каскад точек */
+.m-dotCascade [data-dot] { position: absolute; width: 10px; height: 10px; margin: -5px 0 0 -5px; border-radius: 50%;
+  border: var(--m-stroke) solid var(--m-ink); background: var(--m-paper); }
+.m-dotCascade [data-dot].is-pick { background: var(--m-accent); border-color: var(--m-accent); }
+.m-dot-pulse { position: absolute; inset: -6px; border-radius: 50%; border: var(--m-stroke) solid var(--m-accent); opacity: 0; pointer-events: none; }
+
+/* 15. линия-строка */
+.m-lineWord { position: relative; display: inline-block; padding-bottom: .4em; }
+.m-rise-win { display: inline-block; overflow: hidden; vertical-align: bottom; }
+.m-rise { display: inline-block; will-change: transform; }
+.m-lw-svg { position: absolute; left: 0; right: 0; bottom: 0; width: 100%; height: 1.2em; overflow: visible; pointer-events: none; }
+.m-lw-line { stroke: var(--m-ink); stroke-width: var(--m-stroke); }
+.m-lw-dot { position: absolute; right: -.35em; bottom: .55em; width: .28em; height: .28em; border-radius: 50%; background: var(--m-accent); }
+
+/* 4. режиссёр-t */
+.m-director { position: relative; height: calc(var(--m-screens, 2) * 100svh); }
+.m-director > .m-stage { position: sticky; top: 0; height: 100svh; overflow: hidden; }
+.m-director [data-step-at] { opacity: var(--in, 1); transform: translateY(calc((1 - var(--in, 1)) * 24px)); }
+
+@media (prefers-reduced-motion: reduce) {
+  .m-director { height: auto; }
+  .m-director > .m-stage { position: relative; height: auto; }
+}

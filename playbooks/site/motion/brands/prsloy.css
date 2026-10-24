@@ -1,0 +1,11 @@
+/* PRSLOY: бумага, чернила, ржавый акцент (design/prsloy-landing/02-brand.md, токены кабинета B4) */
+@font-face { font-family: "Piazzolla"; src: url("../demo/fonts/Piazzolla-VF.ttf") format("truetype"); font-weight: 300 700; font-display: swap; }
+@font-face { font-family: "Geologica"; src: url("../demo/fonts/Geologica-VF.ttf") format("truetype"); font-weight: 300 600; font-display: swap; }
+@font-face { font-family: "IBM Plex Mono"; src: url("../demo/fonts/IBMPlexMono-Regular.ttf") format("truetype"); font-weight: 400; font-display: swap; }
+:root {
+  --paper: #f3eee3; --card: #faf7f0; --ink: #3b2a1e; --mid: #7a6352; --line: #ddd2c1; --accent: #a4472c; --stamp: #b23a26;
+  --head: "Piazzolla", Georgia, serif; --body: "Geologica", system-ui, sans-serif; --mono: "IBM Plex Mono", ui-monospace, monospace;
+  --m-ink: var(--ink); --m-accent: var(--accent); --m-paper: var(--card); --m-line: var(--line);
+  --m-stroke: 1.4px; --m-ease: cubic-bezier(.22, 1, .36, 1); --m-num: var(--mono);
+  --radius: 2px;
+}

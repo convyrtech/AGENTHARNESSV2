@@ -1,0 +1,11 @@
+/* The Raki: фарфор, navy, голубой, алый акцент; Cormorant + Manrope + моно (канон info.theraki.ru, REFS.md) */
+@font-face { font-family: "Cormorant Garamond"; src: url("../demo/fonts/CormorantGaramond-Cyrillic-Variable.woff2") format("woff2"); font-weight: 300 700; font-display: swap; }
+@font-face { font-family: "Manrope"; src: url("../demo/fonts/Manrope-Cyrillic-Variable.woff2") format("woff2"); font-weight: 300 700; font-display: swap; }
+@font-face { font-family: "JetBrains Mono"; src: url("../demo/fonts/JetBrainsMono-Cyrillic-Variable.woff2") format("woff2"); font-weight: 300 600; font-display: swap; }
+:root {
+  --paper: #f5fafd; --card: #ffffff; --ink: #1d537a; --mid: #4f7591; --line: #b5daeb; --accent: #e91b1a; --stamp: #e91b1a;
+  --head: "Cormorant Garamond", Georgia, serif; --body: "Manrope", system-ui, sans-serif; --mono: "JetBrains Mono", ui-monospace, monospace;
+  --m-ink: var(--ink); --m-accent: var(--accent); --m-paper: var(--card); --m-line: var(--line);
+  --m-stroke: 1.2px; --m-ease: cubic-bezier(.22, 1, .36, 1); --m-num: var(--head);
+  --radius: 14px;
+}

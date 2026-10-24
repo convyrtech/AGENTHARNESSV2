@@ -44,6 +44,27 @@ for rec in page.split('{slug:"')[1:]:
         "poster": field(rec, "posterUrl"),
         "added": field(rec, "addedAt"),
     })
+# extra slugs (e.g. the owner's catalog.json with 475 cards): fetch each missing clip from its own page
+EXTRA = sys.argv[2] if len(sys.argv) > 2 else None
+if EXTRA:
+    have = {it["slug"] for it in items}
+    extra = [x["slug"] if isinstance(x, dict) else x for x in json.load(open(EXTRA, encoding="utf-8"))]
+    for slug in [x for x in extra if x not in have]:
+        try:
+            pg = urllib.request.urlopen(urllib.request.Request(f"{URL}/{slug}", headers={"User-Agent": "Mozilla/5.0"}), timeout=60).read().decode("utf-8", "ignore")
+        except Exception as e:
+            print("skip", slug, repr(e)[:80]); continue
+        i = pg.find('slug:"' + slug + '"')
+        if i < 0:
+            print("no record", slug); continue
+        rec = pg[i + len('slug:"'):][:20000]
+        rec = rec.split('"', 1)[1] if rec.startswith(slug) else rec
+        tags = re.search(r'techTags:\$R\[\d+\]=\[([^\]]*)\]', rec)
+        items.append({"slug": slug, "page": f"{URL}/{slug}", "author": field(rec, "authorHandle"), "category": field(rec, "category"),
+                      "tech": re.findall(r'"([^"]+)"', tags.group(1)) if tags else [], "seconds": num(rec, "durationSeconds"),
+                      "size": [num(rec, "width"), num(rec, "height")], "prompt": field(rec, "prompt"),
+                      "promptTruncated": "promptTruncated:!0" in rec, "original_mp4": field(rec, "originalPreviewUrl"),
+                      "remake_mp4": field(rec, "remakePreviewUrl"), "poster": field(rec, "posterUrl"), "added": field(rec, "addedAt")})
 json.dump(items, open(out, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
 cats = {}
 for it in items:
