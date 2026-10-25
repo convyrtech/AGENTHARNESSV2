@@ -84,9 +84,17 @@ win:
   target:
     - nsis
 nsis:
-  oneClick: false
-  allowToChangeInstallationDirectory: true
+  # One click, Russian, per-user (%LOCALAPPDATA%\Programs\PRSLOY, no UAC): a double click shows one
+  # progress bar and starts the app. electron-updater runs the same installer with --updated /S.
+  oneClick: true
   perMachine: false
+  allowToChangeInstallationDirectory: false
+  runAfterFinish: true
+  unicode: true
+  multiLanguageInstaller: false
+  installerLanguages: [ru_RU]
+  language: "1049"
+  # Key, chats and settings live in %APPDATA%\PRSLOY and survive uninstall / reinstall.
   deleteAppDataOnUninstall: false
   installerIcon: icon.ico
   uninstallerIcon: icon.ico
