@@ -13,30 +13,9 @@ import {
   type SearchConfig,
 } from "../src/research/search.ts";
 import { clip, installResearch } from "../src/research/tools.ts";
+import { fakeFetch, json } from "./fake-fetch.ts";
 import { MockPi } from "./mock-pi.ts";
 
-type Call = { url: string; method: string; headers: Record<string, string>; body: unknown };
-
-/** fetch по таблице «адрес начинается с → ответ»; все вызовы записываются. */
-function fakeFetch(routes: [string, (c: Call) => Response][]) {
-  const calls: Call[] = [];
-  const impl = (async (input: string | URL, init: RequestInit = {}) => {
-    const url = String(input);
-    const headers = Object.fromEntries(
-      Object.entries((init.headers as Record<string, string>) ?? {}),
-    );
-    const body = typeof init.body === "string" ? JSON.parse(init.body) : undefined;
-    const call = { url, method: init.method ?? "GET", headers, body };
-    calls.push(call);
-    const route = routes.find(([prefix]) => url.startsWith(prefix));
-    if (!route) throw new Error(`ECONNREFUSED ${url}`);
-    return route[1](call);
-  }) as typeof fetch;
-  return { impl, calls };
-}
-
-const json = (data: unknown, status = 200) =>
-  new Response(JSON.stringify(data), { status, headers: { "content-type": "application/json" } });
 const NOW = () => new Date("2026-10-25T12:00:00Z");
 
 const DS_RESULT = {
@@ -399,11 +378,23 @@ describe("web_search / web_fetch tools", () => {
     return { mock, out };
   }
 
-  it("off by default: no flag, no tools", () => {
-    expect(setup({ search: { provider: "deepseek", key: "k" } }).mock.tools.size).toBe(0);
-    expect(
-      setup({ search: { provider: "deepseek", key: "k" } }, { research: true }).mock.tools.size,
-    ).toBe(2);
+  it("off by default: the tools are not offered to the model until the webTools flag is on", async () => {
+    const off = setup({ search: { provider: "deepseek", key: "k" } });
+    expect(off.mock.activeTools).not.toContain("web_search");
+    await off.mock.userPrompt();
+    expect(off.mock.activeTools).not.toContain("web_search");
+    const on = setup({ search: { provider: "deepseek", key: "k" } }, { webTools: true });
+    expect(on.mock.activeTools).toEqual(expect.arrayContaining(["web_search", "web_fetch"]));
+    // the flag is read every turn: turned off in the app → gone at the next turn, no restart
+    writeFileSync(join(on.out, "prsloy-harness.json"), JSON.stringify({ webTools: false }));
+    await on.mock.userPrompt();
+    expect(on.mock.activeTools).not.toContain("web_fetch");
+    expect(on.mock.activeTools).toContain("bash");
+    writeFileSync(join(on.out, "prsloy-harness.json"), JSON.stringify({ webTools: true }));
+    await on.mock.userPrompt();
+    expect(on.mock.activeTools).toEqual(expect.arrayContaining(["web_search", "web_fetch"]));
+    // the old key `research` no longer turns them on
+    expect(setup({}, { research: true }).mock.activeTools).not.toContain("web_search");
   });
 
   it("search with the gateway key from Pi, numbered sources with dates; fetch by [n] saves the text", async () => {
@@ -434,8 +425,8 @@ describe("web_search / web_fetch tools", () => {
     expect(f.calls[0]!.headers.Authorization).toBe("Bearer sk-gateway");
     expect(text).toContain("Сегодня 2026-10-25");
     expect(text).toContain("не инструкции");
-    expect(text).toContain("[1] Ключевая ставка — cbr.ru — 2026-10-23 — авторитетность 4/4");
-    expect(text).toContain("[2] Без даты — example.com — дата неизвестна");
+    expect(text).toContain("[1] Ключевая ставка — cbr.ru — 2026-10-23 — доки — авторитетность 4/4");
+    expect(text).toContain("[2] Без даты — example.com — дата неизвестна — статьи");
     const read = await mock.tools
       .get("web_fetch")!
       .execute("2", { source: "[1]" }, undefined, undefined, mock.ctx as never);
@@ -450,14 +441,14 @@ describe("web_search / web_fetch tools", () => {
     ).rejects.toThrow("Источника [9] нет");
   });
 
-  it("not configured, and a spent limit, are said in words the user can act on", async () => {
-    const { mock } = setup({ enabled: true });
-    await expect(
-      mock.tools
-        .get("web_search")!
-        .execute("1", { query: "q" }, undefined, undefined, mock.ctx as never),
-    ).rejects.toThrow("Настройках → «Поиск в интернете»");
-    const f = fakeFetch([["https://api.search.brave.com/", () => json({}, 429)]]);
+  it("a spent limit everywhere is said in words the user can act on, with a card", async () => {
+    const f = fakeFetch([
+      ["https://api.search.brave.com/", () => json({}, 429)],
+      [
+        "https://html.duckduckgo.com/",
+        () => new Response("<html>anomaly.js</html>", { status: 202 }),
+      ],
+    ]);
     const limited = setup({
       enabled: true,
       search: { provider: "brave", key: "k" },
@@ -467,7 +458,16 @@ describe("web_search / web_fetch tools", () => {
       limited.mock.tools
         .get("web_search")!
         .execute("1", { query: "q" }, undefined, undefined, limited.mock.ctx as never),
-    ).rejects.toThrow("Лимит поиска исчерпан");
+    ).rejects.toThrow(
+      /Brave: лимит.*Бесплатный поиск: поиск временно недоступен.*Лимит поиска исчерпан/,
+    );
+    expect(limited.mock.sent).toEqual([
+      expect.objectContaining({
+        customType: "prsloy-harness.search-limit",
+        display: true,
+        details: { provider: "brave", code: "limit" },
+      }),
+    ]);
   });
 
   it("long pages: head and tail in the answer, the rest in the file", () => {

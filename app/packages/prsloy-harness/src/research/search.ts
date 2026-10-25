@@ -3,8 +3,15 @@
 // Яндекс, свой SearXNG, Brave, Exa, Firecrawl, Jina. Tavily нет: условия запрещают пользователей в России (§3.2).
 // Ключи сюда приходят из main (safeStorage) через передачу хосту; в окружение агента они не попадают.
 // Результаты поиска — данные со сторонних сайтов, а не инструкции.
+import { clean, dated, SearchError, type SearchErrorCode } from "./common.ts";
+import { freeSearch } from "./free.ts";
+import { modelSearch } from "./model-search.ts";
+
+export { SearchError, type SearchErrorCode } from "./common.ts";
 
 export type SearchProviderId =
+  | "free"
+  | "model"
   | "prsloy"
   | "deepseek"
   | "yandex"
@@ -14,8 +21,9 @@ export type SearchProviderId =
   | "firecrawl"
   | "jina";
 
+/** Порядок на экране: бесплатный, свои ключи, PRSLOY (#31), модель. */
 export const SEARCH_PROVIDERS: readonly SearchProviderId[] = [
-  "prsloy",
+  "free",
   "deepseek",
   "yandex",
   "searxng",
@@ -23,15 +31,20 @@ export const SEARCH_PROVIDERS: readonly SearchProviderId[] = [
   "exa",
   "firecrawl",
   "jina",
+  "prsloy",
+  "model",
 ];
 
 export interface SearchConfig {
   provider: SearchProviderId;
-  /** Ключ поставщика (для prsloy — ключ шлюза PRSLOY). */
+  /** Ключ поставщика (для prsloy и model — ключ шлюза PRSLOY). */
   key?: string;
   /** Яндекс: ID каталога. */
   folderId?: string;
-  /** SearXNG: адрес своего сервера; prsloy: адрес шлюза (`https://…/v1` или без `/v1`). */
+  /**
+   * SearXNG: адрес своего сервера; prsloy и model: адрес шлюза (`https://…/v1` или без `/v1`); free: SearXNG
+   * владельца (#31), если задан, — вместо DuckDuckGo.
+   */
   url?: string;
 }
 
@@ -46,6 +59,8 @@ export interface SearchQuery {
   /** Только опубликованное после даты (YYYY-MM-DD), где поставщик умеет. */
   after?: string;
   lang?: "ru" | "en";
+  /** Только этот сайт (`site:` у тех, кто умеет). */
+  site?: string;
 }
 
 export interface SearchHit {
@@ -59,16 +74,6 @@ export interface SearchHit {
   provider: SearchProviderId;
 }
 
-export type SearchErrorCode = "no_key" | "auth" | "limit" | "network" | "format" | "no_channel";
-
-export class SearchError extends Error {
-  readonly code: SearchErrorCode;
-  constructor(code: SearchErrorCode, message: string) {
-    super(message);
-    this.code = code;
-  }
-}
-
 export interface SearchDeps {
   fetchImpl?: typeof fetch;
   timeoutMs?: number;
@@ -77,6 +82,8 @@ export interface SearchDeps {
 }
 
 const NAME: Record<SearchProviderId, string> = {
+  free: "Бесплатный поиск",
+  model: "Поиск модели",
   prsloy: "Поиск PRSLOY",
   deepseek: "DeepSeek",
   yandex: "Яндекс",
@@ -97,26 +104,6 @@ function since(q: SearchQuery, now: Date): string | undefined {
   if (q.after) return q.after;
   if (!q.freshness) return undefined;
   return new Date(now.getTime() - DAYS[q.freshness] * 86_400_000).toISOString().slice(0, 10);
-}
-
-function clean(text: unknown, max = 400): string {
-  return (typeof text === "string" ? text : "")
-    .replace(/<[^>]+>/g, "")
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, max);
-}
-
-/** `{ date }` для объекта результата, когда дата есть (без `date: undefined`). */
-function dated(value: unknown): { date: string } | Record<string, never> {
-  const d = isoDate(value);
-  return d ? { date: d } : {};
-}
-
-function isoDate(value: unknown): string | undefined {
-  if (typeof value !== "string" || !value.trim()) return undefined;
-  const t = Date.parse(value);
-  return Number.isNaN(t) ? undefined : new Date(t).toISOString().slice(0, 10);
 }
 
 /** Код ответа поставщика → понятная ошибка. */
@@ -174,7 +161,7 @@ function need(cfg: SearchConfig, field: "key" | "folderId" | "url"): string {
 
 /** Запрос с операторами DeepSeek (`lang:`, `after:`): так и шлюз, который проксирует DeepSeek. */
 function deepseekQuery(q: SearchQuery, now: Date): string {
-  const parts = [q.query.trim()];
+  const parts = [withSite(q)];
   if (q.lang) parts.push(`lang:${q.lang}`);
   const after = since(q, now);
   if (after) parts.push(`after:${after}`);
@@ -210,6 +197,11 @@ function gatewayBase(url: string): string {
   return url.replace(/\/+$/, "").replace(/\/v1$/, "");
 }
 
+/** Текст запроса с `site:`, если задан сайт. */
+function withSite(q: SearchQuery): string {
+  return q.site ? `${q.query.trim()} site:${q.site}` : q.query.trim();
+}
+
 export async function search(
   cfg: SearchConfig,
   q: SearchQuery,
@@ -219,6 +211,20 @@ export async function search(
   const count = Math.min(20, Math.max(1, Math.round(q.count ?? 8)));
   const json = { "Content-Type": "application/json" };
   switch (cfg.provider) {
+    case "free": {
+      const url = cfg.url?.trim();
+      return freeSearch(
+        { ...q, count: Math.min(10, count) },
+        {
+          ...deps,
+          ...(url
+            ? { searxng: (qq: SearchQuery) => search({ provider: "searxng", url }, qq, deps) }
+            : {}),
+        },
+      );
+    }
+    case "model":
+      return modelSearch({ url: need(cfg, "url"), key: need(cfg, "key") }, { ...q, count }, deps);
     case "prsloy":
     case "deepseek": {
       const base =
@@ -245,7 +251,7 @@ export async function search(
           body: JSON.stringify({
             query: {
               searchType: q.lang === "en" ? "SEARCH_TYPE_COM" : "SEARCH_TYPE_RU",
-              queryText: q.query,
+              queryText: withSite(q),
             },
             folderId: need(cfg, "folderId"),
             groupSpec: {
@@ -262,7 +268,7 @@ export async function search(
       return yandexHits(Buffer.from(data.rawData, "base64").toString("utf8")).slice(0, count);
     }
     case "searxng": {
-      const params = new URLSearchParams({ q: q.query, format: "json" });
+      const params = new URLSearchParams({ q: withSite(q), format: "json" });
       if (q.lang) params.set("language", q.lang);
       if (q.freshness) params.set("time_range", q.freshness === "week" ? "week" : q.freshness);
       const base = need(cfg, "url").replace(/\/+$/, "");
@@ -282,7 +288,7 @@ export async function search(
         }));
     }
     case "brave": {
-      const params = new URLSearchParams({ q: q.query, count: String(count) });
+      const params = new URLSearchParams({ q: withSite(q), count: String(count) });
       if (q.lang) params.set("search_lang", q.lang);
       const after = q.after;
       if (after) params.set("freshness", `${after}to${now.toISOString().slice(0, 10)}`);
@@ -322,6 +328,7 @@ export async function search(
           body: JSON.stringify({
             query: q.query,
             numResults: count,
+            ...(q.site ? { includeDomains: [q.site] } : {}),
             type: "auto",
             contents: { highlights: true },
             ...(after ? { startPublishedDate: `${after}T00:00:00.000Z` } : {}),
@@ -358,7 +365,7 @@ export async function search(
         {
           method: "POST",
           headers: { ...json, Authorization: `Bearer ${need(cfg, "key")}` },
-          body: JSON.stringify({ query: q.query, limit: count, ...(tbs ? { tbs } : {}) }),
+          body: JSON.stringify({ query: withSite(q), limit: count, ...(tbs ? { tbs } : {}) }),
         },
         deps,
       )) as { data?: unknown };
@@ -377,7 +384,7 @@ export async function search(
     case "jina": {
       const data = (await call(
         "jina",
-        `https://s.jina.ai/?q=${encodeURIComponent(q.query)}`,
+        `https://s.jina.ai/?q=${encodeURIComponent(withSite(q))}`,
         {
           method: "GET",
           headers: {

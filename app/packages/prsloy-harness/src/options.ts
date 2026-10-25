@@ -44,7 +44,7 @@ export interface HarnessOptions {
   reliability?: ReliabilityOptions;
   /** Тул find_ready: таймаут, кэш, свой fetch (тесты). */
   findReady?: FindReadyOptions;
-  /** «Исследовать» (research/26, #23): поставщик поиска и адрес шлюза из настроек приложения; флаг research. */
+  /** «Исследовать» (research/26, #23): поставщик поиска и адрес шлюза из настроек приложения; флаг webTools. */
   research?: ResearchOptions;
   /** Куда раскладывать навыки (по умолчанию `$PI_CODING_AGENT_DIR/prsloy-skills`). */
   skillsDir?: string;
