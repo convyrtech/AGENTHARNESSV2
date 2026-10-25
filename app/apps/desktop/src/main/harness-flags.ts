@@ -7,6 +7,7 @@ import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "
 import { dirname, join } from "node:path";
 import type { HarnessFlags } from "@zeno/contracts";
 import { app, ipcMain, type IpcMainInvokeEvent } from "electron";
+import { memoryFlagsChanged } from "./prsloy/memory-ipc.ts";
 
 export const HARNESS_FLAGS_FILE = "prsloy-harness.json";
 
@@ -85,8 +86,13 @@ export function installHarnessFlags(
     assertTrustedSender(event);
     return readHarnessFlags(harnessFlagsPath(agentDir()));
   });
-  ipcMain.handle("prsloy:harness-flags:set", (event, patch: unknown) => {
+  ipcMain.handle("prsloy:harness-flags:set", async (event, patch: unknown) => {
     assertTrustedSender(event);
-    return writeHarnessFlags(harnessFlagsPath(agentDir()), patch);
+    const path = harnessFlagsPath(agentDir());
+    const before = readHarnessFlags(path);
+    const after = writeHarnessFlags(path, patch);
+    // research/24 §3.6: turning memory off erases it.
+    await memoryFlagsChanged(before, after);
+    return after;
   });
 }
