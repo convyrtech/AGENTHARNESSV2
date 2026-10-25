@@ -4,7 +4,7 @@
  */
 import { useEffect, useState } from "react";
 import { ConfirmDialog } from "./ConfirmDialog.tsx";
-import { ExtensionUiInputDialog } from "./ExtensionUiInputDialog.tsx";
+import { ExtensionUiInputDialog, SECRET_MARK } from "./ExtensionUiInputDialog.tsx";
 import { ExtensionUiSelectDialog } from "./ExtensionUiSelectDialog.tsx";
 import {
   getPendingExtensionUiDialog,
@@ -66,11 +66,14 @@ export function ExtensionUiHost(props: { locale: Locale }) {
 
   // input | editor — free-text dialog (Electron has no window.prompt).
   const { title, initial } = parseInputArgs(request.args, request.method);
+  // The harness's request_secret marks its field `secret:NAME`: a hidden field, never prefilled.
+  const secret = request.method === "input" && initial.startsWith(SECRET_MARK);
   return (
     <ExtensionUiInputDialog
       open
       title={title}
-      initialValue={initial}
+      initialValue={secret ? "" : initial}
+      secret={secret}
       multiline={request.method === "editor"}
       locale={props.locale}
       confirmLabel={confirmLabel}

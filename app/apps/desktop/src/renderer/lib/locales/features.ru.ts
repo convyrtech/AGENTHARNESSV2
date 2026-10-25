@@ -105,6 +105,10 @@ export const featuresRu: Record<keyof typeof featuresZh, string> = {
   "features.memory.chat.forgotNoneHint":
     "У записей, которые агент узнал и в других чатах, ушли только цитаты этого чата.",
   "features.memory.chat.done": "Готово",
+  "features.secret.placeholder": "Вставьте ключ",
+  "features.secret.note":
+    "Ключ сохранится в файле .env в папке проекта. Модели он не отправляется и в чате не появится.",
+  "features.secret.save": "Сохранить",
   "features.memory.autoToggle": "Замечать важное само",
   "features.memory.autoToggleHint":
     "Агент сам запоминает важное из ваших слов: как отвечать, что вам нравится, решения проекта. Из файлов и сайтов — никогда.",
