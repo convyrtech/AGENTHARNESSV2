@@ -1,7 +1,8 @@
 import { defineConfig } from "vite-plus";
 
 export default defineConfig({
-  fmt: {},
+  // recorded run fixtures stay byte-exact as written by run.py
+  fmt: { ignorePatterns: ["apps/desktop/e2e/design/fixtures/**"] },
   lint: {
     jsPlugins: [{ name: "vite-plus", specifier: "vite-plus/oxlint-plugin" }],
     rules: {
