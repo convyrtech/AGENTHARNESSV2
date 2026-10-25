@@ -6,12 +6,13 @@ description: "Парсер сайта: собрать цены, товары, о
 # Парсер сайта
 
 Tools: **requests** + **beautifulsoup4** in a project venv (`.venv/Scripts/python -m pip install requests beautifulsoup4`).
+Check the names with find_ready (`ecosystem: "pypi"`, `candidates: ["requests", "beautifulsoup4"]`) before installing.
 
 ## Before writing code
 
 1. Look for a cleaner source first: an official API, an export button, an RSS feed, a sitemap. Say if you found one.
 2. Read `robots.txt` with `urllib.robotparser`: skip what `can_fetch()` forbids, honour `crawl_delay()`.
-3. Open one page with `requests` and check the data is in the HTML. If the page builds itself with JavaScript
+3. Open one page — with the web_fetch tool if you have it, else with `requests` — and check the data is in the HTML. If the page builds itself with JavaScript
    (the data is not in `response.text`), say so: a simple parser will not see it.
 
 ## The parser

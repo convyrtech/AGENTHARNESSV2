@@ -14,7 +14,7 @@ import { readFlags } from "./flags.ts";
 import { TEST_FILE, testTexts } from "./gate-signals.ts";
 import { recordEvent } from "./learning-log.ts";
 import type { ResolvedOptions } from "./options.ts";
-import { showCard } from "./text.ts";
+import { plainLine, showCard } from "./text.ts";
 import type { TurnChanges } from "./turn-changes.ts";
 
 export const BLOCKER_REASONS = [
@@ -173,15 +173,16 @@ export function installHonestExit(
         confirmed = true;
       } else if (!state.redSeen && state.editsAfterRed < 1 && !(await touchedAnything(changes)))
         return reply(BLOCKER_TEXT.noAttempt, "rejected");
+      // Текст модели — человеку: одна строка, без «X: Y: …» (карточка сама ставит «Не получилось: …»).
       const card: BlockerCardDetails = {
-        what: params.what.trim(),
-        why: params.why.trim(),
-        need: params.need.trim(),
+        what: plainLine(params.what, 120),
+        why: plainLine(params.why, 200),
+        need: plainLine(params.need, 160),
         reason,
         ...(params.options?.length
           ? {
               options: params.options
-                .map((o) => o.trim())
+                .map((o) => plainLine(o, 60))
                 .filter(Boolean)
                 .slice(0, 3),
             }

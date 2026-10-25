@@ -13,7 +13,8 @@ next to this file: it reads the token from `.env` and answers /start and text me
 1. Token: call `request_secret` with `name: "TELEGRAM_BOT_TOKEN"` and a reason like «Токен бота — его выдаёт
    @BotFather в Telegram: /newbot, имя, адрес бота». Never ask for the token in the chat, never print it, never put
    it into code. The tool writes it to `.env` and adds `.env` to `.gitignore`.
-2. Project venv: `python -m venv .venv`, then `.venv/Scripts/python -m pip install python-telegram-bot==22.* python-dotenv`
+2. Check the package with find_ready (`ecosystem: "pypi"`, `candidates: ["python-telegram-bot", "python-dotenv"]`): if the latest major is
+   not 22, use it and its docs. Project venv: `python -m venv .venv`, then `.venv/Scripts/python -m pip install python-telegram-bot==22.* python-dotenv`
    (on Linux/macOS `.venv/bin/python`). Write `requirements.txt` with the same two lines.
 3. Copy `bot.py`, change the handlers to what the user asked. Keep `load_dotenv()` and the `httpx` logger at
    WARNING: request URLs contain the token, and INFO logs would print it.

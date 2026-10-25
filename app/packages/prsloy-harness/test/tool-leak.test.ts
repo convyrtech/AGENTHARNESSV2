@@ -114,7 +114,7 @@ describe("tool markup leak: the turn does not end", () => {
     expect(await settle()).toEqual({ entries: [], continue: false });
     expect(pi.sent.map((m) => m.content)).toEqual([TOOL_LEAK_GAVE_UP]);
     expect(TOOL_LEAK_GAVE_UP).toBe(
-      "Модель сбилась, нажмите «Повторить» или переключитесь на «Качественнее».",
+      "Модель сбилась. Нажмите «Повторить», а если не поможет — выберите «Качественнее».",
     );
     await leak();
     expect((await settle()).continue).toBe(false);

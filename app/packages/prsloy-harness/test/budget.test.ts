@@ -47,7 +47,7 @@ describe("budget", () => {
     expect(message.display).toBe(true);
     expect(message.details).toMatchObject({ exhausted: "calls", toolCalls: 3 });
     expect(message.content).toBe(
-      "Я остановился: на одну задачу у меня 3 шага, и они закончились. Что успел: изменил src/app.ts. Если нужно доделать, напишите «продолжай».",
+      "Я остановился: на одну задачу у меня 3 шага, и они закончились. Успел изменить src/app.ts. Чтобы доделать, напишите «продолжай».",
     );
     // Человеку — ни «тулов», ни долларов; цифры — в details.
     expect(message.content).not.toMatch(/тул|вызов|\$/);
