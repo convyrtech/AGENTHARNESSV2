@@ -278,10 +278,6 @@ async function codeFlow(scale: number, sizes: Size[], theme: string) {
     await c.check("first-run-wrong-key");
     await input.fill(GOOD_KEY);
     await page.getByRole("button", { name: "Продолжить" }).click();
-    // #23: the search step; import has nothing to bring here and passes by itself
-    await expect(page.getByTestId("prsloy-first-run-search")).toBeVisible({ timeout: 60_000 });
-    await c.check("first-run-search");
-    await page.getByTestId("first-run-search-skip").click();
     await expect(page.getByTestId("prsloy-first-run-folder")).toBeVisible({ timeout: 60_000 });
     await c.check("first-run-folder");
     await app.evaluate(({ dialog }, folder) => {
