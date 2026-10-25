@@ -56,7 +56,13 @@ function cleanWindowsPath(path: string): string {
 
 async function launch(
   label: string,
-  options: { hideGitBash?: boolean; prependPath?: string[]; bashCommand?: string } = {},
+  options: {
+    hideGitBash?: boolean;
+    prependPath?: string[];
+    bashCommand?: string;
+    /** Pi settings.json `shellPath` (explicit shell instead of PATH lookup). */
+    shellPath?: string;
+  } = {},
 ): Promise<Launched> {
   const bashCommand = options.bashCommand ?? BASH_COMMAND;
   const root = await mkdtemp(join(tmpdir(), `prsloy-smoke-${label}-`));
@@ -69,6 +75,12 @@ async function launch(
     mkdir(workspace, { recursive: true }),
     mkdir(userData, { recursive: true }),
   ]);
+  if (options.shellPath) {
+    await writeFile(
+      join(agentDir, "settings.json"),
+      JSON.stringify({ shellPath: options.shellPath }, null, 2),
+    );
+  }
   const toolPath = join(workspace, "fixture.txt");
   await writeFile(toolPath, "PRSLOY smoke fixture\n");
 
@@ -330,14 +342,17 @@ test("clean Windows (Git Bash hidden): bash tool", async () => {
   }
 });
 
-test("clean Windows + MinGit on PATH: bash tool (fix candidate)", async () => {
+// MinGit has no bash.exe (only usr\bin\sh.exe, which is MSYS bash), so a PATH lookup for
+// bash.exe falls through to C:\Windows\System32\bash.exe (WSL launcher). Point Pi at sh.exe.
+test("clean Windows + MinGit sh.exe as shellPath: bash tool (fix candidate)", async () => {
   test.skip(process.platform !== "win32" || !mingitDir, "needs SMOKE_MINGIT_DIR on Windows");
   let launched: Launched | undefined;
   try {
     launched = await launch("mingit", {
       hideGitBash: true,
-      prependPath: [join(mingitDir, "usr", "bin"), join(mingitDir, "cmd")],
-      bashCommand: `${BASH_COMMAND}; git --version; ls / | head -20`,
+      prependPath: [join(mingitDir, "cmd")],
+      shellPath: join(mingitDir, "usr", "bin", "sh.exe"),
+      bashCommand: `${BASH_COMMAND}; echo BASH_VERSION=$BASH_VERSION; [[ 1 == 1 ]] && arr=(a b) && echo "bashisms=\${arr[1]}"; git --version; ls /usr/bin | head -40 | tr "\\n" " "`,
     });
     await startHost(launched.page);
     const bash = await runBashTurn(launched, "mingit");
