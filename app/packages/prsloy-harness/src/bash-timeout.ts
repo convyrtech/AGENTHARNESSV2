@@ -28,12 +28,19 @@ export function installBashTimeout(pi: ExtensionAPI, opts: ResolvedOptions): Pro
   pi.on("tool_call", async (event, ctx) => {
     if (!SHELL_TOOLS.has(event.toolName)) return undefined;
     const input = event.input as { command?: unknown; timeout?: unknown };
-    const requested = typeof input.timeout === "number" && input.timeout > 0 ? input.timeout : undefined;
+    const requested =
+      typeof input.timeout === "number" && input.timeout > 0 ? input.timeout : undefined;
     input.timeout = Math.min(requested ?? opts.bashTimeoutSec, opts.bashMaxTimeoutSec);
 
-    if (event.toolName === "bash" && typeof input.command === "string" && looksLikeServer(input.command)) {
+    if (
+      event.toolName === "bash" &&
+      typeof input.command === "string" &&
+      looksLikeServer(input.command)
+    ) {
       const started = await registry.start(input.command, ctx.cwd);
-      const head = started.output.trim() ? `\nПервые строки вывода:\n${started.output.trim().slice(0, 2000)}` : "";
+      const head = started.output.trim()
+        ? `\nПервые строки вывода:\n${started.output.trim().slice(0, 2000)}`
+        : "";
       const state =
         started.exitCode === undefined
           ? "Команда похожа на сервер, поэтому запущена в фоне, чтобы bash не завис."
@@ -41,7 +48,9 @@ export function installBashTimeout(pi: ExtensionAPI, opts: ResolvedOptions): Pro
       return {
         block: true,
         // Причина блокировки не проходит через tool_result, поэтому чистим ключи здесь.
-        reason: scrubSecrets(`${state}\n${describeProcess(started)}${head}\nЛоги и остановка: тул process.`).text,
+        reason: scrubSecrets(
+          `${state}\n${describeProcess(started)}${head}\nЛоги и остановка: тул process.`,
+        ).text,
       };
     }
     return undefined;
@@ -52,7 +61,13 @@ export function installBashTimeout(pi: ExtensionAPI, opts: ResolvedOptions): Pro
     const text = contentText(event.content);
     const match = TIMEOUT_LINE.exec(text);
     if (!match) return undefined;
-    return { content: withText(event.content, text.replace(TIMEOUT_LINE, timeoutNote(match[1] ?? "?", opts.bashMaxTimeoutSec))), ...keepStructured(event) };
+    return {
+      content: withText(
+        event.content,
+        text.replace(TIMEOUT_LINE, timeoutNote(match[1] ?? "?", opts.bashMaxTimeoutSec)),
+      ),
+      ...keepStructured(event),
+    };
   });
 
   pi.registerTool({
@@ -63,15 +78,27 @@ export function installBashTimeout(pi: ExtensionAPI, opts: ResolvedOptions): Pro
     promptSnippet: "Start dev servers and watchers in the background",
     parameters: Type.Object({
       command: Type.String({ description: "Shell command to run in the background" }),
-      wait_seconds: Type.Optional(Type.Number({ description: "How long to wait for first output, default 4" })),
+      wait_seconds: Type.Optional(
+        Type.Number({ description: "How long to wait for first output, default 4" }),
+      ),
     }),
     async execute(_id, params, _signal, _onUpdate, ctx) {
       const waitMs = Math.min(Math.max(params.wait_seconds ?? 4, 0.5), 30) * 1000;
       const started = await registry.start(params.command, ctx.cwd, waitMs);
       const out = started.output.trim();
       return {
-        content: [{ type: "text", text: `${describeProcess(started)}${out ? `\n${out.slice(-4000)}` : ""}` }],
-        details: { id: started.id, pid: started.pid, ports: started.ports, logPath: started.logPath },
+        content: [
+          {
+            type: "text",
+            text: `${describeProcess(started)}${out ? `\n${out.slice(-4000)}` : ""}`,
+          },
+        ],
+        details: {
+          id: started.id,
+          pid: started.pid,
+          ports: started.ports,
+          logPath: started.logPath,
+        },
       };
     },
   });
@@ -93,13 +120,21 @@ export function installBashTimeout(pi: ExtensionAPI, opts: ResolvedOptions): Pro
         return { content: [{ type: "text", text }], details: undefined };
       }
       const proc = params.id ? registry.get(params.id) : undefined;
-      if (!proc || !params.id) throw new Error(`Нет процесса ${params.id ?? "(id не указан)"}. Список: process action=list.`);
+      if (!proc || !params.id)
+        throw new Error(
+          `Нет процесса ${params.id ?? "(id не указан)"}. Список: process action=list.`,
+        );
       if (params.action === "stop") {
         registry.stop(params.id);
-        return { content: [{ type: "text", text: `${params.id} остановлен.` }], details: undefined };
+        return {
+          content: [{ type: "text", text: `${params.id} остановлен.` }],
+          details: undefined,
+        };
       }
       return {
-        content: [{ type: "text", text: `${describeProcess(proc)}\n${registry.logs(params.id) ?? ""}` }],
+        content: [
+          { type: "text", text: `${describeProcess(proc)}\n${registry.logs(params.id) ?? ""}` },
+        ],
         details: undefined,
       };
     },

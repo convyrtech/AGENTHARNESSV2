@@ -20,7 +20,10 @@ interface ModelCostLike {
 }
 
 /** Цена ответа: из usage.cost.total, иначе по таблице цен модели ($ за миллион токенов). */
-export function messageCostUsd(usage: UsageLike | undefined, cost: ModelCostLike | undefined): number {
+export function messageCostUsd(
+  usage: UsageLike | undefined,
+  cost: ModelCostLike | undefined,
+): number {
   if (!usage) return 0;
   const reported = usage.cost?.total;
   if (typeof reported === "number" && reported > 0) return reported;
@@ -76,10 +79,14 @@ export function budgetSummary(state: BudgetState, opts: ResolvedOptions): string
 const STOP_REASON =
   "Бюджет задачи исчерпан, тулы больше не выполняются. Не вызывай тулы. Напиши пользователю по-русски 2–4 строки: что уже сделано и что осталось сделать.";
 
-export function installBudget(pi: ExtensionAPI, opts: ResolvedOptions): { state: () => BudgetState } {
+export function installBudget(
+  pi: ExtensionAPI,
+  opts: ResolvedOptions,
+): { state: () => BudgetState } {
   let state = freshState();
 
-  const ratio = () => Math.max(state.toolCalls / opts.maxToolCalls, state.costUsd / opts.maxCostUsd);
+  const ratio = () =>
+    Math.max(state.toolCalls / opts.maxToolCalls, state.costUsd / opts.maxCostUsd);
 
   pi.on("before_agent_start", (event) => {
     if (event.messageType === "user") state = freshState();
@@ -103,7 +110,10 @@ export function installBudget(pi: ExtensionAPI, opts: ResolvedOptions): { state:
     }
     state.toolCalls += 1;
     if (event.toolName === "bash" || event.toolName === "powershell") state.commands += 1;
-    if ((event.toolName === "edit" || event.toolName === "write") && typeof event.input.path === "string") {
+    if (
+      (event.toolName === "edit" || event.toolName === "write") &&
+      typeof event.input.path === "string"
+    ) {
       state.filesChanged.add(event.input.path);
     }
     return undefined;
@@ -126,7 +136,12 @@ export function installBudget(pi: ExtensionAPI, opts: ResolvedOptions): { state:
     return {
       entries: [
         { type: "custom", customType: "prsloy-harness.budget", data },
-        { type: "custom_message", customType: "prsloy-harness.budget", content: summary, display: true },
+        {
+          type: "custom_message",
+          customType: "prsloy-harness.budget",
+          content: summary,
+          display: true,
+        },
       ],
     };
   });

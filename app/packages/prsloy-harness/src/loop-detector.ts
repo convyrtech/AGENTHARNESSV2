@@ -23,14 +23,19 @@ const PSEUDO_MARKERS: RegExp[] = [
   /\[TOOL_CALLS\]/, // Mistral
 ];
 
-export function detectPseudoToolCall(text: string, toolNames: readonly string[]): string | undefined {
+export function detectPseudoToolCall(
+  text: string,
+  toolNames: readonly string[],
+): string | undefined {
   for (const marker of PSEUDO_MARKERS) {
     const match = marker.exec(text);
     if (match) return match[0];
   }
   if (toolNames.length > 0) {
     const names = toolNames.map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|");
-    const json = new RegExp(`\\{\\s*"(?:name|tool|function)"\\s*:\\s*"(?:${names})"\\s*,\\s*"(?:arguments|parameters|args|input)"\\s*:`);
+    const json = new RegExp(
+      `\\{\\s*"(?:name|tool|function)"\\s*:\\s*"(?:${names})"\\s*,\\s*"(?:arguments|parameters|args|input)"\\s*:`,
+    );
     const match = json.exec(text);
     if (match) return match[0];
   }
@@ -81,7 +86,8 @@ export function installLoopDetector(pi: ExtensionAPI, opts: ResolvedOptions): vo
     if (lastAssistantStop === "length") {
       return {
         block: true,
-        reason: "Ответ обрезан по длине (length): аргументы могли оборваться, вызов не выполнен. Повтори его целиком и короче.",
+        reason:
+          "Ответ обрезан по длине (length): аргументы могли оборваться, вызов не выполнен. Повтори его целиком и короче.",
       };
     }
     const key = `${event.toolName}\u0000${stableStringify(event.input)}`;
@@ -135,20 +141,34 @@ export function installLoopDetector(pi: ExtensionAPI, opts: ResolvedOptions): vo
     if (message.stopReason === "length" && hasCalls) {
       lengthStops += 1;
       if (lengthStops === 2) {
-        return { entries: [{ type: "custom_message", customType: "prsloy-harness", content: LENGTH_NOTE, display: false }] };
+        return {
+          entries: [
+            {
+              type: "custom_message",
+              customType: "prsloy-harness",
+              content: LENGTH_NOTE,
+              display: false,
+            },
+          ],
+        };
       }
       return undefined;
     }
     if (hasCalls || message.stopReason !== "stop") return undefined;
-    const text = message.content
-      .map((part) => (part.type === "text" ? part.text : ""))
-      .join("\n");
+    const text = message.content.map((part) => (part.type === "text" ? part.text : "")).join("\n");
     const toolNames = pi.getActiveTools();
     const marker = detectPseudoToolCall(text, toolNames);
     if (!marker || pseudoNudges >= 2) return undefined;
     pseudoNudges += 1;
     return {
-      entries: [{ type: "custom_message", customType: "prsloy-harness", content: PSEUDO_CALL_NOTE, display: false }],
+      entries: [
+        {
+          type: "custom_message",
+          customType: "prsloy-harness",
+          content: PSEUDO_CALL_NOTE,
+          display: false,
+        },
+      ],
       continue: true,
     };
   });

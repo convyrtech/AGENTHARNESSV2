@@ -1,6 +1,10 @@
 // Мок ExtensionAPI: копирует семантику ExtensionRunner из Pi 1.4 (runner.js) для tool_call,
 // tool_result (цепочка), turn_end/agent_before_settle (записи + continue) и прочих событий.
-import type { ExtensionAPI, ExtensionContext, ToolDefinition } from "@earendil-works/pi-coding-agent";
+import type {
+  ExtensionAPI,
+  ExtensionContext,
+  ToolDefinition,
+} from "@earendil-works/pi-coding-agent";
 
 type Handler = (event: any, ctx: ExtensionContext) => unknown;
 
@@ -48,26 +52,27 @@ export class MockPi {
   }
 
   get api(): ExtensionAPI {
-    const self = this;
+    const { handlers, tools } = this;
     return {
-      on(name: string, handler: Handler) {
-        const list = self.handlers.get(name) ?? [];
+      on: (name: string, handler: Handler) => {
+        const list = handlers.get(name) ?? [];
         list.push(handler);
-        self.handlers.set(name, list);
+        handlers.set(name, list);
         return () => {};
       },
-      registerTool(tool: ToolDefinition<any, any, any>) {
-        self.tools.set(tool.name, tool);
+      registerTool: (tool: ToolDefinition<any, any, any>) => {
+        tools.set(tool.name, tool);
       },
-      getActiveTools: () => self.activeTools,
-      appendEntry() {},
-      sendMessage() {},
+      getActiveTools: () => this.activeTools,
+      appendEntry: () => {},
+      sendMessage: () => {},
     } as unknown as ExtensionAPI;
   }
 
   async emit(name: string, event: Record<string, unknown>): Promise<unknown[]> {
     const out: unknown[] = [];
-    for (const handler of this.handlers.get(name) ?? []) out.push(await handler({ type: name, ...event }, this.ctx));
+    for (const handler of this.handlers.get(name) ?? [])
+      out.push(await handler({ type: name, ...event }, this.ctx));
     return out;
   }
 
@@ -115,7 +120,8 @@ export class MockPi {
         if (result.structuredContent === undefined) delete event.structuredContent;
         modified = true;
       }
-      if (result.structuredContent !== undefined) event.structuredContent = result.structuredContent;
+      if (result.structuredContent !== undefined)
+        event.structuredContent = result.structuredContent;
       if (result.isError !== undefined) event.isError = result.isError;
     }
     const content = event.content as { type: string; text?: string }[];
@@ -132,11 +138,16 @@ export class MockPi {
     const id = `call-${this.#nextId++}`;
     const blocked = await this.toolCall(toolName, input, id);
     if (blocked) return { blocked, result: undefined };
-    return { blocked: undefined, result: await this.toolResult({ toolName, toolCallId: id, input, text, isError }) };
+    return {
+      blocked: undefined,
+      result: await this.toolResult({ toolName, toolCallId: id, input, text, isError }),
+    };
   }
 
   async assistantMessage(message: Record<string, unknown>): Promise<void> {
-    await this.emit("message_end", { message: { role: "assistant", content: [], stopReason: "stop", ...message } });
+    await this.emit("message_end", {
+      message: { role: "assistant", content: [], stopReason: "stop", ...message },
+    });
   }
 
   /** Как turn_end/agent_before_settle: записи копятся, continue — от любого обработчика. */
@@ -144,9 +155,10 @@ export class MockPi {
     const entries: unknown[] = [];
     let cont = false;
     for (const handler of this.handlers.get(name) ?? []) {
-      const result = (await handler({ type: name, entries, continue: cont, ...event }, this.ctx)) as
-        | { entries?: unknown[]; continue?: boolean }
-        | undefined;
+      const result = (await handler(
+        { type: name, entries, continue: cont, ...event },
+        this.ctx,
+      )) as { entries?: unknown[]; continue?: boolean } | undefined;
       if (result?.entries) entries.push(...result.entries);
       if (result?.continue) cont = true;
     }

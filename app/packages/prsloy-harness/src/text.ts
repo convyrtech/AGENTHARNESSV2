@@ -85,6 +85,10 @@ export function countLines(text: string): number {
  * Pi удаляет structuredContent, если обработчик заменил content и не вернул его (runner.emitToolResult).
  * Кто дописывает строку в текст, должен вернуть structuredContent как был — иначе codemode его потеряет.
  */
-export function keepStructured<T extends { structuredContent?: unknown }>(event: T): Pick<T, "structuredContent"> | Record<string, never> {
-  return event.structuredContent === undefined ? {} : { structuredContent: event.structuredContent };
+export function keepStructured<T extends { structuredContent?: unknown }>(
+  event: T,
+): Pick<T, "structuredContent"> | Record<string, never> {
+  return event.structuredContent === undefined
+    ? {}
+    : { structuredContent: event.structuredContent };
 }

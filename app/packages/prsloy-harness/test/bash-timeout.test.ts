@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 import { installBashTimeout } from "../src/bash-timeout.ts";
+import { contentText } from "../src/text.ts";
 import { resolveOptions } from "../src/options.ts";
 import { detectPorts, looksLikeServer } from "../src/process-registry.ts";
 import { MockPi } from "./mock-pi.ts";
@@ -21,7 +22,10 @@ async function project() {
 const s = http.createServer((q, r) => r.end("ok"));
 s.listen(0, "127.0.0.1", () => console.log("ready on http://localhost:" + s.address().port));`,
   );
-  await writeFile(join(dir, "package.json"), JSON.stringify({ name: "x", scripts: { dev: "node server.js" } }));
+  await writeFile(
+    join(dir, "package.json"),
+    JSON.stringify({ name: "x", scripts: { dev: "node server.js" } }),
+  );
   return dir;
 }
 
@@ -73,10 +77,14 @@ describe("bash timeout", () => {
       const response = await fetch(`http://127.0.0.1:${port}/`);
       expect(await response.text()).toBe("ok");
 
-      const list = await pi.tool("process").execute("t1", { action: "list" }, undefined, undefined, pi.ctx as never);
-      expect(list.content[0].text).toContain("bg1: работает");
-      const logs = await pi.tool("process").execute("t2", { action: "logs", id: "bg1" }, undefined, undefined, pi.ctx as never);
-      expect(logs.content[0].text).toContain("ready on http://localhost:");
+      const list = await pi
+        .tool("process")
+        .execute("t1", { action: "list" }, undefined, undefined, pi.ctx as never);
+      expect(contentText(list.content)).toContain("bg1: работает");
+      const logs = await pi
+        .tool("process")
+        .execute("t2", { action: "logs", id: "bg1" }, undefined, undefined, pi.ctx as never);
+      expect(contentText(logs.content)).toContain("ready on http://localhost:");
     } finally {
       await pi.emit("session_shutdown", {});
     }
@@ -89,13 +97,23 @@ describe("bash timeout", () => {
     const { pi, registry } = setup(dir);
     const started = await pi
       .tool("bash_background")
-      .execute("t", { command: "node server.js", wait_seconds: 5 }, undefined, undefined, pi.ctx as never);
-    expect(started.content[0].text).toMatch(/bg1: работает, pid \d+, порт \d+/);
-    await pi.tool("process").execute("t", { action: "stop", id: "bg1" }, undefined, undefined, pi.ctx as never);
+      .execute(
+        "t",
+        { command: "node server.js", wait_seconds: 5 },
+        undefined,
+        undefined,
+        pi.ctx as never,
+      );
+    expect(contentText(started.content)).toMatch(/bg1: работает, pid \d+, порт \d+/);
+    await pi
+      .tool("process")
+      .execute("t", { action: "stop", id: "bg1" }, undefined, undefined, pi.ctx as never);
     await new Promise((r) => setTimeout(r, 300));
     expect(registry.get("bg1")?.exitCode).not.toBeUndefined();
     await expect(
-      pi.tool("process").execute("t", { action: "logs", id: "bg9" }, undefined, undefined, pi.ctx as never),
+      pi
+        .tool("process")
+        .execute("t", { action: "logs", id: "bg9" }, undefined, undefined, pi.ctx as never),
     ).rejects.toThrow("Нет процесса bg9");
   });
 });
@@ -118,12 +136,18 @@ describe("looksLikeServer", () => {
     expect(looksLikeServer(command)).toBe(true);
   });
 
-  it.each(["npm test", "npm run build", "vite build", "npm run dev &", "timeout 5 npm run dev", "ls -la", "node script.js", "pnpm install"])(
-    "not a server: %s",
-    (command) => {
-      expect(looksLikeServer(command)).toBe(false);
-    },
-  );
+  it.each([
+    "npm test",
+    "npm run build",
+    "vite build",
+    "npm run dev &",
+    "timeout 5 npm run dev",
+    "ls -la",
+    "node script.js",
+    "pnpm install",
+  ])("not a server: %s", (command) => {
+    expect(looksLikeServer(command)).toBe(false);
+  });
 });
 
 describe("detectPorts", () => {

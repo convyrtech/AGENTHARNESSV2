@@ -51,7 +51,10 @@ export function looksLikeServer(command: string): boolean {
 function killTree(pid: number): void {
   try {
     if (process.platform === "win32") {
-      spawnSync("taskkill", ["/pid", String(pid), "/T", "/F"], { stdio: "ignore", windowsHide: true });
+      spawnSync("taskkill", ["/pid", String(pid), "/T", "/F"], {
+        stdio: "ignore",
+        windowsHide: true,
+      });
     } else {
       process.kill(-pid, "SIGTERM");
     }
@@ -74,7 +77,11 @@ export class ProcessRegistry {
   ) {}
 
   /** Запускает команду в фоне и ждёт первые `waitMs` (или пока не появится порт). */
-  async start(command: string, cwd: string, waitMs = 4000): Promise<BackgroundProcess & { output: string }> {
+  async start(
+    command: string,
+    cwd: string,
+    waitMs = 4000,
+  ): Promise<BackgroundProcess & { output: string }> {
     mkdirSync(this.logDir, { recursive: true });
     const id = `bg${this.#next++}`;
     const logPath = join(this.logDir, `${id}.log`);

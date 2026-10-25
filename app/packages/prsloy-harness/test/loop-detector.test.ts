@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vite-plus/test";
-import { detectPseudoToolCall, installLoopDetector, LENGTH_NOTE, PSEUDO_CALL_NOTE } from "../src/loop-detector.ts";
+import {
+  detectPseudoToolCall,
+  installLoopDetector,
+  LENGTH_NOTE,
+  PSEUDO_CALL_NOTE,
+} from "../src/loop-detector.ts";
 import { resolveOptions } from "../src/options.ts";
 import { MockPi } from "./mock-pi.ts";
 
@@ -19,7 +24,9 @@ describe("loop detector", () => {
 
     const third = await pi.call("bash", { ...input }, "1 failing");
     expect(third.blocked?.block).toBe(true);
-    expect(third.blocked?.reason).toContain("Этот вызов уже был 2 раза с тем же результатом. Сделай другое:");
+    expect(third.blocked?.reason).toContain(
+      "Этот вызов уже был 2 раза с тем же результатом. Сделай другое:",
+    );
     expect(third.blocked?.terminate).toBeUndefined();
 
     const fourth = await pi.call("bash", { ...input }, "1 failing");
@@ -69,12 +76,22 @@ describe("loop detector", () => {
     const message = {
       role: "assistant",
       stopReason: "stop",
-      content: [{ type: "text", text: 'Сейчас посмотрю.\n<tool_call>{"name": "bash", "arguments": {"command": "ls"}}</tool_call>' }],
+      content: [
+        {
+          type: "text",
+          text: 'Сейчас посмотрю.\n<tool_call>{"name": "bash", "arguments": {"command": "ls"}}</tool_call>',
+        },
+      ],
     };
     const first = await pi.boundary("turn_end", { message, toolResults: [] });
     expect(first.continue).toBe(true);
     expect(first.entries).toEqual([
-      { type: "custom_message", customType: "prsloy-harness", content: PSEUDO_CALL_NOTE, display: false },
+      {
+        type: "custom_message",
+        customType: "prsloy-harness",
+        content: PSEUDO_CALL_NOTE,
+        display: false,
+      },
     ]);
     await pi.boundary("turn_end", { message, toolResults: [] });
     // Не больше двух напоминаний на задачу — иначе сами устроим петлю.
@@ -83,13 +100,22 @@ describe("loop detector", () => {
 
   it("ignores ordinary text and real tool calls", async () => {
     const pi = setup();
-    const plain = { role: "assistant", stopReason: "stop", content: [{ type: "text", text: "Готово, файл index.html создан." }] };
-    expect((await pi.boundary("turn_end", { message: plain, toolResults: [] })).continue).toBe(false);
+    const plain = {
+      role: "assistant",
+      stopReason: "stop",
+      content: [{ type: "text", text: "Готово, файл index.html создан." }],
+    };
+    expect((await pi.boundary("turn_end", { message: plain, toolResults: [] })).continue).toBe(
+      false,
+    );
   });
 
   it("guards against executing calls from a length-truncated response", async () => {
     const pi = setup();
-    await pi.assistantMessage({ stopReason: "length", content: [{ type: "toolCall", id: "c1", name: "write", arguments: {} }] });
+    await pi.assistantMessage({
+      stopReason: "length",
+      content: [{ type: "toolCall", id: "c1", name: "write", arguments: {} }],
+    });
     const blocked = await pi.toolCall("write", { path: "a.html", content: "<div" });
     expect(blocked?.block).toBe(true);
     expect(blocked?.reason).toContain("length");
@@ -99,10 +125,21 @@ describe("loop detector", () => {
 
   it("hints to write in parts after two length stops with tool calls", async () => {
     const pi = setup();
-    const message = { role: "assistant", stopReason: "length", content: [{ type: "toolCall", id: "c", name: "write", arguments: {} }] };
+    const message = {
+      role: "assistant",
+      stopReason: "length",
+      content: [{ type: "toolCall", id: "c", name: "write", arguments: {} }],
+    };
     expect((await pi.boundary("turn_end", { message, toolResults: [] })).entries).toEqual([]);
     const second = await pi.boundary("turn_end", { message, toolResults: [] });
-    expect(second.entries).toEqual([{ type: "custom_message", customType: "prsloy-harness", content: LENGTH_NOTE, display: false }]);
+    expect(second.entries).toEqual([
+      {
+        type: "custom_message",
+        customType: "prsloy-harness",
+        content: LENGTH_NOTE,
+        display: false,
+      },
+    ]);
   });
 });
 

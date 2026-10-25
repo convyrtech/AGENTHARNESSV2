@@ -3,7 +3,10 @@ import { installBudget, messageCostUsd } from "../src/budget.ts";
 import { resolveOptions } from "../src/options.ts";
 import { MockPi } from "./mock-pi.ts";
 
-function setup(options: Parameters<typeof resolveOptions>[0] = {}, model?: { cost?: Record<string, number> }) {
+function setup(
+  options: Parameters<typeof resolveOptions>[0] = {},
+  model?: { cost?: Record<string, number> },
+) {
   const pi = new MockPi(process.cwd(), model);
   const budget = installBudget(pi.api, resolveOptions(options));
   return { pi, budget };
@@ -14,7 +17,8 @@ describe("budget", () => {
     const { pi } = setup({ maxToolCalls: 10 });
     await pi.userPrompt();
     const texts: string[] = [];
-    for (let i = 0; i < 9; i++) texts.push((await pi.call("read", { path: `f${i}` }, "ok")).result?.text ?? "");
+    for (let i = 0; i < 9; i++)
+      texts.push((await pi.call("read", { path: `f${i}` }, "ok")).result?.text ?? "");
     expect(texts.slice(0, 7).every((t) => t === "ok")).toBe(true);
     expect(texts[7]).toContain("[Бюджет задачи: 80%");
     expect(texts[8]).toBe("ok");
@@ -36,7 +40,10 @@ describe("budget", () => {
     expect(budget.state().exhausted).toBe("calls");
 
     const settle = await pi.boundary("agent_before_settle");
-    const message = settle.entries.find((e: any) => e.type === "custom_message") as { content: string; display: boolean };
+    const message = settle.entries.find((e: any) => e.type === "custom_message") as {
+      content: string;
+      display: boolean;
+    };
     expect(message.display).toBe(true);
     expect(message.content).toContain("исчерпан лимит вызовов тулов (3)");
     expect(message.content).toContain("изменены файлы: src/app.ts");
@@ -59,8 +66,13 @@ describe("budget", () => {
   });
 
   it("falls back to the model cost table when the gateway reports no cost", async () => {
-    const { pi, budget } = setup({}, { cost: { input: 0.14, output: 0.28, cacheRead: 0.014, cacheWrite: 0 } });
-    await pi.assistantMessage({ usage: { input: 1_000_000, output: 500_000, cacheRead: 0, cacheWrite: 0, cost: { total: 0 } } });
+    const { pi, budget } = setup(
+      {},
+      { cost: { input: 0.14, output: 0.28, cacheRead: 0.014, cacheWrite: 0 } },
+    );
+    await pi.assistantMessage({
+      usage: { input: 1_000_000, output: 500_000, cacheRead: 0, cacheWrite: 0, cost: { total: 0 } },
+    });
     expect(budget.state().costUsd).toBeCloseTo(0.28, 6);
   });
 
