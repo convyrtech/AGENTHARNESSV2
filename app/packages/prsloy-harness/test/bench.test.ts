@@ -10,7 +10,7 @@ const out = mkdtempSync(join(tmpdir(), "prsloy-bench-"));
 afterAll(() => rmSync(out, { recursive: true, force: true }));
 
 describe("bench --fake", () => {
-  it("has 11 casual tasks (3 for memory), each with a prompt, a check and a fake solution", () => {
+  it("has 12 casual tasks (4 across sessions / for memory), each with a prompt, a check and a fake solution", () => {
     const tasks = listTasks();
     expect(tasks.map((t) => t.id)).toEqual([
       "explain-project",
@@ -19,6 +19,7 @@ describe("bench --fake", () => {
       "port-to-js",
       "remember-password",
       "sales-summary",
+      "snake-continue",
       "snake-game",
       "speed-up",
       "tg-bot",
@@ -71,7 +72,10 @@ describe("bench --fake", () => {
       // Без харнесса инструмента memory нет — задача «запомни пароль» не видит карточки отказа.
       const failed = report.results.filter((r) => r.ok === false).map((r) => r.id);
       expect(failed).toEqual(harness ? [] : ["remember-password"]);
-      expect(report.totals.passed + report.totals.skipped).toBe(harness ? 11 : 10);
+      expect(report.totals.passed + report.totals.skipped).toBe(harness ? 12 : 11);
+      const cont = report.results.find((r) => r.id === "snake-continue");
+      if (cont?.ok !== null)
+        expect(cont?.note).toContain(`сводка прошлого раза: ${harness ? "была" : "нет"}`);
       const two = report.results.find((r) => r.id === "visit-card-memory");
       expect(two?.note).toContain(`в памяти записей: ${harness ? 1 : 0}`);
       expect(report.totals.toolCalls).toBeGreaterThanOrEqual(8);
