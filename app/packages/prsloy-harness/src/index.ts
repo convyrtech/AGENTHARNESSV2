@@ -139,9 +139,14 @@ export function createPrsloyHarness(options: HarnessOptions = {}): (pi: Extensio
     const honesty = opts.profile === "code" && on("honestExit") ? createHonesty() : undefined;
     // Статус хода по фактам (H9): гейт пишет прогоны, карточка — в конце хода, после ответа.
     const turnStatus = opts.profile === "code" && on("turnStatus") ? createTurnStatus() : undefined;
+    // Слова и факты (H-2: H6–H8): флаг claimCheck читается на каждом сообщении; итог — гейту и статусу хода.
+    const claims = on("claimCheck")
+      ? installClaimCheck(pi, opts, () => readFlags(opts.settingsPath).claimCheck)
+      : undefined;
     if (codeGate)
       installStopGate(pi, opts, {
         ...(honesty ? { honesty } : {}),
+        ...(claims ? { claims } : {}),
         ...(turnStatus ? { turnStatus } : {}),
         ...(on("reviewerCheats")
           ? { reviewerCheats: () => readFlags(opts.settingsPath).reviewerCheats }
@@ -177,8 +182,8 @@ export function createPrsloyHarness(options: HarnessOptions = {}): (pi: Extensio
     if (opts.profile === "code") {
       if (on("autoMemory")) installAutoMemory(pi, opts);
       if (honesty) installHonestExit(pi, opts, { state: honesty, changes });
-      if (turnStatus) installTurnStatus(pi, opts, { state: turnStatus, changes });
-      if (on("claimCheck")) installClaimCheck(pi, opts);
+      if (turnStatus)
+        installTurnStatus(pi, opts, { state: turnStatus, changes, ...(claims ? { claims } : {}) });
     }
     if (on("secretScrub")) installSecretScrub(pi);
     if (on("reliabilityProxy")) installReliability(pi, opts);
