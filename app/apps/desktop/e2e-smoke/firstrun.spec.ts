@@ -90,6 +90,7 @@ test("first run (no test mode): wrong key → Russian error, right key → folde
   try {
     launched = await launch("firstrun", {
       testMode: false,
+      updates: true,
       args: [proxy.arg],
       prepare: seedGateway(gateway.baseUrl),
     });
@@ -177,6 +178,7 @@ test("update check with a dead (hanging) network: startup not delayed, no error,
   try {
     launched = await launch("offline", {
       testMode: false,
+      updates: true,
       args: [proxy.arg],
       prepare: seedGateway(gateway.baseUrl),
     });
