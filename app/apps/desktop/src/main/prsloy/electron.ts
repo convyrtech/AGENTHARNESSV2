@@ -51,6 +51,7 @@ export function initPrsloy(mainModuleUrl: string, runtimes?: RuntimeBoot): Prslo
     pythonExecutable: currentPythonExecutable(),
     cipher: safeStorage,
     ...(runtimes ? { runtimes } : {}),
+    ...(resourcesPath ? { installerGitDir: join(resourcesPath, "runtimes", "git") } : {}),
     ...(vendor?.archives?.git
       ? {
           gitArchive: {

@@ -539,6 +539,11 @@ export function planProvisionedRuntimes(options: ProvisionOptions): ProvisionPla
   return { kind: "none" };
 }
 
+/** Same line format as main's logStartupTiming: packaged/installed smoke read these. */
+function phaseTiming(phase: string): void {
+  console.log(`[prsloy-timing] ${phase} ${Math.round(performance.now())}`);
+}
+
 /** Unpack children die with the app (Windows does not kill them on parent exit). */
 const activeChildren = new Set<ReturnType<typeof spawn>>();
 let exitHookInstalled = false;
@@ -690,11 +695,13 @@ export async function provisionRuntimesAsync(
   const pythonVenv = pythonVenvDir(options.userDataPath);
   mkdirSync(join(npmPrefix, "bin"), { recursive: true });
   mkdirSync(join(npmPrefix, "lib"), { recursive: true });
+  phaseTiming("untar");
   const pyBin = getBundledPythonExecutable(roots.pythonRoot);
   if (!options.skipVenv && pyBin) {
     try {
       rmSync(pythonVenv, { recursive: true, force: true });
       await runAsync(pyBin, ["-m", "venv", pythonVenv], 180_000);
+      phaseTiming("venv");
     } catch (error) {
       console.warn("[zeno] python venv create failed:", error);
     }

@@ -94,6 +94,8 @@ nsis:
   createDesktopShortcut: true
   createStartMenuShortcut: true
   shortcutName: PRSLOY
+  # PortableGit is unpacked during installation (first «Код» turn does not wait for it).
+  include: build/installer.nsh
 linux:
   icon: icon.png
   executableName: PRSLOY

@@ -17,7 +17,7 @@ import {
 } from "./agent-home.ts";
 import { PrsloyKeyStore, type SecretCipher } from "./key-store.ts";
 import { restrictToCurrentUser } from "./file-acl.ts";
-import { GitRuntime, type GitSetupState } from "./runtime-git.ts";
+import { GitRuntime, isInstallerGit, type GitSetupState } from "./runtime-git.ts";
 import { TurnSnapshots } from "./turn-snapshots.ts";
 import { chooseGitBinary, chooseWindowsShellPath } from "./windows-shell.ts";
 
@@ -149,6 +149,8 @@ export function bootstrapPrsloy(options: {
   cipher: SecretCipher;
   /** Shipped PortableGit self-extractor (Windows packaged builds). */
   gitArchive?: { path: string; version?: string | undefined; files?: number | undefined };
+  /** `<resources>/runtimes/git`, unpacked by the NSIS installer (used when complete). */
+  installerGitDir?: string | undefined;
   onGitSetup?: (state: GitSetupState) => void;
   runtimes?: RuntimesLike;
   env?: NodeJS.ProcessEnv;
@@ -174,7 +176,10 @@ export function bootstrapPrsloy(options: {
   let state = readState(statePath);
 
   const runtimesRoot = options.runtimesRoot ?? join(options.userDataPath, "runtimes");
-  const bundledGitRoot = join(runtimesRoot, "git");
+  const installerGit = isInstallerGit(options.installerGitDir)
+    ? options.installerGitDir
+    : undefined;
+  const bundledGitRoot = installerGit ?? join(runtimesRoot, "git");
   let shellPath: string | undefined;
   let shellSource: PrsloyContext["shellSource"];
   // Re-run when PortableGit finishes unpacking: bundled bash wins over a system Git.
@@ -214,6 +219,7 @@ export function bootstrapPrsloy(options: {
     archive: options.gitArchive?.path,
     version: options.gitArchive?.version,
     expectedFiles: options.gitArchive?.files,
+    readyDir: installerGit,
     onChange: (gitState) => {
       if (gitState.status === "ready") refreshShell();
       options.onGitSetup?.(gitState);

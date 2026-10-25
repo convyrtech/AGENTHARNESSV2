@@ -6,6 +6,11 @@
  * the first agent turn waits for it (bounded) so pi's bash tool has its shell.
  *
  * Unpacks into a temp dir and renames into place, so a half-unpacked tree is never used.
+ *
+ * Installed builds normally skip all that: the NSIS installer unpacks the same archive
+ * into `<install dir>/resources/runtimes/git` (build/installer.nsh) and drops
+ * INSTALLER_GIT_MARKER when it succeeded. That tree is used as is (`readyDir`); it lives
+ * and dies with the install, so it always matches the app version.
  */
 import { spawn as nodeSpawn, type ChildProcess } from "node:child_process";
 import { existsSync, readdirSync } from "node:fs";
@@ -30,6 +35,8 @@ export type GitRuntimeOptions = {
   version?: string | undefined;
   /** File count of the unpacked tree (manifest `gitFiles`) for the percentage. */
   expectedFiles?: number | undefined;
+  /** PortableGit already unpacked by the installer: ready at once, nothing to extract. */
+  readyDir?: string | undefined;
   onChange?: (state: GitSetupState) => void;
   /** Injectable for tests. */
   spawn?: (command: string, args: string[]) => ChildProcess;
@@ -37,6 +44,15 @@ export type GitRuntimeOptions = {
 };
 
 const STAMP = ".prsloy-git.json";
+/** Written by build/installer.nsh after a successful unpack during installation. */
+export const INSTALLER_GIT_MARKER = ".prsloy-installer-git";
+
+/** True when the installer's PortableGit tree is complete and usable. */
+export function isInstallerGit(dir: string | undefined): dir is string {
+  return Boolean(
+    dir && existsSync(join(dir, "bin", "bash.exe")) && existsSync(join(dir, INSTALLER_GIT_MARKER)),
+  );
+}
 
 function countFiles(root: string): number {
   let count = 0;
@@ -68,7 +84,7 @@ export class GitRuntime {
   }
 
   get dir(): string {
-    return join(this.#opts.runtimesRoot, "git");
+    return this.#opts.readyDir ?? join(this.#opts.runtimesRoot, "git");
   }
 
   state(): GitSetupState {
@@ -102,7 +118,7 @@ export class GitRuntime {
   }
 
   async #ensure(): Promise<GitSetupState> {
-    if (await this.#stampMatches()) {
+    if (this.#opts.readyDir || (await this.#stampMatches())) {
       this.#set({ status: "ready" });
       return this.state();
     }

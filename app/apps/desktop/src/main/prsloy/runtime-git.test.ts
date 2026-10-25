@@ -11,7 +11,12 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vite-plus/test";
-import { GitRuntime, type GitSetupState } from "./runtime-git.ts";
+import {
+  GitRuntime,
+  INSTALLER_GIT_MARKER,
+  isInstallerGit,
+  type GitSetupState,
+} from "./runtime-git.ts";
 
 const dirs: string[] = [];
 afterEach(() => {
@@ -123,5 +128,32 @@ describe.skipIf(process.platform === "win32")("GitRuntime", () => {
     expect(await slow.whenReady(30)).toBe(false);
     expect(Date.now() - started).toBeLessThan(1000);
     expect(slow.state().status).toBe("installing");
+  });
+});
+
+describe("PortableGit unpacked by the installer", () => {
+  function installerTree(marker: boolean) {
+    const dir = join(tempDir(), "resources", "runtimes", "git");
+    mkdirSync(join(dir, "bin"), { recursive: true });
+    writeFileSync(join(dir, "bin", "bash.exe"), "bash");
+    if (marker) writeFileSync(join(dir, INSTALLER_GIT_MARKER), "ok");
+    return dir;
+  }
+
+  it("counts only with the marker the installer writes after a complete unpack", () => {
+    expect(isInstallerGit(installerTree(true))).toBe(true);
+    expect(isInstallerGit(installerTree(false))).toBe(false);
+    expect(isInstallerGit(undefined)).toBe(false);
+  });
+
+  it("readyDir: ready at once, nothing is extracted into userData", async () => {
+    const readyDir = installerTree(true);
+    const runtimesRoot = tempDir();
+    const archive = join(runtimesRoot, "never-run.7z.exe");
+    const git = new GitRuntime({ runtimesRoot, archive, version: "2.56.0", readyDir });
+    expect(git.dir).toBe(readyDir);
+    expect((await git.ensure()).status).toBe("ready");
+    expect(existsSync(join(runtimesRoot, "git"))).toBe(false);
+    expect(await git.whenReady(10)).toBe(true);
   });
 });

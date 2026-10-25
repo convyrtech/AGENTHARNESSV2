@@ -67,7 +67,13 @@ test("installed app: window, runtimes, host, reply, bash tool", async () => {
     await shot(page, "02-host-ready");
 
     await send(page, "Привет! Ответь одной фразой.");
-    await writeMetrics({ firstTurnMs: Date.now() - launched.t0 });
+    await writeMetrics({
+      firstTurnMs: Date.now() - launched.t0,
+      // build/installer.nsh unpacks PortableGit while installing (marker = complete).
+      installerGit: existsSync(
+        join(dirname(exe), "resources", "runtimes", "git", ".prsloy-installer-git"),
+      ),
+    });
 
     // First-run extraction: Resources/runtimes/archives → userData/runtimes.
     await expect.poll(() => bundledRuntimes(userData).stamp, { timeout: 300_000 }).toBe(true);
