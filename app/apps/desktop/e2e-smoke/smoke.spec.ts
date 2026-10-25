@@ -41,6 +41,8 @@ interface Launched {
   readyMs: number;
   /** ms from launch to `[prsloy] PortableGit: ready|failed` (Windows background unpack). */
   gitSetup: { status?: string; ms?: number };
+  /** Uncaught renderer errors since launch. */
+  pageErrors: string[];
 }
 
 async function writeMetrics(patch: Record<string, unknown>): Promise<void> {
@@ -175,7 +177,11 @@ async function launch(
   const page = await app.firstWindow({ timeout: 120_000 });
   const launchMs = Date.now() - t0;
   page.on("console", (m) => void appendFile(rendererLog, `[${m.type()}] ${m.text()}\n`));
-  page.on("pageerror", (e) => void appendFile(rendererLog, `[pageerror] ${e.stack ?? e}\n`));
+  const pageErrors: string[] = [];
+  page.on("pageerror", (e) => {
+    pageErrors.push(String(e.stack ?? e));
+    void appendFile(rendererLog, `[pageerror] ${e.stack ?? e}\n`);
+  });
   page.on("crash", () => void appendFile(rendererLog, `[crash] renderer crashed\n`));
 
   await page.waitForSelector('[data-testid="zeno-app"]', { timeout: 60_000 });
@@ -183,7 +189,17 @@ async function launch(
     timeout: 180_000,
   });
   const readyMs = Date.now() - t0;
-  return { bashCommand, app, page, fakeModel, userData, launchMs, readyMs, gitSetup };
+  return {
+    bashCommand,
+    app,
+    page,
+    fakeModel,
+    userData,
+    launchMs,
+    readyMs,
+    gitSetup,
+    pageErrors,
+  };
 }
 
 async function close(launched: Launched | undefined): Promise<void> {
@@ -214,7 +230,8 @@ async function send(page: Page, text: string): Promise<void> {
   await page.getByTestId("send-prompt").click();
   await expect(page.getByTestId("host-status").first()).toContainText(
     /Agent settled|Agent aborted/,
-    { timeout: 90_000 },
+    // First turn after first launch waits for the background PortableGit unpack.
+    { timeout: 180_000 },
   );
 }
 
@@ -319,6 +336,28 @@ test("installed app: window, runtimes, host, reply, bash tool", async () => {
       .toContain("Tool result received");
     expect(bash.result, `bash tool result:\n${bash.result}`).toContain(MARKER);
     expect(bash.result, `bash tool result:\n${bash.result}`).toMatch(HARNESS_HEADER);
+
+    // «Дизайн» tab must open into a calm state, never crash. Without the design bundle (CI has
+    // no token for the private pipeline repo) that is `design-unavailable`; with it, setup/key/empty.
+    await page.getByTestId("nav-design").click();
+    const designState = page.locator(
+      [
+        '[data-testid="design-unavailable"]',
+        '[data-testid="design-setup"]',
+        '[data-testid="design-needs-key"]',
+        '[data-testid="design-empty"]',
+      ].join(", "),
+    );
+    await expect(designState.first()).toBeVisible({ timeout: 30_000 });
+    const states = await designState.evaluateAll((els) =>
+      els.map(
+        (el) =>
+          `${el.getAttribute("data-testid")}${el.getAttribute("data-phase") ? `:${el.getAttribute("data-phase")}` : ""}`,
+      ),
+    );
+    await writeMetrics({ designStates: states });
+    await shot(page, "04-design");
+    expect(launched.pageErrors, launched.pageErrors.join("\n\n")).toEqual([]);
   } finally {
     if (launched) await shot(launched.page, "99-runner-final");
     await close(launched);
