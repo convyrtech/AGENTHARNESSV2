@@ -89,6 +89,8 @@ PROXY = ["--proxy", os.environ["HARNESS_PROXY"]] if os.environ.get("HARNESS_PROX
 SHIMS = ("claude", "codex", "gemini", "aider", "cursor-agent", "opencode", "qwen", "kimi")
 ENDS_OK = "ЭТАП ГОТОВ"
 TO_OWNER = "ВЛАДЕЛЬЦУ:"
+# вопрос владельцу инструментом (research/20 §8): расширение Pi рядом с харнессом; без него — старый путь TO_OWNER
+ASK_EXT = Path(__file__).resolve().with_name("ask_owner.ts")
 # разметка вызова инструментов, утёкшая в текст: DeepSeek V4 (DSML), DeepSeek V3, Qwen/Hermes, Kimi
 TOOL_LEAK = re.compile(r"｜\s*DSML\s*｜|<｜tool▁calls?▁(?:begin|end)｜>|<｜tool▁sep｜>|</?tool_call>"
                        r"|<\|tool_calls?_(?:section_)?(?:begin|end)\|>")
@@ -410,9 +412,14 @@ def brief(ws, gate, fl, cfg, notes, model=None):
               "", "## Как закончить",
               f"- Шаг сделан и `python3 -I design-pipeline/tools/flow.py --page design/{ws.state['page']}` его пропускает: "
               f"последней строкой напиши «{ENDS_OK}».",
-              f"- Для шага нужен ответ владельца (выбор по листу, «да», материалы): закончи сообщением ему. Первая строка "
-              f"«{TO_OWNER}», дальше текст по design-pipeline/templates/OWNER-MESSAGE.md (до 5 строк, один вопрос, своя "
-              "рекомендация, путь к картинке или видео). Больше ничего после него не пиши.",
+              *([("- Для шага нужен ответ владельца (выбор по листу, «да», материалы, название): вызови инструмент "
+                  "ask_owner. message — текст по design-pipeline/templates/OWNER-MESSAGE.md (до 5 строк, путь к картинке "
+                  "или видео отдельной строкой); questions — до трёх вопросов, у каждого 2–4 варианта и recommended, или "
+                  "один вопрос freeform, когда нужны его слова. Вызов заканчивает сессию. Вопрос владельцу — только "
+                  "инструментом ask_owner.")] if ASK_EXT.exists() else [
+                f"- Для шага нужен ответ владельца (выбор по листу, «да», материалы): закончи сообщением ему. Первая "
+                f"строка «{TO_OWNER}», дальше текст по design-pipeline/templates/OWNER-MESSAGE.md (до 5 строк, один "
+                "вопрос, своя рекомендация, путь к картинке или видео). Больше ничего после него не пиши."]),
               "- Владельцу пишешь только так. Строки ВЫБОР — только его слова из сообщений выше."]
     return "\n".join(lines)
 
@@ -454,7 +461,7 @@ def run_stage(ws, gate, prompt, model, cfg, session):
     """Одна сессия Pi с бюджетом и детекторами петель. Возвращает (final_text, stats)."""
     t0 = time.time()
     st = {"calls": 0, "in": 0, "out": 0, "cached": 0, "cost": 0.0, "edits_since_check": 0, "killed": None,
-          "leaks": 0}
+          "leaks": 0, "ask": None, "ask_errors": 0}
     seen = {}
     deadline = t0 + cfg["max_minutes"] * 60
     while True:
@@ -476,7 +483,8 @@ def _pi_once(ws, prompt, model, cfg, session, st, seen, deadline):
     session.parent.mkdir(parents=True, exist_ok=True)
     bf = session.with_name(session.stem + f"-{time.time_ns()}.brief.md")
     bf.write_text(prompt, encoding="utf-8")
-    args = [*PI, "--mode", "json", "--model", model, "--session", str(session), "@" + str(bf),
+    args = [*PI, "--mode", "json", "--model", model, "--session", str(session),
+            *(["-e", str(ASK_EXT)] if ASK_EXT.exists() else []), "@" + str(bf),
             "Выполни задание харнесса из файла выше."]
     final, thinking = "", ""
     p = subprocess.Popen(args, cwd=ws.root, env=ws.env(), stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
@@ -490,6 +498,13 @@ def _pi_once(ws, prompt, model, cfg, session, st, seen, deadline):
         try:
             e = json.loads(ln)
         except ValueError:
+            continue
+        if e.get("type") == "tool_execution_end" and e.get("toolName") == "ask_owner":
+            # вопрос владельцу принят инструментом (он и проверил форму); кривой вызов — ошибка модели, она повторит
+            if e.get("isError"):
+                st["ask_errors"] += 1
+            elif isinstance((e.get("result") or {}).get("details"), dict):
+                st["ask"] = e["result"]["details"]
             continue
         if e.get("type") != "message_end" or (e.get("message") or {}).get("role") != "assistant":
             continue
@@ -583,6 +598,24 @@ def inline_options(text):
     if len(opts) < 2 and not (opts and len(opts) == 1 and opts[0]["recommended"]):
         return []
     return [{"q": "", "options": opts}]
+
+
+def ask_card(ask):
+    """Текст и кнопки карточки из вызова ask_owner — в том же виде, что сообщение по шаблону: строки «A. …»
+    и «(рекомендую)», вопросы нумеруются, когда их несколько (flow.py и ответ «1А 2Б» читают так же)."""
+    qs = [q for q in (ask or {}).get("questions") or [] if isinstance(q, dict) and q.get("prompt")]
+    if not qs:
+        return None
+    lines = [ask["message"].strip()] if str(ask.get("message") or "").strip() else []
+    groups = []
+    for i, q in enumerate(qs, 1):
+        lines.append(f"{i}. {q['prompt']}" if len(qs) > 1 else q["prompt"])
+        opts = [{"key": o["key"], "label": o["label"], "recommended": bool(o.get("recommended"))}
+                for o in q.get("options") or [] if isinstance(o, dict) and o.get("key") and o.get("label")]
+        lines += [f"{o['key']}. {o['label']}" + (" (рекомендую)" if o["recommended"] else "") for o in opts]
+        if opts:
+            groups.append({"q": q["prompt"], "options": opts})
+    return "\n".join(lines), groups
 
 
 def options_of(text):
@@ -861,7 +894,7 @@ def say(a):
         final, st = run_stage(ws, gate, brief(ws, gate, fl, cfg, notes, model), model, cfg, sess)
         ws.ledger(kind="stage", gate=gate, model=model, attempt=hist["n"], **st,
                   lessons=[x["id"] for x in lessons_for(gate, model)],
-                  end="owner" if TO_OWNER in final else ("ok" if ENDS_OK in final else "other"))
+                  end="owner" if st.get("ask") or TO_OWNER in final else ("ok" if ENDS_OK in final else "other"))
         notes = []
         if st.get("error") and not final:
             # обрыв у поставщика — не провал шага: та же ступень, попытка не считается (не больше 3 за ход)
@@ -879,8 +912,10 @@ def say(a):
         hc = harness_check(ws)
         if hc:
             notes.append(hc.strip())
-        if TO_OWNER in final:
-            text = final.split(TO_OWNER, 1)[1].strip()
+        card = ask_card(st.get("ask"))
+        if card or TO_OWNER in final:
+            # кнопки — из вызова ask_owner; без него — разбор текста после «ВЛАДЕЛЬЦУ:» (запасной путь)
+            text, options = card or (final.split(TO_OWNER, 1)[1].strip(), None)
             if hc:                                           # проверка харнесса провалена: владельцу не показываем
                 continue
             fails = 0
@@ -890,14 +925,18 @@ def say(a):
                     break
                 fails += 1
                 bad = [i for i in op.get("items", []) if not i.get("ok")]
+                again = ("снова спроси его инструментом ask_owner" if card else f"снова закончи «{TO_OWNER}» и текстом")
                 fix = ("[второе мнение харнесса, не владелец: сообщение владельцу НЕ ушло. Исправь это в работе и в "
-                       f"сообщении, потом снова закончи «{TO_OWNER}» и текстом]\n" +
+                       f"сообщении, потом {again}]\n" +
                        "\n".join(f"- {i['check']}: {i['evidence']}" for i in bad))
                 emit(ev="note", text="второе мнение вернуло сообщение: " + "; ".join(i["check"] for i in bad))
                 f2, s2 = run_stage(ws, gate, fix, model, cfg, sess)
                 ws.ledger(kind="fix", gate=gate, model=model, **s2)
-                if TO_OWNER in f2:
-                    text = f2.split(TO_OWNER, 1)[1].strip()
+                card2 = ask_card(s2.get("ask"))
+                if card2:
+                    text, options = card = card2
+                elif TO_OWNER in f2:
+                    text, options = f2.split(TO_OWNER, 1)[1].strip(), None
             hist["waiting_owner"] = True
             ws.state["outbox"] = ws.state.get("outbox", 0) + 1
             sent = ws.h / "sent"                       # отправленное владельцу; outbox/ страницы — черновики агента
@@ -906,7 +945,7 @@ def say(a):
             shown = [str((ws.root / x).resolve()) for x in re.findall(r"[\w./\\-]+\.(?:png|jpe?g|mp4|webm|html)", text)
                      if (ws.root / x).exists()]
             ws.save()
-            emit(ev="owner", text=text, files=shown, options=options_of(text))
+            emit(ev="owner", text=text, files=shown, options=options if options is not None else options_of(text))
             return
     ws.state["carry_notes"] = notes
     ws.save()
