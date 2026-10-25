@@ -391,6 +391,9 @@ export async function runExtractorShadow(options: {
   async function writeCandidates(): Promise<void> {
     const norm = (t: string) => t.replace(/\s+/g, " ").trim().toLowerCase();
     const noticed: { scope: "user" | "project"; entry: MemoryEntry }[] = [];
+    let updated:
+      | { opId: string; scope: "user" | "project"; before: MemoryEntry; after: MemoryEntry }
+      | undefined;
     for (const c of candidates) {
       if (c.verdict !== "ok") continue;
       const message = selected.find((m) => norm(m.text).includes(norm(c.quote)))?.id;
@@ -406,16 +409,25 @@ export async function runExtractorShadow(options: {
       });
       if (result.ok) {
         applied.set(c, result.replaced ? "replaced" : "added");
-        if (result.replaced) {
-          await options.note?.(
-            MEMORY_CARD.updated,
-            MEMORY_TEXT.updated(result.replaced.text, result.entry.text),
-            { ...updatedDetails(result.opId, c.scope, result.replaced, result.entry) },
-          );
-        } else noticed.push({ scope: c.scope, entry: result.entry });
+        noticed.push({ scope: c.scope, entry: result.entry });
+        if (result.replaced)
+          updated = {
+            opId: result.opId,
+            scope: c.scope,
+            before: result.replaced,
+            after: result.entry,
+          };
       } else applied.set(c, result.reason === "duplicate" ? "reinforced" : result.reason);
     }
-    if (noticed.length)
+    // One card per run (≤3 changes): a lone replacement — «Обновил» with «Вернуть»; anything else — one
+    // «Заметил и запомнил» / «Запомнил N» (a replaced entry's «Вернуть» is in «Было»).
+    if (updated && noticed.length === 1)
+      await options.note?.(
+        MEMORY_CARD.updated,
+        MEMORY_TEXT.updated(updated.before.text, updated.after.text),
+        { ...updatedDetails(updated.opId, updated.scope, updated.before, updated.after) },
+      );
+    else if (noticed.length)
       await options.note?.(
         MEMORY_CARD.auto,
         noticed.length === 1
@@ -478,6 +490,47 @@ function sessionFiles(dir: string): { path: string; mtime: number }[] {
 
 export type ExtractorMode = "probe" | "shadow" | "write" | "off";
 
+type CardNote = (
+  customType: string,
+  text: string,
+  details: Record<string, unknown>,
+) => Promise<void>;
+
+/** No more than this many memory cards in the chat per rolling hour (the rest is written quietly). */
+export const MEMORY_CARDS_PER_HOUR = 3;
+
+/**
+ * The chat must not turn into a feed of «Запомнил…»: at most MEMORY_CARDS_PER_HOUR cards an hour.
+ * Over the cap the entries are still written (they are in «Память» with «Вернуть»); the next card that
+ * gets through says how many were not announced.
+ */
+export function limitMemoryCards(
+  note: CardNote,
+  options: { perHour?: number; now?: () => number } = {},
+): CardNote {
+  const perHour = options.perHour ?? MEMORY_CARDS_PER_HOUR;
+  const now = options.now ?? Date.now;
+  const shown: number[] = [];
+  let unannounced = 0;
+  return async (customType, text, details) => {
+    const t = now();
+    while (shown.length && t - shown[0]! > 3_600_000) shown.shift();
+    const items = Array.isArray(details.items) ? details.items.length : 1;
+    if (shown.length >= perHour) {
+      unannounced += items;
+      return;
+    }
+    shown.push(t);
+    const more = unannounced;
+    unannounced = 0;
+    await note(
+      customType,
+      more ? `${text} (и ещё ${more} — в настройках «Память»)` : text,
+      more ? { ...details, unannounced: more } : details,
+    );
+  };
+}
+
 /**
  * PRSLOY_MEMORY_EXTRACTOR wins (probe / shadow / write / off, owner and developer builds);
  * otherwise memory on with `autoMemory` "shadow" → shadow, `true` → write (M-3b: accepted
@@ -515,6 +568,7 @@ export function installMemoryExtractor(options: {
 }): { stop(): void; idle(): Promise<void> } {
   const probed = new Set<string>();
   const queued = new Set<string>();
+  const note = options.note ? limitMemoryCards(options.note) : undefined;
   let chain: Promise<void> = Promise.resolve();
   const learningDir =
     options.learningDir ??
@@ -547,7 +601,7 @@ export function installMemoryExtractor(options: {
                 agentDir: options.agentDir,
                 learningDir,
                 write: mode === "write",
-                ...(options.note ? { note: options.note } : {}),
+                ...(note ? { note } : {}),
               });
         options.onRun?.(run);
       } catch (error) {
