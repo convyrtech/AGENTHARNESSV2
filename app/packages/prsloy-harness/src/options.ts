@@ -80,7 +80,8 @@ export type PracticeName =
   | "secondOpinion"
   | "turnChanges"
   | "askUser"
-  | "requestSecret";
+  | "requestSecret"
+  | "pagePaths";
 
 export interface ResolvedOptions {
   profile: HarnessProfile;

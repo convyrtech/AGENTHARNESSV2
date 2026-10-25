@@ -22,6 +22,7 @@ import type { Reviewer } from "./reviewer.ts";
 import { headTail, showCard } from "./text.ts";
 import type { TurnChanges } from "./turn-changes.ts";
 import { modelFamily, recordEvent } from "./learning-log.ts";
+import { checkPagePaths, type PagePathReport, pagePathsMessage } from "./page-paths.ts";
 import { intervene } from "./lessons.ts";
 
 export interface ProjectCheck {
@@ -218,6 +219,8 @@ export interface StopGateDeps {
   budget?: BudgetHandle;
   /** Включено ли ревью прямо сейчас (флаг «Проверка второй моделью» читается на каждом ходе). */
   reviewEnabled?: () => boolean;
+  /** Пути от корня в страницах (откроется ли двойным кликом); false — не проверять. */
+  pagePaths?: ((cwd: string) => PagePathReport) | false;
 }
 
 /** Ревью не нужно, если поменялось меньше строк. */
@@ -242,6 +245,7 @@ export function installStopGate(
     reviewer,
     budget,
     reviewEnabled = () => true,
+    pagePaths = checkPagePaths,
   } = typeof deps === "function" ? { runner: deps } : deps;
   let edited = false;
   let pushbacks = 0;
@@ -330,6 +334,24 @@ export function installStopGate(
 
     if (check && run && !run.timedOut && !check.missingTool?.test(run.output))
       recordEvent(ctx, { kind: "gate.green", ...(gateSig ? { sig: gateSig } : {}) });
+    // Проект зелёный (или проверять нечем) — смотрим, откроется ли страница двойным кликом.
+    const paths = pagePaths ? pagePaths(ctx.cwd) : undefined;
+    if (paths && (paths.issues.length > 0 || paths.viteBase) && pushbacks < MAX_PUSHBACKS) {
+      pushbacks += 1;
+      const tip = intervene(ctx, { kind: "gate.paths", sig: "gate:paths", n: pushbacks });
+      return {
+        entries: [
+          ...event.entries,
+          {
+            type: "custom_message",
+            customType: "prsloy-harness.stop-gate",
+            content: `${pagePathsMessage(paths, pushbacks, MAX_PUSHBACKS)}${tip}`,
+            display: false,
+          },
+        ],
+        continue: true,
+      };
+    }
     if (!diff?.patch) return undefined;
     const result = await review(diff.patch, checksSummary(check, run), ctx);
     if (!result) return undefined;

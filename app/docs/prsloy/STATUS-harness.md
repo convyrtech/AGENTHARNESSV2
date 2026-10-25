@@ -852,3 +852,31 @@ i18n во все локали (дорожка ui).
 чистится; ключ без шаблона чистится после ввода; замена строки в `.env`, `.gitignore` с `.env` не трогается;
 отказ и значение с переводом строки; плохое имя; без окна. `test/integration.test.ts`, настоящая сессия: оба
 инструмента в списке модели (с описанием OpenHands), в print-режиме возвраты по запасному пути, `.env` не создан.
+
+## Этап 10 · по стенду a6 — пути в страницах, `--review`, промпт
+
+- Промпт «Кода»: две строки сверх §9 research/17 (`PROMPT_ADDITIONS` в `src/code-prompt.ts`, каждая — после своей
+  строки §9; без них — ровно §9, это проверяет тест). (1) «Use relative paths in pages (`./style.css`,
+  `./assets/…`, never `/assets/…`) … for Vite set `base: './'`» — на стенде страницы Kimi с `file:///fonts/…` и
+  `file:///assets/index-*.js` не открывались двойным кликом. (2) Ключ — через `request_secret`, выбор — через
+  `ask_user`. Промпт 7 291 символ (≤7 500).
+- Стоп-гейт, `src/page-paths.ts`: после зелёной проверки проекта (или когда проверять нечем) — в .html/.css
+  проекта нет путей от корня: `src=` у любого тега, `href=` у `<link>`, `url(/…)`. `//cdn…`, `http…`, `./…` и
+  ссылки `<a href="/">` не трогаются. Для Vite исходный `index.html` (`/src/main.js` там норма) не смотрим —
+  только `dist/`, `build/`, `out/`, и `vite.config.*` должен иметь `base: './'` (или `''`). Нашлось — возврат к
+  работе со списком файлов (≤6) и подсказкой, общий кап возвратов гейта (2). Событие `gate.paths`. Отключается
+  `disable: { pagePaths: true }`.
+- Замер: `--review on|off` (флаг `secondOpinion` в `prsloy-harness.json` задачи; в заголовке отчёта «ревью вкл/выкл»,
+  в имени файла `-noreview`). Цена ревью уже входит в цену задачи.
+- `lengthStop` у Opus: своего лимита длины у харнесса нет — `loop-detector.ts` только считает ответы с
+  `stopReason: "length"` от провайдера (на втором — подсказка). `max_tokens` берётся из `maxTokens` модели в
+  `apps/desktop/src/shared/prsloy-config.ts`; в main у `claude-opus-5-5` там 32 000 (у DeepSeek 64 000), и бенч
+  берёт те же модели. 128 000 в main нет — это дорожка core.
+- «Допущение не названо» (Opus, vague-request): в §9 уже есть «Small assumptions are fine: pick the common option and
+  mention it in the final message», дельта opus ему не противоречит. Новую строку не добавлял, жду текст ответа.
+
+Как проверено: `test/page-paths.test.ts` (4) — какие ссылки ловятся и какие нет; простой сайт и CSS; Vite: исходник
+чистый, `dist/` и `base`; текст возврата. `test/integration.test.ts`, настоящая сессия: страница с `/style.css` —
+возврат «не откроется двойным кликом … index.html: /style.css», после `./` — зелёно. `test/code-prompt.test.ts` —
+§9 плюс добавки на своих местах. `test/bench.test.ts`: `--fake --review off` — ни одной карточки ревью,
+«ревью выкл» в заголовке.

@@ -1,12 +1,18 @@
 // research/17 §10.3: снапшот, размер, без даты, правила edits[] Pi не изменились, дельты выключены.
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vite-plus/test";
-import { MODEL_DELTAS, modelDelta, PRSLOY_CODE_PROMPT } from "../src/code-prompt.ts";
+import {
+  MODEL_DELTAS,
+  modelDelta,
+  PROMPT_ADDITIONS,
+  PRSLOY_CODE_PROMPT,
+  RESEARCH_CODE_PROMPT,
+} from "../src/code-prompt.ts";
 
 const fixture = (name: string) => new URL(`./fixtures/${name}`, import.meta.url);
 
 describe("PRSLOY code prompt (research/17 §9)", () => {
-  it("snapshot: the text is exactly §9 of the research (and the fixture)", () => {
+  it("snapshot: §9 of the research verbatim plus the listed additions (and the fixture)", () => {
     expect(PRSLOY_CODE_PROMPT).toBe(readFileSync(fixture("code-prompt.expected.txt"), "utf8"));
     const doc = readFileSync(
       new URL("../../../../research/17-system-prompts.md", import.meta.url),
@@ -17,7 +23,20 @@ describe("PRSLOY code prompt (research/17 §9)", () => {
       section.indexOf("```text\n") + 8,
       section.indexOf("\n```", section.indexOf("```text\n")),
     );
-    expect(PRSLOY_CODE_PROMPT).toBe(block);
+    expect(RESEARCH_CODE_PROMPT).toBe(block);
+    // Без добавленных строк — ровно §9; каждая добавка стоит сразу после своей строки.
+    const lines = PRSLOY_CODE_PROMPT.split("\n");
+    for (const [anchor, line] of PROMPT_ADDITIONS)
+      expect(lines[lines.indexOf(line) - 1]!.startsWith(anchor), line).toBe(true);
+    const added = new Set(PROMPT_ADDITIONS.map(([, line]) => line));
+    expect(lines.filter((l) => !added.has(l)).join("\n")).toBe(block);
+  });
+
+  it("additions: relative paths for pages, request_secret and ask_user", () => {
+    expect(PRSLOY_CODE_PROMPT).toContain("for Vite set `base: './'`");
+    expect(PRSLOY_CODE_PROMPT).toContain(
+      "use the request_secret tool, never ask for it in the chat",
+    );
   });
 
   it("≤7 500 characters, no date or time, no ripgrep instruction, Russian answers rule", () => {

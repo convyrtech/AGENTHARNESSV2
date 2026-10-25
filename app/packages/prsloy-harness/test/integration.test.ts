@@ -773,6 +773,32 @@ console.log("ok");
     toolCalls: [{ name: "write", arguments: { path: "sum.js", content } }],
   });
 
+  it("a page with /assets/… paths is pushed back (it would not open by double click); relative paths pass", async () => {
+    const page = (src: string) => ({
+      toolCalls: [
+        {
+          name: "write",
+          arguments: {
+            path: "index.html",
+            content: `<!doctype html><link rel="stylesheet" href="${src}style.css"><p>Привет</p>`,
+          },
+        },
+      ],
+    });
+    const { session, server } = await startSession(
+      (_req, index) =>
+        [page("/"), { text: "Готово." }, page("./"), { text: "Поправил пути." }][index] ?? {
+          text: "?",
+        },
+      { factory: {} },
+    );
+    await session.prompt("сделай страницу");
+    expect(server.requests).toHaveLength(4);
+    const pushback = JSON.stringify(server.requests[2]!.messages);
+    expect(pushback).toContain("Страница не откроется двойным кликом");
+    expect(pushback).toContain("index.html: /style.css");
+  }, 60_000);
+
   it("the model leaves a failing test, is pushed back once, fixes it, and the gate passes", async () => {
     const { session, server, cwd } = await startSession(
       (_req, index) =>

@@ -4,7 +4,8 @@
 // ни процессов, ни счётчиков: промпт байт-в-байт один и тот же весь сеанс (кэш, §6).
 // Включается флагом "prompt": "prsloy" в prsloy-harness.json; по умолчанию — "pi" (до A/B на бенче, §11.4).
 
-export const PRSLOY_CODE_PROMPT = [
+/** §9 research/17 дословно. */
+export const RESEARCH_CODE_PROMPT = [
   "You are the coding agent of PRSLOY, a Windows desktop app. You build and fix small programs, websites, scripts and bots for people who are not programmers. You work on the user's own computer, inside the project folder they chose.",
   "",
   "# The user",
@@ -66,6 +67,35 @@ export const PRSLOY_CODE_PROMPT = [
   "# Before you end your turn",
   "The task is done, or you are blocked for a reason you can name. You checked the result. Your message is in Russian, in plain words, and asks the user to run nothing.",
 ].join("\n");
+
+/**
+ * Строки, добавленные после research/17 по живому стенду: [строка §9, после которой встаёт, новая строка].
+ * Каждая закрывает конкретный провал; без них промпт — ровно §9.
+ */
+export const PROMPT_ADDITIONS: readonly (readonly [string, string])[] = [
+  [
+    "- Prefer the simplest thing that works:",
+    // Стенд a6: `file:///fonts/…`, `file:///assets/index-*.js` — страница не открывается двойным кликом.
+    "- Use relative paths in pages (`./style.css`, `./assets/…`, never `/assets/…`) so the page also works when opened as a file; for Vite set `base: './'`.",
+  ],
+  [
+    "- Do the work yourself.",
+    // Инструменты research/19: ключ — формой, выбор вкуса — кнопками.
+    "- For a token or key use the request_secret tool, never ask for it in the chat. For a choice only the user can make use ask_user: one question, 2–4 options, your recommendation.",
+  ],
+];
+
+function withAdditions(base: string): string {
+  const lines = base.split("\n");
+  for (const [anchor, line] of PROMPT_ADDITIONS) {
+    const at = lines.findIndex((l) => l.startsWith(anchor));
+    if (at < 0) throw new Error(`code-prompt: нет строки «${anchor}»`);
+    lines.splice(at + 1, 0, line);
+  }
+  return lines.join("\n");
+}
+
+export const PRSLOY_CODE_PROMPT = withAdditions(RESEARCH_CODE_PROMPT);
 
 /**
  * Дельты под модель (§9.1, секция prsloy_model) — выключены по умолчанию: включать только по итогам бенча
