@@ -304,14 +304,20 @@ export async function launch(label: string, options: LaunchOptions = {}): Promis
 /** Close the app; resolves with how long the quit took (ms). */
 export async function close(launched: Launched | undefined): Promise<number | undefined> {
   if (!launched) return undefined;
-  const proc = launched.app.process();
+  // Undefined once the app has already quit (e.g. it restarted itself for an update).
+  let proc: ReturnType<ElectronApplication["process"]> | undefined;
+  try {
+    proc = launched.app.process();
+  } catch {
+    proc = undefined;
+  }
   const started = Date.now();
   await Promise.race([
     launched.app.close().catch(() => undefined),
     new Promise((resolveTimer) => setTimeout(resolveTimer, 30_000)),
   ]);
   const ms = Date.now() - started;
-  if (proc.exitCode === null) proc.kill();
+  if (proc && proc.exitCode === null) proc.kill();
   await launched.fakeModel.stop().catch(() => undefined);
   return ms;
 }
