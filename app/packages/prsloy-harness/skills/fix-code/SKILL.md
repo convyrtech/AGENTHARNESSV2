@@ -25,6 +25,8 @@ description: "Починить чужой код: «не работает», «�
 
 - Two attempts failed the same way → stop, re-read the error, question your assumption about the cause.
 - Do not "fix" by catching and hiding the exception, or by deleting the failing test.
+- If an old test contradicts what the user asked, the task wins: do not change or weaken the test and do not bend
+  the code to it. Leave it red and say why in one sentence (or call report_blocker if you have it).
 - Missing dependencies are not the bug: install them in the project (venv / `npm install`) and go on.
 
 ## Sources

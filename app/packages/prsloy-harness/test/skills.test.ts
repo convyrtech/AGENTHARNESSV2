@@ -199,3 +199,33 @@ describe("skill templates run", () => {
     }
   }, 60_000);
 });
+
+describe("skills name only tools the harness really has", () => {
+  it("find_ready, request_secret, ask_user, bash_background, web_fetch, report_blocker: each one a skill names is registered", async () => {
+    const { createPrsloyHarness } = await import("../src/index.ts");
+    const { MockPi } = await import("./mock-pi.ts");
+    const pi = new MockPi(tmpdir());
+    createPrsloyHarness({ outputDir: join(tmpdir(), "prsloy-skills-tools"), profile: "code" })(pi.api);
+    const registered = new Set(pi.tools.keys());
+    const known = [
+      "find_ready",
+      "request_secret",
+      "ask_user",
+      "bash_background",
+      "process",
+      "web_fetch",
+      "web_search",
+      "report_blocker",
+    ];
+    const named = new Set<string>();
+    for (const files of Object.values(collectSkills())) {
+      for (const file of Object.values(files)) {
+        for (const tool of known) if (new RegExp(`\\b${tool}\\b`).test(file)) named.add(tool);
+      }
+    }
+    expect([...named].sort()).toEqual(
+      expect.arrayContaining(["ask_user", "bash_background", "find_ready", "request_secret"]),
+    );
+    for (const tool of named) expect(registered.has(tool), tool).toBe(true);
+  });
+});
