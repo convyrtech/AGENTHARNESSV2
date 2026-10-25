@@ -1,4 +1,5 @@
 import "./proxy-bootstrap.ts";
+import { prsloyHandoff } from "./prsloy-handoff.ts";
 import {
   createPixRuntime,
   projectCustomEntry,
@@ -19,6 +20,7 @@ import type { AgentSessionEvent } from "@earendil-works/pi-coding-agent";
 import { readFile } from "node:fs/promises";
 import { extname } from "node:path";
 import { ProviderOAuthCoordinator, type OAuthModelRuntime } from "./provider-oauth.ts";
+import { PRSLOY_PROVIDER_ID } from "../shared/prsloy-config.ts";
 
 interface ElectronParentPort {
   postMessage(message: unknown): void;
@@ -379,6 +381,15 @@ async function handleCommand(command: HostCommand): Promise<void> {
         if (command.resumeRecent !== undefined) options.resumeRecent = command.resumeRecent;
         if (command.projectTrusted !== undefined) options.projectTrusted = command.projectTrusted;
         options.onExtensionUiRequest = post;
+        // PRSLOY: gateway key as a pi runtime key, harness extensions on every session,
+        // project AGENTS.md/CLAUDE.md only after the folder is trusted.
+        if (prsloyHandoff.gatewayKey) {
+          options.runtimeApiKeys = { [PRSLOY_PROVIDER_ID]: prsloyHandoff.gatewayKey };
+        }
+        if (prsloyHandoff.harnessExtensions.length > 0) {
+          options.extensionPaths = prsloyHandoff.harnessExtensions;
+        }
+        options.contextFilesRequireTrust = true;
         handle = await createPixRuntime(options);
         sequence = 0;
         bindRuntimeEvents(handle);

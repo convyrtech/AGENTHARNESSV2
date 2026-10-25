@@ -27,6 +27,14 @@ if (petBootArg) {
 }
 
 const api: ZenoDesktopApi = {
+  prsloy: {
+    getState: () => ipcRenderer.invoke("prsloy:get-state"),
+    setKey: (key, baseUrl) => ipcRenderer.invoke("prsloy:set-key", key, baseUrl),
+    clearKey: () => ipcRenderer.invoke("prsloy:clear-key"),
+    setBaseUrl: (baseUrl) => ipcRenderer.invoke("prsloy:set-base-url", baseUrl),
+    listTurns: (options) => ipcRenderer.invoke("prsloy:list-turns", options),
+    undoTurn: (snapshotId) => ipcRenderer.invoke("prsloy:undo-turn", snapshotId),
+  },
   app: {
     getRuntime: () => ipcRenderer.invoke("zeno:app:get-runtime"),
     getUpdateStatus: () => ipcRenderer.invoke("zeno:app:get-update-status"),

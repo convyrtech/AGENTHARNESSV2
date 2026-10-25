@@ -141,6 +141,8 @@ import {
   type BundledRuntimePrefs,
 } from "./bundled-runtimes.ts";
 import { ensureProvisionedRuntimes } from "./runtime-provision.ts";
+import { electronFetch, initPrsloy } from "./prsloy/electron.ts";
+import { registerPrsloyIpc, snapshotBeforeTurn } from "./prsloy/ipc.ts";
 import { augmentEnvPath } from "./shell-path.ts";
 import { ThemeLibrary } from "./theme-library.ts";
 
@@ -220,6 +222,9 @@ process.stdout.write("[zeno:main-ready]\n");
 // Prefs helpers below are function declarations (hoisted). Configure bundled
 // runtimes + PATH before LAUNCH_ENV snapshots / child spawns.
 bootstrapBundledRuntimesAndPath();
+
+// PRSLOY: isolated pi home under userData, gateway provider, shims, clean agent env.
+const prsloy = initPrsloy(import.meta.url);
 
 /** Embedded pi TUI (terminal mode) — exclusive with host chat prompts. */
 const piTuiGuard = new PiTuiExclusiveGuard();
@@ -2257,7 +2262,8 @@ function processEnvironment(): Record<string, string> {
   const global = cachedGlobalSdk ?? { source: "global" as const, available: false };
   const sdkEnv = piSdkSpawnEnv(preference, builtin, global);
   appliedPiSdkSource = sdkEnv.ZENO_PI_SDK_SOURCE === "global" ? "global" : "builtin";
-  return { ...withProxy, ...sdkEnv };
+  // Tools inherit the host env: scrub machine secrets, shims first, hand over the key.
+  return prsloy.hostEnv({ ...withProxy, ...sdkEnv });
 }
 
 /** Live PATH from process.env (may gain npm global bin after pi ensure). */
@@ -2670,6 +2676,16 @@ class HostSupervisor {
     return this.#exclusive(() => this.#startExclusive(options));
   }
 
+  /** PRSLOY: respawn with a fresh env (gateway key / URL changed), same workspace + session. */
+  restartWithFreshEnv(): Promise<HostSnapshot | undefined> {
+    return this.#exclusive(async () => {
+      if (!this.#host) return undefined;
+      if (this.#snapshot?.runtimeId) this.#previousRuntimeId = this.#snapshot.runtimeId;
+      const sessionFile = this.#sessionFile ?? this.#snapshot?.sessionFile;
+      return this.#startExclusive({ force: true, ...(sessionFile ? { sessionFile } : {}) });
+    });
+  }
+
   async #startExclusive(options?: {
     cwd?: string;
     sessionFile?: string;
@@ -2962,6 +2978,13 @@ class HostSupervisor {
     imagePaths?: string[],
   ): Promise<HostSnapshot> {
     if (!this.#host) await this.start();
+    // «Откатить ход»: snapshot the workspace before a new turn (not for steer/follow-up).
+    if (!streamingBehavior && !this.#isForegroundBusy()) {
+      await snapshotBeforeTurn(prsloy, this.#workspaceCwd ?? this.#snapshot?.cwd, {
+        prompt: message,
+        ...(this.#snapshot?.sessionId ? { sessionId: this.#snapshot.sessionId } : {}),
+      });
+    }
     const boundHost = this.#host;
     const command: HostCommand = {
       protocolVersion: IPC_PROTOCOL_VERSION,
@@ -4872,6 +4895,16 @@ void app
       return saved;
     });
     ipcMain.handle("zeno:proxy:discover-local", () => discoverLocalProxies());
+    registerPrsloyIpc(ipcMain, {
+      ctx: prsloy,
+      fetch: electronFetch,
+      restartHost: async () => {
+        await supervisor?.restartWithFreshEnv();
+      },
+      getWorkspace: () => supervisor?.getWorkspaceCwd(),
+      needsWorkspace: () => !durableWorkspacePath(loadDesktopPrefs().lastWorkspace),
+      isAgentBusy: () => supervisor?.getSdkSwitchActivity().agentBusy ?? false,
+    });
     ipcMain.handle("zeno:window:minimize", () => {
       if (mainWindow && !mainWindow.isDestroyed()) mainWindow.minimize();
     });

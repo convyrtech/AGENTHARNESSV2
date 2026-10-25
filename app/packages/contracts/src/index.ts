@@ -1,3 +1,5 @@
+import type { PrsloyDesktopApi } from "./prsloy.ts";
+export type * from "./prsloy.ts";
 export const IPC_PROTOCOL_VERSION = 1 as const;
 
 export interface ResourceCounts {
@@ -1714,6 +1716,8 @@ export type PetCommand =
   | { type: "show-main" };
 
 export interface ZenoDesktopApi {
+  /** PRSLOY gateway key, first run, per-turn undo. */
+  prsloy: PrsloyDesktopApi;
   app: {
     /** OS platform + packaging flags for chrome layout / dev tools. */
     getRuntime(): Promise<{
