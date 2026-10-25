@@ -3165,7 +3165,7 @@ function App() {
         onToggleTheme={() => toggleColorMode()}
         onToggleCollapse={() => toggleSidebarCollapsed()}
         onResizeWidth={(px) => setSidebarWidthPx(px)}
-        onNewThread={() => void newBlankTask()}
+        onNewThread={() => void newBlankTask().then(focusComposer)}
         onSelectProject={(path) => selectProjectPath(path)}
         onOpenProjects={() => openProjects()}
         onOpenPackages={() => void openPackages()}
