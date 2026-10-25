@@ -108,9 +108,28 @@ function installedVersion(): string {
   );
 }
 
+/**
+ * Wait until no PRSLOY installer runs: a test that closes A with B downloaded leaves B's silent
+ * installer running (autoInstallOnAppQuit), and a second NSIS run at the same time fails.
+ */
+async function noInstallerRunning(maxMs = 240_000): Promise<string> {
+  const running = () =>
+    powershell(
+      "Get-Process | Where-Object Name -like 'PRSLOY-*' | Select-Object -ExpandProperty Name; exit 0",
+    );
+  const end = Date.now() + maxMs;
+  let names = running();
+  while (names && Date.now() < end) {
+    await new Promise((r) => setTimeout(r, 2_000));
+    names = running();
+  }
+  return names;
+}
+
 /** Silent per-user install of A (undoes an update a previous test installed on quit). */
-function reinstallA(): string {
+async function reinstallA(): Promise<string> {
   powershell("Get-Process PRSLOY -ErrorAction SilentlyContinue | Stop-Process -Force; exit 0");
+  expect(await noInstallerRunning(), "an installer still running").toBe("");
   execFileSync(installerA, ["/S", "/currentuser"], { windowsHide: true });
   return installedVersion();
 }
@@ -178,9 +197,11 @@ test.beforeAll(async () => {
 
 const updaterCache = join(process.env.LOCALAPPDATA ?? "", "prsloy-updater");
 
-test.beforeEach(() => {
+test.beforeEach(async () => {
   if (process.platform !== "win32") return;
-  expect(reinstallA()).toContain(versionA);
+  // That test installs the public release itself; A is not part of it.
+  if (test.info().title.startsWith("previous public release")) return;
+  expect(await reinstallA()).toContain(versionA);
   // The installer keeps its own copy here: the base for differential downloads.
   expect(existsSync(join(updaterCache, "installer.exe")), `${updaterCache}\\installer.exe`).toBe(
     true,
@@ -489,6 +510,7 @@ test("previous public release → this build: key, project, chat and memory surv
   try {
     // 1. Install what users have: the published installer, over whatever is there.
     powershell("Get-Process PRSLOY -ErrorAction SilentlyContinue | Stop-Process -Force; exit 0");
+    expect(await noInstallerRunning(), "an installer still running").toBe("");
     await rm(profile, { recursive: true, force: true });
     execFileSync(publicInstaller, ["/S", "/currentuser"], { windowsHide: true });
     expect(installedVersion()).toContain(publicVersion);
