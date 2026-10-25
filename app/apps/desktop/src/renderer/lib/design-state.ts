@@ -273,9 +273,22 @@ export function ownerText(text: string, files: DesignFile[], groups: DesignOptio
 /** The engine's «как рекомендуешь»: closes every open choice with the agent's recommendation. */
 export const RECOMMEND_ANSWER = "как рекомендуешь";
 
+/** A lettered option (Latin A–D or Cyrillic А–Г); run.py's word options («да», «смешать») are not. */
+export function isLetterKey(key: string): boolean {
+  return /^[A-DА-Г]$/u.test(key);
+}
+
+/** An option's label without the letter it repeats («A — прибор и три шага» → «прибор и три шага»). */
+export function optionLabel(option: { key: string; label: string }): string {
+  if (!isLetterKey(option.key)) return option.label;
+  const rest = option.label.replace(new RegExp(`^${option.key}\\s*(?:[—–:.)-]\\s*)?`, "u"), "");
+  return rest.trim();
+}
+
 /**
- * Owner's answer to a card. One question → the picked letter with its label; several →
- * "1А 2Б 3А" (run.py reads both). Undefined until every question has a pick.
+ * Owner's answer to a card. One question → the picked letter with its label, or a word option's
+ * own key («да», «экран с тремя шагами»: run.py reads it as is); several → "1А 2Б 3А".
+ * Undefined until every question has a pick.
  */
 export function answerText(
   groups: DesignOptionGroup[],
@@ -284,7 +297,9 @@ export function answerText(
   if (groups.length === 0 || groups.some((_, i) => !picks[i])) return undefined;
   if (groups.length === 1) {
     const key = picks[0]!;
-    const label = groups[0]!.options.find((o) => o.key === key)?.label;
+    if (!isLetterKey(key)) return key;
+    const option = groups[0]!.options.find((o) => o.key === key);
+    const label = option ? optionLabel(option) : "";
     return label ? `${key}. ${label}` : key;
   }
   return groups.map((_, i) => `${i + 1}${picks[i]}`).join(" ");

@@ -45,6 +45,8 @@ async function launch(replay: Replay = {}): Promise<Launched> {
   const harness = join(bundle, "playbooks", "site", "harness");
   mkdirSync(harness, { recursive: true });
   copyFileSync(join(FIXTURE, "replay_run.py"), join(harness, "run.py"));
+  // the real run.py, for its options_of / doing_of (the fixture predates both)
+  copyFileSync(join(HARNESS, "run.py"), join(harness, "real_run.py"));
   // main passes run.py an allowlisted env, so the replay reads its settings from a file
   writeFileSync(join(harness, "replay.json"), JSON.stringify(replay));
   cpSync(join(FIXTURE, "fixtures"), join(harness, "fixtures"), { recursive: true });
@@ -123,15 +125,27 @@ test("the real run, turn by turn, as the owner sees it", async () => {
     for (const [i, answer] of ANSWERS.entries()) {
       const turn = i + 1;
       const owners = await page.getByTestId("design-owner").count();
-      await say(page, answer);
+      if (turn === 6) {
+        // run.py's word option: the button sends its key as the answer, nothing else
+        await page
+          .getByTestId("design-owner")
+          .last()
+          .getByRole("button", { name: /^Берём его/u })
+          .click();
+        await expect(page.getByTestId("design-user").last()).toHaveText("Берём его");
+      } else {
+        await say(page, answer);
+      }
       await expect(page.getByTestId("design-progress")).toBeVisible({ timeout: 30_000 });
       if (turn === 7) {
         // The long step: 80 minutes, 321 tool calls. One plain line, the step and time left;
         // the raw calls only under «Подробности».
         const step = page.getByTestId("design-progress-step");
-        await expect(step).toHaveText("Проверяю страницу на телефоне и компьютере", {
+        await expect(page.getByTestId("design-progress-meta")).toContainText("Шаг 7 из 8", {
           timeout: 120_000,
         });
+        // run.py's own words for the action, or the step's: plain Russian, never a command
+        await expect(step).toHaveText(/^[А-ЯЁ][а-яё]+/u);
         await page.waitForTimeout(SHOTS ? 20_000 : 2_000);
         const meta = page.getByTestId("design-progress-meta");
         await expect(meta).toContainText("Шаг 7 из 8");
@@ -155,6 +169,14 @@ test("the real run, turn by turn, as the owner sees it", async () => {
         await expect(page.getByTestId("design-owner")).toHaveCount(owners + 1, {
           timeout: 300_000,
         });
+      }
+      if (turn === 3) {
+        // «Всё верно, можно дальше?» comes with run.py's own answer buttons
+        const card = page.getByTestId("design-owner").last();
+        await expect(card.getByTestId("design-option-да")).toContainText("Да");
+        await expect(card.getByTestId("design-option-да")).toContainText("рекомендую");
+        await expect(card.getByTestId("design-option-нет")).toHaveText("Нет, поправить");
+        await expect(card.getByTestId("design-recommend")).toBeVisible();
       }
       await shot(page, `replay-turn${turn}-done`);
     }

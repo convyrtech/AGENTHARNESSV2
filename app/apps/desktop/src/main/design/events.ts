@@ -12,6 +12,7 @@ import type {
 
 const MAX_TEXT = 4000;
 const MAX_SHORT = 200;
+const MAX_KEY = 80;
 const MAX_FILES = 12;
 const MAX_OPTIONS = 8;
 const MAX_GROUPS = 3;
@@ -43,7 +44,8 @@ function str(value: unknown, max: number): string {
 function option(item: unknown): DesignOption | undefined {
   if (!item || typeof item !== "object") return undefined;
   const rec = item as Record<string, unknown>;
-  const key = str(rec.key, 8).trim();
+  // a letter, or run.py's word key sent back as the answer («да», «экран с тремя шагами»)
+  const key = str(rec.key, MAX_KEY).trim();
   const label = str(rec.label, MAX_SHORT).trim();
   if (!key || !label) return undefined;
   if (rec.recommended !== true) return { key, label };

@@ -7,6 +7,8 @@ import {
   EMPTY_DESIGN_VIEW,
   elapsedMinutes,
   harnessNow,
+  isLetterKey,
+  optionLabel,
   foldDesign,
   openQuestion,
   ownerText,
@@ -285,5 +287,29 @@ describe("tickerLine", () => {
     expect(tickerLine("bash", "cd /w && python3 -I design-pipeline/tools/gate.py --url x")).toBe(
       "bash gate.py --url x",
     );
+  });
+});
+
+describe("run.py's word options", () => {
+  const opt = (key: string, label: string, recommended = false) => ({ key, label, recommended });
+
+  it("sends a word option's key as is, a letter with its label", () => {
+    const yesNo = [{ q: "", options: [opt("да", "Да", true), opt("нет", "Нет, поправить")] }];
+    expect(answerText(yesNo, { 0: "да" })).toBe("да");
+    const screen = [{ q: "", options: [opt("экран с тремя шагами", "Экран с тремя шагами")] }];
+    expect(answerText(screen, { 0: "экран с тремя шагами" })).toBe("экран с тремя шагами");
+    const abc = [{ q: "", options: [opt("A", "A — прибор и три шага", true), opt("B", "B")] }];
+    expect(answerText(abc, { 0: "A" })).toBe("A. прибор и три шага");
+    expect(answerText(abc, { 0: "B" })).toBe("B");
+  });
+
+  it("does not repeat the letter in a label, keeps word labels whole", () => {
+    expect(optionLabel(opt("A", "A — прибор и три шага"))).toBe("прибор и три шага");
+    expect(optionLabel(opt("B", "B"))).toBe("");
+    expect(optionLabel(opt("А", "Разработчики и команды"))).toBe("Разработчики и команды");
+    expect(optionLabel(opt("смешать", "Смешать"))).toBe("Смешать");
+    expect(isLetterKey("A")).toBe(true);
+    expect(isLetterKey("Б")).toBe(true);
+    expect(isLetterKey("да")).toBe(false);
   });
 });

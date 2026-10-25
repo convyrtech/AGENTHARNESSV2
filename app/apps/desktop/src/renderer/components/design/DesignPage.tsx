@@ -32,6 +32,8 @@ import {
   EMPTY_DESIGN_VIEW,
   foldDesign,
   harnessNow,
+  isLetterKey,
+  optionLabel,
   openQuestion,
   ownerText,
   RECOMMEND_ANSWER,
@@ -585,8 +587,8 @@ function OwnerChoices({
                     else setPicks(next);
                   }}
                 >
-                  <span className="font-semibold">{o.key}</span>
-                  <span>{o.label}</span>
+                  {isLetterKey(o.key) ? <span className="font-semibold">{o.key}</span> : null}
+                  {optionLabel(o) ? <span>{optionLabel(o)}</span> : null}
                   {o.recommended ? (
                     <span className="text-xs opacity-60">{tr("design.recommended")}</span>
                   ) : null}

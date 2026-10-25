@@ -10,6 +10,9 @@ Settings come from replay.json next to this file (main passes run.py an allowlis
   turnEnd   N: a turn stops after N events and waits to be cancelled (a turn in progress)
   silence   true: the events of a stopped turn are 4 minutes old (a long silence)
 Pictures the messages point to are replaced by fixtures/design/landing/01-candidates.png.
+The fixture was recorded before run.py gave every question its `options` and every tool call its
+`doing`: when the real run.py sits next to this file as real_run.py, both are recomputed with its
+own options_of / doing_of, so the app sees what run.py sends today.
 """
 import argparse, json, os, shutil, sys, time
 from pathlib import Path
@@ -20,6 +23,31 @@ PLACEHOLDER = HERE / "fixtures" / "design" / "landing" / "01-candidates.png"
 RECORDED_WS = "/home/user/ab/run/сайт"
 CONFIG = json.loads((HERE / "replay.json").read_text(encoding="utf-8")) if (HERE / "replay.json").exists() else {}
 SPEED = float(CONFIG.get("speed", 120))
+
+
+def load_run_py():
+    path = HERE / "real_run.py"
+    if not path.exists():
+        return None
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("real_run", path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+RUN_PY = load_run_py()
+
+
+def today(ev):
+    """What run.py emits for this event now: options for questions, doing for tool calls."""
+    if RUN_PY is None:
+        return ev
+    if ev.get("ev") == "owner":
+        ev["options"] = RUN_PY.options_of(ev.get("text", ""))
+    elif ev.get("ev") == "tool" and "doing" not in ev:
+        ev["doing"] = RUN_PY.doing_of(ev.get("name"), ev.get("brief", ""))
+    return ev
 
 
 def state_dir(ws):
@@ -72,7 +100,7 @@ def say(a):
     for n, ev in enumerate(events, 1):
         time.sleep(max(0.0, min(ev["t"] - prev, 600)) / SPEED)
         prev = ev["t"]
-        ev = relocate(ev, ws)
+        ev = today(relocate(ev, ws))
         ev["t"] = start + (ev["t"] - t0)
         print(json.dumps(ev, ensure_ascii=False), flush=True)
         if stop_after and n >= stop_after:
