@@ -214,6 +214,8 @@ export function installStopGate(
 
   pi.on("agent_before_settle", async (event, ctx) => {
     if (event.outcome !== "completed" || gaveUp) return undefined;
+    // Ход уже продолжается (например, вызов инструмента пришёл текстом и модель повторяет его) — гейт подождёт.
+    if (event.continue) return undefined;
     // Бюджет задачи исчерпан (его итог уже в записях) — тулы запрещены, возвращать к работе нельзя.
     if (event.entries.some((e) => "customType" in e && e.customType === "prsloy-harness.budget"))
       return undefined;

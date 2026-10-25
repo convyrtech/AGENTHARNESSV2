@@ -1,4 +1,4 @@
-import type { ToolResultEvent } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI, ToolResultEvent } from "@earendil-works/pi-coding-agent";
 
 export type ResultContent = ToolResultEvent["content"];
 type ContentPart = ResultContent[number];
@@ -68,6 +68,30 @@ export function tailBytes(text: string, bytes: number): string {
 }
 
 /** Начало и конец текста, общий размер не больше `limit` байт. */
+/**
+ * Карточка для человека в чате. Не записью границы хода: те Pi пишет в сессию без события message_end, и
+ * приложение их не показывает. sendMessage без нового хода во время хода Pi откладывает и добавляет сразу
+ * после записей границы — с обычными событиями сообщения.
+ */
+export async function showCard(
+  pi: Pick<ExtensionAPI, "sendMessage">,
+  customType: string,
+  content: string,
+  details?: unknown,
+): Promise<void> {
+  try {
+    // Pi кладёт сообщение в очередь синхронно; промис (если он есть) ждём только ради ошибок.
+    await Promise.resolve(
+      pi.sendMessage(
+        { customType, content, display: true, ...(details === undefined ? {} : { details }) },
+        { triggerTurn: false },
+      ),
+    );
+  } catch {
+    // карточка — не повод ронять ход
+  }
+}
+
 export function headTail(text: string, limit: number, headShare = 0.35): string {
   if (byteLength(text) <= limit) return text;
   const head = headBytes(text, Math.floor(limit * headShare));

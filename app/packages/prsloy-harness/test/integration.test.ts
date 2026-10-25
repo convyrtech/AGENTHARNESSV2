@@ -14,7 +14,7 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 import { createPrsloyHarness, type HarnessOptions } from "../src/index.ts";
-import { PSEUDO_CALL_NOTE } from "../src/loop-detector.ts";
+import { TOOL_LEAK_NOTE } from "../src/tool-leak.ts";
 import { recordedFetch } from "./recorded-fetch.ts";
 import { messageText, ScriptedOpenAiServer, type Script } from "./scripted-openai-server.ts";
 
@@ -234,7 +234,8 @@ describe("integration: real createAgentSession + mock gateway", () => {
     expect(toolResults()).toHaveLength(0);
     expect(server.requests).toHaveLength(2);
     const last = server.requests[1]!.messages.at(-1);
-    expect(messageText(last)).toContain(PSEUDO_CALL_NOTE);
+    // <tool_call> — служебный токен вызова: его теперь ведёт tool-leak.ts (свой лимит, своя строка).
+    expect(messageText(last)).toContain(TOOL_LEAK_NOTE);
   }, 30_000);
 
   it("loads from a file path like the agent host does: tools registered, post-edit check and secret scrub fire", async () => {

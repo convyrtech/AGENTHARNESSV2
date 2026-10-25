@@ -11,6 +11,8 @@
  *   7. `python -m http.server R &` → recorded as a finding (bundled Windows Python lacked `threading`)
  *   8. the fake gateway sends an a6 error inside the stream once → the reliability proxy retries,
  *      the user sees a normal answer (PRSLOY_RELIABILITY_PROVIDERS=zeno-fake)
+ *   8a. the model leaks its tool call as text (DeepSeek: answer == reasoning + `</｜DSML｜ invoke>`) → the
+ *      harness sends it back once, the next answer is a real write, the turn completes; no markup on screen
  *   6. `node server.js Q &` left running → port Q free after the app quits
  * Step 0 only records python in the agent's bash. Content checks are soft: every step runs and
  * reports. Artifacts: smoke-out/harness-requests.jsonl (every request the model got), session
@@ -63,6 +65,8 @@ class ScriptedModel {
   readonly requests: { messages?: ChatMessage[] }[] = [];
   /** Запросы «harness flaky gateway»: первый получает ошибку a6 внутри потока. */
   flakyRequests = 0;
+  /** Ответы «harness tool leak»: вызов инструмента текстом (как DeepSeek в A/B дирижёра). */
+  leakRequests = 0;
   #server: Server;
   baseUrl = "";
 
@@ -127,6 +131,34 @@ class ScriptedModel {
         })}\n\n`,
       );
     chunk({ role: "assistant", content: "" });
+    const lastText = messageText(messages[lastUser]);
+    if (!answered && lastText.includes("harness tool leak")) {
+      this.leakRequests += 1;
+      const thought = `${"The page needs a resize handler so the motion stays in sync. ".repeat(20)}Let me check motion.js for a resize handler.`;
+      chunk({ reasoning_content: thought });
+      chunk({ content: `${thought}</｜DSML｜ parameter>\n</｜DSML｜ invoke>\n</｜DSML｜ calls>` });
+      chunk({}, "stop");
+      res.end("data: [DONE]\n\n");
+      return;
+    }
+    if (!answered && lastText.includes("Твой последний вызов инструмента не дошёл")) {
+      chunk({
+        tool_calls: [
+          {
+            index: 0,
+            id: `call_harness_leak_${this.requests.length}`,
+            type: "function",
+            function: {
+              name: "write",
+              arguments: JSON.stringify({ path: "leak.txt", content: "real call\n" }),
+            },
+          },
+        ],
+      });
+      chunk({}, "tool_calls");
+      res.end("data: [DONE]\n\n");
+      return;
+    }
     if (!answered && messageText(messages[lastUser]).includes("harness flaky gateway")) {
       this.flakyRequests += 1;
       if (this.flakyRequests === 1) {
@@ -435,6 +467,36 @@ test("harness on the installed app: steps 0–6", async () => {
     expect.soft(model!.flakyRequests).toBe(2);
     expect.soft(await page!.getByText("等待响应超时").count()).toBe(0);
     await shot(page!, "harness-flaky-gateway");
+  });
+
+  await test.step("8a: a tool call leaked as text is retried, the turn completes", async () => {
+    const { page, model, workspace } = state;
+    await send(page!, "harness tool leak");
+    await expect
+      .poll(() => existsSync(join(workspace!, "leak.txt")), { timeout: 30_000 })
+      .toBe(true);
+    expect.soft(model!.leakRequests).toBe(1);
+    // Ход дошёл до конца: после результата write модель спросили ещё раз (ответ «Готово.»).
+    await expect
+      .poll(
+        () =>
+          model!.requests.some((r) => {
+            const m = r.messages ?? [];
+            const note = m.findLastIndex((x) => messageText(x).includes("Твой последний вызов"));
+            return note >= 0 && m.slice(note + 1).some((x) => x.role === "tool");
+          }),
+        { timeout: 30_000 },
+      )
+      .toBe(true);
+    expect.soft(await page!.locator("p", { hasText: "DSML" }).count()).toBe(0);
+    expect
+      .soft(
+        await page!
+          .locator("p", { hasText: "Let me check motion.js for a resize handler." })
+          .count(),
+      )
+      .toBe(0);
+    await shot(page!, "harness-tool-leak");
   });
 
   await test.step("6: a background server left running dies with the app", async () => {

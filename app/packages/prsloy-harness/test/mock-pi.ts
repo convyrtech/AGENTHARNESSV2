@@ -30,6 +30,9 @@ export class MockPi {
   readonly tools = new Map<string, ToolDefinition<any, any, any>>();
   activeTools = ["read", "bash", "edit", "write"];
   aborted = 0;
+  /** Карточки pi.sendMessage (видимые человеку). */
+  readonly sent: { customType: string; content: unknown; display?: boolean; details?: unknown }[] =
+    [];
   #nextId = 1;
 
   readonly ctx: ExtensionContext;
@@ -65,7 +68,9 @@ export class MockPi {
       },
       getActiveTools: () => this.activeTools,
       appendEntry: () => {},
-      sendMessage: () => {},
+      sendMessage: async (message: MockPi["sent"][number]) => {
+        this.sent.push(message);
+      },
     } as unknown as ExtensionAPI;
   }
 
