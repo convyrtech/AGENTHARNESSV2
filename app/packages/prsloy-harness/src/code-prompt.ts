@@ -88,6 +88,11 @@ export const PROMPT_ADDITIONS: readonly (readonly [string, string])[] = [
     // Стенд a6, Opus на «сделай что-нибудь для кофейни»: выдумал меню, цены и адрес и не сказал об этом.
     "If you chose for the user (what to build, prices, names, texts), say so in one line.",
   ],
+  [
+    "If you chose for the user",
+    // Кнопки «что дальше» (features): UI вырезает тег и показывает строки кнопками; без вопроса и только когда доделано.
+    "When the task is done and you ask no question, end with a <prsloy-next>…</prsloy-next> block: 2–3 next steps in Russian, one per line, ≤120 chars.",
+  ],
 ];
 
 function withAdditions(base: string): string {

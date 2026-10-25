@@ -7,6 +7,7 @@ import { createReadStream, existsSync, readdirSync, readFileSync, statSync } fro
 import { createServer, type Server } from "node:http";
 import { extname, join, normalize, relative, resolve, sep } from "node:path";
 import { pathToFileURL } from "node:url";
+import { lintLayout } from "@zeno/layout-rules";
 import { sanitizedEnv } from "./options.ts";
 import { MODULE_SCRIPT } from "./page-paths.ts";
 
@@ -24,6 +25,8 @@ export interface PageIssue {
   rule?: string;
   where: string;
   detail: string;
+  /** Коробка элемента (у правил раскладки), CSS px от левого верхнего угла окна. */
+  box?: { x: number; y: number; w: number; h: number };
 }
 
 export interface PageCheckResult {
@@ -33,42 +36,6 @@ export interface PageCheckResult {
   skipped?: string;
   /** Файлом не открывали (Vite, type="module"). */
   fileSkipped?: boolean;
-}
-
-/**
- * Правила раскладки внутри страницы. Пока общий модуль с ci (`lintLayout`) не вынесен — только горизонтальная
- * прокрутка документа. Функция уходит в браузер исходником: всё, что ей нужно, — внутри неё.
- */
-export function basicLint(): { rule: string; selector: string; text: string; detail: string }[] {
-  const out: { rule: string; selector: string; text: string; detail: string }[] = [];
-  const doc = document.documentElement;
-  if (doc.scrollWidth > doc.clientWidth + 1) {
-    // Самый правый виновник — для «места» в возврате.
-    let worst: Element | undefined;
-    let right = doc.clientWidth;
-    for (const el of document.body.querySelectorAll("*")) {
-      const r = el.getBoundingClientRect();
-      if (r.width > 0 && r.right > right + 1) {
-        right = r.right;
-        worst = el;
-      }
-    }
-    const path = (el: Element) => {
-      const parts: string[] = [];
-      for (let n: Element | null = el; n && n !== document.body; n = n.parentElement) {
-        parts.unshift(n.id ? `#${n.id}` : n.tagName.toLowerCase());
-        if (n.id || parts.length >= 4) break;
-      }
-      return parts.join(" > ");
-    };
-    out.push({
-      rule: "root-hscroll",
-      selector: worst ? path(worst) : "html",
-      text: ((worst as HTMLElement | undefined)?.innerText ?? "").trim().slice(0, 60),
-      detail: `страница шире окна: ${doc.scrollWidth} px при окне ${doc.clientWidth} px`,
-    });
-  }
-  return out;
 }
 
 const VITE_CONFIGS = [
@@ -186,7 +153,7 @@ with sync_playwright() as p:
                     page.wait_for_timeout(job["settleMs"])
                     page.evaluate(job["freeze"])
                     for v in page.evaluate(job["lint"], job["lintArg"]):
-                        found.append({"kind": "layout", "rule": v["rule"], "where": v["selector"] + (" «" + v["text"] + "»" if v.get("text") else ""), "detail": v["detail"]})
+                        found.append({"kind": "layout", "rule": v["rule"], "where": v["selector"] + (" «" + v["text"] + "»" if v.get("text") else ""), "detail": v["detail"], **({"box": v["box"]} if v.get("box") else {})})
                 except Exception as e:
                     found.append({"kind": "pageerror", "detail": "страница не открылась: " + str(e).splitlines()[0]})
                 for f in found:
@@ -261,6 +228,7 @@ async function runNode(pw: NodePlaywright, job: Job, executablePath?: string): P
             selector: string;
             text?: string;
             detail: string;
+            box?: PageIssue["box"];
           }[];
           for (const v of lint)
             found.push({
@@ -268,6 +236,7 @@ async function runNode(pw: NodePlaywright, job: Job, executablePath?: string): P
               rule: v.rule,
               where: v.selector + (v.text ? ` «${v.text}»` : ""),
               detail: v.detail,
+              ...(v.box ? { box: v.box } : {}),
             });
         } catch (e) {
           found.push({
@@ -301,7 +270,7 @@ export interface PageCheckOptions {
   executablePath?: string | undefined;
   /** Канал Chromium: msedge на Windows (как «Дизайн»). */
   channel?: string | undefined;
-  /** Исходник функции правил раскладки (`lintLayout` ci или `basicLint`). */
+  /** Исходник функции правил раскладки (по умолчанию `lintLayout` из `@zeno/layout-rules`). */
   lint?: string;
   timeoutMs?: number;
 }
@@ -383,9 +352,10 @@ export async function checkPage(
         { name: "http", url: `${server.origin}/${relative(root, entry).replace(/\\/g, "/")}` },
       ],
       viewports: PAGE_VIEWPORTS,
-      lint: options.lint ?? basicLint.toString(),
+      // Правила раскладки — общий модуль с ci (layout-lint приложения): функция уходит в страницу исходником.
+      lint: options.lint ?? lintLayout.toString(),
       // Для lintLayout ci: окно чужой страницы без минимума, фокус не трогаем (он меняет состояние страницы).
-      lintArg: { minWidth: 0, minHeight: 0, checkFocus: false },
+      lintArg: { minWidth: 0, minHeight: 0, checkFocus: false, scrollsY: true },
       freeze: FREEZE,
       navTimeoutMs: 8_000,
       settleMs: 300,
@@ -453,7 +423,7 @@ export function groupIssues(issues: PageIssue[]): string[] {
     const at = `${[...targets].join(" и ")}, ${[...widths].sort((a, b) => a - b).join(" и ")} px`;
     const what =
       issue.kind === "layout"
-        ? `${issue.detail}${issue.where ? ` — ${issue.where}` : ""}`
+        ? `${issue.rule === "root-hscroll" ? `страница шире окна (${issue.detail})` : issue.detail}${issue.where ? ` — ${issue.where}` : ""}`
         : issue.kind === "request"
           ? `не загрузился файл: ${issue.detail}`
           : `ошибка: ${issue.detail}`;

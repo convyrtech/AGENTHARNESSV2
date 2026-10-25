@@ -32,13 +32,22 @@ describe("PRSLOY code prompt (research/17 §9)", () => {
     expect(lines.filter((l) => !added.has(l)).join("\n")).toBe(block);
   });
 
-  it("additions: relative paths for pages, request_secret and ask_user, the final reminder", () => {
+  it("additions: relative paths, request_secret and ask_user, what you chose, <prsloy-next>", () => {
     expect(PRSLOY_CODE_PROMPT).toContain(
       "never `/assets/…`) so the page also works when opened as a file.",
     );
     expect(PRSLOY_CODE_PROMPT).toContain(
       "use the request_secret tool, never ask for it in the chat",
     );
+    expect(PRSLOY_CODE_PROMPT).toContain(
+      "If you chose for the user (what to build, prices, names, texts), say so in one line.",
+    );
+    // Кнопки «что дальше»: тег разбирает renderer/lib/next-steps.ts (строки ≤120 символов).
+    expect(
+      PRSLOY_CODE_PROMPT.endsWith(
+        "end with a <prsloy-next>…</prsloy-next> block: 2–3 next steps in Russian, one per line, ≤120 chars.",
+      ),
+    ).toBe(true);
   });
 
   it("≤7 500 characters, no date or time, no ripgrep instruction, Russian answers rule", () => {

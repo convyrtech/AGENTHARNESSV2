@@ -26,7 +26,9 @@ const JARGON =
   /(линтер|коммит|exit code|stdout|stderr|зависимост|рефактор|деплой|репозитори|npm install|pip install)/giu;
 const DONE = /(готово|работает|сделано|сделал|исправил|починил)/iu;
 
-export function answerMetrics(answer: string, ok: boolean | null): AnswerMetrics {
+export function answerMetrics(full: string, ok: boolean | null): AnswerMetrics {
+  // Блок «что дальше» UI вырезает и показывает кнопками — человек его как текст не читает.
+  const answer = full.replace(/<prsloy-next>[\s\S]*?(?:<\/prsloy-next>|$)/g, "").trim();
   const prose = answer.replace(/```[\s\S]*?(?:```|$)/g, " ").replace(/`[^`\n]*`/g, " ");
   // Адреса и имена файлов (index.html, src/app.js) не делают ответ английским.
   const words = prose.replace(/https?:\/\/\S+/g, " ").replace(/[\w./\\-]*\w\.\w+[\w./\\-]*/g, " ");

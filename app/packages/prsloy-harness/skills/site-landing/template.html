@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Название — короткое описание</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font-family: system-ui, sans-serif;
+        line-height: 1.5;
+        color: #1d1d1f;
+      }
+      header,
+      section,
+      footer {
+        padding: 24px 16px;
+      }
+      .wrap {
+        max-width: 960px;
+        margin: 0 auto;
+      }
+      h1 {
+        font-size: 1.8rem;
+        margin: 0 0 8px;
+      }
+      img {
+        max-width: 100%;
+        height: auto;
+        display: block;
+      }
+      .cards {
+        display: grid;
+        gap: 16px;
+      }
+      .btn {
+        display: inline-block;
+        padding: 12px 20px;
+        border-radius: 8px;
+        background: #1d1d1f;
+        color: #fff;
+        text-decoration: none;
+      }
+      form {
+        display: grid;
+        gap: 12px;
+        max-width: 420px;
+      }
+      input,
+      textarea,
+      button {
+        font: inherit;
+        padding: 10px 12px;
+        border: 1px solid #ccc;
+        border-radius: 8px;
+        width: 100%;
+      }
+      button {
+        background: #1d1d1f;
+        color: #fff;
+        border: 0;
+        cursor: pointer;
+      }
+      @media (min-width: 768px) {
+        h1 {
+          font-size: 2.6rem;
+        }
+        .cards {
+          grid-template-columns: repeat(3, 1fr);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="wrap">
+        <h1>Название</h1>
+        <p>Одна фраза: что вы делаете и для кого.</p>
+        <a class="btn" href="#contact">Оставить заявку</a>
+      </div>
+    </header>
+    <section>
+      <div class="wrap cards">
+        <article>
+          <h2>Услуга 1</h2>
+          <p>Коротко о пользе.</p>
+        </article>
+        <article>
+          <h2>Услуга 2</h2>
+          <p>Коротко о пользе.</p>
+        </article>
+        <article>
+          <h2>Услуга 3</h2>
+          <p>Коротко о пользе.</p>
+        </article>
+      </div>
+    </section>
+    <section id="contact">
+      <div class="wrap">
+        <h2>Заявка</h2>
+        <!-- Без сервера письмо само не уйдёт: mailto (почтовая программа посетителя) или сервис форм. -->
+        <form action="mailto:name@example.com" method="post" enctype="text/plain">
+          <input name="name" placeholder="Ваше имя" required />
+          <input name="phone" type="tel" placeholder="Телефон" required />
+          <textarea name="message" rows="3" placeholder="Сообщение"></textarea>
+          <button type="submit">Отправить</button>
+        </form>
+      </div>
+    </section>
+    <footer><div class="wrap">Телефон: +7 (000) 000-00-00 · Адрес: заменить</div></footer>
+  </body>
+</html>

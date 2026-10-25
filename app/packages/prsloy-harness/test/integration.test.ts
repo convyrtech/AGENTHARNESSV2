@@ -14,6 +14,7 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 import { createPrsloyHarness, type HarnessOptions } from "../src/index.ts";
+import { onLearningEvent } from "../src/learning-log.ts";
 import { TOOL_LEAK_NOTE } from "../src/tool-leak.ts";
 import { CHROMIUM, loadPlaywright } from "./playwright.ts";
 import { recordedFetch } from "./recorded-fetch.ts";
@@ -587,6 +588,59 @@ describe("integration: lessons (S3) in a real session", () => {
   }, 60_000);
 });
 
+describe("integration: curated skills (S9) in a real session", () => {
+  it("flag on: the skills are listed in the prompt (same on every turn), the model reads one, it is logged", async () => {
+    const skillsDir = await mkdtemp(join(tmpdir(), "prsloy-skills-int-"));
+    cleanup.push(() => rm(skillsDir, { recursive: true, force: true }));
+    let skillFile = "";
+    const { session, server, toolResults, textOf } = await startSession(
+      (req, index) => {
+        if (index === 0) {
+          const system = messageText(req.messages[0]);
+          skillFile =
+            /<location>([^<]*telegram-bot[\\/]SKILL\.md)<\/location>/.exec(system)?.[1] ?? "";
+          return { toolCalls: [{ name: "read", arguments: { path: skillFile } }] };
+        }
+        return { text: "Сделаю бота по рецепту." };
+      },
+      {
+        factory: { skillsDir },
+        prepare: async (d) => {
+          await writeFile(
+            join(d.root, "flags.json"),
+            JSON.stringify({ skills: true, prompt: "prsloy" }),
+          );
+        },
+      },
+    );
+    // Как agent-runtime в приложении: bindExtensions шлёт session_start и resources_discover.
+    await session.bindExtensions({});
+    const events: string[] = [];
+    const off = onLearningEvent((_s, e) => {
+      if (e.kind.startsWith("skill.")) events.push(`${e.kind} ${e.sig}`);
+    });
+    await session.prompt("сделай бота для телеграма");
+    await session.prompt("а теперь добавь команду /help");
+    off();
+    const system = messageText(server.requests[0]!.messages[0]);
+    expect(system).toContain("<available_skills>");
+    for (const name of ["site-landing", "telegram-bot", "excel-csv", "web-scraper"])
+      expect(system).toContain(`<name>${name}</name>`);
+    expect(skillFile).not.toBe("");
+    expect(textOf(toolResults()[0]!)).toContain("request_secret");
+    expect(events).toContain("skill.loaded skill:telegram-bot");
+    // Список навыков не меняется посреди сеанса: системный промпт третьего запроса — тот же.
+    expect(messageText(server.requests[2]!.messages[0])).toBe(system);
+  }, 60_000);
+
+  it("flag off (default): no skills in the prompt", async () => {
+    const { session, server } = await startSession(() => ({ text: "Ок." }), { factory: {} });
+    await session.bindExtensions({});
+    await session.prompt("привет");
+    expect(messageText(server.requests[0]!.messages[0])).not.toContain("<available_skills>");
+  }, 30_000);
+});
+
 describe("integration: PRSLOY code prompt (research/17) in a real session", () => {
   const prepare =
     (prompt: "pi" | "prsloy") => async (d: { root: string; agentDir: string; cwd: string }) => {
@@ -825,8 +879,8 @@ console.log("ok");
     expect(server.requests).toHaveLength(4);
     const pushback = JSON.stringify(server.requests[2]!.messages);
     expect(pushback).toContain("Открыл index.html в браузере");
-    expect(pushback).toContain("390 px) страница шире окна");
-    expect(pushback).toContain("#menu «Меню пиццерии»");
+    expect(pushback).toContain("390 px) страница шире окна (scrollWidth 7");
+    expect(pushback).toContain("— div «Меню пиццерии»");
   }, 90_000);
 
   it("the model leaves a failing test, is pushed back once, fixes it, and the gate passes", async () => {

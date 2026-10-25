@@ -5,7 +5,14 @@ import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { afterAll, describe, expect, it } from "vite-plus/test";
 import { answerMetrics } from "../bench/lib/answer-metrics.ts";
-import { countInterventions, listTasks, reportMarkdown, runBench } from "../bench/run.ts";
+import {
+  countInterventions,
+  listTasks,
+  reportMarkdown,
+  runBench,
+  skillsRead,
+} from "../bench/run.ts";
+import { skillsVersion } from "../src/skills.ts";
 
 const out = mkdtempSync(join(tmpdir(), "prsloy-bench-"));
 afterAll(() => rmSync(out, { recursive: true, force: true }));
@@ -108,12 +115,13 @@ describe("bench --fake", () => {
   }
 });
 
-describe("bench --review off", () => {
-  it("the harness runs without the second opinion: no review cards, the header says so", async () => {
+describe("bench --review off --skills on", () => {
+  it("the harness runs without the second opinion and with skills: header, skills line, the kit laid out", async () => {
     const report = await runBench({
       fake: true,
       harness: true,
       review: false,
+      skills: true,
       model: "prsloy/deepseek-v4.1-flash-1017",
       outDir: join(out, "noreview"),
       timeoutSec: 60,
@@ -124,7 +132,13 @@ describe("bench --review off", () => {
       0,
     );
     expect(reviews).toBe(0);
-    expect(reportMarkdown(report)).toContain("ревью выкл");
+    const md = reportMarkdown(report);
+    expect(md).toContain("ревью выкл, навыки вкл");
+    expect(md).toContain("Навыки: загружены в 0 задачах");
+    expect(report.meta.skills).toBe(true);
+    expect(
+      existsSync(join(out, "noreview", "skills", skillsVersion(), "telegram-bot", "SKILL.md")),
+    ).toBe(true);
   }, 120_000);
 });
 
@@ -150,10 +164,37 @@ describe("bench: final answer metrics (research/17 §11.3)", () => {
       commandsToUser: 0,
       falseDone: false,
     });
+    // Блок «что дальше» — кнопки, не текст ответа: строки и вопросы в нём не считаются.
+    expect(
+      answerMetrics(
+        "Готово: сайт в index.html.\n<prsloy-next>\nДобавить форму?\nВыложить в архив\n</prsloy-next>",
+        true,
+      ),
+    ).toMatchObject({ lines: 1, questions: 0 });
     // «откройте файл» — не команда в терминал; слово внутри другого слова не считается.
     expect(
       answerMetrics("Откройте файл index.html. Перезапустите не нужно.", null).commandsToUser,
     ).toBe(0);
+  });
+});
+
+describe("bench: which skills were read", () => {
+  it("read calls into the skills kit, by name, once each", () => {
+    const call = (path: string) => ({ type: "toolCall", name: "read", arguments: { path } });
+    expect(
+      skillsRead([
+        {
+          role: "assistant",
+          content: [
+            call("C:\\Users\\a\\.pi\\prsloy-skills\\0123456789ab\\telegram-bot\\SKILL.md"),
+            call("/home/a/out/skills/0123456789ab/excel-csv/read_table.py"),
+            call("/home/a/out/skills/0123456789ab/telegram-bot/bot.py"),
+            call("/home/a/project/skills/readme.md"),
+          ],
+        },
+        { role: "toolResult", content: [] },
+      ]),
+    ).toEqual(["excel-csv", "telegram-bot"]);
   });
 });
 

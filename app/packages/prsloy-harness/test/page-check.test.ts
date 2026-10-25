@@ -86,11 +86,11 @@ describe("page check: the message", () => {
       issue({ target: "file", kind: "pageerror", detail: "x is not defined" }),
       issue({ target: "http", kind: "pageerror", detail: "x is not defined" }),
       issue({ width: 1440, kind: "pageerror", detail: "x is not defined" }),
-      issue({ rule: "root-hscroll", where: "#wide «Блок»", detail: "страница шире окна" }),
+      issue({ rule: "root-hscroll", where: "html «Блок»", detail: "scrollWidth 608 > 390" }),
     ]);
     expect(lines).toEqual([
       "- (файлом и через сервер, 390 и 1440 px) ошибка: x is not defined",
-      "- (через сервер, 390 px) страница шире окна — #wide «Блок»",
+      "- (через сервер, 390 px) страница шире окна (scrollWidth 608 > 390) — html «Блок»",
     ]);
     const many = Array.from({ length: 9 }, (_, i) => issue({ kind: "console", detail: `e${i}` }));
     const text = pageCheckMessage({ entry: "index.html", issues: many }, 1, 2);
@@ -144,10 +144,11 @@ describe("page check in a real Chromium", async () => {
       expect(text).toContain(
         "(файлом и через сервер, 390 и 1440 px) ошибка: undefinedFn is not defined",
       );
+      // Правила — lintLayout ci: прокрутка вбок и сам виновник, вылезший за окно.
       expect(text).toMatch(
-        /\(файлом и через сервер, 390 px\) страница шире окна: 6\d\d px при окне 390 px/,
+        /\(файлом и через сервер, 390 px\) страница шире окна \(scrollWidth 6\d\d > 390\)/,
       );
-      expect(text).toContain("#wide «Широкий блок»");
+      expect(text).toMatch(/\(файлом и через сервер, 390 px\) за окном: .* — div «Широкий блок»/);
       expect(text).toContain("(файлом, 390 и 1440 px) не загрузился файл: /missing.js");
       expect(text).not.toContain("127.0.0.1");
 
@@ -173,10 +174,10 @@ describe("page check in a real Chromium", async () => {
         ]),
       });
       expect(custom!.issues.map((i) => [i.rule, i.detail])).toEqual([
-        ["small-text", '{"minWidth":0,"minHeight":0,"checkFocus":false}'],
-        ["small-text", '{"minWidth":0,"minHeight":0,"checkFocus":false}'],
-        ["small-text", '{"minWidth":0,"minHeight":0,"checkFocus":false}'],
-        ["small-text", '{"minWidth":0,"minHeight":0,"checkFocus":false}'],
+        ["small-text", '{"minWidth":0,"minHeight":0,"checkFocus":false,"scrollsY":true}'],
+        ["small-text", '{"minWidth":0,"minHeight":0,"checkFocus":false,"scrollsY":true}'],
+        ["small-text", '{"minWidth":0,"minHeight":0,"checkFocus":false,"scrollsY":true}'],
+        ["small-text", '{"minWidth":0,"minHeight":0,"checkFocus":false,"scrollsY":true}'],
       ]);
       expect(hasBlocking(custom!)).toBe(false);
 

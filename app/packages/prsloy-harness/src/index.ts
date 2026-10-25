@@ -11,6 +11,7 @@ import { installAskUser } from "./ask-user.ts";
 import { installFindReady } from "./find-ready.ts";
 import { installReliability } from "./reliability.ts";
 import { installRequestSecret } from "./request-secret.ts";
+import { installSkills } from "./skills.ts";
 import { installReusePrompt } from "./reuse-prompt.ts";
 import { installLessons } from "./lessons.ts";
 import { installMemory } from "./memory.ts";
@@ -108,6 +109,8 @@ export function createPrsloyHarness(options: HarnessOptions = {}): (pi: Extensio
     // Вопрос кнопками и ключ формой (research/19 §1.1, §1.3): только «Код».
     if (on("askUser")) installAskUser(pi, opts);
     if (on("requestSecret")) installRequestSecret(pi, opts);
+    // Курированные навыки (S9): флаг "skills", по умолчанию выкл.
+    if (on("skills")) installSkills(pi, opts, { dir: opts.skillsDir });
     // Раньше стоп-гейта: сорванный вызов инструмента — сначала повтор, проверки проекта потом.
     if (on("toolLeak")) installToolLeak(pi);
     if (codeGate)
