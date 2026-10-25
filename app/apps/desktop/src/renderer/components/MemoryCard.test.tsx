@@ -13,6 +13,7 @@ beforeEach(() => {
 });
 afterEach(() => {
   cleanup();
+  localStorage.clear();
   vi.useRealTimers();
   act(() => useShellStore.getState().setPrompt(""));
 });
@@ -114,5 +115,15 @@ describe("MemoryCard", () => {
     );
     expect(screen.queryByTestId("memory-card-forget")).toBeNull();
     expect(screen.getByTestId("memory-card-edit")).toBeTruthy();
+  });
+
+  it("the first «Запомнил» says once how memory works", () => {
+    render(<MemoryCard locale="ru" kind="saved" text="Запомнил: А" details={{ id: "u-1" }} />);
+    expect(screen.getByTestId("memory-card-hint").textContent).toBe(
+      "Я запоминаю, только когда вы сами просите. Всё, что помню, — в Настройки → Память.",
+    );
+    cleanup();
+    render(<MemoryCard locale="ru" kind="saved" text="Запомнил: Б" details={{ id: "u-2" }} />);
+    expect(screen.queryByTestId("memory-card-hint")).toBeNull();
   });
 });

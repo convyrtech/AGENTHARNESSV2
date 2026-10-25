@@ -35,6 +35,7 @@ export const featuresZh = {
   "features.memory.failed": "失败：{error}",
   "features.memory.card.forgotDone": "已忘记。",
   "features.memory.card.restored": "已恢复。",
+  "features.memory.card.firstHint": "只有在你要求时我才会记住。我记住的一切都在 设置 → 记忆。",
   "features.memory.card.edit": "修改",
   "features.memory.card.editPrompt": "修改记忆中的条目「{text}」：",
   "features.memory.card.open": "打开记忆",

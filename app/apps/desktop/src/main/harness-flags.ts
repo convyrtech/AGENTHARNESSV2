@@ -27,12 +27,13 @@ function readRaw(path: string): Record<string, unknown> {
 }
 
 /**
- * Missing file or flag: the second opinion is on (a default, not an opt-in); memory is off
- * until the owner turns it on (research/18 §6.7, STATUS-harness S4).
+ * Missing file or flag: both are on — the second opinion and memory («Запоминать, когда я
+ * прошу»; the agent stores only what the owner asked, research/18 §6.4). Off only when the
+ * owner turned it off in Settings.
  */
 export function readHarnessFlags(path: string): HarnessFlags {
   const raw = readRaw(path);
-  return { secondOpinion: raw.secondOpinion !== false, memory: raw.memory === true };
+  return { secondOpinion: raw.secondOpinion !== false, memory: raw.memory !== false };
 }
 
 const FLAG_KEYS = ["secondOpinion", "memory"] as const;
@@ -61,9 +62,24 @@ function agentDir(): string {
   return process.env.PI_CODING_AGENT_DIR?.trim() || join(app.getPath("userData"), "agent");
 }
 
+/**
+ * The harness reads a missing `memory` as off; the app's default is on. Writes `memory: true`
+ * once when the file has no such key, so the harness sees what Settings shows; an owner's
+ * `false` stays.
+ */
+export function ensureMemoryDefault(path: string): void {
+  if (readRaw(path).memory !== undefined) return;
+  try {
+    writeHarnessFlags(path, { memory: true });
+  } catch {
+    // Read-only agent folder: Settings still shows on, the harness keeps its own default.
+  }
+}
+
 export function installHarnessFlags(
   assertTrustedSender: (event: IpcMainInvokeEvent) => void,
 ): void {
+  ensureMemoryDefault(harnessFlagsPath(agentDir()));
   ipcMain.handle("prsloy:harness-flags:get", (event) => {
     assertTrustedSender(event);
     return readHarnessFlags(harnessFlagsPath(agentDir()));

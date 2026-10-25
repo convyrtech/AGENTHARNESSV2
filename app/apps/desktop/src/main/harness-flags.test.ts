@@ -5,15 +5,15 @@ import { describe, expect, it, vi } from "vite-plus/test";
 
 vi.mock("electron", () => ({ app: { getPath: () => tmpdir() }, ipcMain: { handle: vi.fn() } }));
 
-const { harnessFlagsPath, readHarnessFlags, writeHarnessFlags } =
+const { ensureMemoryDefault, harnessFlagsPath, readHarnessFlags, writeHarnessFlags } =
   await import("./harness-flags.ts");
 
 describe("harness flags (prsloy-harness.json)", () => {
   it("second opinion is on when the file or the flag is missing", () => {
     const dir = mkdtempSync(join(tmpdir(), "flags-"));
-    expect(readHarnessFlags(harnessFlagsPath(dir))).toEqual({ secondOpinion: true, memory: false });
+    expect(readHarnessFlags(harnessFlagsPath(dir))).toEqual({ secondOpinion: true, memory: true });
     writeFileSync(harnessFlagsPath(dir), "{not json");
-    expect(readHarnessFlags(harnessFlagsPath(dir))).toEqual({ secondOpinion: true, memory: false });
+    expect(readHarnessFlags(harnessFlagsPath(dir))).toEqual({ secondOpinion: true, memory: true });
   });
 
   it("writes the exact shape the harness reads and keeps other keys", () => {
@@ -22,7 +22,7 @@ describe("harness flags (prsloy-harness.json)", () => {
     writeFileSync(path, JSON.stringify({ other: 1 }));
     expect(writeHarnessFlags(path, { secondOpinion: false })).toEqual({
       secondOpinion: false,
-      memory: false,
+      memory: true,
     });
     expect(JSON.parse(readFileSync(path, "utf8"))).toEqual({ other: 1, secondOpinion: false });
     expect(writeHarnessFlags(path, { memory: true })).toEqual({
@@ -42,5 +42,18 @@ describe("harness flags (prsloy-harness.json)", () => {
     expect(() => writeHarnessFlags(path, null)).toThrow();
     expect(() => writeHarnessFlags(path, { memory: 1 })).toThrow();
     expect(() => writeHarnessFlags(path, { other: true })).toThrow();
+  });
+
+  it("memory is on by default; the file gets it once, an owner's «off» stays", () => {
+    const dir = mkdtempSync(join(tmpdir(), "flags-"));
+    const path = harnessFlagsPath(dir);
+    ensureMemoryDefault(path);
+    expect(JSON.parse(readFileSync(path, "utf8"))).toEqual({ memory: true });
+    writeHarnessFlags(path, { memory: false });
+    ensureMemoryDefault(path);
+    expect(readHarnessFlags(path).memory).toBe(false);
+    writeFileSync(path, JSON.stringify({ secondOpinion: false }));
+    ensureMemoryDefault(path);
+    expect(JSON.parse(readFileSync(path, "utf8"))).toEqual({ secondOpinion: false, memory: true });
   });
 });

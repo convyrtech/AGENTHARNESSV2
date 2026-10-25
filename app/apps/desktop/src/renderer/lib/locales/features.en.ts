@@ -38,6 +38,8 @@ export const featuresEn: Record<keyof typeof featuresZh, string> = {
   "features.memory.failed": "Didn't work: {error}",
   "features.memory.card.forgotDone": "Forgotten.",
   "features.memory.card.restored": "Restored.",
+  "features.memory.card.firstHint":
+    "I remember only when you ask. Everything I remember is in Settings → Memory.",
   "features.memory.card.edit": "Edit",
   "features.memory.card.editPrompt": "Fix the memory entry “{text}”: ",
   "features.memory.card.open": "Open memory",
