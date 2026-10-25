@@ -79,10 +79,16 @@ export function budgetSummary(state: BudgetState, opts: ResolvedOptions): string
 const STOP_REASON =
   "Бюджет задачи исчерпан, тулы больше не выполняются. Не вызывай тулы. Напиши пользователю по-русски 2–4 строки: что уже сделано и что осталось сделать.";
 
-export function installBudget(
-  pi: ExtensionAPI,
-  opts: ResolvedOptions,
-): { state: () => BudgetState; installWarning: () => void } {
+export interface BudgetHandle {
+  state: () => BudgetState;
+  installWarning: () => void;
+  /** Доля бюджета, уже потраченная (наибольшая из «вызовы» и «деньги»). */
+  ratio: () => number;
+  /** Расход вне ответов модели агента (ревью второй моделью) — в стоимость хода. */
+  spend: (usd: number) => void;
+}
+
+export function installBudget(pi: ExtensionAPI, opts: ResolvedOptions): BudgetHandle {
   let state = freshState();
 
   const ratio = () =>
@@ -155,5 +161,10 @@ export function installBudget(
     });
   };
 
-  return { state: () => state, installWarning };
+  const spend = (usd: number) => {
+    state.costUsd += usd;
+    if (!state.exhausted && state.costUsd >= opts.maxCostUsd) state.exhausted = "money";
+  };
+
+  return { state: () => state, installWarning, ratio, spend };
 }

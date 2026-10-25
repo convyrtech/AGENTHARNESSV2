@@ -9,6 +9,7 @@ export interface ChatMessage {
 }
 
 export interface ChatRequest {
+  model?: string;
   messages: ChatMessage[];
   tools?: { function: { name: string } }[];
 }
