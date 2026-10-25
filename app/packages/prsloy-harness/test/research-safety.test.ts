@@ -485,7 +485,11 @@ describe("the tool's abort signal is respected (review #23, nits)", () => {
   /** fetch, который висит, пока его не отменят — как медленная модель со встроенным поиском. */
   const hanging = (asked: string[]) =>
     (async (_url: string, init?: RequestInit) => {
-      asked.push(String((JSON.parse(String(init?.body ?? "{}")) as { model?: string }).model));
+      asked.push(
+        String(
+          (JSON.parse((init?.body as string | undefined) ?? "{}") as { model?: string }).model,
+        ),
+      );
       return new Promise<Response>((_resolve, reject) => {
         init?.signal?.addEventListener("abort", () =>
           reject(new DOMException("aborted", "AbortError")),
