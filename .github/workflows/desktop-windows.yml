@@ -222,6 +222,8 @@ jobs:
       ELECTRON_CACHE: ${{ github.workspace }}/../.cache/electron
       UPDATE_VERSION_A: 0.1.0-alpha.90
       UPDATE_VERSION_B: 0.1.0-alpha.91
+      # «Обновление готово — перезапустить» must install B silently (no NSIS wizard) and relaunch it.
+      SMOKE_STRICT_UPDATE_SILENT: "1"
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
