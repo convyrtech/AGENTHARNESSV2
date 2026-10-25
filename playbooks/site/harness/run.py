@@ -305,6 +305,10 @@ def lessons_for(gate, model):
     return out
 
 
+# Один запуск дирижёра — одна «сессия» журнала обучения: случайный id, без пути и имени
+RUN_ID = __import__("uuid").uuid4().hex[:12]
+
+
 def learn_event(rec):
     """Событие для самообучения без текстов (research/18 §7.2): только виды, числа, модель, шаг. Пишет, только если
     приложение задало HARNESS_LEARN_DIR; A/B и разработка ничего не копят."""
@@ -314,6 +318,7 @@ def learn_event(rec):
     keep = ("kind", "gate", "model", "attempt", "calls", "seconds", "end", "leaks", "verdict", "to", "exit", "ts",
             "lessons")
     ev = {k: rec[k] for k in keep if k in rec}
+    ev["session"] = RUN_ID                              # сессия для рефлектора (S7): «≥3 сессии» без текстов
     if rec.get("killed"):
         k = rec["killed"]
         ev["killed"] = "loop" if k.startswith("петля") else "calls" if "вызовов" in k else "time" if "время" in k else "other"
