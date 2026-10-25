@@ -16,6 +16,8 @@ import {
   type PrsloyHomePaths,
 } from "./agent-home.ts";
 import { PrsloyKeyStore, type SecretCipher } from "./key-store.ts";
+import type { PrsloySearchHandoff } from "@zeno/contracts";
+import { readFlags } from "@prsloy/harness/flags";
 import { SearchSettings } from "./search-settings.ts";
 import { restrictToCurrentUser } from "./file-acl.ts";
 import { GitRuntime, isInstallerGit, type GitSetupState } from "./runtime-git.ts";
@@ -111,6 +113,11 @@ export type PrsloyContext = {
   availableModels(): string[] | undefined;
   /** Agent Host env: scrubbed, shims first, pinned home, key handoff. */
   hostEnv(base: Record<string, string | undefined>): Record<string, string>;
+  /**
+   * Web search config and keys for the host (issue #23): only while the harness flag `webTools` is on —
+   * otherwise no search key leaves main at all. They travel in the prsloy.handoff message (shared/host-handoff.ts).
+   */
+  searchForHost(): PrsloySearchHandoff | undefined;
   /**
    * The «Дизайн» venv's python once its tools are installed (design/wire.ts sets this):
    * the harness opens the user's pages in a browser with it (PRSLOY_DESIGN_PYTHON).
@@ -297,13 +304,19 @@ export function bootstrapPrsloy(options: {
       return changed;
     },
     availableModels: () => (state.models ? [...state.models.ids] : undefined),
+    searchForHost() {
+      return readFlags(join(agentDir, "prsloy-harness.json")).webTools
+        ? search.handoff(state.baseUrl)
+        : undefined;
+    },
     hostEnv(base) {
+      const search = this.searchForHost();
       const env = buildPrsloyHostEnv(base, {
         agentDir,
         sessionDir,
         shimsDir: paths.shimsDir,
         gatewayKey: keyStore.read(),
-        searchHandoff: search.handoff(state.baseUrl),
+        searchHandoff: search ? JSON.stringify(search) : undefined,
         platform,
       });
       // No venv yet (or never set up): no variable, the harness skips the page check.

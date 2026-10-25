@@ -33,6 +33,19 @@ const RULES: SecretRule[] = [
   },
   { kind: "Slack-токен", pattern: /\bxox[abprs]-[A-Za-z0-9-]{10,}/g },
   { kind: "Google-ключ", pattern: /\bAIza[0-9A-Za-z_-]{35}\b/g },
+  // Ключи поиска (issue #23): Brave «BSA…», Яндекс Cloud API-ключ «AQVN…» и IAM-токен «t1.…», Jina «jina_…»,
+  // Firecrawl «fc-<32 hex>». Ключ Exa — UUID, а UUID в коде всюду: только рядом с exa / x-api-key.
+  { kind: "ключ Brave", pattern: /\bBSA[A-Za-z0-9_-]{20,}/g },
+  { kind: "ключ Яндекс Cloud", pattern: /\bAQVN[A-Za-z0-9_-]{30,}/g },
+  { kind: "IAM-токен Яндекса", pattern: /\bt1\.[A-Za-z0-9_-]{40,}\.[A-Za-z0-9_-]{40,}/g },
+  { kind: "ключ Jina", pattern: /\bjina_[A-Za-z0-9]{30,}/g },
+  { kind: "ключ Firecrawl", pattern: /\bfc-[a-f0-9]{32}\b/g },
+  {
+    kind: "ключ Exa",
+    pattern:
+      /((?:exa|x-api-key)[^\n]{0,40}?)\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi,
+    keep: 1,
+  },
   // Токен бота от @BotFather: id бота, двоеточие, 35 знаков (research/19; кнопка-пример «Бот для Telegram»).
   { kind: "токен Telegram-бота", pattern: /\b\d{8,10}:[A-Za-z0-9_-]{35}\b/g },
 ];
