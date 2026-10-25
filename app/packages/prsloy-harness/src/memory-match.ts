@@ -36,7 +36,17 @@ const NEGATION = new Set([
   "ничем",
   "нисколько",
   "ничуть",
+  // «PostgreSQL вместо SQLite» ≡ «PostgreSQL, не SQLite»: отрицается то, что после.
+  "вместо",
 ]);
+
+/**
+ * Отрицания-глаголы: «React не используй» — отрицается и то, что перед ними. Остальные (предлоги «без»,
+ * «вместо», «никакой …») — только то, что после: «минимализм без лишних картинок».
+ */
+const BACKWARD = new Set(["не", "нет", "никогда", "нельзя", "запрещено", "хватит"]);
+/** Назад отрицание не переходит союз: «бухгалтер и не разбирается в коде». */
+const CONJ = new Set(["и", "или", "либо", "а", "но", "да"]);
 
 /**
  * Предлог после отрицаемого слова закрывает отрицание до конца части фразы: «никакого английского | в
@@ -58,6 +68,9 @@ const MARKERS = new Set([
   "делай", "сделай", "сделать", "делать", "нужно", "нужен", "нужна", "нужны", "надо", "данных", "давай",
   // Как обращаться: «общаться / обращаться / отвечать на ты» — суть в «на ты».
   "общаться", "общайся", "обращаться", "обращайся", "обращайтесь", "отвечать", "отвечай", "отвечайте",
+  // Глаголы, которыми запись рассказывает о пользователе: «работает на Mac», «выбрал PostgreSQL».
+  "работает", "работаю", "работаем", "выбрал", "выбрала", "выбрали", "выбирает", "выбираем",
+  "используем", "использую", "используют", "просят", "попросил", "попросила",
 ]); // prettier-ignore
 
 /** Глаголы предпочтения и частые чередования, которые лёгкий стеммер не сводит к одной основе. */
@@ -122,7 +135,7 @@ const NAME_PREFIX = "@";
 const NAME = /^\p{Lu}[\p{Ll}]{1,7}$/u;
 
 /** «на ты» / «на вы» — одно слово: иначе от «давай на ты» не остаётся ни одной основы. */
-const ADDRESS = /(^|[^\p{L}])на\s+(ты|вы)(?=$|[^\p{L}])/giu;
+const ADDRESS = /(^|[^\p{L}])на\s+["«„“']?(ты|вы)(?=$|[^\p{L}])/giu;
 
 export function signature(text: string): Signature {
   const stems: string[] = [];
@@ -140,11 +153,11 @@ export function signature(text: string): Signature {
     let afterNegation = 0;
     let seenNegation = false;
     // Назад отрицание тоже доходит только до предлога: «тексты на сайте | без восклицательных знаков».
-    const first = all.findIndex((w) => NEGATION.has(w));
+    const first = all.findIndex((w) => BACKWARD.has(w));
     // И слово в предложном обороте («в коде не разбираюсь») — обстоятельство, а не то, что отрицается.
     const before = (i: number) =>
       first > i &&
-      !all.slice(i + 1, first).some((x) => PREPS.has(x)) &&
+      !all.slice(i + 1, first).some((x) => PREPS.has(x) || CONJ.has(x)) &&
       !(i > 0 && PREPS.has(all[i - 1]!));
     all.forEach((w, i) => {
       if (NEGATION.has(w)) {
@@ -249,6 +262,9 @@ function polarityClash(a: Signature, b: Signature): boolean {
 
 /** Порог связи text ↔ quote (подобран на 100 размеченных парах, test/fixtures/memory-pairs.json). */
 export const LINK_THRESHOLD = 0.75;
+/** Второй путь связи: доля основ цитаты, найденных в записи, и сколько записи должно быть из цитаты. */
+export const QUOTE_COVERED = 0.67;
+export const TEXT_COVERED_MIN = 0.5;
 /** Порог дубля и забытого (§3.4 п. 6–7). */
 export const SAME_THRESHOLD = 0.6;
 
@@ -261,7 +277,11 @@ export function textMatchesQuote(text: string, quote: string): boolean {
   const q = signature(quote);
   if (!t.stems.length) return false;
   if (polarityClash(t, q)) return false;
-  return matches(t.stems, q.stems).length / t.stems.length >= LINK_THRESHOLD;
+  const textCovered = matches(t.stems, q.stems).length / t.stems.length;
+  if (textCovered >= LINK_THRESHOLD) return true;
+  // Пересказ своими словами: почти всё сказанное пользователем есть в записи, а своих слов в ней немного.
+  const quoteCovered = q.stems.length ? matches(q.stems, t.stems).length / q.stems.length : 0;
+  return quoteCovered >= QUOTE_COVERED && textCovered >= TEXT_COVERED_MIN;
 }
 
 export type Relation = "same" | "contradicts" | "different";
