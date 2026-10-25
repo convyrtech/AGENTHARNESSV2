@@ -8,6 +8,7 @@
 
 import { designEn } from "./design.en.ts";
 import { featuresEn } from "./features.en.ts";
+import { importEn } from "./import.en.ts";
 
 export const en = {
   "app.name": "PRSLOY",
@@ -15,6 +16,7 @@ export const en = {
   "timeline.minimap": "Conversation minimap",
   ...designEn,
   ...featuresEn,
+  ...importEn,
   "timeline.minimapUser": "User message",
   "timeline.minimapAssistant": "Assistant reply",
   "timeline.toolRunning": "Running",

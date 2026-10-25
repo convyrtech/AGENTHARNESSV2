@@ -37,7 +37,8 @@ function mockZeno(overrides: Record<string, unknown> = {}) {
 }
 
 describe("FirstRunGate", () => {
-  it("walks key → folder → app and shows a human error for a bad key", async () => {
+  it("walks key → (import, search) → folder → app and shows a human error for a bad key", async () => {
+    localStorage.clear();
     const api = mockZeno();
     api.prsloy.setKey
       .mockResolvedValueOnce({ ok: false, code: "invalid_key", status: 401 })
@@ -59,6 +60,9 @@ describe("FirstRunGate", () => {
     fireEvent.submit(input.closest("form")!);
     await screen.findByTestId("prsloy-first-run-folder");
     expect(screen.queryByText("APP")).toBeNull();
+    // the optional steps (placeholders for now) were passed on the way and are remembered
+    expect(localStorage.getItem("prsloy.firstRun.importSeen")).toBe("1");
+    expect(localStorage.getItem("prsloy.firstRun.searchSeen")).toBe("1");
 
     api.prsloy.getState.mockResolvedValue({ ...fresh, hasKey: true, needsWorkspace: false });
     fireEvent.click(screen.getByTestId("prsloy-folder-pick"));

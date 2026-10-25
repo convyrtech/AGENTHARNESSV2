@@ -6765,6 +6765,60 @@ textarea.models-scoped-patterns-input[data-slot="textarea"] {
   color: var(--destructive);
 }
 
+/* First run / settings: chats from other agents, a checkbox row per tool. */
+.prsloy-import {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.prsloy-import-lead {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.45;
+  text-align: center;
+}
+.prsloy-import-tools {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.prsloy-import-tool {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 40px;
+  padding: 0 10px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.prsloy-import-tool:hover {
+  background: var(--hover-fill);
+}
+.prsloy-import-tool input {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  accent-color: var(--primary);
+  cursor: pointer;
+}
+.prsloy-import-tool-name {
+  font-weight: 500;
+}
+.prsloy-import-tool-count {
+  margin-left: auto;
+  font-size: 13px;
+  color: var(--muted-foreground);
+  text-align: right;
+}
+.settings-import-panel {
+  padding: 4px 16px 16px;
+}
+.prsloy-import-result {
+  margin: 0;
+  font-size: 15px;
+  text-align: center;
+}
+
 /* Long-turn progress line above the composer: action · time · stop, no spinner. */
 .turn-progress {
   display: flex;

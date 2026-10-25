@@ -14,16 +14,18 @@
  */
 import { expect, test } from "@playwright/test";
 import { existsSync } from "node:fs";
-import { mkdtemp, readFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { readZip } from "../src/main/prsloy/support/read-zip.ts";
+import { GOOD_KEY, seedGateway, startGateway } from "./gateway.ts";
 import {
   HARNESS_HEADER,
   beforeAllSmoke,
   findings,
   bundledRuntimes,
   close,
+  FIRST_RUN_KEY,
   launch,
   runBashTurn,
   send,
@@ -171,5 +173,90 @@ test("Cyrillic profile + project: runtimes, Git, bash cd, python3 привет, 
   } finally {
     if (launched) await shot(launched.page, "99-cyrillic-final");
     await close(launched);
+  }
+});
+
+/**
+ * #22: chats from other agents on the first run, in the Cyrillic profile. A synthetic Claude
+ * Code chat (never a real transcript) about the Cyrillic project sits in `<profile>\.claude`;
+ * the product-mode first run offers it after the key, brings it over, and the folder step
+ * offers its project first.
+ */
+test("Cyrillic profile: first run brings a Claude Code chat over", async () => {
+  const { profile, workspace } = await cyrillicPaths();
+  const sessionId = "4d2c6b1a-8e9f-4a7b-b3c5-6d1e2f3a4b5c";
+  const chatDir = join(profile, ".claude", "projects", "C--Proekty-moy-sayt");
+  await mkdir(chatDir, { recursive: true });
+  await mkdir(workspace, { recursive: true });
+  const line = (record: object) => JSON.stringify({ sessionId, cwd: workspace, ...record });
+  await writeFile(
+    join(chatDir, `${sessionId}.jsonl`),
+    [
+      line({
+        type: "user",
+        uuid: "u1",
+        parentUuid: null,
+        timestamp: new Date().toISOString(),
+        message: { role: "user", content: "Сделай страницу «О нас» для сайта" },
+      }),
+      line({
+        type: "assistant",
+        uuid: "a1",
+        parentUuid: "u1",
+        timestamp: new Date().toISOString(),
+        message: {
+          id: "m1",
+          role: "assistant",
+          model: "claude-sonnet-4-5",
+          content: [{ type: "text", text: "Сделал about.html." }],
+        },
+      }),
+      JSON.stringify({ type: "custom-title", customTitle: "Страница «О нас»", sessionId }),
+    ].join("\n") + "\n",
+  );
+  const gateway = await startGateway();
+  let launched: Launched | undefined;
+  try {
+    launched = await launch("cyrillic-import", {
+      profile,
+      workspace,
+      testMode: false,
+      prepare: async (userData) => {
+        await seedGateway(gateway.baseUrl)(userData);
+        // the first test opened the workspace in this profile: start from no project again
+        await rm(join(userData, "zeno-desktop.json"), { force: true });
+        await rm(join(userData, "prsloy", "import-ledger.json"), { force: true });
+      },
+    });
+    gateway.setUpstream(launched.fakeModel.baseUrl);
+    const { page } = launched;
+    await page.locator(`${FIRST_RUN_KEY} input`).fill(GOOD_KEY);
+    await page.locator(`${FIRST_RUN_KEY} button[type="submit"]`).click();
+
+    await expect(page.getByTestId("prsloy-first-run-import")).toBeVisible({ timeout: 60_000 });
+    const claude = page.getByTestId("prsloy-import-tool-claude-code");
+    await expect(claude).toContainText("1 чат в 1 проекте");
+    await expect(claude.locator("input")).toBeChecked();
+    await shot(page, "22-cyrillic-import");
+    await page.getByTestId("prsloy-import-submit").click();
+    await expect(page.getByTestId("prsloy-import-result")).toHaveText("Перенёс 1 чат", {
+      timeout: 60_000,
+    });
+    await page.getByTestId("prsloy-import-next").click();
+
+    await expect(page.getByTestId("prsloy-first-run-folder")).toBeVisible({ timeout: 60_000 });
+    const first = page.getByTestId("prsloy-folder-recent").getByRole("button").first();
+    await expect(first).toHaveAttribute("title", workspace);
+    await first.click();
+    await expect(page.getByTestId("zeno-app")).toBeVisible({ timeout: 60_000 });
+    const card = page.getByTestId("project-card").filter({ hasText: "мой сайт" }).first();
+    if ((await card.getAttribute("data-expanded")) !== "true") {
+      await card.getByTestId("workspace-current").click();
+    }
+    await expect(page.getByText("Страница «О нас»").first()).toBeVisible({ timeout: 60_000 });
+    await shot(page, "23-cyrillic-imported-chat");
+  } finally {
+    await close(launched);
+    await gateway.stop();
   }
 });

@@ -10,6 +10,8 @@ import type { SearchApi } from "./search.ts";
 export type * from "./search.ts";
 export type * from "./honesty.ts";
 import type { PrsloyDesktopApi } from "./prsloy.ts";
+import type { SessionImportApi } from "./session-import.ts";
+export type * from "./session-import.ts";
 export type * from "./prsloy.ts";
 export const IPC_PROTOCOL_VERSION = 1 as const;
 
@@ -1823,6 +1825,8 @@ export interface ZenoDesktopApi {
   memory?: MemoryApi;
   /** Settings → «Поиск в интернете» (see ./search.ts). */
   search: SearchApi;
+  /** Chats from other agents (see ./session-import.ts). Optional: older mains skip the step. */
+  sessionImport?: SessionImportApi;
   /**
    * Always-on-top desktop pet (bloub) — a living SVG companion driven by
    * per-session focus + task bubbles. Enabled from Settings → 宠物.
