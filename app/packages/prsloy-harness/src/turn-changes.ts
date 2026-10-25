@@ -208,6 +208,15 @@ export class TurnChanges {
   readonly #git: () => string;
   #shadow: ShadowGit | undefined;
   #start: Promise<string | undefined> | undefined;
+  #last: TurnDiff | undefined;
+
+  /** Последний посчитанный дифф хода (его считает стоп-гейт); забирается один раз. */
+  takeLastDiff(): TurnDiff | undefined {
+    const diff = this.#last;
+    this.#last = undefined;
+    return diff;
+  }
+
   /** Идущие снимки и диффы: ход не считается законченным, пока они не завершились. */
   readonly #pending = new Set<Promise<unknown>>();
 
@@ -260,7 +269,9 @@ export class TurnChanges {
     const shadow = this.#shadow;
     const end = await this.#track(shadow.snapshot());
     if (!end) return undefined;
-    return this.#track(shadow.diff(start, end));
+    const diff = await this.#track(shadow.diff(start, end));
+    this.#last = diff;
+    return diff;
   }
 }
 

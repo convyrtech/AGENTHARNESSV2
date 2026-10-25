@@ -76,6 +76,7 @@ export type PracticeName =
   | "learningLog"
   | "lessons"
   | "memory"
+  | "digest"
   | "secondOpinion"
   | "turnChanges";
 

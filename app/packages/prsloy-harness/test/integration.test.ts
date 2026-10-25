@@ -1,7 +1,7 @@
 // Настоящая сессия Pi (createAgentSession) против локального мок-шлюза: практики срабатывают в живом цикле агента.
 import { spawnSync } from "node:child_process";
 import { once } from "node:events";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { createServer as createNetServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -668,6 +668,46 @@ describe("integration: memory (S4) in a real session", () => {
     expect(refused.isError).toBe(true);
     expect(textOf(refused)).toBe("Запоминаю только ваши слова. Скажите, что запомнить.");
     await expect(readFile(join(memoryDir, "user.json"), "utf8")).rejects.toThrow();
+  }, 60_000);
+});
+
+describe("integration: digest «прошлый раз» (S6) in a real session", () => {
+  it("files edited by write and by bash — written on agent_settled, in the next session's memory section", async () => {
+    const memoryDir = await mkdtemp(join(tmpdir(), "prsloy-digest-int-"));
+    cleanup.push(() => rm(memoryDir, { recursive: true, force: true }));
+    // Сводка живёт в памяти, а память по умолчанию выключена (до S5).
+    const settingsPath = join(memoryDir, "prsloy-harness.json");
+    await writeFile(settingsPath, JSON.stringify({ memory: true }));
+    const first = await startSession(
+      (_req, index) =>
+        [
+          {
+            toolCalls: [
+              { name: "write", arguments: { path: "index.html", content: "<p>Привет</p>\n" } },
+            ],
+          },
+          {
+            toolCalls: [{ name: "bash", arguments: { command: "printf 'body{}\\n' > style.css" } }],
+          },
+          { text: "Готово." },
+        ][index] ?? { text: "?" },
+      { factory: { memoryDir, settingsPath } },
+    );
+    await first.session.prompt("сделай страницу");
+    const project = (await readdir(join(memoryDir, "projects")))[0]!;
+    const file = JSON.parse(
+      await readFile(join(memoryDir, "projects", project, "project.json"), "utf8"),
+    ) as {
+      digest?: { text: string; origin: string };
+    };
+    expect(file.digest?.origin).toBe("system");
+    expect(file.digest?.text).toMatch(
+      /^Прошлый раз \(\d\d\.\d\d\.\d{4}\): правили index\.html, style\.css\. Проверки проекта нет\.$/,
+    );
+    // Следующая сессия в этой папке получит сводку в разделе памяти.
+    const { MemoryStore } = await import("../src/memory-store.ts");
+    const { memorySection } = await import("../src/memory.ts");
+    expect(memorySection(new MemoryStore(memoryDir), first.cwd)).toContain(file.digest!.text);
   }, 60_000);
 });
 

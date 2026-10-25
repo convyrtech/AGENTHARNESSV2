@@ -12,6 +12,7 @@ import { installReliability } from "./reliability.ts";
 import { installReusePrompt } from "./reuse-prompt.ts";
 import { installLessons } from "./lessons.ts";
 import { installMemory } from "./memory.ts";
+import { installDigest } from "./digest.ts";
 import { memoryDirFor } from "./memory-store.ts";
 import { installSecretScrub } from "./secret-scrub.ts";
 import { installStopGate } from "./stop-gate.ts";
@@ -79,7 +80,7 @@ export function createPrsloyHarness(options: HarnessOptions = {}): (pi: Extensio
     if (changes) installTurnChanges(pi, changes);
     const budget = on("budget") ? installBudget(pi, opts) : undefined;
     if (on("loopDetector")) installLoopDetector(pi, opts);
-    if (on("bashTimeout")) installBashTimeout(pi, opts);
+    const registry = on("bashTimeout") ? installBashTimeout(pi, opts) : undefined;
     if (on("toolOutput")) installToolOutput(pi, opts);
     if (on("editRobustness")) installEditRobustness(pi, opts);
     if (on("postEditVerify")) installPostEditVerify(pi, opts);
@@ -113,6 +114,14 @@ export function createPrsloyHarness(options: HarnessOptions = {}): (pi: Extensio
               reviewEnabled: secondOpinionFlag(opts.settingsPath),
             }
           : {}),
+      });
+    // Сводка «прошлый раз» (S6): после стоп-гейта — его итог хода уже известен.
+    if (memory && on("digest"))
+      installDigest(pi, {
+        store: memory.store,
+        changes,
+        servers: registry ? () => registry.list() : undefined,
+        settingsPath: opts.settingsPath,
       });
     if (on("secretScrub")) installSecretScrub(pi);
     if (on("reliabilityProxy")) installReliability(pi, opts);
