@@ -108,7 +108,11 @@ function windowsAcl(path) {
   }
 }
 
-/** True when the ACL grants nobody but one account (no Users / Everyone / inherited). */
+/**
+ * True when only one user account has access, besides SYSTEM and Administrators (which
+ * can read everything anyway; the same set OpenSSH on Windows accepts for private keys).
+ * Fails on Users / Everyone / Authenticated Users or any inherited (I) entry.
+ */
 export function aclIsUserOnly(icaclsOutput, path) {
   const lines = icaclsOutput
     .split(/\r?\n/u)
@@ -126,7 +130,8 @@ export function aclIsUserOnly(icaclsOutput, path) {
   ) {
     return false;
   }
-  return grants.length === 1;
+  const system = /^(NT AUTHORITY\\SYSTEM|BUILTIN\\Administrators):/iu;
+  return grants.filter((g) => !system.test(g)).length === 1;
 }
 
 export async function runPackagedSmoke() {

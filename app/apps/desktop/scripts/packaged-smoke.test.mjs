@@ -14,6 +14,20 @@ const userOnly = `C:\\Users\\runneradmin\\AppData\\Roaming\\PRSLOY\\prsloy runne
 Successfully processed 1 files; Failed processing 0 files`;
 assert(aclIsUserOnly(userOnly), "single user grant is user-only");
 
+// Real windows-latest output after restrictToCurrentUser (no inherited entries).
+const ciReal = `C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\s\\userData\\prsloy NT AUTHORITY\\SYSTEM:(OI)(CI)(F)
+                                                                                BUILTIN\\Administrators:(OI)(CI)(F)
+                                                                                runnervmdaln5\\runneradmin:(OI)(CI)(F)
+
+Successfully processed 1 files; Failed processing 0 files`;
+assert(
+  aclIsUserOnly(ciReal, "C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\s\\userData\\prsloy"),
+  "SYSTEM + Administrators + the user is user-only",
+);
+const twoUsers = `C:\\x PC\\me:(OI)(CI)(F)
+      PC\\other:(OI)(CI)(F)`;
+assert(!aclIsUserOnly(twoUsers, "C:\\x"), "a second account is not user-only");
+
 const inherited = `C:\\x\\prsloy NT AUTHORITY\\SYSTEM:(I)(OI)(CI)(F)
                  BUILTIN\\Administrators:(I)(OI)(CI)(F)
                  PC\\me:(I)(OI)(CI)(F)
