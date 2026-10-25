@@ -48,6 +48,9 @@ def fit_ladder(cfg, available):
 
 
 CFG = fit_ladder(CFG, AVAILABLE)
+# A/B шага 5 без правки stages.json: HARNESS_PARALLEL5=1 включает параллельные прототипы, 0 — выключает
+if os.environ.get("HARNESS_PARALLEL5") in ("0", "1"):
+    CFG["stages"].setdefault("5", {})["parallel"] = os.environ["HARNESS_PARALLEL5"] == "1"
 # пометки владельца кистью на картинке («Дизайн», research/20 §10): файл marks-*.png; такой ход — модели со зрением
 MARKS = re.compile(r"^marks-.+\.png$", re.I)
 VISION = re.compile(r"kimi|claude|opus", re.I)
@@ -636,6 +639,148 @@ def options_of(text):
     return [g for g in groups if g["options"]][:3] or inline_options(text)
 
 
+# ---------- шаг 5: прототипы параллельно одним вызовом (research/20, вопрос 3; stages.json → 5.parallel) ----------
+# Вместо одной сессии до 40 минут: 2–3 одноразовых вызова «создай index.html целиком» на разных ступенях лестницы,
+# у каждого блок дизайн-системы (идея screenshot-to-code prompts/design_system.py, MIT: «при конфликте побеждает
+# дизайн-система»). В работу идут первые два удачных; лист — compare_sheet.py; спрашивает владельца обычная
+# сессия шага через ask_owner. Меньше двух удачных — шаг идёт старым путём.
+PROTO_ENERGY = [("A", "спокойный и собранный: ровный ритм, много воздуха, движение мягкое и редкое"),
+                ("B", "смелый и энергичный: крупная типографика, контраст, движение заметное, с характером"),
+                ("C", "с необычной механикой: страница ведёт по шагам или раскрывается по ходу, движение — часть смысла")]
+HTML_BLOCK = re.compile(r"```(?:html)?\s*\n(.*?)```", re.S | re.I)
+
+
+def design_system(ws):
+    """Блок дизайн-системы для одноразового вызова: 02-brand.md и замер сайта владельца (brand.json)."""
+    parts = []
+    md = ws.page / "02-brand.md"
+    if md.exists():
+        parts.append(md.read_text(encoding="utf-8")[:6000])
+    bj = ws.root / "materials" / "brand.json"
+    if bj.exists():
+        try:
+            b = json.loads(bj.read_text(encoding="utf-8"))
+            keep = {k: b.get(k) for k in ("colors", "palette", "fonts", "radius") if b.get(k)}
+            parts.append("Замер сайта владельца (materials/brand.json):\n" + json.dumps(keep, ensure_ascii=False)[:3000])
+        except ValueError:
+            pass
+    return "\n\n".join(parts) or "Дизайн-системы ещё нет: бери цвета и шрифты из материалов владельца, без новых."
+
+
+def proto_brief(ws, energy):
+    """Задание одноразового вызова: всё нужное в одном тексте, файлы читать нельзя (инструментов нет)."""
+    def doc(name, limit):
+        f = ws.page / name
+        return f.read_text(encoding="utf-8")[:limit] if f.exists() else "(нет)"
+    return "\n".join([
+        "Сделай прототип одностраничного сайта: один файл index.html целиком (HTML, CSS и JS внутри файла).",
+        f"Характер этого варианта: {energy}.",
+        "Верни только код в одном блоке ```html … ```, без пояснений.",
+        "", "## Дизайн-система (при любом конфликте с этим заданием побеждает дизайн-система)",
+        design_system(ws),
+        "", "## Текст — только отсюда, слово в слово; чисел и обещаний сверх этого не придумывать",
+        "### FACTS.md", doc("FACTS.md", 6000), "### MESSAGE.md", doc("MESSAGE.md", 6000),
+        "", "## Выбранное движение (04-motion.md)", doc("04-motion.md", 3000),
+        "", "## Решения владельца (STATUS.md)", doc("STATUS.md", 3000),
+        "", "## Правила",
+        "- Растровых картинок интерфейса нет: всё живым кодом (HTML, CSS, SVG). Внешних ссылок на картинки нет.",
+        "- Сайт работает на телефоне 390 px и на компьютере 1440 px; ничего не вылезает за край.",
+        "- Шрифты — из дизайн-системы (системные запасные в font-family). Цвета — только из дизайн-системы.",
+        "- Фирменный приём из 04-motion.md — живым элементом с атрибутом data-signature.",
+        "- Уважай prefers-reduced-motion.",
+    ])
+
+
+def extract_html(text):
+    m = HTML_BLOCK.search(text or "")
+    html = m.group(1) if m else text or ""
+    start = re.search(r"<!doctype html|<html", html, re.I)
+    end = html.lower().rfind("</html>")
+    if not start or end < 0:
+        return None
+    html = html[start.start():end + len("</html>")]
+    return html if len(html) >= 1500 and re.search(r"<body", html, re.I) else None
+
+
+def one_shot(ws, model, prompt, out_dir, timeout):
+    """Один вызов модели без инструментов: (html или None, статистика)."""
+    out_dir.mkdir(parents=True, exist_ok=True)
+    bf = out_dir / f"brief-{time.time_ns()}.md"
+    bf.write_text(prompt, encoding="utf-8")
+    args = [*PI, "--mode", "json", "--model", model, "--no-tools", "--no-context-files", "--no-skills",
+            "--session", str(out_dir / "session.jsonl"), "@" + str(bf), "Выполни задание из файла выше."]
+    st = {"model": model, "in": 0, "out": 0, "cost": 0.0, "error": None}
+    t0 = time.time()
+    final = ""
+    try:
+        r = subprocess.run(args, cwd=ws.root, env=ws.env(), stdin=subprocess.DEVNULL, capture_output=True,
+                           text=True, encoding="utf-8", errors="replace", timeout=timeout)
+        out = r.stdout
+    except subprocess.TimeoutExpired as e:
+        out = e.stdout.decode("utf-8", "replace") if isinstance(e.stdout, bytes) else (e.stdout or "")
+        st["error"] = f"время вышло ({round(timeout)} с)"
+    for ln in out.splitlines():
+        try:
+            e = json.loads(ln)
+        except ValueError:
+            continue
+        m = e.get("message") or {}
+        if e.get("type") != "message_end" or m.get("role") != "assistant":
+            continue
+        if m.get("stopReason") == "error":
+            st["error"] = (m.get("errorMessage") or "ошибка модели")[:200]
+        u = m.get("usage") or {}
+        st["in"] += u.get("input", 0) or 0
+        st["out"] += u.get("output", 0) or 0
+        st["cost"] += (u.get("cost") or {}).get("total", 0) or 0
+        final = next((b.get("text") for b in m.get("content") or [] if b.get("type") == "text" and b.get("text")),
+                     final)
+    st["seconds"] = round(time.time() - t0)
+    html = extract_html(final)
+    if html is None and not st["error"]:
+        st["error"] = "в ответе нет целого index.html"
+    return html, st
+
+
+def parallel_protos(ws, cfg):
+    """2–3 прототипа параллельно → 05-proto/a, b и лист 05-compare.png. Число вызовов модели или 0 (старый путь)."""
+    from concurrent.futures import ThreadPoolExecutor
+    ladder = CFG["ladder"]
+    start = min(cfg.get("start", 0), len(ladder) - 1)
+    order = ladder[start:] + ladder[:start]
+    n = max(2, min(int(cfg.get("parallel_variants", 3)), 3, len(PROTO_ENERGY)))
+    jobs = [(PROTO_ENERGY[i], order[i % len(order)]) for i in range(n)]
+    timeout = float(cfg.get("parallel_minutes", 8)) * 60
+    work = ws.h / "protos" / time.strftime("%Y%m%d-%H%M%S")
+    emit(ev="note", text=f"Собираю {n} прототипа сразу: " + ", ".join(m.split("/", 1)[-1] for _, m in jobs))
+    with ThreadPoolExecutor(max_workers=n) as pool:
+        futs = [pool.submit(one_shot, ws, model, proto_brief(ws, energy), work / letter, timeout)
+                for (letter, energy), model in jobs]
+        results = [f.result() for f in futs]
+    good = []
+    for ((letter, _), model), (html, st) in zip(jobs, results):
+        ws.ledger(kind="proto", gate="5", batch=work.name, variant=letter, ok=html is not None, **st)
+        emit(ev="note", text=f"прототип {letter} ({model.split('/', 1)[-1]}): "
+                             + (f"готов за {st['seconds']} с" if html else f"не получился — {st['error']}"))
+        if html:
+            good.append(html)
+    if len(good) < 2:
+        ws.ledger(kind="proto_fallback", gate="5", ok=len(good))
+        return 0
+    for letter, html in zip("ab", good[:2]):           # выбор шага 5 — A, B или гибрид: в работу два варианта
+        d = ws.page / "05-proto" / letter
+        d.mkdir(parents=True, exist_ok=True)
+        (d / "index.html").write_text(html, encoding="utf-8")
+    r = subprocess.run([PY, "-I", str(ws.pipe / "tools" / "compare_sheet.py"),
+                        "--variant", str(ws.page / "05-proto" / "a" / "index.html"),
+                        "--variant", str(ws.page / "05-proto" / "b" / "index.html"),
+                        "--out", str(ws.page / "05-compare.png")],
+                       cwd=ws.root, env=ws.env(), capture_output=True, text=True, encoding="utf-8")
+    if r.returncode:
+        emit(ev="note", text="лист сравнения не снялся: " + (r.stderr or r.stdout)[-200:])
+    return n
+
+
 # ---------- правка владельца на готовой странице (research/20 §1–2) ----------
 EDIT_CFG = {"max_calls": 30, "max_minutes": 10, "same_call_limit": 3, "edits_without_check": 15}
 
@@ -866,6 +1011,20 @@ def say(a):
             else:
                 emit(ev="stuck", text="судья не ответил: " + out[-200:])
                 return
+        # шаг 5 за флагом: прототипы параллельно одним вызовом, дальше обычная сессия смотрит лист и спрашивает
+        if (gate == "5" and cfg.get("parallel") and not ws.state.get("parallel5")
+                and any("05-proto/" in x for x in probs)):
+            calls = parallel_protos(ws, cfg)
+            ws.state["parallel5"] = {"calls": calls}
+            ws.save()
+            if calls:
+                notes.append("Прототипы A и B (05-proto/a, 05-proto/b) и лист 05-compare.png собрал харнесс параллельно. "
+                             "Не переделывай их: открой лист, проверь flow.py и спроси владельца инструментом ask_owner, "
+                             "какой берём (со своей рекомендацией).")
+                continue
+        if gate == "5" and (ws.state.get("parallel5") or {}).get("calls"):
+            # общий бюджет шага не больше прежнего: вызовы прототипов уже потрачены
+            cfg["max_calls"] = max(10, cfg["max_calls"] - ws.state["parallel5"]["calls"])
         # попытки и лестница моделей по шагу
         key = f"g{gate}"
         hist = ws.state.setdefault("attempts", {}).setdefault(key, {"n": 0, "rung": cfg["start"], "last": None})

@@ -101,6 +101,16 @@ def metrics(rec):
         "wall_minutes": round(sum(t["t1"] - t["t0"] for t in turns) / 60, 1),
         "pi_cost_usd": round(sum(r.get("cost", 0) or 0 for r in agent), 4),
     }
+    # шаг 5: сессии агента плюс параллельные прототипы (stages.json → 5.parallel); пачка идёт столько, сколько её
+    # самый долгий вызов
+    protos = [r for r in ledger if r.get("kind") == "proto"]
+    batches = {}
+    for r in protos:
+        batches[r.get("batch")] = max(batches.get(r.get("batch"), 0), r.get("seconds", 0) or 0)
+    m["step5_minutes"] = round((sum(r.get("seconds", 0) or 0 for r in agent if str(r.get("gate")) == "5")
+                                + sum(batches.values())) / 60, 1)
+    m["protos"] = {"ok": sum(1 for r in protos if r.get("ok")), "all": len(protos),
+                   "cost_usd": round(sum(r.get("cost", 0) or 0 for r in protos), 4)}
     a6 = rec / "a6-rows.json"
     if a6.exists():
         d = json.loads(a6.read_text(encoding="utf-8"))
@@ -117,6 +127,9 @@ ROWS = [("Дошёл до шага", lambda m: "все пройдены" if m["d
         ("Счётчик Pi (кэш по полной цене, не верить)", lambda m: f"${m['pi_cost_usd']:.4f}"),
         ("Минут работы агентов", lambda m: m["agent_minutes"]),
         ("Минут на ходы (стенка)", lambda m: m["wall_minutes"]),
+        ("Минут на шаг 5 (агенты + прототипы)", lambda m: m["step5_minutes"]),
+        ("Прототипов параллельно: удачных / всего, Pi $", lambda m: (
+            f"{m['protos']['ok']} / {m['protos']['all']}, ${m['protos']['cost_usd']:.4f}" if m["protos"]["all"] else "нет")),
         ("Вызовов инструментов", lambda m: m["tool_calls"]),
         ("Сессий Pi / запусков", lambda m: f"{m['sessions']} / {m['launches']}"),
         ("Остановлено харнессом", lambda m: m["killed"]),
