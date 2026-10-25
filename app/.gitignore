@@ -43,3 +43,6 @@ docs/*
 
 # Local agent knowledge (not part of the published tree)
 .agent/
+
+# «Дизайн» bundle (built by apps/desktop/scripts/fetch-design.mjs)
+apps/desktop/design-bundle/

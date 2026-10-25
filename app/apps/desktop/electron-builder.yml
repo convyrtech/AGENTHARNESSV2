@@ -26,6 +26,9 @@ extraResources:
     to: runtimes/archives
   - from: runtimes/current/manifest.json
     to: runtimes/manifest.json
+  # «Дизайн»: harness, motion, etalons, pinned design-pipeline (scripts/fetch-design.mjs)
+  - from: design-bundle
+    to: design
 directories:
   output: release/app
   buildResources: build
