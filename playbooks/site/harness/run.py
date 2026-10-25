@@ -367,6 +367,33 @@ def brief(ws, gate, fl, cfg, notes, model=None):
     return "\n".join(lines)
 
 
+DOING = [  # первое совпадение по команде или аргументам; нет совпадения — None, приложение берёт строку по шагу
+    (r"gate\.py|visual_gate", "Проверяю страницу на телефоне и компьютере"),
+    (r"motion_probe|check_motion", "Проверяю плавность движения"),
+    (r"moves\.py candidates", "Снимаю варианты движения"),
+    (r"moves\.py pick", "Разбираю выбранный вариант"),
+    (r"etalon_video|skillry-index", "Смотрю референсы"),
+    (r"compare_sheet|contact_sheet|storyboard", "Собираю лист для выбора"),
+    (r"check\.py", "Проверяю страницу"),
+    (r"slop|text_diff|lint-message", "Сверяю тексты"),
+    (r"flow\.py", "Сверяюсь с планом шага"),
+]
+
+
+def doing_of(name, arg):
+    a = str(arg)
+    for pat, say_ in DOING:
+        if re.search(pat, a):
+            return say_
+    if name == "read" and re.search(r"\.(png|jpe?g|webp)", a, re.I):
+        return "Смотрю снимки"
+    if name in ("edit", "write") and re.search(r"\.(html|css|js)\b", a):
+        return "Пишу страницу"
+    if name in ("edit", "write") and re.search(r"\.md\b", a):
+        return "Записываю решения"
+    return None
+
+
 def leaked(final, thinking):
     """Вызов инструмента пришёл текстом (E9 A/B: DeepSeek, 3 сессии из 22 на шаге 7): stop без toolCall, в тексте
     закрывающие теги своей разметки инструментов, текст дословно повторяет рассуждение. Pi считает ход законченным."""
@@ -439,7 +466,7 @@ def _pi_once(ws, prompt, model, cfg, session, st, seen, deadline):
                 st["edits_since_check"] += 1
             if re.search(r"flow\.py|gate\.py|check\.py|visual_gate|check_motion", cmd):
                 st["edits_since_check"] = 0
-            emit(ev="tool", name=b.get("name"), brief=(cmd or argj)[:120])
+            emit(ev="tool", name=b.get("name"), brief=(cmd or argj)[:120], doing=doing_of(b.get("name"), cmd or argj))
             if seen[sig] >= cfg["same_call_limit"]:
                 st["killed"] = f"петля: один и тот же вызов {seen[sig]} раза ({b.get('name')} {argj[:80]})"
             elif st["calls"] >= cfg["max_calls"]:
@@ -457,6 +484,56 @@ def _pi_once(ws, prompt, model, cfg, session, st, seen, deadline):
 
 
 # ---------- say: owner message → stages until the next question ----------
+LETTER = r"[A-DА-Г]"
+# вариант, который требует слов владельца: кнопкой его не ответить, для него есть поле ввода
+FREEFORM = re.compile(r"(?i)назов|напиш|друг(ой|ие|ую)|сво[йиюе]|иначе|поправ")
+PRONOUN = re.compile(r"(?i)\b(его|её|ее|это|эту|этот|эти|их|так)\b")
+
+
+def inline_options(text):
+    """Кнопки для показа листа без строк «А. …» (шаблон OWNER-MESSAGE: «Берём A, B или смешать?», «Выкладываем?»).
+    Разбирает только вопрос в последней строке с «?»; не уверен — пусто, у владельца остаётся поле ввода."""
+    lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
+    qs = [ln for ln in lines if ln.endswith("?")]
+    if not qs:
+        return []
+    q = qs[-1]
+    rec = " ".join(ln for ln in lines if re.search(r"(?i)рекоменду", ln) and not re.search(r"(?i)не рекоменду", ln))
+    body = re.split(r"[:.!]\s+", q.rstrip("?").strip())[-1].strip()
+    rec_letter = re.search(rf"(?i)рекомендую\s+(?:вариант\s+)?({LETTER})(?![\w+])", rec)
+    about = {}                                     # «A: прибор и три шага.» — подпись кнопки; строку рекомендации не берём
+    for ln in lines:
+        if not re.search(r"(?i)рекоменду", ln):
+            for m in re.finditer(rf"(?:^|[\s.])({LETTER}):\s*([^.?\n]+)", ln):
+                about.setdefault(m.group(1), m.group(2).strip())
+
+    def letter(x):
+        return {"key": x, "label": f"{x} — {about[x]}" if x in about else x,
+                "recommended": bool(rec_letter and rec_letter.group(1) == x)}
+
+    m = re.search(rf"((?:{LETTER}\s*,\s*)*{LETTER})\s+или\s+(.+)$", body)
+    if m:
+        opts = [letter(x) for x in re.findall(LETTER, m.group(1))]
+        last = m.group(2).strip()
+        if re.fullmatch(LETTER, last):
+            opts.append(letter(last))
+        elif not FREEFORM.search(last):
+            opts.append({"key": last, "label": last[:1].upper() + last[1:], "recommended": False})
+    elif " или " in body:
+        alts = [a.strip() for a in body.split(" или ") if a.strip()]
+        opts = [{"key": a, "label": a[:1].upper() + a[1:],
+                 "recommended": bool(rec and (PRONOUN.search(a) or a.lower() in rec.lower()))}
+                for a in alts if not FREEFORM.search(a)]
+    elif len(body) <= 60:
+        opts = [{"key": "да", "label": "Да", "recommended": bool(rec)},
+                {"key": "нет", "label": "Нет, поправить", "recommended": False}]
+    else:
+        opts = []
+    if len(opts) < 2 and not (opts and len(opts) == 1 and opts[0]["recommended"]):
+        return []
+    return [{"q": "", "options": opts}]
+
+
 def options_of(text):
     """Варианты для кнопок, сгруппированные по вопросам: [{"q": "Для кого страница?", "options": [{key, label}]}]."""
     groups, cur = [], None
@@ -472,7 +549,7 @@ def options_of(text):
                 groups.append(cur)
             cur["options"].append({"key": o.group(1), "label": o.group(2).strip(),
                                    "recommended": "рекомендую" in o.group(2).lower()})
-    return [g for g in groups if g["options"]][:3]
+    return [g for g in groups if g["options"]][:3] or inline_options(text)
 
 
 def say(a):
