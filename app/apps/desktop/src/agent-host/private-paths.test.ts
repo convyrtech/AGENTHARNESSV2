@@ -83,6 +83,7 @@ describe("private places: reading is refused", () => {
       "cat ~/.ssh/id_rsa | base64",
       "head -c 100 < ~/.ssh/id_rsa",
       "cat $(echo ~/.ssh/id_rsa)",
+      `cat $(ls ${join(agentDir, "sessions")} | head -1)`,
       `ls ${userData}`,
       `ls ${join(agentDir, "sessions")}`,
       "rg password ~/.config",
@@ -138,6 +139,11 @@ describe("private places: reading is refused", () => {
       "awk '{print $1}' data.txt",
       `ls ${join(userData, "runtimes")}`,
       `cat ${join(agentDir, "skills", "pdf", "SKILL.md")}`,
+      // The installed-app smoke: arithmetic is not command substitution, a product name
+      // is not a private place.
+      "echo PRSLOY_SMOKE_$((6*7)); echo SHELL=$0; uname -a || ver",
+      "echo PRSLOY $(date) > log.txt",
+      "grep -r prsloy src | wc -l",
     ]) {
       expect(bash(linux)(command), command).toBe(false);
     }

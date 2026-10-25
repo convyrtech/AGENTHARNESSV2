@@ -98,7 +98,23 @@ export function privateRootsFor(options: {
 
 /** Names that give a private place away when we can't resolve the path itself. */
 const PRIVATE_NAMES =
-  /\.ssh|\.aws|gcloud|\.docker|\.npmrc|git-credentials|[._]netrc|user data|firefox|\.mozilla|tdata|telegram|google-chrome|yandex|auth\.json|prsloy/iu;
+  /[\\/]\.ssh\b|[\\/]\.aws\b|\.config[\\/]gcloud|\.docker[\\/]config|[\\/]\.npmrc|\.git-credentials|[\\/][._]netrc|user data|firefox[\\/]profiles|\.mozilla|[\\/]tdata\b|telegramdesktop|google-chrome|yandexbrowser/iu;
+
+/** Spellings of a path a command may carry: native, forward slashes, Git Bash `/c/…`. */
+function spellings(path: string): string[] {
+  const forward = path.replaceAll("\\", "/");
+  const drive = /^([A-Za-z]):\//u.exec(forward);
+  return drive ? [forward, `/${drive[1]!.toLowerCase()}/${forward.slice(3)}`, path] : [path];
+}
+
+/** A command or word we can't follow: does it name a private place? */
+function mentionsPrivate(text: string, env: PrivateEnv): boolean {
+  if (PRIVATE_NAMES.test(text)) return true;
+  const lower = text.toLowerCase().replaceAll("\\", "/");
+  return env.privateRoots.some((root) =>
+    spellings(root).some((s) => lower.includes(s.toLowerCase().replaceAll("\\", "/"))),
+  );
+}
 
 function norm(path: string, env: PrivateEnv): string {
   const win = platformOf(env) === "win32";
@@ -184,7 +200,7 @@ export function readsPrivateFile(
   if (!["read", "grep", "find", "ls"].includes(toolName)) return false;
   const raw = typeof input.path === "string" && input.path ? input.path : ".";
   const found = candidatePath(raw, env.cwd, env);
-  if (found === "unknown") return PRIVATE_NAMES.test(raw);
+  if (found === "unknown") return mentionsPrivate(raw, env);
   if (!found) return false;
   const deep = toolName === "grep" || toolName === "find";
   return isPrivatePath(found.path, env, deep || found.globbed);
@@ -192,8 +208,10 @@ export function readsPrivateFile(
 
 /** bash: any word of the command that lands in a private place. */
 export function bashReadsPrivate(command: string, env: PrivateEnv): boolean {
-  const segments = /\$\(|`|<\(|\beval\b/u.test(command) ? undefined : splitCommand(command);
-  if (!segments) return PRIVATE_NAMES.test(command);
+  // `$((…))` is arithmetic, not a command we can't follow.
+  const opaque = /\$\((?!\()|`|<\(|\beval\b/u.test(command);
+  const segments = opaque ? undefined : splitCommand(command);
+  if (!segments) return mentionsPrivate(command, env);
   let cwd = env.cwd;
   for (const { tokens, redirects } of segments) {
     let i = 0;
@@ -209,7 +227,7 @@ export function bashReadsPrivate(command: string, env: PrivateEnv): boolean {
     for (const word of words) {
       const found = candidatePath(word, cwd, env);
       if (found === "unknown") {
-        if (PRIVATE_NAMES.test(word)) return true;
+        if (mentionsPrivate(word, env)) return true;
         continue;
       }
       if (found && isPrivatePath(found.path, env, deep || found.globbed)) return true;
@@ -219,7 +237,7 @@ export function bashReadsPrivate(command: string, env: PrivateEnv): boolean {
       const next = dest === undefined ? undefined : candidatePath(dest, cwd, env);
       // `cd` alone goes home; into somewhere we can't follow, judge later words by name.
       if (dest === undefined) cwd = env.home ?? cwd;
-      else if (next === "unknown") return PRIVATE_NAMES.test(command);
+      else if (next === "unknown") return mentionsPrivate(command, env);
       else if (next) cwd = next.path;
     }
   }

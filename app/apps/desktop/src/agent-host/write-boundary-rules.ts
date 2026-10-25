@@ -105,7 +105,8 @@ export function splitCommand(command: string): Segment[] | undefined {
     const ch = command[i]!;
     if (quote) {
       if (ch === quote) quote = undefined;
-      else if (ch === "\\" && quote === '"' && i + 1 < command.length) {
+      // In "…" a backslash escapes only $ ` " \ and newline, as in bash: "C:\Users\x" stays.
+      else if (ch === "\\" && quote === '"' && /[$`"\\\n]/u.test(command[i + 1] ?? "")) {
         current += command[++i];
       } else current += ch;
       continue;
