@@ -32,7 +32,7 @@ export const TURN_FACT_TEXT: Readonly<Record<TurnFact, string>> = {
   "page-ok": "Страница открылась без ошибок",
   "ran-ok": "Программу запускал — работает",
   "tests-updated": "Проверки обновлены по вашей просьбе",
-  "no-checks": "Нечем проверить",
+  "no-checks": "Проверить нечем — в проекте нет проверок",
 };
 const ORDER = Object.keys(TURN_FACT_TEXT) as TurnFact[];
 
@@ -99,7 +99,8 @@ export function turnFacts(
   else if (state.gate === "green") facts.add("checks-pass");
   if (state.page === true) facts.add("page-ok");
   if (state.ranOk) facts.add("ran-ok");
-  if (edited && !state.hasCheck) facts.add("no-checks");
+  // Страница открылась или программа отработала — это и есть проверка для новичка: «нечем» только если не было ничего.
+  if (edited && !state.hasCheck && state.page !== true && !state.ranOk) facts.add("no-checks");
   if (patch) {
     const tests = oldTestChanges(patch);
     if (tests.length) {
