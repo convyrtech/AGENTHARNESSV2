@@ -2,7 +2,8 @@ import { SHELL_SIDEBAR } from "./layout.ts";
 
 /** Fully tucked away — no icon rail; expand control is fixed after traffic lights. */
 export const SIDEBAR_COLLAPSED_WIDTH = 0;
-export const SIDEBAR_DEFAULT_TRANSLUCENT = true;
+/** Solid paper rail: translucency only shows macOS vibrancy, elsewhere the bare window fill. */
+export const SIDEBAR_DEFAULT_TRANSLUCENT = false;
 
 export function clampSidebarWidth(px: number): number {
   if (!Number.isFinite(px)) return SHELL_SIDEBAR.defaultPx;

@@ -23,6 +23,8 @@ export function CostChip(props: { locale: Locale }) {
   }, [sessionKey, running, sessionUsd]);
 
   if (typeof sessionUsd !== "number" || !Number.isFinite(sessionUsd)) return null;
+  // Nothing spent and no turn yet: an empty chat needs no price tag.
+  if (sessionUsd === 0 && turnUsd === undefined) return null;
   const rub = (usd: number) => formatRub(usdToRub(usd, rubPerUsd), props.locale);
   const sessionLabel = t(props.locale, "cost.session", { amount: rub(sessionUsd) });
   const turnLabel =

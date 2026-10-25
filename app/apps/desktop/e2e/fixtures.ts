@@ -173,13 +173,23 @@ async function launchZenoApp(): Promise<LaunchedZeno> {
 
   const app = await electron.launch({
     executablePath: electronBinary,
-    args: [appDirectory, `--user-data-dir=${userData}`],
+    // The suite asserts Chinese copy; PRSLOY otherwise detects ru for this environment.
+    args: [appDirectory, `--user-data-dir=${userData}`, "--lang=zh-CN"],
     cwd: appDirectory,
     env,
     timeout: 60_000,
   });
 
   const page = await app.firstWindow({ timeout: 60_000 });
+  await page.waitForSelector('[data-testid="zeno-app"]', { timeout: 30_000 });
+  // The suite drives developer surfaces (terminal, packages, model picker) that casual mode hides.
+  await page.evaluate(() =>
+    localStorage.setItem(
+      "prsloy.casual.prefs.v1",
+      JSON.stringify({ developerMode: true, rubPerUsd: 95 }),
+    ),
+  );
+  await page.reload();
   await page.waitForSelector('[data-testid="zeno-app"]', { timeout: 30_000 });
   // Cold-start overlay (pi ensure + host config) must finish before UI clicks.
   await page.waitForSelector('[data-testid="zeno-app"][data-bootstrap-ready="true"]', {

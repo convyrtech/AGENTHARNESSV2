@@ -19,7 +19,7 @@ describe("sidebar prefs helpers", () => {
     expect(SIDEBAR_COLLAPSED_WIDTH).toBe(0);
     expect(sidebarRailWidth(true, 280)).toBe(0);
     expect(sidebarRailWidth(false, 280)).toBe(280);
-    expect(SIDEBAR_DEFAULT_TRANSLUCENT).toBe(true);
+    expect(SIDEBAR_DEFAULT_TRANSLUCENT).toBe(false);
     expect(SIDEBAR_TRANSLUCENT_MIX_PERCENT).toBe(0);
   });
 

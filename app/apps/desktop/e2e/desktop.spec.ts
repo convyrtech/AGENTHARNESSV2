@@ -660,7 +660,7 @@ test.describe("Desktop shell Playwright E2E (macOS Electron)", () => {
       35,
     );
     await expect(
-      page.getByText(/规则已限制在 Zeno 主题表面|Rules are scoped to Zeno theme surfaces/),
+      page.getByText(/规则已限制在 PRSLOY 主题表面|Rules are scoped to PRSLOY theme surfaces/),
     ).toHaveCount(0);
     await page.keyboard.press("Escape");
     await customCssEditor.fill(".composer-card { border-radius: 27px; background: ; }");

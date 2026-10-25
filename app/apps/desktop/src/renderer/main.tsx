@@ -4,7 +4,6 @@ import type {
   HostSnapshot,
   McpConfig,
   PackageSummary,
-  ResourceSummary,
   SessionThreadSummary,
 } from "@zeno/contracts";
 import {

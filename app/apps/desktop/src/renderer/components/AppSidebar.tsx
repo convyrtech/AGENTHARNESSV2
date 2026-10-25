@@ -786,7 +786,7 @@ function hostPillClass(state: string): string {
   return "bg-[var(--accent)] text-[var(--muted-foreground)]";
 }
 
-const GITHUB_REPO_URL = "https://github.com/aletheics/zeno";
+const GITHUB_REPO_URL = "https://github.com/convyrtech/AGENTHARNESSV2";
 
 /** GitHub mark (lucide has no brand icons). */
 function GitHubMark(props: { className?: string }) {

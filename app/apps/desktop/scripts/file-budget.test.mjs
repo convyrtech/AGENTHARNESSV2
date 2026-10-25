@@ -44,8 +44,8 @@ const FROZEN = {
   // which also let that logic be tested for the first time. Banked, per the note above.
   "main/index.ts": 5753,
   // 4605 → 4534: the MCP servers list became `components/McpServersSection.tsx`.
-  // 4534 → 4477: `ResourcesPage` moved to its own component, paying for the casual-mode gates.
-  "renderer/main.tsx": 4477,
+  // 4534 → 4476: `ResourcesPage` moved to its own component, paying for the casual-mode gates.
+  "renderer/main.tsx": 4476,
   // 5163 → 5109: `EnvironmentSection` moved out, paying for the ru option and casual prefs.
   "renderer/components/settings/SettingsPage.tsx": 5109,
   // 2194 → 1811: the composer's menu rows moved to `components/ComposerMenus.tsx` and its
