@@ -411,19 +411,34 @@ export function parseLedger(entries: readonly unknown[]): LedgerStage[] {
   return out;
 }
 
-/** skillry-index.json: список {slug, page, author} → слова для сверки референсов. */
+/** skillry-index.json: список {slug, page, author} → слова для сверки референсов (нижний регистр).
+ * Хост page берётся, только если он у одной-двух записей: общий хост каталога (skillry.dev) ничего не говорит. */
 export function parseRefIndex(json: unknown): Set<string> {
   const out = new Set<string>();
-  const list = Array.isArray(json) ? json : ((json as { items?: unknown[] })?.items ?? []);
-  for (const raw of list as Record<string, unknown>[]) {
-    for (const k of ["slug", "author"])
-      if (typeof raw?.[k] === "string") out.add((raw[k] as string).toLowerCase());
-    if (typeof raw?.page === "string") {
-      try {
-        out.add(new URL(raw.page).hostname.replace(/^www\./, "").toLowerCase());
-      } catch {
-        out.add(raw.page.toLowerCase());
-      }
+  const list = (
+    Array.isArray(json) ? json : ((json as { items?: unknown[] })?.items ?? [])
+  ) as Record<string, unknown>[];
+  const hosts = new Map<string, number>();
+  const hostOf = (page: string) => {
+    try {
+      return new URL(page).hostname.replace(/^www\./, "").toLowerCase();
+    } catch {
+      return undefined;
+    }
+  };
+  for (const raw of list) {
+    const h = typeof raw?.page === "string" ? hostOf(raw.page) : undefined;
+    if (h) hosts.set(h, (hosts.get(h) ?? 0) + 1);
+  }
+  for (const raw of list) {
+    for (const k of ["slug", "author"]) {
+      if (typeof raw?.[k] === "string" && (raw[k] as string).trim())
+        out.add((raw[k] as string).trim().toLowerCase());
+    }
+    const h = typeof raw?.page === "string" ? hostOf(raw.page) : undefined;
+    if (h && (hosts.get(h) ?? 0) <= 2) {
+      out.add(h);
+      out.add(h.split(".")[0]!);
     }
   }
   return out;

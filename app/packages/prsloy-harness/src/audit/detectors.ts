@@ -1260,7 +1260,7 @@ export function detectRules(s: Session, ctx: DetectContext): Finding[] {
       for (const c of calls(s).filter(isWrite)) {
         if (!pathRe.test(pathArg(c) ?? "")) continue;
         const rows = refRows(writtenText(c));
-        const missing = rows.filter((row) => !inIndex(row.name, s.refIndex!));
+        const missing = rows.filter((row) => !inIndex(row.cells, s.refIndex!));
         if (missing.length === 0) continue;
         out.push(
           finding(s, {
@@ -1342,36 +1342,53 @@ export function derivedFromMaterials(s: Session): boolean {
   );
 }
 
-/** Строки таблицы референсов: «| Имя | … |», без шапки и разделителя. */
-function refRows(md: string): { name: string; line: string }[] {
-  const out: { name: string; line: string }[] = [];
-  for (const line of md.split("\n")) {
-    const m = /^\s*\|\s*([^|]+?)\s*\|/.exec(line);
-    if (!m) continue;
-    const name = m[1]!.replace(/[*_`[\]]/g, "").trim();
-    if (
-      !name ||
-      /^:?-{2,}:?$/.test(name) ||
-      /^(?:референс|reference|сайт|site|название|name|#|№)$/iu.test(name)
-    )
-      continue;
-    out.push({ name, line: line.trim() });
-  }
+/** Строки таблицы референсов, без шапки (строка перед `|---|`) и разделителя. */
+function refRows(md: string): { cells: string[]; line: string }[] {
+  const lines = md.split("\n");
+  const isRow = (l: string) => /^\s*\|.*\|\s*$/.test(l);
+  const isSep = (l: string) => /^\s*\|(?:\s*:?-{2,}:?\s*\|)+\s*$/.test(l);
+  const out: { cells: string[]; line: string }[] = [];
+  lines.forEach((line, k) => {
+    if (!isRow(line) || isSep(line) || (lines[k + 1] !== undefined && isSep(lines[k + 1]!))) return;
+    const cells = line
+      .trim()
+      .replace(/^\||\|$/g, "")
+      .split("|")
+      .map((c) => c.trim())
+      .filter(Boolean);
+    if (cells.length) out.push({ cells, line: line.trim() });
+  });
   return out;
 }
 
 const mainLabel = (host: string) => host.replace(/^www\./, "").split(".")[0] ?? host;
 
-function inIndex(name: string, index: ReadonlySet<string>): boolean {
-  const n = name
-    .toLowerCase()
-    .replace(/^https?:\/\//, "")
-    .replace(/^www\./, "")
-    .replace(/\/.*$/, "")
-    .trim();
-  if (index.has(n)) return true;
-  const label = mainLabel(n);
-  for (const token of index) if (token === label || mainLabel(token) === label) return true;
+/** Слова ячейки для сверки с индексом: хосты и куски пути ссылок, домены и слова текста. */
+function cellTokens(cell: string): string[] {
+  const out: string[] = [];
+  for (const m of cell.matchAll(/https?:\/\/[^\s)\]>"']+/g)) {
+    try {
+      const u = new URL(m[0]);
+      out.push(u.hostname.replace(/^www\./, "").toLowerCase());
+      for (const seg of u.pathname.split("/"))
+        if (seg) out.push(decodeURIComponent(seg).toLowerCase());
+    } catch {
+      // битая ссылка — только как текст
+    }
+  }
+  const text = cell.replace(/https?:\/\/\S+/g, " ").toLowerCase();
+  for (const w of text.split(/[^\p{L}\p{N}._-]+/u))
+    if (w.length >= 3) out.push(w.replace(/^www\./, ""));
+  return out;
+}
+
+/** Строка совпадает с индексом, если любая её ячейка называет slug, author или хост записи индекса
+ * (хост вроде skillry.dev, общий для многих записей, сам по себе не считается — только slug в пути). */
+function inIndex(cells: readonly string[], index: ReadonlySet<string>): boolean {
+  for (const token of cells.flatMap(cellTokens)) {
+    if (index.has(token)) return true;
+    if (token.includes(".") && index.has(mainLabel(token))) return true;
+  }
   return false;
 }
 

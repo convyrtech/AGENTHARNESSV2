@@ -29,7 +29,7 @@ import {
   type Incident,
   type Rule,
 } from "../src/audit/detectors.ts";
-import { loadSessions, normalizePi, type Session } from "../src/audit/ir.ts";
+import { loadSessions, normalizePi, parseRefIndex, type Session } from "../src/audit/ir.ts";
 
 const rules = rulesFile.rules as Rule[];
 const ctx = { rules };
@@ -755,6 +755,32 @@ describe("D11 refs only from the index", () => {
     expect(f[0]!.evidence[0]).toMatchObject({ quote: expect.stringContaining("fly.io") });
     expectValid(s, f);
   });
+  it("numbered rows: the reference is in another cell, by slug in a skillry link or by author", () => {
+    const idx = new Set([
+      "heyiamnick-119558",
+      "annacher-433425",
+      "annacher",
+      "groundcontrol-230877",
+    ]);
+    const md = [
+      "| № | Референс | Что берём |",
+      "|---|---|---|",
+      "| 1 | [heyiamnick-119558](https://skillry.dev/ai-videos/opus-5-5/heyiamnick-119558) | сетку |",
+      "| A | [Annacher: одна форма](https://skillry.dev/ai-videos/x/annacher-433425) | форму |",
+      "| 2 | [Полевой скетчбук](https://skillry.dev/ai-videos/y/groundcontrol-230877) | цвет |",
+      "| 3 | fly.io | шапку |",
+    ].join("\n");
+    const s = new Pi()
+      .user("x")
+      .call("write", { path: "design/home/03-references.md", content: md }, "ok")
+      .say("Ок")
+      .session({ surface: "design", refIndex: idx });
+    const f = detectRules(s, ctx);
+    expect(sigs(f)).toEqual(["rule:refs-from-index"]);
+    expect(f[0]!.evidence[0]).toMatchObject({ quote: "| 3 | fly.io | шапку |" });
+    expect(f[0]!.evidence[1]).toMatchObject({ absent: expect.stringContaining("1 из 4") });
+  });
+
   it("no: every row is in the index (by host, slug or name); no index nearby", () => {
     const ok = new Pi()
       .user("x")
@@ -1142,5 +1168,15 @@ describe("third round (second corpus run, 0cd7761)", () => {
     expect(s!.run).toBe(rec);
     expect(s!.ledger).toEqual([{ gate: "3", end: "ok", killed: null, at: 1792902931200 }]);
     expect([...s!.refIndex!].sort()).toEqual(["stripe", "stripe.com"]);
+    // общий хост каталога сам по себе не считается, slug и author — да
+    const shared = parseRefIndex(
+      [1, 2, 3].map((n) => ({
+        slug: `a-${n}`,
+        author: `au${n}`,
+        page: `https://skillry.dev/v/a-${n}`,
+      })),
+    );
+    expect(shared.has("skillry.dev")).toBe(false);
+    expect(shared.has("a-2") && shared.has("au3")).toBe(true);
   });
 });
