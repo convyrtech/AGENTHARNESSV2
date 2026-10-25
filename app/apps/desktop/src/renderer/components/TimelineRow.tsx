@@ -85,6 +85,8 @@ import {
 import { cn } from "../lib/utils.ts";
 import { useCasualPrefs } from "../hooks/useCasualPrefs.ts";
 import { harnessCardKind, isHarnessData } from "../lib/harness-card.ts";
+import { TurnStatusLine } from "./TurnStatusLine.tsx";
+import { isTurnStatusItem, parseTurnStatus } from "../lib/turn-status.ts";
 import { HarnessCard } from "./HarnessCard.tsx";
 import { MemoryCard } from "./MemoryCard.tsx";
 import { memoryCardKind } from "../lib/memory.ts";
@@ -828,6 +830,10 @@ export const TimelineRow = memo(function TimelineRow(props: {
         disabled={props.editingLocked}
       />
     );
+  }
+  if (isTurnStatusItem(item)) {
+    const status = parseTurnStatus(item.kind === "system" ? item.details : undefined);
+    return status ? <TurnStatusLine locale={props.locale} status={status} /> : null;
   }
   const memory = item.extension ? memoryCardKind(item.title) : undefined;
   if (memory) {
@@ -1708,6 +1714,8 @@ export const TimelineProcessBlock = memo(function TimelineProcessBlock(props: {
   /** Fallback when timestamps are missing (history). */
   durationLabel?: string | undefined;
   workspacePath?: string | undefined;
+  /** The turn's checks are red: say how long it worked, not «Готово». */
+  checksFailed?: boolean | undefined;
 }) {
   // Keep ticking while the turn is still open (including “responding” after tools).
   const active = Boolean(props.open && (props.running || props.waiting));
@@ -1722,7 +1730,10 @@ export const TimelineProcessBlock = memo(function TimelineProcessBlock(props: {
     elapsedDurationLabel(props.startedAt, active ? undefined : props.endedAt, now, props.locale) ??
     props.durationLabel;
   const { developerMode } = useCasualPrefs();
-  const label = activityLabel(props.locale, activity, liveDuration, developerMode);
+  const label =
+    props.checksFailed && activity.phase === "processed"
+      ? t(props.locale, "timeline.processedChecksFailed", { duration: liveDuration ?? "" }).trim()
+      : activityLabel(props.locale, activity, liveDuration, developerMode);
 
   // Default-open while the agent is working this turn; force-close when the turn ends.
   const [detailsOpen, setDetailsOpen] = useState(active);

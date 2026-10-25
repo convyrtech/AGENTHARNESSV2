@@ -95,6 +95,8 @@ export type TimelineBlock =
       open?: boolean;
       /** @deprecated Prefer startedAt/endedAt + live formatting. */
       durationLabel?: string;
+      /** The turn's checks are red (turn-status card): the header must not say «Готово». */
+      checksFailed?: true;
     };
 
 function decodeXml(value: string): string {
