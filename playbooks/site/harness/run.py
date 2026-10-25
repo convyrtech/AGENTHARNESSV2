@@ -26,7 +26,10 @@ WIN = os.name == "nt"
 SAFE = ("PATH", "HOME", "USERPROFILE", "APPDATA", "LOCALAPPDATA", "SYSTEMROOT", "COMSPEC", "PATHEXT", "TEMP", "TMP",
         "LANG", "LC_ALL", "TERM", "TMPDIR", "PLAYWRIGHT_BROWSERS_PATH", "PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD",
         "HTTPS_PROXY", "HTTP_PROXY", "NO_PROXY", "https_proxy", "http_proxy", "no_proxy", "SSL_CERT_FILE",
-        "REQUESTS_CA_BUNDLE", "NODE_EXTRA_CA_CERTS", "CURL_CA_BUNDLE", "PI_CODING_AGENT_DIR")
+        "REQUESTS_CA_BUNDLE", "NODE_EXTRA_CA_CERTS", "CURL_CA_BUNDLE", "PI_CODING_AGENT_DIR",
+        "PI_OFFLINE", "PI_SKIP_VERSION_CHECK", "PI_TELEMETRY", "DP_BROWSER_CHANNEL", "DP_CHROMIUM_ONLY")
+# адрес прокси надёжности для judge.py и second_opinion.py; приложение поднимает его на свободном порту
+PROXY = ["--proxy", os.environ["HARNESS_PROXY"]] if os.environ.get("HARNESS_PROXY") else []
 SHIMS = ("claude", "codex", "gemini", "aider", "cursor-agent", "opencode", "qwen", "kimi")
 ENDS_OK = "ЭТАП ГОТОВ"
 TO_OWNER = "ВЛАДЕЛЬЦУ:"
@@ -79,7 +82,10 @@ def init(a):
     if not ws.pipe.exists():
         shutil.copytree(src, ws.pipe, ignore=shutil.ignore_patterns(".git", "__pycache__", "examples"))
         patch = HERE / "pipeline-fixes.patch"
-        if patch.exists():
+        # копия из приложения приходит с уже наложенным патчем (git на Windows может не быть): метка — его sha256
+        mark = ws.pipe / ".pipeline-fixes.sha256"
+        applied = patch.exists() and mark.exists() and mark.read_text().strip() == hashlib.sha256(patch.read_bytes()).hexdigest()
+        if patch.exists() and not applied:
             r = subprocess.run(["git", "apply", "--directory=design-pipeline", str(patch)], cwd=ws.root,
                                capture_output=True, text=True)
             if r.returncode:
@@ -149,7 +155,7 @@ def harness_check(ws):
 def run_judge(ws):
     r = subprocess.run([PY, "-I", str(HERE / "judge.py"), "--page", str(ws.page), "--transcripts", str(ws.h / "tx"),
                         "--pipeline", str(ws.pipe), "--model", CFG["judge"]["model"],
-                        "--max-rounds", str(CFG["judge"]["max_rounds"])],
+                        "--max-rounds", str(CFG["judge"]["max_rounds"]), *PROXY],
                        cwd=ws.root, capture_output=True, text=True, encoding="utf-8")
     ws.ledger(kind="judge", exit=r.returncode, out=r.stdout[-400:])
     return r.returncode, r.stdout.strip()
@@ -163,7 +169,7 @@ def second_opinion(ws, text, model, gate=""):
     sent = [o for o in owner_messages(ws, limit=50)]
     known = "\n".join(f"- «{o.get('text')}»" + (f" + файлы: {', '.join(o['files'])}" if o.get("files") else "") for o in sent)
     r = subprocess.run([PY, "-I", str(ws.h / "second_opinion.py"), str(ws.root), str(mf), "--model", checker,
-                        "--gate", gate, "--known", known[-3000:]],
+                        "--gate", gate, "--known", known[-3000:], *PROXY],
                        capture_output=True, text=True, encoding="utf-8")
     try:
         op = json.loads(r.stdout)

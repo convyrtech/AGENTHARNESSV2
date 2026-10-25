@@ -29,6 +29,9 @@ a = ap.parse_args()
 
 KEY = open(a.key_file).read().strip()
 UP = urllib.parse.urlparse(a.upstream)
+# адрес шлюза может быть с путём (https://host/api/v1): клиенты зовут /v1/…, приставку до /v1 дописываем сами
+PREFIX = UP.path.rstrip("/")
+PREFIX = PREFIX[:-3] if PREFIX.endswith("/v1") else PREFIX
 PROXY = urllib.parse.urlparse(os.environ.get("HTTPS_PROXY") or os.environ.get("https_proxy") or "")
 CTX = ssl.create_default_context(cafile=os.environ.get("SSL_CERT_FILE") or None)
 LOCK = threading.Lock()
@@ -44,6 +47,8 @@ def log(rec):
 
 
 def connect(timeout):
+    if UP.scheme == "http":                             # только локальный шлюз (проверки), без TLS и без прокси
+        return http.client.HTTPConnection(UP.hostname, UP.port or 80, timeout=timeout)
     if PROXY.hostname:
         c = http.client.HTTPSConnection(PROXY.hostname, PROXY.port or 80, context=CTX, timeout=timeout)
         c.set_tunnel(UP.hostname, UP.port or 443)
@@ -73,7 +78,7 @@ class H(http.server.BaseHTTPRequestHandler):
 
     def do_GET(self):                                   # /v1/models и прочее — как есть
         c = connect(60)
-        c.request("GET", self.path, headers={"Authorization": "Bearer " + KEY})
+        c.request("GET", PREFIX + self.path, headers={"Authorization": "Bearer " + KEY})
         r = c.getresponse()
         self._send(r.status, r.read(), r.getheader("Content-Type") or "application/json")
 
@@ -96,7 +101,7 @@ class H(http.server.BaseHTTPRequestHandler):
             rec["attempts"].append(att)
             try:
                 c = connect(a.ttft)
-                c.request("POST", self.path, body=payload, headers={"Authorization": "Bearer " + KEY,
+                c.request("POST", PREFIX + self.path, body=payload, headers={"Authorization": "Bearer " + KEY,
                                                                      "Content-Type": "application/json"})
                 r = c.getresponse()
                 att["status"] = r.status
@@ -254,5 +259,5 @@ class Server(http.server.ThreadingHTTPServer):
 
 if __name__ == "__main__":
     srv = Server(("127.0.0.1", a.port), H)
-    print(f"a6proxy on 127.0.0.1:{a.port} → {a.upstream} (ttft {a.ttft}s, idle {a.idle}s, attempts {a.attempts})", flush=True)
+    print(f"a6proxy on 127.0.0.1:{srv.server_address[1]} → {a.upstream} (ttft {a.ttft}s, idle {a.idle}s, attempts {a.attempts})", flush=True)
     srv.serve_forever()
