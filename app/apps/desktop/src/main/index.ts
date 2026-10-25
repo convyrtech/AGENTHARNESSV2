@@ -1353,7 +1353,7 @@ interface DesktopPrefs {
 }
 
 const WINDOW_MIN_WIDTH = 760;
-const WINDOW_MIN_HEIGHT = 560;
+const WINDOW_MIN_HEIGHT = 480;
 const APP_SCALE_DEFAULT = 100;
 const APP_SCALE_MIN = 80;
 const APP_SCALE_MAX = 150;

@@ -1,41 +1,74 @@
 /**
- * A model turn that failed mid-way: «Связь с моделью оборвалась», «Повторить» (resends the
- * same prompt) and the raw error folded away under «Подробности».
+ * A model turn that failed, said plainly with one thing to do: «Повторить» (resend the same
+ * prompt), «Пополнить» (the PRSLOY cabinet) or «Изменить ключ» (Settings → Аккаунт). The raw
+ * error stays folded away under «Подробности».
  */
 import { useState } from "react";
-import { ChevronRight, CircleAlert, RotateCcw } from "lucide-react";
+import { ChevronRight, CircleAlert, KeyRound, RotateCcw, Wallet } from "lucide-react";
 import { t, type Locale } from "../lib/i18n.ts";
+import {
+  failureAction,
+  failureActionKey,
+  failureHintKey,
+  failureKind,
+  failureTitleKey,
+} from "../lib/model-failure.ts";
+import { useShellStore } from "../store/shell-store.ts";
 import { cn } from "../lib/utils.ts";
+import { PRSLOY_KEY_URL } from "./prsloy/FirstRunGate.tsx";
 
 export function ModelFailureCard(props: {
   locale: Locale;
   detail: string;
+  /** The host's failure category (`message.failed.code`), when the event carried one. */
+  code?: string | undefined;
   /** Resend this turn's prompt; absent when there is none to resend. */
   onRetry?: (() => void) | undefined;
   disabled?: boolean | undefined;
 }) {
   const [open, setOpen] = useState(false);
-  const title = t(props.locale, "system.responseFailed");
+  const kind = failureKind(props.code, props.detail);
+  const action = failureAction(kind);
+  const title = t(props.locale, failureTitleKey(kind));
+  const hintKey = failureHintKey(kind);
   // The gateway's own drop already says «Связь с моделью оборвалась»; nothing more to unfold.
   const detail = props.detail.trim() === title ? "" : props.detail;
+  const run =
+    action === "topUp"
+      ? () => void window.zeno.workspace.openExternal(PRSLOY_KEY_URL).catch(() => undefined)
+      : action === "changeKey"
+        ? () => {
+            const shell = useShellStore.getState();
+            shell.setSettingsSection("account");
+            shell.setView("settings");
+          }
+        : props.onRetry;
+  const Icon = action === "topUp" ? Wallet : action === "changeKey" ? KeyRound : RotateCcw;
   return (
-    <div className="model-failure" data-kind="system" data-testid="model-failure" role="alert">
+    <div
+      className="model-failure"
+      data-kind="system"
+      data-failure={kind}
+      data-testid="model-failure"
+      role="alert"
+    >
       <div className="model-failure-head">
         <CircleAlert className="size-4 shrink-0" strokeWidth={1.75} />
         <span className="model-failure-title">{title}</span>
-        {props.onRetry ? (
+        {run ? (
           <button
             type="button"
             className="model-failure-retry"
-            data-testid="model-failure-retry"
-            disabled={props.disabled}
-            onClick={props.onRetry}
+            data-testid={action === "retry" ? "model-failure-retry" : `model-failure-${action}`}
+            disabled={action === "retry" && props.disabled}
+            onClick={run}
           >
-            <RotateCcw className="size-3.5" strokeWidth={1.75} />
-            {t(props.locale, "system.retry.action")}
+            <Icon className="size-3.5" strokeWidth={1.75} />
+            {t(props.locale, failureActionKey(action))}
           </button>
         ) : null}
       </div>
+      {hintKey ? <p className="model-failure-hint">{t(props.locale, hintKey)}</p> : null}
       {detail ? (
         <>
           <button

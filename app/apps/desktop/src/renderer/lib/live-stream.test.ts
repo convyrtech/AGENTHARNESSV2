@@ -171,6 +171,7 @@ describe("a model failure becomes the failure card", () => {
     const failure = state.items.at(-1);
     expect(failure?.kind).toBe("system");
     expect(failure && isModelFailure(failure as { title?: string; tone?: string })).toBe(true);
+    expect(failure && "code" in failure ? failure.code : undefined).toBe(code);
   });
 });
 

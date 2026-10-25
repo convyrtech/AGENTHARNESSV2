@@ -5895,6 +5895,10 @@ textarea.models-scoped-patterns-input[data-slot="textarea"] {
   border-bottom: none;
   padding: 0.85rem 1rem;
 }
+/* Rows that ask for centring get it: this unlayered rule otherwise beats Tailwind's `items-center`. */
+.settings-row.items-center {
+  align-items: center;
+}
 .settings-row:not(.settings-row-last):not(:last-child)::after {
   content: "";
   position: absolute;
@@ -6779,15 +6783,17 @@ textarea.models-scoped-patterns-input[data-slot="textarea"] {
 /* Empty chat: example tasks that fill the composer. */
 .example-chips {
   display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
+  flex-direction: column;
+  align-items: center;
   gap: 8px;
   margin-top: 24px;
-  max-width: 560px;
+  max-width: 100%;
 }
 .example-chip {
-  height: 34px;
-  padding: 0 14px;
+  max-width: 100%;
+  min-height: 34px;
+  padding: 6px 16px;
+  text-align: center;
   border: 1px solid var(--border);
   border-radius: 9999px;
   background: var(--card);
@@ -6853,6 +6859,16 @@ textarea.models-scoped-patterns-input[data-slot="textarea"] {
   font-size: 12px;
   color: var(--muted-foreground);
   cursor: pointer;
+}
+.model-failure-hint {
+  margin: 4px 0 0 24px;
+  font-size: 13px;
+  color: var(--muted-foreground);
+}
+.model-retry-note {
+  margin: 0 0 12px;
+  font-size: 13px;
+  color: var(--muted-foreground);
 }
 .model-failure-detail {
   margin: 0;

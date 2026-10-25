@@ -306,7 +306,7 @@ test("PRSLOY main screens, light and dark", async () => {
       await shot(page, `${mode}-1-home`);
       await shot(page, `${mode}-empty-chat`);
       // Keyboard focus is visible on the chips (and every other control without its own ring).
-      const chip = page.getByRole("button", { name: "Сделай простой сайт-визитку" });
+      const chip = page.getByRole("button", { name: "Сайт-визитка для моего дела" });
       for (let i = 0; i < 40; i += 1) {
         await page.keyboard.press("Tab");
         if (await chip.evaluate((el) => el === document.activeElement)) break;
@@ -315,8 +315,8 @@ test("PRSLOY main screens, light and dark", async () => {
       expect(await chip.evaluate((el) => getComputedStyle(el).outlineStyle)).not.toBe("none");
       await shot(page, `${mode}-focus`);
       // A chip fills the composer and sends nothing.
-      await page.getByRole("button", { name: "Сделай простой сайт-визитку" }).click();
-      await expect(page.getByTestId("prompt-input")).toHaveValue("Сделай простой сайт-визитку");
+      await page.getByRole("button", { name: "Сайт-визитка для моего дела" }).click();
+      await expect(page.getByTestId("prompt-input")).toHaveValue("Сайт-визитка для моего дела");
       await expect(page.getByTestId("example-chips")).toBeVisible();
 
       await page.getByTestId("prompt-input").fill("Посмотри проект и скажи, что тут");

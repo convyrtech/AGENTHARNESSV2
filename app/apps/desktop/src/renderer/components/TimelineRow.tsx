@@ -803,9 +803,21 @@ export const TimelineRow = memo(function TimelineRow(props: {
       <ModelFailureCard
         locale={props.locale}
         detail={item.text}
+        code={item.code}
         onRetry={props.onRetry}
         disabled={props.editingLocked}
       />
+    );
+  }
+  // pi's automatic retry: one quiet line (the raw reason in its tooltip).
+  if (item.title === "Retry" && item.attempt !== undefined) {
+    return (
+      <p className="model-retry-note" data-testid="model-retry" title={item.text}>
+        {t(props.locale, "system.retrying", {
+          attempt: String(item.attempt),
+          max: String(item.maxAttempts ?? item.attempt),
+        })}
+      </p>
     );
   }
   const extension = item.extension === true;

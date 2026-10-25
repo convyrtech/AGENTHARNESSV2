@@ -47,6 +47,11 @@ export type TimelineItem =
       timestamp?: string;
       /** True when projected from extension custom message/entry (generic fallback). */
       extension?: boolean;
+      /** Failed turn: the host's stable failure category (`message.failed.code`). */
+      code?: string;
+      /** pi's automatic retry: which attempt of how many. */
+      attempt?: number;
+      maxAttempts?: number;
     };
 
 /**
@@ -316,6 +321,7 @@ export function projectEventsToTimeline(
           id: `system-fail-${items.length}`,
           kind: "system",
           text: runtimeEvent.message,
+          ...(runtimeEvent.code ? { code: runtimeEvent.code } : {}),
           title:
             runtimeEvent.reason === "aborted"
               ? "Response stopped"
@@ -337,6 +343,8 @@ export function projectEventsToTimeline(
           kind: "system",
           title: "Retry",
           text: `Retry ${runtimeEvent.attempt}/${runtimeEvent.maxAttempts} in ${runtimeEvent.delayMs}ms — ${runtimeEvent.errorMessage}`,
+          attempt: runtimeEvent.attempt,
+          maxAttempts: runtimeEvent.maxAttempts,
           tone: "info",
           timestamp: now(),
         });
