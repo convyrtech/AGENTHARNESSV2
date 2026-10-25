@@ -76,12 +76,17 @@ export const PROMPT_ADDITIONS: readonly (readonly [string, string])[] = [
   [
     "- Prefer the simplest thing that works:",
     // Стенд a6: `file:///fonts/…`, `file:///assets/index-*.js` — страница не открывается двойным кликом.
-    "- Use relative paths in pages (`./style.css`, `./assets/…`, never `/assets/…`) so the page also works when opened as a file; for Vite set `base: './'`.",
+    "- Use relative paths in pages (`./style.css`, `./assets/…`, never `/assets/…`) so the page also works when opened as a file.",
   ],
   [
     "- Do the work yourself.",
     // Инструменты research/19: ключ — формой, выбор вкуса — кнопками.
     "- For a token or key use the request_secret tool, never ask for it in the chat. For a choice only the user can make use ask_user: one question, 2–4 options, your recommendation.",
+  ],
+  [
+    "The task is done, or you are blocked",
+    // Стенд a6, Opus на «сделай что-нибудь для кофейни»: выдумал меню, цены и адрес и не сказал об этом.
+    "If you chose for the user (what to build, prices, names, texts), say so in one line.",
   ],
 ];
 

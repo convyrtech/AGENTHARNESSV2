@@ -5,7 +5,6 @@ import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 
 const SKIP = new Set(["node_modules", ".git", "__pycache__", ".venv", "venv", "coverage"]);
-const BUILD_DIRS = ["dist", "build", "out"];
 const VITE_CONFIGS = [
   "vite.config.js",
   "vite.config.ts",
@@ -22,8 +21,6 @@ export interface PathIssue {
 
 export interface PagePathReport {
   issues: PathIssue[];
-  /** vite.config.* без `base: './'`. */
-  viteBase?: string;
 }
 
 function walk(dir: string, exts: string[], depth: number, out: string[]): void {
@@ -60,22 +57,19 @@ export function absoluteRefs(text: string, css: boolean): string[] {
   return [...new Set(refs)];
 }
 
-function isVite(cwd: string): string | undefined {
-  return VITE_CONFIGS.find((f) => existsSync(join(cwd, f)));
+function isVite(cwd: string): boolean {
+  return VITE_CONFIGS.some((f) => existsSync(join(cwd, f)));
 }
 
-/** Относительный base: `base: './'`, `base: ''`, `base: "./"`. */
-export function viteBaseRelative(config: string): boolean {
-  const m = /\bbase\s*:\s*(["'`])([^"'`]*)\1/.exec(config);
-  return m !== null && (m[2] === "" || m[2]!.startsWith("."));
-}
+/** Страница со скриптом `type="module"`: файлом её не открыть вовсе (CORS у file://), проверяем только через сервер. */
+export const MODULE_SCRIPT = /<script\b[^>]*\btype\s*=\s*["']?module\b/i;
 
 export function checkPagePaths(cwd: string): PagePathReport {
-  const vite = isVite(cwd);
-  // В исходном index.html Vite `/src/main.js` — норма: сборка его переписывает. Смотрим только собранное.
-  const roots = vite ? BUILD_DIRS.map((d) => join(cwd, d)).filter((d) => existsSync(d)) : [cwd];
+  // Vite и другие сборки с type="module" двойным кликом не открываются при любых путях (решение: проверка
+  // только через сервер, page-check.ts) — здесь их не трогаем.
+  if (isVite(cwd)) return { issues: [] };
   const files: string[] = [];
-  for (const root of roots) walk(root, [".html", ".htm", ".css"], 4, files);
+  walk(cwd, [".html", ".htm", ".css"], 4, files);
   const issues: PathIssue[] = [];
   for (const file of files) {
     let text: string;
@@ -84,31 +78,19 @@ export function checkPagePaths(cwd: string): PagePathReport {
     } catch {
       continue;
     }
+    if (!file.endsWith(".css") && MODULE_SCRIPT.test(text)) continue;
     for (const ref of absoluteRefs(text, file.endsWith(".css")))
       issues.push({ file: relative(cwd, file).replace(/\\/g, "/"), ref });
   }
-  const report: PagePathReport = { issues };
-  if (vite) {
-    let config = "";
-    try {
-      config = readFileSync(join(cwd, vite), "utf8");
-    } catch {
-      // нечитаемый конфиг — не наше дело
-    }
-    if (config && !viteBaseRelative(config)) report.viteBase = vite;
-  }
-  return report;
+  return { issues };
 }
 
 export function pagePathsMessage(report: PagePathReport, attempt: number, max: number): string {
   const lines = report.issues.slice(0, 6).map((i) => `- ${i.file}: ${i.ref}`);
   if (report.issues.length > 6) lines.push(`- … и ещё ${report.issues.length - 6}`);
-  const vite = report.viteBase
-    ? `\nВ ${report.viteBase} нет \`base: './'\` — собранная страница будет искать файлы в корне диска. Поставь \`base: './'\` и пересобери.`
-    : "";
   const last =
     attempt >= max
       ? " Это последняя попытка: если не выйдет — скажи пользователю, что открывать страницу нужно через превью."
       : "";
-  return `Страница не откроется двойным кликом: пути от корня (/…) ведут в корень диска.${lines.length ? `\n${lines.join("\n")}` : ""}${vite}\nСделай пути относительными (./style.css, ./assets/…) и проверь снова.${last}`;
+  return `Страница не откроется двойным кликом: пути от корня (/…) ведут в корень диска.${lines.length ? `\n${lines.join("\n")}` : ""}\nСделай пути относительными (./style.css, ./assets/…) и проверь снова.${last}`;
 }

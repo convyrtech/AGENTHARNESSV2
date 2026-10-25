@@ -3,12 +3,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vite-plus/test";
-import {
-  absoluteRefs,
-  checkPagePaths,
-  pagePathsMessage,
-  viteBaseRelative,
-} from "../src/page-paths.ts";
+import { absoluteRefs, checkPagePaths, pagePathsMessage } from "../src/page-paths.ts";
 
 const root = mkdtempSync(join(tmpdir(), "prsloy-paths-"));
 afterAll(() => rmSync(root, { recursive: true, force: true }));
@@ -51,35 +46,24 @@ describe("page paths", () => {
     expect(checkPagePaths(good)).toEqual({ issues: [] });
   });
 
-  it("Vite: source index.html with /src/main.js is fine; dist and base are checked", () => {
-    const dev = project({
-      "vite.config.js": "export default { base: './' }",
-      "index.html": '<script type="module" src="/src/main.js"></script>',
-    });
-    expect(checkPagePaths(dev)).toEqual({ issues: [] });
-    const built = project({
-      "vite.config.ts": "import { defineConfig } from 'vite'\nexport default defineConfig({})",
+  it("Vite and type=module pages are left to the server check: they never open by double click", () => {
+    const vite = project({
+      "vite.config.ts": "export default {}",
       "index.html": '<script type="module" src="/src/main.ts"></script>',
       "dist/index.html": '<script type="module" crossorigin src="/assets/index-Bx1.js"></script>',
     });
-    expect(checkPagePaths(built)).toEqual({
-      issues: [{ file: "dist/index.html", ref: "/assets/index-Bx1.js" }],
-      viteBase: "vite.config.ts",
+    expect(checkPagePaths(vite)).toEqual({ issues: [] });
+    const module = project({
+      "index.html": '<script type="module" src="/main.js"></script>',
+      "style.css": "body { background: url(/bg.png) }",
     });
-    expect(viteBaseRelative("defineConfig({ base: './', plugins: [] })")).toBe(true);
-    expect(viteBaseRelative('{ base: "" }')).toBe(true);
-    expect(viteBaseRelative("{ base: '/' }")).toBe(false);
-    expect(viteBaseRelative("{}")).toBe(false);
+    expect(checkPagePaths(module).issues).toEqual([{ file: "style.css", ref: "/bg.png" }]);
   });
 
-  it("message: files, Vite base, last attempt", () => {
-    const text = pagePathsMessage(
-      { issues: [{ file: "dist/index.html", ref: "/assets/a.js" }], viteBase: "vite.config.js" },
-      2,
-      2,
-    );
-    expect(text).toContain("- dist/index.html: /assets/a.js");
-    expect(text).toContain("В vite.config.js нет `base: './'`");
+  it("message: files and the last attempt", () => {
+    const text = pagePathsMessage({ issues: [{ file: "index.html", ref: "/style.css" }] }, 2, 2);
+    expect(text).toContain("- index.html: /style.css");
+    expect(text).not.toContain("Vite");
     expect(text).toContain("Это последняя попытка");
   });
 });

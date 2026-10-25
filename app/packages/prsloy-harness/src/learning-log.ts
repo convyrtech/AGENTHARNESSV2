@@ -27,6 +27,7 @@ export type LearningKind =
   | "gate.red"
   | "gate.gaveup"
   | "gate.paths"
+  | "gate.page"
   | "review.pass"
   | "review.fail"
   | "leak"

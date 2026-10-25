@@ -1,3 +1,4 @@
+import type { PageCheckOptions } from "./page-check.ts";
 import { tmpdir } from "node:os";
 import type { FindReadyOptions } from "./find-ready.ts";
 import type { ReliabilityOptions } from "./reliability-proxy.ts";
@@ -41,6 +42,8 @@ export interface HarnessOptions {
   reliability?: ReliabilityOptions;
   /** Тул find_ready: таймаут, кэш, свой fetch (тесты). */
   findReady?: FindReadyOptions;
+  /** Проверка страницы в браузере: Python «Дизайна» (по умолчанию PRSLOY_DESIGN_PYTHON) или Node-Playwright. */
+  pageCheck?: PageCheckOptions;
   /** Стоп-гейт «до зелёного»: таймаут проверки проекта, мс. По умолчанию 120 с (env PRSLOY_STOP_GATE_TIMEOUT_SEC). */
   stopGateTimeoutMs?: number;
   /** Ревью диффа моделью другой семьи: `провайдер/модель` вместо пары (env PRSLOY_REVIEW_MODEL), таймаут. */
@@ -81,7 +84,8 @@ export type PracticeName =
   | "turnChanges"
   | "askUser"
   | "requestSecret"
-  | "pagePaths";
+  | "pagePaths"
+  | "pageCheck";
 
 export interface ResolvedOptions {
   profile: HarnessProfile;
@@ -101,6 +105,7 @@ export interface ResolvedOptions {
   reliabilityProviders: string[];
   reliability: ReliabilityOptions;
   findReady: FindReadyOptions;
+  pageCheck: PageCheckOptions;
   stopGateTimeoutMs: number;
   review: { model?: string; timeoutMs: number };
   settingsPath: string | undefined;
@@ -191,6 +196,7 @@ export function resolveOptions(options: HarnessOptions = {}): ResolvedOptions {
     reliabilityProviders: options.reliabilityProviders ?? envProviders() ?? ["prsloy"],
     reliability: reliabilityOptions(options.reliability),
     findReady: options.findReady ?? {},
+    pageCheck: options.pageCheck ?? {},
     stopGateTimeoutMs:
       options.stopGateTimeoutMs ??
       (Number(process.env.PRSLOY_STOP_GATE_TIMEOUT_SEC) * 1000 || 120_000),
