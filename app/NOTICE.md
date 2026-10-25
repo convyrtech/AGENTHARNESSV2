@@ -89,3 +89,17 @@
   (`crates/goose/src/recipe/mod.rs`, Apache License 2.0, Copyright (c) Block, Inc.). Код не копировался.
 - [yaml](https://github.com/eemeli/yaml) 2.9.0 — зависимость, собирается в main (frontmatter рецептов). ISC License,
   Copyright Eemeli Aro.
+- `packages/session-import/src/adapters/claude-code.ts`, `adapters/codex.ts`, `clean.ts` — перенос чатов Claude Code и
+  Codex по образцу TypeScript-адаптеров [cline/cline](https://github.com/cline/cline)
+  (`sdk/packages/core/src/services/session-import/`, коммит `40c5d99`). Apache License 2.0, Copyright 2026 Cline Bot
+  Inc.; текст лицензии — `licenses/cline-Apache-2.0.txt`. Взяты: восстановление активной ветки по `parentUuid`,
+  пропуск `<synthetic>`-моделей, какие записи Codex — слова человека, а какие — подмешанный контекст, самый полный
+  файл на один id, названия из `session_index.jsonl`. Изменено PRSLOY: чтение потоком (и `.jsonl.zst`), только текст
+  с однострочными заметками об инструментах, выводы инструментов и размышления не переносятся, секреты скрываются,
+  папки субагентов пропускаются, запись в обычный файл сессии Pi со сводкой и сменой модели.
+- `packages/session-import/src/title.ts`, `clean.ts`, `ledger.ts`, правила в `adapters/claude-code.ts` — по правилам
+  импорта [openai/codex](https://github.com/openai/codex) (`codex-rs/external-agent-migration/src/sessions/`, коммит
+  `970111f`). Apache License 2.0; текст лицензии — `licenses/codex-Apache-2.0.txt`. Из `NOTICE` Codex: «OpenAI Codex.
+  Copyright 2025 OpenAI.» Взяты: порядок названий (своё → от агента → первая строка, 120 знаков), список служебных
+  обёрток, пропуск `continued-in`, журнал импорта с sha256, по умолчанию 30 дней и не больше 50 чатов. Изменено PRSLOY:
+  перенесено с Rust на TypeScript, обёртки вырезаются в любом месте текста, журнал — свой JSON в папке данных PRSLOY.

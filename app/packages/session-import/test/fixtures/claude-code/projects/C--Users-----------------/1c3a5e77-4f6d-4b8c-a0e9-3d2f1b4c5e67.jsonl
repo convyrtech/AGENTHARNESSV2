@@ -1,0 +1,4 @@
+{"sessionId":"1c3a5e77-4f6d-4b8c-a0e9-3d2f1b4c5e67","cwd":"C:\\Users\\Пётр\\Проекты\\сайт-пекарни","version":"2.1.0","gitBranch":"main","isSidechain":false,"userType":"external","type":"user","uuid":"d1","parentUuid":null,"timestamp":"2026-10-01T10:00:00.000Z","message":{"role":"user","content":"Почини вёрстку"}}
+{"type":"user","uuid":"broken",
+{"sessionId":"1c3a5e77-4f6d-4b8c-a0e9-3d2f1b4c5e67","cwd":"C:\\Users\\Пётр\\Проекты\\сайт-пекарни","version":"2.1.0","gitBranch":"main","isSidechain":false,"userType":"external","type":"assistant","uuid":"d2","parentUuid":"d1","timestamp":"2026-10-01T10:01:00.000Z","message":{"id":"m1","type":"message","role":"assistant","model":"claude-sonnet-4-5","content":[{"type":"text","text":"Починил."}],"stop_reason":null,"usage":{"input_tokens":10,"output_tokens":5}}}
+{"type":"user","uuid":"d3","parentUuid":"d2","message":{"role":"user","content":"недопи
