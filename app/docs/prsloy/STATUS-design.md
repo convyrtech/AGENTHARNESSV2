@@ -102,8 +102,8 @@ git ищет пути от корня внешнего репо. В прилож
 нужен `GIT_CEILING_DIRECTORIES=<ws>` в этом вызове.
 
 ## Как проверено
-- `pnpm check` — pass. `pnpm test` (desktop) — 120 файлов, 812 тестов, бюджеты ok.
-- **Unit-тесты main** (`src/main/design/*.test.ts`, 36 шт.):
+- `pnpm check` — pass. `pnpm test` (desktop) — 120 файлов, 813 тестов, бюджеты ok.
+- **Unit-тесты main** (`src/main/design/*.test.ts`, 35 шт.):
   - парсер на всём записанном логе настоящего `run.py`;
   - пути и протокол: traversal, `%2e%2e`, symlink наружу;
   - env: секреты не проходят, Windows-регистр, compat из каталога core;
