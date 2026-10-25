@@ -1,6 +1,12 @@
 // Ревью #23 перед включением webTools: враждебные страницы, адреса, ключи. Каждый тест падает без своей правки.
 import { describe, expect, it } from "vite-plus/test";
-import { htmlToText, MAX_HTML_CHARS, pageDate } from "../src/research/fetch.ts";
+import {
+  htmlToText,
+  isTextType,
+  MAX_HTML_CHARS,
+  pageDate,
+  readPage,
+} from "../src/research/fetch.ts";
 
 const fast = (f: () => unknown) => {
   const t0 = performance.now();
@@ -51,5 +57,53 @@ describe("HTML is parsed in one pass (review #23, item 1)", () => {
     expect(htmlToText(`<nav>Меню</nav><main><p>${body}</p></main>`).text).not.toContain("Меню");
     expect(htmlToText(`<nav>Меню</nav><p>Коротко</p><footer>Подвал</footer>`).text).toBe("Коротко");
     expect(htmlToText("a < b и c > d").text).toBe("a < b и c > d");
+  });
+});
+
+describe("the body is streamed up to the cap (review #23, item 2)", () => {
+  it("an endless page is cut at the cap, and the rest is not downloaded", async () => {
+    let pulled = 0;
+    let cancelled = false;
+    const chunk = new TextEncoder().encode(`<p>${"x".repeat(65_530)}</p>`);
+    const endless = new ReadableStream<Uint8Array>({
+      pull(c) {
+        pulled += chunk.byteLength;
+        c.enqueue(chunk);
+      },
+      cancel() {
+        cancelled = true;
+      },
+    });
+    const fetchImpl = (async () =>
+      new Response(endless, { headers: { "content-type": "text/html" } })) as typeof fetch;
+    const page = await readPage("https://example.com/huge", {
+      fetchImpl,
+      maxBytes: 1_000_000,
+      jina: false,
+    });
+    expect(page.text.length).toBeLessThanOrEqual(1_000_000);
+    expect(pulled).toBeLessThan(1_000_000 + 4 * chunk.byteLength);
+    expect(cancelled).toBe(true);
+  }, 5_000);
+
+  it("only text types are read: an allowlist, not a denylist", async () => {
+    expect(isTextType("text/html; charset=utf-8")).toBe(true);
+    expect(isTextType("application/json")).toBe(true);
+    expect(isTextType("application/rss+xml")).toBe(true);
+    expect(isTextType("")).toBe(true);
+    for (const t of [
+      "application/x-msdownload",
+      "application/wasm",
+      "font/woff2",
+      "application/x-7z-compressed",
+    ])
+      expect(isTextType(t), t).toBe(false);
+    const fetchImpl = (async () =>
+      new Response("MZ\u0090\u0000", {
+        headers: { "content-type": "application/x-msdownload" },
+      })) as typeof fetch;
+    await expect(
+      readPage("https://example.com/setup.exe", { fetchImpl, jina: false }),
+    ).rejects.toThrow("не текст");
   });
 });

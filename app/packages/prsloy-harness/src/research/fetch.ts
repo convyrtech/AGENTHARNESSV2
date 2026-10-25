@@ -332,6 +332,46 @@ function textOf(scan: Scan): { title: string; text: string } {
   return { title, text: main.length >= MIN_TEXT ? main : tidy(scan.text) };
 }
 
+/** Сколько тела ответа читаем по умолчанию, байт. */
+export const MAX_BODY_BYTES = 5_000_000;
+/** Тела-тексты: HTML, XML (RSS, Atom), JSON, простой текст. Нет типа — смотрим на сами байты. */
+const TEXT_TYPE = /^(text\/[\w.+-]+|application\/(xhtml\+xml|xml|json|[\w.-]+\+(xml|json)))$/i;
+
+export function isTextType(contentType: string | null): boolean {
+  const t = (contentType ?? "").split(";")[0]!.trim();
+  return t === "" || TEXT_TYPE.test(t);
+}
+
+/** Тело ответа потоком до `max` байт; дальше — обрыв чтения (остальное не скачиваем). */
+export async function readCapped(res: Response, max = MAX_BODY_BYTES): Promise<Uint8Array> {
+  if (!res.body) return new Uint8Array(await res.arrayBuffer()).subarray(0, max);
+  const reader = res.body.getReader();
+  const parts: Uint8Array[] = [];
+  let size = 0;
+  try {
+    while (size < max) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      const room = max - size;
+      parts.push(value.byteLength > room ? value.subarray(0, room) : value);
+      size += Math.min(value.byteLength, room);
+    }
+  } finally {
+    await reader.cancel().catch(() => undefined);
+  }
+  const out = new Uint8Array(size);
+  let at = 0;
+  for (const p of parts) {
+    out.set(p, at);
+    at += p.byteLength;
+  }
+  return out;
+}
+
+async function cappedJson<T>(res: Response, max = MAX_BODY_BYTES): Promise<T> {
+  return JSON.parse(new TextDecoder().decode(await readCapped(res, max))) as T;
+}
+
 async function direct(url: string, deps: ReadDeps): Promise<PageText> {
   let res: Response;
   try {
@@ -349,14 +389,11 @@ async function direct(url: string, deps: ReadDeps): Promise<PageText> {
   }
   if (!res.ok) throw new ReadError(`HTTP ${res.status}`, res.status);
   const type = res.headers.get("content-type") ?? "";
-  if (/pdf|octet-stream|image\/|video\/|audio\/|zip/i.test(type)) {
+  if (!isTextType(type)) {
+    await res.body?.cancel().catch(() => undefined);
     throw new ReadError(`не текст (${type.split(";")[0]})`, res.status);
   }
-  const buf = new Uint8Array(await res.arrayBuffer());
-  const bytes =
-    buf.byteLength > (deps.maxBytes ?? 5_000_000)
-      ? buf.subarray(0, deps.maxBytes ?? 5_000_000)
-      : buf;
+  const bytes = await readCapped(res, deps.maxBytes ?? MAX_BODY_BYTES);
   const raw = decode(bytes, type);
   const isHtml = /html|xml/i.test(type) || /^\s*<(!doctype|html)/i.test(raw);
   const scan = isHtml ? scanHtml(raw) : undefined;
@@ -394,7 +431,9 @@ async function viaGateway(
     signal: AbortSignal.timeout(deps.timeoutMs ?? 30_000),
   });
   if (!res.ok) throw new ReadError(`шлюз: HTTP ${res.status}`, res.status);
-  const data = (await res.json()) as { title?: string; content?: string };
+  const data = await cappedJson<{ title?: string; content?: string }>(res, deps.maxBytes).catch(
+    () => undefined,
+  );
   if (!data?.content) throw new ReadError("шлюз: пустая страница");
   return {
     url,
@@ -412,9 +451,9 @@ async function viaJina(url: string, deps: ReadDeps): Promise<PageText> {
     signal: AbortSignal.timeout(deps.timeoutMs ?? 30_000),
   });
   if (!res.ok) throw new ReadError(`Jina: HTTP ${res.status}`, res.status);
-  const data = (await res.json()) as {
+  const data = await cappedJson<{
     data?: { title?: string; content?: string; publishedTime?: string; url?: string };
-  };
+  }>(res, deps.maxBytes).catch(() => undefined);
   if (!data?.data?.content) throw new ReadError("Jina: пустая страница");
   const date = isoDay(data.data.publishedTime);
   return {
