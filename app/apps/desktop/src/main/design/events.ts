@@ -3,12 +3,18 @@
  * line (see playbooks/site/harness/run.py); anything else (Python warnings, partial
  * lines) is dropped here, and every field is clamped before it crosses into the renderer.
  */
-import type { DesignFile, DesignHarnessEvent, DesignOption } from "@zeno/contracts";
+import type {
+  DesignFile,
+  DesignHarnessEvent,
+  DesignOption,
+  DesignOptionGroup,
+} from "@zeno/contracts";
 
 const MAX_TEXT = 4000;
 const MAX_SHORT = 200;
 const MAX_FILES = 12;
 const MAX_OPTIONS = 8;
+const MAX_GROUPS = 3;
 
 /** Splits a byte stream into complete lines; keeps the tail until its newline arrives. */
 export class LineSplitter {
@@ -34,16 +40,33 @@ function str(value: unknown, max: number): string {
   return typeof value === "string" ? value.slice(0, max) : "";
 }
 
-function options(value: unknown): DesignOption[] {
+function option(item: unknown): DesignOption | undefined {
+  if (!item || typeof item !== "object") return undefined;
+  const rec = item as Record<string, unknown>;
+  const key = str(rec.key, 8).trim();
+  const label = str(rec.label, MAX_SHORT).trim();
+  if (!key || !label) return undefined;
+  return rec.recommended === true ? { key, label, recommended: true } : { key, label };
+}
+
+/**
+ * Answer buttons grouped by question (`[{q, options}]`, at most 3 groups). A flat
+ * `[{key, label}]` list from an older run.py becomes one group without a question.
+ */
+function optionGroups(value: unknown): DesignOptionGroup[] {
   if (!Array.isArray(value)) return [];
-  const out: DesignOption[] = [];
-  for (const item of value) {
-    if (!item || typeof item !== "object") continue;
-    const rec = item as Record<string, unknown>;
-    const key = str(rec.key, 8).trim();
-    const label = str(rec.label, MAX_SHORT).trim();
-    if (key && label) out.push({ key, label });
-    if (out.length >= MAX_OPTIONS) break;
+  const flat = value.some((v) => v && typeof v === "object" && "key" in v);
+  const raw = flat ? [{ q: "", options: value }] : value;
+  const out: DesignOptionGroup[] = [];
+  for (const g of raw) {
+    if (!g || typeof g !== "object") continue;
+    const rec = g as Record<string, unknown>;
+    const opts = (Array.isArray(rec.options) ? rec.options : [])
+      .map(option)
+      .filter((o): o is DesignOption => !!o)
+      .slice(0, MAX_OPTIONS);
+    if (opts.length) out.push({ q: str(rec.q, MAX_SHORT).trim(), options: opts });
+    if (out.length >= MAX_GROUPS) break;
   }
   return out;
 }
@@ -91,7 +114,7 @@ export function parseHarnessLine(
         ev: "owner",
         text: str(rec.text, MAX_TEXT),
         files,
-        options: options(rec.options),
+        options: optionGroups(rec.options),
         ...t,
       };
     }

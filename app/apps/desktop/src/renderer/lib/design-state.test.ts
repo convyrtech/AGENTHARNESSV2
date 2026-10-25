@@ -9,6 +9,8 @@ import {
   foldDesign,
   openQuestion,
   ownerText,
+  answerText,
+  RECOMMEND_ANSWER,
   reduceDesign,
   stepOf,
   tickerLine,
@@ -63,7 +65,7 @@ describe("steps", () => {
 describe("reduceDesign on a recorded run.py log", () => {
   const turns = recordedTurns();
 
-  it("turn 1: progress while running, then a question card without options", () => {
+  it("turn 1: progress while running, then a two-question card", () => {
     let v = EMPTY_DESIGN_VIEW;
     const [user, stage, tool] = turns[0]!;
     v = reduceDesign(v, user!, 1000);
@@ -76,7 +78,14 @@ describe("reduceDesign on a recorded run.py log", () => {
     expect(v.running).toBe(false);
     expect(v.stage).toBeUndefined();
     expect(v.items.map((i) => i.kind)).toEqual(["user", "owner"]);
-    expect(openQuestion(v)?.options).toEqual([]);
+    const q = openQuestion(v)!;
+    expect(q.options.map((g) => g.q)).toEqual([
+      "Для кого страница?",
+      "Что главное на первом экране?",
+    ]);
+    expect(ownerText(q.text, q.files, q.options)).toBe(
+      "Два вопроса, чтобы начать.\nРекомендую 1А 2А. И пришлите, что есть: логотип, скрины, ссылку на сайт.",
+    );
   });
 
   it("turn 2 answers the first card and opens a choice with a picture", () => {
@@ -85,12 +94,14 @@ describe("reduceDesign on a recorded run.py log", () => {
     const first = v.items[1]!;
     expect(first.kind === "owner" && first.answered).toBe(true);
     const q = openQuestion(v)!;
-    expect(q.options.map((o) => o.key)).toEqual(["A", "B", "C"]);
+    expect(q.options[0]!.options.map((o) => o.key)).toEqual(["A", "B", "C"]);
     expect(q.files[0]!.path).toBe("design/landing/00-moods.png");
   });
 
-  it("turn 3 climbs the ladder and ends stuck; nothing is left open", () => {
-    const v = foldDesign(turns.slice(0, 3).flat(), false);
+  it("turn 3 runs out of stages for the turn (continue), turn 4 is stuck", () => {
+    const three = foldDesign(turns.slice(0, 3).flat(), false);
+    expect(three.items.at(-1)?.kind).toBe("paused");
+    const v = foldDesign(turns.slice(0, 4).flat(), false);
     expect(v.items.at(-1)?.kind).toBe("stuck");
     expect(openQuestion(v)).toBeUndefined();
   });
@@ -147,10 +158,39 @@ describe("ownerText", () => {
     const files = [{ path: "design/landing/00-moods.png", url: "u", kind: "image" as const }];
     const text =
       "Собрал три настроения из вашего логотипа: design/landing/00-moods.png\nA. Тёплое утро\nB. Ночь\nРекомендую A. Какое берём?";
-    expect(ownerText(text, files, [{ key: "A", label: "Тёплое утро" }])).toBe(
+    expect(ownerText(text, files, [{ q: "", options: [{ key: "A", label: "Тёплое утро" }] }])).toBe(
       "Собрал три настроения из вашего логотипа.\nРекомендую A. Какое берём?",
     );
     expect(ownerText("Пришлите, что есть: скрины", [], [])).toBe("Пришлите, что есть: скрины");
+  });
+});
+
+describe("answerText", () => {
+  const two = [
+    {
+      q: "Для кого?",
+      options: [
+        { key: "А", label: "Гости" },
+        { key: "Б", label: "Опт" },
+      ],
+    },
+    {
+      q: "Что главное?",
+      options: [
+        { key: "А", label: "Меню" },
+        { key: "Б", label: "Адрес" },
+      ],
+    },
+  ];
+  it("needs a pick per question and joins them as run.py reads them", () => {
+    expect(answerText(two, { 0: "А" })).toBeUndefined();
+    expect(answerText(two, { 0: "А", 1: "Б" })).toBe("1А 2Б");
+    expect(answerText([two[0]!], { 0: "Б" })).toBe("Б. Опт");
+    expect(answerText([], {})).toBeUndefined();
+  });
+
+  it("«как рекомендуешь» is the exact phrase the engine expects", () => {
+    expect(RECOMMEND_ANSWER).toBe("как рекомендуешь");
   });
 });
 

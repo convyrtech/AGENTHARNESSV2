@@ -3,7 +3,10 @@
  * (setup progress, process exit). See playbooks/site/harness/run.py docstring.
  */
 
-export type DesignOption = { key: string; label: string };
+export type DesignOption = { key: string; label: string; recommended?: boolean };
+
+/** One question of an owner message with its answer buttons (`q` may be empty). */
+export type DesignOptionGroup = { q: string; options: DesignOption[] };
 
 /** A file the harness showed the owner, served by the design protocol. */
 export type DesignFile = {
@@ -18,7 +21,7 @@ export type DesignHarnessEvent =
   | { ev: "stage"; gate: string; title: string; model: string; attempt: number; t?: number }
   | { ev: "tool"; name: string; brief: string; t?: number }
   | { ev: "note"; text: string; t?: number }
-  | { ev: "owner"; text: string; files: DesignFile[]; options: DesignOption[]; t?: number }
+  | { ev: "owner"; text: string; files: DesignFile[]; options: DesignOptionGroup[]; t?: number }
   | { ev: "done"; text: string; t?: number }
   | { ev: "stuck"; text: string; t?: number };
 

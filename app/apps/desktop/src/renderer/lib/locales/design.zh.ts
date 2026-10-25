@@ -38,4 +38,6 @@ export const designZh = {
   "design.openFolder": "打开文件夹",
   "design.preview": "页面预览",
   "design.needsKey": "需要 PRSLOY 密钥：请在设置中粘贴。",
+  "design.answer": "回答",
+  "design.recommended": "推荐",
 } as const;

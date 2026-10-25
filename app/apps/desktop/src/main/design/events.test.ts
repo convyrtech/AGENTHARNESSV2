@@ -34,7 +34,7 @@ describe("parseHarnessLine", () => {
       expect(ev, line).toBeDefined();
       kinds.add(ev!.ev);
     }
-    expect([...kinds].sort()).toEqual(["owner", "stage", "stuck", "tool"]);
+    expect([...kinds].sort()).toEqual(["note", "owner", "stage", "stuck", "tool"]);
   });
 
   it("maps owner files through the workspace guard and drops outsiders", () => {
@@ -43,7 +43,9 @@ describe("parseHarnessLine", () => {
         ev: "owner",
         text: "Какое берём?",
         files: ["/ws/design/a.png", "/etc/passwd", "/ws/design/a.png", 7],
-        options: [{ key: "A", label: "Тёплое" }, { key: "", label: "x" }, "bad"],
+        options: [
+          { q: "", options: [{ key: "A", label: "Тёплое" }, { key: "", label: "x" }, "bad"] },
+        ],
       }),
       (p) => (p.startsWith("/ws/") ? { path: p.slice(4), url: "u", kind: fileKind(p) } : undefined),
     );
@@ -51,8 +53,41 @@ describe("parseHarnessLine", () => {
       ev: "owner",
       text: "Какое берём?",
       files: [{ path: "design/a.png", url: "u", kind: "image" }],
-      options: [{ key: "A", label: "Тёплое" }],
+      options: [{ q: "", options: [{ key: "A", label: "Тёплое" }] }],
     });
+  });
+
+  it("reads grouped options and turns an old flat list into one group", () => {
+    const grouped = parseHarnessLine(
+      JSON.stringify({
+        ev: "owner",
+        text: "?",
+        files: [],
+        options: [
+          {
+            q: "Для кого?",
+            options: [{ key: "А", label: "Гости", recommended: true }, { key: "Б" }],
+          },
+          { q: "", options: [] },
+          { q: "2", options: [{ key: "А", label: "x" }] },
+          { q: "3", options: [{ key: "А", label: "x" }] },
+          { q: "4", options: [{ key: "А", label: "x" }] },
+        ],
+      }),
+      noFiles,
+    );
+    expect(grouped?.ev === "owner" && grouped.options).toEqual([
+      { q: "Для кого?", options: [{ key: "А", label: "Гости", recommended: true }] },
+      { q: "2", options: [{ key: "А", label: "x" }] },
+      { q: "3", options: [{ key: "А", label: "x" }] },
+    ]);
+    const flat = parseHarnessLine(
+      '{"ev":"owner","text":"","files":[],"options":[{"key":"A","label":"a"}]}',
+      noFiles,
+    );
+    expect(flat?.ev === "owner" && flat.options).toEqual([
+      { q: "", options: [{ key: "A", label: "a" }] },
+    ]);
   });
 
   it("drops non-events and clamps long fields", () => {

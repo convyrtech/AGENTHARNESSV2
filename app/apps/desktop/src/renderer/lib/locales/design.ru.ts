@@ -40,4 +40,6 @@ export const designRu: Record<keyof typeof designZh, string> = {
   "design.openFolder": "Открыть папку",
   "design.preview": "Превью страницы",
   "design.needsKey": "Нужен ключ PRSLOY: вставьте его в настройках.",
+  "design.answer": "Ответить",
+  "design.recommended": "рекомендую",
 };

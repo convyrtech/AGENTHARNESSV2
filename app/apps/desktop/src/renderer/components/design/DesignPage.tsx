@@ -3,11 +3,17 @@
  * through it. Owner cards carry pictures/videos and choice buttons; one progress line
  * shows the current step; at the end the built page opens in a sandboxed preview.
  */
-import type { DesignFile, DesignSetupProgress, DesignStatus } from "@zeno/contracts";
+import type {
+  DesignFile,
+  DesignOptionGroup,
+  DesignSetupProgress,
+  DesignStatus,
+} from "@zeno/contracts";
 import { FolderOpen, Loader2, Paperclip, RotateCcw, Send, Square, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { unwrapRemoteIpcError } from "../../../shared/ipc-error.ts";
 import {
+  answerText,
   type DesignItem,
   type DesignView,
   EMPTY_DESIGN_VIEW,
@@ -15,6 +21,7 @@ import {
   foldDesign,
   openQuestion,
   ownerText,
+  RECOMMEND_ANSWER,
   reduceDesign,
   stepOf,
 } from "../../lib/design-state.ts";
@@ -140,7 +147,14 @@ export function DesignPage({ locale, projectPath }: Props) {
               running={view.running}
               projectPath={projectPath}
               tr={tr}
-              onAnswer={(text) => void send(text)}
+              onAnswer={(text) => {
+                // files attached before a button answer go with it
+                setPicked([]);
+                void send(
+                  text,
+                  picked.map((p) => p.token),
+                );
+              }}
               onRetry={() => void send("", [], true)}
               onContinue={() => void send("")}
             />
@@ -422,31 +436,7 @@ function StreamItem({
               ))}
             </div>
           ) : null}
-          {open ? (
-            <div className="flex flex-wrap gap-2" data-testid="design-options">
-              {item.options.map((o) => (
-                <Button
-                  key={o.key}
-                  variant="outline"
-                  size="sm"
-                  className="h-auto max-w-full py-1.5 text-left whitespace-normal"
-                  data-testid={`design-option-${o.key}`}
-                  onClick={() => onAnswer(`${o.key}. ${o.label}`)}
-                >
-                  <span className="font-semibold">{o.key}</span>
-                  <span>{o.label}</span>
-                </Button>
-              ))}
-              <Button
-                variant="secondary"
-                size="sm"
-                data-testid="design-recommend"
-                onClick={() => onAnswer(tr("design.recommend"))}
-              >
-                {tr("design.recommend")}
-              </Button>
-            </div>
-          ) : null}
+          {open ? <OwnerChoices groups={item.options} tr={tr} onAnswer={onAnswer} /> : null}
         </article>
       );
     }
@@ -490,6 +480,79 @@ function StreamItem({
     case "done":
       return <DoneCard projectPath={projectPath} tr={tr} />;
   }
+}
+
+/**
+ * Answer buttons, one row per question. One question answers on click; several collect a
+ * pick per row and send them together ("1А 2Б"). «Как рекомендуешь» always closes the card.
+ */
+function OwnerChoices({
+  groups,
+  tr,
+  onAnswer,
+}: {
+  groups: DesignOptionGroup[];
+  tr: Tr;
+  onAnswer: (text: string) => void;
+}) {
+  const [picks, setPicks] = useState<Record<number, string>>({});
+  const multi = groups.length > 1;
+  const answer = answerText(groups, picks);
+  return (
+    <div className="flex flex-col gap-3" data-testid="design-options">
+      {groups.map((g, gi) => (
+        <div key={gi} className="flex flex-col gap-1.5" data-testid={`design-question-${gi + 1}`}>
+          {multi && g.q ? <p className="text-sm text-muted-foreground">{g.q}</p> : null}
+          <div className="flex flex-wrap gap-2">
+            {g.options.map((o) => {
+              const picked = picks[gi] === o.key;
+              return (
+                <Button
+                  key={o.key}
+                  variant={picked ? "default" : "outline"}
+                  size="sm"
+                  aria-pressed={multi ? picked : undefined}
+                  className="h-auto max-w-full py-1.5 text-left whitespace-normal"
+                  data-testid={`design-option-${o.key}`}
+                  onClick={() => {
+                    const next = { ...picks, [gi]: o.key };
+                    if (!multi) onAnswer(answerText(groups, next) ?? o.key);
+                    else setPicks(next);
+                  }}
+                >
+                  <span className="font-semibold">{o.key}</span>
+                  <span>{o.label}</span>
+                  {o.recommended ? (
+                    <span className="text-xs opacity-60">{tr("design.recommended")}</span>
+                  ) : null}
+                </Button>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+      <div className="flex flex-wrap gap-2">
+        {multi ? (
+          <Button
+            size="sm"
+            disabled={!answer}
+            data-testid="design-answer"
+            onClick={() => answer && onAnswer(answer)}
+          >
+            {tr("design.answer")}
+          </Button>
+        ) : null}
+        <Button
+          variant="secondary"
+          size="sm"
+          data-testid="design-recommend"
+          onClick={() => onAnswer(RECOMMEND_ANSWER)}
+        >
+          {tr("design.recommend")}
+        </Button>
+      </div>
+    </div>
+  );
 }
 
 function DoneCard({ projectPath, tr }: { projectPath: string | undefined; tr: Tr }) {

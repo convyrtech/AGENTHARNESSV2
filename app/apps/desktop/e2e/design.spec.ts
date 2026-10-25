@@ -140,21 +140,31 @@ test("owner leads a landing page from request to preview", async () => {
     await expect(page.getByTestId("design-empty")).toBeVisible();
     await shot(page, "empty");
 
-    // turn 1: a question without options
+    // turn 1: two questions, one button row each
     await say(page, "сделай лендинг для кофейни «Зерно»");
     await expect(page.getByTestId("design-user")).toHaveCount(1);
-    await expect(page.getByTestId("design-owner")).toHaveCount(1);
-    await expect(page.getByTestId("design-options")).toBeVisible();
-    await expect(page.getByTestId("design-recommend")).toBeVisible();
+    const first = page.getByTestId("design-owner").first();
+    await expect(first.getByTestId("design-question-1")).toContainText("Для кого страница?");
+    await expect(first.getByTestId("design-question-2")).toContainText("Что главное");
+    await expect(first).not.toContainText("1. Для кого");
+    const answer = first.getByTestId("design-answer");
+    await expect(answer).toBeDisabled();
+    await first.getByTestId("design-question-1").getByTestId("design-option-А").click();
+    await first.getByTestId("design-question-2").getByTestId("design-option-А").click();
+    await expect(answer).toBeEnabled();
+    await shot(page, "questions");
 
-    // turn 2: materials attached, a choice with a picture
+    // turn 2: the logo goes with the button answer; a choice with a picture comes back
     await page.getByTestId("design-attach").click();
     await expect(page.getByTestId("design-attachments")).toContainText("logo.png");
-    await say(page, "вот логотип");
+    await answer.click();
+    await expect(page.getByTestId("design-user").nth(1)).toContainText("1А 2А");
+    await expect(page.getByTestId("design-user").nth(1)).toContainText("logo.png");
     await expect(page.getByTestId("design-owner")).toHaveCount(2);
     const card = page.getByTestId("design-owner").last();
     await expect(card.getByTestId("design-option-A")).toBeVisible();
     await expect(card.getByTestId("design-option-C")).toBeVisible();
+    await expect(card.getByTestId("design-answer")).toHaveCount(0);
     const img = card.getByTestId("design-image");
     await expect(img).toBeVisible();
     await expect
@@ -162,18 +172,21 @@ test("owner leads a landing page from request to preview", async () => {
       .toBe(480);
     expect(await img.getAttribute("src")).toMatch(/^prsloy-design:\/\/ws\/[0-9a-f]{16}\//);
     await expect(card).not.toContainText("00-moods.png");
-    await expect(
-      page.getByTestId("design-owner").first().getByTestId("design-options"),
-    ).toHaveCount(0);
+    await expect(first.getByTestId("design-options")).toHaveCount(0);
     await shot(page, "choice");
 
-    // turn 3: progress line while the harness climbs the model ladder, then stuck
+    // turn 3: progress line while the harness works; the turn's stage budget runs out
     await card.getByTestId("design-recommend").click();
+    await expect(page.getByTestId("design-user").nth(2)).toHaveText("как рекомендуешь");
     await expect(page.getByTestId("design-progress")).toBeVisible();
     await expect(page.getByTestId("design-progress-step")).toContainText("1");
     await expect(page.getByTestId("design-ticker")).toHaveText(/\w/);
     await expect(page.getByTestId("design-stop")).toBeVisible();
     await shot(page, "progress", 0);
+    await expect(page.getByTestId("design-paused")).toBeVisible({ timeout: 30_000 });
+
+    // turn 4: continue → every rung of the ladder failed → stuck
+    await page.getByTestId("design-continue").click();
     await expect(page.getByTestId("design-stuck")).toBeVisible({ timeout: 30_000 });
     await expect(page.getByTestId("design-progress")).toHaveCount(0);
     await shot(page, "stuck");
