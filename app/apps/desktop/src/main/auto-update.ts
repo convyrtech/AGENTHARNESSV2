@@ -431,8 +431,8 @@ export function createAutoUpdateController(options: {
       });
       return;
     }
-    // isSilent=false, isForceRunAfter=true
-    instance.quitAndInstall(false, true);
+    // silent: the assisted NSIS wizard (English «Choose Installation Options») stalled the update after quit (ci update e2e)
+    instance.quitAndInstall(true, true);
   }
 
   if (isPackaged && !disabled) {

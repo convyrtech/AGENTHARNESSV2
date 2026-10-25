@@ -129,7 +129,7 @@ describe("createAutoUpdateController", () => {
 
     controller.quitAndInstall();
     expect(controller.getStatus().state).toBe("installing");
-    expect(quitAndInstall).toHaveBeenCalledWith(false, true);
+    expect(quitAndInstall).toHaveBeenCalledWith(true, true);
     // Second click while installing is a no-op.
     controller.quitAndInstall();
     expect(quitAndInstall).toHaveBeenCalledTimes(1);
