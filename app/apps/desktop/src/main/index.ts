@@ -5023,9 +5023,13 @@ void app
 
     await createWindow();
     logStartupTiming("window");
-    // After the window: first-launch unpack of Node/Python, pi CLI copy out of asar.
-    void runtimeBoot.startBackground().then(() => logStartupTiming("runtimes"));
-    setTimeout(() => void ensurePiCliExtracted(), 0);
+    // After the window: first-launch unpack of Node/Python, then the pi CLI copy out of asar
+    // (a synchronous copy; doing it first held the key screen back by seconds).
+    void runtimeBoot
+      .startBackground()
+      .then(() => logStartupTiming("runtimes"))
+      .then(() => ensurePiCliExtracted())
+      .then(() => logStartupTiming("piCli"));
     const bootPetPrefs = loadDesktopPrefs().pet ?? PET_PREFS_FALLBACK;
     if (bootPetPrefs.enabled && bootPetPrefs.visible) void createPetWindow();
 

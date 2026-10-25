@@ -5,7 +5,9 @@
  *   - Windows (CI windows-latest): always; Linux/macOS only with PRSLOY_SMOKE=1
  *   - report-only by default; PRSLOY_SMOKE_STRICT=1 makes failures fail the build
  *
- * Measures (ms from launch): window, bootstrap ready, key saved, host ready, first agent
+ * Measures (ms from launch): window, stateRead (first PRSLOY IPC answered — the key
+ * screen's data), key saved (right after the window while runtimes unpack; with the test
+ * bypass it also waits for a host restart), bootstrap ready, host ready, first agent
  * turn with a bash call done (waits for the background runtime unpack), bundled Git ready;
  * then a second launch of the same profile (window, host ready). `mainTimings` are the
  * main process's own `[prsloy-timing]` lines (ms since process start). Checks: the bash
@@ -238,6 +240,20 @@ export async function runPackagedSmoke() {
     app.process().stderr?.on("data", (b) => output.push(String(b)));
     const page = await app.firstWindow({ timeout: 180_000 });
     mark("window");
+    // Window first: the key screen must work while runtimes still unpack in the background.
+    await page.waitForFunction(() => Boolean(window.zeno?.prsloy), undefined, {
+      timeout: 60_000,
+    });
+    const setupAtKey = await page.evaluate(() => window.zeno.prsloy.getState());
+    // Main answers the key screen during the unpack (what the first-run screen needs).
+    mark("stateRead");
+    const setKey = await page.evaluate(
+      ([k, url]) => window.zeno.prsloy.setKey(k, url),
+      [key, gateway.baseUrl],
+    );
+    report.checks.keyAccepted = Boolean(setKey?.ok);
+    mark("keySaved");
+    report.appSetupAtKey = setupAtKey?.appSetup ?? null;
     await page.waitForSelector('[data-testid="zeno-app"]', { timeout: 180_000 });
     await page.evaluate(() =>
       localStorage.setItem(
@@ -250,13 +266,6 @@ export async function runPackagedSmoke() {
       timeout: 300_000,
     });
     mark("bootstrapReady");
-
-    const setKey = await page.evaluate(
-      ([k, url]) => window.zeno.prsloy.setKey(k, url),
-      [key, gateway.baseUrl],
-    );
-    report.checks.keyAccepted = Boolean(setKey?.ok);
-    mark("keySaved");
 
     // Bundled Git unpacks in the background; record when it is ready.
     const gitWatch = (async () => {

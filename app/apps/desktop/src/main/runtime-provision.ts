@@ -532,8 +532,12 @@ function runAsync(command: string, args: string[], timeoutMs: number): Promise<v
     });
   }
   return new Promise((resolve, reject) => {
-    const child = spawn(command, args, { stdio: "ignore", windowsHide: true });
+    const child = spawn(command, args, { stdio: ["ignore", "ignore", "pipe"], windowsHide: true });
     activeChildren.add(child);
+    let stderr = "";
+    child.stderr?.on("data", (chunk: Buffer) => {
+      stderr = (stderr + String(chunk)).slice(-800);
+    });
     child.once("close", () => activeChildren.delete(child));
     const timer = setTimeout(() => {
       child.kill();
@@ -546,7 +550,10 @@ function runAsync(command: string, args: string[], timeoutMs: number): Promise<v
     child.once("exit", (code) => {
       clearTimeout(timer);
       if (code === 0) resolve();
-      else reject(new Error(`${command} ${args[0] ?? ""} exited with ${code}`));
+      else {
+        const detail = stderr.trim() ? `: ${stderr.trim()}` : "";
+        reject(new Error(`${command} ${args.slice(0, 2).join(" ")} exited with ${code}${detail}`));
+      }
     });
   });
 }
