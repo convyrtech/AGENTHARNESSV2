@@ -97,10 +97,12 @@ export interface Rule {
   /** command-max: команда bash по `pattern` не больше `max` раз за сессию. */
   /** write-forbid: в записанном (write/edit) файле по `path` нет `pattern`. */
   /** command-forbid: команда bash по `pattern` запрещена. */
-  type: "command-max" | "write-forbid" | "command-forbid";
+  /** write-requires-read: запись в `path` с `pattern` — только после вызова, аргументы которого по `requires`. */
+  type: "command-max" | "write-forbid" | "command-forbid" | "write-requires-read";
   pattern: string;
   path?: string;
   max?: number;
+  requires?: string;
 }
 
 export interface DetectContext {
@@ -940,6 +942,34 @@ export function detectRules(s: Session, ctx: DetectContext): Finding[] {
           }),
         );
       }
+    } else if (rule.type === "write-requires-read") {
+      const pathRe = rule.path ? new RegExp(rule.path, "iu") : undefined;
+      const need = new RegExp(rule.requires ?? "$^", "iu");
+      const cs = calls(s);
+      const bad = cs.find(
+        (c, i) =>
+          isWrite(c) &&
+          (!pathRe || pathRe.test(pathArg(c) ?? "")) &&
+          re.test(writtenText(c)) &&
+          !cs.slice(0, i).some((p) => need.test(p.argsText ?? "")),
+      );
+      if (bad) {
+        const body = writtenText(bad);
+        const m = re.exec(body)!;
+        out.push(
+          finding(s, {
+            class: klass,
+            sig,
+            fault: "agent",
+            by: "code:D11",
+            turn: bad.turn,
+            evidence: [
+              { step: bad.id, role: bad.role, quote: quoteAt(body, m.index, m[0].length) },
+              { absent: `${rule.title}: до записи не было обращения к ${rule.requires}` },
+            ],
+          }),
+        );
+      }
     } else if (rule.type === "write-forbid") {
       const pathRe = rule.path ? new RegExp(rule.path, "iu") : undefined;
       for (const c of calls(s).filter(isWrite)) {
@@ -1272,4 +1302,112 @@ export function auditReport(
     lines.push(`…и ещё ${ranked.length - room} видов, все в findings.jsonl.`);
   lines.push("", "Что решили — дирижёр, после просмотра находок.");
   return `${lines.slice(0, 15).join("\n")}\n`;
+}
+
+// --- приёмка: сводка без текста и сверка с инцидентами DIARY (research/23 §5.4) ---
+
+export interface Incident {
+  n: number;
+  title: string;
+  /** Папка корпуса (/home/user/<dir>), несколько — через «|». */
+  dir: string;
+  diary: string;
+  kind: "code" | "code+judge";
+  expect: { by: string; sig?: string }[];
+}
+
+const inDir = (f: Finding, dir: string) =>
+  dir.split("|").some((d) => new RegExp(`(?:^|[\\\\/])${escapeRe(d)}(?:[\\\\/]|$)`).test(f.file));
+
+/** Находки, которыми пойман инцидент: та же папка корпуса и ожидаемый детектор (и подпись, если указана). */
+export function incidentHits(incident: Incident, findings: readonly Finding[]): Finding[] {
+  return findings.filter(
+    (f) =>
+      inDir(f, incident.dir) &&
+      incident.expect.some((e) => f.by === e.by && (!e.sig || f.sig === e.sig)),
+  );
+}
+
+const stepsOf = (f: Finding) =>
+  f.evidence.flatMap((e) => ("step" in e ? [e.step] : [])).join(",") || "—";
+
+/** SUMMARY.md: детектор × находки и сверка с инцидентами. Ни цитат, ни путей — только id сессий и шагов. */
+export function acceptanceSummary(
+  sessions: readonly Session[],
+  findings: readonly Finding[],
+  incidents: readonly Incident[],
+  seconds: number,
+): string {
+  const lines: string[] = [];
+  const steps = sessions.reduce((n, s) => n + s.steps.length, 0);
+  const design = sessions.filter((s) => s.surface === "design").length;
+  lines.push(
+    "# Разборщик A-0: приёмка",
+    "",
+    `Сессий ${sessions.length} (код ${sessions.length - design}, дизайн ${design}), шагов ${steps}, находок ${findings.length}, ${seconds.toFixed(1)} с, 0 токенов.`,
+    "",
+    "## Детектор × находки",
+    "",
+    "| Детектор | Находок | Сессий | Подписи |",
+    "|---|---|---|---|",
+  );
+  const byDet = new Map<string, Finding[]>();
+  for (const f of findings) byDet.set(f.by, [...(byDet.get(f.by) ?? []), f]);
+  const order = (x: string) => Number(x.replace(/\D/g, ""));
+  for (const [by, list] of [...byDet.entries()].sort((a, b) => order(a[0]) - order(b[0]))) {
+    const sigs = new Map<string, number>();
+    for (const f of list) sigs.set(f.sig, (sigs.get(f.sig) ?? 0) + 1);
+    const sigText = [...sigs.entries()].map(([s, n]) => `${s} ${n}`).join(", ");
+    lines.push(
+      `| ${by.replace("code:", "")} | ${list.length} | ${new Set(list.map((f) => f.session)).size} | ${sigText} |`,
+    );
+  }
+  const code = incidents.filter((i) => i.kind === "code");
+  const caught = code.filter((i) => incidentHits(i, findings).length > 0).length;
+  lines.push(
+    "",
+    `## Инциденты DIARY (§5.4): кодом поймано ${caught} из ${code.length} (приёмка ≥ 15)`,
+    "",
+    "| # | Вид | Папка | DIARY | Ждём | Пойман | Где (сессия: шаги) |",
+    "|---|---|---|---|---|---|---|",
+  );
+  for (const i of incidents) {
+    const hits = incidentHits(i, findings);
+    const where = hits
+      .slice(0, 3)
+      .map((f) => `${f.session.slice(0, 13)}: ${stepsOf(f)}`)
+      .join("; ");
+    const more = hits.length > 3 ? ` (+${hits.length - 3})` : "";
+    const expect = i.expect
+      .map((e) => `${e.by.replace("code:", "")}${e.sig ? ` ${e.sig}` : ""}`)
+      .join(" / ");
+    lines.push(
+      `| ${i.n} | ${i.kind} | ${i.dir} | ${i.diary} | ${expect} | ${hits.length ? "да" : "**нет**"} | ${where}${more} |`,
+    );
+  }
+  lines.push(
+    "",
+    "Пойман = в сессиях этой папки есть находка ожидаемого детектора. Тот ли это шаг — смотреть в REVIEW.md (там цитаты, в git не класть).",
+  );
+  return `${lines.join("\n")}\n`;
+}
+
+/** REVIEW.md для ручного просмотра ложных: по строке на находку, с цитатами. Только локально, не в git. */
+export function reviewSheet(findings: readonly (Finding & { id?: string })[]): string {
+  const lines = [
+    "# Находки для просмотра (цитаты — не в git)",
+    "",
+    "| id | Детектор | Подпись | Сессия | Шаги | Цитата / отсутствие | Верно? |",
+    "|---|---|---|---|---|---|---|",
+  ];
+  const cell = (x: string) => x.replace(/\|/g, "\\|").replace(/\s+/g, " ").slice(0, 160);
+  for (const f of findings) {
+    const ev = f.evidence
+      .map((e) => ("quote" in e ? `«${e.quote}»` : `нет: ${e.absent}`))
+      .join(" · ");
+    lines.push(
+      `| ${f.id ?? ""} | ${f.by.replace("code:", "")} | ${f.sig} | ${f.session.slice(0, 13)} | ${stepsOf(f)} | ${cell(ev)} | |`,
+    );
+  }
+  return `${lines.join("\n")}\n`;
 }

@@ -11,6 +11,16 @@
       "max": 3
     },
     {
+      "id": "refs-from-index",
+      "title": "референсы только из skillry-index.json, не из памяти",
+      "surface": "design",
+      "class": "K6",
+      "type": "write-requires-read",
+      "path": "03-references\\.md$",
+      "pattern": "https?://\\S+",
+      "requires": "skillry-index"
+    },
+    {
       "id": "materials-raster",
       "title": "скриншот из материалов владельца вставлен в страницу вместо своей вёрстки",
       "surface": "design",

@@ -357,11 +357,11 @@ export function findJsonl(root: string): string[] {
   return out.sort();
 }
 
-/** turns.jsonl в папке сессии или выше (до 3 уровней) — значит, это прогон «Дизайна» дирижёра. */
-function ownerTurnsFor(file: string): string | undefined {
+/** Ближайший файл с таким именем в папке сессии или выше (до 3 уровней). */
+function nearby(file: string, name: string): string | undefined {
   let dir = dirname(file);
   for (let i = 0; i < 4; i++) {
-    const p = join(dir, "turns.jsonl");
+    const p = join(dir, name);
     if (existsSync(p)) return p;
     const up = dirname(dir);
     if (up === dir) break;
@@ -369,6 +369,14 @@ function ownerTurnsFor(file: string): string | undefined {
   }
   return undefined;
 }
+
+/** Признаки прогона «Дизайна» дирижёра рядом с сессией: реплики, журнал шагов, сообщения владельца. */
+const DESIGN_MARKERS = [
+  "turns.jsonl",
+  "ledger.jsonl",
+  join("owner", "messages.jsonl"),
+  "STATUS.md",
+];
 
 /** Имя задачи из пути: ближайшая папка, которая не служебная. */
 function taskFromPath(file: string): string | undefined {
@@ -394,8 +402,9 @@ export function loadSessions(root: string, options: LoadOptions = {}): Session[]
     if (/(?:^|[\\/])(?:turns|events|ledger|messages|owner-messages)\.jsonl$/.test(file)) continue;
     const entries = readJsonl(file);
     if (!isPiSession(entries)) continue;
-    const turnsFile = ownerTurnsFor(file);
-    const surface = options.surface ?? (turnsFile ? "design" : "code");
+    const turnsFile = nearby(file, "turns.jsonl");
+    const surface =
+      options.surface ?? (DESIGN_MARKERS.some((m) => nearby(file, m)) ? "design" : "code");
     const task = taskFromPath(file);
     const session = normalizePi(entries, { file, surface, ...(task ? { task } : {}) });
     if (turnsFile && surface === "design") {
@@ -406,5 +415,56 @@ export function loadSessions(root: string, options: LoadOptions = {}): Session[]
     }
     out.push(session);
   }
+  applyBench(root, out);
+  return out;
+}
+
+interface BenchFile {
+  meta?: { model?: string };
+  results?: { id?: string; task?: string; ok?: boolean | null }[];
+}
+
+/** bench-*.json рядом с `sessions/<задача>/`: исход check.mjs по задаче → benchOk (для D2). */
+export function applyBench(root: string, sessions: Session[]): void {
+  let files: string[] = [];
+  try {
+    files = findFiles(root, /^bench-.*\.json$/);
+  } catch {
+    return;
+  }
+  for (const file of files) {
+    let data: BenchFile;
+    try {
+      data = JSON.parse(readFileSync(file, "utf8")) as BenchFile;
+    } catch {
+      continue;
+    }
+    const dir = dirname(file);
+    for (const r of data.results ?? []) {
+      const task = r.id ?? r.task;
+      if (!task || typeof r.ok !== "boolean") continue;
+      const prefix = join(dir, "sessions", task);
+      for (const s of sessions) {
+        if (!s.file.startsWith(prefix)) continue;
+        s.benchOk = r.ok;
+        s.task = task;
+        if (!s.model && data.meta?.model) s.model = data.meta.model;
+      }
+    }
+  }
+}
+
+function findFiles(root: string, name: RegExp): string[] {
+  const out: string[] = [];
+  const walk = (dir: string) => {
+    for (const n of readdirSync(dir)) {
+      if (n === "node_modules" || n === ".git") continue;
+      const p = join(dir, n);
+      const st = statSync(p);
+      if (st.isDirectory()) walk(p);
+      else if (name.test(n)) out.push(p);
+    }
+  };
+  if (statSync(root).isDirectory()) walk(root);
   return out;
 }

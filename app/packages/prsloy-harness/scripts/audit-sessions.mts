@@ -5,16 +5,24 @@
 //   … --rules audit/rules.json                         правила D11 (по умолчанию — рядом с пакетом)
 //   … --out audit-out                                  findings.jsonl (с цитатами — не в git!),
 //                                                       audit-events.jsonl (без текста), REPORT-audit.md
+//   … --incidents audit/incidents.json                 сверка с инцидентами DIARY → SUMMARY.md (без текста)
 //   … --dry-run                                        то же самое: модели в A-0 нет вообще; флаг для единообразия
+// turns.jsonl, ledger.jsonl, owner/messages.jsonl и bench-*.json скрипт находит сам рядом с сессиями.
+// Выходы: SUMMARY.md (детектор × находки, инциденты; без цитат), REVIEW.md и findings.jsonl (с цитатами —
+// только локально), audit-events.jsonl (без текста), REPORT-audit.md (≤15 строк для владельца).
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
+import incidentsFile from "../audit/incidents.json" with { type: "json" };
 import rulesFile from "../audit/rules.json" with { type: "json" };
 import {
+  acceptanceSummary,
   auditReport,
   auditSessions,
+  reviewSheet,
   toAuditEvent,
   type Finding,
+  type Incident,
   type Rule,
 } from "../src/audit/detectors.ts";
 import { loadSessions, type Session, type Surface } from "../src/audit/ir.ts";
@@ -24,6 +32,7 @@ const { values } = parseArgs({
     sessions: { type: "string", multiple: true, default: [] },
     bench: { type: "string", multiple: true, default: [] },
     rules: { type: "string" },
+    incidents: { type: "string" },
     surface: { type: "string" },
     out: { type: "string", default: "audit-out" },
     "dry-run": { type: "boolean", default: false },
@@ -89,6 +98,15 @@ const report = auditReport(
   seconds,
 );
 writeFileSync(join(values.out, "REPORT-audit.md"), report);
+const incidents = (
+  values.incidents
+    ? (JSON.parse(readFileSync(values.incidents, "utf8")) as typeof incidentsFile)
+    : incidentsFile
+).incidents as Incident[];
+const summary = acceptanceSummary(sessions, findings, incidents, seconds);
+writeFileSync(join(values.out, "SUMMARY.md"), summary);
+writeFileSync(join(values.out, "REVIEW.md"), reviewSheet(findings));
+console.log(summary);
 console.log(report);
 console.log(
   `${sessions.length} сессий, ${sessions.reduce((n, s) => n + s.steps.length, 0)} шагов, ${findings.length} находок за ${seconds.toFixed(1)} с → ${values.out}/`,

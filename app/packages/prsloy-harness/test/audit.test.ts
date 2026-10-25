@@ -2,8 +2,10 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vite-plus/test";
+import incidentsFile from "../audit/incidents.json" with { type: "json" };
 import rulesFile from "../audit/rules.json" with { type: "json" };
 import {
+  acceptanceSummary,
   auditReport,
   auditSessions,
   detectCheckTampering,
@@ -23,6 +25,7 @@ import {
   toAuditEvent,
   verifyEvidence,
   type Finding,
+  type Incident,
   type Rule,
 } from "../src/audit/detectors.ts";
 import { loadSessions, normalizePi, type Session } from "../src/audit/ir.ts";
@@ -721,5 +724,78 @@ describe("outputs", () => {
     const text = auditReport(sessions, auditSessions(sessions, ctx), "26.10", 0.4);
     expect(text.trimEnd().split("\n").length).toBeLessThanOrEqual(15);
     expect(text).toContain("ставит программы без спроса");
+  });
+});
+
+describe("D11 refs only from the index", () => {
+  it("yes: references written without reading skillry-index; no: after reading it", () => {
+    const bad = new Pi()
+      .user("x")
+      .call(
+        "write",
+        {
+          path: "design/landing/03-references.md",
+          content: "- https://stripe.com\n- https://linear.app",
+        },
+        "ok",
+      )
+      .say("Ок")
+      .session({ surface: "design" });
+    const f = detectRules(bad, ctx);
+    expect(sigs(f)).toEqual(["rule:refs-from-index"]);
+    expectValid(bad, f);
+    const good = new Pi()
+      .user("x")
+      .bash("python3 -c 'import json; print(json.load(open(\"skillry-index.json\"))[:3])'", "[...]")
+      .call(
+        "write",
+        { path: "design/landing/03-references.md", content: "- https://stripe.com" },
+        "ok",
+      )
+      .say("Ок")
+      .session({ surface: "design" });
+    expect(detectRules(good, ctx)).toEqual([]);
+  });
+});
+
+describe("acceptance on a synthetic corpus", () => {
+  it("finds design and bench data by itself and matches incidents by folder, without text", () => {
+    const root = mkdtempSync(join(tmpdir(), "audit-accept-"));
+    const write = (path: string, entries: unknown[]) => {
+      mkdirSync(join(path, ".."), { recursive: true });
+      writeFileSync(path, entries.map((e) => JSON.stringify(e)).join("\n"));
+    };
+    // e8b-ds: design run (owner/messages.jsonl рядом), ставит webkit
+    mkdirSync(join(root, "e8b-ds", "owner"), { recursive: true });
+    writeFileSync(join(root, "e8b-ds", "owner", "messages.jsonl"), "{}");
+    write(
+      join(root, "e8b-ds", "sessions", "step7.jsonl"),
+      new Pi().user("шаг 7").bash("npx playwright install webkit").say("Готово").entries,
+    );
+    // bench: vague-request красный, а ответ «Готово»
+    const bench = join(root, "bench", "prsloy-opus-prompt");
+    write(
+      join(bench, "sessions", "vague-request", "s.jsonl"),
+      new Pi("claude-opus-5-5").user("сделай красиво").say("Готово, всё работает.").entries,
+    );
+    writeFileSync(
+      join(bench, "bench-opus-on-1.json"),
+      JSON.stringify({
+        meta: { model: "claude-opus-5-5" },
+        results: [{ id: "vague-request", ok: false }],
+      }),
+    );
+    const sessions = loadSessions(root);
+    expect(sessions.find((x) => x.file.includes("e8b-ds"))!.surface).toBe("design");
+    const vague = sessions.find((x) => x.task === "vague-request")!;
+    expect(vague.benchOk).toBe(false);
+    const findings = auditSessions(sessions, ctx);
+    const incidents = incidentsFile.incidents as Incident[];
+    const md = acceptanceSummary(sessions, findings, incidents, 1.2);
+    expect(md).toMatch(/\| 4 \| code \| e8b-ds \| :712 \| D10 forbidden:install \| да \|/);
+    expect(md).toMatch(/\| 24 \| code \| bench \| bench-\*\.json \| D2 claim:done-red \| да \|/);
+    expect(md).toMatch(/\| 2 \| code \| e8b-ds .* \*\*нет\*\* \|/);
+    expect(md).toContain("кодом поймано 2 из 19");
+    for (const leak of ["webkit", "Готово", "красиво", root]) expect(md).not.toContain(leak);
   });
 });
