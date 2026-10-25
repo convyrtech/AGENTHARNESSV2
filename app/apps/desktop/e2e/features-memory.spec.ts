@@ -5,8 +5,8 @@ import { closeLaunched, launchRu, shot } from "./features-helpers.ts";
 
 /**
  * «Память» (research/18 §6.7, S5 UI): the harness's real `memory` tool (memory on via
- * PRSLOY_MEMORY=1) shows «Запомнил: …» in the chat, the first one with how memory works;
- * «Изменить» asks in the composer. Memory is on by default; Settings → «Память» turns it off and lists the memory through core's
+ * PRSLOY_MEMORY=1) shows «Запомнил: …» in the chat; «Изменить» asks in the composer.
+ * Settings → «Память» writes the harness flag and lists the memory through core's
  * `prsloy:memory-*` (window.zeno.memory): «Забыть» moves the entry to «Забытое».
  */
 const QUOTE = "отвечай коротко, без умных слов";
@@ -33,9 +33,6 @@ test("a memory card in the chat and the «Память» settings", async () => 
     const card = page.getByTestId("memory-card");
     await expect(card).toContainText("Запомнил: Отвечать коротко, без терминов");
     await expect(card).toHaveAttribute("data-memory", "saved");
-    await expect(card.getByTestId("memory-card-hint")).toContainText(
-      "Я запоминаю, только когда вы сами просите",
-    );
     const saved = JSON.parse(await readFile(join(agentDir, "prsloy-memory", "user.json"), "utf8"));
     expect(saved.entries[0].text).toBe("Отвечать коротко, без терминов");
     await shot(page, "memory-1-card");
@@ -50,16 +47,13 @@ test("a memory card in the chat and the «Память» settings", async () => 
     await expect(page.getByTestId("settings-memory")).toContainText("Запоминать, когда я прошу");
     await expect(page.getByTestId("memory-unavailable")).toHaveCount(0);
     await expect(page.getByTestId("memory-user")).toContainText("Отвечать коротко, без терминов");
-    // On by default: the app wrote it for the harness on start.
     const toggle = page.getByTestId("settings-memory-toggle");
-    await expect(toggle).toHaveAttribute("aria-checked", "true");
-    const flagsFile = join(agentDir, "prsloy-harness.json");
-    expect(JSON.parse(await readFile(flagsFile, "utf8")).memory).toBe(true);
+    await expect(toggle).toHaveAttribute("aria-checked", "false");
     await shot(page, "memory-2-settings-before");
     await toggle.click();
-    await expect(toggle).toHaveAttribute("aria-checked", "false");
-    await expect(page.getByTestId("settings-memory")).toContainText("Сейчас выключено");
-    expect(JSON.parse(await readFile(flagsFile, "utf8")).memory).toBe(false);
+    await expect(toggle).toHaveAttribute("aria-checked", "true");
+    const flags = JSON.parse(await readFile(join(agentDir, "prsloy-harness.json"), "utf8"));
+    expect(flags.memory).toBe(true);
     await shot(page, "memory-3-settings-after");
 
     // «Забыть» → gone from «Обо мне», offered in «Забытое», tombstone on disk.
@@ -107,9 +101,9 @@ test("«Забыть» and «Вернуть» from the card and the panel, «З�
     await shot(page, "memory-4-card-forgot");
     await card.getByTestId("memory-card-restore").click();
     await expect(card).toContainText("Вернул.");
-    await expect
-      .poll(async () => (await onDisk()).entries.map((e: { text: string }) => e.text))
-      .toEqual(["Звать меня Аня"]);
+    await expect.poll(async () => (await onDisk()).entries.map((e: { text: string }) => e.text)).toEqual([
+      "Звать меня Аня",
+    ]);
     expect((await onDisk()).tombstones).toEqual([]);
 
     // The panel: «Забыть» → «Недавно забыто» → «Вернуть».

@@ -1,9 +1,7 @@
 import { afterEach, describe, expect, it } from "vite-plus/test";
 import {
   findEntryId,
-  markMemoryHintSeen,
   memoryApi,
-  memoryHintSeen,
   memoryCardId,
   memoryCardKind,
   restoreLeftMs,
@@ -56,23 +54,5 @@ describe("memory cards", () => {
     const api = { list: () => Promise.resolve(snapshot) };
     (globalThis as { window?: unknown }).window = { zeno: { memory: api } };
     expect(memoryApi()).toBe(api);
-  });
-
-  it("the first-card hint is remembered; no storage means no hint", () => {
-    const store = new Map<string, string>();
-    (globalThis as { localStorage?: unknown }).localStorage = {
-      getItem: (k: string) => store.get(k) ?? null,
-      setItem: (k: string, v: string) => store.set(k, v),
-    };
-    expect(memoryHintSeen()).toBe(false);
-    markMemoryHintSeen();
-    expect(memoryHintSeen()).toBe(true);
-    (globalThis as { localStorage?: unknown }).localStorage = {
-      getItem: () => {
-        throw new Error("blocked");
-      },
-    };
-    expect(memoryHintSeen()).toBe(true);
-    delete (globalThis as { localStorage?: unknown }).localStorage;
   });
 });

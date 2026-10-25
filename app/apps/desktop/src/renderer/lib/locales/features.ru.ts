@@ -39,8 +39,6 @@ export const featuresRu: Record<keyof typeof featuresZh, string> = {
   "features.memory.failed": "Не получилось: {error}",
   "features.memory.card.forgotDone": "Забыл.",
   "features.memory.card.restored": "Вернул.",
-  "features.memory.card.firstHint":
-    "Я запоминаю, только когда вы сами просите. Всё, что помню, — в Настройки → Память.",
   "features.memory.card.edit": "Изменить",
   "features.memory.card.editPrompt": "Поправь запись в памяти «{text}»: ",
   "features.memory.card.open": "Открыть память",

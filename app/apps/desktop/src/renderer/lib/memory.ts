@@ -55,22 +55,3 @@ export function memoryApi(): MemoryApi | undefined {
 export function errorText(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
-
-const HINT_KEY = "prsloy.memory.hintSeen";
-
-/** The first «Запомнил» card says once how memory works (research/18 §6.7). */
-export function memoryHintSeen(): boolean {
-  try {
-    return localStorage.getItem(HINT_KEY) === "1";
-  } catch {
-    return true;
-  }
-}
-
-export function markMemoryHintSeen(): void {
-  try {
-    localStorage.setItem(HINT_KEY, "1");
-  } catch {
-    // no storage: the hint just shows again next time
-  }
-}

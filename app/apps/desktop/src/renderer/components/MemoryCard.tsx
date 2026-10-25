@@ -11,10 +11,8 @@ import { t, type Locale } from "../lib/i18n.ts";
 import {
   errorText,
   findEntryId,
-  markMemoryHintSeen,
   memoryApi,
   memoryCardId,
-  memoryHintSeen,
   type MemoryCardKind,
   restoreLeftMs,
   RESTORE_WINDOW_MS,
@@ -56,11 +54,6 @@ export function MemoryCard(props: {
       : { kind: "card" };
   });
   const [busy, setBusy] = useState(false);
-  // Shown with the very first «Запомнил» card, then never again.
-  const [firstHint] = useState(() => props.kind === "saved" && !memoryHintSeen());
-  useEffect(() => {
-    if (firstHint) markMemoryHintSeen();
-  }, [firstHint]);
 
   useEffect(() => {
     if (state.kind !== "forgotten") return;
@@ -160,11 +153,6 @@ export function MemoryCard(props: {
             })
           : null}
       </div>
-      {firstHint && state.kind === "card" ? (
-        <p className="model-failure-hint" data-testid="memory-card-hint">
-          {tr("features.memory.card.firstHint")}
-        </p>
-      ) : null}
       {state.kind === "error" ? (
         <p className="model-failure-hint" role="alert">
           {tr("features.memory.failed", { error: state.message })}
