@@ -42,6 +42,8 @@ export interface Launched {
   gitSetup: { status?: string; ms?: number };
   /** Uncaught renderer errors since launch. */
   pageErrors: string[];
+  /** Main-process `[prsloy-timing] <phase> <ms since process start>` lines. */
+  timings: Record<string, number>;
   t0: number;
 }
 
@@ -65,6 +67,11 @@ export interface LaunchOptions {
   args?: string[];
   /** Runs before launch with the userData dir (seed state files). */
   prepare?: (userData: string) => Promise<void>;
+  /**
+   * Profile to launch with: a path reuses it (second launch), null = no --user-data-dir,
+   * i.e. the app's own default profile (install → uninstall → reinstall).
+   */
+  userData?: string | null;
 }
 
 export async function writeMetrics(patch: Record<string, unknown>): Promise<void> {
@@ -127,19 +134,20 @@ export async function launch(label: string, options: LaunchOptions = {}): Promis
     userData = join(options.profile, "AppData", "Roaming", "PRSLOY");
   } else {
     root = await mkdtemp(join(tmpdir(), `prsloy-smoke-${label}-`));
-    userData = join(root, "userData");
+    userData = options.userData ?? join(root, "userData");
   }
+  const defaultProfile = options.userData === null;
   const home = options.profile ?? join(root, "home");
   const agentDir = join(root, "smoke-pi-agent");
   const workspace = options.workspace ?? join(root, "workspace");
   await Promise.all([
     mkdir(agentDir, { recursive: true }),
     mkdir(workspace, { recursive: true }),
-    mkdir(userData, { recursive: true }),
+    ...(defaultProfile ? [] : [mkdir(userData, { recursive: true })]),
   ]);
   const toolPath = join(workspace, "fixture.txt");
   await writeFile(toolPath, "PRSLOY smoke fixture\n");
-  await options.prepare?.(userData);
+  if (!defaultProfile) await options.prepare?.(userData);
 
   const fakeModel = new FakeOpenAiServer({
     toolPath,
@@ -210,16 +218,20 @@ export async function launch(label: string, options: LaunchOptions = {}): Promis
   const t0 = Date.now();
   const app = await electron.launch({
     executablePath: exe,
-    args: [`--user-data-dir=${userData}`, ...(options.args ?? [])],
+    args: [...(defaultProfile ? [] : [`--user-data-dir=${userData}`]), ...(options.args ?? [])],
     cwd: workspace,
     env,
     timeout: 120_000,
   });
   const proc = app.process();
   const gitSetup: Launched["gitSetup"] = {};
+  const timings: Record<string, number> = {};
   proc.stdout?.on("data", (d) => {
     const m = /\[prsloy\] PortableGit: (ready|failed)/.exec(String(d));
     if (m && !gitSetup.status) Object.assign(gitSetup, { status: m[1], ms: Date.now() - t0 });
+    for (const t of String(d).matchAll(/\[prsloy-timing\] (\w+) (\d+)/g)) {
+      timings[t[1]!] ??= Number(t[2]);
+    }
   });
   proc.stdout?.on("data", (d) => void appendFile(mainLog, d));
   proc.stderr?.on("data", (d) => void appendFile(mainLog, d));
@@ -261,6 +273,7 @@ export async function launch(label: string, options: LaunchOptions = {}): Promis
 
   await page.waitForSelector(testMode ? APP_READY : FIRST_RUN_KEY, { timeout: 180_000 });
   const readyMs = Date.now() - t0;
+  if (defaultProfile) userData = await app.evaluate(({ app: a }) => a.getPath("userData"));
   return {
     label,
     bashCommand,
@@ -275,6 +288,7 @@ export async function launch(label: string, options: LaunchOptions = {}): Promis
     readyMs,
     gitSetup,
     pageErrors,
+    timings,
     t0,
   };
 }
@@ -344,11 +358,14 @@ export function listFiles(dir: string, depth = 2): string[] {
 export function bundledRuntimes(userData: string): {
   node: string | undefined;
   python: string | undefined;
+  /** The provision stamp is written last: true once the background unpack has finished. */
+  stamp: boolean;
 } {
   const runtimes = join(userData, "runtimes");
   const exeName = (name: string) => (process.platform === "win32" ? `${name}.exe` : name);
   const found = (candidates: string[]) => candidates.find((p) => existsSync(p));
   return {
+    stamp: existsSync(join(runtimes, ".provisioned.json")),
     node: found([
       join(runtimes, "node", exeName("node")),
       join(runtimes, "node", "bin", exeName("node")),

@@ -158,6 +158,10 @@ export function buildPrsloyHostEnv(
   env.VISUAL = "true";
   env.GIT_PAGER = "cat";
   env.PAGER = "cat";
+  // Python writes UTF-8 to pipes (Windows defaults to the ANSI code page: «привет» → cp1252
+  // UnicodeEncodeError, or mojibake under cp1251); the «Дизайн» env does the same.
+  env.PYTHONUTF8 = "1";
+  env.PYTHONIOENCODING = "utf-8";
   // prsloy-harness profile for the «Код» tab.
   env.PRSLOY_PROFILE = "code";
   if (options.gatewayKey) env[GATEWAY_KEY_HANDOFF_ENV] = options.gatewayKey;

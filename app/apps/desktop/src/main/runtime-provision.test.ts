@@ -5,6 +5,7 @@ import {
   mkdtempSync,
   readdirSync,
   readFileSync,
+  renameSync,
   rmSync,
   writeFileSync,
 } from "node:fs";
@@ -339,6 +340,31 @@ describe("PRSLOY window first: plan + background unpack", () => {
       expect(planProvisionedRuntimes(options).kind).toBe("ready");
     } finally {
       rmSync(vendorRoot, { recursive: true, force: true });
+      rmSync(userData, { recursive: true, force: true });
+    }
+  });
+
+  it("unpacks from and into a Cyrillic profile path with a space", async () => {
+    const { vendorRoot, userData } = makeVendorWithArchives();
+    const profile = mkdtempSync(join(tmpdir(), "Иван Петров "));
+    try {
+      rmSync(join(vendorRoot, "node"), { recursive: true, force: true });
+      rmSync(join(vendorRoot, "python"), { recursive: true, force: true });
+      const vendorCyr = join(profile, "Программы", "PRSLOY");
+      mkdirSync(join(profile, "Программы"), { recursive: true });
+      renameSync(vendorRoot, vendorCyr);
+      const userDataCyr = join(profile, "AppData", "Roaming", "PRSLOY");
+      const options = { userDataPath: userDataCyr, explicitVendorRoot: vendorCyr, skipVenv: true };
+      const plan = planProvisionedRuntimes(options);
+      if (plan.kind !== "extract") throw new Error(`expected extract, got ${plan.kind}`);
+      const layout = await provisionRuntimesAsync({ ...options, plan });
+      expect(existsSync(join(userRuntimesRoot(userDataCyr), "node", "bin", "node"))).toBe(true);
+      expect(layout?.source).toBe("userData");
+      // Sync path (prefs toggles) too.
+      rmSync(userRuntimesRoot(userDataCyr), { recursive: true, force: true });
+      expect(ensureProvisionedRuntimes(options)?.source).toBe("userData");
+    } finally {
+      rmSync(profile, { recursive: true, force: true });
       rmSync(userData, { recursive: true, force: true });
     }
   });

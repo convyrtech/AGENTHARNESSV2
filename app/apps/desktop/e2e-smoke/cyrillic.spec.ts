@@ -77,6 +77,13 @@ test("Cyrillic profile + project: runtimes, Git, bash cd, python3 привет, 
     await shot(page, "20-cyrillic-window");
 
     const ru = findings("cyrillic", process.env.SMOKE_STRICT_RU === "1");
+
+    await startHost(page);
+    await send(page, "Привет! Ответь одной фразой.");
+    // Window first: Node/Python unpack in the background; main logs `runtimes` when that
+    // ends (ready or failed).
+    const timings = launched.timings;
+    await expect.poll(() => timings.runtimes !== undefined, { timeout: 300_000 }).toBe(true);
     const bundled = bundledRuntimes(userData);
     ru.check(
       "bundled node extracted",
@@ -88,9 +95,6 @@ test("Cyrillic profile + project: runtimes, Git, bash cd, python3 привет, 
       Boolean(bundled.python),
       `nothing under ${userData}\\runtimes`,
     );
-
-    await startHost(page);
-    await send(page, "Привет! Ответь одной фразой.");
     await expect
       .poll(async () => page.getByTestId("timeline").innerText(), { timeout: 30_000 })
       .toContain("Zeno fake model response");

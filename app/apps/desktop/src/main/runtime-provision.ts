@@ -9,6 +9,7 @@
  */
 import { execFileSync, spawn } from "node:child_process";
 import {
+  createReadStream,
   existsSync,
   mkdirSync,
   readFileSync,
@@ -213,8 +214,20 @@ export function resolveTarBinary(
   return "tar";
 }
 
-function runTar(args: string[]): void {
-  execFileSync(resolveTarBinary(), args, { stdio: "ignore" });
+/**
+ * No path ever goes through tar's argv: Windows System32\tar.exe converts arguments via the
+ * ANSI code page, so a Cyrillic profile (`C:\Users\Иван Петров`) on a non-Russian Windows
+ * broke the unpack. The archive goes in on stdin and the target is the process cwd — both
+ * reach tar through Unicode APIs.
+ */
+function untarSync(archive: string, destRoot: string): void {
+  execFileSync(resolveTarBinary(), ["-xzf", "-"], {
+    cwd: destRoot,
+    input: readFileSync(archive),
+    stdio: ["pipe", "ignore", "pipe"],
+    maxBuffer: 16 * 1024 * 1024,
+    windowsHide: true,
+  });
 }
 
 /**
@@ -229,16 +242,16 @@ export function extractRuntimeArchives(
   if (archives.node) {
     const nodeDest = join(destRoot, "node");
     rmSync(nodeDest, { recursive: true, force: true });
-    runTar(["-xzf", archives.node, "-C", destRoot]);
+    untarSync(archives.node, destRoot);
   }
   if (archives.python) {
     const pyDest = join(destRoot, "python");
     rmSync(pyDest, { recursive: true, force: true });
-    runTar(["-xzf", archives.python, "-C", destRoot]);
+    untarSync(archives.python, destRoot);
   }
   if (archives.tools) {
     rmSync(join(destRoot, "tools"), { recursive: true, force: true });
-    runTar(["-xzf", archives.tools, "-C", destRoot]);
+    untarSync(archives.tools, destRoot);
   }
 }
 
@@ -530,7 +543,12 @@ export function planProvisionedRuntimes(options: ProvisionOptions): ProvisionPla
 const activeChildren = new Set<ReturnType<typeof spawn>>();
 let exitHookInstalled = false;
 
-function runAsync(command: string, args: string[], timeoutMs: number): Promise<void> {
+function runAsync(
+  command: string,
+  args: string[],
+  timeoutMs: number,
+  options: { cwd?: string; stdinFile?: string } = {},
+): Promise<void> {
   if (!exitHookInstalled) {
     exitHookInstalled = true;
     process.once("exit", () => {
@@ -538,7 +556,21 @@ function runAsync(command: string, args: string[], timeoutMs: number): Promise<v
     });
   }
   return new Promise((resolve, reject) => {
-    const child = spawn(command, args, { stdio: ["ignore", "ignore", "pipe"], windowsHide: true });
+    const child = spawn(command, args, {
+      stdio: [options.stdinFile ? "pipe" : "ignore", "ignore", "pipe"],
+      windowsHide: true,
+      ...(options.cwd ? { cwd: options.cwd } : {}),
+    });
+    if (options.stdinFile && child.stdin) {
+      const input = createReadStream(options.stdinFile);
+      input.once("error", (error) => {
+        child.kill();
+        reject(error);
+      });
+      // tar may exit early on a bad archive: EPIPE is reported through the exit code.
+      child.stdin.once("error", () => undefined);
+      input.pipe(child.stdin);
+    }
     activeChildren.add(child);
     let stderr = "";
     child.stderr?.on("data", (chunk: Buffer) => {
@@ -629,7 +661,13 @@ export async function provisionRuntimesAsync(
   );
   try {
     for (const archive of [archives.node, archives.python, archives.tools]) {
-      if (archive) await runAsync(resolveTarBinary(), ["-xzf", archive, "-C", staging], 600_000);
+      // Archive on stdin, staging as cwd: no path in tar's argv (see untarSync).
+      if (archive) {
+        await runAsync(resolveTarBinary(), ["-xzf", "-"], 600_000, {
+          cwd: staging,
+          stdinFile: archive,
+        });
+      }
     }
     for (const name of ["node", "python", "tools"]) {
       const from = join(staging, name);

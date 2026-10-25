@@ -4,17 +4,23 @@
  * Launches an already-installed PRSLOY.exe (`PRSLOY_EXE`) — not the dev bundle — with
  * the same fake OpenAI-compatible model the e2e suite uses (see helpers.ts).
  *
- * Checks: main window, first-run runtime extraction, Agent Host ready, one reply,
- * one bash tool call, the «Дизайн» tab. A second launch hides Git for Windows (clean machine)
- * and requires the bundled PortableGit bash to run bash syntax, coreutils and git
+ * Checks: main window, first-run runtime extraction (in the background, after the window),
+ * Agent Host ready, one reply, one bash tool call, the «Дизайн» tab; a second launch of the
+ * same profile (time to window / host ready). A launch with Git for Windows hidden (clean
+ * machine) requires the bundled PortableGit bash to run bash syntax, coreutils and git
  * (strict when SMOKE_STRICT_CLEAN_BASH=1, which CI sets; otherwise report only).
+ * Windows CI with the installer present: uninstall → reinstall → launch keeps the user's
+ * profile and projects and still runs a bash turn.
  *
  * Output (SMOKE_OUT, default ./smoke-out): screenshots, *-main.log, *-renderer.log,
  * metrics.json, bash-*.json.
  */
 import { expect, test } from "@playwright/test";
-import { writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { execFileSync } from "node:child_process";
+import { existsSync, readdirSync } from "node:fs";
+import { mkdir, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { dirname, join, resolve } from "node:path";
 import {
   BASH_COMMAND,
   HARNESS_HEADER,
@@ -23,6 +29,7 @@ import {
   bundledRuntimes,
   findings,
   close,
+  exe,
   launch,
   listFiles,
   outDir,
@@ -40,15 +47,29 @@ test.describe.configure({ mode: "serial" });
 
 test.beforeAll(beforeAllSmoke);
 
+let runnerUserData: string | undefined;
+
 test("installed app: window, runtimes, host, reply, bash tool", async () => {
   let launched: Launched | undefined;
   try {
     launched = await launch("runner");
     const { page, userData } = launched;
+    runnerUserData = userData;
     await writeMetrics({ firstWindowMs: launched.launchMs, bootstrapReadyMs: launched.readyMs });
     await shot(page, "01-window");
 
+    // Window first: Node/Python unpack in the background and the first turn waits for them,
+    // so the turn goes out right away and the extraction is checked after it.
+    const hostT0 = Date.now();
+    await startHost(page);
+    await writeMetrics({ hostReadyMs: Date.now() - hostT0 });
+    await shot(page, "02-host-ready");
+
+    await send(page, "Привет! Ответь одной фразой.");
+    await writeMetrics({ firstTurnMs: Date.now() - launched.t0 });
+
     // First-run extraction: Resources/runtimes/archives → userData/runtimes.
+    await expect.poll(() => bundledRuntimes(userData).stamp, { timeout: 300_000 }).toBe(true);
     const runtimes = join(userData, "runtimes");
     const files = listFiles(runtimes, 2).map((p) => p.slice(runtimes.length + 1));
     await writeFile(join(outDir, "runtimes-tree.txt"), files.join("\n"));
@@ -56,16 +77,10 @@ test("installed app: window, runtimes, host, reply, bash tool", async () => {
     await writeMetrics({
       bundledNode: bundled.node ?? null,
       bundledPython: bundled.python ?? null,
+      mainTimings: launched.timings,
     });
     expect(bundled.node, `bundled node missing under ${runtimes}`).toBeTruthy();
     expect(bundled.python, `bundled python missing under ${runtimes}`).toBeTruthy();
-
-    const hostT0 = Date.now();
-    await startHost(page);
-    await writeMetrics({ hostReadyMs: Date.now() - hostT0 });
-    await shot(page, "02-host-ready");
-
-    await send(page, "Привет! Ответь одной фразой.");
     await expect
       .poll(async () => page.getByTestId("timeline").innerText(), { timeout: 30_000 })
       .toContain("Zeno fake model response");
@@ -109,6 +124,32 @@ test("installed app: window, runtimes, host, reply, bash tool", async () => {
   }
 });
 
+test("second launch of the same profile: window and host ready", async () => {
+  test.skip(!runnerUserData, "first launch did not run");
+  let launched: Launched | undefined;
+  try {
+    launched = await launch("second", { userData: runnerUserData! });
+    await startHost(launched.page);
+    const hostReadyMs = Date.now() - launched.t0;
+    await writeMetrics({
+      secondLaunch: {
+        windowMs: launched.launchMs,
+        bootstrapReadyMs: launched.readyMs,
+        hostReadyMs,
+        mainTimings: launched.timings,
+      },
+    });
+    await shot(launched.page, "05-second-launch");
+    // Target is < 3 s; CI runners vary, so only a generous bound fails the build.
+    expect(launched.launchMs).toBeLessThan(15_000);
+    // Runtimes are already unpacked: nothing is extracted again.
+    const { runtimes = 0, window = 0 } = launched.timings;
+    expect(runtimes - window).toBeLessThan(1_000);
+  } finally {
+    await close(launched);
+  }
+});
+
 // What a casual user's agent runs first: bash syntax, coreutils, git. On a clean machine this
 // must come from the bundled PortableGit (Pi `shellPath`, set by the app), never WSL.
 const AGENT_COMMAND =
@@ -145,6 +186,97 @@ test("clean Windows (system Git hidden): bash tool via bundled Git", async () =>
     await ru.finish();
   } finally {
     if (launched) await shot(launched.page, "99-clean-final");
+    await close(launched);
+  }
+});
+
+// ── Uninstall hygiene: uninstall keeps the profile and projects; reinstall works on top ──
+
+const installer = process.env.SMOKE_INSTALLER ?? findInstaller(resolve("..", "..", "installer"));
+
+function findInstaller(dir: string): string | undefined {
+  if (!existsSync(dir)) return undefined;
+  const name = readdirSync(dir).find((n) => /^PRSLOY-.*-win-x64\.exe$/.test(n));
+  return name ? join(dir, name) : undefined;
+}
+
+async function waitFor(check: () => boolean, timeoutMs: number): Promise<boolean> {
+  const end = Date.now() + timeoutMs;
+  while (Date.now() < end) {
+    if (check()) return true;
+    await new Promise((r) => setTimeout(r, 500));
+  }
+  return check();
+}
+
+test("uninstall → reinstall → launch keeps the profile and projects", async () => {
+  test.skip(
+    process.platform !== "win32" || process.env.CI !== "true" || !installer,
+    "Windows CI with the NSIS installer only (real install/uninstall)",
+  );
+  const installDir = dirname(exe);
+  const uninstaller = join(installDir, "Uninstall PRSLOY.exe");
+  const metrics: Record<string, unknown> = { installer };
+  let launched: Launched | undefined;
+  try {
+    // 1. A real user profile (default userData, not --user-data-dir) and a user project.
+    launched = await launch("profile", { userData: null });
+    const userData = launched.userData;
+    await startHost(launched.page);
+    await expect.poll(() => bundledRuntimes(userData).stamp, { timeout: 300_000 }).toBe(true);
+    await close(launched);
+    launched = undefined;
+    const project = join(
+      process.env.USERPROFILE ?? tmpdir(),
+      "Documents",
+      "PRSLOY",
+      "smoke-project",
+    );
+    await mkdir(project, { recursive: true });
+    await writeFile(join(project, "keep.txt"), "user work\n");
+    metrics.userData = userData;
+
+    // 2. Silent uninstall. NSIS re-launches itself from %TEMP%: wait for the files to go.
+    expect(existsSync(uninstaller), `missing ${uninstaller}`).toBe(true);
+    let t = Date.now();
+    execFileSync(uninstaller, ["/S"], { windowsHide: true, timeout: 120_000 });
+    const removed = await waitFor(() => !existsSync(exe), 120_000);
+    expect(removed, `${exe} still present after uninstall`).toBe(true);
+    // The uninstaller deletes the exe first and itself last.
+    await waitFor(() => !existsSync(uninstaller), 120_000);
+    metrics.uninstallMs = Date.now() - t;
+    metrics.installDirLeftovers = existsSync(installDir) ? readdirSync(installDir) : [];
+    // deleteAppDataOnUninstall: false — the profile (key, settings, runtimes) and projects stay.
+    expect(existsSync(userData), "userData removed by uninstall").toBe(true);
+    expect(existsSync(join(project, "keep.txt")), "user project removed by uninstall").toBe(true);
+
+    // 3. Reinstall into the same folder over the kept profile (/D= last and unquoted).
+    t = Date.now();
+    execFileSync(installer!, ["/S", "/currentuser", `/D=${installDir}`], {
+      windowsHide: true,
+      timeout: 300_000,
+    });
+    expect(await waitFor(() => existsSync(exe), 60_000), `${exe} missing after reinstall`).toBe(
+      true,
+    );
+    metrics.reinstallMs = Date.now() - t;
+
+    // 4. Launch on the kept profile: window, host, a bash turn.
+    launched = await launch("reinstalled", { userData: null });
+    await startHost(launched.page);
+    const bash = await runBashTurn(launched, "reinstalled");
+    metrics.reinstalled = {
+      windowMs: launched.launchMs,
+      hostReadyMs: Date.now() - launched.t0,
+      mainTimings: launched.timings,
+      bashOk: bash.ok,
+    };
+    expect(bash.result, `bash tool result:\n${bash.result}`).toContain(MARKER);
+    expect(bash.result, `bash tool result:\n${bash.result}`).toMatch(HARNESS_HEADER);
+    expect(existsSync(join(project, "keep.txt"))).toBe(true);
+  } finally {
+    await writeMetrics({ installCycle: metrics });
+    if (launched) await shot(launched.page, "99-reinstalled-final");
     await close(launched);
   }
 });

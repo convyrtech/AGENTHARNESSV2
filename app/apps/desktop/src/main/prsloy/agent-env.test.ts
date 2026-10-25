@@ -107,6 +107,8 @@ describe("host env", () => {
     expect(env.PI_OFFLINE).toBe("1");
     expect(env.PRSLOY_PROFILE).toBe("code");
     expect(env.GIT_EDITOR).toBe("true");
+    expect(env.PYTHONUTF8).toBe("1");
+    expect(env.PYTHONIOENCODING).toBe("utf-8");
     expect(env[GATEWAY_KEY_HANDOFF_ENV]).toBe("sk-live");
   });
 
