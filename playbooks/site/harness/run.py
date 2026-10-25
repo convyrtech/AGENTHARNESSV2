@@ -322,6 +322,10 @@ def say(a):
         with open(ws.root / "owner" / "messages.jsonl", "a", encoding="utf-8") as f:
             f.write(json.dumps({"id": ws.state["turn"], "date": dt.datetime.now().strftime("%Y%m%d-%H%M%S"),
                                 "text": a.text, "forward_from": None, "files": files}, ensure_ascii=False) + "\n")
+        # ответ владельца: шаг, который ждал его, не провалился — попытки шага с нуля, ступень лестницы прежняя
+        for h in ws.state.get("attempts", {}).values():
+            if h.get("waiting_owner"):
+                h.update(n=0, last=None, waiting_owner=False)
         ws.save()
     notes = list(ws.state.pop("carry_notes", []))
     for _ in range(CFG["max_stages_per_turn"]):
@@ -399,6 +403,7 @@ def say(a):
                 ws.ledger(kind="fix", gate=gate, model=model, **s2)
                 if TO_OWNER in f2:
                     text = f2.split(TO_OWNER, 1)[1].strip()
+            hist["waiting_owner"] = True
             ws.state["outbox"] = ws.state.get("outbox", 0) + 1
             ob = ws.page / "outbox"
             ob.mkdir(exist_ok=True)
