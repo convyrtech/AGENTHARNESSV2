@@ -89,6 +89,8 @@ jobs:
       SMOKE_STRICT_CLEAN_BASH: "1"
       SMOKE_STRICT_RU: "1"
       SMOKE_STRICT_PYTHON_HTTP: "1"
+      # Double-click install: one progress bar, Russian, no wizard page, app starts by itself.
+      SMOKE_STRICT_ONECLICK: "1"
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
@@ -105,6 +107,15 @@ jobs:
         with:
           name: prsloy-win-x64
           path: app/installer
+      # First, on the clean runner: the installer as a double click (no /S), screenshots every
+      # 0.5 s, window texts checked for wizard pages; then the uninstaller the same way.
+      - name: One-click install and uninstall (as a double click)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          New-Item -ItemType Directory -Force smoke-out | Out-Null
+          $setup = Get-ChildItem installer -Filter 'PRSLOY-*-win-x64.exe' | Select-Object -First 1
+          & ./apps/desktop/e2e-smoke/oneclick-install.ps1 -Installer $setup.FullName -OutDir smoke-out -Strict:($env:SMOKE_STRICT_ONECLICK -eq '1')
       - name: Silent install (per-user)
         shell: pwsh
         run: |
@@ -200,7 +211,7 @@ jobs:
         shell: pwsh
         run: |
           "## Smoke" | Out-File -Append $env:GITHUB_STEP_SUMMARY
-          foreach ($f in 'install.json','install-cyrillic.json','metrics.json','bash-runner.json','bash-clean.json','bash-cyrillic.json','clean-env.json','codepage.json','tar-probe.json') {
+          foreach ($f in 'oneclick.json','install.json','install-cyrillic.json','metrics.json','bash-runner.json','bash-clean.json','bash-cyrillic.json','clean-env.json','codepage.json','tar-probe.json') {
             $path = Join-Path smoke-out $f
             if (Test-Path $path) { "### $f", '```json', (Get-Content $path -Raw), '```' | Out-File -Append $env:GITHUB_STEP_SUMMARY }
           }

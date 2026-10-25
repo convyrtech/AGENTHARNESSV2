@@ -14,13 +14,16 @@
 import { expect, test } from "@playwright/test";
 import { createServer as createTcpServer, type Server as TcpServer, type Socket } from "node:net";
 import { once } from "node:events";
-import { mkdir, readFile } from "node:fs/promises";
-import { join } from "node:path";
-import { GOOD_KEY, seedGateway, startGateway } from "./gateway.ts";
+import { execFileSync } from "node:child_process";
+import { existsSync, readdirSync } from "node:fs";
+import { mkdir, readFile, rm } from "node:fs/promises";
+import { dirname, join, resolve } from "node:path";
+import { GOOD_KEY, passFirstRun, seedGateway, startGateway } from "./gateway.ts";
 import {
   FIRST_RUN_KEY,
   beforeAllSmoke,
   close,
+  exe,
   launch,
   shot,
   writeMetrics,
@@ -211,5 +214,95 @@ test("update check with a dead (hanging) network: startup not delayed, no error,
     await close(launched);
     await gateway.stop();
     await proxy.stop();
+  }
+});
+
+// ── Uninstall → reinstall keeps the key and the chats (the gate is not shown again) ──
+
+function findInstaller(): string | undefined {
+  if (process.env.SMOKE_INSTALLER) return process.env.SMOKE_INSTALLER;
+  const dir = resolve("..", "..", "installer");
+  if (!existsSync(dir)) return undefined;
+  const name = readdirSync(dir).find((n) => /^PRSLOY-.*-win-x64\.exe$/.test(n));
+  return name ? join(dir, name) : undefined;
+}
+
+async function until(check: () => boolean, timeoutMs: number): Promise<boolean> {
+  const end = Date.now() + timeoutMs;
+  while (Date.now() < end) {
+    if (check()) return true;
+    await new Promise((r) => setTimeout(r, 500));
+  }
+  return check();
+}
+
+test("key and chats survive uninstall → reinstall (no first-run gate)", async () => {
+  const installer = findInstaller();
+  test.skip(
+    process.platform !== "win32" || process.env.CI !== "true" || !installer,
+    "Windows CI with the NSIS installer only (real install/uninstall)",
+  );
+  const profile = join(process.env.APPDATA ?? "", "PRSLOY");
+  const installDir = dirname(exe);
+  const chat = "Привет! Запомни этот чат.";
+  const gateway = await startGateway();
+  const metrics: Record<string, unknown> = {};
+  let launched: Launched | undefined;
+  try {
+    // 1. A user's real profile: key through the gate, a project and one chat.
+    await mkdir(join(profile, "prsloy"), { recursive: true });
+    await seedGateway(gateway.baseUrl)(profile);
+    launched = await launch("keep-key", { testMode: false, userData: null });
+    gateway.setUpstream(launched.fakeModel.baseUrl);
+    await passFirstRun(launched);
+    await launched.page.getByTestId("prompt-input").fill(chat);
+    await launched.page.getByTestId("send-prompt").click();
+    await expect
+      .poll(async () => launched!.page.locator("body").innerText(), { timeout: 180_000 })
+      .toContain("Zeno fake model response");
+    await shot(launched.page, "40-keep-key-before");
+    await close(launched);
+    launched = undefined;
+
+    // 2. Uninstall silently; the program goes, the profile stays.
+    let t = Date.now();
+    execFileSync(join(installDir, "Uninstall PRSLOY.exe"), ["/S"], { timeout: 120_000 });
+    expect(await until(() => !existsSync(exe), 120_000), "PRSLOY.exe left after uninstall").toBe(
+      true,
+    );
+    metrics.uninstallMs = Date.now() - t;
+    expect(existsSync(profile), `${profile} removed by uninstall`).toBe(true);
+
+    // 3. Reinstall silently into the same folder (/D= last, unquoted).
+    t = Date.now();
+    execFileSync(installer!, ["/S", "/currentuser", `/D=${installDir}`], { timeout: 300_000 });
+    expect(await until(() => existsSync(exe), 60_000), "PRSLOY.exe missing after reinstall").toBe(
+      true,
+    );
+    metrics.reinstallMs = Date.now() - t;
+
+    // 4. Same profile: straight into the app, key kept, the chat is there.
+    launched = await launch("keep-key-after", {
+      testMode: false,
+      userData: null,
+      readySelector: '[data-testid="zeno-app"]',
+    });
+    const gate = await launched.page.locator(FIRST_RUN_KEY).isVisible();
+    const state = await launched.page.evaluate(() => window.zeno.prsloy.getState());
+    await expect
+      .poll(async () => launched!.page.locator("body").innerText(), { timeout: 60_000 })
+      .toContain(chat);
+    await shot(launched.page, "41-keep-key-after-reinstall");
+    metrics.afterReinstall = { gate, hasKey: state.hasKey, needsWorkspace: state.needsWorkspace };
+    expect(gate, "first-run key screen after reinstall").toBe(false);
+    expect(state.hasKey, "key kept").toBe(true);
+    expect(launched.pageErrors, launched.pageErrors.join("\n\n")).toEqual([]);
+  } finally {
+    await writeMetrics({ keepKeyReinstall: metrics });
+    if (launched) await shot(launched.page, "99-keep-key-final");
+    await close(launched);
+    await gateway.stop();
+    // Later tests expect a fresh runner (no %APPDATA%\PRSLOY).
+    await rm(profile, { recursive: true, force: true }).catch(() => undefined);
   }
 });

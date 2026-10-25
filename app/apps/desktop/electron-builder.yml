@@ -2,6 +2,12 @@ appId: online.prsloy.desktop
 productName: PRSLOY
 # package.json name is @zeno/desktop — override so AppImage/deb paths stay valid.
 executableName: PRSLOY
+# Packaged package.json name. electron-builder derives the updater cache folder from it
+# (%LOCALAPPDATA%\<name>-updater: the NSIS installer keeps its copy there for differential
+# updates, electron-updater downloads there) and ignores publish.updaterCacheDirName.
+# "@zeno/desktop" gave «@zenodesktop-updater». The profile path is set in code (app.setPath).
+extraMetadata:
+  name: prsloy
 asar: true
 # Native dependencies ship N-API/prebuilt binaries and are exercised under the
 # target Electron runtime. Rebuilding node-pty discards those prebuilds and adds
@@ -84,9 +90,18 @@ win:
   target:
     - nsis
 nsis:
-  oneClick: false
-  allowToChangeInstallationDirectory: true
+  # One click, Russian, per-user (%LOCALAPPDATA%\Programs\PRSLOY, no UAC): a double click shows one
+  # progress bar and starts the app. electron-updater runs the same installer with --updated /S.
+  oneClick: true
   perMachine: false
+  allowToChangeInstallationDirectory: false
+  runAfterFinish: true
+  # Russian only: a multi-language installer with a single language (multiLanguageInstaller:
+  # false would compile English only), no selector.
+  unicode: true
+  installerLanguages: [ru_RU]
+  language: "1049"
+  # Key, chats and settings live in %APPDATA%\PRSLOY and survive uninstall / reinstall.
   deleteAppDataOnUninstall: false
   installerIcon: icon.ico
   uninstallerIcon: icon.ico
