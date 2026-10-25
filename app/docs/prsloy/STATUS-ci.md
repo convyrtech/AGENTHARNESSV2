@@ -2,7 +2,8 @@
 
 ## Этап 5: настоящий путь GitHub, Windows 2022, состав установщика
 
-Прогон: RUN5_PLACEHOLDER
+Прогон: https://github.com/convyrtech/AGENTHARNESSV2/actions/runs/40177012147 — зелёный: package; smoke на
+windows-latest и windows-2022; update-e2e 3/3.
 
 ### 1. update-e2e через провайдер `github`
 
@@ -45,7 +46,11 @@
 
 - smoke стал матрицей `[windows-latest, windows-2022]`, `fail-fast: false`, артефакты `prsloy-win-smoke-<os>`.
 - update-e2e гоняется только на latest.
-- windows-2022: one-click — RU_ONECLICK_2022; smoke и кириллица — SMOKE_2022.
+- - Результат на windows-2022:
+  - one-click: русское окно «Установка PRSLOY», ни одного слова мастера, 48,1 с; удаление 5,0 с;
+  - smoke 9/9 + кириллица 1/1, все findings ✅ (encoding, cyrillic, python http.server);
+  - тихая установка 29,8 с.
+- На windows-latest то же самое: one-click 40,0 с.
 
 ### 3. Из чего состоит установщик
 
@@ -55,7 +60,19 @@
 - для каждой части — размер на диске и gzip-оценка, то есть примерная доля в установщике;
 - шаг в job `package` (не блокирует), артефакт `prsloy-win-composition`.
 
-COMPOSITION_PLACEHOLDER
+Установщик **211,2 МБ** (было 215,0), в распакованном виде 487,7 МБ:
+
+| Часть                                                                                   | Файлов | На диске, МБ | ≈ в установщике, МБ |
+| --------------------------------------------------------------------------------------- | ------ | ------------ | ------------------- |
+| Electron (PRSLOY.exe 94, dxcompiler.dll 10, resources.pak 6,7, icudtl 4,6, …)           | 21     | 302,7        | 128,8               |
+| PortableGit (`git.7z.exe`, распаковывается при установке)                               | 1      | 56,6         | 56,6                |
+| Node (`node.tar.gz`: node.exe 32, npm 3,8)                                              | 2310   | 93,6         | 35,9                |
+| `app.asar`: наш код + JS-зависимости (pi-coding-agent 5,6, renderer 2,6, openai 1,7, …) | 6454   | 59,1         | 16,9                |
+| Python (`python.tar.gz`: Lib 9,9, DLLs 6,3, python312.dll 2,5)                          | 1094   | 41,9         | 15,2                |
+| Прочие resources (node-pty, дизайн-бандл, иконки)                                       | 292    | 15,8         | 6,7                 |
+| rg + fd (`tools.tar.gz`)                                                                | 2      | 8,5          | 3,3                 |
+
+Полная таблица с кандидатами на удаление — артефакт `prsloy-win-composition` и Summary job `package`.
 
 **Что выкинуто:** `__pycache__`/`.pyc` в Python. Это ошибка сборки, а не решение.
 
@@ -65,7 +82,7 @@ COMPOSITION_PLACEHOLDER
 - Исправлено: в Windows-ветке теперь вызывается `removePycaches`, а `fetch-runtimes` ставит
   `PYTHONDONTWRITEBYTECODE=1`. Добавлен unit-тест на Windows-раскладку.
 - Python компилирует модули при первом запуске в userData, папка доступна на запись.
-- Итог в прогоне: PYC_RESULT.
+- Итог в прогоне: `.pyc` — 0; `python.tar.gz` 18,1 → 14,6 МБ; установщик 215,0 → 211,2 МБ.
 
 **Что не трогал и почему:**
 
