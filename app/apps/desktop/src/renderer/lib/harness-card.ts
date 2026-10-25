@@ -1,12 +1,20 @@
 /**
  * The harness's visible cards (pi custom messages `prsloy-harness*`): the budget stop, a
  * project check that still fails, a model that leaked its tool call as text, the second-model
- * review. The harness writes their text for the owner (plain Russian), so the card shows it as
+ * review, packages that did not download for lack of network, a command that failed the same way
+ * three times. The harness writes their text for the owner (plain Russian), so the card shows it as
  * is; the short title and line here are only for a card that arrives without text.
  */
 import type { MessageKey } from "./i18n.ts";
 
-export type HarnessCardKind = "budget" | "stopGate" | "toolLeak" | "review" | "note";
+export type HarnessCardKind =
+  | "budget"
+  | "stopGate"
+  | "toolLeak"
+  | "review"
+  | "offline"
+  | "loop"
+  | "note";
 
 export function harnessCardKind(customType: string | undefined): HarnessCardKind | undefined {
   if (!customType?.startsWith("prsloy-harness")) return undefined;
@@ -14,6 +22,8 @@ export function harnessCardKind(customType: string | undefined): HarnessCardKind
   if (customType === "prsloy-harness.stop-gate") return "stopGate";
   if (customType === "prsloy-harness.tool-leak") return "toolLeak";
   if (customType === "prsloy-harness.second-opinion") return "review";
+  if (customType === "prsloy-harness.install-offline") return "offline";
+  if (customType === "prsloy-harness.loop") return "loop";
   return "note";
 }
 
@@ -70,7 +80,7 @@ export function reviewRemarks(details: unknown): ReviewRemark[] {
   });
 }
 
-/** «Модель сбилась» asks for «Повторить»; the card offers it. */
+/** «Модель сбилась» and «Не скачались пакеты: нет связи» ask for «Повторить»; the card offers it. */
 export function harnessOffersRetry(kind: HarnessCardKind): boolean {
-  return kind === "toolLeak";
+  return kind === "toolLeak" || kind === "offline";
 }
