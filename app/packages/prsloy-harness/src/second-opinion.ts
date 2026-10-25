@@ -9,12 +9,16 @@ import { headTail } from "./text.ts";
 /**
  * Кто проверяет кого: семья писателя → проверяющие других семей по предпочтению (префиксы id моделей шлюза PRSLOY).
  * Каталог шлюза (core, `/v1/models`) бывает неполным: берётся первый, кто в нём есть.
+ * Не проверяющие (25.10, проба шлюза): qwen (канал теряет системные сообщения), grok, fable (большие запросы теряют
+ * системное). Наш промпт ревьюера и так в роли user, но каналу не доверяем. Писать они могут — их проверяют другие.
  */
+export const NOT_REVIEWERS = /qwen|grok|fable/i;
 export const REVIEWER_PREFERENCES: readonly (readonly [RegExp, readonly string[]])[] = [
   [/qwen/i, ["deepseek", "kimi", "claude-opus"]],
-  [/opus|claude/i, ["kimi", "deepseek", "qwen"]],
-  [/deepseek/i, ["kimi", "qwen", "claude-opus"]],
-  [/kimi/i, ["deepseek", "qwen", "claude-opus"]],
+  [/opus|claude|fable/i, ["kimi", "deepseek"]],
+  [/deepseek/i, ["kimi", "claude-opus"]],
+  [/kimi/i, ["deepseek", "claude-opus"]],
+  [/grok/i, ["deepseek", "kimi", "claude-opus"]],
 ];
 
 /** Проверяющие для модели-писателя по порядку предпочтения; пусто — семьи нет в списке, ревью не делаем. */

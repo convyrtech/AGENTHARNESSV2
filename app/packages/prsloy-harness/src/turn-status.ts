@@ -10,13 +10,15 @@ import type { ResolvedOptions } from "./options.ts";
 import { oldTestChanges, userAskedToChange } from "./test-guard.ts";
 import { detectProjectCheck } from "./stop-gate.ts";
 import { recordEvent } from "./learning-log.ts";
-import { showCard } from "./text.ts";
+import { fatalLine } from "./process-registry.ts";
+import { contentText, showCard } from "./text.ts";
 import type { TurnChanges } from "./turn-changes.ts";
 
 export const TURN_STATUS_TYPE = "prsloy-harness.turn-status";
 
 export type TurnFact =
   | "checks-fail"
+  | "ran-fail"
   | "page-fail"
   | "stubs-left"
   | "claim-unbacked"
@@ -32,6 +34,7 @@ export type TurnFact =
 /** Порядок и слова — как в ui: сначала то, что требует внимания. */
 export const TURN_FACT_TEXT: Readonly<Record<TurnFact, string>> = {
   "checks-fail": "Проверки не прошли",
+  "ran-fail": "Программа упала при запуске — посмотрите",
   "page-fail": "На странице остались ошибки — посмотрите",
   "stubs-left": "Остались заглушки",
   "claim-unbacked": "Слова агента не подтверждены проверкой — посмотрите",
@@ -61,6 +64,8 @@ export interface TurnStatusState {
   edited: boolean;
   /** Программу запускали после последней правки, и она отработала. */
   ranOk: boolean;
+  /** Последний запуск программы после последней правки упал: код ≠ 0, процесс умер в первые секунды или в выводе смертельная строка (EADDRINUSE, Traceback). */
+  ranFail: boolean;
   /** Слабые новые тесты (H-3, флаг testQuality): файлы. */
   weakTests: string[];
 }
@@ -74,6 +79,7 @@ export function createTurnStatus(): TurnStatusState {
     pageIssues: [],
     edited: false,
     ranOk: false,
+    ranFail: false,
     weakTests: [],
   };
 }
@@ -125,8 +131,10 @@ export function turnFacts(
   else if (state.page === false) facts.add("page-fail");
   if (state.page === true && state.pageIssues.length) facts.add("page-hints");
   if (state.ranOk) facts.add("ran-ok");
+  else if (state.ranFail) facts.add("ran-fail");
   // Страница открылась или программа отработала — это и есть проверка для новичка: «нечем» только если не было ничего.
-  if (edited && !state.hasCheck && state.page !== true && !state.ranOk) facts.add("no-checks");
+  if (edited && !state.hasCheck && state.page !== true && !state.ranOk && !state.ranFail)
+    facts.add("no-checks");
   if (patch) {
     const tests = oldTestChanges(patch);
     if (tests.length) {
@@ -177,11 +185,25 @@ export function installTurnStatus(
     if ((event.toolName === "edit" || event.toolName === "write") && !event.isError) {
       state.edited = true;
       state.ranOk = false;
-    } else if (event.toolName === "bash" && !event.isError) {
+      state.ranFail = false;
+    } else if (event.toolName === "bash") {
       const command = (event.input as { command?: unknown }).command;
-      if (typeof command === "string" && RUNS_PROGRAM.test(command) && !TEST_RUN.test(command))
-        state.ranOk = true;
-    } else if (event.toolName === "bash_background" && !event.isError) state.ranOk = true;
+      if (typeof command === "string" && RUNS_PROGRAM.test(command) && !TEST_RUN.test(command)) {
+        const text = contentText(event.content);
+        // Сервер в обычном bash упёрся в таймаут — он работал; ни «работает», ни «упала» не говорим.
+        if (!/timed out after|остановлен по таймауту/i.test(text)) {
+          const ok = !event.isError && !fatalLine(text);
+          state.ranOk = ok;
+          state.ranFail = !ok;
+        }
+      }
+    } else if (event.toolName === "bash_background" && !event.isError) {
+      // Жив после паузы и без смертельной строки в выводе (bash-timeout кладёт это в details).
+      const d = (event.details ?? {}) as { alive?: unknown; fatal?: unknown };
+      const ok = d.alive !== false && !d.fatal;
+      state.ranOk = ok;
+      state.ranFail = !ok;
+    }
     return undefined;
   });
 

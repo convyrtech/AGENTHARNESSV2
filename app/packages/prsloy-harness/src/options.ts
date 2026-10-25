@@ -88,6 +88,8 @@ export type PracticeName =
   | "research"
   | "stopGate"
   | "toolLeak"
+  // Установка пакетов без сети: карточка «Не скачались пакеты: нет связи» (features, первый час).
+  | "installOffline"
   | "argRepair"
   | "learningLog"
   | "lessons"

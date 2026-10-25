@@ -7,6 +7,7 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { TEST_FILE } from "./gate-signals.ts";
 import { recordEvent } from "./learning-log.ts";
+import { SAME_FAIL_NOTE } from "./loop-detector.ts";
 import type { ResolvedOptions } from "./options.ts";
 import { appendText, contentText, keepStructured } from "./text.ts";
 import { RUNS_PROGRAM, STUB, TEST_RUN } from "./turn-status.ts";
@@ -229,6 +230,9 @@ export function installClaimCheck(
       const n = (state.red.get(key) ?? 0) + 1;
       state.red.set(key, n);
       if (n !== 3) return undefined;
+      // Та же команда с тем же кодом без правок между — детектор петель уже остановил ход своей строкой
+      // (он стоит раньше в цепочке tool_result): вторая подсказка о том же не нужна.
+      if (contentText(event.content).includes(SAME_FAIL_NOTE)) return undefined;
       recordEvent(ctx, { kind: "claim.same_red", sig: "claim:same-red", n });
       return { content: appendText(event.content, T3_SAME_RED), ...keepStructured(event) };
     }

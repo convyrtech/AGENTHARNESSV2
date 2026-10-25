@@ -10,6 +10,7 @@ import {
   T3_SAME_RED,
   type TurnCall,
 } from "../src/claim-check.ts";
+import { installLoopDetector, SAME_FAIL_NOTE } from "../src/loop-detector.ts";
 import { resolveOptions } from "../src/options.ts";
 import { createTurnStatus, turnFacts } from "../src/turn-status.ts";
 import { MockPi } from "./mock-pi.ts";
@@ -169,6 +170,25 @@ describe("claimCheck in a turn (MockPi)", () => {
     expect((await red("npm test")).modified).toBe(false);
     expect((await red("pytest -q")).text).toContain(T3_SAME_RED);
     expect((await red("pytest -q")).modified).toBe(false);
+  });
+
+  it("H6 and the loop stop: the 3rd identical red already carries the stop line — no second hint", async () => {
+    const pi = new MockPi();
+    installLoopDetector(pi.api, resolveOptions({ profile: "code" }));
+    installClaimCheck(pi.api, resolveOptions({ profile: "code" }), () => true);
+    await pi.userPrompt("почини тесты");
+    const red = (out: string) =>
+      pi.toolResult({
+        toolName: "bash",
+        input: { command: "pytest -q" },
+        text: `${out}\n\nCommand exited with code 1`,
+        isError: true,
+      });
+    await red("1 failed in 0.1s");
+    await red("1 failed in 0.2s");
+    const third = await red("1 failed in 0.3s");
+    expect(third.text).toContain(SAME_FAIL_NOTE);
+    expect(third.text).not.toContain(T3_SAME_RED);
   });
 
   it("H8: the final answer is read from message_end; findings go to the turn status with quotes", async () => {
