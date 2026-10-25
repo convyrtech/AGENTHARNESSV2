@@ -54,6 +54,7 @@ import {
   Notification,
   protocol,
   screen,
+  session,
   shell,
   utilityProcess,
   type UtilityProcess,
@@ -65,6 +66,7 @@ import {
   existsSync,
   mkdirSync,
   lstatSync,
+  statSync,
   readdirSync,
 } from "node:fs";
 import { homedir } from "node:os";
@@ -142,6 +144,13 @@ import {
   type BundledRuntimePrefs,
 } from "./bundled-runtimes.ts";
 import { electronFetch, initPrsloy, logStartupTiming } from "./prsloy/electron.ts";
+import {
+  guardIpcMain,
+  isAppNavigation,
+  type IpcLike,
+  openPathAction,
+  permissionAllowed,
+} from "./prsloy/hardening.ts";
 import { RuntimeBoot } from "./prsloy/runtime-boot.ts";
 import { prepareTurn, registerPrsloyIpc } from "./prsloy/ipc.ts";
 import { CRASH_RESTART_DELAY_MS, nextCrashRestart } from "./prsloy/crash-restart.ts";
@@ -202,6 +211,13 @@ const runtimeBoot = bootstrapBundledRuntimesAndPath();
 
 // PRSLOY: isolated pi home under userData, gateway provider, shims, clean agent env.
 const prsloy = initPrsloy(import.meta.url, runtimeBoot);
+
+// Stage 6: every IPC handler answers only the app's own windows (see prsloy/hardening.ts).
+guardIpcMain(
+  ipcMain as unknown as IpcLike,
+  (event) => isTrustedIpcEvent(event as Electron.IpcMainEvent),
+  (channel) => console.warn(`[prsloy] IPC from an untrusted sender dropped: ${channel}`),
+);
 
 /** Embedded pi TUI (terminal mode) — exclusive with host chat prompts. */
 const piTuiGuard = new PiTuiExclusiveGuard();
@@ -1262,13 +1278,16 @@ async function searchMcpCatalog(
 }
 
 /** 仅信任主窗口 / 宠物窗口顶层 frame 发起的 IPC，拒绝子 frame / 外部内容。 */
-function assertTrustedSender(event: Electron.IpcMainInvokeEvent): void {
-  const trusted = [mainWindow, petWindow]
+function isTrustedIpcEvent(event: Electron.IpcMainInvokeEvent | Electron.IpcMainEvent): boolean {
+  return [mainWindow, petWindow]
     .filter((win): win is BrowserWindow => Boolean(win && !win.isDestroyed()))
     .some(
       (win) => event.sender === win.webContents && event.senderFrame === win.webContents.mainFrame,
     );
-  if (!trusted) throw new Error("不受信任的 IPC 发送方");
+}
+
+function assertTrustedSender(event: Electron.IpcMainInvokeEvent): void {
+  if (!isTrustedIpcEvent(event)) throw new Error("不受信任的 IPC 发送方");
 }
 /** Restored BrowserWindow geometry (userData/zeno-desktop.json). */
 interface WindowBoundsPrefs {
@@ -4484,18 +4503,13 @@ async function createWindow(): Promise<void> {
       return undefined;
     }
   })();
-  mainWindow.webContents.on("will-navigate", (event, url) => {
-    const ok = devServerOrigin
-      ? (() => {
-          try {
-            return new URL(url).origin === devServerOrigin;
-          } catch {
-            return false;
-          }
-        })()
-      : url.startsWith("file:");
-    if (!ok) event.preventDefault();
-  });
+  // Only the app's own page: any other file: page would get the preload's IPC surface.
+  const appFileUrl = pathToFileURL(join(currentDirectory, "..", "renderer", "index.html")).href;
+  const blockForeignNavigation = (event: Electron.Event, url: string) => {
+    if (!isAppNavigation(url, { appFileUrl, devOrigin: devServerOrigin })) event.preventDefault();
+  };
+  mainWindow.webContents.on("will-navigate", blockForeignNavigation);
+  mainWindow.webContents.on("will-redirect", blockForeignNavigation);
   // `target="_blank"` links (plugin catalog → npm, "open in web" → pi.dev/packages,
   // docs, etc.) must never spawn a second Electron window. Route http(s)/mailto out
   // to the system browser instead; deny everything else. Without this, the
@@ -4713,6 +4727,13 @@ void app
     // Name + About/Dock icon (must be after ready for About panel iconPath on some builds).
     applyAppBranding();
     themeLibrary = new ThemeLibrary(app.getPath("userData"));
+    // Web permissions: deny by default, the renderer only uses the clipboard.
+    session.defaultSession.setPermissionRequestHandler((_contents, permission, callback) =>
+      callback(permissionAllowed(permission)),
+    );
+    session.defaultSession.setPermissionCheckHandler((_contents, permission) =>
+      permissionAllowed(permission),
+    );
     protocol.handle("zeno-theme", async (request) => {
       try {
         const url = new URL(request.url);
@@ -5150,6 +5171,22 @@ void app
     ipcMain.handle("zeno:workspace:open-file", async (event, path: string) => {
       assertTrustedSender(event);
       if (typeof path !== "string" || !path.trim()) throw new Error("Invalid file path");
+      // Agent replies link files: an executable or script is shown in its folder, not run.
+      let info: { isDirectory: boolean; isExecutableFile: boolean } | undefined;
+      try {
+        const stat = statSync(path);
+        info = {
+          isDirectory: stat.isDirectory(),
+          isExecutableFile:
+            process.platform !== "win32" && stat.isFile() && (stat.mode & 0o111) !== 0,
+        };
+      } catch {
+        info = undefined;
+      }
+      if (openPathAction(path, info) === "reveal") {
+        shell.showItemInFolder(path);
+        return;
+      }
       const error = await shell.openPath(path);
       if (error) throw new Error(error);
     });
@@ -5704,4 +5741,10 @@ app.on("before-quit", (event) => {
   void activeSupervisor.stop().finally(() => app.exit(0));
 });
 
+// Any web contents (incl. ones created later): no <webview>, no new windows by default.
+// The main window replaces the window-open handler with its own external-link routing.
+app.on("web-contents-created", (_event, contents) => {
+  contents.on("will-attach-webview", (event) => event.preventDefault());
+  contents.setWindowOpenHandler(() => ({ action: "deny" }));
+});
 app.on("window-all-closed", () => app.quit());
