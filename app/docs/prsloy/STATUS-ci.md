@@ -8,7 +8,8 @@
 1. **desktop-ci** падал на `pnpm check`: не отформатирован `docs/prsloy/CONTEXT.md`. Исправлено (`pnpm fmt`).
    `fetch-runtimes`, сборка ассетов и конфиг electron-builder под Windows менять не пришлось: `package` на
    `windows-latest` собирается как есть (NSIS, per-user, без подписи).
-2. **desktop-windows** запускается на push в `main` и `desktop/ci`, а также по тегу `desktop-v*`. После `package`
+2. **desktop-windows** запускается на push в `main`, по тегу `v*`, на опубликованный релиз и вручную (`workflow_dispatch`); тег `v*` (не `desktop-v*`: electron-updater с `allowPrerelease` не видит такие
+   релизы, проверено core). Версия = тег без `v`, релиз — prerelease с именем тега. После `package`
    идёт job **smoke**. `release` теперь ждёт `[package, smoke]`: релиз не выйдет, если smoke красный.
 3. **smoke** (`app/apps/desktop/e2e-smoke/smoke.spec.ts`, конфиг `playwright.smoke.config.ts`):
    - тихая установка `PRSLOY-*-win-x64.exe /S /currentuser` в `%LOCALAPPDATA%\Programs\PRSLOY`;
@@ -93,7 +94,11 @@ GIT_ROOT=C:\Users\runneradmin\AppData\Local\Temp\prsloy-smoke-clean-…\userData
 
 ## Замечания
 
-- Версия в установщике пока `0.1.6` (от Zeno). По тегу `desktop-v0.1.0-alpha.1` workflow ставит `0.1.0-alpha.1`.
+- Версия в установщике пока `0.1.6` (от Zeno). По тегу `v0.1.0-alpha.1` workflow ставит `0.1.0-alpha.1`.
+- «Дизайн» в CI: бандла дизайна нет (нужен токен приватного репо, `DESIGN_REQUIRED` не задан). Smoke открывает
+  вкладку и требует спокойное состояние без ошибок renderer: без бандла это `design-unavailable`, с бандлом —
+  setup/key/empty. Какое показалось, пишется в `metrics.json` → `designStates`, скриншот `04-design.png`.
+  **Важно для релиза:** пока в CI нет токена, установщик из тега выйдет без бандла дизайна.
 - Ошибка `Failed to get 'documents' path` появлялась только из-за подменённого `USERPROFILE` в тесте. На Windows
   тест теперь оставляет настоящий профиль, ошибки нет.
 - `Checking for update` в логе: апдейтер ходит в Releases `convyrtech/AGENTHARNESSV2`. В smoke это не мешает.
