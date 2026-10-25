@@ -231,7 +231,7 @@ export async function extractOnce(options: {
   const call = await callGateway({
     ...options,
     messages: [{ role: "user", content: extractorPrompt(options.messages, options.memory) }],
-    maxTokens: 600,
+    maxTokens: 800,
   });
   const ops = call.error ? undefined : parseExtractorReply(call.text);
   const candidates = checkCandidates(

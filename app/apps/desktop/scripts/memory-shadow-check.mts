@@ -82,6 +82,8 @@ async function phrases(): Promise<number> {
       label: p.signal,
       called: true,
       json: ops !== undefined,
+      // Only here: what the model answered when it was not JSON.
+      ...(ops === undefined && !call.error ? { raw: call.text.slice(0, 800) } : {}),
       error: call.error,
       verdicts: candidates.map((c) => c.verdict),
       // Only here, never in the app's journal: why a candidate was not linked or not the user's words.
@@ -121,6 +123,11 @@ async function phrases(): Promise<number> {
       `Ложные (принят кандидат на разовой фразе): ${report.falseAccepted}`,
       `Ответ не JSON: ${report.notJson}`,
       `Вердикты: ${JSON.stringify(report.verdicts)}`,
+      ...rows
+        .filter((r) => typeof r.raw === "string")
+        .map(
+          (r) => `  не JSON на «${String(r.text)}»:\n    ${String(r.raw).replace(/\n/g, "\n    ")}`,
+        ),
       ...rows.flatMap((r) =>
         (
           (r.rejected as {

@@ -88,6 +88,23 @@ export const featuresEn: Record<keyof typeof featuresZh, string> = {
   "features.memory.history.replaced": "replaced, now “{now}”",
   "features.memory.history.expired": "out of date",
   "features.memory.history.forgotten": "forgotten",
+  "features.memory.confirm.forget": "Forget «{text}»?",
+  "features.memory.confirm.replace": "Before: «{before}». Now: «{after}»?",
+  "features.memory.confirm.yes": "Yes",
+  "features.memory.confirm.no": "No",
+  "features.memory.confirm.forgot": "Forgotten.",
+  "features.memory.confirm.replaced": "Remembered the new one.",
+  "features.memory.confirm.kept": "Left as it was.",
+  "features.memory.chat.forget": "Forget everything learned in this chat",
+  "features.memory.chat.forgetTitle": "Forget what was learned in this chat?",
+  "features.memory.chat.forgetMessage":
+    "Entries learned only in this chat are forgotten; you can bring them back. Entries also learned elsewhere stay and only lose this chat's quotes.",
+  "features.memory.chat.forgetConfirm": "Forget",
+  "features.memory.chat.forgotCount": "Forgot {count}",
+  "features.memory.chat.forgotNone": "Nothing was learned only in this chat",
+  "features.memory.chat.forgotNoneHint":
+    "Entries also learned elsewhere only lost this chat's quotes.",
+  "features.memory.chat.done": "Done",
   "features.memory.autoToggle": "Notice what matters by myself",
   "features.memory.autoToggleHint":
     "The agent remembers what matters from your own words: how to answer, what you like, project decisions. Never from files or sites.",
