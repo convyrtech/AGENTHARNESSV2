@@ -2,7 +2,8 @@
  * Append-only live timeline for the open session (post-history content).
  *
  * Guarantees for streamed thinking/assistant text:
- * 1. Tokens only grow (never shrink or replace with a shorter prefix)
+ * 1. Tokens only grow while streaming; at message end pi's stored text replaces the streamed
+ *    one if they differ (`reconcileFinalMessage`)
  * 2. Each host sequence is applied at most once (dedupe)
  * 3. Cleared only on session switch / stop / crash
  */
@@ -19,6 +20,8 @@ export type LiveStreamState = {
   promptIndex: number;
   /** Host event sequences already folded into this log. */
   seenSequences: number[];
+  /** Last row when the previous assistant message ended; reconcile never reaches past it. */
+  lastCompletedId?: string;
 };
 
 export function emptyLiveStream(): LiveStreamState {
@@ -441,10 +444,62 @@ export function applyRuntimeEventToLiveStream(
       items[index] = { ...reply, endedAt: nowIso() };
       return mark({ ...state, items });
     }
-    // agent.started / message.completed / queue.updated — still mark sequence
+    case "message.completed": {
+      const next = reconcileFinalMessage(state, event.text, event.thinking);
+      const lastId = next.items.at(-1)?.id;
+      return mark(lastId === undefined ? next : { ...next, lastCompletedId: lastId });
+    }
+    // agent.started / queue.updated — still mark sequence
     default:
       return mark(state);
   }
+}
+
+/**
+ * At message end pi sends what it stored. If the streamed text differs (a lost or doubled
+ * delta), the stored text silently replaces it. Only this message's rows are touched (the
+ * trailing thinking/assistant run, after where the previous message ended), and only when
+ * they hold one row of that kind: an interleaved message is left as streamed rather than
+ * guessed at. A reply whose deltas never arrived at all is added.
+ */
+function reconcileFinalMessage(
+  state: LiveStreamState,
+  text: string | undefined,
+  thinking: string | undefined,
+): LiveStreamState {
+  if (!text && !thinking) return state;
+  const items = state.items;
+  let runStart = items.length;
+  while (runStart > 0) {
+    const kind = items[runStart - 1]?.kind;
+    if (kind !== "assistant" && kind !== "thinking") break;
+    runStart--;
+  }
+  const previousEnd = items.findIndex((item) => item.id === state.lastCompletedId);
+  const start = previousEnd >= runStart ? previousEnd + 1 : runStart;
+  let next = state;
+  const settle = (kind: "assistant" | "thinking", final: string | undefined) => {
+    if (!final) return;
+    const rows = next.items;
+    const own: number[] = [];
+    for (let i = start; i < rows.length; i++) if (rows[i]?.kind === kind) own.push(i);
+    if (own.length === 0) {
+      // Deltas may have run into the previous message's row; only add when there is none.
+      if (kind !== "assistant" || rows.slice(runStart).some((row) => row.kind === kind)) return;
+      const { id, seq } = nextId(next, kind);
+      next = { ...next, seq, items: [...rows, { id, kind, text: final, timestamp: nowIso() }] };
+      return;
+    }
+    const index = own[0];
+    const row = index === undefined ? undefined : rows[index];
+    if (own.length !== 1 || index === undefined || row?.kind !== kind || row.text === final) return;
+    const replaced = rows.slice();
+    replaced[index] = { ...row, text: final };
+    next = { ...next, items: replaced };
+  };
+  settle("thinking", thinking);
+  settle("assistant", text);
+  return next;
 }
 
 /**
