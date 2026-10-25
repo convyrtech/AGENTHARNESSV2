@@ -2,6 +2,7 @@ import "./proxy-bootstrap.ts";
 import { assistantFinalContent } from "./assistant-final.ts";
 import { prsloyHandoff } from "./prsloy-handoff.ts";
 import { createPrsloyHarness } from "@prsloy/harness";
+import { createWriteBoundary } from "./write-boundary.ts";
 import {
   classifyModelError,
   createPixRuntime,
@@ -394,9 +395,12 @@ async function handleCommand(command: HostCommand): Promise<void> {
         if (prsloyHandoff.gatewayKey) {
           options.runtimeApiKeys = { [PRSLOY_PROVIDER_ID]: prsloyHandoff.gatewayKey };
         }
+        // First: asks before changes outside the project, ahead of anything the harness's
+        // tool_call hooks might start. On even when the harness is off.
+        options.extensionFactories = [createWriteBoundary()];
         if (prsloyHandoff.harnessEnabled) {
           // Bundled into the host (survives asar); profile from PRSLOY_PROFILE (main sets "code").
-          options.extensionFactories = [createPrsloyHarness()];
+          options.extensionFactories.push(createPrsloyHarness());
         }
         options.contextFilesRequireTrust = true;
         handle = await createPixRuntime(options);

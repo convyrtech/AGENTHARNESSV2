@@ -21,6 +21,7 @@ export { FindReady, formatResult as formatFindReady } from "./find-ready.ts";
 export { detectPseudoToolCall } from "./loop-detector.ts";
 export { scrubSecrets } from "./secret-scrub.ts";
 export { looksLikeServer, detectPorts } from "./process-registry.ts";
+export { resolveToolPath } from "./paths.ts";
 export {
   ReliabilityProxy,
   STREAM_INTERRUPTED_CODE,
