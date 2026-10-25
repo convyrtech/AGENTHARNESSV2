@@ -105,7 +105,8 @@ test("chat cards, Settings «Память» and «Поиск», a dialog and «�
     await expect(page.getByTestId("recipe-dialog")).toBeVisible();
     await page.keyboard.press("Escape");
     await expect(page.getByTestId("recipe-dialog")).toBeHidden();
-    expect(await focusedId(page)).toBe("recipe-landing");
+    // focus comes back when the close animation ends, a moment after the dialog is hidden
+    await expect.poll(() => focusedId(page)).toBe("recipe-landing");
 
     await startHostWithCard(page);
     await sendPrompt(page, "Use the tool please");
