@@ -320,6 +320,7 @@ export function DesignPage({ locale, projectPath }: Props) {
             </Button>
             <Textarea
               data-testid="design-input"
+              aria-label={tr("design.input")}
               className="max-h-48 min-h-9 flex-1 resize-none border-0 bg-transparent shadow-none focus-visible:ring-0 dark:bg-transparent"
               placeholder={view.items.length === 0 ? tr("design.placeholder") : ""}
               value={draft}
@@ -634,7 +635,11 @@ function OwnerChoices({
                   {isLetterKey(o.key) ? <span className="font-semibold">{o.key}</span> : null}
                   {optionLabel(o) ? <span>{optionLabel(o)}</span> : null}
                   {o.recommended ? (
-                    <span className="text-xs opacity-60">{tr("design.recommended")}</span>
+                    <span
+                      className={cn("text-xs", picked ? "opacity-90" : "text-muted-foreground")}
+                    >
+                      {tr("design.recommended")}
+                    </span>
                   ) : null}
                 </Button>
               );

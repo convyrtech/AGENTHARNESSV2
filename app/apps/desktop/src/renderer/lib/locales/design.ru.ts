@@ -45,6 +45,7 @@ export const designRu: Record<keyof typeof designZh, string> = {
   "design.setup.browser": "Проверяю браузер",
   "design.retry": "Попробовать ещё раз",
   "design.empty": "Какую страницу сделать?",
+  "design.input": "Сообщение для «Дизайна»",
   "design.placeholder": "Например: сделай лендинг для кофейни",
   "design.send": "Отправить",
   "design.attach": "Приложить файлы",

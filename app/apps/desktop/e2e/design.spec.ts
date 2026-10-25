@@ -5,6 +5,7 @@
  *
  * DESIGN_E2E_LOCALE picks the UI language (default: the app's own default).
  */
+import { AxeBuilder } from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 import { _electron as electron, type ElectronApplication } from "playwright";
 import { execFileSync } from "node:child_process";
@@ -118,8 +119,27 @@ async function launch(opts: {
   return { app, page, root };
 }
 
+/** Screens of the built page and its tools: axe (WCAG A/AA, contrast included) in the theme under test. */
+const AXE_SCREENS = new Set(["done", "tweak", "edit", "edit-result", "edit-text"]);
+
+async function axeClean(page: Page, name: string) {
+  const result = await new AxeBuilder({ page })
+    .setLegacyMode(true)
+    .withTags(["wcag2a", "wcag2aa"])
+    // the owner's page inside the preview and the harness's pictures are not the app's UI
+    .exclude('[data-testid="design-preview"]')
+    .exclude('[data-testid="runtime-snapshot"]')
+    .analyze();
+  const found = result.violations.map((v: { id: string; nodes: { html: string }[] }) => ({
+    id: v.id,
+    nodes: v.nodes.slice(0, 5).map((n) => n.html.slice(0, 160)),
+  }));
+  expect(found, `axe on «${name}»`).toEqual([]);
+}
+
 async function shot(page: Page, name: string, settleMs = 250) {
   await page.waitForTimeout(settleMs);
+  if (AXE_SCREENS.has(name)) await axeClean(page, name);
   // DESIGN_E2E_THEME=dark → design-dark-<name>.png next to the light set.
   const theme = process.env.DESIGN_E2E_THEME;
   const suffix = theme && theme !== "light" ? `${theme}-` : "";

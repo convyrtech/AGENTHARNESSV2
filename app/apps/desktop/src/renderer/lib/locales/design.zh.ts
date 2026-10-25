@@ -42,6 +42,7 @@ export const designZh = {
   "design.setup.browser": "检查浏览器",
   "design.retry": "重试",
   "design.empty": "要做什么页面？",
+  "design.input": "发给「设计」的消息",
   "design.placeholder": "例如：为咖啡馆做一个落地页",
   "design.send": "发送",
   "design.attach": "附加文件",

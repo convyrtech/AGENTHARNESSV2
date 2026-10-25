@@ -44,6 +44,7 @@ export const designEn: Record<keyof typeof designZh, string> = {
   "design.setup.browser": "Checking the browser",
   "design.retry": "Try again",
   "design.empty": "What page should we make?",
+  "design.input": "Message to Design",
   "design.placeholder": "For example: make a landing page for a coffee shop",
   "design.send": "Send",
   "design.attach": "Attach files",
