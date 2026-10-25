@@ -16,6 +16,8 @@
 Pi:      провайдер с baseUrl http://127.0.0.1:8787/v1 и apiKey "local".
 """
 import argparse, http.client, http.server, json, os, queue, socket, ssl, sys, threading, time, urllib.parse
+for _s in (sys.stdout, sys.stderr):  # Windows: под -I PYTHONUTF8 не действует, а вывод в трубу идёт в cp1252
+    _s.reconfigure(encoding="utf-8", errors="replace")
 
 ap = argparse.ArgumentParser()
 ap.add_argument("--port", type=int, default=8787)
