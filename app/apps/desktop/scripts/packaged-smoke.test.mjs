@@ -2,7 +2,12 @@
  * Pure parts of packaged-smoke.mjs (the smoke itself runs after `pnpm package`).
  * Run: node apps/desktop/scripts/packaged-smoke.test.mjs
  */
-import { aclIsUserOnly, packagedExecutable, parseStartupTimings } from "./packaged-smoke.mjs";
+import {
+  aclIsUserOnly,
+  packagedExecutable,
+  parseNodeAt,
+  parseStartupTimings,
+} from "./packaged-smoke.mjs";
 
 function assert(condition, message) {
   if (!condition) throw new Error(message);
@@ -53,5 +58,16 @@ assert(
   timings.window === 812 && timings.runtimes === 9100,
   `timings parsed: ${JSON.stringify(timings)}`,
 );
+
+const winText = JSON.stringify([
+  { role: "assistant", content: `node -e 'console.log("NODE_AT=" + process.execPath)'` },
+  { role: "tool", content: "NODE_AT=C:\\Users\\me\\runtimes\\node\\node.exe\nnext" },
+]);
+assert(
+  parseNodeAt(winText) === "C:/Users/me/runtimes/node/node.exe",
+  `windows node path: ${parseNodeAt(winText)}`,
+);
+const posixText = JSON.stringify([{ role: "tool", content: "NODE_AT=/opt/node22/bin/node\n" }]);
+assert(parseNodeAt(posixText) === "/opt/node22/bin/node", "posix node path");
 
 console.log("packaged-smoke.test.mjs: ok");

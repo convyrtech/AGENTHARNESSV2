@@ -86,7 +86,7 @@ import {
 } from "./host-spawn.ts";
 import { createAutoUpdateController, type AutoUpdateController } from "./auto-update.ts";
 import {
-  ensureExtractedPiCli,
+  ensureExtractedPiCliAsync,
   isExtractedPiCliCurrentFor,
   piCliExtractDir,
 } from "./pi-cli-extract.ts";
@@ -271,8 +271,8 @@ function ensurePiCliExtracted(): Promise<void> {
   if (!asarPath) return Promise.resolve();
   if (piCliExtractInFlight) return piCliExtractInFlight;
   piCliExtractInFlight = Promise.resolve()
-    .then(() => {
-      const result = ensureExtractedPiCli({
+    .then(async () => {
+      const result = await ensureExtractedPiCliAsync({
         userDataPath: desktopUserDataPath(),
         asarPath,
       });

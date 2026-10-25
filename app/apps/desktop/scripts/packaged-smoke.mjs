@@ -138,6 +138,17 @@ export function aclIsUserOnly(icaclsOutput, path) {
   return grants.filter((g) => !system.test(g)).length === 1;
 }
 
+/**
+ * The path printed after NODE_AT= in the JSON of the model requests. The first NODE_AT= is
+ * the command itself (tool-call arguments); the output is a path. JSON doubles Windows
+ * backslashes: those become "/" first, so a remaining "\\n" is a newline.
+ */
+export function parseNodeAt(toolText) {
+  return [...toolText.replaceAll("\\\\", "/").matchAll(/NODE_AT=(.*?)(?:\\[nr]|")/gu)]
+    .map((m) => m[1])
+    .find((p) => /^([A-Za-z]:)?\/\w/u.test(p));
+}
+
 /** `[prsloy-timing] <phase> <ms>` lines → { phase: ms } (first occurrence wins). */
 export function parseStartupTimings(text) {
   const out = {};
@@ -331,10 +342,7 @@ export async function runPackagedSmoke() {
     report.checks.python3Shim = /\\n42|\b42\b/u.test(toolText);
     report.checks.harnessHeader = /\[exit 0 ·/u.test(toolText);
     // The host may spawn mid-unpack: its PATH must already lead to the bundled node.
-    // The first NODE_AT= is the command itself (tool-call arguments); the output is a path.
-    const nodeAt = [...toolText.matchAll(/NODE_AT=(.*?)(?:\\n|")/gu)]
-      .map((m) => m[1].replaceAll("\\\\", "/"))
-      .find((p) => /^([A-Za-z]:)?\/\w/u.test(p));
+    const nodeAt = parseNodeAt(toolText);
     report.nodeAt = nodeAt ?? null;
     report.checks.bundledNodeOnPath = Boolean(nodeAt?.includes("/runtimes/"));
     report.checks.agentEnvScrubbed = toolText.includes("token=none") && !toolText.includes(planted);

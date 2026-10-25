@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 import {
   ensureExtractedPiCli,
+  ensureExtractedPiCliAsync,
   extractedPiCliPackageRoot,
   isExtractedPiCliCurrentFor,
   isPiCliExtractCurrent,
@@ -39,6 +40,25 @@ function writeAsarFixture(root: string): void {
   mkdirSync(extra, { recursive: true });
   writeFileSync(join(extra, "index.js"), "nope\n");
 }
+
+describe("ensureExtractedPiCliAsync", () => {
+  it("copies the same tree while yielding to the event loop", async () => {
+    const asar = mkdtempSync(join(tmpdir(), "zeno-asar-"));
+    const userData = mkdtempSync(join(tmpdir(), "zeno-ud-"));
+    tempDirs.push(asar, userData);
+    writeAsarFixture(asar);
+
+    let ticks = 0;
+    const timer = setInterval(() => (ticks += 1), 0);
+    const first = await ensureExtractedPiCliAsync({ userDataPath: userData, asarPath: asar }, 1);
+    clearInterval(timer);
+    expect(first?.extractedNow).toBe(true);
+    expect(extractedPiCliPackageRoot(userData)).toBeTruthy();
+    expect(ticks).toBeGreaterThan(0);
+    const again = await ensureExtractedPiCliAsync({ userDataPath: userData, asarPath: asar });
+    expect(again?.extractedNow).toBe(false);
+  });
+});
 
 describe("ensureExtractedPiCli", () => {
   it("copies the pi CLI production tree and skips unrelated packages", () => {

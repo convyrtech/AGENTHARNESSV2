@@ -128,6 +128,40 @@ export function ensureExtractedPiCli(options: {
   userDataPath: string;
   asarPath: string;
 }): PiCliExtractResult | undefined {
+  const plan = planPiCliExtract(options);
+  if (!plan || "done" in plan) return plan?.done;
+  for (const entry of plan.selected) copyAsarEntry(plan.asarPath, plan.extractDir, entry);
+  return finishPiCliExtract(plan);
+}
+
+/**
+ * Same as ensureExtractedPiCli, but yields to the event loop every `yieldEvery` files: on
+ * Windows the copy takes 10+ s (Defender scans each new file), which froze the main
+ * process — and with it the window — during the first launch.
+ */
+export async function ensureExtractedPiCliAsync(
+  options: { userDataPath: string; asarPath: string },
+  yieldEvery = 16,
+): Promise<PiCliExtractResult | undefined> {
+  const plan = planPiCliExtract(options);
+  if (!plan || "done" in plan) return plan?.done;
+  let count = 0;
+  for (const entry of plan.selected) {
+    copyAsarEntry(plan.asarPath, plan.extractDir, entry);
+    count += 1;
+    if (count % yieldEvery === 0) await new Promise((resolve) => setImmediate(resolve));
+  }
+  return finishPiCliExtract(plan);
+}
+
+type PiCliExtractPlan =
+  | { done: PiCliExtractResult }
+  | { asarPath: string; extractDir: string; version: string; selected: string[] };
+
+function planPiCliExtract(options: {
+  userDataPath: string;
+  asarPath: string;
+}): PiCliExtractPlan | undefined {
   const asarPath = options.asarPath.trim();
   if (!asarPath || !existsSync(join(asarPath, "node_modules"))) return undefined;
 
@@ -137,7 +171,7 @@ export function ensureExtractedPiCli(options: {
   const extractDir = piCliExtractDir(options.userDataPath);
   const stamp = readPiCliExtractStamp(extractDir);
   if (isPiCliExtractCurrent(stamp, version, extractDir)) {
-    return { root: extractDir, extractedNow: false, version };
+    return { done: { root: extractDir, extractedNow: false, version } };
   }
 
   try {
@@ -153,13 +187,21 @@ export function ensureExtractedPiCli(options: {
   const selected = selectPiTuiAsarFiles(files, (entry) =>
     readFileSync(join(asarPath, ...normalizeAsarRel(entry).split("/"))),
   );
-  for (const entry of selected) {
-    const rel = normalizeAsarRel(entry);
-    const dest = join(extractDir, ...rel.split("/"));
-    mkdirSync(dirname(dest), { recursive: true });
-    writeFileSync(dest, readFileSync(join(asarPath, ...rel.split("/"))));
-  }
+  return { asarPath, extractDir, version, selected };
+}
 
+function copyAsarEntry(asarPath: string, extractDir: string, entry: string): void {
+  const rel = normalizeAsarRel(entry);
+  const dest = join(extractDir, ...rel.split("/"));
+  mkdirSync(dirname(dest), { recursive: true });
+  writeFileSync(dest, readFileSync(join(asarPath, ...rel.split("/"))));
+}
+
+function finishPiCliExtract(plan: {
+  extractDir: string;
+  version: string;
+}): PiCliExtractResult | undefined {
+  const { extractDir, version } = plan;
   if (!extractedPackageRootFromDir(extractDir)) {
     console.warn("[zeno] pi CLI extract finished but package root is missing");
     return undefined;
