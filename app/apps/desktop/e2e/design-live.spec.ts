@@ -294,6 +294,13 @@ test("a full turn on the real tools: sheet and videos, choice «A», the page", 
       .filter((x) => x.kind === "stage");
     expect(stages[0]?.model).toBe("a6p/qwen3.8-max");
     expect(stages.every((x) => LIVE_MODELS.includes(x.model!.split("/")[1]!))).toBe(true);
+    // run.py's learning events: next to the «Код» harness's, kinds and numbers only — none of the owner's words
+    const learn = readFileSync(
+      join(l.root, "home", ".pi", "agent", "prsloy-learning", "design-events.jsonl"),
+      "utf8",
+    );
+    expect(learn.split("\n").filter(Boolean).length).toBeGreaterThan(2);
+    expect(learn).not.toMatch(/Зерно|кофейн|Сделай/);
     await shot(page, "done");
   } finally {
     await app.close();
