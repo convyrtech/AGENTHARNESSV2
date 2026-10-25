@@ -10,6 +10,7 @@ import {
   ensurePrsloyHomeDirs,
   ensurePrsloyModelsJson,
   ensurePrsloySettings,
+  installSearchTools,
   prsloyHomePaths,
   resolvePrsloyAgentDir,
   type PrsloyHomePaths,
@@ -102,10 +103,9 @@ export function bootstrapPrsloy(options: {
   const statePath = join(paths.stateDir, "state.json");
   let state = readState(statePath);
 
-  const bundledGitRoot = join(
-    options.runtimesRoot ?? join(options.userDataPath, "runtimes"),
-    "git",
-  );
+  const runtimesRoot = options.runtimesRoot ?? join(options.userDataPath, "runtimes");
+  const bundledGitRoot = join(runtimesRoot, "git");
+  installSearchTools(join(runtimesRoot, "tools"), agentDir);
   let shellPath: string | undefined;
   let shellSource: PrsloyContext["shellSource"];
   if (platform === "win32") {

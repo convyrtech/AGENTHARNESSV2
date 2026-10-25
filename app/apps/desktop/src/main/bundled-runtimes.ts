@@ -23,6 +23,8 @@ export type BundledRuntimePrefs = {
 export type BundledRuntimeManifest = {
   node?: string;
   python?: string;
+  /** Windows: Git for Windows version (PortableGit under runtimes/git). */
+  git?: string;
   pythonReleaseTag?: string;
   platform?: string;
   arch?: string;

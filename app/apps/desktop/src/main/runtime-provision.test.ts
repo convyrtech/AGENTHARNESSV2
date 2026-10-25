@@ -221,3 +221,54 @@ describe("isProvisionStampCurrent", () => {
     }
   });
 });
+
+describe("PRSLOY: git + tools archives (Windows layout)", () => {
+  function addGitArchives(vendorRoot: string): void {
+    mkdirSync(join(vendorRoot, "git", "bin"), { recursive: true });
+    writeFileSync(join(vendorRoot, "git", "bin", "bash.exe"), "x");
+    mkdirSync(join(vendorRoot, "tools"), { recursive: true });
+    writeFileSync(join(vendorRoot, "tools", "rg.exe"), "x");
+    const archives = join(vendorRoot, "archives");
+    execFileSync("tar", ["-czf", join(archives, "git.tar.gz"), "-C", vendorRoot, "git"]);
+    execFileSync("tar", ["-czf", join(archives, "tools.tar.gz"), "-C", vendorRoot, "tools"]);
+    writeFileSync(
+      join(vendorRoot, "manifest.json"),
+      JSON.stringify({ node: "22.19.0", python: "3.12.13", git: "2.51.0", key: "test" }),
+    );
+  }
+
+  it("extracts git/ and tools/ into userData and stamps the git version", () => {
+    const { vendorRoot, userData } = makeVendorWithArchives();
+    try {
+      addGitArchives(vendorRoot);
+      const layout = ensureProvisionedRuntimes({
+        userDataPath: userData,
+        explicitVendorRoot: vendorRoot,
+        skipVenv: true,
+      });
+      expect(layout?.source).toBe("userData");
+      const userRoot = userRuntimesRoot(userData);
+      expect(existsSync(join(userRoot, "git", "bin", "bash.exe"))).toBe(true);
+      expect(existsSync(join(userRoot, "tools", "rg.exe"))).toBe(true);
+      const vendor = resolveVendorRuntimeLayout({ explicitVendorRoot: vendorRoot })!;
+      expect(
+        isProvisionStampCurrent(
+          { node: "22.19.0", python: "3.12.13", git: "2.51.0", provisionedAt: "" },
+          vendor,
+          userRoot,
+        ),
+      ).toBe(true);
+      // An install provisioned before git shipped must re-extract.
+      expect(
+        isProvisionStampCurrent(
+          { node: "22.19.0", python: "3.12.13", provisionedAt: "" },
+          vendor,
+          userRoot,
+        ),
+      ).toBe(false);
+    } finally {
+      rmSync(vendorRoot, { recursive: true, force: true });
+      rmSync(userData, { recursive: true, force: true });
+    }
+  });
+});

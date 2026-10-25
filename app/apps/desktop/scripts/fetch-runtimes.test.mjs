@@ -7,9 +7,12 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import {
+  gitDistMeta,
   loadVersions,
   nodeDistMeta,
   packShippingArchives,
+  pruneGitRuntime,
+  searchToolsDistMeta,
   pruneNodeRuntime,
   prunePythonRuntime,
   pythonDistMeta,
@@ -213,6 +216,93 @@ function assertEqual(actual, expected, message) {
     const man = JSON.parse(readFileSync(join(root, "manifest.json"), "utf8"));
     assert(man.archives?.node === "archives/node.tar.gz", "manifest node archive path");
     assert(man.archives?.python === "archives/python.tar.gz", "manifest python archive path");
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+}
+
+// ── Windows: PortableGit + rg/fd pins and URLs; none on other targets ──────
+{
+  const v = loadVersions(VERSIONS_PATH);
+  assert(/^\d+\.\d+\.\d+$/.test(v.git ?? ""), `git pinned: ${v.git}`);
+  const win = { os: "win32", arch: "x64" };
+  const git = gitDistMeta(win, { ...v, git: "2.51.0", gitTag: "v2.51.0.windows.1" });
+  assertEqual(
+    git?.url,
+    "https://github.com/git-for-windows/git/releases/download/v2.51.0.windows.1/PortableGit-2.51.0-64-bit.7z.exe",
+    "portable git url",
+  );
+  assertEqual(gitDistMeta({ os: "linux", arch: "x64" }, v), undefined, "no git on linux");
+  const tools = searchToolsDistMeta(win, { ...v, ripgrep: "14.1.1", fd: "10.2.0" });
+  assertEqual(
+    tools.map((t) => t.url).join(" "),
+    "https://github.com/BurntSushi/ripgrep/releases/download/14.1.1/ripgrep-14.1.1-x86_64-pc-windows-msvc.zip " +
+      "https://github.com/sharkdp/fd/releases/download/v10.2.0/fd-v10.2.0-x86_64-pc-windows-msvc.zip",
+    "rg/fd urls",
+  );
+  assertEqual(searchToolsDistMeta({ os: "darwin", arch: "arm64" }, v).length, 0, "no tools on mac");
+}
+
+// ── pruneGitRuntime keeps bash/git, drops docs + Tcl/Tk GUIs ───────────────
+{
+  const root = mkdtempSync(join(tmpdir(), "zeno-prune-git-"));
+  try {
+    const touch = (...parts) => {
+      mkdirSync(join(root, ...parts.slice(0, -1)), { recursive: true });
+      writeFileSync(join(root, ...parts), "x");
+    };
+    touch("bin", "bash.exe");
+    touch("cmd", "git.exe");
+    touch("cmd", "gitk.exe");
+    touch("usr", "bin", "bash.exe");
+    touch("usr", "share", "doc", "readme");
+    touch("mingw64", "share", "doc", "git-doc", "index.html");
+    touch("mingw64", "lib", "tcl8.6", "init.tcl");
+    touch("mingw64", "lib", "tk8.6", "tk.tcl");
+    touch("mingw64", "lib", "libcurl.a");
+    touch("mingw64", "libexec", "git-core", "git-gui.tcl");
+    touch("mingw64", "libexec", "git-core", "git-add.exe");
+    pruneGitRuntime(root);
+    for (const kept of [
+      ["bin", "bash.exe"],
+      ["cmd", "git.exe"],
+      ["usr", "bin", "bash.exe"],
+      ["mingw64", "lib", "libcurl.a"],
+      ["mingw64", "libexec", "git-core", "git-add.exe"],
+    ]) {
+      assert(existsSync(join(root, ...kept)), `git prune keeps ${kept.join("/")}`);
+    }
+    for (const gone of [
+      ["cmd", "gitk.exe"],
+      ["usr", "share", "doc"],
+      ["mingw64", "share", "doc"],
+      ["mingw64", "lib", "tcl8.6"],
+      ["mingw64", "lib", "tk8.6"],
+      ["mingw64", "libexec", "git-core", "git-gui.tcl"],
+    ]) {
+      assert(!existsSync(join(root, ...gone)), `git prune drops ${gone.join("/")}`);
+    }
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+}
+
+// ── packShippingArchives also packs git/ and tools/ when present ────────────
+{
+  const root = mkdtempSync(join(tmpdir(), "zeno-pack-git-"));
+  try {
+    mkdirSync(join(root, "node", "bin"), { recursive: true });
+    mkdirSync(join(root, "git", "bin"), { recursive: true });
+    mkdirSync(join(root, "tools"), { recursive: true });
+    writeFileSync(join(root, "node", "bin", "node"), "x");
+    writeFileSync(join(root, "git", "bin", "bash.exe"), "x");
+    writeFileSync(join(root, "tools", "rg.exe"), "x");
+    writeFileSync(join(root, "manifest.json"), JSON.stringify({ node: "22.19.0", git: "2.51.0" }));
+    packShippingArchives(root);
+    const man = JSON.parse(readFileSync(join(root, "manifest.json"), "utf8"));
+    assertEqual(man.archives?.git, "archives/git.tar.gz", "manifest git archive path");
+    assertEqual(man.archives?.tools, "archives/tools.tar.gz", "manifest tools archive path");
+    assertEqual(man.archives?.python, undefined, "no python archive without python/");
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

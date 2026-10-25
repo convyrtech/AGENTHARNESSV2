@@ -6,6 +6,7 @@ import {
   ensurePrsloyHomeDirs,
   ensurePrsloyModelsJson,
   ensurePrsloySettings,
+  installSearchTools,
   prsloyHomePaths,
   resolvePrsloyAgentDir,
 } from "./agent-home.ts";
@@ -105,5 +106,19 @@ describe("settings.json seed", () => {
     expect(settings.defaultModel).toBe("kimi-k3.1-pro");
     expect(settings.shellPath).toBeUndefined();
     expect(settings.defaultTools).toEqual(["read", "bash"]);
+  });
+});
+
+describe("bundled search tools", () => {
+  it("copies rg/fd into agentDir/bin and ignores other files", () => {
+    const tools = tempDir();
+    const agentDir = tempDir();
+    writeFileSync(join(tools, "rg.exe"), "rg-binary");
+    writeFileSync(join(tools, "fd.exe"), "fd-binary");
+    writeFileSync(join(tools, "evil.exe"), "nope");
+    expect(installSearchTools(tools, agentDir).sort()).toEqual(["fd.exe", "rg.exe"]);
+    expect(readFileSync(join(agentDir, "bin", "rg.exe"), "utf8")).toBe("rg-binary");
+    expect(existsSync(join(agentDir, "bin", "evil.exe"))).toBe(false);
+    expect(installSearchTools(join(tools, "missing"), agentDir)).toEqual([]);
   });
 });

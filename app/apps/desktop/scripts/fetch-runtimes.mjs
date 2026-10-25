@@ -35,7 +35,20 @@ const VERSIONS_PATH = join(RUNTIMES_ROOT, "versions.json");
 const CACHE_ROOT = join(homedir(), ".cache", "zeno-runtimes");
 
 /**
- * @typedef {{ node: string, python: string, pythonReleaseTag: string }} RuntimeVersions
+ * Windows also pins Git for Windows (PortableGit: bash for pi's bash tool + git for
+ * per-turn snapshots) and ripgrep/fd (pi's grep/find tools would otherwise download
+ * them from GitHub at first use).
+ *
+ * @typedef {{
+ *   node: string,
+ *   python: string,
+ *   pythonReleaseTag: string,
+ *   git?: string,
+ *   gitTag?: string,
+ *   gitSha256?: string,
+ *   ripgrep?: string,
+ *   fd?: string,
+ * }} RuntimeVersions
  */
 
 function parseArgs(argv) {
@@ -67,7 +80,100 @@ export function loadVersions(versionsPath = VERSIONS_PATH) {
     node: String(raw.node),
     python: String(raw.python),
     pythonReleaseTag: String(raw.pythonReleaseTag),
+    ...(raw.git ? { git: String(raw.git) } : {}),
+    ...(raw.gitTag ? { gitTag: String(raw.gitTag) } : {}),
+    ...(raw.gitSha256 ? { gitSha256: String(raw.gitSha256).toLowerCase() } : {}),
+    ...(raw.ripgrep ? { ripgrep: String(raw.ripgrep) } : {}),
+    ...(raw.fd ? { fd: String(raw.fd) } : {}),
   };
+}
+
+/**
+ * PortableGit (Windows only). A 7-Zip self-extractor; ~60MB download.
+ * @param {{ os: string, arch: string }} target
+ * @param {RuntimeVersions} versions
+ */
+export function gitDistMeta(target, versions) {
+  if (target.os !== "win32" || !versions.git) return undefined;
+  const tag = versions.gitTag || `v${versions.git}.windows.1`;
+  const name = `PortableGit-${versions.git}-64-bit.7z.exe`;
+  return {
+    url: `https://github.com/git-for-windows/git/releases/download/${tag}/${name}`,
+    archiveName: name,
+    kind: "7z.exe",
+    ...(versions.gitSha256 ? { sha256: versions.gitSha256 } : {}),
+  };
+}
+
+/**
+ * ripgrep + fd for pi's grep/find tools (Windows only).
+ * @param {{ os: string, arch: string }} target
+ * @param {RuntimeVersions} versions
+ */
+export function searchToolsDistMeta(target, versions) {
+  if (target.os !== "win32") return [];
+  const out = [];
+  if (versions.ripgrep) {
+    const name = `ripgrep-${versions.ripgrep}-x86_64-pc-windows-msvc.zip`;
+    out.push({
+      tool: "rg",
+      binary: "rg.exe",
+      archiveName: name,
+      url: `https://github.com/BurntSushi/ripgrep/releases/download/${versions.ripgrep}/${name}`,
+    });
+  }
+  if (versions.fd) {
+    const name = `fd-v${versions.fd}-x86_64-pc-windows-msvc.zip`;
+    out.push({
+      tool: "fd",
+      binary: "fd.exe",
+      archiveName: name,
+      url: `https://github.com/sharkdp/fd/releases/download/v${versions.fd}/${name}`,
+    });
+  }
+  return out;
+}
+
+/**
+ * Drop docs, translations and the Tcl/Tk GUIs (gitk, git-gui) from PortableGit.
+ * Keeps bash, coreutils, perl, ssh, curl and git itself intact.
+ * @param {string} gitRoot
+ * @returns {number} approximate bytes removed
+ */
+export function pruneGitRuntime(gitRoot) {
+  if (!gitRoot || !existsSync(gitRoot)) return 0;
+  const drop = [
+    join(gitRoot, "mingw64", "share", "doc"),
+    join(gitRoot, "mingw64", "share", "locale"),
+    join(gitRoot, "mingw64", "share", "gitk"),
+    join(gitRoot, "mingw64", "share", "git-gui"),
+    join(gitRoot, "mingw64", "share", "man"),
+    join(gitRoot, "usr", "share", "doc"),
+    join(gitRoot, "usr", "share", "man"),
+    join(gitRoot, "usr", "share", "info"),
+    join(gitRoot, "usr", "share", "locale"),
+    join(gitRoot, "mingw64", "bin", "gitk"),
+    join(gitRoot, "cmd", "gitk.exe"),
+    join(gitRoot, "cmd", "git-gui.exe"),
+    join(gitRoot, "git-bash.exe"),
+    join(gitRoot, "git-cmd.exe"),
+    join(gitRoot, "README.portable"),
+  ];
+  for (const libDir of [join(gitRoot, "mingw64", "lib")]) {
+    if (!existsSync(libDir)) continue;
+    for (const name of readdirSync(libDir)) {
+      if (/^(tcl|tk|itcl|tdbc|thread)\d/i.test(name)) drop.push(join(libDir, name));
+    }
+  }
+  const gitCore = join(gitRoot, "mingw64", "libexec", "git-core");
+  if (existsSync(gitCore)) {
+    for (const name of readdirSync(gitCore)) {
+      if (name.startsWith("git-gui")) drop.push(join(gitCore, name));
+    }
+  }
+  let removed = 0;
+  for (const path of drop) removed += removePathBestEffort(path);
+  return removed;
 }
 
 /**
@@ -239,6 +345,53 @@ function extractArchive(archive, destDir, kind) {
   }
   // unzip fallback
   execFileSync("unzip", ["-q", archive, "-d", destDir], { stdio: "inherit" });
+}
+
+/**
+ * Unpack a 7-Zip self-extractor (PortableGit). Prefer a real 7z (preinstalled on GitHub
+ * windows runners), else let the SFX unpack itself with its `-y -o<dir>` switches.
+ * @param {string} archive
+ * @param {string} destDir
+ */
+function extractSevenZipSfx(archive, destDir) {
+  rmSync(destDir, { recursive: true, force: true });
+  mkdirSync(destDir, { recursive: true });
+  const candidates = [process.env.SEVEN_ZIP, "7z", "C:\\Program Files\\7-Zip\\7z.exe"].filter(
+    Boolean,
+  );
+  for (const bin of candidates) {
+    try {
+      execFileSync(bin, ["x", archive, `-o${destDir}`, "-y", "-bso0", "-bsp0"], {
+        stdio: "inherit",
+      });
+      return;
+    } catch {
+      // try the next extractor
+    }
+  }
+  if (process.platform !== "win32") {
+    throw new Error("7z is required to unpack PortableGit on a non-Windows host");
+  }
+  execFileSync(archive, ["-y", `-o${destDir}`], { stdio: "inherit" });
+}
+
+/**
+ * @param {string} root
+ * @param {string} fileName
+ * @returns {string | undefined}
+ */
+function findFileRecursive(root, fileName) {
+  const stack = [root];
+  while (stack.length) {
+    const dir = stack.pop();
+    if (!dir) continue;
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const full = join(dir, entry.name);
+      if (entry.isDirectory()) stack.push(full);
+      else if (entry.name.toLowerCase() === fileName.toLowerCase()) return full;
+    }
+  }
+  return undefined;
 }
 
 /**
@@ -586,16 +739,27 @@ async function fetchOne(target, versions, force) {
   const nodeDest = join(platformDir, "node");
   const pythonDest = join(platformDir, "python");
   const manifestPath = join(platformDir, "manifest.json");
+  const gitDest = join(platformDir, "git");
+  const toolsDest = join(platformDir, "tools");
+  const gitMeta = gitDistMeta(target, versions);
+  const toolMetas = searchToolsDistMeta(target, versions);
 
   if (
     !force &&
     existsSync(manifestPath) &&
     findNodeBinary(nodeDest) &&
-    findPythonBinary(pythonDest)
+    findPythonBinary(pythonDest) &&
+    (!gitMeta || existsSync(join(gitDest, "bin", "bash.exe"))) &&
+    toolMetas.every((t) => existsSync(join(toolsDest, t.binary)))
   ) {
     try {
       const prev = JSON.parse(readFileSync(manifestPath, "utf8"));
-      if (prev.node === versions.node && prev.python === versions.python && prev.pruned === true) {
+      if (
+        prev.node === versions.node &&
+        prev.python === versions.python &&
+        (prev.git ?? undefined) === (gitMeta ? versions.git : undefined) &&
+        prev.pruned === true
+      ) {
         console.log(`[fetch-runtimes] ${target.key} already at pinned versions (pruned)`);
         return { platformDir, nodeDest, pythonDest, manifestPath };
       }
@@ -633,6 +797,46 @@ async function fetchOne(target, versions, force) {
   } finally {
     rmSync(pyExtract, { recursive: true, force: true });
   }
+  // ── Git for Windows (bash for pi's bash tool, git for turn snapshots) ─────
+  rmSync(gitDest, { recursive: true, force: true });
+  if (gitMeta) {
+    const gitArchive = join(CACHE_ROOT, gitMeta.archiveName);
+    await download(gitMeta.url, gitArchive);
+    if (gitMeta.sha256) {
+      const actual = sha256File(gitArchive);
+      if (actual !== gitMeta.sha256) {
+        rmSync(gitArchive, { force: true });
+        throw new Error(`PortableGit sha256 mismatch: ${actual} != ${gitMeta.sha256}`);
+      }
+    }
+    extractSevenZipSfx(gitArchive, gitDest);
+    const before = dirSizeBytes(gitDest);
+    pruneGitRuntime(gitDest);
+    console.log(
+      `[fetch-runtimes] git ${versions.git} sha256=${sha256File(gitArchive)} extracted=${formatMb(before)} pruned=${formatMb(dirSizeBytes(gitDest))}`,
+    );
+    if (!existsSync(join(gitDest, "bin", "bash.exe"))) {
+      throw new Error(`PortableGit bash.exe missing after extract (${gitDest})`);
+    }
+  }
+
+  // ── ripgrep / fd for pi grep/find (no GitHub download at tool time) ──────
+  rmSync(toolsDest, { recursive: true, force: true });
+  for (const tool of toolMetas) {
+    mkdirSync(toolsDest, { recursive: true });
+    const archive = join(CACHE_ROOT, tool.archiveName);
+    await download(tool.url, archive);
+    const extractDir = join(tmpdir(), `zeno-${tool.tool}-${Date.now()}`);
+    try {
+      extractArchive(archive, extractDir, "zip");
+      const found = findFileRecursive(extractDir, tool.binary);
+      if (!found) throw new Error(`${tool.binary} missing in ${tool.archiveName}`);
+      copyFileSync(found, join(toolsDest, tool.binary));
+    } finally {
+      rmSync(extractDir, { recursive: true, force: true });
+    }
+  }
+
   // Prune again in case materialize skipped (upgrade path).
   pruneNodeRuntime(nodeDest);
   prunePythonRuntime(pythonDest);
@@ -658,10 +862,26 @@ async function fetchOne(target, versions, force) {
     throw new Error(`Bundled python failed smoke test: ${detail}`);
   }
 
+  if (gitMeta && process.platform === "win32") {
+    try {
+      const out = execFileSync(
+        join(gitDest, "bin", "bash.exe"),
+        ["-c", "echo bash-ok; git --version; uname -s"],
+        { encoding: "utf8" },
+      ).trim();
+      console.log(`[fetch-runtimes] git bash smoke: ${out.replace(/\s+/g, " ")}`);
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      throw new Error(`Bundled Git Bash failed smoke test: ${detail}`);
+    }
+  }
+
   const nodeBytes = dirSizeBytes(nodeDest);
   const pyBytes = dirSizeBytes(pythonDest);
+  const gitBytes = existsSync(gitDest) ? dirSizeBytes(gitDest) : 0;
+  const toolsBytes = existsSync(toolsDest) ? dirSizeBytes(toolsDest) : 0;
   console.log(
-    `[fetch-runtimes] sizes node=${formatMb(nodeBytes)} python=${formatMb(pyBytes)} total=${formatMb(nodeBytes + pyBytes)}`,
+    `[fetch-runtimes] sizes node=${formatMb(nodeBytes)} python=${formatMb(pyBytes)} git=${formatMb(gitBytes)} tools=${formatMb(toolsBytes)} total=${formatMb(nodeBytes + pyBytes + gitBytes + toolsBytes)}`,
   );
 
   const manifest = {
@@ -674,6 +894,15 @@ async function fetchOne(target, versions, force) {
     pruned: true,
     nodeBytes,
     pythonBytes: pyBytes,
+    ...(gitMeta ? { git: versions.git, gitBytes } : {}),
+    ...(toolMetas.length
+      ? {
+          tools: Object.fromEntries(
+            toolMetas.map((t) => [t.tool, versions[t.tool === "rg" ? "ripgrep" : "fd"]]),
+          ),
+          toolsBytes,
+        }
+      : {}),
     nodeBinary: nodeBinAfter.replace(platformDir + (process.platform === "win32" ? "\\" : "/"), ""),
     pythonBinary: pyBin.replace(platformDir + (process.platform === "win32" ? "\\" : "/"), ""),
     fetchedAt: new Date().toISOString(),
@@ -703,6 +932,8 @@ export function packShippingArchives(platformDir) {
   mkdirSync(archives, { recursive: true });
   const nodeArchive = join(archives, "node.tar.gz");
   const pythonArchive = join(archives, "python.tar.gz");
+  const gitArchive = join(archives, "git.tar.gz");
+  const toolsArchive = join(archives, "tools.tar.gz");
   if (existsSync(join(platformDir, "node"))) {
     runTar(["-czf", nodeArchive, "-C", platformDir, "node"], { stdio: "ignore" });
     console.log(`[fetch-runtimes] packed ${nodeArchive} (${formatMb(statSync(nodeArchive).size)})`);
@@ -713,6 +944,14 @@ export function packShippingArchives(platformDir) {
       `[fetch-runtimes] packed ${pythonArchive} (${formatMb(statSync(pythonArchive).size)})`,
     );
   }
+  for (const [name, archive] of [
+    ["git", gitArchive],
+    ["tools", toolsArchive],
+  ]) {
+    if (!existsSync(join(platformDir, name))) continue;
+    runTar(["-czf", archive, "-C", platformDir, name], { stdio: "ignore" });
+    console.log(`[fetch-runtimes] packed ${archive} (${formatMb(statSync(archive).size)})`);
+  }
   // Enrich manifest for the provisioner
   const manifestPath = join(platformDir, "manifest.json");
   try {
@@ -720,6 +959,8 @@ export function packShippingArchives(platformDir) {
     man.archives = {
       node: existsSync(nodeArchive) ? "archives/node.tar.gz" : undefined,
       python: existsSync(pythonArchive) ? "archives/python.tar.gz" : undefined,
+      git: existsSync(gitArchive) ? "archives/git.tar.gz" : undefined,
+      tools: existsSync(toolsArchive) ? "archives/tools.tar.gz" : undefined,
     };
     writeFileSync(manifestPath, `${JSON.stringify(man, null, 2)}\n`, "utf8");
   } catch {
@@ -760,6 +1001,9 @@ function materializeCurrent(platformDir) {
   mkdirSync(current, { recursive: true });
   copyTree(join(platformDir, "node"), join(current, "node"));
   copyTree(join(platformDir, "python"), join(current, "python"));
+  for (const name of ["git", "tools"]) {
+    if (existsSync(join(platformDir, name))) copyTree(join(platformDir, name), join(current, name));
+  }
   if (existsSync(join(platformDir, "archives"))) {
     copyTree(join(platformDir, "archives"), join(current, "archives"));
   }

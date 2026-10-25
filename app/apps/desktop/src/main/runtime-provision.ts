@@ -28,6 +28,10 @@ export type VendorRuntimeLayout = {
   archives?: {
     node?: string;
     python?: string;
+    /** Windows: PortableGit (bash for the agent, git for turn snapshots). */
+    git?: string;
+    /** Windows: rg.exe / fd.exe for pi grep/find. */
+    tools?: string;
     manifest: BundledRuntimeManifest;
   };
 };
@@ -46,6 +50,7 @@ export type ProvisionedRuntimeLayout = {
 export type ProvisionStamp = {
   node?: string;
   python?: string;
+  git?: string;
   pythonReleaseTag?: string;
   key?: string;
   provisionedAt: string;
@@ -88,6 +93,8 @@ export function resolveVendorRuntimeLayout(options: {
     const manifestPath = join(vendorRoot, "manifest.json");
     const nodeArchive = join(archivesDir, "node.tar.gz");
     const pythonArchive = join(archivesDir, "python.tar.gz");
+    const gitArchive = join(archivesDir, "git.tar.gz");
+    const toolsArchive = join(archivesDir, "tools.tar.gz");
     const hasArchives =
       existsSync(archivesDir) && (existsSync(nodeArchive) || existsSync(pythonArchive));
     const manifest = readManifestFile(manifestPath);
@@ -102,6 +109,8 @@ export function resolveVendorRuntimeLayout(options: {
             archives: {
               ...(existsSync(nodeArchive) ? { node: nodeArchive } : {}),
               ...(existsSync(pythonArchive) ? { python: pythonArchive } : {}),
+              ...(existsSync(gitArchive) ? { git: gitArchive } : {}),
+              ...(existsSync(toolsArchive) ? { tools: toolsArchive } : {}),
               manifest: manifest ?? {},
             },
           }
@@ -158,7 +167,13 @@ export function isProvisionStampCurrent(
   if (expectedPython && stamp.python !== expectedPython) return false;
   const nodeOk = !expectedNode || Boolean(getBundledNodeExecutable(roots.nodeRoot));
   const pyOk = !expectedPython || Boolean(getBundledPythonExecutable(roots.pythonRoot));
-  return nodeOk && pyOk;
+  // Git arrived after the first alpha installs: a stamp without it must re-extract.
+  const expectedGit = manifest?.git;
+  const gitOk =
+    !expectedGit ||
+    (stamp.git === expectedGit && existsSync(join(userRoot, "git", "bin", "bash.exe")));
+  const toolsOk = !vendor.archives?.tools || existsSync(join(userRoot, "tools"));
+  return nodeOk && pyOk && gitOk && toolsOk;
 }
 
 export function readProvisionStamp(userDataPath: string): ProvisionStamp | undefined {
@@ -197,7 +212,7 @@ function runTar(args: string[]): void {
  * Uses system `tar` (macOS/Linux/modern Windows).
  */
 export function extractRuntimeArchives(
-  archives: { node?: string; python?: string },
+  archives: { node?: string; python?: string; git?: string; tools?: string },
   destRoot: string,
 ): void {
   mkdirSync(destRoot, { recursive: true });
@@ -210,6 +225,12 @@ export function extractRuntimeArchives(
     const pyDest = join(destRoot, "python");
     rmSync(pyDest, { recursive: true, force: true });
     runTar(["-xzf", archives.python, "-C", destRoot]);
+  }
+  for (const name of ["git", "tools"] as const) {
+    const archive = archives[name];
+    if (!archive) continue;
+    rmSync(join(destRoot, name), { recursive: true, force: true });
+    runTar(["-xzf", archive, "-C", destRoot]);
   }
 }
 
@@ -356,6 +377,8 @@ export function ensureProvisionedRuntimes(options: {
         {
           ...(vendor.archives.node ? { node: vendor.archives.node } : {}),
           ...(vendor.archives.python ? { python: vendor.archives.python } : {}),
+          ...(vendor.archives.git ? { git: vendor.archives.git } : {}),
+          ...(vendor.archives.tools ? { tools: vendor.archives.tools } : {}),
         },
         userRoot,
       );
@@ -383,6 +406,7 @@ export function ensureProvisionedRuntimes(options: {
           provisionedAt: new Date().toISOString(),
           ...(vendor.archives.manifest.node ? { node: vendor.archives.manifest.node } : {}),
           ...(vendor.archives.manifest.python ? { python: vendor.archives.manifest.python } : {}),
+          ...(vendor.archives.manifest.git ? { git: vendor.archives.manifest.git } : {}),
           ...(vendor.archives.manifest.pythonReleaseTag
             ? { pythonReleaseTag: vendor.archives.manifest.pythonReleaseTag }
             : {}),

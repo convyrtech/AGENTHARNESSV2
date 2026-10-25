@@ -6,7 +6,16 @@
  * `userData/agent`. Main exports `PI_CODING_AGENT_DIR` early so every code path that
  * calls pi `getAgentDir()` (host, pi TUI, package manager) lands here.
  */
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  renameSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { dirname, join } from "node:path";
 import {
   buildPrsloyModelsJsonProvider,
@@ -134,4 +143,31 @@ export function ensurePrsloyHomeDirs(paths: PrsloyHomePaths, agentDir = paths.ag
   ]) {
     mkdirSync(dir, { recursive: true });
   }
+}
+
+/**
+ * Copy bundled rg/fd into `<agentDir>/bin`: pi's tools-manager checks there first, so
+ * grep/find never try to download them from GitHub. Returns the installed names.
+ */
+export function installSearchTools(toolsDir: string, agentDir: string): string[] {
+  if (!existsSync(toolsDir)) return [];
+  const binDir = join(agentDir, "bin");
+  const installed: string[] = [];
+  for (const name of readdirSync(toolsDir)) {
+    if (!/^(rg|fd)(\.exe)?$/u.test(name)) continue;
+    const from = join(toolsDir, name);
+    const to = join(binDir, name);
+    try {
+      if (existsSync(to) && statSync(to).size === statSync(from).size) {
+        installed.push(name);
+        continue;
+      }
+      mkdirSync(binDir, { recursive: true });
+      copyFileSync(from, to);
+      installed.push(name);
+    } catch (error) {
+      console.warn(`[prsloy] installing ${name} failed:`, error);
+    }
+  }
+  return installed;
 }
