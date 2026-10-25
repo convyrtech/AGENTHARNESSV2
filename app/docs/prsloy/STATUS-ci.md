@@ -1,5 +1,69 @@
 # STATUS: дорожка ci (W0 + W5)
 
+## Этап 4: установщик в один клик, по-русски
+
+Прогон: https://github.com/convyrtech/AGENTHARNESSV2/actions/runs/40171865940 (зелёный: package, smoke, update-e2e).
+
+### Что поменялось (`apps/desktop/electron-builder.yml`)
+
+- `nsis`:
+  - `oneClick: true`, `perMachine: false` — установка в `%LOCALAPPDATA%\Programs\PRSLOY` без UAC;
+  - `allowToChangeInstallationDirectory: false`, `runAfterFinish: true`;
+  - `installerLanguages: [ru_RU]`, `language: "1049"`, `unicode: true`;
+  - `deleteAppDataOnUninstall: false`; ярлыки и `include: build/installer.nsh` (распаковка PortableGit) — как были.
+- **Ловушка:** `multiLanguageInstaller: false` в electron-builder собирает **только английский** (`langs = ["en_US"]`):
+  первая сборка показала «PRSLOY Setup / Installing, please wait...». Русский получается так: язык по умолчанию
+  (многоязычный режим) и единственный `ru_RU` в списке, без выбора языка.
+- `extraMetadata.name: prsloy` — папка кэша обновлений теперь `%LOCALAPPDATA%\prsloy-updater`, раньше была
+  `@zenodesktop-updater`.
+  - `publish.updaterCacheDirName` electron-builder **игнорирует**: имя всегда берётся из `name` в упакованном
+    `package.json`.
+  - Это же имя установщик использует для своей копии `installer.exe` — от неё считаются дифференциальные
+    обновления. Поэтому менять можно только через `name`, иначе обновления молча станут полными.
+  - Профиль (`%APPDATA%\PRSLOY`) от `name` не зависит: core задаёт его в коде (`app.setPath`).
+
+### Как доказано на windows-latest
+
+`e2e-smoke/oneclick-install.ps1` — первый шаг smoke на чистом раннере. Строгий режим: `SMOKE_STRICT_ONECLICK=1`
+на уровне job.
+
+1. Установщик запускается **без `/S`**, как двойной клик.
+   - Каждые 0,5 с снимается скриншот экрана (78 кадров, артефакт `prsloy-win-smoke/oneclick/`).
+   - Тексты всех окон установщика читаются через EnumWindows + `WM_GETTEXT`: заголовок и все контролы.
+2. Найдено ровно одно окно, и оно русское:
+   - `Установка PRSLOY` → `Установка, пожалуйста, подождите...` + полоса прогресса; кнопки `Отмена` и `&Закрыть`.
+   - Слов `Next / Install / Choose / Anyone who uses / Back / Browse / Cancel` нет.
+   - Английских текстов нет: эта проверка тоже строгая.
+3. Установщик закрылся сам за 44 с (с распаковкой PortableGit), код выхода 0.
+4. Приложение запустилось само (`runAfterFinish`) и показало «Вставьте ключ PRSLOY».
+5. Манифест установщика — `asInvoker` (UAC не нужен). Запись удаления лежит в HKCU, то есть установка per-user.
+6. Удаление тоже без `/S`:
+   - русский вопрос «Вы уверены, что хотите удалить PRSLOY?»;
+   - кнопки OK/Cancel рисует Windows на языке системы, у пользователя будут «ОК/Отмена»;
+   - удаление закончилось за 5,6 с, папки программы нет, `%APPDATA%\PRSLOY` на месте.
+
+Скриншоты: `screens/installer-oneclick-progress.png`, `screens/installer-oneclick-app-started.png`.
+
+### Регрессия: всё зелёное в том же прогоне
+
+- Тихая установка `/S /currentuser`: 28,3 с, установщик 215,0 МБ. Smoke 9/9 + кириллица 1/1 (установка с `/D=…Иван
+Петров…` работает и в oneClick). Все findings ✅.
+- Новый тест в `firstrun.spec.ts`: ключ и чат переживают удаление и повторную установку.
+  - На настоящем профиле ввели ключ через первый запуск и отправили чат.
+  - Потом `Uninstall PRSLOY.exe /S` (1,6 с) и снова `/S` (39 с).
+  - После этого первого экрана нет, `hasKey: true`, чат виден.
+- update-e2e 2/2:
+  - A и B собраны уже с oneClick; обновление тихое (`--updated /S`), перезапуск в B.
+  - Подделка отвергнута.
+  - Кэш — `%LOCALAPPDATA%\prsloy-updater`, дифференциально скачан 1,08 МБ.
+
+### Заметки
+
+- Релизов в репозитории ещё нет, поэтому проверка «assisted alpha.1 → oneClick alpha.2» не нужна. Если alpha.1
+  выйдет с этим конфигом, её не будет никогда.
+- Подтверждение при удалении («Вы уверены…») показывает сам шаблон electron-builder для oneClick. Мастером оно не
+  считается: один вопрос, ответ «ОК».
+
 ## Этап 3: автообновление от начала до конца на Windows
 
 Прогон на `main` 93dcb8f: https://github.com/convyrtech/AGENTHARNESSV2/actions/runs/40169395654. Всё зелёное:
