@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vite-plus/test";
@@ -1178,5 +1178,30 @@ describe("third round (second corpus run, 0cd7761)", () => {
     );
     expect(shared.has("skillry.dev")).toBe(false);
     expect(shared.has("a-2") && shared.has("au3")).toBe(true);
+  });
+});
+
+describe("A-0s: nightly and weekly runs", () => {
+  it("--since skips session files older than the date", () => {
+    const root = mkdtempSync(join(tmpdir(), "audit-since-"));
+    const pi = new Pi()
+      .user("x")
+      .say("y")
+      .entries.map((e) => JSON.stringify(e))
+      .join("\n");
+    writeFileSync(join(root, "old.jsonl"), pi);
+    writeFileSync(join(root, "new.jsonl"), pi);
+    const old = new Date("2026-10-01T00:00:00Z");
+    utimesSync(join(root, "old.jsonl"), old, old);
+    const recent = loadSessions(root, { since: Date.parse("2026-10-18") });
+    expect(recent.map((x) => x.file.replace(/^.*[\\/]/, ""))).toEqual(["new.jsonl"]);
+  });
+
+  it("the incident table appears only for a corpus with incident folders", () => {
+    const s = new Pi().user("x").say("y").session();
+    const incidents = incidentsFile.incidents as Incident[];
+    expect(acceptanceSummary([s], [], incidents, 0.1)).not.toContain("Инциденты DIARY");
+    const inE8 = { ...s, file: "/home/user/e8b-ds/turns/turn-04.jsonl" };
+    expect(acceptanceSummary([inE8], [], incidents, 0.1)).toContain("Инциденты DIARY");
   });
 });

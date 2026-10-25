@@ -490,6 +490,8 @@ function taskFromPath(file: string): string | undefined {
 
 export interface LoadOptions {
   surface?: Surface;
+  /** Только файлы, изменённые не раньше этого момента (мс эпохи): еженедельный прогон `--since`. */
+  since?: number;
 }
 
 /** Сессии Pi под папкой. Файлы, которые не похожи на сессию (журналы событий, turns), пропускаются. */
@@ -499,6 +501,13 @@ export function loadSessions(root: string, options: LoadOptions = {}): Session[]
   const ledgerCache = new Map<string, LedgerStage[]>();
   const indexCache = new Map<string, Set<string>>();
   for (const file of findJsonl(root)) {
+    if (options.since !== undefined) {
+      try {
+        if (statSync(file).mtimeMs < options.since) continue;
+      } catch {
+        continue;
+      }
+    }
     if (/(?:^|[\\/])(?:turns|events|ledger|messages|owner-messages)\.jsonl$/.test(file)) continue;
     const entries = readJsonl(file);
     if (!isPiSession(entries)) continue;

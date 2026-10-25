@@ -6,6 +6,9 @@
 //   … --out audit-out                                  findings.jsonl (с цитатами — не в git!),
 //                                                       audit-events.jsonl (без текста), REPORT-audit.md
 //   … --incidents audit/incidents.json                 сверка с инцидентами DIARY → SUMMARY.md (без текста)
+//   … --since 2026-10-18                               только сессии, изменённые с этой даты (еженедельный
+//                                                       прогон по сессиям дирижёра и владельца:
+//                                                       --sessions ~/.pi/agent/sessions --since <неделю назад>)
 //   … --dry-run                                        то же самое: модели в A-0 нет вообще; флаг для единообразия
 // turns.jsonl, ledger.jsonl, owner/messages.jsonl и bench-*.json скрипт находит сам рядом с сессиями.
 // Выходы: SUMMARY.md (детектор × находки, инциденты; без цитат), REVIEW.md и findings.jsonl (с цитатами —
@@ -33,6 +36,7 @@ const { values } = parseArgs({
     bench: { type: "string", multiple: true, default: [] },
     rules: { type: "string" },
     incidents: { type: "string" },
+    since: { type: "string" },
     surface: { type: "string" },
     out: { type: "string", default: "audit-out" },
     "dry-run": { type: "boolean", default: false },
@@ -51,8 +55,13 @@ const rules = (
   values.rules ? (JSON.parse(readFileSync(values.rules, "utf8")) as typeof rulesFile) : rulesFile
 ).rules as Rule[];
 const surface = values.surface as Surface | undefined;
+const since = values.since ? Date.parse(values.since) : undefined;
+if (values.since && Number.isNaN(since)) {
+  console.error(`--since ${values.since}: нужна дата, например 2026-10-18`);
+  process.exit(2);
+}
 const sessions: Session[] = values.sessions.flatMap((dir) =>
-  loadSessions(dir, surface ? { surface } : {}),
+  loadSessions(dir, { ...(surface ? { surface } : {}), ...(since !== undefined ? { since } : {}) }),
 );
 
 // bench-*.json: { results: [{ task, model, ok, session? }] } — исход check.mjs для D2.

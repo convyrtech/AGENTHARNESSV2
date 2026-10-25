@@ -1817,6 +1817,11 @@ export function acceptanceSummary(
       `| ${by.replace("code:", "")} | ${list.length} | ${list.filter((f) => f.status === "shadow").length} | ${new Set(list.map((f) => f.session)).size} | ${sigText} |`,
     );
   }
+  // Таблица инцидентов имеет смысл только на корпусе с их папками (приёмка), не на ночном стенде.
+  const relevant = incidents.filter((i) =>
+    sessions.some((x) => inDir({ file: x.file } as Finding, i.dir)),
+  );
+  if (relevant.length === 0) return `${lines.join("\n")}\n`;
   const code = incidents.filter((i) => i.kind === "code");
   const caught = code.filter((i) => incidentHits(i, findings).length > 0).length;
   lines.push(
