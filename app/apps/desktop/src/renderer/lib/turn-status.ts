@@ -8,6 +8,7 @@
  * `files` are the stubs left or the old tests changed; content = the same in plain Russian.
  */
 import type { MessageKey } from "./i18n.ts";
+import { isHostCrash, isModelFailure } from "./system-notices.ts";
 import type { TimelineBlock, TimelineItem } from "./timeline.ts";
 
 export const TURN_STATUS_TYPE = "prsloy-harness.turn-status";
@@ -15,6 +16,7 @@ export const TURN_STATUS_TYPE = "prsloy-harness.turn-status";
 export type TurnFact =
   | "checks-fail"
   | "page-fail"
+  | "ran-fail"
   | "stubs-left"
   | "tests-changed"
   | "tests-weak"
@@ -29,6 +31,7 @@ export type TurnFact =
 const ORDER: readonly TurnFact[] = [
   "checks-fail",
   "page-fail",
+  "ran-fail",
   "stubs-left",
   "tests-changed",
   "tests-weak",
@@ -52,6 +55,7 @@ export function parseTurnStatus(details: unknown): TurnStatus | undefined {
   // red wins over a stale green from the same turn
   if (given.has("checks-fail")) given.delete("checks-pass");
   if (given.has("page-fail")) given.delete("page-ok");
+  if (given.has("ran-fail")) given.delete("ran-ok");
   const facts = ORDER.filter((f) => given.has(f));
   if (facts.length === 0) return undefined;
   const files = Array.isArray(value.files)
@@ -66,7 +70,8 @@ export function parseTurnStatus(details: unknown): TurnStatus | undefined {
 }
 
 export function turnTone(facts: readonly TurnFact[]): TurnTone {
-  if (facts.includes("checks-fail") || facts.includes("page-fail")) return "fail";
+  if (facts.some((f) => f === "checks-fail" || f === "page-fail" || f === "ran-fail"))
+    return "fail";
   if (facts.some((f) => f === "stubs-left" || f === "tests-changed" || f === "tests-weak"))
     return "warn";
   if (facts.some((f) => f === "checks-pass" || f === "page-ok" || f === "ran-ok")) return "ok";
@@ -96,9 +101,27 @@ export function arrangeTurnStatus(blocks: readonly TimelineBlock[]): TimelineBlo
     const turnEnds = i === out.length || (block?.type === "item" && block.item.kind === "user");
     if (!turnEnds) continue;
     redTurn(out, turnStart, i);
+    stoppedTurn(out, turnStart, i);
     turnStart = i + 1;
   }
   return out;
+}
+
+/** A turn the model broke off (402, a dropped connection, a crashed host) is not «Готово» either. */
+function stoppedTurn(blocks: TimelineBlock[], from: number, to: number) {
+  const failed = blocks
+    .slice(from, to)
+    .some(
+      (block) =>
+        block.type === "item" &&
+        block.item.kind === "system" &&
+        (isModelFailure(block.item) || isHostCrash(block.item)),
+    );
+  if (!failed) return;
+  for (let i = from; i < to; i++) {
+    const block = blocks[i]!;
+    if (block.type === "process") blocks[i] = { ...block, stopped: true };
+  }
 }
 
 function redTurn(blocks: TimelineBlock[], from: number, to: number) {

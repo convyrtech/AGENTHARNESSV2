@@ -282,6 +282,7 @@ export function SessionTimelineContent(props: SessionTimelineContentProps) {
                       {...(block.endedAt ? { endedAt: block.endedAt } : {})}
                       {...(block.durationLabel ? { durationLabel: block.durationLabel } : {})}
                       {...(block.checksFailed ? { checksFailed: true } : {})}
+                      {...(block.stopped ? { stopped: true } : {})}
                       {...(props.workspacePath ? { workspacePath: props.workspacePath } : {})}
                     />
                   ) : (
