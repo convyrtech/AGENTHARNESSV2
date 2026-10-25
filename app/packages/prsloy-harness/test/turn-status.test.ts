@@ -129,6 +129,7 @@ describe("turn status facts", () => {
       "checks-fail",
       "page-fail",
       "stubs-left",
+      "claim-unbacked",
       "tests-changed",
       "tests-weak",
       "page-hints",

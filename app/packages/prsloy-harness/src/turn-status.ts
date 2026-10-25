@@ -3,11 +3,13 @@
 // одна строка по-русски, details — { facts, files?, page? } (page — находки проверки страницы с селекторами). Модель её не пишет и не перекрывает: при красной проверке ui
 // ставит карточку над ответом. Факты — из того, что видел харнесс: последний прогон гейта, проверка страницы,
 // запуск программы после последней правки, дифф хода (старые тесты, заглушки).
+import type { ClaimFinding, ClaimTracker } from "./claim-check.ts";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { parsePatch, TEST_FILE } from "./gate-signals.ts";
 import type { ResolvedOptions } from "./options.ts";
 import { oldTestChanges, userAskedToChange } from "./test-guard.ts";
 import { detectProjectCheck } from "./stop-gate.ts";
+import { recordEvent } from "./learning-log.ts";
 import { showCard } from "./text.ts";
 import type { TurnChanges } from "./turn-changes.ts";
 
@@ -17,6 +19,7 @@ export type TurnFact =
   | "checks-fail"
   | "page-fail"
   | "stubs-left"
+  | "claim-unbacked"
   | "tests-changed"
   | "tests-weak"
   | "page-hints"
@@ -31,6 +34,7 @@ export const TURN_FACT_TEXT: Readonly<Record<TurnFact, string>> = {
   "checks-fail": "Проверки не прошли",
   "page-fail": "На странице остались ошибки — посмотрите",
   "stubs-left": "Остались заглушки",
+  "claim-unbacked": "Слова агента не подтверждены проверкой — посмотрите",
   "tests-changed": "Агент поменял старые проверки — посмотрите",
   "tests-weak": "Новые тесты почти ничего не проверяют — посмотрите",
   "page-hints": "Есть подсказки по удобству страницы",
@@ -75,12 +79,12 @@ export function createTurnStatus(): TurnStatusState {
 }
 
 /** Запуск самой программы (не установка, не тест): `python app.py`, `node bot.js`, `.venv/Scripts/python x.py`. */
-const RUNS_PROGRAM =
+export const RUNS_PROGRAM =
   /(?:^|&&|;|\|\|)\s*(?:\S*[\\/])?(?:python3?|py|node)(?:\.exe)?\s+(?:-[\w-]+\s+)*(?!-m\s+(?:pytest|unittest|pip))[^\s;&|]+\.(?:py|m?js|cjs)\b/;
-const TEST_RUN = /\b(?:pytest|unittest|jest|vitest|mocha|npm (?:run )?test|node --test)\b/;
+export const TEST_RUN = /\b(?:pytest|unittest|jest|vitest|mocha|npm (?:run )?test|node --test)\b/;
 
 /** Заглушки вместо кода (H7) в добавленных строках. `@abstractmethod` в двух строках выше — не заглушка. */
-const STUB =
+export const STUB =
   /\b(?:TODO|FIXME)\b.*\b(?:implement|реализ)|rest of (?:the )?code|existing code here|your code here|остальн\p{L}* (?:код|отч\p{L}*|функци\p{L}*)|здесь будет|(?:#|\/\/)\s*(?:\.\.\.|…)|\braise NotImplementedError\b|throw new Error\(\s*["'`](?:not implemented|todo)/iu;
 
 export function stubFiles(patch: string): string[] {
@@ -102,7 +106,15 @@ export function turnFacts(
   state: TurnStatusState,
   patch: string | undefined,
   filesChanged: number,
-): { facts: TurnFact[]; files: string[]; page?: string[] } | undefined {
+  claims: readonly ClaimFinding[] = [],
+):
+  | {
+      facts: TurnFact[];
+      files: string[];
+      page?: string[];
+      claims?: { quote: string; why: string }[];
+    }
+  | undefined {
   const edited = state.edited || filesChanged > 0;
   if (!edited && state.gate === undefined) return undefined;
   const facts = new Set<TurnFact>();
@@ -131,10 +143,17 @@ export function turnFacts(
       files.push(...stubs);
     }
   }
+  // H8 (флаг claimCheck): «тесты проходят», «проверил», «готово» — против фактов хода; цитата и чего не хватило.
+  if (claims.length) facts.add("claim-unbacked");
   const ordered = ORDER.filter((f) => facts.has(f));
   if (!ordered.length) return undefined;
   const page = state.page === undefined ? [] : state.pageIssues;
-  return { facts: ordered, files: [...new Set(files)], ...(page.length ? { page } : {}) };
+  return {
+    facts: ordered,
+    files: [...new Set(files)],
+    ...(page.length ? { page } : {}),
+    ...(claims.length ? { claims: claims.map(({ quote, why }) => ({ quote, why })) } : {}),
+  };
 }
 
 export function turnStatusLine(facts: TurnFact[]): string {
@@ -144,10 +163,10 @@ export function turnStatusLine(facts: TurnFact[]): string {
 export function installTurnStatus(
   pi: ExtensionAPI,
   opts: ResolvedOptions,
-  deps: { state: TurnStatusState; changes?: TurnChanges | undefined },
+  deps: { state: TurnStatusState; changes?: TurnChanges | undefined; claims?: ClaimTracker },
 ): void {
   if (opts.profile !== "code") return;
-  const { state, changes } = deps;
+  const { state, changes, claims } = deps;
 
   pi.on("before_agent_start", (event) => {
     if (event.messageType !== "user") return;
@@ -174,12 +193,19 @@ export function installTurnStatus(
     // Гейт не успел прогнать проверку (стоп, бюджет) — «нечем проверить» говорим, только если её правда нет.
     if (state.gate === undefined && !state.hasCheck) state.hasCheck = !!detectProjectCheck(ctx.cwd);
     const diff = changes?.peekLastDiff();
-    const result = turnFacts(state, diff?.patch, diff?.files.length ?? 0);
+    const claimed = claims?.findings({ gate: state.gate, page: state.page }) ?? [];
+    for (const c of claimed)
+      recordEvent(ctx, {
+        kind: c.verdict === "wrong" ? "claim.false_done" : "claim.unverified",
+        sig: `claim:${c.kind}`,
+      });
+    const result = turnFacts(state, diff?.patch, diff?.files.length ?? 0, claimed);
     if (!result) return;
     await showCard(pi, TURN_STATUS_TYPE, turnStatusLine(result.facts), {
       facts: result.facts,
       ...(result.files.length ? { files: result.files } : {}),
       ...(result.page ? { page: result.page } : {}),
+      ...(result.claims ? { claims: result.claims } : {}),
     });
   });
 }

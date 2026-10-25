@@ -3,6 +3,7 @@
 // а не эффект verify-скрипта; своей цифры у гейта нет, её даёт наш бенч. Когда ход в профиле «Код» заканчивается после
 // правок, харнесс дёшево проверяет проект его же проверкой и, если красно, возвращает модель к работе — не больше
 // двух раз за сообщение пользователя. Хук Pi 1.4: agent_before_settle (записи + одно продолжение).
+import { type ClaimTracker, claimSignals, type GateFacts } from "./claim-check.ts";
 import { spawn, spawnSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { delimiter, join } from "node:path";
@@ -307,6 +308,8 @@ export interface StopGateDeps {
   turnStatus?: TurnStatusState;
   /** Полезность новых тестов (H-3, флаг testQuality, читается на каждом ходе): только сигналы. */
   testQuality?: () => boolean;
+  /** Слова и факты (H-2: H6–H8, флаг claimCheck): утверждения ответа — ревьюеру в сигналы. */
+  claims?: ClaimTracker;
   /** Ревьюер ищет подгонку (H-4, флаг reviewerCheats, читается на каждом ходе). */
   reviewerCheats?: () => boolean;
 }
@@ -343,6 +346,7 @@ export function installStopGate(
     turnStatus,
     testQuality = () => false,
     reviewerCheats = () => false,
+    claims,
   } = typeof deps === "function" ? { runner: deps } : deps;
   /** Блокер принят кодом (research/24 §4.2): возвратов «почини» больше нет, отчёты остаются. */
   const blocked = () => !!honesty?.accepted;
@@ -529,8 +533,11 @@ export function installStopGate(
     let signalsCache: string[] | undefined;
     // Находки проверки страницы с селекторами (нажатия, ссылки, axe, клавиатура) — ревьюеру как факты.
     let pageSignals: string[] = [];
+    // Слова и факты (H8, флаг claimCheck): утверждения ответа против решения гейта и проверки страницы.
+    const facts: GateFacts = { gate: undefined, page: undefined };
     const signals = () =>
       [
+        ...claimSignals(claims?.findings(facts) ?? []),
         ...(signalsCache ??= [
           ...pageSignals,
           ...gateSignals({
@@ -547,6 +554,8 @@ export function installStopGate(
     // Зелёное, таймаут или нечем проверять — не красное: не пилим казуала за отсутствие тестов.
     const red =
       check && run && !run.timedOut && run.code !== 0 && !check.missingTool?.test(run.output);
+    if (check && run && !run.timedOut && !check.missingTool?.test(run.output))
+      facts.gate = red ? "red" : "green";
     if (turnStatus && check && run && !run.timedOut && !check.missingTool?.test(run.output)) {
       turnStatus.gate = red ? "red" : "green";
       turnStatus.hasCheck = true;
@@ -664,8 +673,10 @@ export function installStopGate(
         turnStatus.page = !hasBlocking(page);
         turnStatus.pageIssues = pageFindings(page);
       }
-      if (page && !page.skipped)
+      if (page && !page.skipped) {
         pageSignals = pageFindings(page).map((l) => `Проверка страницы: ${l}`);
+        facts.page = !hasBlocking(page);
+      }
       if (page && !page.skipped && hasBlocking(page)) {
         pushbacks += 1;
         const tip = intervene(ctx, { kind: "gate.page", sig: "gate:page", n: pushbacks });
