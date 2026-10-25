@@ -117,10 +117,19 @@ async function launch(label: string, options: { hideGitBash?: boolean } = {}): P
   if (options.hideGitBash) {
     const empty = join(root, "no-program-files");
     await mkdir(empty, { recursive: true });
+    // Windows env names are case-insensitive; drop every spelling so ours is the only one.
+    const take = (name: string) => {
+      const keys = Object.keys(env).filter((k) => k.toLowerCase() === name.toLowerCase());
+      const value = keys.length ? env[keys[0]!] : undefined;
+      for (const k of keys) delete env[k];
+      return value;
+    };
+    take("ProgramFiles");
+    take("ProgramFiles(x86)");
+    take("ProgramW6432");
     env.ProgramFiles = empty;
     env["ProgramFiles(x86)"] = empty;
-    const pathKey = Object.keys(env).find((k) => k.toLowerCase() === "path") ?? "Path";
-    env[pathKey] = cleanWindowsPath(env[pathKey] ?? "");
+    env.Path = cleanWindowsPath(take("Path") ?? "");
   }
 
   const mainLog = join(outDir, `${label}-main.log`);
@@ -137,6 +146,15 @@ async function launch(label: string, options: { hideGitBash?: boolean } = {}): P
   proc.stdout?.on("data", (d) => void appendFile(mainLog, d));
   proc.stderr?.on("data", (d) => void appendFile(mainLog, d));
   app.on("close", () => void appendFile(mainLog, `\n[smoke] app closed\n`));
+
+  const seen = await app
+    .evaluate(() => ({
+      ProgramFiles: process.env.ProgramFiles,
+      "ProgramFiles(x86)": process.env["ProgramFiles(x86)"],
+      Path: process.env.Path ?? process.env.PATH,
+    }))
+    .catch((error: unknown) => ({ error: String(error) }));
+  await writeFile(join(outDir, `${label}-env.json`), JSON.stringify(seen, null, 2));
 
   const page = await app.firstWindow({ timeout: 120_000 });
   const launchMs = Date.now() - t0;

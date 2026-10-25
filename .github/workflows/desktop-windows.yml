@@ -136,7 +136,7 @@ jobs:
         shell: pwsh
         run: |
           "## Smoke" | Out-File -Append $env:GITHUB_STEP_SUMMARY
-          foreach ($f in 'install.json','metrics.json','bash-runner.json','bash-clean.json') {
+          foreach ($f in 'install.json','metrics.json','bash-runner.json','bash-clean.json','clean-env.json') {
             $path = Join-Path smoke-out $f
             if (Test-Path $path) { "### $f", '```json', (Get-Content $path -Raw), '```' | Out-File -Append $env:GITHUB_STEP_SUMMARY }
           }
