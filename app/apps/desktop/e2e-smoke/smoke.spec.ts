@@ -21,6 +21,7 @@ import {
   MARKER,
   beforeAllSmoke,
   bundledRuntimes,
+  findings,
   close,
   launch,
   listFiles,
@@ -113,7 +114,9 @@ test("installed app: window, runtimes, host, reply, bash tool", async () => {
 const AGENT_COMMAND =
   `${BASH_COMMAND}; echo BASH_VERSION=$BASH_VERSION; [[ 1 == 1 ]] && arr=(a b) && echo "bashisms=\${arr[1]}"; ` +
   `git --version; ls | head -5 | tr "\\n" " "; echo; grep -c . fixture.txt; sed -n 1p fixture.txt; ` +
-  `awk "BEGIN{print 6*7}"; find . -maxdepth 1 -name "*.txt"; echo GIT_ROOT=$(cygpath -w /)`;
+  `awk "BEGIN{print 6*7}"; find . -maxdepth 1 -name "*.txt"; echo GIT_ROOT=$(cygpath -w /); ` +
+  // Russian output from the bundled Python (needs UTF-8 stdout; Windows pipes default to ANSI).
+  `echo PY=$(command -v python3); python3 -c "print('привет')"`;
 
 test("clean Windows (system Git hidden): bash tool via bundled Git", async () => {
   test.skip(process.platform !== "win32", "Windows only");
@@ -137,6 +140,9 @@ test("clean Windows (system Git hidden): bash tool via bundled Git", async () =>
     expect(bash.result, report).not.toMatch(/command not found|Windows Subsystem for Linux/);
     // Bundled Git lives under userData\runtimes (not Program Files, not WSL).
     expect(bash.result, report).toMatch(/GIT_ROOT=.*\\runtimes\\/i);
+    const ru = findings("encoding", process.env.SMOKE_STRICT_RU === "1");
+    ru.check("bundled python3 prints привет", /^привет$/m.test(bash.result), report);
+    await ru.finish();
   } finally {
     if (launched) await shot(launched.page, "99-clean-final");
     await close(launched);

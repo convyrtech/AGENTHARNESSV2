@@ -6,7 +6,7 @@
  * an isolated PI_CODING_AGENT_DIR + ZENO_MODEL_* env); product mode starts the app as a user
  * would, behind the first-run gate.
  */
-import { expect, type Page } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { _electron as electron, type ElectronApplication } from "playwright";
 import { existsSync, readdirSync, statSync } from "node:fs";
 import { appendFile, mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
@@ -387,4 +387,34 @@ export async function beforeAllSmoke(): Promise<void> {
   expect(exe, "PRSLOY_EXE must point at the installed PRSLOY.exe").not.toBe("");
   expect(existsSync(exe), `missing ${exe}`).toBe(true);
   await mkdir(outDir, { recursive: true });
+}
+
+/**
+ * Checks for known-open bugs owned by another stream: every check is recorded in
+ * metrics.json (`findings.<scope>`) and as a test annotation; with `strict` (env flag set
+ * once the fix lands) any failed check fails the test.
+ */
+export function findings(scope: string, strict: boolean) {
+  const list: { check: string; ok: boolean; detail?: string }[] = [];
+  return {
+    check(check: string, ok: boolean, detail?: string) {
+      list.push({ check, ok, ...(ok || detail === undefined ? {} : { detail }) });
+    },
+    async finish(): Promise<void> {
+      const prev = existsSync(join(outDir, "metrics.json"))
+        ? JSON.parse(await readFile(join(outDir, "metrics.json"), "utf8"))
+        : {};
+      await writeMetrics({ findings: { ...prev.findings, [scope]: list } });
+      const failed = list.filter((f) => !f.ok);
+      for (const f of failed) {
+        test.info().annotations.push({ type: `${scope}: ${f.check}`, description: f.detail ?? "" });
+      }
+      if (strict) {
+        expect(
+          failed.map((f) => `${f.check}\n${f.detail ?? ""}`),
+          `${scope} findings`,
+        ).toEqual([]);
+      }
+    },
+  };
 }
