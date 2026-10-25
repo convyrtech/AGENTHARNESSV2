@@ -7,6 +7,12 @@ import type { ResolvedOptions } from "./options.ts";
 import { resolvePath } from "./post-edit-verify.ts";
 import { appendText, keepStructured } from "./text.ts";
 
+/** Для больших файлов переписывать целиком опасно (research/opinion-deepseek-v4.1-flash-1017.md, ADR-4). */
+export const LARGE_FILE_LINES = 500;
+
+export const EDIT_RETRY_NOTE_LARGE =
+  "Правка в этом файле не совпала уже 2 раза подряд. Файл большой — целиком не переписывай: перечитай нужный кусок (read с offset и limit) и возьми oldText дословно оттуда, с запасом в пару строк.";
+
 export const EDIT_RETRY_NOTE =
   "Правка в этом файле не совпала уже 2 раза подряд. Не угадывай текст: перечитай файл (read) и возьми oldText дословно из него, или перепиши файл целиком через write.";
 
@@ -42,7 +48,7 @@ export function installEditRobustness(pi: ExtensionAPI, _opts: ResolvedOptions):
     return undefined;
   });
 
-  pi.on("tool_result", (event, ctx) => {
+  pi.on("tool_result", async (event, ctx) => {
     if (event.toolName !== "edit" || typeof event.input.path !== "string") return undefined;
     const key = resolvePath(ctx.cwd, event.input.path);
     if (!event.isError) {
@@ -52,6 +58,11 @@ export function installEditRobustness(pi: ExtensionAPI, _opts: ResolvedOptions):
     const count = (failures.get(key) ?? 0) + 1;
     failures.set(key, count);
     if (count < 2) return undefined;
-    return { content: appendText(event.content, EDIT_RETRY_NOTE), ...keepStructured(event) };
+    const lines = await readFile(key, "utf8").then(
+      (text) => text.split("\n").length,
+      () => 0,
+    );
+    const note = lines > LARGE_FILE_LINES ? EDIT_RETRY_NOTE_LARGE : EDIT_RETRY_NOTE;
+    return { content: appendText(event.content, note), ...keepStructured(event) };
   });
 }

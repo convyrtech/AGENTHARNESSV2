@@ -2,7 +2,13 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vite-plus/test";
-import { EDIT_RETRY_NOTE, installEditRobustness, preserveFormat } from "../src/edit-robustness.ts";
+import {
+  EDIT_RETRY_NOTE,
+  EDIT_RETRY_NOTE_LARGE,
+  installEditRobustness,
+  LARGE_FILE_LINES,
+  preserveFormat,
+} from "../src/edit-robustness.ts";
 import { resolveOptions } from "../src/options.ts";
 import { installReusePrompt, REUSE_SECTION } from "../src/reuse-prompt.ts";
 import { installSecretScrub, scrubSecrets } from "../src/secret-scrub.ts";
@@ -36,6 +42,22 @@ describe("edit robustness", () => {
     expect((await fail("./a.ts")).text).toContain(EDIT_RETRY_NOTE);
     await pi.toolResult({ toolName: "edit", input: { path: "a.ts" }, text: "ok" });
     expect((await fail("a.ts")).text).not.toContain(EDIT_RETRY_NOTE);
+  });
+
+  it("for a large file suggests re-reading the region instead of a full rewrite", async () => {
+    const { pi, dir } = await setup();
+    await writeFile(join(dir, "big.ts"), "x\n".repeat(LARGE_FILE_LINES + 10));
+    const fail = () =>
+      pi.toolResult({
+        toolName: "edit",
+        input: { path: "big.ts" },
+        text: "Could not find",
+        isError: true,
+      });
+    await fail();
+    const second = await fail();
+    expect(second.text).toContain(EDIT_RETRY_NOTE_LARGE);
+    expect(second.text).not.toContain(EDIT_RETRY_NOTE);
   });
 
   it("write over an existing CRLF + BOM file keeps CRLF and BOM", async () => {
