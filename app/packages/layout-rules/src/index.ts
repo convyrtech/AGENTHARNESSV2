@@ -1,6 +1,8 @@
 /**
- * Layout lint rules, run inside the page (`page.evaluate(lintLayout, options)`): everything the
- * function uses is defined inside it, so Playwright can ship it to the renderer as source.
+ * Layout lint rules, run inside the page: `page.evaluate(lintLayout, options)` in the desktop
+ * layout lint, `lintLayout.toString()` sent to the browser by the harness's page check. Keep
+ * everything the function uses inside it — no imports, no module-level helpers — or the copy
+ * that reaches the page breaks (test/self-contained.test.ts holds this).
  *
  * Rules (one violation per offending element):
  *   root-hscroll   the document scrolls sideways
@@ -10,7 +12,7 @@
  *   overlap        two visible interactive elements cover each other
  *   target-size    an interactive element smaller than 24×24 CSS px (inline links in text aside)
  *   small-text     text under 11 CSS px
- *   focus-hidden   keyboard focus changes nothing on the element or its parent (checkFocus only)
+ *   focus-hidden   keyboard focus changes nothing on the element or 4 ancestors (checkFocus only)
  *   window-min     the window is narrower or lower than the app's minimum
  */
 

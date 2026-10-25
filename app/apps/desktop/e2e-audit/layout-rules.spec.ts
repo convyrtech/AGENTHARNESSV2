@@ -10,7 +10,7 @@ import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { excuse, parseBaseline } from "./layout-baseline.ts";
-import { lintLayout, type LayoutRule } from "./layout-rules.ts";
+import { lintLayout, type LayoutRule } from "@zeno/layout-rules";
 
 const require = createRequire(import.meta.url);
 const electronBinary = require("electron") as string;

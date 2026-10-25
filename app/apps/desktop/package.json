@@ -41,6 +41,7 @@
     "@types/react-dom": "catalog:",
     "@zeno/agent-runtime": "workspace:*",
     "@zeno/contracts": "workspace:*",
+    "@zeno/layout-rules": "workspace:*",
     "@zeno/test-utils": "workspace:*",
     "class-variance-authority": "catalog:",
     "clsx": "catalog:",
