@@ -234,6 +234,47 @@ describe("integration: real createAgentSession + mock gateway", () => {
     );
   }, 30_000);
 
+  it("ask_user and request_secret reach the model; without a window they fall back, nothing is written", async () => {
+    const { session, server, cwd, toolResults, textOf } = await startSession(
+      (_req, index) =>
+        [
+          {
+            toolCalls: [
+              {
+                name: "ask_user",
+                arguments: {
+                  question: "Какой бот?",
+                  options: ["Эхо", "Заказы"],
+                  recommended: "Эхо",
+                },
+              },
+            ],
+          },
+          {
+            toolCalls: [
+              {
+                name: "request_secret",
+                arguments: { name: "TELEGRAM_BOT_TOKEN", reason: "Токен от @BotFather" },
+              },
+            ],
+          },
+          { text: "Нужен токен бота." },
+        ][index] ?? { text: "?" },
+      { factory: {} },
+    );
+    expect(session.getActiveToolNames()).toEqual(
+      expect.arrayContaining(["ask_user", "request_secret"]),
+    );
+    await session.prompt("сделай бота для телеграма");
+    const tools = JSON.stringify((server.requests[0] as { tools?: unknown }).tools);
+    expect(tools).toContain("ask_user");
+    expect(tools).toContain("Never ask the user to paste a secret into the chat");
+    const [asked, secret] = toolResults();
+    expect(textOf(asked!)).toContain("делай с вариантом «Эхо»");
+    expect(textOf(secret!)).toContain("Не проси ключ в чате");
+    await expect(readFile(join(cwd, ".env"), "utf8")).rejects.toThrow();
+  }, 30_000);
+
   it("pseudo tool call written as text is not executed; the model is asked for a real call", async () => {
     const { session, server, toolResults } = await startSession(
       (_req, index) =>
