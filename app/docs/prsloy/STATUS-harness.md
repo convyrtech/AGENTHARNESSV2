@@ -162,14 +162,16 @@ createRequire(import.meta.url);` — файл не мой, не трогал.
 одновызовный `FakeOpenAiServer`). Модель на каждое «harness step N» делает один вызов; проверяется текст
 результата тула, который приложение вернуло модели:
 
-| Шаг | Вызов                                                                                 | Ожидание                                                                                                                    |
-| --- | ------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| 1   | `(python -m http.server P > srv.log 2>&1 &) && sleep 2 && curl … http://127.0.0.1:P/` | `[exit 0`, `200`, «запущен через реестр харнесса», `порт P`                                                                 |
-| 2   | `pkill -f "http.server P"; echo shell-alive`                                          | `[exit 0`, `shell-alive`, «выполнено через реестр: остановлены bg1», порт P свободен                                        |
-| 3   | `echo before-hang; sleep 60; echo never` при `PRSLOY_BASH_TIMEOUT_SEC=5`              | `before-hang`, без `never`, «[Процесс остановлен по таймауту 5 с.]»                                                         |
-| 4   | `taskkill /IM bash.exe /F`                                                            | «не выполнено» и подсказка `process action=stop`                                                                            |
-| 5   | `write broken.js` с `const a = ;`                                                     | «[Проверка синтаксиса (node --check): ОШИБКА в broken.js», `SyntaxError` (node — сам PRSLOY.exe с `ELECTRON_RUN_AS_NODE=1`) |
-| 6   | `python -m http.server Q &`, затем выход из приложения                                | порт Q отвечал, после выхода свободен                                                                                       |
+| Шаг | Вызов                                                                          | Ожидание                                                                                                                    |
+| --- | ------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------- |
+| 0   | `command -v python …; python -c "import http.server"`                          | только запись (диагностика)                                                                                                 |
+| 1   | `(node server.js P > srv.log 2>&1 &) && sleep 2 && curl … http://127.0.0.1:P/` | `[exit 0`, `200`, «запущен через реестр харнесса», `порт P`                                                                 |
+| 2   | `pkill -f "server.js P"; echo shell-alive`                                     | `[exit 0`, `shell-alive`, «выполнено через реестр: остановлены bg1», порт P свободен                                        |
+| 3   | `echo before-hang; sleep 60; echo never` при `PRSLOY_BASH_TIMEOUT_SEC=5`       | `before-hang`, без `never`, «[Процесс остановлен по таймауту 5 с.]»                                                         |
+| 4   | `taskkill /IM bash.exe /F`                                                     | «не выполнено» и подсказка `process action=stop`                                                                            |
+| 5   | `write broken.js` с `const a = ;`                                              | «[Проверка синтаксиса (node --check): ОШИБКА в broken.js», `SyntaxError` (node — сам PRSLOY.exe с `ELECTRON_RUN_AS_NODE=1`) |
+| 7   | `python -m http.server R &`                                                    | только находка `findings.harness-python-http` (строго — `SMOKE_STRICT_PYTHON_HTTP=1`)                                       |
+| 6   | `node server.js Q &`, затем выход из приложения                                | порт Q отвечал, после выхода свободен                                                                                       |
 
 Артефакты в `smoke-out/` (их уже выгружает шаг `prsloy-win-smoke`): `harness-requests.jsonl` (все запросы к
 модели), `harness-sessions/*.jsonl` (сессия pi), `harness-results.json`, `harness-steps.png`, логи main/renderer.
@@ -185,15 +187,49 @@ createRequire(import.meta.url);` — файл не мой, не трогал.
 Локально (Linux, собранный `apps/desktop`, Electron 43 под xvfb, `SMOKE_DEV_APP=$PWD`):
 
 ```
-✓ 1: `(python -m http.server &)` goes to the harness registry (3.1s)
-✓ 2: pkill -f is routed through the registry, the shell survives (380ms)
-✓ 3: a hanging command hits the harness bash timeout (6.1s)
-✓ 4: taskkill of bash.exe is blocked with the hint (270ms)
-✓ 5: a broken .js write gets the post-edit syntax line (767ms)
-✓ 6: a background server left running dies with the app (751ms)
-6 passed (16.3s)
+✓ harness on the installed app: steps 0–6 (12.5s)   # шаги 0–7 внутри одного теста, мягкие проверки
+1 passed (18.9s)
 ```
 
-`pnpm check` — чисто; `pnpm test` — exit 0 (harness 138, agent-runtime 118, desktop 903).
+`pnpm check` — чисто; `pnpm test` — exit 0 (harness 139, agent-runtime 118, desktop 922).
 
-Windows (`workflow_dispatch` `desktop-windows.yml` на `desktop/harness`, run 40160871223): WINDOWS_RESULT
+Windows (`workflow_dispatch` `desktop-windows.yml` на `desktop/harness`, установленный PRSLOY.exe на
+`windows-latest`) — три прогона:
+
+1. **40160871223** (f5ad277): шаг 1 упал — сервер из реестра сразу вышел с кодом 1, а в результате тула не было
+   причины; последовательный режим пропустил шаги 2–6. Отсюда два исправления: харнесс теперь дописывает код
+   выхода и вывод сервера, который упал при запуске (6c35ca5); спека — один тест с мягкими проверками и шагом 0
+   (какой python видит bash агента), логи фоновых процессов — в артефакт.
+2. **40161905258** (6c35ca5): причина видна — **во встроенном Python (`userData/runtimes/python`, 3.12.13) нет
+   модуля `threading`**, `python -m http.server` падает на импорте. Это ошибка сборки рантайма (не харнесса),
+   передана дирижёру. Шаги 3, 4, 5 прошли на Windows; `pkill -f` без совпадения в реестре на Windows
+   заблокирован, как и задумано.
+3. **40162864909** (ee054b1): шаги реестра — на node-сервере, python — отдельной находкой. **Smoke зелёный.**
+
+Результаты третьего прогона (текст результата тула, который получила модель):
+
+```
+step1  [exit 0 · 2,2 с · 3 Б] 200
+       [Сервер «node server.js 56430 > srv.log 2>&1 &» запущен через реестр харнесса …: bg1: работает,
+        pid 6268, порт 56430, лог C:\Users\RUNNER~1\AppData\Local\Temp\prsloy-harness\…\bg1.log]
+step2  [exit 0 · 0,1 с · 12 Б] shell-alive
+       [«pkill -f "server.js 56430"» выполнено через реестр: остановлены bg1.]        → порт свободен
+step3  [таймаут · 5,2 с · 303 Б] before-hang … [Процесс остановлен по таймауту 5 с.] …
+step4  «taskkill /IM bash.exe /F» не выполнено: так убивается сам bash тула или приложение. …
+step5  Successfully wrote to broken.js
+       [Проверка синтаксиса (node --check): ОШИБКА в broken.js … SyntaxError: Unexpected token ';' …]
+step7  … сразу завершился (код 1). Его вывод: … ModuleNotFoundError: No module named 'threading'   (находка)
+step6  … bg3: работает, порт 56431 …                                                 → после выхода порт свободен
+```
+
+Артефакт `prsloy-win-smoke` этого прогона: `harness-results.json`, `harness-requests.jsonl`,
+`harness-sessions/2026-10-25T04-52-29-514Z_….jsonl`, `harness-bg-logs/`, `metrics.json`
+(`findings.harness-python-http`).
+
+### Ещё по ходу этапа
+
+- Тест «хост убит сигналом» запускал `node_modules/.bin/jiti`, которого нет в чистой установке (на `main` падал
+  ENOENT). Теперь реестр собирается как в хосте и запускается в чистом Node (3ac3e90 → main 5708fde);
+  проверено, что без хука тест падает. Предупреждение линтера в тесте — ec35613 → main 3edd82e.
+- Не сделано: строгий режим находки python (`SMOKE_STRICT_PYTHON_HTTP=1`) включать после исправления рантайма;
+  баннер `createRequire` в `vite.agent.config.ts` (чтобы postcss работал в хосте) — у дорожки ядра.
