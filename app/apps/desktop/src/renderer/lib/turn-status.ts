@@ -14,9 +14,11 @@ export const TURN_STATUS_TYPE = "prsloy-harness.turn-status";
 
 export type TurnFact =
   | "checks-fail"
+  | "page-fail"
   | "stubs-left"
   | "tests-changed"
   | "tests-weak"
+  | "page-hints"
   | "checks-pass"
   | "page-ok"
   | "ran-ok"
@@ -26,9 +28,11 @@ export type TurnFact =
 /** Display order: what needs the owner first. */
 const ORDER: readonly TurnFact[] = [
   "checks-fail",
+  "page-fail",
   "stubs-left",
   "tests-changed",
   "tests-weak",
+  "page-hints",
   "checks-pass",
   "page-ok",
   "ran-ok",
@@ -38,24 +42,31 @@ const ORDER: readonly TurnFact[] = [
 
 export type TurnTone = "fail" | "warn" | "ok" | "neutral";
 
-export type TurnStatus = { facts: TurnFact[]; tone: TurnTone; files: string[] };
+/** `page`: up to 3 findings of harness's page check («кнопка .cta: не нажимается»), shown like files. */
+export type TurnStatus = { facts: TurnFact[]; tone: TurnTone; files: string[]; page: string[] };
 
 export function parseTurnStatus(details: unknown): TurnStatus | undefined {
-  const value = details as { facts?: unknown; files?: unknown } | null | undefined;
+  const value = details as { facts?: unknown; files?: unknown; page?: unknown } | null | undefined;
   if (!Array.isArray(value?.facts)) return undefined;
   const given = new Set(value.facts.filter((f): f is TurnFact => ORDER.includes(f as TurnFact)));
   // red wins over a stale green from the same turn
   if (given.has("checks-fail")) given.delete("checks-pass");
+  if (given.has("page-fail")) given.delete("page-ok");
   const facts = ORDER.filter((f) => given.has(f));
   if (facts.length === 0) return undefined;
   const files = Array.isArray(value.files)
     ? value.files.filter((f): f is string => typeof f === "string" && f.length > 0)
     : [];
-  return { facts, tone: turnTone(facts), files };
+  const page = Array.isArray(value.page)
+    ? value.page
+        .filter((f): f is string => typeof f === "string" && f.trim().length > 0)
+        .slice(0, 3)
+    : [];
+  return { facts, tone: turnTone(facts), files, page };
 }
 
 export function turnTone(facts: readonly TurnFact[]): TurnTone {
-  if (facts.includes("checks-fail")) return "fail";
+  if (facts.includes("checks-fail") || facts.includes("page-fail")) return "fail";
   if (facts.some((f) => f === "stubs-left" || f === "tests-changed" || f === "tests-weak"))
     return "warn";
   if (facts.some((f) => f === "checks-pass" || f === "page-ok" || f === "ran-ok")) return "ok";

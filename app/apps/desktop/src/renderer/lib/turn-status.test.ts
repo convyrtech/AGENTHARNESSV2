@@ -14,13 +14,25 @@ describe("parseTurnStatus", () => {
       facts: ["stubs-left", "checks-pass", "page-ok"],
       tone: "warn",
       files: [],
+      page: [],
     });
+  });
+
+  it("harness's page check: page-fail is red and beats page-ok, hints are quiet, up to 3 findings", () => {
+    const status = parseTurnStatus({
+      facts: ["page-ok", "page-fail", "checks-pass", "page-hints"],
+      page: ["кнопка .cta: не нажимается", "", "форма #order: нет подписи", "a", "b", 7],
+    });
+    expect(status?.facts).toEqual(["page-fail", "page-hints", "checks-pass"]);
+    expect(status?.tone).toBe("fail");
+    expect(status?.page).toEqual(["кнопка .cta: не нажимается", "форма #order: нет подписи", "a"]);
+    expect(turnTone(["page-hints"])).toBe("neutral");
   });
 
   it("red wins over a green from the same turn; unknown facts and junk are dropped", () => {
     expect(
       parseTurnStatus({ facts: ["checks-pass", "checks-fail", "made-up", 3], files: ["a.ts", 1] }),
-    ).toEqual({ facts: ["checks-fail"], tone: "fail", files: ["a.ts"] });
+    ).toEqual({ facts: ["checks-fail"], tone: "fail", files: ["a.ts"], page: [] });
   });
 
   it("nothing to show without facts", () => {

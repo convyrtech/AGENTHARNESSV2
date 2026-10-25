@@ -31,6 +31,13 @@ export function TurnStatusLine(props: { locale: Locale; status: TurnStatus }) {
             {t(props.locale, "turnStatus.files", { files: status.files.join(", ") })}
           </p>
         ) : null}
+        {status.page.length ? (
+          <ul className="turn-status-files turn-status-page" data-testid="turn-status-page">
+            {status.page.map((finding) => (
+              <li key={finding}>{finding}</li>
+            ))}
+          </ul>
+        ) : null}
       </div>
     </div>
   );
