@@ -111,6 +111,10 @@ const api: ZenoDesktopApi = {
       return () => ipcRenderer.removeListener("zeno:pet:command", handler);
     },
   },
+  harnessFlags: {
+    get: () => ipcRenderer.invoke("prsloy:harness-flags:get"),
+    set: (patch) => ipcRenderer.invoke("prsloy:harness-flags:set", patch),
+  },
   codePreview: {
     open: (target, workspacePath) =>
       ipcRenderer.invoke("prsloy:code-preview:open", target, workspacePath),

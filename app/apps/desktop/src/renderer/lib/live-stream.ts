@@ -401,6 +401,7 @@ export function applyRuntimeEventToLiveStream(
             kind: "system",
             title: event.customType,
             text: event.content,
+            ...(event.details !== undefined ? { details: event.details } : {}),
             tone: "info",
             timestamp: nowIso(),
             extension: true,

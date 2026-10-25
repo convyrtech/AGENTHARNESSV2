@@ -819,6 +819,7 @@ export const TimelineRow = memo(function TimelineRow(props: {
         locale={props.locale}
         kind={harness}
         text={item.text}
+        details={item.details}
         onRetry={props.onRetry}
         disabled={props.editingLocked}
       />

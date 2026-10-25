@@ -5,13 +5,14 @@
  */
 import type { MessageKey } from "./i18n.ts";
 
-export type HarnessCardKind = "budget" | "stopGate" | "toolLeak" | "note";
+export type HarnessCardKind = "budget" | "stopGate" | "toolLeak" | "review" | "note";
 
 export function harnessCardKind(customType: string | undefined): HarnessCardKind | undefined {
   if (!customType?.startsWith("prsloy-harness")) return undefined;
   if (customType === "prsloy-harness.budget") return "budget";
   if (customType === "prsloy-harness.stop-gate") return "stopGate";
   if (customType === "prsloy-harness.tool-leak") return "toolLeak";
+  if (customType === "prsloy-harness.second-opinion") return "review";
   return "note";
 }
 
@@ -26,7 +27,27 @@ export function harnessTitleKey(kind: HarnessCardKind): MessageKey {
 }
 
 export function harnessBodyKey(kind: HarnessCardKind): MessageKey | undefined {
-  return kind === "note" ? undefined : `harness.${kind}.body`;
+  return kind === "note" || kind === "review" ? undefined : `harness.${kind}.body`;
+}
+
+/** The review card's own line is already plain («Проверила вторая модель: замечаний нет»). */
+export function harnessUsesOwnText(kind: HarnessCardKind): boolean {
+  return kind === "review";
+}
+
+export type ReviewRemark = { where?: string; problem: string };
+
+/** The second opinion's remarks from the card's `details` ({ items: [{ file, line, problem }] }). */
+export function reviewRemarks(details: unknown): ReviewRemark[] {
+  const items = (details as { items?: unknown } | null | undefined)?.items;
+  if (!Array.isArray(items)) return [];
+  return items.flatMap((raw) => {
+    const item = raw as { file?: unknown; line?: unknown; problem?: unknown };
+    if (typeof item.problem !== "string" || !item.problem.trim()) return [];
+    const file = typeof item.file === "string" && item.file ? item.file : undefined;
+    const line = typeof item.line === "number" ? `:${item.line}` : "";
+    return [{ ...(file ? { where: `${file}${line}` } : {}), problem: item.problem.trim() }];
+  });
 }
 
 /** «Модель сбилась» asks for «Повторить»; the card offers it. */

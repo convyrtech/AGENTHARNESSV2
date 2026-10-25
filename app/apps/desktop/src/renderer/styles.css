@@ -6878,6 +6878,17 @@ textarea.models-scoped-patterns-input[data-slot="textarea"] {
 .harness-card .model-failure-head {
   color: var(--muted-foreground);
 }
+.harness-card-remarks {
+  margin: 0 0 0 24px;
+  padding-left: 18px;
+  font-size: 13px;
+  line-height: 1.5;
+  list-style: decimal;
+}
+.harness-card-remarks code {
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
 .model-failure-hint {
   margin: 4px 0 0 24px;
   font-size: 13px;

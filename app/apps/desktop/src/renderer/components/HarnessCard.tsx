@@ -1,14 +1,17 @@
 /**
- * A harness card in the chat (budget stop, failing project check, confused model): a plain
- * title and one line, «Повторить» where the text asks for it, the harness's own text folded
- * away under «Подробности».
+ * A harness card in the chat (second-model review, budget stop, failing project check,
+ * confused model): a short line and an icon, no technical title. The review opens its
+ * remarks; the others keep the harness's own text folded away under «Подробности», and the
+ * confused model offers the «Повторить» its text asks for.
  */
 import { useState } from "react";
-import { ChevronRight, Info, RotateCcw } from "lucide-react";
+import { ChevronRight, Info, ListChecks, RotateCcw, ShieldCheck } from "lucide-react";
 import {
   harnessBodyKey,
   harnessOffersRetry,
   harnessTitleKey,
+  harnessUsesOwnText,
+  reviewRemarks,
   type HarnessCardKind,
 } from "../lib/harness-card.ts";
 import { t, type Locale } from "../lib/i18n.ts";
@@ -18,14 +21,25 @@ export function HarnessCard(props: {
   locale: Locale;
   kind: HarnessCardKind;
   text: string;
+  details?: unknown;
   onRetry?: (() => void) | undefined;
   disabled?: boolean | undefined;
 }) {
   const [open, setOpen] = useState(false);
   const bodyKey = harnessBodyKey(props.kind);
   const retry = harnessOffersRetry(props.kind) ? props.onRetry : undefined;
-  // «Модель сбилась» is the whole message already; other cards keep the harness's record.
-  const details = props.kind === "toolLeak" ? "" : props.text.trim();
+  const remarks = props.kind === "review" ? reviewRemarks(props.details) : [];
+  const title =
+    harnessUsesOwnText(props.kind) && props.text.trim()
+      ? props.text.trim()
+      : t(props.locale, harnessTitleKey(props.kind));
+  // «Модель сбилась» and the review's line are the whole message already.
+  const raw = props.kind === "toolLeak" || props.kind === "review" ? "" : props.text.trim();
+  const Icon = props.kind === "review" ? (remarks.length ? ListChecks : ShieldCheck) : Info;
+  const toggleLabel = remarks.length
+    ? t(props.locale, "harness.review.remarks", { count: String(remarks.length) })
+    : t(props.locale, "system.details");
+  const foldable = remarks.length > 0 || raw !== "";
   return (
     <div
       className="model-failure harness-card"
@@ -34,8 +48,8 @@ export function HarnessCard(props: {
       data-testid="harness-card"
     >
       <div className="model-failure-head">
-        <Info className="size-4 shrink-0" strokeWidth={1.75} />
-        <span className="model-failure-title">{t(props.locale, harnessTitleKey(props.kind))}</span>
+        <Icon className="size-4 shrink-0" strokeWidth={1.75} />
+        <span className="model-failure-title">{title}</span>
         {retry ? (
           <button
             type="button"
@@ -50,21 +64,33 @@ export function HarnessCard(props: {
         ) : null}
       </div>
       {bodyKey ? <p className="model-failure-hint">{t(props.locale, bodyKey)}</p> : null}
-      {details ? (
+      {foldable ? (
         <>
           <button
             type="button"
             className="model-failure-toggle"
             aria-expanded={open}
+            data-testid="harness-card-toggle"
             onClick={() => setOpen((value) => !value)}
           >
             <ChevronRight
               className={cn("size-3.5 transition-transform", open && "rotate-90")}
               strokeWidth={2}
             />
-            {t(props.locale, "system.details")}
+            {toggleLabel}
           </button>
-          {open ? <pre className="model-failure-detail">{details}</pre> : null}
+          {open && remarks.length ? (
+            <ol className="harness-card-remarks" data-testid="harness-card-remarks">
+              {remarks.map((remark, index) => (
+                <li key={index}>
+                  {remark.where ? <code>{remark.where}</code> : null}
+                  {remark.where ? " — " : null}
+                  {remark.problem}
+                </li>
+              ))}
+            </ol>
+          ) : null}
+          {open && !remarks.length ? <pre className="model-failure-detail">{raw}</pre> : null}
         </>
       ) : null}
     </div>

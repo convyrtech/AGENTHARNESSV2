@@ -30,4 +30,33 @@ describe("HarnessCard", () => {
     fireEvent.click(screen.getByTestId("harness-card-retry"));
     expect(onRetry).toHaveBeenCalledTimes(1);
   });
+
+  it("review: its own line, remarks open as a list", () => {
+    render(
+      <HarnessCard
+        locale="ru"
+        kind="review"
+        text="Вторая модель нашла 2 замечания — исправляю"
+        details={{
+          verdict: "FAIL",
+          items: [
+            { file: "site/index.html", line: 12, problem: "Ссылка ведёт в никуда", evidence: "a" },
+            { file: "site/style.css", problem: "Текст сливается с фоном", evidence: "b" },
+          ],
+        }}
+      />,
+    );
+    expect(screen.getByText("Вторая модель нашла 2 замечания — исправляю")).toBeTruthy();
+    expect(screen.queryByText("Расширение")).toBeNull();
+    fireEvent.click(screen.getByText("Замечания (2)"));
+    const list = screen.getByTestId("harness-card-remarks");
+    expect(list.textContent).toContain("site/index.html:12 — Ссылка ведёт в никуда");
+    expect(list.textContent).toContain("Текст сливается с фоном");
+  });
+
+  it("review passed: one line, nothing to open", () => {
+    render(<HarnessCard locale="ru" kind="review" text="Проверила вторая модель: замечаний нет" />);
+    expect(screen.getByText("Проверила вторая модель: замечаний нет")).toBeTruthy();
+    expect(screen.queryByTestId("harness-card-toggle")).toBeNull();
+  });
 });

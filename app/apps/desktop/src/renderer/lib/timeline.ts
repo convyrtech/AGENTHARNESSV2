@@ -52,6 +52,8 @@ export type TimelineItem =
       /** pi's automatic retry: which attempt of how many. */
       attempt?: number;
       maxAttempts?: number;
+      /** Extension custom message `details` (the harness review's remarks). */
+      details?: unknown;
     };
 
 /**
@@ -441,6 +443,7 @@ export function projectEventsToTimeline(
           kind: "system",
           title: runtimeEvent.customType,
           text: runtimeEvent.content || summarizeData(runtimeEvent.details),
+          ...(runtimeEvent.details !== undefined ? { details: runtimeEvent.details } : {}),
           tone: "info",
           timestamp: now(),
           extension: true,
