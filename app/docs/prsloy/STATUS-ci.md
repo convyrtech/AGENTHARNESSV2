@@ -1,5 +1,102 @@
 # STATUS: дорожка ci (W0 + W5)
 
+## Этап 5: настоящий путь GitHub, Windows 2022, состав установщика
+
+Прогон: https://github.com/convyrtech/AGENTHARNESSV2/actions/runs/40177012147 — зелёный: package; smoke на
+windows-latest и windows-2022; update-e2e 3/3.
+После rebase на `main` d7dfac5 (прогон 40178160991) все проверки этой дорожки зелёные на обоих образах: one-click,
+smoke, кириллица, update-e2e 3/3. Красный только шаг harness «9–12: second opinion». Он так же падает на самом
+`main` a423983 (прогон 40178242034), то есть это регрессия `main` между c7e9c0a и d7dfac5, не этой ветки.
+
+### 1. update-e2e через провайдер `github`
+
+Источник проверен по lockfile: electron-updater 6.8.9, `out/providers/GitHubProvider.js`.
+
+- **`host`/`protocol` честно уважаются:**
+  - `baseUrl = ${protocol || "https"}://${host || "github.com"}` (builder-util-runtime `githubUrl`);
+  - фид — `${baseUrl}/<owner>/<repo>/releases.atom`;
+  - файлы — `${baseUrl}/<owner>/<repo>/releases/download/<tag>/<file>`;
+  - диапазоны только одиночные (`isUseMultipleRangeRequest: false`, «because GitHub uses S3»).
+- `resolveUpdateFeed()` в тесте отдаёт **тот же GitHub-фид** (`convyrtech/AGENTHARNESSV2`, prerelease) и меняет только
+  `host`/`protocol` на петлевой адрес. Защита прежняя: `PRSLOY_E2E=1` и только `127.0.0.1`/`localhost`. Generic-фида
+  больше нет.
+- `e2e-smoke/update-feed.ts` `startGitHubFeed` — двойник github.com:
+  - `releases.atom` в формате GitHub, новые сверху;
+  - `/releases/download/<tag>/<file>` → **302** на второй хост «objects» (как objects.githubusercontent.com), который
+    отдаёт байты с диапазонами;
+  - релиз без ассетов → 404.
+- Перед CI проверено локально тем же `GitHubProvider` с `NodeHttpExecutor`.
+
+| Сценарий                                                    | Что видит апдейтер (по порядку)                                                                                           | Итог                                                                                                                                  |
+| ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| Хороший B, сверху тег `desktop-v0.1.0-alpha.99` (не semver) | `.atom 200` → `v0.1.0-alpha.91/alpha.yml 404` → `latest.yml 302` → два blockmap (B и A) `302` → exe `302` → objects `206` | тег `desktop-v…` **пропущен** (ни одного запроса). B скачан дифференциально (1,2 МБ), установлен тихо, перезапуск в 0.1.0-alpha.91 ✅ |
+| Подделанный B                                               | тот же путь, exe дважды (дифф + полная)                                                                                   | `sha512 checksum mismatch`, A остаётся ✅                                                                                             |
+| Сверху `v0.1.0-alpha.92` **без ассетов**                    | `.atom 200` → `v0.1.0-alpha.92/alpha.yml 404` → `latest.yml 404`                                                          | одна проверка, без цикла. «Cannot find latest.yml…» (`ERR_UPDATER_CHANNEL_FILE_NOT_FOUND`), уведомления нет, A работает ✅            |
+
+**Что это значит для релизов.**
+
+- GitHubProvider берёт **первый** semver-тег из atom. Версии он не сравнивает и **не откатывается** к более старому
+  релизу, если у нового нет `latest.yml`.
+- Пока опубликованный релиз без ассетов, обновления у всех стоят: тихо, но стоят.
+- Путь «создать релиз в UI → CI через ~20 минут прикрепляет exe» оставляет такое окно. А если сборка упала, оно
+  останется до следующего полного релиза.
+- Совет: делать релиз черновиком (draft в atom не попадает) и публиковать после того, как CI приложил файлы, либо
+  пушить тег — тогда `softprops` создаёт релиз сразу с ассетами.
+- Имя канала: апдейтер сначала спрашивает `alpha.yml` (канал из версии), получает 404 и берёт `latest.yml`. Сборка
+  с `provider: github` кладёт именно `latest.yml`, так что всё работает. Лишний запрос безвреден.
+
+### 2. smoke на `windows-2022`
+
+- smoke стал матрицей `[windows-latest, windows-2022]`, `fail-fast: false`, артефакты `prsloy-win-smoke-<os>`.
+- update-e2e гоняется только на latest.
+- - Результат на windows-2022:
+  - one-click: русское окно «Установка PRSLOY», ни одного слова мастера, 48,1 с; удаление 5,0 с;
+  - smoke 9/9 + кириллица 1/1, все findings ✅ (encoding, cyrillic, python http.server);
+  - тихая установка 29,8 с.
+- На windows-latest то же самое: one-click 40,0 с.
+
+### 3. Из чего состоит установщик
+
+`scripts/installer-composition.mjs`:
+
+- только меряет: `win-unpacked`, заголовок `app.asar` по пакетам, tar.gz рантаймов по папкам;
+- для каждой части — размер на диске и gzip-оценка, то есть примерная доля в установщике;
+- шаг в job `package` (не блокирует), артефакт `prsloy-win-composition`.
+
+Установщик **211,2 МБ** (было 215,0), в распакованном виде 487,7 МБ:
+
+| Часть                                                                                   | Файлов | На диске, МБ | ≈ в установщике, МБ |
+| --------------------------------------------------------------------------------------- | ------ | ------------ | ------------------- |
+| Electron (PRSLOY.exe 94, dxcompiler.dll 10, resources.pak 6,7, icudtl 4,6, …)           | 21     | 302,7        | 128,8               |
+| PortableGit (`git.7z.exe`, распаковывается при установке)                               | 1      | 56,6         | 56,6                |
+| Node (`node.tar.gz`: node.exe 32, npm 3,8)                                              | 2310   | 93,6         | 35,9                |
+| `app.asar`: наш код + JS-зависимости (pi-coding-agent 5,6, renderer 2,6, openai 1,7, …) | 6454   | 59,1         | 16,9                |
+| Python (`python.tar.gz`: Lib 9,9, DLLs 6,3, python312.dll 2,5)                          | 1094   | 41,9         | 15,2                |
+| Прочие resources (node-pty, дизайн-бандл, иконки)                                       | 292    | 15,8         | 6,7                 |
+| rg + fd (`tools.tar.gz`)                                                                | 2      | 8,5          | 3,3                 |
+
+Полная таблица с кандидатами на удаление — артефакт `prsloy-win-composition` и Summary job `package`.
+
+**Что выкинуто:** `__pycache__`/`.pyc` в Python. Это ошибка сборки, а не решение.
+
+- `prunePythonRuntime` на Windows-раскладке делал `return` раньше вызова `removePycaches`. Поэтому `.pyc` из
+  дистрибутива python-build-standalone (563 файла) ехали в установщик.
+- Проверка stdlib (`python -c "import threading, …"`) после prune дописывала ещё 44.
+- Исправлено: в Windows-ветке теперь вызывается `removePycaches`, а `fetch-runtimes` ставит
+  `PYTHONDONTWRITEBYTECODE=1`. Добавлен unit-тест на Windows-раскладку.
+- Python компилирует модули при первом запуске в userData, папка доступна на запись.
+- Итог в прогоне: `.pyc` — 0; `python.tar.gz` 18,1 → 14,6 МБ; установщик 215,0 → 211,2 МБ.
+
+**Что не трогал и почему:**
+
+- `dxcompiler.dll` (~10 МБ в установщике, WebGPU в Chromium): на раннерах нет GPU, зелёный smoke не докажет, что на
+  настоящей видеокарте ничего не сломается. Кандидат для ручной проверки на машине с GPU.
+- `docs/*.md` (~1 МБ): pi в системном промпте отсылает агента к своему README/docs внутри пакета.
+- `ensurepip` (1,7 МБ): venv «Дизайна» ставит pip через него.
+- Локали Electron: уже только ru, en-US и zh-CN (zh-CN — 0,2 МБ, его оставил core).
+- PortableGit (~57 МБ) и Node (~36 МБ) нужны агенту. Дальше их можно только качать по требованию — это уже
+  архитектурное решение, а не чистка.
+
 ## Этап 4: установщик в один клик, по-русски
 
 Прогон: https://github.com/convyrtech/AGENTHARNESSV2/actions/runs/40171865940 (зелёный: package, smoke, update-e2e).

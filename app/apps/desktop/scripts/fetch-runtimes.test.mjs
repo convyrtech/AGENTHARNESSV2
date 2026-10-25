@@ -201,8 +201,12 @@ function assertEqual(actual, expected, message) {
       writeFileSync(join(stdlib, name), "pass\n");
     }
     writeFileSync(join(stdlib, "sqlite3", "__init__.py"), "pass\n");
+    mkdirSync(join(stdlib, "__pycache__"), { recursive: true });
+    writeFileSync(join(stdlib, "__pycache__", "os.cpython-312.pyc"), "\0");
 
     prunePythonRuntime(pyRoot);
+
+    assert(!existsSync(join(stdlib, "__pycache__")), "Windows __pycache__ removed");
 
     assert(existsSync(join(stdlib, "threading.py")), "threading.py kept");
     assert(existsSync(join(stdlib, "sqlite3", "__init__.py")), "sqlite3 kept");
