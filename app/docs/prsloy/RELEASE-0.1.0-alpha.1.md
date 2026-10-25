@@ -49,4 +49,4 @@
 - примерное время.
 
 Приложите скриншот. Если просят, приложите и запись разговора: последний файл `.jsonl` из папки
-`%APPDATA%\@zeno\desktop\agent\sessions`. Ключа PRSLOY в ней нет.
+`%APPDATA%\PRSLOY\agent\sessions`. Ключа PRSLOY в ней нет.

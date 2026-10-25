@@ -21,6 +21,7 @@ import { existsSync, readdirSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
+import { MockGatewayServer } from "@zeno/test-utils";
 import {
   BASH_COMMAND,
   HARNESS_HEADER,
@@ -208,6 +209,56 @@ async function waitFor(check: () => boolean, timeoutMs: number): Promise<boolean
   }
   return check();
 }
+
+// ── Upgrade from the first alphas: profile in %APPDATA%\@zeno\desktop → %APPDATA%\PRSLOY ──
+
+test("upgrade: the @zeno/desktop profile moves to PRSLOY with the key and runtimes", async () => {
+  test.skip(process.platform !== "win32" || process.env.CI !== "true", "Windows CI only");
+  const appData = process.env.APPDATA ?? "";
+  const legacy = join(appData, "@zeno", "desktop");
+  const target = join(appData, "PRSLOY");
+  test.skip(existsSync(target), `${target} already exists (not a fresh runner)`);
+  const key = `sk-prsloy-upgrade-${Date.now()}`;
+  const gateway = new MockGatewayServer({ apiKey: key, modelIds: ["deepseek-v4.1-flash-1017"] });
+  await gateway.start();
+  const metrics: Record<string, unknown> = {};
+  let launched: Launched | undefined;
+  try {
+    // 1. What the old build wrote: the same app on the old profile path (layout unchanged).
+    launched = await launch("legacy", { userData: legacy });
+    await startHost(launched.page);
+    const saved = await launched.page.evaluate(([k, url]) => window.zeno.prsloy.setKey(k, url), [
+      key,
+      gateway.baseUrl,
+    ] as const);
+    expect(saved.ok, JSON.stringify(saved)).toBe(true);
+    await expect.poll(() => bundledRuntimes(legacy).stamp, { timeout: 300_000 }).toBe(true);
+    await close(launched);
+    launched = undefined;
+
+    // 2. The new build on its default profile: moved once, key decrypts, runtimes come back.
+    launched = await launch("upgraded", { userData: null });
+    metrics.userData = launched.userData;
+    expect(launched.userData.toLowerCase()).toBe(target.toLowerCase());
+    expect(existsSync(legacy), "old profile still there after the move").toBe(false);
+    const state = await launched.page.evaluate(() => window.zeno.prsloy.getState());
+    metrics.state = { hasKey: state.hasKey, baseUrl: state.baseUrl };
+    expect(state.hasKey).toBe(true);
+    expect(state.baseUrl).toBe(gateway.baseUrl);
+    await startHost(launched.page);
+    const bash = await runBashTurn(launched, "upgraded");
+    expect(bash.result, `bash tool result:\n${bash.result}`).toContain(MARKER);
+    // The moved venv pointed at the old path: runtimes were re-provisioned under PRSLOY.
+    await expect.poll(() => bundledRuntimes(target).stamp, { timeout: 300_000 }).toBe(true);
+    metrics.mainTimings = launched.timings;
+    metrics.windowMs = launched.launchMs;
+  } finally {
+    await writeMetrics({ upgrade: metrics });
+    if (launched) await shot(launched.page, "99-upgraded-final");
+    await close(launched);
+    await gateway.stop().catch(() => undefined);
+  }
+});
 
 test("uninstall → reinstall → launch keeps the profile and projects", async () => {
   test.skip(

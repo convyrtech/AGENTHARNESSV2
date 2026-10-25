@@ -1,3 +1,5 @@
+// First: userData → <appData>/PRSLOY (one-time move of the old profile) before any getPath.
+import "./prsloy/user-data-electron.ts";
 import {
   IPC_PROTOCOL_VERSION,
   type ExtensionUiResponse,
