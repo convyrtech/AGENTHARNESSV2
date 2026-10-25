@@ -3,15 +3,23 @@
  * cards in the chat and the settings panel. Main's `prsloy:memory-*` (core) does the
  * reading and forgetting; here only what the renderer decides.
  */
-import type { MemoryApi, MemorySnapshot } from "@zeno/contracts";
+import type {
+  MemoryApi,
+  MemoryAutoCardDetails,
+  MemorySnapshot,
+  MemoryUpdatedCardDetails,
+} from "@zeno/contracts";
 
-export type MemoryCardKind = "saved" | "forgot" | "full" | "refused";
+export type MemoryCardKind = "saved" | "forgot" | "full" | "refused" | "auto" | "updated";
 
 const CARD_TYPES: Record<string, MemoryCardKind> = {
   "prsloy-memory.saved": "saved",
   "prsloy-memory.forgot": "forgot",
   "prsloy-memory.full": "full",
   "prsloy-memory.refused": "refused",
+  // Memory v2 (research/24 §3.6): written by the harness itself, from the owner's words.
+  "prsloy-memory.auto": "auto",
+  "prsloy-memory.updated": "updated",
 };
 
 export function memoryCardKind(customType: string | undefined): MemoryCardKind | undefined {
@@ -54,4 +62,73 @@ export function memoryApi(): MemoryApi | undefined {
 
 export function errorText(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+function str(value: unknown, max = 400): string {
+  return typeof value === "string" ? value.trim().slice(0, max) : "";
+}
+
+function scopeOf(value: unknown): "user" | "project" {
+  return value === "project" ? "project" : "user";
+}
+
+/** `prsloy-memory.auto` details; entries without an id or text are dropped. */
+export function parseAutoDetails(details: unknown): MemoryAutoCardDetails["items"] {
+  const items = (details as { items?: unknown } | null | undefined)?.items;
+  if (!Array.isArray(items)) return [];
+  return items.flatMap((raw) => {
+    const item = raw as Record<string, unknown> | null;
+    const id = str(item?.id, 80);
+    const text = str(item?.text);
+    if (!id || !text) return [];
+    const quote = str(item?.quote);
+    return [{ id, scope: scopeOf(item?.scope), text, ...(quote ? { quote } : {}) }];
+  });
+}
+
+/** `prsloy-memory.updated` details, or undefined when something needed is missing. */
+export function parseUpdatedDetails(details: unknown): MemoryUpdatedCardDetails | undefined {
+  const d = details as Record<string, unknown> | null | undefined;
+  const opId = str(d?.opId, 80);
+  const before = str(d?.before);
+  const after = str(d?.after);
+  if (!opId || !before || !after) return undefined;
+  return {
+    opId,
+    id: str(d?.id, 80),
+    scope: scopeOf(d?.scope),
+    before,
+    after,
+    ...(d?.pinned === true ? { pinned: true } : {}),
+  };
+}
+
+/** A date for the panel: «25 окт.», with the year when it is not this year. */
+export function memoryDate(locale: string, iso: string | undefined, now = new Date()): string {
+  const at = iso ? new Date(iso) : undefined;
+  if (!at || Number.isNaN(at.getTime())) return "";
+  return at.toLocaleDateString(locale, {
+    day: "numeric",
+    month: "short",
+    ...(at.getFullYear() === now.getFullYear() ? {} : { year: "numeric" }),
+  });
+}
+
+const AUTO_INTRO_KEY = "prsloy.memory.autoIntroSeen";
+
+/** «Замечать важное само» says once how it works, the first time it goes on (research/24 §3.6). */
+export function autoIntroSeen(): boolean {
+  try {
+    return localStorage.getItem(AUTO_INTRO_KEY) === "1";
+  } catch {
+    return true;
+  }
+}
+
+export function markAutoIntroSeen(): void {
+  try {
+    localStorage.setItem(AUTO_INTRO_KEY, "1");
+  } catch {
+    // no storage: the card shows again next time
+  }
 }

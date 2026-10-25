@@ -56,3 +56,58 @@ describe("memory cards", () => {
     expect(memoryApi()).toBe(api);
   });
 });
+
+describe("memory v2 cards", () => {
+  it("reads the auto card's entries, dropping broken ones", async () => {
+    const { parseAutoDetails } = await import("./memory.ts");
+    expect(
+      parseAutoDetails({
+        items: [
+          { id: "a-1", scope: "project", text: "Сайт без сборщиков", quote: "не надо npm" },
+          { id: "a-2", text: "Пишет коротко" },
+          { id: "", text: "нет id" },
+          { id: "a-3" },
+          null,
+        ],
+      }),
+    ).toEqual([
+      { id: "a-1", scope: "project", text: "Сайт без сборщиков", quote: "не надо npm" },
+      { id: "a-2", scope: "user", text: "Пишет коротко" },
+    ]);
+    expect(parseAutoDetails(undefined)).toEqual([]);
+  });
+
+  it("reads the update card; without opId or texts there is nothing to undo", async () => {
+    const { parseUpdatedDetails } = await import("./memory.ts");
+    expect(
+      parseUpdatedDetails({
+        opId: "op-1",
+        id: "u-1",
+        before: "тёмные",
+        after: "светлые",
+        pinned: true,
+      }),
+    ).toEqual({
+      opId: "op-1",
+      id: "u-1",
+      scope: "user",
+      before: "тёмные",
+      after: "светлые",
+      pinned: true,
+    });
+    expect(parseUpdatedDetails({ opId: "op-1", before: "a" })).toBeUndefined();
+  });
+
+  it("dates entries, with the year only when it is not this one", async () => {
+    const { memoryDate } = await import("./memory.ts");
+    const now = new Date(2026, 9, 25);
+    expect(memoryDate("ru-RU", new Date(2026, 9, 12).toISOString(), now)).toMatch(/^12 окт\.?$/u);
+    expect(memoryDate("ru-RU", new Date(2025, 0, 3).toISOString(), now)).toMatch(/2025/u);
+    expect(memoryDate("ru-RU", undefined, now)).toBe("");
+  });
+
+  it("knows the v2 card types", () => {
+    expect(memoryCardKind("prsloy-memory.auto")).toBe("auto");
+    expect(memoryCardKind("prsloy-memory.updated")).toBe("updated");
+  });
+});

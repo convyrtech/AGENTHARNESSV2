@@ -228,7 +228,7 @@ export function SettingsPage(props: SettingsPageProps) {
         ) : props.section === "pet" ? (
           <PetSection tr={tr} />
         ) : props.section === "memory" ? (
-          <MemorySection tr={tr} workspace={props.snapshot?.cwd} />
+          <MemorySection tr={tr} locale={props.locale} workspace={props.snapshot?.cwd} />
         ) : props.section === "environment" ? (
           <EnvironmentSection tr={tr} />
         ) : props.section === "worktree" ? (
