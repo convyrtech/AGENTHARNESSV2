@@ -27,8 +27,8 @@ interface PromptChoice {
 }
 
 /**
- * Промпт «Кода». Флаг "prompt" в prsloy-harness.json: "pi" (по умолчанию) — база Pi плюс два раздела выше;
- * "prsloy" — свой промпт (research/17 §9) через customPrompt, разделы уже внутри него. Выбор замораживается на сессию
+ * Промпт «Кода». Флаг "prompt" в prsloy-harness.json: "prsloy" (по умолчанию с этапа 14, A/B на бенче) — свой
+ * промпт (research/17 §9) через customPrompt, разделы уже внутри него; "pi" — база Pi плюс два раздела выше. Выбор замораживается на сессию
  * (смена флага — со следующей сессии): промпт весь сеанс байт-в-байт тот же (кэш).
  */
 export function installReusePrompt(pi: ExtensionAPI, opts: ResolvedOptions): void {

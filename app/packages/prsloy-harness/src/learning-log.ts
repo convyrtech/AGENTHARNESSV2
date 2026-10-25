@@ -42,6 +42,7 @@ export type LearningKind =
   | "ask"
   | "secret.saved"
   | "secret.declined"
+  | "vague.nudge"
   | "skill.loaded"
   | "skill.used"
   | "turn.end";

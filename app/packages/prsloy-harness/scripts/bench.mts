@@ -6,7 +6,7 @@
 //   … --harness off            голый Pi с тем же системным промптом
 //   … --task visit-card        одна задача (можно несколько --task)
 //   … --timeout 900            секунд на задачу (по умолчанию 600)
-//   … --prompt prsloy          свой системный промпт «Кода» (research/17 §9); по умолчанию pi
+//   … --prompt pi              базовый промпт Pi вместо своего (research/17 §9); по умолчанию prsloy
 //   … --delta on               дельта промпта под модель (qwen, opus)
 //   … --lessons off            без уроков (флаг "lessons" в prsloy-harness.json агента)
 //   … --review off             без второго мнения (флаг "secondOpinion"): честный A/B цены ревью
@@ -34,7 +34,7 @@ const { values } = parseArgs({
     lessons: { type: "string", default: "on" },
     review: { type: "string", default: "on" },
     skills: { type: "string", default: "off" },
-    prompt: { type: "string", default: "pi" },
+    prompt: { type: "string", default: "prsloy" },
     delta: { type: "string", default: "off" },
     memory: { type: "string", default: "on" },
     out: { type: "string", default: "bench-out" },
@@ -61,7 +61,7 @@ async function main(): Promise<number> {
     lessons: values.lessons !== "off",
     review: values.review !== "off",
     skills: values.skills === "on",
-    prompt: values.prompt === "prsloy" ? "prsloy" : "pi",
+    prompt: values.prompt === "pi" ? "pi" : "prsloy",
     delta: values.delta === "on",
     memory: values.memory !== "off",
     model: values.model,

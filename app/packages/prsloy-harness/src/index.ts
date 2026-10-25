@@ -12,6 +12,7 @@ import { installFindReady } from "./find-ready.ts";
 import { installReliability } from "./reliability.ts";
 import { installRequestSecret } from "./request-secret.ts";
 import { installSkills } from "./skills.ts";
+import { installVagueRequest } from "./vague-request.ts";
 import { installReusePrompt } from "./reuse-prompt.ts";
 import { installLessons } from "./lessons.ts";
 import { installMemory } from "./memory.ts";
@@ -126,6 +127,8 @@ export function createPrsloyHarness(options: HarnessOptions = {}): (pi: Extensio
             }
           : {}),
       });
+    // После стоп-гейта: расплывчатая просьба без названного прочтения — один раз «допиши, как понял» (этап 14).
+    if (on("vagueRequest")) installVagueRequest(pi, opts);
     // Сводка «прошлый раз» (S6): после стоп-гейта — его итог хода уже известен.
     if (memory && on("digest"))
       installDigest(pi, {

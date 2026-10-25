@@ -156,6 +156,8 @@ describe("secret scrub", () => {
 describe("reuse prompt", () => {
   async function sections(profile: "code" | "design") {
     const pi = new MockPi();
+    // Разделы ставятся в режиме промпта Pi; по умолчанию с этапа 14 — свой промпт PRSLOY (разделы внутри него).
+    process.env.PRSLOY_PROMPT = "pi";
     installReusePrompt(pi.api, resolveOptions({ profile }));
     const event = {
       messageType: "user",
@@ -165,6 +167,7 @@ describe("reuse prompt", () => {
     };
     for (const handler of pi.handlers.get("before_agent_start") ?? [])
       await handler({ type: "before_agent_start", ...event }, pi.ctx);
+    delete process.env.PRSLOY_PROMPT;
     return event.systemPromptOptions.sections;
   }
 

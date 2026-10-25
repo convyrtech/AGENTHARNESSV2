@@ -5,6 +5,7 @@ import {
   MODEL_DELTAS,
   modelDelta,
   PROMPT_ADDITIONS,
+  PROMPT_REPLACEMENTS,
   PRSLOY_CODE_PROMPT,
   RESEARCH_CODE_PROMPT,
 } from "../src/code-prompt.ts";
@@ -12,7 +13,7 @@ import {
 const fixture = (name: string) => new URL(`./fixtures/${name}`, import.meta.url);
 
 describe("PRSLOY code prompt (research/17 §9)", () => {
-  it("snapshot: §9 of the research verbatim plus the listed additions (and the fixture)", () => {
+  it("snapshot: §9 of the research verbatim plus the listed additions and replacements (and the fixture)", () => {
     expect(PRSLOY_CODE_PROMPT).toBe(readFileSync(fixture("code-prompt.expected.txt"), "utf8"));
     const doc = readFileSync(
       new URL("../../../../research/17-system-prompts.md", import.meta.url),
@@ -28,20 +29,34 @@ describe("PRSLOY code prompt (research/17 §9)", () => {
     const lines = PRSLOY_CODE_PROMPT.split("\n");
     for (const [anchor, line] of PROMPT_ADDITIONS)
       expect(lines[lines.indexOf(line) - 1]!.startsWith(anchor), line).toBe(true);
+    // Без добавок и с исходными строками вместо замен — ровно §9.
     const added = new Set(PROMPT_ADDITIONS.map(([, line]) => line));
-    expect(lines.filter((l) => !added.has(l)).join("\n")).toBe(block);
+    const original = new Map(
+      PROMPT_REPLACEMENTS.map(([anchor, line]) => [
+        line,
+        block.split("\n").find((l) => l.startsWith(anchor))!,
+      ]),
+    );
+    expect(
+      lines
+        .filter((l) => !added.has(l))
+        .map((l) => original.get(l) ?? l)
+        .join("\n"),
+    ).toBe(block);
   });
 
-  it("additions: relative paths, request_secret and ask_user, what you chose, <prsloy-next>", () => {
+  it("additions: relative paths, request_secret and ask_user, «Понял так», <prsloy-next>", () => {
     expect(PRSLOY_CODE_PROMPT).toContain(
       "never `/assets/…`) so the page also works when opened as a file.",
     );
     expect(PRSLOY_CODE_PROMPT).toContain(
       "use the request_secret tool, never ask for it in the chat",
     );
+    // Расплывчатая просьба: в ответе строка «Понял так: … Если иначе — скажи» (этап 14) — вместо «mention it».
     expect(PRSLOY_CODE_PROMPT).toContain(
-      "If you chose for the user (what to build, prices, names, texts), say so in one line.",
+      "«Понял так: <what you built, what you made up>. Если иначе — скажи.»",
     );
+    expect(PRSLOY_CODE_PROMPT).not.toContain("Small assumptions are fine");
     // Кнопки «что дальше»: тег разбирает renderer/lib/next-steps.ts (строки ≤120 символов).
     expect(
       PRSLOY_CODE_PROMPT.endsWith(

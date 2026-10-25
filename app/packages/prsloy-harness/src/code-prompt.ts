@@ -2,7 +2,7 @@
 // Pi через `customPrompt`: Pi тогда не строит свои tools / rules / docs (там «pi», пути к докам Pi и «Use bash for … rg»,
 // а rg на нашей Windows нет), но оставляет project_context (AGENTS.md), skills и cwd. Текст статичен — ни даты,
 // ни процессов, ни счётчиков: промпт байт-в-байт один и тот же весь сеанс (кэш, §6).
-// Включается флагом "prompt": "prsloy" в prsloy-harness.json; по умолчанию — "pi" (до A/B на бенче, §11.4).
+// Флаг "prompt" в prsloy-harness.json: по умолчанию "prsloy" (этап 14: A/B на бенче, §11.4); "pi" — база Pi.
 
 /** §9 research/17 дословно. */
 export const RESEARCH_CODE_PROMPT = [
@@ -70,7 +70,7 @@ export const RESEARCH_CODE_PROMPT = [
 
 /**
  * Строки, добавленные после research/17 по живому стенду: [строка §9, после которой встаёт, новая строка].
- * Каждая закрывает конкретный провал; без них промпт — ровно §9.
+ * Каждая закрывает конкретный провал; без них и без замен (PROMPT_REPLACEMENTS) промпт — ровно §9.
  */
 export const PROMPT_ADDITIONS: readonly (readonly [string, string])[] = [
   [
@@ -85,18 +85,34 @@ export const PROMPT_ADDITIONS: readonly (readonly [string, string])[] = [
   ],
   [
     "The task is done, or you are blocked",
-    // Стенд a6, Opus на «сделай что-нибудь для кофейни»: выдумал меню, цены и адрес и не сказал об этом.
-    "If you chose for the user (what to build, prices, names, texts), say so in one line.",
-  ],
-  [
-    "If you chose for the user",
     // Кнопки «что дальше» (features): UI вырезает тег и показывает строки кнопками; без вопроса и только когда доделано.
     "When the task is done and you ask no question, end with a <prsloy-next>…</prsloy-next> block: 2–3 next steps in Russian, one per line, ≤120 chars.",
   ],
 ];
 
+/**
+ * Строки §9, заменённые по стенду: [начало строки §9, новая строка]. Замена, а не добавка: промпт упёрся в 7 500.
+ */
+export const PROMPT_REPLACEMENTS: readonly (readonly [string, string])[] = [
+  [
+    "- Small assumptions are fine:",
+    // A/B этапа 14: vague-request проваливали и pi, и prsloy (и Opus раньше) — «сделано, допущение не названо»,
+    // ответ 61–88 знаков; Opus выдумал меню, цены и адрес и не сказал. Нужна конкретная строка в ответе.
+    "- Vague request: take the common reading, do it, add to the final message one line «Понял так: <what you built, what you made up>. Если иначе — скажи.»",
+  ],
+  [
+    "The task is done, or you are blocked",
+    "The task is done, or you are blocked for a reason you can name. You checked the result. Your message is in Russian, in plain words, asks the user to run nothing, has «Понял так» if you chose.",
+  ],
+];
+
 function withAdditions(base: string): string {
   const lines = base.split("\n");
+  for (const [anchor, line] of PROMPT_REPLACEMENTS) {
+    const at = lines.findIndex((l) => l.startsWith(anchor));
+    if (at < 0) throw new Error(`code-prompt: нет строки «${anchor}»`);
+    lines[at] = line;
+  }
   for (const [anchor, line] of PROMPT_ADDITIONS) {
     const at = lines.findIndex((l) => l.startsWith(anchor));
     if (at < 0) throw new Error(`code-prompt: нет строки «${anchor}»`);
