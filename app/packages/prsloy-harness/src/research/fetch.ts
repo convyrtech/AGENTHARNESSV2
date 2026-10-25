@@ -1,6 +1,7 @@
 // Чтение страниц для «Исследовать» (research/26 §3.5, §4.8): на машине пользователя (хост Pi ходит в сеть через
 // системный прокси — его ставит main, proxy-discover.ts), сеть российская — откроются и российские сайты.
-// Запасные: Fetch шлюза (`/v1/tools/fetch`, формат DeepSeek) и Jina Reader без ключа. Текст страницы — данные,
+// Запасные: файл с GitHub — через jsDelivr (GitHub бывает недоступен из России), Fetch шлюза (`/v1/tools/fetch`,
+// формат DeepSeek) и Jina Reader без ключа. Текст страницы — данные,
 // а не инструкции. Дата берётся со страницы: мета article:published_time, JSON-LD, <time>; иначе — заголовок
 // Last-Modified; иначе «дата неизвестна».
 
@@ -15,7 +16,7 @@ export interface PageText {
   date?: string;
   /** Откуда дата: мета, JSON-LD, <time>, заголовок. */
   dateFrom?: "meta" | "jsonld" | "time" | "header";
-  via: "direct" | "gateway" | "jina";
+  via: "direct" | "jsdelivr" | "gateway" | "jina";
 }
 
 export interface ReadDeps {
@@ -247,6 +248,34 @@ async function viaJina(url: string, deps: ReadDeps): Promise<PageText> {
 }
 
 /**
+ * Тот же файл с GitHub через jsDelivr: `github.com/<o>/<r>/blob/<ref>/<путь>`, `raw.githubusercontent.com/<o>/<r>/<ref>/
+ * <путь>`, корень репозитория — его README. Иначе undefined.
+ */
+export function jsdelivrUrl(url: string): string | undefined {
+  let u: URL;
+  try {
+    u = new URL(url);
+  } catch {
+    return undefined;
+  }
+  const host = u.hostname.replace(/^www\./, "");
+  const parts = u.pathname.split("/").filter(Boolean);
+  const gh = (o: string, r: string, ref: string | undefined, path: string[]) =>
+    `https://cdn.jsdelivr.net/gh/${o}/${r.replace(/\.git$/, "")}${ref ? `@${ref}` : ""}/${path.join("/")}`;
+  if (host === "raw.githubusercontent.com" && parts.length >= 4) {
+    const [o, r, ...rest] = parts as [string, string, ...string[]];
+    const ref = rest[0] === "refs" && rest[1] === "heads" ? rest[2] : rest[0];
+    const path = rest[0] === "refs" && rest[1] === "heads" ? rest.slice(3) : rest.slice(1);
+    return path.length ? gh(o, r, ref, path) : undefined;
+  }
+  if (host !== "github.com" || parts.length < 2) return undefined;
+  const [o, r, kind, ref, ...path] = parts as [string, string, ...string[]];
+  if (parts.length === 2) return gh(o, r, undefined, ["README.md"]);
+  if ((kind === "blob" || kind === "raw") && ref && path.length) return gh(o, r, ref, path);
+  return undefined;
+}
+
+/**
  * Страница как текст. Сначала с машины пользователя; не открылась, пустая или собирается скриптом — Fetch шлюза,
  * потом Jina Reader. 404 и 410 — страницы нет, запасные пути не пробуем.
  */
@@ -271,6 +300,15 @@ export async function readPage(url: string, deps: ReadDeps = {}): Promise<PageTe
     const err = e as ReadError;
     if (err.status === 404 || err.status === 410) throw err;
     errors.push(err.message);
+  }
+  const cdn = first ? undefined : jsdelivrUrl(url);
+  if (cdn) {
+    try {
+      const page = await direct(cdn, deps);
+      return { ...page, url, via: "jsdelivr" };
+    } catch (e) {
+      errors.push(`jsDelivr: ${(e as Error).message}`);
+    }
   }
   if (deps.gateway?.key) {
     try {

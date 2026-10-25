@@ -11,8 +11,10 @@ export const GATEWAY_KEY_HANDOFF_ENV = "PRSLOY_GATEWAY_KEY";
 export const SEARCH_HANDOFF_ENV = "PRSLOY_SEARCH_HANDOFF";
 
 export type SearchHandoff = {
-  search: { provider: string; key?: string; folderId?: string; url?: string };
+  search: { provider: string; key?: string; folderId?: string; url?: string; models?: string[] };
   gatewayUrl?: string;
+  githubToken?: string;
+  modelSearch?: string[];
 };
 
 export type PrsloyHandoff = {

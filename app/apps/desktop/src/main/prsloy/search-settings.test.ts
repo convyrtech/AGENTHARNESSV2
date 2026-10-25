@@ -37,6 +37,7 @@ describe("search settings", () => {
       "exa",
       "firecrawl",
       "jina",
+      "github",
       "prsloy",
       "model",
     ]);
@@ -116,20 +117,65 @@ describe("search settings", () => {
   it("handoff: always set — the active provider's config, or free when it is not set up", () => {
     const { s } = settings();
     const gw = "https://gw/v1";
-    expect(JSON.parse(s.handoff(gw))).toEqual({ search: { provider: "free" }, gatewayUrl: gw });
+    expect(JSON.parse(s.handoff(gw))).toEqual({
+      search: { provider: "free" },
+      gatewayUrl: gw,
+      modelSearch: ["gpt-6.1-sol"],
+    });
     s.setActive("exa");
     expect(JSON.parse(s.handoff(gw)).search).toEqual({ provider: "free" });
     s.setKey("exa", "exa-key");
-    expect(JSON.parse(s.handoff(gw))).toEqual({
+    expect(JSON.parse(s.handoff(gw))).toMatchObject({
       search: { provider: "exa", key: "exa-key" },
       gatewayUrl: gw,
     });
     s.setActive("prsloy");
     expect(JSON.parse(s.handoff(gw)).search).toEqual({ provider: "prsloy", url: gw });
     s.setActive("model");
-    expect(JSON.parse(s.handoff(gw)).search).toEqual({ provider: "model", url: gw });
+    expect(JSON.parse(s.handoff(gw)).search).toEqual({
+      provider: "model",
+      url: gw,
+      models: ["gpt-6.1-sol"],
+    });
     s.setActive(null);
     expect(JSON.parse(s.handoff(gw)).search).toEqual({ provider: "free" });
+  });
+
+  it("GitHub token (optional): kept like a key, handed to the host for the free search too", () => {
+    const { dir, s } = settings();
+    s.setKey("github", "ghp_secret_token_1234");
+    for (const name of readdirSync(dir))
+      expect(readFileSync(join(dir, name)).toString("utf8")).not.toContain("ghp_secret_token_1234");
+    expect(s.state(false).providers.find((p) => p.id === "github")).toMatchObject({
+      configured: true,
+      keyMask: expect.stringContaining("…"),
+    });
+    // free stays active: the token goes along anyway
+    expect(JSON.parse(s.handoff(undefined))).toMatchObject({
+      search: { provider: "free" },
+      githubToken: "ghp_secret_token_1234",
+    });
+    s.setActive("github");
+    expect(JSON.parse(s.handoff(undefined)).search).toEqual({
+      provider: "github",
+      key: "ghp_secret_token_1234",
+    });
+    s.clearKey("github");
+    expect(JSON.parse(s.handoff(undefined)).githubToken).toBeUndefined();
+  });
+
+  it("the model's search: a list of models from the gateway's catalog, in order", () => {
+    const { s } = settings();
+    expect(s.state(true).providers.find((p) => p.id === "model")!.fields).toEqual({
+      models: ["gpt-6.1-sol"],
+    });
+    s.setModels(["gpt-5.4", " grok-4.20-multi-agent-0309 ", "gpt-5.4"]);
+    expect(JSON.parse(s.handoff("https://gw/v1")).modelSearch).toEqual([
+      "gpt-5.4",
+      "grok-4.20-multi-agent-0309",
+    ]);
+    expect(() => s.setModels([])).toThrow("хотя бы одна");
+    expect(() => s.setModels(["bad model; rm -rf"])).toThrow("Неверный");
   });
 });
 
@@ -152,7 +198,7 @@ describe("0 keys in the agent's env (issue #23)", () => {
     expect(hostEnv.BRAVE_API_KEY).toBeUndefined();
     const env: NodeJS.ProcessEnv = { ...hostEnv };
     const handoff = takePrsloyHandoff(env);
-    expect(handoff.search).toEqual({
+    expect(handoff.search).toMatchObject({
       search: { provider: "brave", key: "BSA-brave-secret-9999" },
       gatewayUrl: "https://gw/v1",
     });
@@ -214,6 +260,13 @@ describe("search IPC", () => {
     );
     await expect(call(SEARCH_IPC.setKey, "brave", 42)).rejects.toThrow("Неверный ключ");
     await expect(call(SEARCH_IPC.setActive, "nope")).rejects.toThrow("Неизвестный поиск");
+    await expect(call(SEARCH_IPC.setModels, "gpt-5.4")).rejects.toThrow("Неверный список");
+    await expect(call(SEARCH_IPC.setModels, [1])).rejects.toThrow("Неверный список");
+    await expect(call(SEARCH_IPC.setModels, ["gpt-5.4"])).resolves.toMatchObject({
+      providers: expect.arrayContaining([
+        expect.objectContaining({ id: "model", fields: { models: ["gpt-5.4"] } }),
+      ]),
+    });
   });
 
   it("a change restarts an idle host, not a busy one; the state never carries a key", async () => {

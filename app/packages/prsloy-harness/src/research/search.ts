@@ -4,7 +4,8 @@
 // Ключи сюда приходят из main (safeStorage) через передачу хосту; в окружение агента они не попадают.
 // Результаты поиска — данные со сторонних сайтов, а не инструкции.
 import { clean, dated, SearchError, type SearchErrorCode } from "./common.ts";
-import { freeSearch } from "./free.ts";
+import { freeSearch, githubRepo } from "./free.ts";
+import { ERROR_LIKE, githubLatest, githubSearch } from "./github.ts";
 import { modelSearch } from "./model-search.ts";
 
 export { SearchError, type SearchErrorCode } from "./common.ts";
@@ -19,7 +20,8 @@ export type SearchProviderId =
   | "brave"
   | "exa"
   | "firecrawl"
-  | "jina";
+  | "jina"
+  | "github";
 
 /** Порядок на экране: бесплатный, свои ключи, PRSLOY (#31), модель. */
 export const SEARCH_PROVIDERS: readonly SearchProviderId[] = [
@@ -31,6 +33,7 @@ export const SEARCH_PROVIDERS: readonly SearchProviderId[] = [
   "exa",
   "firecrawl",
   "jina",
+  "github",
   "prsloy",
   "model",
 ];
@@ -46,6 +49,10 @@ export interface SearchConfig {
    * владельца (#31), если задан, — вместо DuckDuckGo.
    */
   url?: string;
+  /** Токен GitHub из настроек: бесплатный поиск ходит в GitHub с ним (лимиты выше). У поставщика github — key. */
+  githubToken?: string;
+  /** model: модели со встроенным поиском по порядку (по каталогу шлюза); по умолчанию gpt-6.1-sol. */
+  models?: string[];
 }
 
 export type Freshness = "day" | "week" | "month" | "year";
@@ -92,6 +99,7 @@ const NAME: Record<SearchProviderId, string> = {
   exa: "Exa",
   firecrawl: "Firecrawl",
   jina: "Jina",
+  github: "GitHub",
 };
 
 export function providerName(id: SearchProviderId): string {
@@ -220,11 +228,31 @@ export async function search(
           ...(url
             ? { searxng: (qq: SearchQuery) => search({ provider: "searxng", url }, qq, deps) }
             : {}),
+          ...(cfg.githubToken ? { githubToken: cfg.githubToken } : {}),
         },
       );
     }
     case "model":
-      return modelSearch({ url: need(cfg, "url"), key: need(cfg, "key") }, { ...q, count }, deps);
+      return modelSearch(
+        {
+          url: need(cfg, "url"),
+          key: need(cfg, "key"),
+          ...(cfg.models?.length ? { models: cfg.models } : {}),
+        },
+        { ...q, count },
+        deps,
+      );
+    case "github": {
+      // Свой токен: репозитории, issues и код; owner/repo в запросе — ещё и последний релиз.
+      const ghDeps = { ...deps, githubToken: need(cfg, "key") };
+      const repo = githubRepo(q.query);
+      const latest = repo ? await githubLatest(repo.owner, repo.repo, ghDeps).catch(() => []) : [];
+      const kinds = ERROR_LIKE.test(q.query)
+        ? (["issues", "code", "repos"] as const)
+        : (["repos", "code", "issues"] as const);
+      const found = await githubSearch(q.query, kinds, ghDeps, Math.min(10, count));
+      return [...latest, ...found].slice(0, count);
+    }
     case "prsloy":
     case "deepseek": {
       const base =

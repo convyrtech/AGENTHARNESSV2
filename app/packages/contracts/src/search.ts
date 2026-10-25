@@ -8,7 +8,9 @@
  * `free` — the default, no key: official sources (GitHub, npm, PyPI, endoflife.date, Wikipedia) and a keyless
  * web search, always configured; `prsloy` — «Поиск PRSLOY» through the gateway (no key of its own: the PRSLOY
  * key, issue #31); `model` — the model's built-in search, the last fallback, sources unchecked by code. Tavily is
- * not offered: its terms bar users in Russia (research/26 §3.2). Screen order: free, own keys, prsloy, model.
+ * not offered: its terms bar users in Russia (research/26 §3.2). `github` — the user's own GitHub token (optional):
+ * as the active provider it searches repositories, issues and code; set at all, the free search uses it too
+ * (higher limits). Screen order: free, own keys (github last of them), prsloy, model.
  */
 export type SearchProviderId =
   | "free"
@@ -20,6 +22,7 @@ export type SearchProviderId =
   | "exa"
   | "firecrawl"
   | "jina"
+  | "github"
   | "model";
 
 export type SearchProviderState = {
@@ -31,8 +34,11 @@ export type SearchProviderState = {
   configured: boolean;
   /** «sk-…a1b2»: the key itself never leaves main. */
   keyMask?: string;
-  /** Not secret: Yandex folder ID, SearXNG server address. */
-  fields?: { folderId?: string; url?: string };
+  /**
+   * Not secret: Yandex folder ID, SearXNG server address; `model` — the models whose built-in search is tried, in
+   * order (default ["gpt-6.1-sol"]).
+   */
+  fields?: { folderId?: string; url?: string; models?: string[] };
   /** The last «Проверить», stored by main. */
   lastCheck?: { at: string; ok: boolean; code?: SearchErrorCode };
 };
@@ -86,6 +92,11 @@ export interface SearchApi {
   ): Promise<SearchState>;
   clearKey(id: SearchProviderId): Promise<SearchState>;
   setActive(id: SearchProviderId | null): Promise<SearchState>;
+  /**
+   * The models for the model's search fallback, in order — from the gateway's catalog, those whose built-in search
+   * works. Non-empty, at most 10.
+   */
+  setModels(models: string[]): Promise<SearchState>;
   /** One query «Пушкин», 1 result, from the user's own network; the result is stored as `lastCheck`. */
   check(id: SearchProviderId): Promise<SearchCheckResult>;
 }

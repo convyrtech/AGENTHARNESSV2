@@ -13,6 +13,7 @@ import {
   resetFreeCache,
   UNAVAILABLE,
 } from "../src/research/free.ts";
+import { jsdelivrUrl, readPage } from "../src/research/fetch.ts";
 import { modelHits, MODEL_SEARCH_NOTE } from "../src/research/model-search.ts";
 import { guardQuery } from "../src/research/query-guard.ts";
 import { search, SearchError } from "../src/research/search.ts";
@@ -335,7 +336,170 @@ describe("free search: official sources, then the web, Wikipedia when the web is
   });
 });
 
+describe("GitHub: repositories, issues, code with a token; limits per resource", () => {
+  beforeEach(() => resetFreeCache());
+  const limited = (reset: number) =>
+    new Response("{}", {
+      status: 403,
+      headers: { "x-ratelimit-remaining": "0", "x-ratelimit-reset": String(reset) },
+    });
+
+  it("an error in the query → GitHub issues first in the free search", async () => {
+    const f = fakeFetch([
+      [
+        "https://api.github.com/search/issues",
+        () =>
+          json({
+            items: [
+              {
+                html_url: "https://github.com/vitejs/vite/issues/1",
+                title: "Error: Cannot find module 'rollup'",
+                body: "fixed by reinstalling",
+                state: "closed",
+                comments: 12,
+                updated_at: "2026-09-01T00:00:00Z",
+              },
+            ],
+          }),
+      ],
+      ["https://html.duckduckgo.com/html/", () => html(DDG)],
+    ]);
+    const hits = await freeSearch(
+      { query: "vite Error: Cannot find module rollup" },
+      { fetchImpl: f.impl },
+    );
+    expect(hits[0]).toMatchObject({
+      url: "https://github.com/vitejs/vite/issues/1",
+      title: "Error: Cannot find module 'rollup' (issue, закрыт, ответов 12)",
+      date: "2026-09-01",
+    });
+    const issues = f.calls.find((c) => c.url.includes("/search/issues"))!;
+    expect(issues.url).toContain("+is:issue");
+    expect(issues.headers.Authorization).toBeUndefined();
+  });
+
+  it("site:github.com: repositories; a spent search limit — «лимит GitHub, подождите минуту»", async () => {
+    const reset = Math.floor(Date.now() / 1000) + 60;
+    const f = fakeFetch([
+      ["https://api.github.com/search/", () => limited(reset)],
+      ["https://html.duckduckgo.com/html/", () => html("anomaly.js", 202)],
+    ]);
+    await expect(
+      freeSearch({ query: "markdown parser", site: "github.com" }, { fetchImpl: f.impl }),
+    ).rejects.toThrow("лимит GitHub, подождите минуту");
+    const before = f.calls.length;
+    await expect(
+      freeSearch({ query: "yaml parser", site: "github.com" }, { fetchImpl: f.impl }),
+    ).rejects.toThrow("лимит GitHub");
+    // paused until the reset: GitHub is not asked again
+    expect(f.calls.slice(before).some((c) => c.url.includes("api.github.com"))).toBe(false);
+  });
+
+  it("own token: the github provider searches code too, with the token; 401 → auth", async () => {
+    const f = fakeFetch([
+      [
+        "https://api.github.com/search/repositories",
+        () =>
+          json({
+            items: [{ html_url: "https://github.com/a/b", full_name: "a/b", stargazers_count: 5 }],
+          }),
+      ],
+      [
+        "https://api.github.com/search/code",
+        (c) => {
+          expect(c.headers.Accept).toContain("text-match");
+          return json({
+            items: [
+              {
+                html_url: "https://github.com/a/b/blob/main/src/x.ts",
+                path: "src/x.ts",
+                repository: { full_name: "a/b" },
+                text_matches: [{ fragment: "defineConfig({" }],
+              },
+            ],
+          });
+        },
+      ],
+      ["https://api.github.com/search/issues", () => json({ items: [] })],
+    ]);
+    const hits = await search(
+      { provider: "github", key: "ghp_t" },
+      { query: "defineConfig vite" },
+      { fetchImpl: f.impl },
+    );
+    expect(hits.map((h) => h.title)).toEqual(["a/b — ★5", "a/b: src/x.ts"]);
+    expect(f.calls.every((c) => c.headers.Authorization === "Bearer ghp_t")).toBe(true);
+    const bad = fakeFetch([["https://api.github.com/", () => json({}, 401)]]);
+    const err = await search(
+      { provider: "github", key: "x" },
+      { query: "q" },
+      { fetchImpl: bad.impl },
+    ).catch((e: unknown) => e);
+    expect((err as SearchError).code).toBe("auth");
+    await expect(search({ provider: "github" }, { query: "q" })).rejects.toThrow("нет ключа");
+  });
+
+  it("files from GitHub through jsDelivr when GitHub does not open", async () => {
+    expect(
+      jsdelivrUrl("https://github.com/vitejs/vite/blob/v7.1.0/packages/vite/package.json"),
+    ).toBe("https://cdn.jsdelivr.net/gh/vitejs/vite@v7.1.0/packages/vite/package.json");
+    expect(jsdelivrUrl("https://raw.githubusercontent.com/o/r/refs/heads/main/a/b.md")).toBe(
+      "https://cdn.jsdelivr.net/gh/o/r@main/a/b.md",
+    );
+    expect(jsdelivrUrl("https://github.com/o/r")).toBe("https://cdn.jsdelivr.net/gh/o/r/README.md");
+    expect(jsdelivrUrl("https://github.com/o/r/issues/1")).toBeUndefined();
+    expect(jsdelivrUrl("https://example.com/a")).toBeUndefined();
+    const text = "# Vite\n\n" + "Next generation frontend tooling. ".repeat(20);
+    const f = fakeFetch([
+      [
+        "https://cdn.jsdelivr.net/gh/o/r/README.md",
+        () => new Response(text, { headers: { "content-type": "text/plain" } }),
+      ],
+    ]);
+    const page = await readPage("https://github.com/o/r", { fetchImpl: f.impl, jina: false });
+    expect(page).toMatchObject({ url: "https://github.com/o/r", via: "jsdelivr" });
+    expect(page.text).toContain("Next generation frontend tooling");
+  });
+});
+
 describe("the model's search through the gateway (last fallback)", () => {
+  it("models are tried in order: no search (no sources) → the next one", async () => {
+    const asked: string[] = [];
+    const f = fakeFetch([
+      [
+        "https://gw/v1/chat/completions",
+        (c) => {
+          const model = (c.body as { model: string }).model;
+          asked.push(model);
+          return json({
+            choices: [
+              {
+                message: {
+                  content:
+                    model === "grok-4.20-multi-agent-0309"
+                      ? "https://cbr.ru/ — 2026-10-24 — 14%"
+                      : "не знаю",
+                },
+              },
+            ],
+          });
+        },
+      ],
+    ]);
+    const hits = await search(
+      {
+        provider: "model",
+        url: "https://gw/v1",
+        key: "k",
+        models: ["gemini-3-pro-preview", "grok-4.20-multi-agent-0309"],
+      },
+      { query: "ключевая ставка" },
+      { fetchImpl: f.impl },
+    );
+    expect(asked).toEqual(["gemini-3-pro-preview", "grok-4.20-multi-agent-0309"]);
+    expect(hits).toEqual([expect.objectContaining({ url: "https://cbr.ru/", date: "2026-10-24" })]);
+  });
+
   it("sources from url_citation annotations and «URL — date — gist» lines", () => {
     const hits = modelHits(
       "https://brave.com/search/api/ — 2026-09-01 — $5 per 1000 requests\nhttps://x.example/a — unknown — y",
@@ -487,7 +651,12 @@ describe("web_search: chain, year guard, tiers, site", () => {
         },
       ],
     ]);
-    const m = setup({ gatewayUrl: "https://gw/v1", fetchImpl: g.impl, now: NOW });
+    const m = setup({
+      gatewayUrl: "https://gw/v1",
+      modelSearch: ["gpt-6.1-sol"],
+      fetchImpl: g.impl,
+      now: NOW,
+    });
     const last = await m.run({ query: "ключевая ставка" });
     expect(last.text).toContain(`Поиск: Поиск модели · «ключевая ставка» — ${MODEL_SEARCH_NOTE}`);
     expect(last.text).toContain("[1] Ставка — cbr.ru — 2026-10-24 — доки");

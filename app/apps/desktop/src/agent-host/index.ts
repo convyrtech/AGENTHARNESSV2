@@ -446,6 +446,8 @@ async function handleCommand(command: HostCommand): Promise<void> {
                         NonNullable<HarnessOptions["research"]>["search"]
                       >,
                       ...(search.gatewayUrl ? { gatewayUrl: search.gatewayUrl } : {}),
+                      ...(search.githubToken ? { githubToken: search.githubToken } : {}),
+                      ...(search.modelSearch?.length ? { modelSearch: search.modelSearch } : {}),
                     },
                   }
                 : {},

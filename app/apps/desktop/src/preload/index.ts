@@ -44,6 +44,7 @@ const api: ZenoDesktopApi = {
     setKey: (id, key, fields) => ipcRenderer.invoke("prsloy:search:set-key", id, key, fields),
     clearKey: (id) => ipcRenderer.invoke("prsloy:search:clear-key", id),
     setActive: (id) => ipcRenderer.invoke("prsloy:search:set-active", id),
+    setModels: (models) => ipcRenderer.invoke("prsloy:search:set-models", models),
     check: (id) => ipcRenderer.invoke("prsloy:search:check", id),
   },
   prsloy: {
