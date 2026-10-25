@@ -966,3 +966,14 @@ module-скрипт ломается только файлом, чистая с�
 `telegram-bot/SKILL.md` (там `request_secret`), в журнале `skill.loaded`, системный промпт 3-го запроса равен 1-му;
 без флага навыков нет. `test/bench.test.ts`: `--fake --review off --skills on` — заголовок, строка навыков,
 комплект разложен; разбор `skillsRead`. `pnpm check` чисто, harness 340/340.
+
+### Этап 11 · `<prsloy-next>` в промпте
+
+- В «Before you end your turn» добавлено: «When the task is done and you ask no question, end with a
+  <prsloy-next>…</prsloy-next> block: 2–3 next steps in Russian, one per line, ≤120 chars.» Формат — как разбирает
+  `renderer/lib/next-steps.ts` features (строка — кнопка, длиннее 120 символов отбрасывается). Промпт 7 496 символов
+  (предел 7 500 — дальше добавлять некуда, только заменять).
+- Метрики ответа замера вырезают блок `<prsloy-next>`: это кнопки, а не текст ответа; длина, вопросы и жаргон
+  считаются без него.
+- Проверка тестов промпта: восстановлены утверждения про «If you chose for the user…» (потерялись при слиянии) и
+  добавлено про `<prsloy-next>` в конце промпта.

@@ -164,6 +164,13 @@ describe("bench: final answer metrics (research/17 §11.3)", () => {
       commandsToUser: 0,
       falseDone: false,
     });
+    // Блок «что дальше» — кнопки, не текст ответа: строки и вопросы в нём не считаются.
+    expect(
+      answerMetrics(
+        "Готово: сайт в index.html.\n<prsloy-next>\nДобавить форму?\nВыложить в архив\n</prsloy-next>",
+        true,
+      ),
+    ).toMatchObject({ lines: 1, questions: 0 });
     // «откройте файл» — не команда в терминал; слово внутри другого слова не считается.
     expect(
       answerMetrics("Откройте файл index.html. Перезапустите не нужно.", null).commandsToUser,
