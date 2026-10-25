@@ -48,6 +48,7 @@ import { LineSplitter, parseHarnessLine } from "./events.ts";
 import {
   DESIGN_PAGE,
   DESIGN_SCHEME,
+  harnessStateDir,
   insideRoot,
   mimeFor,
   parseDesignUrl,
@@ -124,7 +125,7 @@ export class DesignService {
     return process.platform === "win32" ? "msedge" : undefined;
   }
 
-  #env(proxyUrl: string, piBin: string[]): Record<string, string> {
+  #env(proxyUrl: string, piBin: string[], stateDir?: string): Record<string, string> {
     const shimDir = join(this.#designRoot, "bin");
     return buildHarnessEnv({
       base: process.env,
@@ -137,7 +138,21 @@ export class DesignService {
       proxyUrl,
       ...(this.#browserChannel() ? { browserChannel: this.#browserChannel() as string } : {}),
       chromiumOnly: process.env.DP_CHROMIUM_ONLY !== "0",
+      ...(stateDir ? { stateDir } : {}),
     });
+  }
+
+  /** run.py state for `ws`; `create` makes the folder user-only (same ACL as the key file). */
+  #state(ws: string, create = false): { dir: string; legacy: boolean } {
+    const root = join(this.#deps.userDataPath, "design-state");
+    const st = harnessStateDir(ws, root);
+    if (create && !existsSync(st.dir)) {
+      const fresh = !existsSync(root);
+      mkdirSync(st.dir, { recursive: true });
+      if (fresh) restrictToUser(root, true);
+      if (!st.legacy) restrictToUser(st.dir, true);
+    }
+    return st;
   }
 
   #send(channel: string, payload: unknown): void {
@@ -147,7 +162,7 @@ export class DesignService {
 
   // ---------- history ----------
   #history(ws: string): DesignEvent[] {
-    const f = join(ws, "harness", EVENTS_FILE);
+    const f = join(this.#state(ws).dir, EVENTS_FILE);
     if (!existsSync(f)) return [];
     const out: DesignEvent[] = [];
     for (const line of readFileSync(f, "utf8").split("\n")) {
@@ -164,8 +179,7 @@ export class DesignService {
   #emit(ws: string, event: DesignEvent): void {
     const stamped = { ...event, t: event.t ?? Math.round(Date.now() / 100) / 10 };
     try {
-      mkdirSync(join(ws, "harness"), { recursive: true });
-      appendFileSync(join(ws, "harness", EVENTS_FILE), `${JSON.stringify(stamped)}\n`);
+      appendFileSync(join(this.#state(ws, true).dir, EVENTS_FILE), `${JSON.stringify(stamped)}\n`);
     } catch {
       // the stream still reaches the window
     }
@@ -355,7 +369,7 @@ export class DesignService {
   }
 
   async #ensureWorkspace(ws: string, env: Record<string, string>): Promise<void> {
-    if (existsSync(join(ws, "harness", "state.json"))) return;
+    if (existsSync(join(this.#state(ws).dir, "state.json"))) return;
     mkdirSync(ws, { recursive: true });
     const pipeline = join(this.#deps.bundleRoot, "design-pipeline");
     const child = this.#python(
@@ -387,7 +401,8 @@ export class DesignService {
       .filter((p): p is string => !!p && existsSync(p));
     const proxyUrl = await this.#ensureProxy();
     this.#writePiConfig(proxyUrl);
-    const env = this.#env(proxyUrl, await this.#piBin());
+    const state = this.#state(ws, true);
+    const env = this.#env(proxyUrl, await this.#piBin(), state.legacy ? undefined : state.dir);
     await this.#ensureWorkspace(ws, env);
     for (const tok of fileTokens) this.#picked.delete(tok);
 
@@ -550,10 +565,10 @@ export class DesignService {
   }
 }
 
-/** User-only ACL (Windows: SID via icacls; POSIX: 0600) on the key file. */
-function restrictToUser(file: string): void {
-  const result = restrictToCurrentUser(file, { isDir: false });
-  if (!result.ok) console.warn("[design] could not restrict key file:", result.detail);
+/** User-only ACL (Windows: SID via icacls; POSIX: 0600/0700) on the key file and state folders. */
+function restrictToUser(path: string, isDir = false): void {
+  const result = restrictToCurrentUser(path, { isDir });
+  if (!result.ok) console.warn("[design] could not restrict", path, result.detail);
 }
 
 function projectArg(raw: unknown): string | undefined {

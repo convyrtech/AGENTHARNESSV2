@@ -12,7 +12,9 @@ import {
   mkdtempSync,
   readdirSync,
   readFileSync,
+  statSync,
   symlinkSync,
+  writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -41,6 +43,7 @@ vi.mock("electron", () => ({
 }));
 
 const { DesignService, registerDesignIpc } = await import("./service.ts");
+const { workspaceId } = await import("./paths.ts");
 
 const HERE = import.meta.dirname;
 const E2E = join(HERE, "../../../e2e/design");
@@ -162,7 +165,13 @@ describe.skipIf(!python3 || process.platform === "win32")("design IPC", () => {
     expect(msgs.map((m) => m.event.ev)).toEqual(["user", "stage", "tool", "tool", "owner", "exit"]);
     const ws = join(project, "prsloy-design");
     expect(msgs.every((m) => m.workspace === ws)).toBe(true);
-    expect(existsSync(join(ws, "harness", "state.json"))).toBe(true);
+    // run.py state lives under userData (HARNESS_STATE_DIR), not in or next to the workspace
+    const state = join(root, "userData", "design-state", workspaceId(ws));
+    expect(existsSync(join(state, "state.json"))).toBe(true);
+    expect(existsSync(join(state, "app-events.jsonl"))).toBe(true);
+    expect(existsSync(join(ws, "harness", "state.json"))).toBe(false);
+    expect(readdirSync(project).filter((n) => n.startsWith("."))).toEqual([]);
+    if (process.platform !== "win32") expect(statSync(state).mode & 0o777).toBe(0o700);
     // the key lived on disk only until a6proxy read it
     expect(readdirSync(join(root, "userData", "design", "proxy"))).toEqual([]);
     const models = JSON.parse(
@@ -275,6 +284,22 @@ describe.skipIf(!python3 || process.platform === "win32")("design IPC", () => {
     });
     const status = (await call("prsloy:design:status", project)) as { available: boolean };
     expect(status.available).toBe(true);
+  });
+
+  it("a workspace from before the state move keeps its <ws>/harness", async () => {
+    const old = join(root, "старый проект");
+    const harness = join(old, "prsloy-design", "harness");
+    mkdirSync(harness, { recursive: true });
+    writeFileSync(join(harness, "state.json"), JSON.stringify({ page: "landing", turn: 0 }));
+    sent.length = 0;
+    await call("prsloy:design:say", old, "привет", []);
+    await eventsUntil((m) => m.event.ev === "exit");
+    expect(JSON.parse(readFileSync(join(harness, "state.json"), "utf8"))).toMatchObject({
+      turn: 1,
+    });
+    expect(readFileSync(join(harness, "app-events.jsonl"), "utf8")).toContain("привет");
+    const moved = join(root, "userData", "design-state", workspaceId(join(old, "prsloy-design")));
+    expect(existsSync(moved)).toBe(false);
   });
 
   it("starts a workspace for the fallback folder when no project is open", async () => {

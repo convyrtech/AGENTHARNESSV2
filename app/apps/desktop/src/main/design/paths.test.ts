@@ -5,6 +5,7 @@ import { describe, expect, it } from "vite-plus/test";
 import {
   DESIGN_DIR,
   fileUrl,
+  harnessStateDir,
   insideRoot,
   mimeFor,
   parseDesignUrl,
@@ -22,6 +23,17 @@ function tree() {
   symlinkSync(join(root, "secret.txt"), join(ws, "link.txt"));
   return { root, ws };
 }
+
+describe("harnessStateDir", () => {
+  it("keeps run.py state under the state root, except for a legacy <ws>/harness", () => {
+    const { ws } = tree();
+    const root = join(tmpdir(), "state-root");
+    expect(harnessStateDir(ws, root)).toEqual({ dir: join(root, workspaceId(ws)), legacy: false });
+    mkdirSync(join(ws, "harness"));
+    writeFileSync(join(ws, "harness", "state.json"), "{}");
+    expect(harnessStateDir(ws, root)).toEqual({ dir: join(ws, "harness"), legacy: true });
+  });
+});
 
 describe("workspaceFor", () => {
   it("puts the workspace inside the project, or under the fallback root", () => {

@@ -4,7 +4,7 @@
   say <ws> "<text>" [--files …] [--retry] next recorded turn; after --retry, the finished page (synthetic turn)
   "долго" as the text: one stage, then waits to be cancelled
 """
-import argparse, json, shutil, sys, time
+import argparse, json, os, shutil, sys, time
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -17,6 +17,15 @@ def emit(ev):
     time.sleep(0.12)
 
 
+def state_dir(ws):
+    """Same rule as run.py: HARNESS_STATE_DIR, else a legacy <ws>/harness, else a sibling folder."""
+    if os.environ.get("HARNESS_STATE_DIR"):
+        return Path(os.environ["HARNESS_STATE_DIR"])
+    if (ws / "harness" / "state.json").exists():
+        return ws / "harness"
+    return ws.parent / f".{ws.name}.harness"
+
+
 def init(a):
     ws = Path(a.ws)
     for d in ("harness", "materials", "owner", f"design/{a.page}", "site"):
@@ -24,13 +33,15 @@ def init(a):
     src = FIXTURES / "design"
     if src.exists():
         shutil.copytree(src, ws / "design", dirs_exist_ok=True)
-    (ws / "harness" / "state.json").write_text(json.dumps({"page": a.page, "turn": 0}), encoding="utf-8")
+    h = state_dir(ws.resolve())
+    h.mkdir(parents=True, exist_ok=True)
+    (h / "state.json").write_text(json.dumps({"page": a.page, "turn": 0}), encoding="utf-8")
     print(json.dumps({"ws": str(ws.resolve()), "page": a.page}, ensure_ascii=False))
 
 
 def say(a):
     ws = Path(a.ws).resolve()
-    st_f = ws / "harness" / "state.json"
+    st_f = state_dir(ws) / "state.json"
     st = json.loads(st_f.read_text(encoding="utf-8"))
     for f in a.files or []:
         shutil.copyfile(f, ws / "materials" / Path(f).name)

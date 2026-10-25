@@ -90,6 +90,14 @@ describe("buildHarnessEnv", () => {
     });
   });
 
+  it("sets HARNESS_STATE_DIR only from the service, never from the host env", () => {
+    const base = { PATH: "/usr/bin", HARNESS_STATE_DIR: "/somewhere/else" };
+    expect(buildHarnessEnv({ ...input, base }).HARNESS_STATE_DIR).toBeUndefined();
+    expect(
+      buildHarnessEnv({ ...input, base, stateDir: "/ud/design-state/abc" }).HARNESS_STATE_DIR,
+    ).toBe("/ud/design-state/abc");
+  });
+
   it("on Windows matches names case-insensitively and keeps one PATH", () => {
     const env = buildHarnessEnv({
       ...input,

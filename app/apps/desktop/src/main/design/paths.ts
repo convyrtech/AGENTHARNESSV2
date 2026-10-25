@@ -6,7 +6,7 @@
  * is resolved back against a workspace main registered and checked for containment.
  */
 import { createHash } from "node:crypto";
-import { realpathSync } from "node:fs";
+import { existsSync, realpathSync } from "node:fs";
 import { isAbsolute, join, normalize, relative, resolve, sep } from "node:path";
 import type { DesignFile } from "@zeno/contracts";
 import { fileKind } from "./events.ts";
@@ -27,6 +27,21 @@ export function workspaceFor(projectPath: string | undefined, fallbackRoot: stri
 
 export function workspaceId(workspace: string): string {
   return createHash("sha256").update(resolve(workspace)).digest("hex").slice(0, 16);
+}
+
+/**
+ * Where run.py keeps its state for `workspace` (state.json, ledger, sessions, judge
+ * transcripts, our event log): under `stateRoot`, outside the agent's folder, so the agent
+ * never reads it and nothing hidden lands next to the owner's project. A workspace from
+ * before the move keeps `<ws>/harness` (run.py would ignore it if HARNESS_STATE_DIR is set).
+ */
+export function harnessStateDir(
+  workspace: string,
+  stateRoot: string,
+): { dir: string; legacy: boolean } {
+  const legacy = join(resolve(workspace), "harness");
+  if (existsSync(join(legacy, "state.json"))) return { dir: legacy, legacy: true };
+  return { dir: join(stateRoot, workspaceId(workspace)), legacy: false };
 }
 
 function real(path: string): string {

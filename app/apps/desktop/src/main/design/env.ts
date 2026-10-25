@@ -105,6 +105,8 @@ export type HarnessEnvInput = {
   /** Playwright channel for Chromium (msedge on Windows). */
   browserChannel?: string;
   chromiumOnly: boolean;
+  /** run.py state outside the workspace (HARNESS_STATE_DIR); unset keeps run.py's default. */
+  stateDir?: string;
 };
 
 /**
@@ -139,5 +141,6 @@ export function buildHarnessEnv(input: HarnessEnvInput): Record<string, string> 
   env.PYTHONDONTWRITEBYTECODE = "1";
   if (input.browserChannel) env.DP_BROWSER_CHANNEL = input.browserChannel;
   if (input.chromiumOnly) env.DP_CHROMIUM_ONLY = "1";
+  if (input.stateDir) env.HARNESS_STATE_DIR = input.stateDir;
   return env;
 }
