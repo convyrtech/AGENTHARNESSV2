@@ -91,7 +91,7 @@ export function undoneFileCount(result: Pick<PrsloyUndoResult, "rewritten" | "re
   return new Set([...result.rewritten, ...result.removed]).size;
 }
 
-/** «Вернул 1 файл / 3 файла / 5 файлов», or «Файлы не менялись» for zero. */
+/** «Ход откатен: вернул 1 файл / 3 файла / 5 файлов», or «…файлы не менялись» for zero. */
 export function undoResultKey(locale: Locale, count: number): MessageKey {
   if (count <= 0) return "prsloy.undo.result.none";
   const form = new Intl.PluralRules(localeTag(locale)).select(count);

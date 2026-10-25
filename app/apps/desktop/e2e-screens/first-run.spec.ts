@@ -201,7 +201,7 @@ for (const mode of ["light", "dark"] as const) {
       await expect(page.getByTestId("turn-undo-confirm")).toBeVisible();
       await shot(page, `${mode}-undo`);
       await page.getByTestId("turn-undo-confirm").getByRole("button", { name: "Откатить" }).click();
-      await expect(page.getByTestId("turn-undo-result")).toHaveText("Вернул 1 файл");
+      await expect(page.getByTestId("turn-undo-result")).toHaveText("Ход откатен: вернул 1 файл");
       expect(existsSync(pagePath)).toBe(false);
       await shot(page, `${mode}-undo-done`);
 

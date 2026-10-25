@@ -39,6 +39,20 @@ describe("appendMonotonicText", () => {
 });
 
 describe("live stream (append-only)", () => {
+  it("stamps the settle time on the turn's final reply, once", () => {
+    let state = emptyLiveStream();
+    state = applyRuntimeEventToLiveStream(state, { type: "message.delta", delta: "Готово" }, [], {
+      sequence: 1,
+    });
+    state = applyRuntimeEventToLiveStream(state, { type: "agent.settled" }, [], { sequence: 2 });
+    const reply = state.items.find((item) => item.kind === "assistant");
+    const endedAt = reply?.kind === "assistant" ? reply.endedAt : undefined;
+    expect(endedAt).toBeTruthy();
+    state = applyRuntimeEventToLiveStream(state, { type: "agent.settled" }, [], { sequence: 3 });
+    const again = state.items.find((item) => item.kind === "assistant");
+    expect(again?.kind === "assistant" ? again.endedAt : undefined).toBe(endedAt);
+  });
+
   it("only grows assistant text under many deltas", () => {
     let state = emptyLiveStream();
     for (let i = 0; i < 300; i++) {

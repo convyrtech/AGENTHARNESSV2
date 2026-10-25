@@ -897,7 +897,7 @@ export function Composer(props: ComposerProps) {
               </span>
             </button>
 
-            {hasProject ? (
+            {hasProject && developerMode ? (
               <>
                 <button
                   type="button"

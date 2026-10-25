@@ -445,7 +445,17 @@ export function applyRuntimeEventToLiveStream(
         ],
       });
     }
-    // agent.started / agent.settled / message.completed / queue.updated — still mark sequence
+    case "agent.settled": {
+      // Stamp the turn's end on its final reply, so «Готово за …» spans send → settled.
+      const lastUser = state.items.findLastIndex((item) => item.kind === "user");
+      const index = state.items.findLastIndex((item) => item.kind === "assistant");
+      const reply = state.items[index];
+      if (index <= lastUser || reply?.kind !== "assistant" || reply.endedAt) return mark(state);
+      const items = state.items.slice();
+      items[index] = { ...reply, endedAt: nowIso() };
+      return mark({ ...state, items });
+    }
+    // agent.started / message.completed / queue.updated — still mark sequence
     default:
       return mark(state);
   }

@@ -102,6 +102,39 @@
 
 `PackagesPage` вынесен из `main.tsx`, бюджет файла снижен с 4469 до 3803 строк.
 
+## Этап 4: дефекты живой приёмки
+
+1. **React #185 (maximum update depth) под потоком Kimi.**
+   - Воспроизведено: `e2e-stress/stream-stress.spec.ts` (`playwright.stress.config.ts`) шлёт три хода по 2000
+     дельт размышлений и 2000 дельт текста без пауз. До правки — десятки #185 из IPC-слушателя preload, ход висел в
+     «Agent running…».
+   - Причина. Каждая дельта — отдельная IPC-задача и синхронный рендер через zustand. Покадровые и таймерные
+     обновления (анимация маркера в боковой панели, троттлинг markdown, живые таймеры) всё время держали работу
+     в очереди, поэтому ни один коммит не заканчивался чистым. React считал это вложенными обновлениями, на 50-м
+     бросал #185.
+   - Правка: `lib/host-event-batcher.ts`. `message.delta` и `thinking.delta` копятся максимум 16 мс и применяются
+     одним пакетом. Любое другое событие сначала сбрасывает очередь и выполняется сразу, порядок и управление не
+     меняются.
+   - После правки стресс зелёный на проде (`STRESS_DELTAS=3000`, три хода) и на dev-сборке React. Юнит-тест:
+     2000 дельт приходят одним пакетом и по порядку.
+2. **Карточка ошибки по-русски.** Вместо «Response failed / Error reading response…» — «Связь с моделью
+   оборвалась» и «Повторить» (отправляет тот же запрос). Сырой текст свёрнут под «Подробности».
+   - Остальные системные заголовки тоже переведены: «Ответ остановлен», «Повтор», «Агент неожиданно остановился»
+     (`lib/system-notices.ts`).
+   - Скриншоты `{light,dark}-model-failure.png`. Мок рвёт поток битым SSE, а e2e проверяет, что «Повторить»
+     даёт второй ответ.
+3. **«Готово за N с» = от отправки до `agent.settled`.** Начало — время сообщения пользователя, а не первого шага.
+   Конец — `endedAt`, который живой поток ставит последнему ответу хода на `agent.settled`. Для истории без
+   `endedAt` — начало последнего ответа. Тест повторяет случай приёмки: 19 с. На скриншоте ход с `npm test` на
+   20 с показывает «Готово за 20 с».
+4. **Термины разработчика в казуальном режиме.** «Локально» и «Без ветки» (рабочая копия и ветка над полем ввода)
+   скрыты без режима разработчика. Подпись языка над блоком кода («TEXT», «javascript») тоже.
+5. **Грамматика:** «Проект «{name}». Что делаем?».
+6. **Отметка отката в переписке.** «Ход откатен: вернул 3 файла» с правильным склонением.
+   - Отметка сохраняется (`lib/undo-log.ts`, localStorage, до 200 записей), поэтому видна и после переключения
+     чата и перезапуска.
+   - «Вернуть как было» остаётся рядом.
+
 ## Как проверено
 
 ```
@@ -109,11 +142,13 @@ $ pnpm check
 pass: All 529 files are correctly formatted
 pass: Found no warnings, lint errors, or type errors in 486 files
 $ pnpm test
- desktop: Test Files 113 passed, Tests 775 passed; harness 104; agent-runtime 115
+ desktop: Test Files 117 passed, Tests 790 passed; harness 104; agent-runtime 115
 file budgets ok (4 frozen, 2000-line ceiling for the rest)
 $ pnpm --filter @zeno/desktop run build
 $ xvfb-run -a npx playwright test -c playwright.screens.config.ts   # в apps/desktop
   3 passed (first-run light/dark + main screens)
+$ STRESS_DELTAS=3000 xvfb-run -a npx playwright test -c playwright.stress.config.ts
+  1 passed (до правки: десятки React #185, ход висел)
 $ identify build/icon.ico   → 16, 24, 32, 48, 64, 128, 256
 $ file build/icon.icns      → Mac OS X icon, "ic07" type
 ```

@@ -204,15 +204,16 @@ describe("runtime timeline", () => {
       { id: "a1", kind: "assistant", text: "done", timestamp: "2026-01-01T00:00:45.000Z" },
     ]);
     expect(blocks.map((b) => b.type)).toEqual(["item", "process", "item"]);
+    // The turn runs from the send (user message), not from its first step.
     expect(blocks[1]).toMatchObject({
       type: "process",
-      startedAt: "2026-01-01T00:00:01.000Z",
+      startedAt: "2026-01-01T00:00:00.000Z",
       endedAt: "2026-01-01T00:00:45.000Z",
     });
     if (blocks[1]?.type === "process") {
       expect(blocks[1].items).toHaveLength(2);
       expect(blocks[1].open).toBeUndefined();
-      expect(blocks[1].durationLabel).toBe("44 s");
+      expect(blocks[1].durationLabel).toBe("45 s");
     }
   });
 
@@ -249,10 +250,37 @@ describe("runtime timeline", () => {
         "thinking",
         "tool",
       ]);
-      expect(processes[0].startedAt).toBe("2026-01-01T00:00:01.000Z");
+      expect(processes[0].startedAt).toBe("2026-01-01T00:00:00.000Z");
       expect(processes[0].endedAt).toBe("2026-01-01T00:00:20.000Z");
     }
     expect(blocks[2]).toMatchObject({ type: "item", item: { id: "a-final", kind: "assistant" } });
+  });
+
+  it("measures to the settle time when the final reply carries one", () => {
+    // Live run from the acceptance test: 19 s from send to settled, final reply streamed late.
+    const blocks = buildTimelineBlocks([
+      { id: "u1", kind: "user", text: "hi", timestamp: "2026-01-01T00:00:00.000Z" },
+      {
+        id: "tool1",
+        kind: "tool",
+        toolName: "bash",
+        status: "completed",
+        timestamp: "2026-01-01T00:00:07.000Z",
+      },
+      {
+        id: "a1",
+        kind: "assistant",
+        text: "done",
+        timestamp: "2026-01-01T00:00:12.000Z",
+        endedAt: "2026-01-01T00:00:19.000Z",
+      },
+    ]);
+    expect(blocks[1]).toMatchObject({
+      type: "process",
+      startedAt: "2026-01-01T00:00:00.000Z",
+      endedAt: "2026-01-01T00:00:19.000Z",
+      durationLabel: "19 s",
+    });
   });
 
   it("does not span duration across earlier turns", () => {
@@ -267,14 +295,14 @@ describe("runtime timeline", () => {
     const processes = blocks.filter((b) => b.type === "process");
     expect(processes).toHaveLength(2);
     expect(processes[0]).toMatchObject({
-      startedAt: "2026-01-01T00:00:01.000Z",
+      startedAt: "2026-01-01T00:00:00.000Z",
       endedAt: "2026-01-01T00:00:10.000Z",
-      durationLabel: "9 s",
+      durationLabel: "10 s",
     });
     expect(processes[1]).toMatchObject({
-      startedAt: "2026-01-01T01:00:02.000Z",
+      startedAt: "2026-01-01T01:00:00.000Z",
       endedAt: "2026-01-01T01:00:12.000Z",
-      durationLabel: "10 s",
+      durationLabel: "12 s",
     });
   });
 
@@ -294,7 +322,7 @@ describe("runtime timeline", () => {
     expect(blocks[1]).toMatchObject({
       type: "process",
       open: true,
-      startedAt: "2026-01-01T00:00:01.000Z",
+      startedAt: "2026-01-01T00:00:00.000Z",
     });
     if (blocks[1]?.type === "process") {
       expect(blocks[1].endedAt).toBeUndefined();

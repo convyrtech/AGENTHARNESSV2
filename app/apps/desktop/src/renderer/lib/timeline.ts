@@ -17,6 +17,8 @@ export type TimelineItem =
       kind: "assistant";
       text: string;
       timestamp?: string;
+      /** ISO time the turn settled, when this is the turn's final reply (live stream). */
+      endedAt?: string;
       entryId?: string;
     }
   | { id: string; kind: "thinking"; text: string; timestamp?: string }
@@ -481,9 +483,12 @@ export function buildTimelineBlocks(items: TimelineItem[]): TimelineBlock[] {
   /** Non-user items since the last user message. */
   let turn: TimelineItem[] = [];
 
+  /** When the current turn was sent: the turn's duration runs from here, not from its first step. */
+  let turnStartedAt: string | undefined;
+
   const pushProcess = (steps: ProcessStepItem[], open: boolean, endTs: string | undefined) => {
     if (steps.length === 0) return;
-    const startedAt = steps[0]?.timestamp;
+    const startedAt = turnStartedAt ?? steps[0]?.timestamp;
     const lastStep = steps[steps.length - 1]?.timestamp;
     const endedAt = open ? undefined : (endTs ?? lastStep);
     let durationLabel: string | undefined;
@@ -540,7 +545,9 @@ export function buildTimelineBlocks(items: TimelineItem[]): TimelineBlock[] {
       pushProcess(
         steps,
         false,
-        finalAssistant.kind === "assistant" ? finalAssistant.timestamp : undefined,
+        finalAssistant.kind === "assistant"
+          ? (finalAssistant.endedAt ?? finalAssistant.timestamp)
+          : undefined,
       );
       blocks.push({ type: "item", item: finalAssistant });
       for (let i = lastAssistantIdx + 1; i < turn.length; i++) {
@@ -593,6 +600,7 @@ export function buildTimelineBlocks(items: TimelineItem[]): TimelineBlock[] {
     if (item.kind === "user") {
       flushTurn(false);
       blocks.push({ type: "item", item });
+      turnStartedAt = item.timestamp;
       continue;
     }
     turn.push(item);

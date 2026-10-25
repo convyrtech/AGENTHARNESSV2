@@ -36,6 +36,8 @@ export type SessionTimelineContentProps = {
   editingLocked?: boolean;
   onEditUser?: (item: UserTimelineItem, text: string) => void | Promise<void>;
   onForkAssistant?: (item: AssistantTimelineItem) => void | Promise<void>;
+  /** «Повторить» on a failed turn: send that turn's prompt again. */
+  onResend?: (text: string) => void;
   endRef?: Ref<HTMLDivElement>;
   emptyState?: ReactNode;
   footer?: ReactNode;
@@ -114,6 +116,8 @@ export function SessionTimelineContent(props: SessionTimelineContentProps) {
     [items, events, running, waiting],
   );
   const hasActivity = items.length > 0;
+  /** Prompt of the turn being rendered, so a failure card can resend it. */
+  let turnPrompt: string | undefined;
   // «Откатить» after each finished turn that changed files, keyed by the turn's last block.
   const snapshots = useTurnSnapshots(running, `${sessionKey}:${items.length}`);
   const undoAfterBlock = useMemo(() => {
@@ -142,6 +146,8 @@ export function SessionTimelineContent(props: SessionTimelineContentProps) {
         <>
           {blocks.map((block, index) => {
             const messageId = block.type === "process" ? block.id : block.item.id;
+            if (block.type === "item" && block.item.kind === "user") turnPrompt = block.item.text;
+            const resendText = turnPrompt;
             const undoSnapshotId = undoAfterBlock.get(index);
             return (
               <Fragment key={messageId}>
@@ -169,6 +175,9 @@ export function SessionTimelineContent(props: SessionTimelineContentProps) {
                       {...(props.workspacePath ? { workspacePath: props.workspacePath } : {})}
                       {...(props.onEditUser ? { onEditUser: props.onEditUser } : {})}
                       {...(props.onForkAssistant ? { onForkAssistant: props.onForkAssistant } : {})}
+                      {...(props.onResend && resendText
+                        ? { onRetry: () => props.onResend?.(resendText) }
+                        : {})}
                     />
                   )}
                 </MessageScrollerItem>

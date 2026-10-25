@@ -84,6 +84,8 @@ import {
 } from "../lib/timeline.ts";
 import { cn } from "../lib/utils.ts";
 import { useCasualPrefs } from "../hooks/useCasualPrefs.ts";
+import { isModelFailure, localizedSystemTitle } from "../lib/system-notices.ts";
+import { ModelFailureCard } from "./ModelFailureCard.tsx";
 
 /** Tick wall-clock once per second while `active` so elapsed labels stay live. */
 function useNow(active: boolean): number {
@@ -496,6 +498,8 @@ export const TimelineRow = memo(function TimelineRow(props: {
   ) => void | Promise<void>;
   /** Fork at an assistant entry into a new session file (pi fork). */
   onForkAssistant?: (item: Extract<TimelineItem, { kind: "assistant" }>) => void | Promise<void>;
+  /** Resend the prompt of the turn this failure belongs to. */
+  onRetry?: (() => void) | undefined;
   editingLocked?: boolean;
 }) {
   const { item } = props;
@@ -791,11 +795,21 @@ export const TimelineRow = memo(function TimelineRow(props: {
   // Shell / errors / other system notes — default Marker card.
   // Extension custom message/entry use the same generic serializable fallback
   // (no TUI renderer factories); content is still sanitized Markdown.
+  if (isModelFailure(item)) {
+    return (
+      <ModelFailureCard
+        locale={props.locale}
+        detail={item.text}
+        onRetry={props.onRetry}
+        disabled={props.editingLocked}
+      />
+    );
+  }
   const extension = item.extension === true;
   const systemTitle = item.title
     ? extension
       ? t(props.locale, "extensionUi.customMessage", { type: item.title })
-      : item.title
+      : localizedSystemTitle(props.locale, item.title)
     : undefined;
   return (
     <Marker

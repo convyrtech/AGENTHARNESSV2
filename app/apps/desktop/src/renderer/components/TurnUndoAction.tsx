@@ -5,15 +5,12 @@
  */
 import { useState } from "react";
 import { RotateCcw, Undo2 } from "lucide-react";
-import type { PrsloyTurnSnapshot } from "@zeno/contracts";
 import { t, type Locale } from "../lib/i18n.ts";
 import { undoneFileCount, undoResultKey } from "../lib/turn-undo.ts";
+import { loadUndoOutcome, saveUndoOutcome, type UndoOutcome } from "../lib/undo-log.ts";
 import { ConfirmDialog } from "./ConfirmDialog.tsx";
 
-type Outcome =
-  | { kind: "done"; count: number; backup?: PrsloyTurnSnapshot | undefined }
-  | { kind: "restored"; count: number }
-  | { kind: "error"; message: string };
+type Outcome = UndoOutcome | { kind: "error"; message: string };
 
 export function TurnUndoAction(props: {
   locale: Locale;
@@ -26,14 +23,20 @@ export function TurnUndoAction(props: {
     t(props.locale, key, vars);
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [outcome, setOutcome] = useState<Outcome>();
+  // A past undo of this turn is shown again after a remount or restart.
+  const [outcome, setOutcome] = useState<Outcome | undefined>(() =>
+    loadUndoOutcome(props.snapshotId),
+  );
 
-  async function restore(snapshotId: string, kind: "done" | "restored") {
+  async function restore(snapshotId: string, kind: UndoOutcome["kind"]) {
     setBusy(true);
     try {
       const result = await window.zeno.prsloy.undoTurn(snapshotId);
       const count = undoneFileCount(result);
-      setOutcome(kind === "done" ? { kind, count, backup: result.backup } : { kind, count });
+      const next: UndoOutcome =
+        kind === "undone" ? { kind, count, backupId: result.backup?.id } : { kind, count };
+      saveUndoOutcome(props.snapshotId, next);
+      setOutcome(next);
       props.onUndone?.();
     } catch (error) {
       setOutcome({
@@ -48,18 +51,18 @@ export function TurnUndoAction(props: {
   const locked = props.disabled || busy;
   return (
     <div className="turn-undo" data-testid="turn-undo">
-      {outcome?.kind === "done" ? (
+      {outcome?.kind === "undone" ? (
         <>
           <span className="turn-undo-result" role="status" data-testid="turn-undo-result">
             {tr(undoResultKey(props.locale, outcome.count), { count: String(outcome.count) })}
           </span>
-          {outcome.backup ? (
+          {outcome.backupId ? (
             <button
               type="button"
               className="turn-undo-btn"
               data-testid="turn-undo-restore"
               disabled={locked}
-              onClick={() => outcome.backup && void restore(outcome.backup.id, "restored")}
+              onClick={() => outcome.backupId && void restore(outcome.backupId, "restored")}
             >
               <RotateCcw className="size-3.5" strokeWidth={1.75} />
               {tr("prsloy.undo.restoreBack")}
@@ -97,7 +100,7 @@ export function TurnUndoAction(props: {
         testId="turn-undo-confirm"
         onConfirm={() => {
           setConfirming(false);
-          void restore(props.snapshotId, "done");
+          void restore(props.snapshotId, "undone");
         }}
         onCancel={() => setConfirming(false)}
       />

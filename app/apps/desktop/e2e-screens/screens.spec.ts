@@ -25,6 +25,7 @@ const outDir = join(appDirectory, "..", "..", "docs", "prsloy", "screens");
 type Message = { role: string; content?: unknown };
 
 function fakeModel(readmePath: string): Server {
+  let breaks = 0;
   return createServer((req, res) => {
     let body = "";
     req.on("data", (chunk: Buffer) => (body += String(chunk)));
@@ -39,6 +40,15 @@ function fakeModel(readmePath: string): Server {
       const userText = JSON.stringify(messages[lastUser]?.content ?? "");
       // «Запусти тесты»: `npm test`, which the demo project makes take 20 s.
       const slow = userText.includes("тесты");
+      // «Обрыв»: the first attempt breaks mid-stream like the live DeepSeek run; a retry works.
+      if (userText.includes("обрыв") && !afterTool) {
+        breaks += 1;
+        if (breaks % 2 === 1) {
+          res.writeHead(200, { "content-type": "text/event-stream" });
+          res.end("data: {not json\n\n");
+          return;
+        }
+      }
       res.writeHead(200, { "content-type": "text/event-stream" });
       const send = (delta: object, finish: string | null = null, usage?: object) =>
         res.write(
@@ -263,6 +273,17 @@ test("PRSLOY main screens, light and dark", async () => {
         timeout: 30_000,
       });
       await expect(page.getByTestId("turn-progress")).toBeHidden();
+
+      await page.getByTestId("prompt-input").fill("Проверим обрыв связи");
+      await page.getByTestId("send-prompt").click();
+      await expect(page.getByTestId("model-failure")).toBeVisible({ timeout: 30_000 });
+      await expect(page.getByTestId("model-failure")).toContainText("Связь с моделью оборвалась");
+      await shot(page, `${mode}-model-failure`);
+      // The retry resends the same prompt; this time the model answers (a second reply).
+      await page.getByTestId("model-failure-retry").click();
+      await expect(page.getByTestId("timeline").getByText("С чего начнём?")).toHaveCount(2, {
+        timeout: 30_000,
+      });
 
       await page.keyboard.press(process.platform === "darwin" ? "Meta+," : "Control+,");
       await expect(page.getByTestId("settings-general")).toBeVisible();

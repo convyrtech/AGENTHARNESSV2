@@ -4,7 +4,10 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { t } from "../lib/i18n.ts";
 import { TurnUndoAction } from "./TurnUndoAction.tsx";
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  localStorage.clear();
+});
 
 function mockUndo(impl: (id: string) => Promise<unknown>) {
   const undoTurn = vi.fn(impl);
@@ -25,12 +28,29 @@ describe("TurnUndoAction", () => {
     expect(await screen.findByText(t("ru", "prsloy.undo.confirmMessage"))).toBeTruthy();
     expect(undoTurn).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: t("ru", "prsloy.undo.short") }));
-    expect((await screen.findByTestId("turn-undo-result")).textContent).toBe("Вернул 3 файла");
+    expect((await screen.findByTestId("turn-undo-result")).textContent).toBe(
+      "Ход откатен: вернул 3 файла",
+    );
     expect(undoTurn).toHaveBeenCalledWith("snap-2");
 
     fireEvent.click(screen.getByTestId("turn-undo-restore"));
     expect(await screen.findByText(t("ru", "prsloy.undo.restored"))).toBeTruthy();
     expect(undoTurn).toHaveBeenLastCalledWith("backup-1");
+  });
+
+  it("shows a past undo again after a remount", async () => {
+    mockUndo(async (id) => ({
+      restoredTo: { id, turn: 1, createdAt: "", kind: "turn" },
+      rewritten: ["a.html"],
+      removed: [],
+    }));
+    render(<TurnUndoAction locale="ru" snapshotId="snap-9" disabled={false} />);
+    fireEvent.click(screen.getByTestId("turn-undo-btn"));
+    fireEvent.click(await screen.findByRole("button", { name: t("ru", "prsloy.undo.short") }));
+    await screen.findByTestId("turn-undo-result");
+    cleanup();
+    render(<TurnUndoAction locale="ru" snapshotId="snap-9" disabled={false} />);
+    expect(screen.getByTestId("turn-undo-result").textContent).toBe("Ход откатен: вернул 1 файл");
   });
 
   it("is disabled while a turn runs", () => {

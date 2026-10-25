@@ -22,6 +22,7 @@ import yaml from "highlight.js/lib/languages/yaml";
 import { t, type Locale } from "../lib/i18n.ts";
 import { parseDiffDisplayLines } from "../lib/process-activity.ts";
 import { cn } from "../lib/utils.ts";
+import { useCasualPrefs } from "../hooks/useCasualPrefs.ts";
 
 hljs.registerLanguage("bash", bash);
 hljs.registerLanguage("css", css);
@@ -173,6 +174,8 @@ export function ContentCodeBlock(props: {
    * collapse — so the choice between "copy the selection" and "copy the block" is made here,
    * where it still reflects what the user right-clicked.
    */
+  const { developerMode } = useCasualPrefs();
+
   function openCodeMenu(event: ReactMouseEvent) {
     setSelected(window.getSelection()?.toString() ?? "");
     codeMenu.openAtPoint("code", event);
@@ -186,8 +189,9 @@ export function ContentCodeBlock(props: {
   return (
     <div className="content-code-block" data-language={language} onContextMenu={openCodeMenu}>
       <div className="content-code-header">
+        {/* A language name («TEXT», «javascript») is a developer's label; casual mode leaves it out. */}
         <span className="content-code-language font-mono text-[11px] font-normal">
-          {language === "plaintext" ? "text" : language}
+          {developerMode && language !== "plaintext" && language !== "text" ? language : ""}
         </span>
         <Button
           type="button"
