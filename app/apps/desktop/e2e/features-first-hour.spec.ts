@@ -291,11 +291,10 @@ test("2 · «Запомни: я не программист» → new chat → �
     await shot(page, "first-hour-6-remembered");
 
     await page.getByText("Новый чат").first().click();
-    await expect(page.getByText("Начните разговор")).toBeVisible({ timeout: 30_000 });
+    // A new chat stays in the open project (ui, first-hour pass), not a project-less conversation.
+    await expect(page.getByTestId("empty-hero")).toContainText("Что делаем?", { timeout: 30_000 });
     await shot(page, "first-hour-7-new-chat");
-    // «Новый чат» finishes its switch a few seconds later and pulls the view back to the chat: going to
-    // Settings right away lands back in the chat (reported to ui). Wait it out like a person would.
-    await page.waitForTimeout(6000);
+    // «Настройки» right away: the new chat finishing its switch no longer pulls the view back.
     await page.getByTestId("nav-settings").click();
     await page.getByTestId("settings-nav-memory").click();
     const user = page.getByTestId("memory-user");

@@ -378,8 +378,8 @@ function ProductRail(
         </span>
       </div>
 
-      {/* Primary action — pure conversation (protrusion shows 选择项目). Project-bound new
-          sessions only come from each project row action. */}
+      {/* Primary action: a new chat in the open project, or a plain chat when none is open
+          (main.tsx newChat). */}
       <nav className="mb-2 flex flex-col gap-0" aria-label="Primary">
         <button
           type="button"

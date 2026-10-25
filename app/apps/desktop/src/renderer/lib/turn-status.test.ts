@@ -34,6 +34,11 @@ describe("turnTone", () => {
   it("fail, then warn, then ok, else neutral", () => {
     expect(turnTone(["checks-fail", "page-ok"])).toBe("fail");
     expect(turnTone(["tests-changed", "checks-pass"])).toBe("warn");
+    // harness's tests-weak (behind testQuality): new tests that check almost nothing
+    expect(turnTone(["tests-weak", "checks-pass"])).toBe("warn");
+    expect(
+      parseTurnStatus({ facts: ["checks-pass", "tests-weak", "tests-changed"] })?.facts,
+    ).toEqual(["tests-changed", "tests-weak", "checks-pass"]);
     expect(turnTone(["ran-ok"])).toBe("ok");
     expect(turnTone(["tests-updated"])).toBe("neutral");
     expect(turnTone(["no-checks"])).toBe("neutral");

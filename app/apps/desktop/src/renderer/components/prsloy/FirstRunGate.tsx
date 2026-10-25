@@ -161,6 +161,28 @@ export function FirstRunGate({ children }: { children: ReactNode }) {
     return () => clearInterval(timer);
   }, [setupPercent === undefined]);
 
+  // Keyboard: the key field disappears with its step and focus would fall to the page. Each next step
+  // hands focus to its main action once it is on screen (the import step scans first).
+  useEffect(() => {
+    if (step === "loading" || step === "key" || step === "done") return;
+    const timer = window.setInterval(() => {
+      const active = document.activeElement;
+      if (active && active !== document.body) return window.clearInterval(timer);
+      const primary = document.querySelector<HTMLElement>(
+        "[data-first-run-primary]:not(:disabled)",
+      );
+      if (primary) {
+        primary.focus();
+        window.clearInterval(timer);
+      }
+    }, 100);
+    const stop = window.setTimeout(() => window.clearInterval(timer), 5000);
+    return () => {
+      window.clearInterval(timer);
+      window.clearTimeout(stop);
+    };
+  }, [step]);
+
   if (step === "done") return <>{children}</>;
   if (step === "loading") return <div className="h-screen w-screen bg-background" />;
 
@@ -242,6 +264,7 @@ export function FirstRunGate({ children }: { children: ReactNode }) {
             <Button
               className="h-10"
               data-testid="prsloy-folder-pick"
+              data-first-run-primary
               disabled={busy}
               onClick={() => void openFolder(() => window.zeno.workspace.pickFolder())}
             >

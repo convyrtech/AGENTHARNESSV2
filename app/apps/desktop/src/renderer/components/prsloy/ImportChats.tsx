@@ -206,6 +206,7 @@ export function ImportChats({
       <Button
         className="h-10"
         data-testid="prsloy-import-submit"
+        data-first-run-primary
         disabled={keys.length === 0}
         onClick={() => void run()}
       >

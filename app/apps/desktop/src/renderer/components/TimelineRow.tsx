@@ -93,6 +93,7 @@ import { BlockerCard } from "./BlockerCard.tsx";
 import { SearchLimitCard } from "./SearchLimitCard.tsx";
 import { BLOCKER_TYPE } from "../lib/blocker-card.ts";
 import { SEARCH_LIMIT_TYPE } from "../lib/search-settings.ts";
+import { harnessToolVerb } from "../lib/harness-tools.ts";
 import { memoryCardKind } from "../lib/memory.ts";
 import {
   isHostCrash,
@@ -123,6 +124,8 @@ function activityLabel(
 ): string {
   const tr = (key: MessageKey, vars?: Record<string, string>) => t(locale, key, vars);
   const phase = activity.phase;
+  // A live phase under a second says nothing: «Ждёт», not «Ждёт 0 с» (first-hour pass).
+  if (phase !== "processed" && duration && duration.startsWith("0 ")) duration = undefined;
   const tool = activity.toolName?.trim() || "tool";
   const detail = withDetail ? activity.toolSummary?.trim() : undefined;
 
@@ -673,7 +676,7 @@ export const TimelineRow = memo(function TimelineRow(props: {
               </BubbleContent>
             </Bubble>
           ) : null}
-          <MessageFooter className="px-0">
+          <MessageFooter className="timeline-meta-float px-0">
             {/* User: 日期时间 · 复制 · 编辑重发 */}
             <MetaActions
               locale={props.locale}
@@ -1037,6 +1040,8 @@ function processStatusVerb(
     list: "timeline.process.listFailed",
     generic: "timeline.process.genericFailed",
   };
+  const human = harnessToolVerb(locale, toolName, status === "running" ? "running" : "failed");
+  if (human) return human;
   const key = status === "running" ? running[kind] : failed[kind];
   return tr(key, { tool: toolName });
 }
@@ -1092,7 +1097,9 @@ function toolRowParts(
       : { verb: tr("timeline.process.list"), ...detailFromView(toolName, view, "plain") };
   } else {
     parts = {
-      verb: tr("timeline.process.generic", { tool: toolName }),
+      verb:
+        harnessToolVerb(locale, toolName, "done") ??
+        tr("timeline.process.generic", { tool: toolName }),
       ...detailFromView(toolName, view, "plain"),
     };
   }
@@ -1140,7 +1147,10 @@ function processOpenTitle(
     case "list":
       return tr("timeline.process.listOpen");
     default:
-      return tr("timeline.process.genericOpen", { tool: toolName });
+      return (
+        harnessToolVerb(locale, toolName, "done") ??
+        tr("timeline.process.genericOpen", { tool: toolName })
+      );
   }
 }
 

@@ -923,7 +923,8 @@ export const useShellStore = create<ShellState>((set, get) => ({
         runningSessions,
         // Foreground only — never inherit previous session's busy flag.
         running: busyHere,
-        view: "thread" as const,
+        // A chat that finishes opening after the owner went to «Настройки» does not pull them back.
+        view: state.view === "settings" ? state.view : ("thread" as const),
       };
     }),
   resetAfterStop: () => {

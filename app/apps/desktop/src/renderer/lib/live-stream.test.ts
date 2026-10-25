@@ -452,6 +452,15 @@ describe("liveStreamNotCoveredByHistory", () => {
     expect(next.items.some((item) => item.kind === "tool" && item.status === "running")).toBe(true);
   });
 
+  it("a reply streamed with a trailing space is covered by the trimmed history (reopened chat)", () => {
+    let state = emptyLiveStream();
+    state = applyRuntimeEventToLiveStream(state, { type: "message.delta", delta: "Готово. " }, [], {
+      sequence: 1,
+    });
+    const next = liveStreamNotCoveredByHistory(state, [{ role: "assistant", text: "Готово." }]);
+    expect(next.items.some((item) => item.kind === "assistant")).toBe(false);
+  });
+
   it("keeps live assistant text when history is a stale prefix (extra tokens)", () => {
     let state = emptyLiveStream();
     state = applyRuntimeEventToLiveStream(

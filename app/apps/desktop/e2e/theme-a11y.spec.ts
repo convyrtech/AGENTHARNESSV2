@@ -41,7 +41,7 @@ for (const mode of ["light", "dark"] as const) {
     await setTheme(page, mode);
     await expect(page.locator(`[data-theme="${mode}"]`).first()).toBeAttached();
 
-    await expect(page.getByTestId("fig-caption").first()).toBeVisible();
+    await expect(page.getByTestId("empty-hero")).toBeVisible();
     expect(await axe(page), "home").toEqual([]);
 
     await page.getByTestId("nav-design").click();
