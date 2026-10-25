@@ -1,0 +1,7 @@
+{"role":"user","timestamp":"2026-10-24T15:00:00.000Z","message":{"content":[{"type":"text","text":"<timestamp>Friday</timestamp>\n<user_query>\nСделай меню на сайте\n</user_query>"}]}}
+{"role":"assistant","timestamp":"2026-10-24T15:01:00.000Z","message":{"content":[{"type":"thinking","thinking":"..."},{"type":"text","text":"Добавляю меню."},{"type":"tool_use","name":"Edit","input":{"file_path":"C:\\Users\\Пётр\\Проекты\\сайт-пекарни\\index.html"}}]}}
+{"role":"user","timestamp":"2026-10-24T15:01:00.000Z","message":{"content":[{"type":"tool_result","content":"ok"}]}}
+{"role":"assistant","timestamp":"2026-10-24T15:02:00.000Z","message":{"content":"Меню готово."}}
+{"role":"user","isMeta":true,"timestamp":"2026-10-24T15:03:00.000Z","message":{"content":"служебное"}}
+{"role":"user","timestamp":"2026-10-24T15:04:00.000Z","message":{"content":"<user_query>Спасибо</user_query>"}}
+{not json

@@ -1,6 +1,9 @@
 import { afterEach, describe, expect, it } from "vite-plus/test";
 import { appendFile, readdir, readFile, rm } from "node:fs/promises";
 import { realpathSync } from "node:fs";
+import { mkdir } from "node:fs/promises";
+import { join } from "node:path";
+import { DatabaseSync } from "node:sqlite";
 import { scanSources } from "../src/detect.ts";
 import { emptyLedger, readLedger } from "../src/ledger.ts";
 import { sha256File } from "../src/read-lines.ts";
@@ -93,5 +96,80 @@ describe("importChats", () => {
     await expect(importChats(options)).rejects.toBeInstanceOf(ImportBusyError);
     await first;
     await expect(importChats({ ...options, candidates: [] })).resolves.toEqual([]);
+  });
+
+  it("brings an OpenCode chat over, versioned by its own update time, not the database's hash", async () => {
+    const { machine, options } = await setup();
+    await mkdir(machine.roots.opencodeData, { recursive: true });
+    const dbPath = join(machine.roots.opencodeData, "opencode.db");
+    const db = new DatabaseSync(dbPath);
+    db.exec(`
+      CREATE TABLE session_v2 (id TEXT PRIMARY KEY, parent_id TEXT, directory TEXT, title TEXT,
+        time_created INTEGER, time_updated INTEGER);
+      CREATE TABLE session_message (id TEXT PRIMARY KEY, session_id TEXT, type TEXT, seq INTEGER,
+        time_created INTEGER, data TEXT);
+    `);
+    const t = Date.UTC(2026, 9, 21);
+    db.prepare("INSERT INTO session_v2 VALUES ('ses_1', NULL, ?, 'Заметки', ?, ?)").run(
+      machine.projects.pi,
+      t,
+      t,
+    );
+    const add = db.prepare("INSERT INTO session_message VALUES (?, 'ses_1', ?, ?, ?, ?)");
+    add.run("m0", "user", 0, t, JSON.stringify({ text: "Собери заметки в файл" }));
+    add.run(
+      "m1",
+      "assistant",
+      1,
+      t,
+      JSON.stringify({ content: [{ type: "text", text: "Собрал." }] }),
+    );
+    // another chat in the same database changes the file, not this chat's version
+    db.prepare("INSERT INTO session_v2 VALUES ('ses_2', NULL, ?, 'Другое', ?, ?)").run(
+      machine.projects.pi,
+      t,
+      t,
+    );
+
+    const scan = await scanSources({ roots: machine.roots, ledger: emptyLedger(), now: NOW });
+    const chat = scan.candidates.filter((c) => c.tool === "opencode");
+    expect(chat.map((c) => c.sourceId)).toEqual(["ses_1"]);
+    const first = await importChats({ ...options, candidates: chat });
+    expect(first[0]).toMatchObject({ status: "imported", title: "Заметки" });
+    const entry = (await readLedger(machine.ledgerPath)).entries.at(-1)!;
+    expect(entry).toMatchObject({
+      tool: "opencode",
+      sourceId: "ses_1",
+      sha256: `opencode:v2:${t}:2`,
+    });
+
+    db.prepare("INSERT INTO session_message VALUES ('m2', 'ses_2', 'user', 0, ?, ?)").run(
+      t,
+      JSON.stringify({ text: "другой чат" }),
+    );
+    const again = await scanSources({
+      roots: machine.roots,
+      ledger: await readLedger(machine.ledgerPath),
+      now: NOW,
+    });
+    expect(again.candidates.find((c) => c.sourceId === "ses_1")?.alreadyImported).toBe(true);
+    expect((await importChats({ ...options, candidates: chat }))[0]).toMatchObject({
+      reason: "already",
+    });
+
+    // the chat itself goes on: a new version is offered and brought over as a new chat
+    add.run("m3", "user", 3, t + 1000, JSON.stringify({ text: "Добавь оглавление" }));
+    db.prepare("UPDATE session_v2 SET time_updated = ? WHERE id = 'ses_1'").run(t + 1000);
+    db.close();
+    const changed = await scanSources({
+      roots: machine.roots,
+      ledger: await readLedger(machine.ledgerPath),
+      now: NOW,
+    });
+    const next = changed.candidates.filter((c) => c.sourceId === "ses_1");
+    expect(next[0]?.alreadyImported).toBeUndefined();
+    expect((await importChats({ ...options, candidates: next }))[0]).toMatchObject({
+      status: "imported",
+    });
   });
 });

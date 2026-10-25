@@ -1,0 +1,14 @@
+{
+  "sessionId": "8f1e2d3c-4b5a-4968-8778-695a4b3c2d1e",
+  "projectHash": "h",
+  "startTime": "2026-10-22T10:00:00.000Z",
+  "lastUpdated": "2026-10-22T10:00:00.000Z",
+  "messages": [
+    {
+      "id": "u1",
+      "timestamp": "2026-10-22T10:00:00.000Z",
+      "type": "user",
+      "content": [{ "text": "Сделай лендинг для кофейни" }]
+    }
+  ]
+}

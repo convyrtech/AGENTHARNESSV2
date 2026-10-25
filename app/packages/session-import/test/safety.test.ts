@@ -28,13 +28,24 @@ describe("session-import safety", () => {
     }
   });
 
-  it("writes only through the session writer and the journal", async () => {
+  it("writes only through the session writer, the journal and the temp database copy", async () => {
     const writers = [];
     for (const { path, text } of await sources()) {
-      if (/\b(writeFile|appendFile|createWriteStream|unlink|rename|rm)\(/.test(text)) {
+      if (
+        /\b(writeFile|appendFile|createWriteStream|unlink|rename|rm|copyFile|mkdtemp)(Sync)?\(/.test(
+          text,
+        )
+      ) {
         writers.push(path.slice(SRC.length + 1).replaceAll("\\", "/"));
       }
     }
-    expect(writers.sort()).toEqual(["ledger.ts", "to-pi.ts"]);
+    // sqlite-snapshot.ts writes only into its own mkdtemp folder, and removes it
+    expect(writers.sort()).toEqual(["ledger.ts", "sqlite-snapshot.ts", "to-pi.ts"]);
+  });
+
+  it("opens other tools' databases read-only, from a copy", async () => {
+    const snapshot = (await sources()).find((s) => s.path.endsWith("sqlite-snapshot.ts"))!;
+    expect(snapshot.text).toContain("{ readOnly: true }");
+    expect(snapshot.text).toMatch(/new DatabaseSync\(copy,/);
   });
 });

@@ -98,17 +98,26 @@
   (`crates/goose/src/recipe/mod.rs`, Apache License 2.0, Copyright (c) Block, Inc.). Код не копировался.
 - [yaml](https://github.com/eemeli/yaml) 2.9.0 — зависимость, собирается в main (frontmatter рецептов). ISC License,
   Copyright Eemeli Aro.
-- `packages/session-import/src/adapters/claude-code.ts`, `adapters/codex.ts`, `clean.ts` — перенос чатов Claude Code и
-  Codex по образцу TypeScript-адаптеров [cline/cline](https://github.com/cline/cline)
+- `packages/session-import/src/adapters/claude-code.ts`, `adapters/codex.ts`, `adapters/opencode.ts`, `sqlite-snapshot.ts`,
+  `clean.ts` — перенос чатов Claude Code, Codex и OpenCode (старая схема, снимок SQLite с WAL) по образцу TypeScript-адаптеров [cline/cline](https://github.com/cline/cline)
   (`sdk/packages/core/src/services/session-import/`, коммит `40c5d99`). Apache License 2.0, Copyright 2026 Cline Bot
   Inc.; текст лицензии — `licenses/cline-Apache-2.0.txt`. Взяты: восстановление активной ветки по `parentUuid`,
   пропуск `<synthetic>`-моделей, какие записи Codex — слова человека, а какие — подмешанный контекст, самый полный
   файл на один id, названия из `session_index.jsonl`. Изменено PRSLOY: чтение потоком (и `.jsonl.zst`), только текст
   с однострочными заметками об инструментах, выводы инструментов и размышления не переносятся, секреты скрываются,
   папки субагентов пропускаются, запись в обычный файл сессии Pi со сводкой и сменой модели.
-- `packages/session-import/src/title.ts`, `clean.ts`, `ledger.ts`, правила в `adapters/claude-code.ts` — по правилам
+- `packages/session-import/src/title.ts`, `clean.ts`, `ledger.ts`, `adapters/cursor-agent.ts` (расшифровка папки проекта
+  Cursor, не больше 128 проверок, `<user_query>`), правила в `adapters/claude-code.ts` — по правилам
   импорта [openai/codex](https://github.com/openai/codex) (`codex-rs/external-agent-migration/src/sessions/`, коммит
   `970111f`). Apache License 2.0; текст лицензии — `licenses/codex-Apache-2.0.txt`. Из `NOTICE` Codex: «OpenAI Codex.
   Copyright 2025 OpenAI.» Взяты: порядок названий (своё → от агента → первая строка, 120 знаков), список служебных
   обёрток, пропуск `continued-in`, журнал импорта с sha256, по умолчанию 30 дней и не больше 50 чатов. Изменено PRSLOY:
   перенесено с Rust на TypeScript, обёртки вырезаются в любом месте текста, журнал — свой JSON в папке данных PRSLOY.
+- `packages/session-import/src/adapters/opencode.ts` — текущая схема OpenCode (`session_v2`, `session_message`) прочитана
+  по определениям [sst/opencode](https://github.com/sst/opencode) (`packages/core/src/session/sql.ts`,
+  `packages/schema/src/session-message.ts`, коммит `450e7b9`). MIT License, Copyright (c) 2025 opencode. Код не копировался.
+- `packages/session-import/src/adapters/gemini.ts` — формат чатов Gemini CLI (записи `$set` / `$patch` / `$rewindTo`, реестр
+  `projects.json`, `.project_root`) по [google-gemini/gemini-cli](https://github.com/google-gemini/gemini-cli)
+  (`packages/core/src/services/chatRecordingTypes.ts`, `chatRecordingService.ts`, `config/projectRegistry.ts`, коммит
+  `cd1b45c`). Apache License 2.0, Copyright 2025 Google LLC. Изменено PRSLOY: только текст с пометками инструментов, только
+  чтение, чаты субагентов пропускаются, код переписан на нашу схему разбора.

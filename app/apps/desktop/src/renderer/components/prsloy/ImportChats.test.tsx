@@ -8,7 +8,14 @@ afterEach(cleanup);
 
 const zero = { chats: 0, projects: 0, recent: 0 };
 const found: ImportScanResult = {
-  counts: { "claude-code": { chats: 2, projects: 1, recent: 2 }, codex: zero, "pi-cli": zero },
+  counts: {
+    "claude-code": { chats: 2, projects: 1, recent: 2 },
+    codex: zero,
+    "pi-cli": zero,
+    opencode: zero,
+    gemini: zero,
+    "cursor-agent": zero,
+  },
   chats: [
     {
       key: "claude-code:a",
@@ -138,5 +145,14 @@ describe("ImportChats", () => {
     fireEvent.click(await screen.findByTestId("prsloy-import-submit"));
     expect((await screen.findByRole("alert")).textContent).toContain("Не получилось перенести");
     expect(screen.getByTestId("prsloy-import-next")).toBeTruthy();
+  });
+
+  it("names the tools whose chats it could not read, and still offers the rest", async () => {
+    mockImport({ ...found, unreadable: ["opencode"] });
+    render(<ImportChats locale="ru" mode="first-run" onDone={vi.fn()} />);
+    expect((await screen.findByTestId("prsloy-import-unreadable")).textContent).toBe(
+      "Не смог прочитать чаты OpenCode: незнакомый формат.",
+    );
+    expect(screen.getByTestId("prsloy-import-tool-claude-code")).toBeTruthy();
   });
 });
