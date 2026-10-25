@@ -6,10 +6,13 @@
  * the two together only made every feature edit one enormous file.
  */
 
+import { designEn } from "./design.en.ts";
+
 export const en = {
   "app.name": "PRSLOY",
   "timeline.thinking": "Thinking",
   "timeline.minimap": "Conversation minimap",
+  ...designEn,
   "timeline.minimapUser": "User message",
   "timeline.minimapAssistant": "Assistant reply",
   "timeline.toolRunning": "Running",

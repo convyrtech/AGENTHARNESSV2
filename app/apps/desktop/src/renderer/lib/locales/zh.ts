@@ -6,10 +6,13 @@
  * the two together only made every feature edit one enormous file.
  */
 
+import { designZh } from "./design.zh.ts";
+
 export const zh = {
   "app.name": "PRSLOY",
   "timeline.thinking": "思考过程",
   "timeline.minimap": "对话导航",
+  ...designZh,
   "timeline.minimapUser": "用户消息",
   "timeline.minimapAssistant": "助手回复",
   "timeline.toolRunning": "运行中",

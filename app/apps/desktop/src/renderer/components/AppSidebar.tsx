@@ -53,7 +53,7 @@ import { cn } from "../lib/utils.ts";
 import { isSettingsSectionVisible } from "../lib/casual-prefs.ts";
 import { useCasualPrefs } from "../hooks/useCasualPrefs.ts";
 import type { SessionMarker } from "../lib/session-markers.ts";
-import type { SettingsSection, ShellView } from "../store/shell-store.ts";
+import { type SettingsSection, type ShellView, useShellStore } from "../store/shell-store.ts";
 import type { ThreadRunState } from "../lib/timeline.ts";
 import { SettingsSearchField } from "./settings/SettingsPrimitives.tsx";
 import { ProjectList } from "./ProjectList.tsx";
@@ -384,6 +384,13 @@ function ProductRail(
           <SquarePen className="size-4 shrink-0 opacity-85" strokeWidth={1.6} />
           <span className="truncate">{tr("nav.newThread")}</span>
         </button>
+        <NavBtn
+          testId="nav-design"
+          active={props.view === "design"}
+          icon={<Palette className="size-4 shrink-0 opacity-70" strokeWidth={1.75} />}
+          label={tr("design.nav")}
+          onClick={() => useShellStore.getState().setView("design")}
+        />
         {groupMode === "list" ? (
           <NavBtn
             testId="nav-projects"

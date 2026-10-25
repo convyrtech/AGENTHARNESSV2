@@ -28,6 +28,8 @@ import { ExtensionUiChrome } from "./components/ExtensionUiChrome.tsx";
 import { ExtensionUiHost } from "./components/ExtensionUiHost.tsx";
 import { ProjectTrustDialog } from "./components/ProjectTrustDialog.tsx";
 import { ProjectsPage } from "./components/ProjectsPage.tsx";
+import { DesignPage } from "./components/design/DesignPage.tsx";
+import { maybeMarkUnreadForRuntime } from "./store/unread-on-settle.ts";
 import { SessionInfoPanel, SessionTreePanel } from "./components/SessionParityPanels.tsx";
 import { RenameDialog } from "./components/RenameDialog.tsx";
 import { SettingsPage } from "./components/settings/SettingsPage.tsx";
@@ -111,12 +113,7 @@ import { matchShortcut, SHORTCUT_OVERRIDES_CHANGED_EVENT } from "./lib/shortcuts
 import { loadContentModeForSession } from "./lib/content-mode-prefs.ts";
 import { projectTrustPromptKey, shouldPromptProjectTrust } from "./lib/project-trust-prompt.ts";
 import { loadTerminalPrefs, resolveTerminalTheme } from "./lib/terminal-prefs.ts";
-import {
-  loadPinnedProjects,
-  markUnreadOnAgentSettle,
-  mergeThreadRows,
-  savePinnedProjects,
-} from "./lib/project-prefs.ts";
+import { loadPinnedProjects, mergeThreadRows, savePinnedProjects } from "./lib/project-prefs.ts";
 import {
   filterRecentWorkspaces,
   firstLine,
@@ -166,21 +163,6 @@ function reportAppError(error: unknown, fallback: string): string {
   const message = unwrapRemoteIpcError(errorMessageOrFallback(error, fallback));
   useShellStore.getState().showAppError(message);
   return message;
-}
-
-/**
- * Mark sidebar session unread when a turn settles and the user is not currently
- * reading that transcript (other session, settings, packages, …).
- * Must run before settleSessionByRuntime drops the runtime→session binding.
- */
-function maybeMarkUnreadForRuntime(runtimeId: string): void {
-  const store = useShellStore.getState();
-  const sessionKey = store.sessionKeyForRuntime(runtimeId);
-  if (!sessionKey) return;
-  markUnreadOnAgentSettle(sessionKey, {
-    activeSessionKey: sessionKeyFromSnapshot(store.snapshot),
-    view: store.view,
-  });
 }
 
 function App() {
@@ -3536,6 +3518,8 @@ function App() {
             onCheckUpdates={() => checkPackageUpdates()}
             onSetEnabled={(source, scope, enabled) => setPackageEnabled(source, scope, enabled)}
           />
+        ) : view === "design" ? (
+          <DesignPage locale={locale} projectPath={workspacePath} />
         ) : view === "resources" ? (
           <ResourcesPage
             locale={locale}

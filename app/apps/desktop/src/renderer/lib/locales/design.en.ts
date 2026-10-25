@@ -1,0 +1,43 @@
+/**
+ * «Дизайн» tab messages (en). Spread into the locale table; `zh` is the key source.
+ */
+import type { designZh } from "./design.zh.ts";
+
+export const designEn: Record<keyof typeof designZh, string> = {
+  "design.nav": "Design",
+  "design.step.start": "getting to know the task",
+  "design.step.brand": "brand from your materials",
+  "design.step.meaning": "meaning and facts",
+  "design.step.refs": "references",
+  "design.step.motion": "motion",
+  "design.step.prototypes": "two page drafts",
+  "design.step.build": "build and checks",
+  "design.step.publish": "handover",
+  "design.progress": "Step {n} of {total}: {title}",
+  "design.progress.minutes": "{n} min",
+  "design.progress.working": "Working",
+  "design.setup.title": "Preparing design tools, once, ~{mb} MB",
+  "design.setup.start": "Prepare",
+  "design.setup.venv": "Preparing Python",
+  "design.setup.download": "Downloading: {done} of {total} MB",
+  "design.setup.install": "Installing",
+  "design.setup.browser": "Checking the browser",
+  "design.retry": "Try again",
+  "design.empty": "What page should we make?",
+  "design.placeholder": "For example: make a landing page for a coffee shop",
+  "design.send": "Send",
+  "design.attach": "Attach files",
+  "design.removeFile": "Remove",
+  "design.stop": "Stop",
+  "design.recommend": "As you recommend",
+  "design.stuck": "I got stuck on this step.",
+  "design.details": "Details",
+  "design.error": "Something broke.",
+  "design.cancelled": "Stopped.",
+  "design.paused": "Part of the work is done.",
+  "design.continue": "Continue",
+  "design.done": "The page is ready.",
+  "design.openFolder": "Open folder",
+  "design.preview": "Page preview",
+  "design.needsKey": "A PRSLOY key is needed: paste it in settings.",
+};

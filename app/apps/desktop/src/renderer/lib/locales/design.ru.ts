@@ -1,0 +1,43 @@
+/**
+ * «Дизайн» tab messages (ru). Spread into the locale table; `zh` is the key source.
+ */
+import type { designZh } from "./design.zh.ts";
+
+export const designRu: Record<keyof typeof designZh, string> = {
+  "design.nav": "Дизайн",
+  "design.step.start": "знакомство с задачей",
+  "design.step.brand": "бренд из ваших материалов",
+  "design.step.meaning": "смысл и факты",
+  "design.step.refs": "референсы",
+  "design.step.motion": "движение",
+  "design.step.prototypes": "два варианта страницы",
+  "design.step.build": "сборка и проверка",
+  "design.step.publish": "сдача",
+  "design.progress": "Шаг {n} из {total}: {title}",
+  "design.progress.minutes": "{n} мин",
+  "design.progress.working": "Работаю",
+  "design.setup.title": "Готовлю инструменты дизайна, один раз, ~{mb} МБ",
+  "design.setup.start": "Подготовить",
+  "design.setup.venv": "Готовлю Python",
+  "design.setup.download": "Скачиваю: {done} из {total} МБ",
+  "design.setup.install": "Устанавливаю",
+  "design.setup.browser": "Проверяю браузер",
+  "design.retry": "Попробовать ещё раз",
+  "design.empty": "Какую страницу сделать?",
+  "design.placeholder": "Например: сделай лендинг для кофейни",
+  "design.send": "Отправить",
+  "design.attach": "Приложить файлы",
+  "design.removeFile": "Убрать",
+  "design.stop": "Стоп",
+  "design.recommend": "Как рекомендуешь",
+  "design.stuck": "Застрял на этом шаге.",
+  "design.details": "Подробнее",
+  "design.error": "Что-то сломалось.",
+  "design.cancelled": "Остановлено.",
+  "design.paused": "Сделал часть работы.",
+  "design.continue": "Продолжить",
+  "design.done": "Страница готова.",
+  "design.openFolder": "Открыть папку",
+  "design.preview": "Превью страницы",
+  "design.needsKey": "Нужен ключ PRSLOY: вставьте его в настройках.",
+};

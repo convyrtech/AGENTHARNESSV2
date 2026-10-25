@@ -2,10 +2,13 @@
  * ru messages. The key source is `zh`; see `lib/i18n.ts` for the contract.
  */
 
+import { designRu } from "./design.ru.ts";
+
 export const ru = {
   "app.name": "PRSLOY",
   "timeline.thinking": "Размышления",
   "timeline.minimap": "Карта чата",
+  ...designRu,
   "timeline.minimapUser": "Ваше сообщение",
   "timeline.minimapAssistant": "Ответ агента",
   "timeline.toolRunning": "Выполняется",
