@@ -5,8 +5,10 @@
  *   - Windows (CI windows-latest): always; Linux/macOS only with PRSLOY_SMOKE=1
  *   - report-only by default; PRSLOY_SMOKE_STRICT=1 makes failures fail the build
  *
- * Measures (ms from launch): window, bootstrap ready (runtimes extracted), key saved,
- * host ready, first agent turn with a bash call done, bundled Git ready. Checks: the bash
+ * Measures (ms from launch): window, bootstrap ready, key saved, host ready, first agent
+ * turn with a bash call done (waits for the background runtime unpack), bundled Git ready;
+ * then a second launch of the same profile (window, host ready). `mainTimings` are the
+ * main process's own `[prsloy-timing]` lines (ms since process start). Checks: the bash
  * call ran bundled git + the python3 shim, the harness header is on the tool result, the
  * agent env has no machine secret, the gateway key appears in no file or log, and (Windows)
  * the key's directory ACL is user-only.
@@ -134,6 +136,57 @@ export function aclIsUserOnly(icaclsOutput, path) {
   return grants.filter((g) => !system.test(g)).length === 1;
 }
 
+/** `[prsloy-timing] <phase> <ms>` lines → { phase: ms } (first occurrence wins). */
+export function parseStartupTimings(text) {
+  const out = {};
+  for (const m of text.matchAll(/\[prsloy-timing\] (\w+) (\d+)/gu)) out[m[1]] ??= Number(m[2]);
+  return out;
+}
+
+async function waitHostReady(page) {
+  await page.waitForFunction(
+    () =>
+      /ready|готов/iu.test(
+        document.querySelector('[data-testid="host-status"]')?.textContent ?? "",
+      ),
+    undefined,
+    { timeout: 180_000 },
+  );
+}
+
+/** Second launch of the same profile: everything is unpacked, the window should be quick. */
+async function secondLaunch(electron, exe, userData, env, report, output) {
+  const t0 = Date.now();
+  const before = output.length;
+  let app;
+  try {
+    app = await electron.launch({
+      executablePath: exe,
+      args: [`--user-data-dir=${userData}`, "--lang=ru"],
+      env,
+      timeout: 120_000,
+    });
+    app.process().stdout?.on("data", (b) => output.push(String(b)));
+    app.process().stderr?.on("data", (b) => output.push(String(b)));
+    const page = await app.firstWindow({ timeout: 120_000 });
+    const windowMs = Date.now() - t0;
+    await page.waitForSelector('[data-testid="zeno-app"][data-bootstrap-ready="true"]', {
+      timeout: 120_000,
+    });
+    await page.getByTestId("start-host").click({ force: true, timeout: 60_000 });
+    await waitHostReady(page);
+    report.secondLaunch = {
+      windowMs,
+      hostReadyMs: Date.now() - t0,
+      mainTimings: parseStartupTimings(output.slice(before).join("")),
+    };
+  } catch (error) {
+    report.errors.push(`second launch: ${error instanceof Error ? error.message : String(error)}`);
+  } finally {
+    await app?.close().catch(() => undefined);
+  }
+}
+
 export async function runPackagedSmoke() {
   const exe = packagedExecutable();
   const report = { exe, ok: false, checks: {}, timingsMs: {}, errors: [] };
@@ -241,14 +294,7 @@ export async function runPackagedSmoke() {
       previousRuntimeId,
       { timeout: 180_000 },
     );
-    await page.waitForFunction(
-      () =>
-        /ready|готов/iu.test(
-          document.querySelector('[data-testid="host-status"]')?.textContent ?? "",
-        ),
-      undefined,
-      { timeout: 180_000 },
-    );
+    await waitHostReady(page);
     mark("hostReady");
     await page.getByTestId("prompt-input").fill("Проверь окружение.");
     await page.getByTestId("send-prompt").click();
@@ -284,8 +330,10 @@ export async function runPackagedSmoke() {
     }
   } finally {
     await app?.close().catch(() => undefined);
-    gateway.server.close();
   }
+  report.mainTimings = parseStartupTimings(output.join(""));
+  if (report.errors.length === 0) await secondLaunch(electron, exe, userData, env, report, output);
+  gateway.server.close();
 
   const leaks = filesUnder(root).filter((file) => readFileSync(file, "latin1").includes(key));
   report.checks.keyNotInFiles = leaks.length === 0;

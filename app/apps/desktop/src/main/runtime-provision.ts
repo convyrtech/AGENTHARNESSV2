@@ -520,9 +520,21 @@ export function planProvisionedRuntimes(options: ProvisionOptions): ProvisionPla
   return { kind: "none" };
 }
 
+/** Unpack children die with the app (Windows does not kill them on parent exit). */
+const activeChildren = new Set<ReturnType<typeof spawn>>();
+let exitHookInstalled = false;
+
 function runAsync(command: string, args: string[], timeoutMs: number): Promise<void> {
+  if (!exitHookInstalled) {
+    exitHookInstalled = true;
+    process.once("exit", () => {
+      for (const child of activeChildren) child.kill();
+    });
+  }
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, { stdio: "ignore", windowsHide: true });
+    activeChildren.add(child);
+    child.once("close", () => activeChildren.delete(child));
     const timer = setTimeout(() => {
       child.kill();
       reject(new Error(`${command} timed out`));
@@ -585,8 +597,18 @@ export async function provisionRuntimesAsync(
       : undefined;
   // A stale stamp must never vouch for a tree that is being replaced.
   rmSync(provisionStampPath(options.userDataPath), { force: true });
+  // Leftovers of an interrupted earlier run (app closed mid-unpack) go first.
+  if (existsSync(userRoot)) {
+    for (const name of readdirSync(userRoot)) {
+      if (!name.startsWith(".staging-")) continue;
+      try {
+        rmSync(join(userRoot, name), { recursive: true, force: true });
+      } catch (error) {
+        console.warn("[prsloy] stale staging dir not removed:", error);
+      }
+    }
+  }
   const staging = join(userRoot, `.staging-${process.pid}`);
-  rmSync(staging, { recursive: true, force: true });
   mkdirSync(staging, { recursive: true });
   const timer = setInterval(
     () => options.onProgress?.(countFilesUnder(staging), total),

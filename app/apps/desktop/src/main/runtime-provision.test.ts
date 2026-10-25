@@ -291,6 +291,8 @@ describe("PRSLOY window first: plan + background unpack", () => {
       // Planning never touches the disk beyond reads.
       expect(existsSync(join(userRuntimesRoot(userData), "node"))).toBe(false);
 
+      // An interrupted earlier unpack (app closed mid-way) left a staging dir behind.
+      mkdirSync(join(userRuntimesRoot(userData), ".staging-99999", "node"), { recursive: true });
       const progress: number[] = [];
       const layout = await provisionRuntimesAsync({
         ...options,

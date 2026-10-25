@@ -2,7 +2,7 @@
  * Pure parts of packaged-smoke.mjs (the smoke itself runs after `pnpm package`).
  * Run: node apps/desktop/scripts/packaged-smoke.test.mjs
  */
-import { aclIsUserOnly, packagedExecutable } from "./packaged-smoke.mjs";
+import { aclIsUserOnly, packagedExecutable, parseStartupTimings } from "./packaged-smoke.mjs";
 
 function assert(condition, message) {
   if (!condition) throw new Error(message);
@@ -45,5 +45,13 @@ assert(
   "win exe path",
 );
 assert(packagedExecutable("linux").endsWith("linux-unpacked/PRSLOY"), "linux exe path");
+
+const timings = parseStartupTimings(
+  "[prsloy] x\n[prsloy-timing] window 812\nnoise [prsloy-timing] runtimes 9100\n[prsloy-timing] window 999\n",
+);
+assert(
+  timings.window === 812 && timings.runtimes === 9100,
+  `timings parsed: ${JSON.stringify(timings)}`,
+);
 
 console.log("packaged-smoke.test.mjs: ok");
