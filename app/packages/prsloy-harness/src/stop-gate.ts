@@ -34,6 +34,7 @@ import {
   parsePatch,
 } from "./gate-signals.ts";
 import type { HonestyState } from "./honest-exit.ts";
+import type { TurnStatusState } from "./turn-status.ts";
 import {
   guardPushback,
   oldTestChanges,
@@ -295,6 +296,8 @@ export interface StopGateDeps {
   honesty?: HonestyState;
   /** Страж старых тестов (флаг testGuard, читается на каждом ходе). */
   testGuard?: () => boolean;
+  /** Статус хода (H9): гейт пишет свой последний прогон и проверку страницы. */
+  turnStatus?: TurnStatusState;
 }
 
 /** Правки, после которых стоит открыть страницу в браузере. */
@@ -326,6 +329,7 @@ export function installStopGate(
     pageCheck = (cwd: string) => checkPage(cwd),
     honesty,
     testGuard = () => false,
+    turnStatus,
   } = typeof deps === "function" ? { runner: deps } : deps;
   /** Блокер принят кодом (research/24 §4.2): возвратов «почини» больше нет, отчёты остаются. */
   const blocked = () => !!honesty?.accepted;
@@ -513,6 +517,10 @@ export function installStopGate(
     // Зелёное, таймаут или нечем проверять — не красное: не пилим казуала за отсутствие тестов.
     const red =
       check && run && !run.timedOut && run.code !== 0 && !check.missingTool?.test(run.output);
+    if (turnStatus && check && run && !run.timedOut && !check.missingTool?.test(run.output)) {
+      turnStatus.gate = red ? "red" : "green";
+      turnStatus.hasCheck = true;
+    }
     const gateSig = check
       ? `gate:${check.label.split(/\s+/)[0]?.replace(/[^a-z0-9._-]/gi, "") ?? "?"}`
       : undefined;
@@ -590,6 +598,7 @@ export function installStopGate(
     webEdited = false;
     if (pageCheck && web && !capped() && !ctx.signal?.aborted) {
       const page = await pageCheck(ctx.cwd);
+      if (turnStatus && page && !page.skipped) turnStatus.page = !hasBlocking(page);
       if (page && !page.skipped && hasBlocking(page)) {
         pushbacks += 1;
         const tip = intervene(ctx, { kind: "gate.page", sig: "gate:page", n: pushbacks });
