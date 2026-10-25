@@ -12,6 +12,8 @@
 
   vision_probe.py --out /home/user/vprobe [--proxy http://127.0.0.1:8787]
                   [--model claude-opus-5-5 --model claude-fable-5 --model kimi-k3.1-pro] [--jobs 4]
+  vision_probe.py --out <папка> --canary --model a6p-модель …   один вызов на модель: задание в system-сообщении
+                  и картинка — слушает ли канал system, видит ли картинку, нет ли скрытого промпта (PRSLOY qwen)
 Картинки строит Playwright (python с ним — этот), складывает в <out>/fixtures; ответы — <out>/answers.jsonl
 (повторный запуск доспрашивает только недостающее); итог — таблица и <out>/report.json с предложением по классу.
 """
@@ -203,6 +205,31 @@ def call(proxy, model, text, png_path, timeout=600):
             "cost": cost.get("total") if isinstance(cost, dict) else cost}
 
 
+CANARY_WORD = "КАНАРЕЙКА-7"
+
+
+def canary(proxy, model, png_path, timeout=300):
+    """Один вызов: задание в system-сообщении + картинка с известным текстом. Канал, который выбрасывает system
+    (PRSLOY qwen 2026-10-25), не скажет слово; канал, теряющий картинки, не прочтёт заголовок; лишние тысячи
+    prompt_tokens против остальных моделей — скрытый промпт."""
+    body = {"model": model, "max_tokens": 600, "messages": [
+        {"role": "system", "content": f"Первой строкой ответа всегда пиши слово {CANARY_WORD}, потом отвечай на вопрос."},
+        {"role": "user", "content": [{"type": "text", "text": "Какой крупный заголовок на картинке? Одной строкой."},
+                                     PP.image(png_path)]}]}
+    req = urllib.request.Request(proxy.rstrip("/") + "/v1/chat/completions", data=json.dumps(body).encode(),
+                                 headers={"Content-Type": "application/json", "Authorization": "Bearer local"})
+    t0 = time.time()
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            data = json.loads(r.read().decode("utf-8", "replace"))
+    except Exception as e:  # noqa: BLE001
+        return {"model": model, "error": f"{type(e).__name__}: {e}"[:300]}
+    text = "".join((c.get("message") or {}).get("content") or "" for c in data.get("choices") or [])
+    usage = data.get("usage") or {}
+    return {"model": model, "system_obeyed": CANARY_WORD in text, "image_read": norm(READ[1][1]) in norm(text),
+            "prompt_tokens": usage.get("prompt_tokens"), "seconds": round(time.time() - t0, 1), "text": text[:200]}
+
+
 def norm(s):
     return re.sub(r"\s+", " ", s.replace("ё", "е").replace(" ", " ").replace(" ", " ")).strip().lower()
 
@@ -320,9 +347,18 @@ def main(argv=None):
     ap.add_argument("--jobs", type=int, default=4)
     ap.add_argument("--only", choices=["read", "phantom", "pick", "defect"], action="append")
     ap.add_argument("--fixtures-only", action="store_true")
+    ap.add_argument("--canary", action="store_true", help="один вызов на модель: слушает ли system, видит ли картинку")
     a = ap.parse_args(argv)
     out = Path(a.out)
     items = [it for it in fixtures(out) if not a.only or it["kind"] in a.only]
+    if a.canary:
+        png = next(it["png"] for it in fixtures(out) if it["id"] == "read-2")
+        rows = [canary(a.proxy, m, png) for m in (a.model or MODELS)]
+        least = min((r["prompt_tokens"] for r in rows if r.get("prompt_tokens")), default=0)
+        for r in rows:
+            r["hidden_prompt"] = bool(r.get("prompt_tokens") and r["prompt_tokens"] - least > 1500)
+            print(json.dumps(r, ensure_ascii=False))
+        return
     if a.fixtures_only:
         print(json.dumps({"fixtures": len(items), "dir": str(out / "fixtures")}, ensure_ascii=False))
         return

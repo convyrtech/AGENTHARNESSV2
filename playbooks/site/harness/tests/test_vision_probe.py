@@ -101,13 +101,19 @@ class Gateway(BaseHTTPRequestHandler):
     def do_POST(self):
         body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
         Gateway.seen.append(body["model"])
-        assert body["messages"][0]["content"][1]["image_url"]["url"].startswith("data:image/png;base64,")
+        user = body["messages"][-1]["content"]
+        assert user[1]["image_url"]["url"].startswith("data:image/png;base64,")
         text = "Повседнев — дневник привычек\nРАЗЛИЧИЯ: НЕТ\nВЫБОР: 1\nДЕФЕКТ: НЕТ"
+        if body["messages"][0]["role"] == "system":          # canary: «qwen» drops system and the image
+            text = "Повседнев — дневник привычек" if body["model"] != "qwen" else "Не вижу картинки."
+            if body["model"] == "good":
+                text = "КАНАРЕЙКА-7\n" + text
         if body["model"] == "no-vision":
             self.send_response(400)
             self.end_headers()
             return
-        data = {"choices": [{"message": {"content": text}}], "usage": {"prompt_tokens": 1200, "cost": 0.002}}
+        pt = 1200 + (2100 if body["model"] == "qwen" else 0)
+        data = {"choices": [{"message": {"content": text}}], "usage": {"prompt_tokens": pt, "cost": 0.002}}
         raw = json.dumps(data, ensure_ascii=False).encode()
         self.send_response(200)
         self.send_header("Content-Type", "application/json")
@@ -143,6 +149,23 @@ class Run(unittest.TestCase):
                 subprocess.run(cmd[:-6] + ["--model", "m-ok"], capture_output=True, text=True, encoding="utf-8",
                                timeout=600)
                 self.assertEqual(len(Gateway.seen), n)               # answered calls are not asked again
+        finally:
+            srv.shutdown()
+
+    def test_canary_catches_a_channel_that_drops_system_and_images(self):
+        srv = ThreadingHTTPServer(("127.0.0.1", 0), Gateway)
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+        try:
+            with tempfile.TemporaryDirectory() as t:
+                r = subprocess.run([PY, "-I", str(HARNESS / "vision_probe.py"), "--out", t, "--canary", "--proxy",
+                                    f"http://127.0.0.1:{srv.server_port}", "--model", "good", "--model", "qwen"],
+                                   capture_output=True, text=True, encoding="utf-8", timeout=300)
+                self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+                rows = {x["model"]: x for x in map(json.loads, r.stdout.strip().splitlines())}
+                self.assertEqual([rows["good"][k] for k in ("system_obeyed", "image_read", "hidden_prompt")],
+                                 [True, True, False])
+                self.assertEqual([rows["qwen"][k] for k in ("system_obeyed", "image_read", "hidden_prompt")],
+                                 [False, False, True])
         finally:
             srv.shutdown()
 
