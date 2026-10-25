@@ -2,6 +2,7 @@ import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 import { createWriteStream, mkdirSync, readFileSync, type WriteStream } from "node:fs";
 import { join } from "node:path";
 import { getShellConfig } from "@earendil-works/pi-coding-agent";
+import onExit from "signal-exit";
 import { tailBytes } from "./text.ts";
 
 export interface BackgroundProcess {
@@ -111,7 +112,9 @@ let exitHookInstalled = false;
 function installExitHook(): void {
   if (exitHookInstalled) return;
   exitHookInstalled = true;
-  process.once("exit", () => {
+  // «exit» не приходит, если процесс убили сигналом. Pi уже держит сигналы через signal-exit, и свой
+  // обработчик сломал бы его повтор сигнала — поэтому подписываемся через него же.
+  onExit(() => {
     for (const registry of liveRegistries) registry.killAllNow();
   });
 }
@@ -145,7 +148,8 @@ export class ProcessRegistry {
     const child = spawn(shell.shell, viaStdin ? shell.args : [...shell.args, command], {
       cwd,
       detached: process.platform !== "win32",
-      env: this.env(),
+      // Без этого python в трубу буферизует вывод, и баннер с портом не виден.
+      env: { ...this.env(), PYTHONUNBUFFERED: "1" },
       stdio: [viaStdin ? "pipe" : "ignore", "pipe", "pipe"],
       windowsHide: true,
     });
@@ -222,6 +226,34 @@ export class ProcessRegistry {
     }
   }
 
+  /** Работающие процессы реестра, которые подходят под шаблон pkill/killall: по команде или порту. */
+  matching(pattern: string): BackgroundProcess[] {
+    let re: RegExp | undefined;
+    try {
+      re = new RegExp(pattern);
+    } catch {
+      re = undefined;
+    }
+    // Порт — только в виде «:8099» (например, `pkill -f ":8099"`); голые числа в шаблоне — не порты.
+    const ports = [...pattern.matchAll(/:(\d{2,5})\b/g)].map((m) => Number(m[1]));
+    return [...this.#entries.values()]
+      .filter((entry) => entry.exitCode === undefined)
+      .filter(
+        (entry) =>
+          entry.command.includes(pattern) ||
+          (re?.test(entry.command) ?? false) ||
+          entry.ports.some((port) => ports.includes(port)),
+      )
+      .map((entry) => this.#public(entry));
+  }
+
+  byPort(port: number): BackgroundProcess | undefined {
+    const entry = [...this.#entries.values()].find(
+      (e) => e.exitCode === undefined && e.ports.includes(port),
+    );
+    return entry ? this.#public(entry) : undefined;
+  }
+
   /** SIGTERM, до 2 с ожидания, потом SIGKILL — чтобы порт точно освободился до ответа модели. */
   async stop(id: string): Promise<BackgroundProcess | undefined> {
     const entry = this.#entries.get(id);
@@ -276,4 +308,53 @@ export function describeProcess(proc: BackgroundProcess): string {
   const status = proc.exitCode === undefined ? "работает" : `завершён (код ${proc.exitCode})`;
   const ports = proc.ports.length > 0 ? `, порт ${proc.ports.join(", ")}` : "";
   return `${proc.id}: ${status}, pid ${proc.pid ?? "?"}${ports}, лог ${proc.logPath}\n  $ ${proc.command}`;
+}
+
+/** PID процессов, которые слушают TCP-порт (lsof/ss на POSIX, netstat на Windows). Без своего PID. */
+export function pidsListeningOn(port: number): number[] {
+  const pids = new Set<number>();
+  const run = (cmd: string, args: string[]) => {
+    const r = spawnSync(cmd, args, { encoding: "utf8", windowsHide: true, timeout: 5000 });
+    return r.status === 0 || r.stdout ? (r.stdout ?? "") : "";
+  };
+  if (process.platform === "win32") {
+    for (const line of run("netstat", ["-ano", "-p", "tcp"]).split(/\r?\n/)) {
+      const cols = line.trim().split(/\s+/);
+      if (
+        cols.length >= 5 &&
+        /LISTEN/i.test(cols[3] ?? "") &&
+        (cols[1] ?? "").endsWith(`:${port}`)
+      ) {
+        pids.add(Number(cols[4]));
+      }
+    }
+  } else {
+    for (const pid of run("lsof", ["-nP", "-t", `-iTCP:${port}`, "-sTCP:LISTEN"]).split(/\s+/)) {
+      if (/^\d+$/.test(pid)) pids.add(Number(pid));
+    }
+    if (pids.size === 0) {
+      for (const m of run("ss", ["-ltnpH", `sport = :${port}`]).matchAll(/pid=(\d+)/g)) {
+        pids.add(Number(m[1]));
+      }
+    }
+  }
+  pids.delete(process.pid);
+  pids.delete(0);
+  return [...pids].filter((pid) => Number.isFinite(pid));
+}
+
+/** Чужой процесс (не из реестра): не лидер группы, поэтому без kill(-pid). */
+export function killPid(pid: number): void {
+  if (process.platform === "win32") {
+    spawnSync("taskkill", ["/pid", String(pid), "/T", "/F"], {
+      stdio: "ignore",
+      windowsHide: true,
+    });
+    return;
+  }
+  try {
+    process.kill(pid, "SIGTERM");
+  } catch {
+    // уже завершился или не наш
+  }
 }

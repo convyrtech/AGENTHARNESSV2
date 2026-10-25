@@ -1,6 +1,7 @@
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { spawn } from "node:child_process";
+import { join, resolve as resolvePath } from "node:path";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 import { installBashTimeout } from "../src/bash-timeout.ts";
 import { contentText } from "../src/text.ts";
@@ -116,6 +117,135 @@ describe("bash timeout", () => {
         .execute("t", { action: "logs", id: "bg9" }, undefined, undefined, pi.ctx as never),
     ).rejects.toThrow("Нет процесса bg9");
   });
+});
+
+describe("servers via & and kill commands", () => {
+  it("routes `(server &)` to the registry and keeps the rest of the command", async () => {
+    const dir = await project();
+    const { pi, registry } = setup(dir);
+    const input: Record<string, unknown> = {
+      command: "(node server.js > /dev/null 2>&1 &) && sleep 1 && echo next",
+    };
+    try {
+      expect(await pi.toolCall("bash", input, "c1")).toBeUndefined();
+      expect(input.command).toBe("(:;) && sleep 1 && echo next");
+      const [proc] = registry.list();
+      expect(proc).toMatchObject({ command: "node server.js", exitCode: undefined });
+      expect(proc?.ports.length).toBe(1);
+      const result = await pi.toolResult({ toolName: "bash", toolCallId: "c1", text: "next" });
+      expect(result.text).toContain("запущен через реестр харнесса");
+      expect(result.text).toMatch(/bg1: работает, pid \d+, порт \d+/);
+
+      // pkill -f по этому серверу идёт через реестр, а не убивает bash.
+      const kill: Record<string, unknown> = { command: 'pkill -f "node server.js"; echo done' };
+      expect(await pi.toolCall("bash", kill, "c2")).toBeUndefined();
+      expect(kill.command).toBe(":; echo done");
+      expect(registry.get("bg1")?.exitCode).not.toBeUndefined();
+      const killed = await pi.toolResult({ toolName: "bash", toolCallId: "c2", text: "done" });
+      expect(killed.text).toContain("выполнено через реестр: остановлены bg1");
+    } finally {
+      await pi.emit("session_shutdown", {});
+    }
+  });
+
+  it("registry matching does not treat bare numbers in a pkill pattern as ports", async () => {
+    const dir = await project();
+    const { pi, registry } = setup(dir);
+    try {
+      await pi.toolCall("bash", { command: "node server.js &" });
+      const port = registry.list()[0]?.ports[0];
+      expect(registry.matching(`sleep 400.${port}`)).toEqual([]);
+      expect(registry.matching(`:${port}`).map((p) => p.id)).toEqual(["bg1"]);
+      expect(registry.matching("server.js").map((p) => p.id)).toEqual(["bg1"]);
+    } finally {
+      await pi.emit("session_shutdown", {});
+    }
+  });
+
+  it("process stop by port", async () => {
+    const dir = await project();
+    const { pi, registry } = setup(dir);
+    try {
+      await pi.toolCall("bash", { command: "node server.js &" });
+      const port = registry.list()[0]?.ports[0];
+      const out = await pi
+        .tool("process")
+        .execute("t", { action: "stop", port }, undefined, undefined, pi.ctx as never);
+      expect(contentText(out.content)).toBe(`bg1 (порт ${port}) остановлен.`);
+      const none = await pi
+        .tool("process")
+        .execute("t", { action: "stop", port: 1 }, undefined, undefined, pi.ctx as never);
+      expect(contentText(none.content)).toBe("Порт 1 никто не слушает.");
+    } finally {
+      await pi.emit("session_shutdown", {});
+    }
+  });
+
+  it("blocks killing the tool's own shell or the app", async () => {
+    const { pi } = setup();
+    for (const command of ["pkill bash", "killall node", "taskkill /F /IM node.exe"]) {
+      const blocked = await pi.toolCall("bash", { command });
+      expect(blocked?.block).toBe(true);
+      expect(blocked?.reason).toContain("process action=stop");
+    }
+  });
+
+  it.skipIf(process.platform === "win32")(
+    "rewrites other pkill -f so it skips the tool's process group",
+    async () => {
+      const { pi } = setup();
+      const input: Record<string, unknown> = { command: 'pkill -f "http.server 8099"; echo ok' };
+      expect(await pi.toolCall("bash", input)).toBeUndefined();
+      expect(String(input.command).startsWith("__prsloy_pkill() {")).toBe(true);
+      expect(input.command).toContain("__prsloy_pkill TERM '-f' 'http.server 8099'; echo ok");
+    },
+  );
+
+  it("leaves ordinary background jobs alone", async () => {
+    const { pi, registry } = setup();
+    const input: Record<string, unknown> = { command: "sleep 1 & sleep 1 & wait" };
+    await pi.toolCall("bash", input);
+    expect(input.command).toBe("sleep 1 & sleep 1 & wait");
+    expect(registry.list()).toEqual([]);
+  });
+});
+
+describe.skipIf(process.platform === "win32")("host killed by a signal", () => {
+  it("background servers die with the host even without session_shutdown", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "prsloy-sig-"));
+    dirs.push(dir);
+    const registryPath = resolvePath(import.meta.dirname, "../src/process-registry.ts");
+    const script = join(dir, "host.ts");
+    await writeFile(
+      script,
+      `import { ProcessRegistry } from ${JSON.stringify(registryPath)};
+const r = new ProcessRegistry(${JSON.stringify(join(dir, "logs"))}, () => process.env);
+const p = await r.start("node -e \\"require('http').createServer(()=>{}).listen(0, () => console.log('port ok'))\\"", ${JSON.stringify(dir)}, 3000);
+console.log("PID " + p.pid);
+setInterval(() => {}, 1000);
+`,
+    );
+    const jiti = resolvePath(import.meta.dirname, "../node_modules/.bin/jiti");
+    const host = spawn(jiti, [script], { stdio: ["ignore", "pipe", "inherit"] });
+    let out = "";
+    host.stdout.on("data", (d: Buffer) => (out += d.toString()));
+    for (let i = 0; i < 100 && !/PID \d+/.test(out); i++)
+      await new Promise((r) => setTimeout(r, 100));
+    const pid = Number(/PID (\d+)/.exec(out)?.[1]);
+    expect(pid).toBeGreaterThan(0);
+    const alive = () => {
+      try {
+        process.kill(pid, 0);
+        return true;
+      } catch {
+        return false;
+      }
+    };
+    expect(alive()).toBe(true);
+    host.kill("SIGTERM");
+    for (let i = 0; i < 50 && alive(); i++) await new Promise((r) => setTimeout(r, 100));
+    expect(alive()).toBe(false);
+  }, 20_000);
 });
 
 describe("looksLikeServer", () => {

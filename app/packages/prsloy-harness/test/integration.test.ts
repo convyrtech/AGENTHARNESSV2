@@ -1,5 +1,8 @@
 // Настоящая сессия Pi (createAgentSession) против локального мок-шлюза: практики срабатывают в живом цикле агента.
+import { spawnSync } from "node:child_process";
+import { once } from "node:events";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { createServer as createNetServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import {
@@ -240,4 +243,84 @@ describe("integration: real createAgentSession + mock gateway", () => {
       expect.arrayContaining(["bash_background", "process"]),
     );
   }, 30_000);
+
+  it.skipIf(process.platform === "win32")(
+    "live acceptance #2: `(http.server &)` is tracked, pkill -f does not kill its own shell, server dies with the session",
+    async () => {
+      const port = await freePort();
+      const sleeper = `sleep ${400 + (process.pid % 500)}.${Date.now() % 100000}1`;
+      const { session, toolResults, textOf } = await startSession(
+        (_req, index) => {
+          const commands = [
+            `(python3 -m http.server ${port} > /dev/null 2>&1 &) && sleep 1 && curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:${port}/`,
+            `${sleeper} > /dev/null 2>&1 &`,
+            `pkill -f "${sleeper}"; echo rc=$?`,
+            `pkill -f "http.server ${port}"; echo stopped`,
+          ];
+          const command = commands[index];
+          return command
+            ? { toolCalls: [{ name: "bash", arguments: { command } }] }
+            : { text: "Готово." };
+        },
+        { factory: {} },
+      );
+      // Если тест упадёт посреди сценария, sleep не должен остаться висеть.
+      cleanup.push(async () => {
+        spawnSync("pkill", ["-f", `^${sleeper}$`]);
+      });
+      await session.prompt("покажи сайт");
+      const [serve, sleep, pkillOther, pkillServer] = toolResults().map(textOf);
+      expect(serve).toMatch(/^\[exit 0 · /);
+      expect(serve).toContain("200");
+      expect(serve).toContain("запущен через реестр харнесса");
+      expect(sleep).toMatch(/^\[exit 0 · /);
+      // Не из реестра: безопасный pkill убил sleep, а shell жив (раньше — exit 143).
+      expect(pkillOther).toMatch(/^\[exit 0 · /);
+      expect(pkillOther).toContain("rc=0");
+      await new Promise((r) => setTimeout(r, 300));
+      expect(spawnSync("pgrep", ["-f", `^${sleeper}`]).status).toBe(1);
+      // Из реестра: остановлен через реестр.
+      expect(pkillServer).toMatch(/^\[exit 0 · /);
+      expect(pkillServer).toContain("выполнено через реестр: остановлены bg1");
+      await expect(fetch(`http://127.0.0.1:${port}/`)).rejects.toThrow();
+    },
+    30_000,
+  );
+
+  it.skipIf(process.platform === "win32")(
+    "background servers are stopped when the session ends",
+    async () => {
+      const port = await freePort();
+      const { session } = await startSession(
+        (_req, index) =>
+          index === 0
+            ? {
+                toolCalls: [
+                  { name: "bash", arguments: { command: `python3 -m http.server ${port} &` } },
+                ],
+              }
+            : { text: "ok" },
+        { factory: {} },
+      );
+      await session.prompt("запусти превью");
+      expect((await fetch(`http://127.0.0.1:${port}/`)).status).toBe(200);
+      // Как AgentSessionRuntime.dispose() в приложении: session_shutdown, потом dispose.
+      await session.extensionRunner.emit({ type: "session_shutdown", reason: "quit" });
+      session.dispose();
+      await new Promise((r) => setTimeout(r, 2500));
+      await expect(fetch(`http://127.0.0.1:${port}/`)).rejects.toThrow();
+    },
+    30_000,
+  );
 });
+
+async function freePort(): Promise<number> {
+  const server = createNetServer();
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  const address = server.address();
+  const port = typeof address === "object" && address ? address.port : 0;
+  server.close();
+  await once(server, "close");
+  return port;
+}
