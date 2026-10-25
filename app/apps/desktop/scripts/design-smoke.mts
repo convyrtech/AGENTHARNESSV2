@@ -343,7 +343,7 @@ check(
   say.code === 0 && events.includes("stage") && events.at(-1) === "owner",
   `run.py say: ${events.join(", ")} (${say.code !== 0 ? say.out.slice(-400) : "ok"})`,
 );
-// the state folder is the owner's alone: icacls on Windows, 0700 elsewhere
+// the state folder: the owner and the machine's administrators (icacls), 0700 elsewhere
 let aclText = "";
 if (process.platform === "win32") {
   aclText = run("icacls", [stateDir]).out;
@@ -352,7 +352,7 @@ if (process.platform === "win32") {
       existsSync(join(stateDir, "state.json")) &&
       !/Everyone|BUILTIN\\Users|Authenticated Users|NT AUTHORITY\\SYSTEM/i.test(aclText) &&
       /\(F\)/.test(aclText),
-    `harness state «${stateDir}» is user-only (${aclText.trim().replace(/\s+/g, " ").slice(0, 300)})`,
+    `harness state «${stateDir}»: the user and the machine's admins only (${aclText.trim().replace(/\s+/g, " ").slice(0, 300)})`,
   );
 } else {
   const mode = statSync(stateDir).mode & 0o777;
