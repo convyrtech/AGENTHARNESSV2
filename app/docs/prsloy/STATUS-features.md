@@ -491,7 +491,7 @@ UI готов на контрактах, данные — с моков. Вкл�
 ## Этап 6 · Агент спрашивает, прежде чем забыть; «Забыть всё из этого чата» (#14, research/27 §2)
 
 Backend и контракт — core (desktop/core, `memory.ts`: `confirm?`, `forgetSource?`, `MemoryItem.sessions`,
-`MemoryConfirmCardDetails`). Контракт взят из core байт в байт, чтобы ребейз на main после их влития прошёл чисто.
+`MemoryConfirmCardDetails`), в main с dce7185.
 
 - Карточка `prsloy-memory.confirm` (`MemoryConfirmCard` в `MemoryAutoCards.tsx`): «Забыть «…»?» или «Раньше: «…».
   Теперь: «…»?» · [Да] [Нет] → `memory.confirm(confirmId, yes)`. После ответа — «Забыл.», «Запомнил по-новому.» или
@@ -505,4 +505,7 @@ Backend и контракт — core (desktop/core, `memory.ts`: `confirm?`, `fo
   было, без правок.
 - Тесты: `lib/memory.test.ts` (разбор confirm, разница снимков), `MemoryAutoCards.test.tsx` (да, нет, отказ, старый
   main), `ForgetChatMemory.test.tsx` (вопрос → id сессии → список → «Вернуть»; без метода и без id пункта нет).
-  e2e на настоящем main — после влития core.
+  e2e `features-memory-confirm.spec.ts` на настоящем инструменте `memory` и `prsloy:memory-*` core (PRSLOY_MEMORY=1):
+  запись в файле → инструмент просит «забыть» → карточка «Забыть «…»?» → запись ещё на месте → [Да] → «Забыл.», в файле
+  пусто; «запомни» в чате → ⋯ → «Забыть всё, что выучено из этого чата» → «Забыл записей: 1 · «Отвечать коротко»» →
+  в файле пусто → [Вернуть] → запись снова в файле. Скриншоты `features-memory-6-confirm.png` … `-9-forgot-chat.png`.
