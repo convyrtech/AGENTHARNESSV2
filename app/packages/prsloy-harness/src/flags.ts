@@ -42,10 +42,11 @@ export function readFlags(settingsPath: string | undefined): HarnessFlags {
     lessons: true,
     skills: false,
     disabledLessons: [],
-    memory: false,
+    // MVP (25.10, owner): memory and auto memory on by default; an explicit false / "off" in the file stays.
+    memory: true,
     prompt: "prsloy",
     promptDelta: false,
-    autoMemory: "off",
+    autoMemory: true,
     honestExit: false,
     testGuard: false,
     claimCheck: false,
@@ -57,7 +58,7 @@ export function readFlags(settingsPath: string | undefined): HarnessFlags {
       if (raw.secondOpinion === false) flags.secondOpinion = false;
       if (raw.lessons === false) flags.lessons = false;
       if (raw.skills === true) flags.skills = true;
-      if (raw.memory === true) flags.memory = true;
+      if (typeof raw.memory === "boolean") flags.memory = raw.memory;
       if (raw.prompt === "prsloy" || raw.prompt === "pi" || raw.prompt === "diet")
         flags.prompt = raw.prompt;
       if (raw.promptDelta === true) flags.promptDelta = true;

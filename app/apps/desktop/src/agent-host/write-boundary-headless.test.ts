@@ -66,7 +66,7 @@ function toolResults(handle: ZenoRuntimeHandle): { text: string; at: number }[] 
 }
 
 describe("write boundary without anyone to ask", () => {
-  it("refuses a write outside the project in well under a second", async () => {
+  it("refuses a write outside the project at once, without waiting for an answer that never comes", async () => {
     const { agentDir, project } = await setup((root) => join(root, "elsewhere", "a.txt"));
     const handle = await createPixRuntime({
       cwd: project,
@@ -81,7 +81,9 @@ describe("write boundary without anyone to ask", () => {
     await handle.runtime.session.prompt("use the tool");
     expect(results).toHaveLength(1);
     expect(results[0]!.text).toContain(NO_UI_NOTE);
-    expect(results[0]!.at - started).toBeLessThan(1000);
+    // No UI: no waiting for the ask's timeout. Generous for a loaded machine (full parallel
+    // suite took ~2 s once); a wait for an answer would be far longer.
+    expect(results[0]!.at - started).toBeLessThan(10_000);
   }, 30_000);
 
   it("a host that answers synchronously is heard (bench answers «Нет» inline)", async () => {
@@ -111,7 +113,7 @@ describe("write boundary without anyone to ask", () => {
     await handle.runtime.session.prompt("use the tool");
     expect(asked).toBe(1);
     expect(results[0]!.text).toContain("Пользователь не разрешил");
-    expect(results[0]!.at - started).toBeLessThan(1000);
+    expect(results[0]!.at - started).toBeLessThan(10_000);
   }, 30_000);
 
   it("the system temp dir needs no answer", async () => {

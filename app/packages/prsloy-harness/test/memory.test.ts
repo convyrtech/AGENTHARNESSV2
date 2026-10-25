@@ -215,14 +215,18 @@ describe("memory: the tool", () => {
     ]);
   });
 
-  it("off by default (no flag) — the tool refuses and there is no section", async () => {
-    const { pi, call, sections } = setup({ memory: undefined });
+  it("on by default (no flag, MVP 25.10) — the tool remembers", async () => {
+    const { pi, call } = setup({ memory: undefined });
     await pi.userPrompt("Пиши проще, без умных слов");
     expect(
-      (await call({ action: "remember", text: "Проще", quote: "Пиши проще, без умных слов" }))
-        .content[0]!.text,
-    ).toBe(MEMORY_TEXT.off);
-    expect((await sections()).prsloy_memory).toBeUndefined();
+      (
+        await call({
+          action: "remember",
+          text: "Писать проще",
+          quote: "Пиши проще, без умных слов",
+        })
+      ).content[0]!.text,
+    ).toContain("Запомнил");
   });
 
   it("memory:false — the tool refuses and there is no section", async () => {
