@@ -12,6 +12,7 @@ import {
   detectClaims,
   detectFalseDone,
   detectForbidden,
+  outsideProject,
   detectHarnessSuspects,
   detectLanguage,
   detectLoops,
@@ -579,6 +580,53 @@ describe("D10 forbidden", () => {
         new Pi().user("x").bash("npm install").bash("cat api/pi.md").say("Ок").session(),
       ),
     ).toEqual([]);
+  });
+});
+
+describe("D10 outside the project", () => {
+  it("yes: npm install from /tmp (live bench: /tmp/package.json), write by an outside path, --prefix", () => {
+    const s = new Pi()
+      .user("сделай проверку страницы")
+      .bash("cd /tmp && npm install jsdom", "added 48 packages")
+      .say("Ок")
+      .session();
+    const f = detectForbidden(s);
+    expect(sigs(f)).toEqual(["forbidden:outside"]);
+    expectValid(s, f);
+    expect(
+      sigs(
+        detectForbidden(
+          new Pi()
+            .user("x")
+            .call("write", { path: "/home/u/notes.txt", content: "a" }, "ok")
+            .say("Ок")
+            .session(),
+        ),
+      ),
+    ).toEqual(["forbidden:outside"]);
+    expect(
+      sigs(
+        detectForbidden(
+          new Pi().user("x").bash("npm install --prefix ~/tools jsdom").say("Ок").session(),
+        ),
+      ),
+    ).toEqual(["forbidden:outside"]);
+  });
+  it("no: inside the project (absolute or relative), cd outside just to look", () => {
+    const p = new Pi()
+      .user("x")
+      .call("write", { path: "/tmp/p/index.html", content: "<p>" }, "ok")
+      .call("edit", { path: "src/a.js", edits: [] }, "ok")
+      .bash("cd /tmp/p/app && npm install")
+      .bash("cd /usr/share && ls")
+      .say("Ок")
+      .session();
+    expect(detectForbidden(p)).toEqual([]);
+  });
+  it("Windows paths compare without case and slash kind", () => {
+    expect(outsideProject("C:\\Users\\Иван\\Проект\\a.txt", "c:/users/иван/проект")).toBe(false);
+    expect(outsideProject("C:\\Users\\Иван\\Desktop\\a.txt", "C:\\Users\\Иван\\Проект")).toBe(true);
+    expect(outsideProject("/tmp/project-other/x", "/tmp/project")).toBe(true);
   });
 });
 
