@@ -7,8 +7,9 @@
  * packaged app needs no test-only code path.
  *
  * Checks: main window, first-run runtime extraction, Agent Host ready, one reply,
- * one bash tool call. A second launch hides Git for Windows to see what a clean
- * Windows machine gets from Pi's bash tool (report only unless SMOKE_STRICT_CLEAN_BASH=1).
+ * one bash tool call. A second launch hides Git for Windows (clean machine) and requires
+ * the bundled PortableGit bash to run bash syntax, coreutils and git
+ * (strict when SMOKE_STRICT_CLEAN_BASH=1, which CI sets; otherwise report only).
  *
  * Output (SMOKE_OUT, default ./smoke-out): screenshots, main.log, renderer.log,
  * metrics.json, bash-*.json.
@@ -27,8 +28,6 @@ const strictCleanBash = process.env.SMOKE_STRICT_CLEAN_BASH === "1";
 const MARKER = "PRSLOY_SMOKE_42";
 // $((6*7)) proves a real POSIX shell evaluated the command, not just echoed it.
 const BASH_COMMAND = "echo PRSLOY_SMOKE_$((6*7)); echo SHELL=$0; uname -a || ver";
-// Optional: extracted MinGit (Git for Windows) to try as the bundled-bash fix.
-const mingitDir = process.env.SMOKE_MINGIT_DIR ?? "";
 
 interface Launched {
   bashCommand: string;
@@ -56,13 +55,7 @@ function cleanWindowsPath(path: string): string {
 
 async function launch(
   label: string,
-  options: {
-    hideGitBash?: boolean;
-    prependPath?: string[];
-    bashCommand?: string;
-    /** Pi settings.json `shellPath` (explicit shell instead of PATH lookup). */
-    shellPath?: string;
-  } = {},
+  options: { hideGitBash?: boolean; bashCommand?: string } = {},
 ): Promise<Launched> {
   const bashCommand = options.bashCommand ?? BASH_COMMAND;
   const root = await mkdtemp(join(tmpdir(), `prsloy-smoke-${label}-`));
@@ -75,12 +68,6 @@ async function launch(
     mkdir(workspace, { recursive: true }),
     mkdir(userData, { recursive: true }),
   ]);
-  if (options.shellPath) {
-    await writeFile(
-      join(agentDir, "settings.json"),
-      JSON.stringify({ shellPath: options.shellPath }, null, 2),
-    );
-  }
   const toolPath = join(workspace, "fixture.txt");
   await writeFile(toolPath, "PRSLOY smoke fixture\n");
 
@@ -149,7 +136,7 @@ async function launch(
     take("ProgramW6432");
     env.ProgramFiles = empty;
     env["ProgramFiles(x86)"] = empty;
-    env.Path = [...(options.prependPath ?? []), cleanWindowsPath(take("Path") ?? "")].join(";");
+    env.Path = cleanWindowsPath(take("Path") ?? "");
   }
 
   const mainLog = join(outDir, `${label}-main.log`);
@@ -324,64 +311,36 @@ test("installed app: window, runtimes, host, reply, bash tool", async () => {
   }
 });
 
-test("clean Windows (Git Bash hidden): bash tool", async () => {
+// What a casual user's agent runs first: bash syntax, coreutils, git. On a clean machine this
+// must come from the bundled PortableGit (Pi `shellPath`, set by the app), never WSL.
+const AGENT_COMMAND =
+  `${BASH_COMMAND}; echo BASH_VERSION=$BASH_VERSION; [[ 1 == 1 ]] && arr=(a b) && echo "bashisms=\${arr[1]}"; ` +
+  `git --version; ls | head -5 | tr "\\n" " "; echo; grep -c . fixture.txt; sed -n 1p fixture.txt; ` +
+  `awk "BEGIN{print 6*7}"; find . -maxdepth 1 -name "*.txt"; echo GIT_ROOT=$(cygpath -w /)`;
+
+test("clean Windows (system Git hidden): bash tool via bundled Git", async () => {
   test.skip(process.platform !== "win32", "Windows only");
   let launched: Launched | undefined;
   try {
-    launched = await launch("clean", { hideGitBash: true });
+    launched = await launch("clean", { hideGitBash: true, bashCommand: AGENT_COMMAND });
     await startHost(launched.page);
     const bash = await runBashTurn(launched, "clean");
-    if (strictCleanBash) {
-      expect(bash.result, `bash tool result:\n${bash.result}`).toContain(MARKER);
-    } else if (!bash.ok) {
-      test.info().annotations.push({ type: "clean-bash", description: bash.result.slice(0, 2000) });
+    const report = `bash tool result:\n${bash.result}`;
+    if (!strictCleanBash) {
+      if (!bash.ok) test.info().annotations.push({ type: "clean-bash", description: report });
+      return;
     }
+    expect(bash.result, report).toContain(MARKER);
+    expect(bash.result, report).toContain("bashisms=b");
+    expect(bash.result, report).toMatch(/git version \d/);
+    expect(bash.result, report).toContain("PRSLOY smoke fixture");
+    expect(bash.result, report).toMatch(/^42$/m);
+    expect(bash.result, report).toContain("./fixture.txt");
+    expect(bash.result, report).not.toMatch(/command not found|Windows Subsystem for Linux/);
+    // Bundled Git lives under userData\runtimes (not Program Files, not WSL).
+    expect(bash.result, report).toMatch(/GIT_ROOT=.*\\runtimes\\/i);
   } finally {
     if (launched) await shot(launched.page, "99-clean-final");
     await close(launched);
   }
 });
-
-// Fix candidates for clean Windows (system Git hidden, Pi pointed at a shipped shell via
-// settings.json shellPath). MinGit has no bash.exe — only usr\bin\sh.exe (MSYS bash) — and a
-// PATH lookup for bash.exe falls through to C:\Windows\System32\bash.exe (WSL launcher).
-const AGENT_COMMAND =
-  `${BASH_COMMAND}; echo BASH_VERSION=$BASH_VERSION; [[ 1 == 1 ]] && arr=(a b) && echo "bashisms=\${arr[1]}"; ` +
-  `git --version; ls / | head -5 | tr "\\n" " "; echo; grep -c . fixture.txt; sed -n 1p fixture.txt; ` +
-  `awk "BEGIN{print 6*7}"; find . -maxdepth 1 -name "*.txt"; which python node`;
-const shellCandidates = [
-  { label: "mingit", dir: mingitDir, shell: ["usr", "bin", "sh.exe"] },
-  {
-    label: "portablegit",
-    dir: process.env.SMOKE_PORTABLEGIT_DIR ?? "",
-    shell: ["bin", "bash.exe"],
-  },
-];
-for (const candidate of shellCandidates) {
-  test(`clean Windows + ${candidate.label} as shellPath: bash tool (fix candidate)`, async () => {
-    test.skip(
-      process.platform !== "win32" || !candidate.dir,
-      `needs ${candidate.label} on Windows`,
-    );
-    let launched: Launched | undefined;
-    try {
-      launched = await launch(candidate.label, {
-        hideGitBash: true,
-        prependPath: [join(candidate.dir, "cmd")],
-        shellPath: join(candidate.dir, ...candidate.shell),
-        bashCommand: AGENT_COMMAND,
-      });
-      await startHost(launched.page);
-      const bash = await runBashTurn(launched, candidate.label);
-      if (!bash.ok) {
-        test.info().annotations.push({
-          type: `${candidate.label}-bash`,
-          description: bash.result.slice(0, 2000),
-        });
-      }
-    } finally {
-      if (launched) await shot(launched.page, `99-${candidate.label}-final`);
-      await close(launched);
-    }
-  });
-}

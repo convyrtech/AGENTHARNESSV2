@@ -117,52 +117,12 @@ jobs:
           @{ installer = $setup.Name; installerMb = $sizeMb; installSeconds = [math]::Round($sw.Elapsed.TotalSeconds, 1); installedMb = $installMb; exe = $exe } |
             ConvertTo-Json | Out-File -Encoding utf8 smoke-out/install.json
           Get-Content smoke-out/install.json
-      # Evidence for the clean-Windows bash fix: fetch MinGit (Git for Windows, minimal) and
-      # let the smoke test try it as Pi's bash with system Git hidden. Report-only.
-      - name: Fetch MinGit / PortableGit (fix candidates)
-        continue-on-error: true
-        shell: pwsh
-        env:
-          GH_API_TOKEN: ${{ github.token }}
-        run: |
-          $ErrorActionPreference = 'Stop'
-          $rel = Invoke-RestMethod -Headers @{ Authorization = "Bearer $env:GH_API_TOKEN" } https://api.github.com/repos/git-for-windows/git/releases/latest
-          $info = @{ tag = $rel.tag_name }
-          $patterns = @{
-            'MinGit' = '^MinGit-[\d.]+-64-bit\.zip$'
-            'MinGit-busybox' = '^MinGit-[\d.]+-busybox-64-bit\.zip$'
-            'PortableGit' = '^PortableGit-[\d.]+-64-bit\.7z\.exe$'
-          }
-          foreach ($kind in $patterns.Keys) {
-            $asset = $rel.assets | Where-Object { $_.name -match $patterns[$kind] } | Select-Object -First 1
-            if (-not $asset) { continue }
-            $file = Join-Path $env:RUNNER_TEMP $asset.name
-            Invoke-WebRequest $asset.browser_download_url -OutFile $file
-            $dir = Join-Path $env:RUNNER_TEMP $kind
-            if ($kind -eq 'PortableGit') {
-              # 7-Zip self-extractor: -o<dir> -y, no installer UI.
-              Start-Process $file -ArgumentList "-o`"$dir`"", '-y' -Wait -NoNewWindow
-            } else {
-              Expand-Archive $file $dir -Force
-            }
-            $files = Get-ChildItem $dir -Recurse -File
-            $info[$kind] = @{
-              asset = $asset.name
-              zipMb = [math]::Round($asset.size / 1MB, 1)
-              unpackedMb = [math]::Round((($files | Measure-Object Length -Sum).Sum) / 1MB, 1)
-              files = $files.Count
-              bashExe = @($files | Where-Object Name -eq 'bash.exe' | ForEach-Object { $_.FullName.Substring($dir.Length + 1) })
-              shExe = @($files | Where-Object Name -in 'sh.exe','busybox.exe' | ForEach-Object { $_.FullName.Substring($dir.Length + 1) })
-            }
-          }
-          $info | ConvertTo-Json -Depth 4 | Out-File -Encoding utf8 smoke-out/mingit.json
-          Get-Content smoke-out/mingit.json
-          if ($info['MinGit']) { "SMOKE_MINGIT_DIR=$(Join-Path $env:RUNNER_TEMP 'MinGit')" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV }
-          if ($info['PortableGit']) { "SMOKE_PORTABLEGIT_DIR=$(Join-Path $env:RUNNER_TEMP 'PortableGit')" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV }
       - name: Smoke test (installed app)
         working-directory: app/apps/desktop
         env:
           SMOKE_OUT: ${{ github.workspace }}/app/smoke-out
+          # Clean-machine bash (system Git hidden) must work via the bundled PortableGit.
+          SMOKE_STRICT_CLEAN_BASH: "1"
         run: pnpm exec playwright test -c playwright.smoke.config.ts
       - name: Collect app logs
         if: always()
@@ -178,7 +138,7 @@ jobs:
         shell: pwsh
         run: |
           "## Smoke" | Out-File -Append $env:GITHUB_STEP_SUMMARY
-          foreach ($f in 'install.json','metrics.json','bash-runner.json','bash-clean.json','clean-env.json','mingit.json','bash-mingit.json','bash-portablegit.json') {
+          foreach ($f in 'install.json','metrics.json','bash-runner.json','bash-clean.json','clean-env.json') {
             $path = Join-Path smoke-out $f
             if (Test-Path $path) { "### $f", '```json', (Get-Content $path -Raw), '```' | Out-File -Append $env:GITHUB_STEP_SUMMARY }
           }
