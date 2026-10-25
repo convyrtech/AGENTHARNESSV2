@@ -40,14 +40,18 @@ function prepare(): { root: string; bundle: string; venv: string } {
   copyFileSync(join(FIXTURE, "recorded.jsonl"), join(harness, "recorded.jsonl"));
   cpSync(join(FIXTURE, "fixtures"), join(harness, "fixtures"), { recursive: true });
   for (const f of ["a6proxy.py", "stages.json"]) copyFileSync(join(HARNESS, f), join(harness, f));
+  cpSync(join(FIXTURE, "stub-pipeline"), join(bundle, "design-pipeline"), { recursive: true });
   const venv = join(root, "venv");
   mkdirSync(join(venv, "bin"), { recursive: true });
   symlinkSync(python3, join(venv, "bin", "python"));
   return { root, bundle, venv };
 }
 
-async function launch(opts: { toolsReady: boolean }): Promise<Launched> {
-  const { root, bundle, venv } = prepare();
+async function launch(opts: { toolsReady: boolean; noBundle?: boolean }): Promise<Launched> {
+  const prepared = prepare();
+  const { root, venv } = prepared;
+  // a build made without the private design-pipeline ships no design bundle at all
+  const bundle = opts.noBundle ? join(root, "no-design-bundle") : prepared.bundle;
   const home = join(root, "home");
   mkdirSync(join(home, ".pi", "agent"), { recursive: true });
   const env: Record<string, string> = {};
@@ -100,6 +104,20 @@ async function say(page: Page, text: string) {
 
 test.describe.configure({ mode: "serial" });
 test.skip(!python3 || process.platform === "win32", "needs python3 (Linux e2e)");
+
+test("a build without the design bundle shows one calm state", async () => {
+  const { app, page } = await launch({ toolsReady: false, noBundle: true });
+  try {
+    await page.getByTestId("nav-design").click();
+    await expect(page.getByTestId("design-unavailable")).toBeVisible();
+    await expect(page.getByTestId("design-setup")).toHaveCount(0);
+    await expect(page.getByTestId("design-input")).toHaveCount(0);
+    await expect(page.getByTestId("design-page")).not.toContainText(/Error|Traceback|ENOENT/);
+    await shot(page, "unavailable");
+  } finally {
+    await app.close();
+  }
+});
 
 test("first use offers the one-time tools setup", async () => {
   const { app, page } = await launch({ toolsReady: false });

@@ -40,4 +40,5 @@ export const designZh = {
   "design.needsKey": "需要 PRSLOY 密钥：请在设置中粘贴。",
   "design.answer": "回答",
   "design.recommended": "推荐",
+  "design.unavailable": "设计工具将在下一个版本中提供",
 } as const;

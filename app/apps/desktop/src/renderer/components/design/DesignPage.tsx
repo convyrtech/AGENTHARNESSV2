@@ -50,7 +50,18 @@ export function DesignPage({ locale, projectPath }: Props) {
   const streamRef = useRef<HTMLDivElement>(null);
 
   const refresh = useCallback(async () => {
-    const s = await api.status(projectPath);
+    // a main-side failure here must not leave a blank tab or a stack trace
+    const s = await api.status(projectPath).catch(
+      (): DesignStatus => ({
+        toolsReady: false,
+        setupMb: 0,
+        workspace: "",
+        running: false,
+        history: [],
+        needsKey: false,
+        available: false,
+      }),
+    );
     workspaceRef.current = s.workspace;
     setStatus(s);
     setView(foldDesign(s.history, s.running));
@@ -119,6 +130,18 @@ export function DesignPage({ locale, projectPath }: Props) {
   const last = view.items.at(-1);
 
   if (!status) return <div className="flex-1" data-testid="design-page" />;
+  if (!status.available) {
+    return (
+      <section
+        className="main-column flex h-full min-w-0 flex-1 items-center justify-center"
+        data-testid="design-page"
+      >
+        <p className="text-lg text-muted-foreground" data-testid="design-unavailable">
+          {tr("design.unavailable")}
+        </p>
+      </section>
+    );
+  }
 
   return (
     <section
