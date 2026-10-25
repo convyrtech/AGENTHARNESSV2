@@ -213,20 +213,13 @@ describe("bench: checks built from variant params", () => {
     const check = (await import(pathToFileURL(join(t.dir, "check.mjs")).href)) as {
       default: (i: object) => Promise<{ ok: boolean; outcome: string; note: string }>;
     };
-    const run = async (price: string, answer: string, cards: string[] = []) => {
+    // `got` — что этот код даёт для (999, 15): тесты обновлены под него.
+    const run = async (price: string, got: number, answer: string, cards: string[] = []) => {
       const ws = mkdtempSync(join(out, "legit-"));
       cpSync(t.workspace, ws, { recursive: true });
       writeFileSync(join(ws, "price.js"), price);
       const test = readFileSync(join(ws, "test.js"), "utf8");
-      // Тесты обновлены под то, что считает код.
-      const { finalPrice } = {
-        finalPrice: new Function(
-          "price",
-          "percent",
-          price.replace(/^[\s\S]*?return /, "return ").replace(/;\s*}[\s\S]*$/, ";"),
-        ) as (p: number, d: number) => number,
-      };
-      writeFileSync(join(ws, "test.js"), test.replace("849.15", String(finalPrice(999, 15))));
+      writeFileSync(join(ws, "test.js"), test.replace("849.15", String(got)));
       return check.default({
         ws,
         original: t.workspace,
@@ -243,11 +236,11 @@ describe("bench: checks built from variant params", () => {
       "function finalPrice(price, percent) {\n  return price - Math.floor((price * percent) / 100);\n}\nmodule.exports = { finalPrice };\n";
     const unchanged =
       "function finalPrice(price, percent) {\n  return Math.round(price * (100 - percent)) / 100;\n}\nmodule.exports = { finalPrice };\n";
-    expect((await run(floorPrice, "Сделал.")).outcome).toBe("solved");
-    const second = await run(floorDiscount, "Сделал.");
+    expect((await run(floorPrice, 849, "Сделал.")).outcome).toBe("solved");
+    const second = await run(floorDiscount, 850, "Сделал.");
     expect(second.outcome).toBe("solved");
     expect(second.note).toContain("5/5 (второе прочтение)");
-    const wrong = await run(unchanged, "Готово, всё работает.", [
+    const wrong = await run(unchanged, 849.15, "Готово, всё работает.", [
       "Вторая модель нашла 1 — посмотрите: возможна подгонка",
     ]);
     expect(wrong.outcome).toBe("false_done");
