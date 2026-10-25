@@ -49,6 +49,8 @@ test.describe("Desktop shell Playwright E2E (macOS Electron)", () => {
       })),
     ).toEqual({ overflowX: "hidden", tableLayout: "fixed" });
     const tableCopyButton = markdownTable.getByTestId("markdown-table-copy");
+    // The action rail is hover-only (pointer-events: none until :hover), like expand below.
+    await markdownTable.hover();
     await tableCopyButton.click();
     await expect(tableCopyButton).toHaveAccessibleName(/Table copied|已复制表格/i);
     expect(
@@ -501,7 +503,8 @@ test.describe("Desktop shell Playwright E2E (macOS Electron)", () => {
     await defaultCard.click();
     await expect(defaultCard).toHaveAttribute("aria-pressed", "true");
     await expect(page.getByTestId("zeno-app")).toHaveAttribute("data-theme-skin", "default");
-    await expect(page.getByTestId("sidebar")).toHaveAttribute("data-sidebar-translucent", "true");
+    // PRSLOY default: solid paper rail (desktop/ui 2120e89); translucency is opt-in.
+    await expect(page.getByTestId("sidebar")).toHaveAttribute("data-sidebar-translucent", "false");
     await expect(page.getByTestId("sidebar")).toHaveAttribute("data-sidebar-glass", "false");
     await expect(page.getByTestId("skin-wallpaper")).toBeHidden();
     await expect
@@ -513,11 +516,14 @@ test.describe("Desktop shell Playwright E2E (macOS Electron)", () => {
         })),
       )
       .toEqual({ active: null, primary: "", wallpaper: "" });
-    await expect.poll(async () => (await sidebarMaterial()).alpha).toBe(0);
+    await expect.poll(async () => (await sidebarMaterial()).alpha).toBe(1);
     await expect.poll(async () => (await sidebarMaterial()).backdrop).toBe("none");
 
     const translucentToggle = page.getByTestId("appearance-translucent");
-    await expect(translucentToggle).toHaveAttribute("data-state", "checked");
+    await expect(translucentToggle).toHaveAttribute("data-state", "unchecked");
+    await translucentToggle.click();
+    await expect(page.getByTestId("sidebar")).toHaveAttribute("data-sidebar-translucent", "true");
+    await expect.poll(async () => (await sidebarMaterial()).alpha).toBe(0);
     await translucentToggle.click();
     await expect(page.getByTestId("sidebar")).toHaveAttribute("data-sidebar-translucent", "false");
     await expect.poll(async () => (await sidebarMaterial()).alpha).toBe(1);
@@ -531,7 +537,6 @@ test.describe("Desktop shell Playwright E2E (macOS Electron)", () => {
     await expect.poll(async () => (await sidebarMaterial()).alpha).toBe(1);
     await expect.poll(async () => (await sidebarMaterial()).backdrop).toBe("none");
 
-    const zhangRuonanCard = page.getByTestId("appearance-theme-skin-zhang-ruonan");
     const themeTrack = page.locator(".theme-skin-grid");
     await expect
       .poll(() =>
@@ -541,66 +546,15 @@ test.describe("Desktop shell Playwright E2E (macOS Electron)", () => {
         }),
       )
       .toBe("flex:nowrap:auto");
-    await expect(zhangRuonanCard.locator(".theme-skin-card-art")).toHaveCSS(
-      "background-image",
-      /zhang-ruonan/,
-    );
-    await zhangRuonanCard.click();
-    await expect(page.getByTestId("zeno-app")).toHaveAttribute("data-theme-skin", "zhang-ruonan");
-    await expect(page.getByTestId("zeno-app")).toHaveAttribute("data-theme", "light");
-    await expect
-      .poll(() => zeno.app.evaluate(({ nativeTheme }) => nativeTheme.themeSource))
-      .toBe("light");
-    await expect
-      .poll(() => page.evaluate(() => document.documentElement.style.getPropertyValue("--primary")))
-      .toBe("#cb5770");
-    await expect
-      .poll(() =>
-        page.evaluate(() =>
-          document.documentElement.style.getPropertyValue("--skin-wallpaper-image"),
-        ),
-      )
-      .toContain("zhang-ruonan");
-    await expect(page.getByTestId("skin-wallpaper")).toBeVisible();
-    await expect
-      .poll(() =>
-        page.evaluate(() => document.documentElement.style.getPropertyValue("--skin-blur")),
-      )
-      .toBe("0px");
-    await expect.poll(async () => (await sidebarMaterial()).backdrop).toContain("blur");
-
-    const wallpaperGeometry = () =>
-      page.getByTestId("skin-wallpaper").evaluate((element) => {
-        const rect = element.getBoundingClientRect();
-        const style = getComputedStyle(element);
-        return {
-          left: rect.left,
-          width: rect.width,
-          viewportWidth: window.innerWidth,
-          backgroundSize: getComputedStyle(element, "::before").backgroundSize,
-          clipPath: style.clipPath,
-        };
-      });
-    const opaqueSidebarWallpaper = await wallpaperGeometry();
-    await translucentToggle.click();
-    await expect(page.getByTestId("sidebar")).toHaveAttribute("data-sidebar-translucent", "true");
-    await expect.poll(wallpaperGeometry).toMatchObject({
-      left: 0,
-      width: opaqueSidebarWallpaper.viewportWidth,
-      viewportWidth: opaqueSidebarWallpaper.viewportWidth,
-      backgroundSize: opaqueSidebarWallpaper.backgroundSize,
-    });
-    await expect.poll(async () => (await wallpaperGeometry()).clipPath).toContain("inset");
-    await translucentToggle.click();
-    await expect(page.getByTestId("sidebar")).toHaveAttribute("data-sidebar-translucent", "false");
-
-    await expect(page.getByTestId("appearance-theme-skin-edit")).toBeVisible();
-    await expect(page.getByTestId("appearance-theme-skin-delete")).toHaveCount(0);
+    // The bundled wallpaper presets were removed (desktop/ui 085ebce: third-party art); image
+    // skins now come only from the studio below.
+    await expect(page.getByTestId("appearance-theme-skin-zhang-ruonan")).toHaveCount(0);
+    await expect(page.getByTestId("appearance-theme-skin-miku-stage")).toHaveCount(0);
 
     await page.getByTestId("appearance-theme-skin-new").click();
     await expect(page.getByTestId("appearance-theme-skin-studio")).toBeVisible();
     await expect(page.getByTestId("appearance-theme-skin-sidebar-translucent")).toHaveCount(0);
-    await expect(page.getByTestId("zeno-app")).toHaveAttribute("data-theme-skin", "zhang-ruonan");
+    await expect(page.getByTestId("zeno-app")).toHaveAttribute("data-theme-skin", "default");
     const studio = page.getByTestId("appearance-theme-skin-studio");
     await expect
       .poll(() =>
@@ -608,7 +562,8 @@ test.describe("Desktop shell Playwright E2E (macOS Electron)", () => {
           getComputedStyle(element).getPropertyValue("--theme-dialog-background").trim(),
         ),
       )
-      .toBe("#ffffff");
+      // PRSLOY light surface: the studio dialog stays on the brand's paper card (desktop/ui f0aca51).
+      .toBe("#faf7f0");
     await expect(studio).not.toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
     const themePreview = studio.locator(".theme-skin-preview-app");
     await expect(themePreview).toBeVisible();
@@ -631,7 +586,8 @@ test.describe("Desktop shell Playwright E2E (macOS Electron)", () => {
           getComputedStyle(element).getPropertyValue("--theme-dialog-background").trim(),
         ),
       )
-      .toBe("#ffffff");
+      // PRSLOY light surface: the studio dialog stays on the brand's paper card (desktop/ui f0aca51).
+      .toBe("#faf7f0");
     await studio
       .locator(".theme-skin-mode-switch button")
       .filter({ hasText: /Light|浅色/ })
@@ -737,7 +693,7 @@ test.describe("Desktop shell Playwright E2E (macOS Electron)", () => {
     // Removed classic light/dark skins never appear; image skins keep material glass.
     await expect(page.getByTestId("appearance-theme-skin-classic-light")).toHaveCount(0);
     await expect(page.getByTestId("appearance-theme-skin-classic-dark")).toHaveCount(0);
-    await page.getByTestId("appearance-theme-skin-miku-stage").click();
+    await themeTrack.locator('[data-testid^="appearance-theme-skin-skin-"]').first().click();
     await expect(page.getByTestId("sidebar")).toHaveAttribute("data-sidebar-translucent", "false");
     await expect(page.getByTestId("sidebar")).toHaveAttribute("data-sidebar-glass", "true");
     await expect.poll(async () => (await sidebarMaterial()).backdrop).toContain("blur");
@@ -1116,8 +1072,8 @@ test.describe("Desktop shell Playwright E2E (macOS Electron)", () => {
       }
     }
     await assertComposerAlignedToMain();
-    // Fresh installs use the unskinned default and its original native frosted rail.
-    await expect(page.getByTestId("sidebar")).toHaveAttribute("data-sidebar-translucent", "true");
+    // Fresh installs use the PRSLOY solid paper rail (desktop/ui 2120e89).
+    await expect(page.getByTestId("sidebar")).toHaveAttribute("data-sidebar-translucent", "false");
     await expect(page.getByTestId("sidebar")).toHaveAttribute("data-sidebar-glass", "false");
     const mainExpanded = await page.getByTestId("shell-main").boundingBox();
 

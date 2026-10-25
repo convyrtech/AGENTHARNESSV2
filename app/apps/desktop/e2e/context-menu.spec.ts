@@ -24,6 +24,27 @@ async function recordClipboard(page: Page): Promise<void> {
   });
 }
 
+/**
+ * Wait until nothing in the page has scrolled for `quietMs`. Late content (mermaid, KaTeX) keeps
+ * the timeline auto-scrolling for a moment after the reply lands, and an app menu closes on any
+ * scroll, as it should; a person right-clicks after the text stops moving.
+ */
+async function scrollSettled(page: Page, quietMs = 500): Promise<void> {
+  await page.evaluate(() => {
+    const w = window as Window & { __lastScroll?: number };
+    w.__lastScroll = performance.now();
+    window.addEventListener("scroll", () => (w.__lastScroll = performance.now()), true);
+  });
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          performance.now() - ((window as Window & { __lastScroll?: number }).__lastScroll ?? 0),
+      ),
+    )
+    .toBeGreaterThan(quietMs);
+}
+
 function copied(page: Page): Promise<string | undefined> {
   return page.evaluate(() => (window as Window & { __copied?: string }).__copied);
 }
@@ -65,7 +86,9 @@ test("Composer: paste puts clipboard text at the caret", async ({ page }) => {
   await prompt.fill("hello world");
   await prompt.evaluate((el) => (el as HTMLTextAreaElement).setSelectionRange(0, 5));
 
-  await prompt.click({ button: "right" });
+  // Right-click on the selected word: Chromium moves the caret to a right-click outside the
+  // selection (Linux, Windows), so a click in the middle of the box would paste at the end.
+  await prompt.click({ button: "right", position: { x: 20, y: 18 } });
   await page.getByTestId("composer-menu-paste").click();
 
   await expect(prompt).toHaveValue("PASTED world");
@@ -110,6 +133,12 @@ test("Code block: right-click copies the block", async ({ page }) => {
 
   const code = page.locator('.content-code-block[data-language="javascript"]').first();
   await expect(code).toBeVisible();
+  // The reply lands pinned to the bottom, with this block above the fold. Bring it into view
+  // first, as a person would: otherwise the click's own scroll-into-view arrives a frame after
+  // the menu opens, and the menu closes on scroll as designed.
+  await scrollSettled(page);
+  await code.scrollIntoViewIfNeeded();
+  await scrollSettled(page);
   await code.click({ button: "right" });
 
   await expect(page.getByTestId("code-context-menu")).toBeVisible();
