@@ -1,5 +1,15 @@
 # STATUS: дорожка ci (W0 + W5)
 
+## Разборщик: сессии живого стенда в ночном разборе (A-1)
+
+- `desktop-audit` вручную: `sessions_run=<id прогона>` (и `sessions_artifact`, по умолчанию `*sessions*`) —
+  сессии из артефактов того прогона идут через те же детекторы, что ночной стенд и e2e; `bench-*.json` рядом —
+  исход check.mjs для D2. Без входов — ночной прогон как был.
+- Локально то же самое: `node packages/prsloy-harness/scripts/audit-sessions.mts --sessions bench-out
+  --bench bench-out/bench-*.json --out audit-live`.
+- Проверено: https://github.com/convyrtech/AGENTHARNESSV2/actions/runs/40229981280 — 51 сессия из артефактов
+  desktop-ci 40228607262 добавлена к разбору.
+
 ## Выпуск 0.1.0-alpha.2: обновление с опубликованной версии и заметки (ветка desktop/release)
 
 - update-e2e, шаг «Previous public release»: качает самый новый опубликованный релиз с latest.yml (сейчас
