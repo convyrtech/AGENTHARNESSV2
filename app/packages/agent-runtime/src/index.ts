@@ -1689,7 +1689,9 @@ export async function createPixRuntime(
 
   async function bindExtensionUi(): Promise<void> {
     await runtime.session.bindExtensions({
-      uiContext: extensionUi.uiContext,
+      // Nobody to answer dialogs: leave pi's no-UI context, so extensions see `hasUI`
+      // false and refuse at once instead of waiting for an answer that never comes.
+      ...(options.onExtensionUiRequest ? { uiContext: extensionUi.uiContext } : {}),
       mode: "rpc",
       onError: (error) => {
         extensionErrors.push(error);

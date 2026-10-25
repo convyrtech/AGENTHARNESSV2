@@ -2,6 +2,7 @@
  * PRSLOY IPC handlers (main side). Wired from index.ts with one call; all logic here.
  * Inputs from the renderer are untrusted: validate types and sizes.
  */
+import { join } from "node:path";
 import type {
   PrsloyKeyResult,
   PrsloyState,
@@ -12,6 +13,7 @@ import { normalizePrsloyBaseUrl, PRSLOY_DEFAULT_BASE_URL } from "../../shared/pr
 import type { PrsloyContext } from "./context.ts";
 import { checkPrsloyKey, type FetchLike } from "./gateway-check.ts";
 import { maskKey } from "./key-store.ts";
+import { recordTurnUndo } from "./learning-undo.ts";
 import type { TurnRecord } from "./turn-snapshots.ts";
 
 export const PRSLOY_IPC = {
@@ -177,6 +179,11 @@ export function registerPrsloyIpc(ipcMain: IpcMainLike, deps: PrsloyIpcDeps): vo
     const workspace = deps.getWorkspace();
     if (!workspace) throw new Error("No workspace is open");
     const result = await ctx.snapshots.restore(workspace, rawId);
+    // Same folder the harness writes to in the host (PRSLOY_LEARN_DIR or the agent home).
+    recordTurnUndo(process.env.PRSLOY_LEARN_DIR ?? join(ctx.agentDir, "prsloy-learning"), {
+      session: result.restoredTo.sessionId,
+      workspace,
+    });
     try {
       await deps.appendSessionNote?.(UNDO_NOTE_CUSTOM_TYPE, undoNoteText(result));
     } catch (error) {

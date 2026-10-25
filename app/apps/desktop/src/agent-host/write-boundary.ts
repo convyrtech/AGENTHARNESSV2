@@ -9,7 +9,7 @@
  * - «Нет», closing the dialog, or no UI at all blocks the call; a refused call stays
  *   refused for the session, the agent is not allowed to ask again by retrying.
  */
-import { tmpdir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import {
   classifyBash,
@@ -17,6 +17,13 @@ import {
   type BoundaryEnv,
   type BoundaryVerdict,
 } from "./write-boundary-rules.ts";
+import {
+  bashReadsPrivate,
+  PRIVATE_READ_NOTE,
+  privateRootsFor,
+  readsPrivateFile,
+  type PrivateEnv,
+} from "./private-paths.ts";
 
 export const ANSWER_YES = "Да";
 export const ANSWER_NO = "Нет";
@@ -25,9 +32,8 @@ export const ANSWER_SESSION = "Разрешать в этом разговоре
 const REFUSED_NOTE =
   "Пользователь не разрешил это действие. Не повторяй его и не обходи другим способом " +
   "(другой командой, через скрипт). Если без него не обойтись, объясни пользователю зачем.";
-const NO_UI_NOTE =
-  "Это действие меняет файлы вне проекта, а спросить пользователя сейчас нельзя. " +
-  "Работай внутри папки проекта.";
+export const NO_UI_NOTE =
+  "Запись вне папки проекта запрещена. Работай внутри проекта или во временной папке.";
 
 type SessionMemory = { allowAll: boolean; refused: Set<string> };
 
@@ -45,9 +51,49 @@ export function verdictFor(
   return { ask: false };
 }
 
+/** The system temp dir under every name a tool may use for it. */
+export function tempRoots(
+  platform: NodeJS.Platform,
+  env: Record<string, string | undefined> = process.env,
+): string[] {
+  const roots = [tmpdir(), env.TMPDIR, env.TMP, env.TEMP].filter((r): r is string => !!r);
+  if (platform !== "win32") roots.push("/tmp");
+  return [...new Set(roots)];
+}
+
+/** Reading private places (private-paths.ts) is refused outright, whatever was allowed. */
+export function readsPrivate(
+  toolName: string,
+  input: Record<string, unknown>,
+  env: PrivateEnv,
+): boolean {
+  if (toolName === "bash" && typeof input.command === "string") {
+    return bashReadsPrivate(input.command, env);
+  }
+  return readsPrivateFile(toolName, input, env);
+}
+
 export function createWriteBoundary(
-  options: { extraAllowedRoots?: string[]; platform?: NodeJS.Platform } = {},
+  options: {
+    extraAllowedRoots?: string[];
+    platform?: NodeJS.Platform;
+    /** pi's agent home; the app's whole userData when it is `userData/agent`. */
+    agentDir?: string;
+    home?: string;
+  } = {},
 ) {
+  const platform = options.platform ?? process.platform;
+  const home = options.home ?? homedir();
+  const agentDir = options.agentDir ?? process.env.PI_CODING_AGENT_DIR;
+  const appData = process.env.APPDATA;
+  const localAppData = process.env.LOCALAPPDATA;
+  const roots = privateRootsFor({
+    platform,
+    home,
+    ...(agentDir ? { agentDir } : {}),
+    ...(appData ? { appData } : {}),
+    ...(localAppData ? { localAppData } : {}),
+  });
   return (pi: ExtensionAPI): void => {
     const sessions = new Map<string, SessionMemory>();
     const memoryFor = (id: string): SessionMemory => {
@@ -62,9 +108,24 @@ export function createWriteBoundary(
     pi.on("tool_call", async (event, ctx) => {
       const env: BoundaryEnv = {
         cwd: ctx.cwd,
-        allowedRoots: [ctx.cwd, tmpdir(), ...(options.extraAllowedRoots ?? [])],
-        ...(options.platform ? { platform: options.platform } : {}),
+        allowedRoots: [ctx.cwd, ...tempRoots(platform), ...(options.extraAllowedRoots ?? [])],
+        platform,
+        tmp: tmpdir(),
       };
+      const input = event.input as Record<string, unknown>;
+      const privateEnv: PrivateEnv = {
+        cwd: ctx.cwd,
+        allowedRoots: [],
+        platform,
+        home,
+        tmp: tmpdir(),
+        ...roots,
+        ...(appData ? { appData } : {}),
+        ...(localAppData ? { localAppData } : {}),
+      };
+      if (readsPrivate(event.toolName, input, privateEnv)) {
+        return { block: true, reason: PRIVATE_READ_NOTE };
+      }
       const verdict = verdictFor(event.toolName, event.input as Record<string, unknown>, env);
       if (!verdict.ask) return undefined;
       const memory = memoryFor(ctx.sessionManager.getSessionId());

@@ -1,4 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useTimelineWindow } from "./timeline-window-context.tsx";
 import {
   useMessageScroller,
   useMessageScrollerScrollable,
@@ -41,6 +42,7 @@ export const ConversationMinimap = memo(function ConversationMinimap({
   locale: Locale;
 }) {
   const { scrollToMessage } = useMessageScroller();
+  const timelineWindow = useTimelineWindow();
   const scrollable = useMessageScrollerScrollable();
   const { visibleMessageIds } = useMessageScrollerVisibility();
 
@@ -95,13 +97,23 @@ export const ConversationMinimap = memo(function ConversationMinimap({
 
   const jumpTo = useCallback(
     (id: string) => {
-      scrollToMessage(id, {
-        align: "start",
-        behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
-        scrollMargin: JUMP_SCROLL_MARGIN,
-      });
+      const scroll = () =>
+        scrollToMessage(id, {
+          align: "start",
+          behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
+            ? "auto"
+            : "smooth",
+          scrollMargin: JUMP_SCROLL_MARGIN,
+        });
+      if (timelineWindow.isRendered(id)) {
+        scroll();
+        return;
+      }
+      // A long chat renders its tail only: bring the rest in, then jump once it is laid out.
+      timelineWindow.showAll();
+      requestAnimationFrame(() => requestAnimationFrame(scroll));
     },
-    [scrollToMessage],
+    [scrollToMessage, timelineWindow],
   );
 
   /* Dock magnification, applied imperatively so mousemove never re-renders. */

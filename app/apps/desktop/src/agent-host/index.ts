@@ -397,7 +397,9 @@ async function handleCommand(command: HostCommand): Promise<void> {
         }
         // First: asks before changes outside the project, ahead of anything the harness's
         // tool_call hooks might start. On even when the harness is off.
-        options.extensionFactories = [createWriteBoundary()];
+        options.extensionFactories = [
+          createWriteBoundary(options.agentDir ? { agentDir: options.agentDir } : {}),
+        ];
         if (prsloyHandoff.harnessEnabled) {
           // Bundled into the host (survives asar); profile from PRSLOY_PROFILE (main sets "code").
           options.extensionFactories.push(createPrsloyHarness());
