@@ -14,6 +14,10 @@ describe("failureKind", () => {
     expect(failureKind("network", "Связь с моделью оборвалась")).toBe("network");
     expect(failureKind("rate_limit", "429")).toBe("busy");
     expect(failureKind("timeout", "timed out")).toBe("slow");
+    // A chat reopened from disk: only the proxy's text is left.
+    expect(failureKind(undefined, "Модель долго не отвечает: нет ответа после 3 попыток")).toBe(
+      "slow",
+    );
     expect(failureKind("server", "500")).toBe("server");
   });
 
@@ -50,6 +54,8 @@ describe("failureKind", () => {
     expect(failureActionLabelKey("balance")).toBe("failure.action.topUp");
     expect(failureHintKey("network")).toBeUndefined();
     expect(failureHintKey("model")).toBe("failure.model.hint");
+    // A silent model: [Повторить] and «…или переключитесь на «Быстрее»».
+    expect(failureHintKey("slow")).toBe("failure.slow.hint");
   });
 });
 

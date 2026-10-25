@@ -40,7 +40,9 @@ export function classifyModelError(
   if (/model_not_found|does not exist|no such model|model (is )?not available/iu.test(text)) {
     return "model_unavailable";
   }
-  if (/timed? ?out|timeout|ETIMEDOUT/iu.test(text)) return "timeout";
+  // The reliability proxy waited out every attempt with no first token: the model is silent, not the network.
+  if (/timed? ?out|timeout|ETIMEDOUT|модель долго не отвечает|prsloy_model_slow/iu.test(text))
+    return "timeout";
   if (
     /^connection error|^terminated$|связь с моделью оборвалась|prsloy_stream_interrupted|ECONNREFUSED|ECONNRESET|ENOTFOUND|EAI_AGAIN|socket hang up|fetch failed|network|getaddrinfo|other side closed/iu.test(
       text,
