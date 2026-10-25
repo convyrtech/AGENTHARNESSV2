@@ -4,6 +4,8 @@ toward the template). Usage: second_opinion.py <workspace> <message_file> [--mod
 Prints JSON {verdict, items:[{check, ok, evidence}]} and exits 1 on FAIL."""
 import os, re, sys, json, base64, argparse, urllib.request
 from pathlib import Path
+for _s in (sys.stdout, sys.stderr):  # Windows: под -I PYTHONUTF8 не действует, а вывод в трубу идёт в cp1252
+    _s.reconfigure(encoding="utf-8", errors="replace")
 
 ap = argparse.ArgumentParser()
 ap.add_argument("workspace"); ap.add_argument("message")

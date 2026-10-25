@@ -15,6 +15,8 @@
 """
 import argparse, datetime as dt, hashlib, json, os, re, shutil, subprocess, sys, time
 from pathlib import Path
+for _s in (sys.stdout, sys.stderr):  # Windows: под -I PYTHONUTF8 не действует, а вывод в трубу идёт в cp1252
+    _s.reconfigure(encoding="utf-8", errors="replace")
 
 HERE = Path(__file__).resolve().parent
 PLAYBOOK = HERE.parent                                  # playbooks/site

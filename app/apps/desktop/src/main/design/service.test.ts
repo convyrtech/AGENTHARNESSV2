@@ -36,7 +36,7 @@ vi.mock("electron", () => ({
   shell: { openPath: async () => "" },
 }));
 
-const { registerDesignIpc } = await import("./service.ts");
+const { DesignService, registerDesignIpc } = await import("./service.ts");
 
 const HERE = import.meta.dirname;
 const E2E = join(HERE, "../../../e2e/design");
@@ -83,6 +83,7 @@ describe.skipIf(!python3 || process.platform === "win32")("design IPC", () => {
     copyFileSync(join(E2E, "recorded.jsonl"), join(harness, "recorded.jsonl"));
     cpSync(join(E2E, "fixtures"), join(harness, "fixtures"), { recursive: true });
     for (const f of ["a6proxy.py", "stages.json"]) copyFileSync(join(HARNESS, f), join(harness, f));
+    cpSync(join(E2E, "stub-pipeline"), join(bundle, "design-pipeline"), { recursive: true });
     const venv = join(root, "venv");
     mkdirSync(join(venv, "bin"), { recursive: true });
     symlinkSync(python3, join(venv, "bin", "python"));
@@ -227,6 +228,33 @@ describe.skipIf(!python3 || process.platform === "win32")("design IPC", () => {
     quitHooks[0]!();
     await new Promise((r) => setTimeout(r, 300));
     expect(proxies()).toEqual([]);
+  });
+
+  it("a build without the design bundle answers calmly instead of failing", async () => {
+    const empty = new DesignService({
+      userDataPath: join(root, "ud-empty"),
+      bundleRoot: join(root, "no-bundle"),
+      fallbackRoot: join(root, "docs"),
+      getWindow: () => undefined,
+      getGateway: () => ({ apiKey: "k", baseUrl: "http://127.0.0.1:9/v1" }),
+      basePython: () => python3,
+      nodeExecutable: () => "node",
+      piCliPath: async () => undefined,
+      assertTrustedSender: () => undefined,
+    });
+    expect(empty.status(join(root, "другой проект"))).toMatchObject({
+      available: false,
+      history: [],
+    });
+    await expect(empty.say(project, "сделай лендинг", [])).rejects.toThrow(
+      "Дизайн-инструменты появятся в следующей версии",
+    );
+    expect(await empty.setup()).toEqual({
+      phase: "error",
+      error: "Дизайн-инструменты появятся в следующей версии",
+    });
+    const status = (await call("prsloy:design:status", project)) as { available: boolean };
+    expect(status.available).toBe(true);
   });
 
   it("starts a workspace for the fallback folder when no project is open", async () => {

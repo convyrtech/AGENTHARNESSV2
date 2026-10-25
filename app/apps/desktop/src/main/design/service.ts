@@ -82,6 +82,7 @@ export type DesignServiceDeps = {
 };
 
 const EVENTS_FILE = "app-events.jsonl";
+const UNAVAILABLE = "Дизайн-инструменты появятся в следующей версии";
 const HISTORY_LIMIT = 400;
 
 type Run = { child: ChildProcess; cancelled: boolean };
@@ -180,7 +181,16 @@ export class DesignService {
       running: this.#runs.has(ws),
       history: this.#history(ws),
       needsKey: !this.#deps.getGateway(),
+      available: this.available(),
     };
+  }
+
+  /** run.py and a design-pipeline copy are in the bundle. */
+  available(): boolean {
+    return (
+      existsSync(join(this.#harness, "run.py")) &&
+      existsSync(join(this.#deps.bundleRoot, "design-pipeline", "tools", "flow.py"))
+    );
   }
 
   #toolsReady(): boolean {
@@ -190,6 +200,7 @@ export class DesignService {
   }
 
   setup(): Promise<DesignSetupProgress> {
+    if (!this.available()) return Promise.resolve({ phase: "error", error: UNAVAILABLE });
     if (this.#toolsReady()) return Promise.resolve({ phase: "done" });
     this.#setup ??= setupDesignTools({
       designRoot: this.#designRoot,
@@ -363,6 +374,7 @@ export class DesignService {
     retry = false,
   ): Promise<void> {
     const ws = this.workspace(projectPath);
+    if (!this.available()) throw new Error(UNAVAILABLE);
     if (this.#runs.has(ws)) throw new Error("Уже работаю над прошлым сообщением");
     if (!this.#toolsReady()) throw new Error("Инструменты дизайна ещё не установлены");
     const files = fileTokens

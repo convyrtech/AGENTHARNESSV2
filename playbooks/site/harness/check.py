@@ -5,6 +5,8 @@ and called it design, and ignored prompt bans). Usage: check.py <site_dir> <page
    that move in a data-signature attribute (the live element that carries it)."""
 import re, sys
 from pathlib import Path
+for _s in (sys.stdout, sys.stderr):  # Windows: под -I PYTHONUTF8 не действует, а вывод в трубу идёт в cp1252
+    _s.reconfigure(encoding="utf-8", errors="replace")
 
 site, page = Path(sys.argv[1]), Path(sys.argv[2])
 fails = []

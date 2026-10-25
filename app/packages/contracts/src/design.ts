@@ -64,6 +64,11 @@ export type DesignStatus = {
   history: DesignEvent[];
   /** Gateway key is missing: the tab cannot run models. */
   needsKey: boolean;
+  /**
+   * The design bundle (harness + pipeline) shipped with this build. False in builds made
+   * without the private pipeline: the tab shows one calm state and nothing else.
+   */
+  available: boolean;
 };
 
 export type DesignEventMessage = { workspace: string; event: DesignEvent };

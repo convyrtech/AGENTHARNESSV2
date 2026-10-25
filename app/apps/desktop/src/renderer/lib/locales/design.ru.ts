@@ -42,4 +42,5 @@ export const designRu: Record<keyof typeof designZh, string> = {
   "design.needsKey": "Нужен ключ PRSLOY: вставьте его в настройках.",
   "design.answer": "Ответить",
   "design.recommended": "рекомендую",
+  "design.unavailable": "Дизайн-инструменты появятся в следующей версии",
 };
