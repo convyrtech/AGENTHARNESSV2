@@ -30,6 +30,8 @@ export const PRSLOY_MEMORY_IPC = {
   forgetAll: "prsloy:memory-forget-all",
   pin: "prsloy:memory-pin",
   revert: "prsloy:memory-revert",
+  confirm: "prsloy:memory-confirm",
+  forgetSource: "prsloy:memory-forget-source",
 } as const;
 
 /** The hidden note the harness writes after its own `forget` (memory.ts): same text. */
@@ -51,7 +53,11 @@ export type PrsloyMemoryIpcDeps = {
   agentDir: string;
   getWorkspace(): string | undefined;
   /** Hidden note to the open session; best effort. */
-  appendSessionNote?(customType: string, text: string): Promise<void>;
+  appendSessionNote?(
+    customType: string,
+    text: string,
+    details?: Record<string, unknown>,
+  ): Promise<void>;
 };
 
 const MAX_PATH = 4096;
@@ -73,6 +79,25 @@ function idOf(raw: unknown): string {
   }
   return raw;
 }
+
+function confirmIdOf(raw: unknown): string {
+  if (typeof raw !== "string" || !/^cf-[a-f0-9]{6,32}$/u.test(raw)) {
+    throw new Error("Invalid memory confirmation");
+  }
+  return raw;
+}
+
+/** Pi session id (a UUID) or a short id: letters, digits, dashes. */
+function sessionIdOf(raw: unknown): string {
+  if (typeof raw !== "string" || !/^[A-Za-z0-9_-]{1,128}$/u.test(raw)) {
+    throw new Error("Invalid session id");
+  }
+  return raw;
+}
+
+/** After the user confirmed a replacement: the open session still holds the older text. */
+export const memoryReplacedNote = (before: string, after: string) =>
+  `Пользователь подтвердил: теперь «${after}», а не «${before}».`;
 
 function opIdOf(raw: unknown): string {
   if (typeof raw !== "string" || !/^op-[a-f0-9]{6,32}$/u.test(raw)) {
@@ -129,6 +154,17 @@ function forgottenOf(store: MemoryStore, workspace: string): MemoryForgottenItem
   return out.sort((a, b) => b.forgotten.localeCompare(a.forgotten)).slice(0, FORGOTTEN_MAX);
 }
 
+function sessionsOf(e: { session?: string; evidence?: { session?: string }[] }) {
+  const sessions = [
+    ...new Set(
+      (e.evidence?.length ? e.evidence.map((x) => x.session) : [e.session]).filter(
+        (s): s is string => typeof s === "string" && s.length > 0,
+      ),
+    ),
+  ];
+  return sessions.length ? { sessions } : {};
+}
+
 function list(store: MemoryStore, workspace: string): MemorySnapshot {
   const view = (scope: "user" | "project"): MemoryItem[] =>
     store.entries(scope, workspace).map((e) => ({
@@ -138,6 +174,7 @@ function list(store: MemoryStore, workspace: string): MemorySnapshot {
       origin: e.origin,
       ...(e.quote ? { quote: e.quote } : {}),
       ...(e.pinned ? { pinned: true } : {}),
+      ...sessionsOf(e),
     }));
   const digest = store.digest(workspace);
   const history: MemoryHistoryItem[] = store.history(workspace).map((h) => ({
@@ -286,6 +323,44 @@ export function registerPrsloyMemoryIpc(ipcMain: IpcMainLike, deps: PrsloyMemory
           console.warn("[prsloy] memory note for the model failed:", error);
         }
       }
+      return list(s, workspace);
+    },
+  );
+
+  ipcMain.handle(
+    PRSLOY_MEMORY_IPC.confirm,
+    async (_event, rawId, rawYes, rawWorkspace): Promise<MemorySnapshot> => {
+      const id = confirmIdOf(rawId);
+      if (typeof rawYes !== "boolean") throw new Error("Invalid answer");
+      const workspace = workspaceOf(rawWorkspace, deps);
+      const s = store();
+      const result = s.confirm(id, rawYes, workspace);
+      if (result?.applied) {
+        const change = result.change;
+        try {
+          if (change.action === "forget")
+            await deps.appendSessionNote?.(MEMORY_FORGOT_NOTE_TYPE, memoryForgotNote(change.text));
+          else
+            await deps.appendSessionNote?.(
+              MEMORY_REVERTED_NOTE_TYPE,
+              memoryReplacedNote(change.before, change.input.text),
+            );
+        } catch (error) {
+          console.warn("[prsloy] memory note for the model failed:", error);
+        }
+      }
+      return list(s, workspace);
+    },
+  );
+
+  ipcMain.handle(
+    PRSLOY_MEMORY_IPC.forgetSource,
+    async (_event, rawSession, rawWorkspace): Promise<MemorySnapshot> => {
+      const session = sessionIdOf(rawSession);
+      const workspace = workspaceOf(rawWorkspace, deps);
+      const s = store();
+      const { forgotten } = s.forgetSource(session, workspace);
+      for (const entry of forgotten) await note(entry.text);
       return list(s, workspace);
     },
   );

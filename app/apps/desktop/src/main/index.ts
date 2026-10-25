@@ -2586,7 +2586,7 @@ class HostSupervisor {
   }
 
   /** PRSLOY: a note the model reads on its next turn (pi custom message). */
-  async appendSessionNote(customType: string, text: string): Promise<void> {
+  async appendSessionNote(customType: string, text: string, details?: Record<string, unknown>) {
     if (!this.#host) return;
     const event = await this.#request({
       protocolVersion: IPC_PROTOCOL_VERSION,
@@ -2594,6 +2594,7 @@ class HostSupervisor {
       requestId: randomUUID(),
       customType,
       text,
+      ...(details ? { details } : {}),
     });
     if (event.type === "runtime.snapshot") this.#acceptSnapshot(event.snapshot);
   }
@@ -4855,8 +4856,8 @@ void app
       getWorkspace: () => supervisor?.getWorkspaceCwd(),
       needsWorkspace: () => !durableWorkspacePath(loadDesktopPrefs().lastWorkspace),
       isAgentBusy: () => supervisor?.getSdkSwitchActivity().agentBusy ?? false,
-      appendSessionNote: async (customType, text) => {
-        await supervisor?.appendSessionNote(customType, text);
+      appendSessionNote: async (customType, text, details) => {
+        await supervisor?.appendSessionNote(customType, text, details);
       },
       onModelsChanged: async () => void (await supervisor?.refreshModelCatalog()),
       isTrustedSender: (event) => isTrustedIpcEvent(event as Electron.IpcMainInvokeEvent),

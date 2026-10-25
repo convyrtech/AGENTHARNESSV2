@@ -704,6 +704,7 @@ async function handleCommand(command: HostCommand): Promise<void> {
             customType: command.customType,
             content: command.text,
             display: !HIDDEN_NOTE_TYPES.has(command.customType),
+            ...(command.details ? { details: command.details } : {}),
           },
           { triggerTurn: false },
         );

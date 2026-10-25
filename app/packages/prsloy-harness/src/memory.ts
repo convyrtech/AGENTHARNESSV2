@@ -11,7 +11,7 @@ import { recordEvent } from "./learning-log.ts";
 import { MEMORY_LIMITS, type MemoryEntry, type MemoryScope, MemoryStore } from "./memory-store.ts";
 import { looksLikeThreat, looksSensitive } from "./memory-checks.ts";
 import { textMatchesQuote } from "./memory-match.ts";
-import { hiddenNote, showCard } from "./text.ts";
+import { showCard } from "./text.ts";
 
 export { looksLikeThreat, looksSensitive } from "./memory-checks.ts";
 
@@ -32,6 +32,12 @@ export const MEMORY_TEXT = {
   full: "Память заполнена. Что забыть?",
   threat: "Это похоже на команду, а не на факт о вас. Такое не запоминаю.",
   off: "Память выключена в настройках.",
+  noticed: (text: string) => `Заметил и запомнил: ${text}`,
+  noticedMany: (n: number) => `Запомнил ${n}`,
+  confirmForget: (text: string) => `Забыть «${text}»?`,
+  confirmReplace: (before: string, after: string) => `Раньше: «${before}». Теперь: «${after}»?`,
+  asked:
+    "Менять уже запомненное сам я не могу: спросил пользователя карточкой. Решит он — продолжай работу.",
 } as const;
 
 /** Типы карточек памяти (customType, display:true). */
@@ -41,6 +47,12 @@ export const MEMORY_CARD = {
   updated: "prsloy-memory.updated",
   /** details: `{ items: [{ id, scope, text, quote? }] }` — «Заметил и запомнил» (M-3). */
   auto: "prsloy-memory.auto",
+  /**
+   * details: `{ confirmId, action: "forget" | "replace", scope, id, text?, before?, after? }` — инструмент в ходе
+   * не меняет запомненное сам (research/27 §2): «Забыть «…»?» / «Раньше: «…». Теперь: «…»?» и ответ
+   * пользователя — `prsloy:memory-confirm`.
+   */
+  confirm: "prsloy-memory.confirm",
 } as const;
 
 export interface MemoryUpdatedDetails {
@@ -134,6 +146,34 @@ function userMessages(ctx: ExtensionContext, seen: string[]): string[] {
   return out;
 }
 
+/** id сообщения пользователя, в котором стоит цитата (последнее такое): источник записи. */
+function quoteMessageId(ctx: ExtensionContext, quote: string): string | undefined {
+  const q = normalize(quote.replace(/^[«"„“']+|[»"“”']+$/g, ""));
+  let found: string | undefined;
+  try {
+    for (const entry of ctx.sessionManager.getEntries() as {
+      type?: string;
+      id?: string;
+      message?: { role?: string; content?: unknown };
+    }[]) {
+      const m = entry.message;
+      if (entry.type !== "message" || m?.role !== "user" || !entry.id) continue;
+      const text =
+        typeof m.content === "string"
+          ? m.content
+          : Array.isArray(m.content)
+            ? (m.content as { type: string; text?: string }[])
+                .map((p) => (p.type === "text" ? (p.text ?? "") : ""))
+                .join(" ")
+            : "";
+      if (normalize(text).includes(q)) found = entry.id;
+    }
+  } catch {
+    // без истории — без id сообщения
+  }
+  return found;
+}
+
 /** Раздел prsloy_memory: обо мне, об этом проекте, «прошлый раз». Пусто — раздела нет. */
 export function memorySection(store: MemoryStore, cwd: string): string {
   const user = store.entries("user", cwd);
@@ -156,6 +196,18 @@ function listText(store: MemoryStore, cwd: string): string {
   ].join("\n");
 }
 
+function findEntry(
+  store: MemoryStore,
+  cwd: string,
+  id: string,
+): { scope: MemoryScope; entry: MemoryEntry } | undefined {
+  for (const scope of ["user", "project"] as const) {
+    const entry = store.entries(scope, cwd).find((e) => e.id === id);
+    if (entry) return { scope, entry };
+  }
+  return undefined;
+}
+
 export interface MemoryOptions {
   dir: string;
   settingsPath?: string | undefined;
@@ -175,6 +227,16 @@ export function installMemory(pi: ExtensionAPI, options: MemoryOptions): MemoryH
     const id = sessionOf(ctx);
     let s = sessions.get(id);
     if (!s) {
+      if (enabled()) {
+        // M-4 (§3.5): рабочий день отмечен, устаревшее по виду записи ушло в «Было» — до раздела.
+        try {
+          store.touchActiveDay();
+          const expired = store.expire(ctx.cwd);
+          if (expired.length) recordEvent(ctx, { kind: "memory.auto.expired", n: expired.length });
+        } catch {
+          // память только для чтения — раздел всё равно соберём
+        }
+      }
       s = { section: enabled() ? memorySection(store, ctx.cwd) : "", userMessages: [] };
       sessions.set(id, s);
       const n = store.entries("user", ctx.cwd).length + store.entries("project", ctx.cwd).length;
@@ -231,19 +293,27 @@ export function installMemory(pi: ExtensionAPI, options: MemoryOptions): MemoryH
         };
 
       if (params.action === "forget") {
-        const entry = params.id ? store.forget(params.id, ctx.cwd) : undefined;
-        if (!entry) return fail(`Записи ${params.id ?? "?"} нет. Список: action=list.`);
+        // research/27 §2: запомненное агенту только для чтения — «забыть» решает пользователь карточкой
+        // (панель «Память» и кнопка на карточке забывают сразу, они его собственные).
+        const found = params.id ? findEntry(store, ctx.cwd, params.id) : undefined;
+        if (!found) return fail(`Записи ${params.id ?? "?"} нет. Список: action=list.`);
+        const confirmId = store.propose({
+          action: "forget",
+          scope: found.scope,
+          target: found.entry.id,
+          text: found.entry.text,
+        });
         recordEvent(ctx, { kind: "memory.forget" });
-        // Из раздела запись уйдёт в новой сессии; в этой — заметка в хвост, префикс не трогаем.
-        await hiddenNote(
-          pi,
-          "prsloy-memory.forgot",
-          `Пользователь попросил забыть: «${entry.text}». Больше не учитывай.`,
-        );
-        await showCard(pi, "prsloy-memory.forgot", MEMORY_TEXT.forgot, { id: entry.id });
+        await showCard(pi, MEMORY_CARD.confirm, MEMORY_TEXT.confirmForget(found.entry.text), {
+          confirmId,
+          action: "forget",
+          scope: found.scope,
+          id: found.entry.id,
+          text: found.entry.text,
+        });
         return {
-          content: [{ type: "text", text: `${MEMORY_TEXT.forgot}\n${listText(store, ctx.cwd)}` }],
-          details: { ok: true, id: entry.id },
+          content: [{ type: "text", text: MEMORY_TEXT.asked }],
+          details: { ok: true, confirmId },
         };
       }
 
@@ -275,7 +345,42 @@ export function installMemory(pi: ExtensionAPI, options: MemoryOptions): MemoryH
         return fail(MEMORY_TEXT.threat);
       }
       // 4–5. Дубль, забытое, длина, лимит.
-      const added = store.add(scope, ctx.cwd, { text, quote, session: sessionOf(ctx) });
+      const message = quoteMessageId(ctx, quote);
+      const input = {
+        text,
+        quote,
+        session: sessionOf(ctx),
+        ...(message ? { message } : {}),
+        replace: false,
+      };
+      const added = store.add(scope, ctx.cwd, input);
+      if (!added.ok && added.reason === "conflict") {
+        // Это расходится с запомненным: заменить решает пользователь (research/27 §2).
+        const confirmId = store.propose({
+          action: "replace",
+          scope,
+          target: added.existing.id,
+          before: added.existing.text,
+          input,
+        });
+        await showCard(
+          pi,
+          MEMORY_CARD.confirm,
+          MEMORY_TEXT.confirmReplace(added.existing.text, text),
+          {
+            confirmId,
+            action: "replace",
+            scope,
+            id: added.existing.id,
+            before: added.existing.text,
+            after: text,
+          },
+        );
+        return {
+          content: [{ type: "text", text: MEMORY_TEXT.asked }],
+          details: { ok: true, confirmId },
+        };
+      }
       if (!added.ok) {
         recordEvent(ctx, { kind: "memory.refused", sig: `memory:${added.reason}` });
         if (added.reason === "full") {

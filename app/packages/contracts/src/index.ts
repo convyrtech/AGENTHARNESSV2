@@ -921,6 +921,8 @@ export type HostCommand =
       requestId: string;
       customType: string;
       text: string;
+      /** Card details for the renderer (memory cards: ids, opId, confirmId), ≤ 8000 chars as JSON. */
+      details?: Record<string, unknown>;
     }
   | {
       protocolVersion: typeof IPC_PROTOCOL_VERSION;
@@ -2909,7 +2911,12 @@ export function isHostCommand(value: unknown): value is HostCommand {
       /^[a-z][a-z0-9.-]{0,63}$/u.test(value.customType) &&
       typeof value.text === "string" &&
       value.text.length > 0 &&
-      value.text.length <= 8000
+      value.text.length <= 8000 &&
+      (value.details === undefined ||
+        (typeof value.details === "object" &&
+          value.details !== null &&
+          !Array.isArray(value.details) &&
+          JSON.stringify(value.details).length <= 8000))
     );
   }
   if (value.type === "session.export") {

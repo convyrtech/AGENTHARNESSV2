@@ -265,6 +265,56 @@ describe("memory IPC (S5)", () => {
     });
   });
 
+  it("#14: the tool's proposal waits for the user — yes applies it and tells the session, no drops it", async () => {
+    const t = setup();
+    const store = new MemoryStore(t.dir);
+    const forget = store.propose({
+      action: "forget",
+      scope: "user",
+      target: "u-aaaa",
+      text: "Пиши без англицизмов",
+    });
+    const no = await t.invoke<MemorySnapshot>(PRSLOY_MEMORY_IPC.confirm, forget, false);
+    expect(no.user.map((e) => e.id)).toEqual(["u-aaaa"]);
+    expect(t.notes).toEqual([]);
+    const again = store.propose({
+      action: "forget",
+      scope: "user",
+      target: "u-aaaa",
+      text: "Пиши без англицизмов",
+    });
+    const yes = await t.invoke<MemorySnapshot>(PRSLOY_MEMORY_IPC.confirm, again, true);
+    expect(yes.user).toEqual([]);
+    expect(t.notes).toEqual([
+      { customType: MEMORY_FORGOT_NOTE_TYPE, text: memoryForgotNote("Пиши без англицизмов") },
+    ]);
+    // Used: a second answer changes nothing.
+    await t.invoke(PRSLOY_MEMORY_IPC.confirm, again, true);
+    expect(t.notes).toHaveLength(1);
+  });
+
+  it("#14: «forget this chat» — entries learned only there go, the session is told", async () => {
+    const t = setup();
+    const store = new MemoryStore(t.dir);
+    store.add("user", t.projectA, {
+      text: "Любит тёмные сайты",
+      quote: "люблю тёмные сайты",
+      session: "chat-1",
+      message: "m1",
+    });
+    const listed = await t.invoke<MemorySnapshot>(PRSLOY_MEMORY_IPC.list);
+    expect(listed.user.find((e) => e.text === "Любит тёмные сайты")?.sessions).toEqual(["chat-1"]);
+    const after = await t.invoke<MemorySnapshot>(PRSLOY_MEMORY_IPC.forgetSource, "chat-1");
+    expect(after.user.map((e) => e.id)).toEqual(["u-aaaa"]);
+    expect(t.notes.map((n) => n.text)).toEqual([memoryForgotNote("Любит тёмные сайты")]);
+    await expect(t.invoke(PRSLOY_MEMORY_IPC.forgetSource, "../x")).rejects.toThrow(
+      /Invalid session id/,
+    );
+    await expect(t.invoke(PRSLOY_MEMORY_IPC.confirm, "op-1234567", true)).rejects.toThrow(
+      /Invalid memory confirmation/,
+    );
+  });
+
   it("rejects bad input and untrusted senders", async () => {
     const t = setup();
     await expect(t.invoke(PRSLOY_MEMORY_IPC.forget, "../../etc")).rejects.toThrow(

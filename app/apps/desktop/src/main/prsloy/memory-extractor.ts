@@ -24,8 +24,12 @@ import {
 } from "node:fs";
 import { join } from "node:path";
 import {
+  autoDetails,
   type Candidate,
   checkCandidates,
+  MEMORY_CARD,
+  MEMORY_TEXT,
+  updatedDetails,
   type ExtractorOp,
   type MemoryEntry,
   type MemorySignalKind,
@@ -77,6 +81,8 @@ export type ExtractorRun = {
   signals?: number;
   ops?: number;
   accepted?: number;
+  /** extract, write mode: entries added or replaced. */
+  written?: number;
   /** extract: no signal → no model call. */
   skipped?: "no-signal" | "no-messages";
 };
@@ -323,6 +329,9 @@ export async function runExtractorShadow(options: {
   fetch: FetchLike;
   timeoutMs?: number;
   now?: () => Date;
+  /** M-3b: write accepted candidates (origin "auto") and show cards through `note`. */
+  write?: boolean;
+  note?: (customType: string, text: string, details: Record<string, unknown>) => Promise<void>;
 }): Promise<ExtractorRun> {
   const started = Date.now();
   const ts = (options.now?.() ?? new Date()).toISOString();
@@ -377,6 +386,44 @@ export async function runExtractorShadow(options: {
   });
   const { call, ops } = result;
   const candidates = result.candidates.filter((c) => c.scope === "user" || cwd);
+  const applied = new Map<Candidate, string>();
+  if (options.write && !call.error) await writeCandidates();
+  async function writeCandidates(): Promise<void> {
+    const norm = (t: string) => t.replace(/\s+/g, " ").trim().toLowerCase();
+    const noticed: { scope: "user" | "project"; entry: MemoryEntry }[] = [];
+    for (const c of candidates) {
+      if (c.verdict !== "ok") continue;
+      const message = selected.find((m) => norm(m.text).includes(norm(c.quote)))?.id;
+      const scopeCwd = c.scope === "project" ? cwd! : workspace;
+      const result = store.add(c.scope, scopeCwd, {
+        text: c.text,
+        quote: c.quote,
+        ...(id ? { session: id } : {}),
+        ...(message ? { message } : {}),
+        origin: "auto",
+        kind: c.kind,
+        replace: c.op === "supersede",
+      });
+      if (result.ok) {
+        applied.set(c, result.replaced ? "replaced" : "added");
+        if (result.replaced) {
+          await options.note?.(
+            MEMORY_CARD.updated,
+            MEMORY_TEXT.updated(result.replaced.text, result.entry.text),
+            { ...updatedDetails(result.opId, c.scope, result.replaced, result.entry) },
+          );
+        } else noticed.push({ scope: c.scope, entry: result.entry });
+      } else applied.set(c, result.reason === "duplicate" ? "reinforced" : result.reason);
+    }
+    if (noticed.length)
+      await options.note?.(
+        MEMORY_CARD.auto,
+        noticed.length === 1
+          ? MEMORY_TEXT.noticed(noticed[0]!.entry.text)
+          : MEMORY_TEXT.noticedMany(noticed.length),
+        { ...autoDetails(noticed) },
+      );
+  }
   if (candidates.length) {
     store.recordCandidates(
       candidates.map((c) => ({
@@ -389,6 +436,7 @@ export async function runExtractorShadow(options: {
         quote: c.quote,
         verdict: c.verdict,
         ...(c.target ? { target: c.target } : {}),
+        ...(applied.has(c) ? { applied: applied.get(c) } : {}),
       })),
     );
   }
@@ -405,6 +453,9 @@ export async function runExtractorShadow(options: {
     signals: selected.length,
     ops: ops?.length ?? 0,
     accepted: candidates.filter((c) => c.verdict === "ok").length,
+    ...(options.write
+      ? { written: [...applied.values()].filter((v) => v === "added" || v === "replaced").length }
+      : {}),
     ...(call.error ? { error: call.error } : {}),
   });
 }
@@ -425,19 +476,20 @@ function sessionFiles(dir: string): { path: string; mtime: number }[] {
   }
 }
 
-export type ExtractorMode = "probe" | "shadow" | "off";
+export type ExtractorMode = "probe" | "shadow" | "write" | "off";
 
 /**
- * PRSLOY_MEMORY_EXTRACTOR wins (probe / shadow / off, owner and developer builds); otherwise
- * memory on with `autoMemory` "shadow" or true → shadow. `true` writes nothing yet: writing is
- * M-3b, until then it is the shadow too.
+ * PRSLOY_MEMORY_EXTRACTOR wins (probe / shadow / write / off, owner and developer builds);
+ * otherwise memory on with `autoMemory` "shadow" → shadow, `true` → write (M-3b: accepted
+ * candidates go into the memory with a card in the open chat).
  */
 export function extractorMode(
   env: string | undefined,
   flags: { memory: boolean; autoMemory: "off" | "shadow" | true },
 ): ExtractorMode {
-  if (env === "probe" || env === "shadow" || env === "off") return env;
-  return flags.memory && flags.autoMemory !== "off" ? "shadow" : "off";
+  if (env === "probe" || env === "shadow" || env === "write" || env === "off") return env;
+  if (!flags.memory || flags.autoMemory === "off") return "off";
+  return flags.autoMemory === true ? "write" : "shadow";
 }
 
 /**
@@ -456,6 +508,8 @@ export function installMemoryExtractor(options: {
   /** Model override (tests). */
   model?: string | undefined;
   onRun?: (run: ExtractorRun) => void;
+  /** Cards in the open chat (write mode). */
+  note?: (customType: string, text: string, details: Record<string, unknown>) => Promise<void>;
   /** Catch-up at start (shadow): delay, how many; `false` — none. */
   catchUp?: { delayMs: number; max: number; quietMs?: number } | false;
 }): { stop(): void; idle(): Promise<void> } {
@@ -488,7 +542,13 @@ export function installMemoryExtractor(options: {
         const run =
           mode === "probe"
             ? await runExtractorProbe({ ...common, journalDir: memoryDirFor(options.agentDir) })
-            : await runExtractorShadow({ ...common, agentDir: options.agentDir, learningDir });
+            : await runExtractorShadow({
+                ...common,
+                agentDir: options.agentDir,
+                learningDir,
+                write: mode === "write",
+                ...(options.note ? { note: options.note } : {}),
+              });
         options.onRun?.(run);
       } catch (error) {
         console.warn("[prsloy] memory extractor failed:", error);
@@ -502,7 +562,8 @@ export function installMemoryExtractor(options: {
   const catchUp = options.catchUp ?? { delayMs: 30_000, max: 2 };
   if (catchUp) {
     timer = setTimeout(() => {
-      if (options.mode() !== "shadow") return;
+      const mode = options.mode();
+      if (mode !== "shadow" && mode !== "write") return;
       const quiet = catchUp.quietMs ?? 60_000;
       let n = 0;
       for (const file of sessionFiles(join(options.agentDir, "sessions"))) {

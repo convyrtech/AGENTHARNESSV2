@@ -46,7 +46,11 @@ export type PrsloyIpcDeps = {
   needsWorkspace(): boolean;
   isAgentBusy(): boolean;
   /** Tell the model (next turn) what an undo changed; best effort. */
-  appendSessionNote?(customType: string, text: string): Promise<void>;
+  appendSessionNote?(
+    customType: string,
+    text: string,
+    details?: Record<string, unknown>,
+  ): Promise<void>;
   /** models.json changed (the gateway's model list): the host reloads its catalog. */
   onModelsChanged?(): Promise<void>;
   /** Startup + hourly `/v1/models` refresh; off in unit tests that don't want it. */
@@ -141,7 +145,8 @@ export function registerPrsloyIpc(rawIpcMain: IpcMainLike, deps: PrsloyIpcDeps):
   registerPrsloyMemoryIpc(ipcMain, {
     agentDir: ctx.agentDir,
     getWorkspace: () => deps.getWorkspace(),
-    appendSessionNote: async (customType, text) => deps.appendSessionNote?.(customType, text),
+    appendSessionNote: async (customType, text, details) =>
+      deps.appendSessionNote?.(customType, text, details),
   });
 
   // M-sp: memory extractor outside the turn, after the user leaves a chat (off by default).
@@ -159,6 +164,7 @@ export function registerPrsloyIpc(rawIpcMain: IpcMainLike, deps: PrsloyIpcDeps):
     availableModels: () => ctx.availableModels(),
     fetch: deps.fetch,
     model: process.env.PRSLOY_MEMORY_EXTRACTOR_MODEL,
+    note: async (customType, text, details) => deps.appendSessionNote?.(customType, text, details),
   });
 
   if (deps.refreshModels !== false) {
