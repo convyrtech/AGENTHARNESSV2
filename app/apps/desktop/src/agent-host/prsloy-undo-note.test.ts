@@ -71,7 +71,7 @@ describe("undo note reaches the model", () => {
       typeof m.content === "string" ? m.content : JSON.stringify(m.content),
     );
     const noteIndex = texts.findIndex(
-      (t) => t.includes("Файлы хода 1 откатены") && t.includes("hello.py"),
+      (t) => t.includes("Файлы хода 1 откачены") && t.includes("hello.py"),
     );
     const promptIndex = texts.findIndex((t) => t.includes("что дальше?"));
     expect(noteIndex).toBeGreaterThan(0);
