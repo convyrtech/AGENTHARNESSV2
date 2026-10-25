@@ -1,6 +1,50 @@
+diff --git a/tools/_common.py b/tools/_common.py
+index 877f66e..ebd729c 100644
+--- a/tools/_common.py
++++ b/tools/_common.py
+@@ -40,10 +40,23 @@ def verdict_from_exit(code):
+     return {0: PASS, 1: FAIL, 2: CONCERNS}.get(code, FAIL)
+ 
+ 
++def chromium_only():
++    """DP_CHROMIUM_ONLY=1: no WebKit on this machine (Windows app); "both" means Chromium, webkit runs on Chromium."""
++    return os.environ.get("DP_CHROMIUM_ONLY", "") not in ("", "0")
++
++
++def launch(pw, engine):
++    """Launch a Playwright browser. DP_BROWSER_CHANNEL (e.g. msedge) picks an installed browser for Chromium."""
++    if engine == "webkit" and chromium_only():
++        engine = "chromium"
++    channel = os.environ.get("DP_BROWSER_CHANNEL") if engine == "chromium" else None
++    return getattr(pw, engine).launch(**({"channel": channel} if channel else {}))
++
++
+ def engines_from_arg(value):
+     value = (value or "both").strip().lower()
+     if value == "both":
+-        return ["chromium", "webkit"]
++        return ["chromium"] if chromium_only() else ["chromium", "webkit"]
+     out = [e.strip() for e in value.split(",") if e.strip()]
+     for e in out:
+         if e not in ("chromium", "webkit"):
+diff --git a/tools/compare_sheet.py b/tools/compare_sheet.py
+index 400dc78..66703ea 100644
+--- a/tools/compare_sheet.py
++++ b/tools/compare_sheet.py
+@@ -86,7 +86,7 @@ def main():
+     blocks, meta = [], []
+     try:
+         with sync_playwright() as p:
+-            b = getattr(p, a.engine).launch()
++            b = C.launch(p, a.engine)
+             try:
+                 for i, t in enumerate(a.variant):
+                     extra = {}
+diff --git a/tools/flow.py b/tools/flow.py
+index a8a5a8d..c01564e 100644
 --- a/tools/flow.py
 +++ b/tools/flow.py
-@@ -476,10 +476,26 @@
+@@ -476,10 +476,26 @@ def channel_messages(path, voice_dir=None):
  
  def born(path):
      """When the artifact first appeared on disk: creation time where the OS keeps it, else mtime."""
@@ -29,7 +73,7 @@
      return dt.datetime.fromtimestamp(t, dt.timezone.utc)
  
  
-@@ -588,6 +604,11 @@
+@@ -588,6 +604,11 @@ class Page:
                             voice_dir=self.root / voice if meaningful(voice) and not is_none(voice) else None)
          self.unverified = []
          update_baseline(self)
@@ -41,7 +85,7 @@
  
      def f(self, name):
          return self.fields.get(name, "")
-@@ -779,6 +800,10 @@
+@@ -779,6 +800,10 @@ def g1(p):
      if t is None:
          return pr + ["нет 01-teardown.md"], hint
      wow = [rows for head, rows in tables(t) if any("вау" in h.lower() for h in head)]
@@ -52,7 +96,17 @@
      rows = [r for rows in wow for r in rows if any(re.search(r"берём|берем|нет", c, re.I) for c in r)]
      if len(rows) < 3:
          pr.append(f"в таблице «что даёт вау» строк с решением «берём/нет» {len(rows)}, нужно ≥ 3")
-@@ -1201,7 +1226,7 @@
+@@ -1047,7 +1072,8 @@ def g7(p):
+         miss = {360, 390, 1440} - set(v.get("viewports", []))
+         if miss:
+             pr.append(f"гейт без ширин {sorted(miss)}")
+-        if {"chromium", "webkit"} - set(v.get("engines", [])):
++        need = {"chromium"} if os.environ.get("DP_CHROMIUM_ONLY", "") not in ("", "0") else {"chromium", "webkit"}
++        if need - set(v.get("engines", [])):
+             pr.append("гейт не в обоих движках (Chromium и WebKit)")
+     else:
+         pr.append("нет artifacts/visual-gate/report.json")
+@@ -1201,7 +1227,7 @@ def init_page(page_dir):
      return made
  
  
@@ -61,3 +115,82 @@
  MEANING_LINK = re.compile(r"/(MESSAGE|FACTS)\.md([?#]\S*)?$", re.I)   # step 2a: the meaning itself, not the built page
  OPTION = re.compile(r"^\s*[-*]?\s*[А-ЯA-Z][.)]\s+\S")
  MATERIALS = re.compile(r"^\s*[-*]?\s*(пришлите|пришлёте|пришлете|скиньте|отправьте|если есть)\b", re.I)
+diff --git a/tools/motion_probe.py b/tools/motion_probe.py
+index d766c8b..91449bd 100644
+--- a/tools/motion_probe.py
++++ b/tools/motion_probe.py
+@@ -96,7 +96,8 @@ def run(url, trigger, selector, out, viewport):
+     report = {"url": url, "trigger": trigger, "selector": selector, "viewport": viewport,
+               "thresholds": THRESHOLDS, "checks": [], "shots": []}
+     with sync_playwright() as p:
+-        b = p.chromium.launch()
++        ch = os.environ.get("DP_BROWSER_CHANNEL")
++        b = p.chromium.launch(**({"channel": ch} if ch else {}))
+ 
+         # ---------- main pass ----------
+         ctx = b.new_context(viewport=viewport, device_scale_factor=1)
+diff --git a/tools/page_judge.py b/tools/page_judge.py
+index 093522d..4cb444c 100644
+--- a/tools/page_judge.py
++++ b/tools/page_judge.py
+@@ -138,7 +138,7 @@ class Api:
+ 
+ class Browser:
+     def __init__(self, p, url):
+-        self.b = p.webkit.launch()
++        self.b = C.launch(p, "webkit")
+         self.url = url
+         self.ctxs, self.pg, self.errs, self.device = {}, None, [], None
+ 
+diff --git a/tools/slop_lint.py b/tools/slop_lint.py
+index 6840f41..17c6ea6 100644
+--- a/tools/slop_lint.py
++++ b/tools/slop_lint.py
+@@ -274,7 +274,7 @@ def lint(items, lang="", beginner=False, plan_promises=(), source_text="", block
+ def collect_url(url, engine, timeout):
+     from playwright.sync_api import sync_playwright
+     with sync_playwright() as p:
+-        b = getattr(p, engine).launch()
++        b = C.launch(p, engine)
+         pg = b.new_page(viewport={"width": 1440, "height": 900})
+         try:
+             C.goto(pg, url, timeout, 600)
+diff --git a/tools/storyboard.py b/tools/storyboard.py
+index eb5857a..636b5a3 100644
+--- a/tools/storyboard.py
++++ b/tools/storyboard.py
+@@ -93,7 +93,7 @@ def main():
+               "action": args.action, "mode": "realtime" if args.realtime else "deterministic",
+               "at": ts, "generatedAt": C.now_iso(), "frames": []}
+     with sync_playwright() as p:
+-        b = getattr(p, args.engine).launch()
++        b = C.launch(p, args.engine)
+         ctx = b.new_context(viewport={"width": w, "height": h}, device_scale_factor=1)
+         page = ctx.new_page()
+         try:
+diff --git a/tools/text_diff.py b/tools/text_diff.py
+index b84c0c5..789d421 100644
+--- a/tools/text_diff.py
++++ b/tools/text_diff.py
+@@ -115,7 +115,7 @@ def compare(page_text, source_text, allow=(), max_extra=0):
+ def page_text(url, selector, engine, timeout):
+     from playwright.sync_api import sync_playwright
+     with sync_playwright() as p:
+-        b = getattr(p, engine).launch()
++        b = C.launch(p, engine)
+         pg = b.new_page(viewport={"width": 1440, "height": 900})
+         try:
+             C.goto(pg, url, timeout, 600)
+diff --git a/tools/visual_gate.py b/tools/visual_gate.py
+index 972c0e1..4eef26c 100644
+--- a/tools/visual_gate.py
++++ b/tools/visual_gate.py
+@@ -608,7 +608,7 @@ def main():
+     with sync_playwright() as p:
+         for eng in engines:
+             try:
+-                browser = getattr(p, eng).launch()
++                browser = C.launch(p, eng)
+             except Exception as e:
+                 runs.append({"engine": eng, "viewport": None,
+                              "checks": {"G2": {"status": C.FAIL, "why": "браузер не запустился", "error": str(e)[:300]}}})
