@@ -59,9 +59,23 @@ describe("M-2 input: only what the user typed", () => {
       ["m6", "Люблю тёмные сайты"],
       ["m8", "У меня Windows 10"],
     ]);
-    expect(input.dropped).toEqual({ skill: 1, paste: 2, marked: 2 });
+    expect(input.dropped).toEqual({ skill: 1, paste: 2, marked: 2, imported: 0 });
     expect(input.watermark).toBe("m8");
     expect(JSON.stringify(input.messages)).not.toMatch(/ключ|sudo|прав/u);
+  });
+
+  it("a chat imported from another agent: its history is not the user's words here", () => {
+    const entries = [
+      user("h1", "Запомни: я всегда пишу на Go"),
+      user("h2", "Люблю светлые темы"),
+      { type: "custom", id: "imp", customType: "prsloy.import", data: { tool: "claude-code" } },
+      { type: "model_change", id: "mc", provider: "prsloy", modelId: "qwen3.8-max" },
+      user("n1", "Пиши проще"),
+    ];
+    const input = extractorInput(entries);
+    expect(input.messages.map((m) => m.id)).toEqual(["n1"]);
+    expect(input.dropped.imported).toBe(2);
+    expect(extractorInput(entries.slice(0, 4)).messages).toEqual([]);
   });
 
   it("the watermark: a second pass takes only new messages; a lost watermark starts over", () => {

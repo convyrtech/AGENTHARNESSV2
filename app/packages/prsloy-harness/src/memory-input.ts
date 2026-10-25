@@ -6,6 +6,7 @@
 // - сообщения с меткой интерфейса «из кнопки» / «вставлено», если пользователь их не правил: запись
 //   `{type:"custom", customType: INPUT_SOURCE_TYPE, data:{source, edited}}` прямо перед сообщением
 //   (`pi.appendEntry`, модель её не видит).
+// - история чата, перенесённого из другого агента (до записи IMPORT_ENTRY_TYPE).
 // Водяной знак — id последнего обработанного сообщения: второй проход по той же сессии берёт только новое.
 
 /** Метка источника сообщения, которую ставит интерфейс (контракт для ui / features). */
@@ -17,6 +18,12 @@ export interface InputSource {
   /** Пользователь поправил текст из кнопки или вставки перед отправкой. */
   edited?: boolean;
 }
+
+/**
+ * Чат, перенесённый из другого агента (#22, packages/session-import): запись в конце скопированной истории.
+ * Всё, что до неё, пользователь писал не здесь и не сейчас — в экстрактор не идёт; после — как обычно.
+ */
+export const IMPORT_ENTRY_TYPE = "prsloy.import";
 
 /** Длиннее — вставка, а не напечатанное. */
 export const PASTE_CHARS = 600;
@@ -34,7 +41,7 @@ export interface ExtractorInput {
   /** id последнего сообщения пользователя в сессии (новый водяной знак), даже если оно отброшено. */
   watermark?: string;
   /** Сколько отброшено и почему — в отчёт и журнал. */
-  dropped: { skill: number; paste: number; marked: number };
+  dropped: { skill: number; paste: number; marked: number; imported: number };
 }
 
 interface RawEntry {
@@ -88,12 +95,17 @@ export function extractorInput(
   undos: readonly string[] = [],
 ): ExtractorInput {
   const messages: UserMessage[] = [];
-  const dropped = { skill: 0, paste: 0, marked: 0 };
+  const dropped = { skill: 0, paste: 0, marked: 0, imported: 0 };
   let after = watermark === undefined;
   let last: string | undefined;
   let source: InputSource | undefined;
   for (const raw of entries) {
     const e = raw as RawEntry;
+    if (e.type === "custom" && e.customType === IMPORT_ENTRY_TYPE) {
+      dropped.imported += messages.length;
+      messages.length = 0;
+      continue;
+    }
     if (e.type === "custom" && e.customType === INPUT_SOURCE_TYPE) {
       source = e.data as InputSource;
       continue;
