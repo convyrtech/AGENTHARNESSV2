@@ -33,14 +33,22 @@ const HISTORICAL = new RegExp(
  * («ERROR 2002», «ошибка 2003», «port 2020»). Слово перед годом — из этого списка.
  */
 const NAME_BEFORE =
-  /^(windows|server|studio|office|excel|word|outlook|exchange|sql|sharepoint|project|visio|access|dynamics|autocad|revit|3ds|photoshop|illustrator|premiere|lightroom|cc|ce|edition|error|errno|err|code|код|ошибка|ошибки|exit|status|статус|port|порт|ГОСТ|gost|iso|rfc|stage|build|сборка|version|версия)$/i;
+  /^(windows|server|studio|office|excel|word|outlook|exchange|sql|sharepoint|project|visio|access|dynamics|autocad|revit|3ds|photoshop|illustrator|premiere|lightroom|cc|ce|edition|error|errno|err|code|код|ошибка|ошибки|exit|status|статус|port|порт|ГОСТ|gost|iso|rfc|stage|build|сборка|version|версия|mysql|mariadb|postgres|postgresql|oracle|mssql|intellij|idea|pycharm|webstorm|phpstorm|rider|clion|goland|datagrip|rubymine|unity|unreal|delphi|xcode|sap|1с|1c|ue)$/i;
 
-/** Год отдельным словом: перед ним начало, пробел или скобка, после — конец, пробел или знак препинания. */
-const YEAR = new RegExp(`(^|[\\s(«"])(${Y})(?=$|[\\s),.;:!?»"])`, "g");
+/** Запрос про ошибку или соединение: числа в нём — коды («mysql 2002 socket»), годы не трогаем. */
+const CODE_CONTEXT =
+  /\b\w*(Error|Exception)\b|\b(error|errno|socket|connect|connection|refused|timeout|failed|exit code|status code|port)\b|ошибк|не удаётся|не удается|соединени|сокет/i;
+
+/**
+ * Год отдельным словом: перед ним начало, пробел или скобка, после — конец, пробел или знак препинания. Точка с
+ * цифрой после — это версия («IntelliJ IDEA 2024.2», «Unity 2022.3»), не год.
+ */
+const YEAR = new RegExp(`(^|[\\s(«"])(${Y})(?=$|[\\s),;:!?»"]|\\.(?!\\d))`, "g");
 
 export function guardQuery(query: string, today: Date = new Date()): GuardedQuery {
   const year = today.getUTCFullYear();
-  if (HISTORICAL.test(query)) return { query: query.trim(), removed: [] };
+  if (HISTORICAL.test(query) || CODE_CONTEXT.test(query))
+    return { query: query.trim(), removed: [] };
   const removed: number[] = [];
   const next = query
     .replace(YEAR, (m, pre: string, y: string, at: number) => {

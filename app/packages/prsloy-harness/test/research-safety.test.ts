@@ -546,3 +546,18 @@ describe("follow-ups after the merge (review #23, round 2)", () => {
     expect(htmlToText("<script>a</scripts>b</script><p>ok</p>").text).toBe("ok");
   });
 });
+
+describe("the year guard leaves versions and codes alone (review #23, round 2)", () => {
+  const TODAY = new Date("2026-10-25T12:00:00Z");
+  it("YYYY.N is a version; product and error words keep their numbers", () => {
+    for (const q of [
+      "IntelliJ IDEA 2024.2 release notes",
+      "Unity 2022.3 LTS",
+      "PyCharm 2024.3 debugger",
+      "mysql 2002 socket",
+      "Can't connect, code 2003",
+    ])
+      expect(guardQuery(q, TODAY), q).toEqual({ query: q, removed: [] });
+    expect(guardQuery("лучшие ноутбуки 2024.", TODAY).removed).toEqual([2024]);
+  });
+});
