@@ -24,6 +24,7 @@ const handlers = new Map<string, Handler>();
 const sent: { channel: string; payload: unknown }[] = [];
 let protocolHandler: ((req: Request) => Promise<Response>) | undefined;
 let pickedPaths: string[] = [];
+let savePath: string | undefined;
 const quitHooks: (() => void)[] = [];
 
 vi.mock("electron", () => ({
@@ -32,7 +33,10 @@ vi.mock("electron", () => ({
   protocol: {
     handle: (_s: string, fn: (req: Request) => Promise<Response>) => (protocolHandler = fn),
   },
-  dialog: { showOpenDialog: async () => ({ canceled: false, filePaths: pickedPaths }) },
+  dialog: {
+    showOpenDialog: async () => ({ canceled: false, filePaths: pickedPaths }),
+    showSaveDialog: async () => ({ canceled: savePath === undefined, filePath: savePath }),
+  },
   shell: { openPath: async () => "" },
 }));
 
@@ -125,9 +129,16 @@ describe.skipIf(!python3 || process.platform === "win32")("design IPC", () => {
 
   it("registers only the design channels and refuses untrusted senders", () => {
     expect([...handlers.keys()].sort()).toEqual(
-      ["cancel", "open-folder", "pick-files", "preview", "say", "setup", "status"].map(
-        (c) => `prsloy:design:${c}`,
-      ),
+      [
+        "cancel",
+        "export-zip",
+        "open-folder",
+        "pick-files",
+        "preview",
+        "say",
+        "setup",
+        "status",
+      ].map((c) => `prsloy:design:${c}`),
     );
     expect(() => handlers.get("prsloy:design:status")!({ senderFrame: null }, project)).toThrow(
       "untrusted sender",
@@ -220,6 +231,15 @@ describe.skipIf(!python3 || process.platform === "win32")("design IPC", () => {
     expect(preview.url).toMatch(/^http:\/\/127\.0\.0\.1:\d+\/landing\/$/);
     const html = await (await fetch(preview.url)).text();
     expect(html).toContain("Зерно");
+
+    savePath = undefined;
+    expect(await call("prsloy:design:export-zip", project)).toBeNull();
+    savePath = join(root, "Загрузки", "сайт.zip");
+    mkdirSync(join(root, "Загрузки"));
+    expect(await call("prsloy:design:export-zip", project)).toEqual({ path: savePath });
+    const zip = readFileSync(savePath);
+    expect(zip.readUInt32LE(0)).toBe(0x04034b50);
+    expect(zip.includes(Buffer.from("site/landing/index.html"))).toBe(true);
   });
 
   it("app quit stops the proxy it started", async () => {

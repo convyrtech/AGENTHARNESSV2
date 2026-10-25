@@ -46,4 +46,6 @@ export const designRu: Record<keyof typeof designZh, string> = {
   "design.device.desktop": "Компьютер",
   "design.device.phone": "Телефон",
   "design.unavailable": "Дизайн-инструменты появятся в следующей версии",
+  "design.downloadZip": "Скачать архив",
+  "design.zipSaved": "Архив сохранён",
 };

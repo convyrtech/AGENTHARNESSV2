@@ -119,6 +119,7 @@ const api: ZenoDesktopApi = {
     pickFiles: () => ipcRenderer.invoke("prsloy:design:pick-files"),
     preview: (projectPath) => ipcRenderer.invoke("prsloy:design:preview", projectPath),
     openFolder: (projectPath) => ipcRenderer.invoke("prsloy:design:open-folder", projectPath),
+    exportZip: (projectPath) => ipcRenderer.invoke("prsloy:design:export-zip", projectPath),
     onEvent(listener) {
       const handler = (_event: Electron.IpcRendererEvent, message: DesignEventMessage) =>
         listener(message);

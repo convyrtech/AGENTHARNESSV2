@@ -8,7 +8,15 @@
 import { expect, test, type Page } from "@playwright/test";
 import { _electron as electron, type ElectronApplication } from "playwright";
 import { execFileSync } from "node:child_process";
-import { copyFileSync, cpSync, mkdirSync, mkdtempSync, symlinkSync } from "node:fs";
+import {
+  copyFileSync,
+  cpSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  symlinkSync,
+} from "node:fs";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -150,20 +158,29 @@ test("owner leads a landing page from request to preview", async () => {
   try {
     const logo = join(root, "logo.png");
     copyFileSync(join(FIXTURE, "fixtures", "logo.png"), logo);
-    await app.evaluate(({ dialog, shell }, picked) => {
-      const g = globalThis as typeof globalThis & { __opened?: string };
-      Object.defineProperty(dialog, "showOpenDialog", {
-        configurable: true,
-        value: async () => ({ canceled: false, filePaths: [picked] }),
-      });
-      Object.defineProperty(shell, "openPath", {
-        configurable: true,
-        value: async (p: string) => {
-          g.__opened = p;
-          return "";
-        },
-      });
-    }, logo);
+    const zipPath = join(root, "Загрузки", "сайт.zip");
+    mkdirSync(join(root, "Загрузки"));
+    await app.evaluate(
+      ({ dialog, shell }, { picked, zip }) => {
+        const g = globalThis as typeof globalThis & { __opened?: string };
+        Object.defineProperty(dialog, "showOpenDialog", {
+          configurable: true,
+          value: async () => ({ canceled: false, filePaths: [picked] }),
+        });
+        Object.defineProperty(dialog, "showSaveDialog", {
+          configurable: true,
+          value: async () => ({ canceled: false, filePath: zip }),
+        });
+        Object.defineProperty(shell, "openPath", {
+          configurable: true,
+          value: async (p: string) => {
+            g.__opened = p;
+            return "";
+          },
+        });
+      },
+      { picked: logo, zip: zipPath },
+    );
 
     await page.getByTestId("nav-design").click();
     await expect(page.getByTestId("design-empty")).toBeVisible();
@@ -244,6 +261,12 @@ test("owner leads a landing page from request to preview", async () => {
       .toBeLessThanOrEqual(390);
     await shot(page, "done-phone", 400);
     await page.getByTestId("design-device-desktop").click();
+    // «Скачать архив»: site/ as a zip where the owner saved it
+    await page.getByTestId("design-download-zip").click();
+    await expect.poll(() => existsSync(zipPath)).toBe(true);
+    const zip = readFileSync(zipPath);
+    expect(zip.readUInt32LE(0)).toBe(0x04034b50);
+    expect(zip.includes(Buffer.from("site/landing/index.html"))).toBe(true);
     // no project is open in this run (auto-resume is off): the workspace is Documents/PRSLOY
     const documents = await app.evaluate(({ app: a }) => a.getPath("documents"));
     await page.getByTestId("design-open-folder").click();

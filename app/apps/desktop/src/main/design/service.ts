@@ -24,6 +24,7 @@ import {
   statSync,
   writeFileSync,
 } from "node:fs";
+import { homedir } from "node:os";
 import { basename, dirname, join } from "node:path";
 import { Readable } from "node:stream";
 import {
@@ -56,6 +57,7 @@ import {
 } from "./paths.ts";
 import { findEntry, type PreviewServer, startPreviewServer } from "./preview-server.ts";
 import { killTree, killTreeNow, treeSpawnOptions } from "./proc.ts";
+import { listFiles, zipDirectory } from "./zip.ts";
 import { DESIGN_DISK_MB, DESIGN_SETUP_MB, setupDesignTools, toolsReady } from "./setup.ts";
 
 export type DesignGateway = { baseUrl: string; apiKey: string };
@@ -468,6 +470,29 @@ export class DesignService {
     return { url: server.url + entry };
   }
 
+  /** «Скачать архив»: site/ as a zip wherever the owner saves it (Downloads by default). */
+  async exportZip(projectPath: string | undefined): Promise<{ path: string } | null> {
+    const ws = this.workspace(projectPath);
+    const site = join(ws, "site");
+    if (!existsSync(site) || listFiles(site).length === 0) return null;
+    let downloads = homedir();
+    try {
+      downloads = app.getPath("downloads");
+    } catch {
+      // no downloads folder known: home
+    }
+    const name = `${basename(dirname(ws))}-site.zip`.replace(/[\\/:*?"<>|]+/g, "-");
+    const win = this.#deps.getWindow();
+    const opts = {
+      defaultPath: join(downloads, name),
+      filters: [{ name: "ZIP", extensions: ["zip"] }],
+    };
+    const res = win ? await dialog.showSaveDialog(win, opts) : await dialog.showSaveDialog(opts);
+    if (res.canceled || !res.filePath) return null;
+    writeFileSync(res.filePath, zipDirectory(site, "site"));
+    return { path: res.filePath };
+  }
+
   async openFolder(projectPath: string | undefined): Promise<void> {
     const ws = this.workspace(projectPath);
     const site = join(ws, "site");
@@ -579,6 +604,10 @@ export function registerDesignIpc(deps: DesignServiceDeps): DesignService {
   ipcMain.handle(
     "prsloy:design:open-folder",
     guard((p: unknown) => svc.openFolder(projectArg(p))),
+  );
+  ipcMain.handle(
+    "prsloy:design:export-zip",
+    guard((p: unknown) => svc.exportZip(projectArg(p))),
   );
   // index.ts quits through before-quit → app.exit(), which never emits will-quit.
   app.on("before-quit", () => svc.dispose());

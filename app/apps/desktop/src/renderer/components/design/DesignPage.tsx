@@ -9,7 +9,17 @@ import type {
   DesignSetupProgress,
   DesignStatus,
 } from "@zeno/contracts";
-import { FolderOpen, Loader2, Paperclip, RotateCcw, Send, Square, X } from "lucide-react";
+import {
+  Check,
+  Download,
+  FolderOpen,
+  Loader2,
+  Paperclip,
+  RotateCcw,
+  Send,
+  Square,
+  X,
+} from "lucide-react";
 import { ImagePreviewDialog } from "../ContentPreviewDialog.tsx";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { unwrapRemoteIpcError } from "../../../shared/ipc-error.ts";
@@ -612,6 +622,7 @@ function DoneCard({ projectPath, tr }: { projectPath: string | undefined; tr: Tr
     };
   }, [api, projectPath]);
   const [device, setDevice] = useState<"desktop" | "phone">("desktop");
+  const [saved, setSaved] = useState(false);
   const frame = useMemo(
     () =>
       url ? (
@@ -664,6 +675,20 @@ function DoneCard({ projectPath, tr }: { projectPath: string | undefined; tr: Tr
           >
             <FolderOpen />
             {tr("design.openFolder")}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            data-testid="design-download-zip"
+            onClick={() =>
+              void api
+                .exportZip(projectPath)
+                .then((r) => setSaved(!!r))
+                .catch(() => setSaved(false))
+            }
+          >
+            {saved ? <Check /> : <Download />}
+            {tr(saved ? "design.zipSaved" : "design.downloadZip")}
           </Button>
         </div>
       </div>
