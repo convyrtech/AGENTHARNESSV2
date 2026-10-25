@@ -20,7 +20,7 @@ describe("a memory card in a chat that is never saved", () => {
       },
       { exists: (f) => saved.has(f), delayMs: 5 },
     );
-    stop = carry.stop;
+    stop = () => carry.stop();
     const go = (file: string) => {
       chat = file;
       trackSessionFile(file);
