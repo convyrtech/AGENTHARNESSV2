@@ -5019,13 +5019,10 @@ void app
 
     await createWindow();
     logStartupTiming("window");
-    // After the window: first-launch unpack of Node/Python, then the pi CLI copy out of asar
-    // (a synchronous copy; doing it first held the key screen back by seconds).
-    void runtimeBoot
-      .startBackground()
-      .then(() => logStartupTiming("runtimes"))
-      .then(() => ensurePiCliExtracted())
-      .then(() => logStartupTiming("piCli"));
+    // After the window: first-launch unpack of Node/Python. The pi CLI copy out of asar is
+    // not done at startup: only the TUI and «Дизайн» need it and ask for it on first use
+    // (on Windows it takes 10+ s and slowed the host start of a fresh install).
+    void runtimeBoot.startBackground().then(() => logStartupTiming("runtimes"));
     const bootPetPrefs = loadDesktopPrefs().pet ?? PET_PREFS_FALLBACK;
     if (bootPetPrefs.enabled && bootPetPrefs.visible) void createPetWindow();
 
