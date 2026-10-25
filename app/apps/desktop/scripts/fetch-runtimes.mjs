@@ -678,6 +678,9 @@ export function prunePythonRuntime(pythonRoot) {
       rmSync(path, { recursive: true, force: true });
       removed += 1;
     }
+    // Bytecode caches ship with the distribution too (~560 .pyc, ~4 MB of the installer);
+    // Python rebuilds them on first use in the writable userData runtimes.
+    removed += removePycaches(pythonRoot);
     return removed;
   }
   const drop = [
