@@ -64,6 +64,9 @@ describe("private places: reading is refused", () => {
       join(agentDir, "auth.json"),
       join(agentDir, "sessions", "chat.jsonl"),
       join(userData, "prsloy-memory", "notes.md"),
+      // The harness's memory files (S4) live in the agent folder.
+      join(agentDir, "prsloy-memory", "user.json"),
+      join(agentDir, "prsloy-memory", "projects", "0123456789abcdef", "project.json"),
       join(userData, "prsloy", "state.json"),
     ];
     for (const path of blocked) {

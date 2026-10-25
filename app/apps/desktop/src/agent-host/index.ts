@@ -83,6 +83,9 @@ if (prsloyHandoff.gatewayKey) {
   });
 }
 
+/** session.note types the model reads but the timeline doesn't show. */
+const HIDDEN_NOTE_TYPES = new Set(["prsloy-memory.forgot"]);
+
 const providerOAuth = new ProviderOAuthCoordinator(post);
 const testOAuthProviders = new Set<string>();
 
@@ -669,9 +672,14 @@ async function handleCommand(command: HostCommand): Promise<void> {
       }
       case "session.note": {
         if (!handle) throw new Error("Agent Host is not ready");
-        // Idle: appended to the session now; the model reads it on its next turn.
+        // Idle: appended to the session now; the model reads it on its next turn. Memory's
+        // «забыть» note is for the model only (the panel already said «Забыл»).
         await handle.runtime.session.sendCustomMessage(
-          { customType: command.customType, content: command.text, display: true },
+          {
+            customType: command.customType,
+            content: command.text,
+            display: !HIDDEN_NOTE_TYPES.has(command.customType),
+          },
           { triggerTurn: false },
         );
         post({

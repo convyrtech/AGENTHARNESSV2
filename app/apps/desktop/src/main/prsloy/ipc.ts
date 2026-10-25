@@ -14,6 +14,7 @@ import type { PrsloyContext } from "./context.ts";
 import { checkPrsloyKey, type FetchLike } from "./gateway-check.ts";
 import { maskKey } from "./key-store.ts";
 import { recordTurnUndo } from "./learning-undo.ts";
+import { registerPrsloyMemoryIpc } from "./memory-ipc.ts";
 import { startPrsloyModelRefresh } from "./model-list.ts";
 import type { TurnRecord } from "./turn-snapshots.ts";
 
@@ -47,6 +48,8 @@ export type PrsloyIpcDeps = {
   onModelsChanged?(): Promise<void>;
   /** Startup + hourly `/v1/models` refresh; off in unit tests that don't want it. */
   refreshModels?: boolean;
+  /** Only the main window's top frame may call these (as the other IPC in main/index.ts). */
+  isTrustedSender?(event: unknown): boolean;
 };
 
 export const UNDO_NOTE_CUSTOM_TYPE = "prsloy.undo";
@@ -107,11 +110,27 @@ function toSnapshotView(record: TurnRecord): PrsloyTurnSnapshot {
   };
 }
 
-export function registerPrsloyIpc(ipcMain: IpcMainLike, deps: PrsloyIpcDeps): void {
+export function registerPrsloyIpc(rawIpcMain: IpcMainLike, deps: PrsloyIpcDeps): void {
   const { ctx } = deps;
+  const ipcMain: IpcMainLike = {
+    handle(channel, listener) {
+      rawIpcMain.handle(channel, (event, ...args) => {
+        if (deps.isTrustedSender && !deps.isTrustedSender(event)) {
+          throw new Error("Untrusted IPC sender");
+        }
+        return listener(event, ...args);
+      });
+    },
+  };
   const state = () => buildPrsloyState(ctx, deps.needsWorkspace());
 
   ipcMain.handle(PRSLOY_IPC.getState, () => state());
+
+  registerPrsloyMemoryIpc(ipcMain, {
+    agentDir: ctx.agentDir,
+    getWorkspace: () => deps.getWorkspace(),
+    appendSessionNote: async (customType, text) => deps.appendSessionNote?.(customType, text),
+  });
 
   if (deps.refreshModels !== false) {
     startPrsloyModelRefresh({

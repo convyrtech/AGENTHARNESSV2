@@ -4856,6 +4856,7 @@ void app
         await supervisor?.appendSessionNote(customType, text);
       },
       onModelsChanged: async () => void (await supervisor?.refreshModelCatalog()),
+      isTrustedSender: (event) => isTrustedIpcEvent(event as Electron.IpcMainInvokeEvent),
     });
     ipcMain.handle("zeno:window:minimize", () => {
       if (mainWindow && !mainWindow.isDestroyed()) mainWindow.minimize();
