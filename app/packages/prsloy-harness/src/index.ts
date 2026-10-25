@@ -129,7 +129,7 @@ export function createPrsloyHarness(options: HarnessOptions = {}): (pi: Extensio
     if (on("askUser")) installAskUser(pi, opts);
     if (on("requestSecret")) installRequestSecret(pi, opts);
     // Курированные навыки (S9): флаг "skills", по умолчанию выкл.
-    if (on("skills")) installSkills(pi, opts, { dir: opts.skillsDir });
+    if (on("skills")) installSkills(pi, opts, { dir: opts.skillsDir, files: opts.skillFiles });
     // Раньше стоп-гейта: сорванный вызов инструмента — сначала повтор, проверки проекта потом.
     if (on("toolLeak")) installToolLeak(pi);
     if (codeGate)

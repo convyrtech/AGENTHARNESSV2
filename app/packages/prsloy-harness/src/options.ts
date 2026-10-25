@@ -48,6 +48,10 @@ export interface HarnessOptions {
   research?: ResearchOptions;
   /** Куда раскладывать навыки (по умолчанию `$PI_CODING_AGENT_DIR/prsloy-skills`). */
   skillsDir?: string;
+  /** Комплект навыков вместо встроенного (оффлайн-улучшатель #33 пробует правленые SKILL.md). */
+  skillFiles?: Record<string, Record<string, string>>;
+  /** Добавка промпта модели вместо встроенной (флаг "promptDelta"; улучшатель #33 пробует правленую). */
+  promptDeltaText?: string;
   /** Память сама (research/24 §3, core): подмена экстрактора для тестов и бенча --fake. */
   autoMemory?: AutoMemoryOptions;
   /** Проверка страницы в браузере: Python «Дизайна» (по умолчанию PRSLOY_DESIGN_PYTHON) или Node-Playwright. */
@@ -123,6 +127,8 @@ export interface ResolvedOptions {
   findReady: FindReadyOptions;
   pageCheck: PageCheckOptions;
   skillsDir: string | undefined;
+  skillFiles: Record<string, Record<string, string>> | undefined;
+  promptDeltaText: string | undefined;
   autoMemory: AutoMemoryOptions;
   stopGateTimeoutMs: number;
   review: { model?: string; timeoutMs: number };
@@ -216,6 +222,8 @@ export function resolveOptions(options: HarnessOptions = {}): ResolvedOptions {
     findReady: options.findReady ?? {},
     pageCheck: options.pageCheck ?? {},
     skillsDir: options.skillsDir,
+    skillFiles: options.skillFiles,
+    promptDeltaText: options.promptDeltaText,
     autoMemory: options.autoMemory ?? {},
     stopGateTimeoutMs:
       options.stopGateTimeoutMs ??

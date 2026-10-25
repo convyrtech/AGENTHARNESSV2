@@ -48,7 +48,9 @@ export function installReusePrompt(pi: ExtensionAPI, opts: ResolvedOptions): voi
         flags.prompt === "prsloy"
           ? {
               custom: PRSLOY_CODE_PROMPT,
-              delta: flags.promptDelta ? modelDelta(ctx.model?.id) : undefined,
+              delta: flags.promptDelta
+                ? (opts.promptDeltaText ?? modelDelta(ctx.model?.id))
+                : undefined,
             }
           : { custom: undefined, delta: undefined };
       chosen.set(session, choice);

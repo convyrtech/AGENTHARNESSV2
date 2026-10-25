@@ -5,7 +5,7 @@
 // Учёт для замера: `skill.loaded` — модель прочитала SKILL.md (или файл навыка), `skill.used` — после этого ход
 // закончился зелёным.
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, relative, resolve, sep } from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
@@ -44,11 +44,32 @@ export function materializeSkills(base?: string, files = SKILL_FILES): string {
 }
 
 /** Какой навык читает вызов read (путь внутри комплекта) — или undefined. */
-export function skillOfPath(dir: string, path: string, cwd: string): string | undefined {
+export function skillOfPath(
+  dir: string,
+  path: string,
+  cwd: string,
+  files: Record<string, Record<string, string>> = SKILL_FILES,
+): string | undefined {
   const rel = relative(resolve(dir), resolve(cwd, path));
   if (!rel || rel.startsWith("..") || resolve(rel) === rel) return undefined;
   const name = rel.split(sep)[0]!;
-  return name in SKILL_FILES ? name : undefined;
+  return name in files ? name : undefined;
+}
+
+/** Комплект навыков из папки `<dir>/<навык>/<файлы>` — как scripts/build-skills.mts, только на лету. */
+export function skillFilesFromDir(dir: string): Record<string, Record<string, string>> {
+  const skills: Record<string, Record<string, string>> = {};
+  for (const name of readdirSync(dir).sort()) {
+    const skillDir = join(dir, name);
+    if (!statSync(skillDir).isDirectory() || !existsSync(join(skillDir, "SKILL.md"))) continue;
+    const files: Record<string, string> = {};
+    for (const file of readdirSync(skillDir).sort()) {
+      if (statSync(join(skillDir, file)).isFile())
+        files[file] = readFileSync(join(skillDir, file), "utf8");
+    }
+    skills[name] = files;
+  }
+  return skills;
 }
 
 function sessionOf(ctx: ExtensionContext): string {
@@ -62,6 +83,8 @@ function sessionOf(ctx: ExtensionContext): string {
 export interface SkillsOptions {
   /** Куда раскладывать (по умолчанию `$PI_CODING_AGENT_DIR/prsloy-skills`). */
   dir?: string | undefined;
+  /** Комплект вместо встроенного (SKILL_FILES). */
+  files?: Record<string, Record<string, string>> | undefined;
 }
 
 export function installSkills(
@@ -78,7 +101,7 @@ export function installSkills(
     // Флаг читается при старте сессии: список навыков в промпте не меняется посреди сеанса (кэш).
     if (!readFlags(opts.settingsPath).skills) return {};
     try {
-      dir = materializeSkills(options.dir);
+      dir = materializeSkills(options.dir, options.files ?? SKILL_FILES);
     } catch {
       return {};
     }
@@ -89,7 +112,7 @@ export function installSkills(
     if (!dir || event.toolName !== "read") return undefined;
     const path = (event.input as { path?: unknown }).path;
     if (typeof path !== "string") return undefined;
-    const name = skillOfPath(dir, path, ctx.cwd);
+    const name = skillOfPath(dir, path, ctx.cwd, options.files ?? SKILL_FILES);
     if (!name) return undefined;
     const session = sessionOf(ctx);
     const turn = loaded.get(session) ?? { names: new Set<string>(), ctx };

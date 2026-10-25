@@ -76,6 +76,12 @@ export interface BenchOptions {
   prompt?: "pi" | "prsloy";
   /** Дельта промпта под модель (qwen, opus). По умолчанию выкл. */
   delta?: boolean;
+  /** Файл уроков вместо lessons/code.json пакета (оффлайн-улучшатель #33: пробы правленых уроков). */
+  lessonsFile?: string;
+  /** Комплект навыков вместо встроенного (папка `<навык>/SKILL.md`, #33). Включает и флаг skills. */
+  skillFiles?: Record<string, Record<string, string>>;
+  /** Добавка промпта модели вместо встроенной (#33). Включает и флаг delta. */
+  deltaText?: string;
   /**
    * web_search и web_fetch (флаг "webTools", issue #23). По умолчанию выкл., как в приложении. Поиск — бесплатный;
    * свой поставщик — файл JSON в BENCH_SEARCH_CONFIG ({"provider": "brave", "key": "…"}).
@@ -361,10 +367,10 @@ async function runTask(task: TaskDef, opts: BenchOptions): Promise<TaskResult> {
     JSON.stringify({
       lessons: opts.lessons !== false,
       secondOpinion: opts.review !== false,
-      skills: opts.skills === true,
+      skills: opts.skills === true || opts.skillFiles !== undefined,
       memory: opts.memory !== false,
       prompt: opts.prompt ?? "prsloy",
-      promptDelta: opts.delta === true,
+      promptDelta: opts.delta === true || opts.deltaText !== undefined,
       webTools: opts.webTools === true,
     }),
   );
@@ -399,6 +405,9 @@ async function runTask(task: TaskDef, opts: BenchOptions): Promise<TaskResult> {
             memoryDir,
             settingsPath,
             skillsDir: join(opts.outDir, "skills"),
+            ...(opts.lessonsFile ? { lessonsPath: opts.lessonsFile } : {}),
+            ...(opts.skillFiles ? { skillFiles: opts.skillFiles } : {}),
+            ...(opts.deltaText !== undefined ? { promptDeltaText: opts.deltaText } : {}),
             research: {
               ...(opts.baseUrl ? { gatewayUrl: opts.baseUrl } : {}),
               ...benchSearch(),
