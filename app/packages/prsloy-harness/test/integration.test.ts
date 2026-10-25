@@ -748,7 +748,7 @@ describe("integration: memory (S4) in a real session", () => {
       arguments: {
         action: "remember",
         scope: "user",
-        text: "Отвечать коротко, без терминов",
+        text: "Писать проще, без умных слов",
         quote: "пиши проще, без умных слов",
       },
     };
@@ -759,7 +759,7 @@ describe("integration: memory (S4) in a real session", () => {
     await first.session.prompt("Сделай страницу. И пиши проще, без умных слов");
     await first.session.prompt("А теперь добавь заголовок");
     const results = first.toolResults();
-    expect(first.textOf(results[0]!)).toContain("Запомнил: Отвечать коротко, без терминов");
+    expect(first.textOf(results[0]!)).toContain("Запомнил: Писать проще, без умных слов");
     const system = (i: number) => JSON.stringify(first.server.requests[i]!.messages[0]);
     // Запрос до записи, после записи и во втором сообщении — один и тот же системный промпт (кэш цел).
     expect(system(1)).toBe(system(0));
@@ -771,7 +771,7 @@ describe("integration: memory (S4) in a real session", () => {
     await second.session.prompt("Привет");
     const next = JSON.stringify(second.server.requests[0]!.messages[0]);
     expect(next).toContain("<prsloy_memory>");
-    expect(next).toContain("Обо мне:\\n- Отвечать коротко, без терминов");
+    expect(next).toContain("Обо мне:\\n- Писать проще, без умных слов");
   }, 60_000);
 
   it("text from a file is not the user's words: the README «remember» is refused", async () => {
