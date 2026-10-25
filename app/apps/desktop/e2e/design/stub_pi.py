@@ -27,6 +27,8 @@ def png(path, w=480, h=300, rgb=(196, 98, 45)):
 
 
 def main():
+    # pi (node) writes UTF-8; Python on Windows would write the ANSI code page into run.py's pipe
+    sys.stdout.reconfigure(encoding="utf-8")
     script = Path(os.environ["PI_CODING_AGENT_DIR"]) / "stub-script.json"
     replies = json.loads(script.read_text(encoding="utf-8"))
     reply = replies.pop(0) if replies else {"turns": [{"text": "ЭТАП ГОТОВ"}]}
