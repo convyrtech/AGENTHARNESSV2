@@ -205,7 +205,9 @@ describe("skills name only tools the harness really has", () => {
     const { createPrsloyHarness } = await import("../src/index.ts");
     const { MockPi } = await import("./mock-pi.ts");
     const pi = new MockPi(tmpdir());
-    createPrsloyHarness({ outputDir: join(tmpdir(), "prsloy-skills-tools"), profile: "code" })(pi.api);
+    createPrsloyHarness({ outputDir: join(tmpdir(), "prsloy-skills-tools"), profile: "code" })(
+      pi.api,
+    );
     const registered = new Set(pi.tools.keys());
     const known = [
       "find_ready",
