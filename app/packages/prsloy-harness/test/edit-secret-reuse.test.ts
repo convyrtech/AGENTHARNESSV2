@@ -10,7 +10,7 @@ import {
   preserveFormat,
 } from "../src/edit-robustness.ts";
 import { resolveOptions } from "../src/options.ts";
-import { installReusePrompt, REUSE_SECTION } from "../src/reuse-prompt.ts";
+import { CASUAL_USER_SECTION, installReusePrompt, REUSE_SECTION } from "../src/reuse-prompt.ts";
 import { installSecretScrub, scrubSecrets } from "../src/secret-scrub.ts";
 import { MockPi } from "./mock-pi.ts";
 
@@ -168,6 +168,9 @@ describe("reuse prompt", () => {
     expect(REUSE_SECTION).toContain(
       "check whether a well-established library or standard module already solves the problem",
     );
+    expect((await sections("code")).prsloy_casual_user).toBe(CASUAL_USER_SECTION);
+    expect(CASUAL_USER_SECTION).toContain("never ask them to run commands");
+    expect(CASUAL_USER_SECTION).toContain("http://127.0.0.1:<port>");
     expect(await sections("design")).toEqual({});
   });
 });
