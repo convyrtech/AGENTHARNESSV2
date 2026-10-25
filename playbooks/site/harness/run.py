@@ -13,7 +13,7 @@
   {"ev":"stage","gate":"2","title":…,"model":…,"attempt":1}   {"ev":"tool","name":…,"brief":…}
   {"ev":"note","text":…}   {"ev":"owner","text":…,"files":[…],"options":[…]}   {"ev":"done"}   {"ev":"stuck","text":…}
 """
-import argparse, datetime as dt, hashlib, json, os, re, shutil, subprocess, sys, time
+import argparse, datetime as dt, hashlib, json, os, re, shutil, subprocess, sys, time, uuid
 from pathlib import Path
 for _s in (sys.stdout, sys.stderr):  # Windows: под -I PYTHONUTF8 не действует, а вывод в трубу идёт в cp1252
     _s.reconfigure(encoding="utf-8", errors="replace")
@@ -117,7 +117,11 @@ class WS:
         rec["ts"] = round(time.time(), 1)
         with open(self.h / "ledger.jsonl", "a", encoding="utf-8") as f:
             f.write(json.dumps(rec, ensure_ascii=False) + "\n")
-        learn_event(rec)
+        # сессия журнала обучения — проект, а не процесс: run.py запускается на каждое сообщение владельца
+        if "learn_session" not in self.state:
+            self.state["learn_session"] = uuid.uuid4().hex[:12]
+            self.save()
+        learn_event(rec, self.state["learn_session"])
 
     def env(self):
         env = {k: v for k, v in os.environ.items() if k in SAFE}
@@ -305,11 +309,7 @@ def lessons_for(gate, model):
     return out
 
 
-# Один запуск дирижёра — одна «сессия» журнала обучения: случайный id, без пути и имени
-RUN_ID = __import__("uuid").uuid4().hex[:12]
-
-
-def learn_event(rec):
+def learn_event(rec, session=None):
     """Событие для самообучения без текстов (research/18 §7.2): только виды, числа, модель, шаг. Пишет, только если
     приложение задало HARNESS_LEARN_DIR; A/B и разработка ничего не копят."""
     d = os.environ.get("HARNESS_LEARN_DIR")
@@ -318,7 +318,8 @@ def learn_event(rec):
     keep = ("kind", "gate", "model", "attempt", "calls", "seconds", "end", "leaks", "verdict", "to", "exit", "ts",
             "lessons")
     ev = {k: rec[k] for k in keep if k in rec}
-    ev["session"] = RUN_ID                              # сессия для рефлектора (S7): «≥3 сессии» без текстов
+    if session:
+        ev["session"] = session                         # проект для рефлектора (S7): «≥3 сессии» без текстов
     if rec.get("killed"):
         k = rec["killed"]
         ev["killed"] = "loop" if k.startswith("петля") else "calls" if "вызовов" in k else "time" if "время" in k else "other"

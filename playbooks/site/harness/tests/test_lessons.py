@@ -48,14 +48,28 @@ class Lessons(unittest.TestCase):
         self.g["learn_event"]({"kind": "stage", "gate": "7", "model": "a6p/deepseek", "calls": 40,
                                "killed": "петля: один и тот же вызов 3 раза (read {\"path\": \"C:/Users/Иван/x.png\"})",
                                "error": "секретный текст ошибки", "why": ["«Откат: нет» не конкретен"],
-                               "out": "ответ судьи с текстом", "end": "other", "ts": 1.0})
+                               "out": "ответ судьи с текстом", "end": "other", "ts": 1.0}, "0123456789ab")
         line = (Path(d) / "design-events.jsonl").read_text(encoding="utf-8")
         ev = json.loads(line)
         self.assertEqual(ev["killed"], "loop")
-        self.assertRegex(ev["session"], r"^[0-9a-f]{12}$")              # сессия для рефлектора (S7)
+        self.assertEqual(ev["session"], "0123456789ab")                 # сессия для рефлектора (S7)
         self.assertIs(ev["error"], True)
         for bad in ("Иван", "секрет", "Откат", "судьи", "why", "out"):
             self.assertNotIn(bad, line)
+
+    def test_session_is_the_project_not_the_process(self):
+        # run.py запускается на каждое сообщение владельца: сессия журнала — из состояния проекта
+        d, root = tempfile.mkdtemp(), Path(tempfile.mkdtemp()) / "сайт"
+        root.mkdir()
+        os.environ["HARNESS_LEARN_DIR"] = d
+        os.environ.pop("HARNESS_STATE_DIR", None)
+        for _turn in range(2):
+            ws = self.g["WS"](root)
+            ws.h.mkdir(parents=True, exist_ok=True)
+            ws.ledger(kind="stage", gate="1", model="m")
+        evs = [json.loads(x) for x in (Path(d) / "design-events.jsonl").read_text(encoding="utf-8").splitlines()]
+        self.assertEqual(len({e["session"] for e in evs}), 1)
+        self.assertRegex(evs[0]["session"], r"^[0-9a-f]{12}$")
 
     def test_no_dir_no_events(self):
         self.g["learn_event"]({"kind": "stage"})           # без HARNESS_LEARN_DIR — тихо ничего
