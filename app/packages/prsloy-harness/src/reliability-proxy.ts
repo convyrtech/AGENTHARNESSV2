@@ -59,6 +59,9 @@ export function estimatePromptTokens(payload: Record<string, unknown>): number {
 /** Текст для интерфейса: по нему UI показывает «Связь с моделью оборвалась» + «Повторить». */
 export const STREAM_INTERRUPTED_MESSAGE = "Связь с моделью оборвалась";
 export const STREAM_INTERRUPTED_CODE = "prsloy_stream_interrupted";
+/** Все попытки кончились сроком до первого куска: модель молчит, связь цела. UI: «Модель долго не отвечает». */
+export const MODEL_SLOW_MESSAGE = "Модель долго не отвечает";
+export const MODEL_SLOW_CODE = "prsloy_model_slow";
 
 // Ошибки a6/шлюза приходят текстом в теле или первом событии потока (a6proxy.py RETRY_TEXT).
 const RETRY_TEXT = [
@@ -558,7 +561,13 @@ export class ReliabilityProxy {
     }
     metrics.status = "failed";
     metrics.outcome = "failed";
-    if (out.headersSent)
+    const silent = metrics.attempts.every((a) => a.err === "ttft deadline");
+    if (out.headersSent && silent)
+      out.error(
+        `${MODEL_SLOW_MESSAGE}: нет ответа после ${metrics.attempts.length} попыток`,
+        MODEL_SLOW_CODE,
+      );
+    else if (out.headersSent)
       out.error(
         `${STREAM_INTERRUPTED_MESSAGE}: модель не ответила после ${metrics.attempts.length} попыток`,
       );

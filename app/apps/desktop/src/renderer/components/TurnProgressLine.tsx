@@ -1,6 +1,7 @@
 /**
  * One quiet line above the composer while a turn runs longer than 15 s: the waiting line,
- * what the agent is doing now, for how long (the digits roll), and «Остановить».
+ * what the agent is doing now, for how long (the digits roll), and «Остановить». When the
+ * model itself has sent nothing for 30 s, a hint under it says it is slow, not broken.
  */
 import { useEffect, useMemo, useState } from "react";
 import { Square } from "lucide-react";
@@ -8,7 +9,12 @@ import { t, type Locale } from "../lib/i18n.ts";
 import { formatDurationMs, type TimelineItem } from "../lib/timeline.ts";
 import { LineLoader } from "./motion/LineLoader.tsx";
 import { RollText } from "./motion/RollText.tsx";
-import { currentTurnAction, PROGRESS_LINE_DELAY_MS, turnStartedAt } from "../lib/turn-progress.ts";
+import {
+  currentTurnAction,
+  PROGRESS_LINE_DELAY_MS,
+  showSlowModelHint,
+  turnStartedAt,
+} from "../lib/turn-progress.ts";
 
 export function TurnProgressLine(props: {
   locale: Locale;
@@ -18,6 +24,9 @@ export function TurnProgressLine(props: {
 }) {
   const [runStart, setRunStart] = useState<number>();
   const [now, setNow] = useState(() => Date.now());
+  // Every streamed piece (thinking, text, a tool) changes the items: the model is alive.
+  const [lastChange, setLastChange] = useState(() => Date.now());
+  useEffect(() => setLastChange(Date.now()), [props.items]);
 
   useEffect(() => {
     if (!props.running) {
@@ -33,24 +42,32 @@ export function TurnProgressLine(props: {
   if (!props.running || runStart === undefined) return null;
   const elapsed = now - turnStartedAt(props.items, runStart);
   if (elapsed < PROGRESS_LINE_DELAY_MS) return null;
+  const slow = showSlowModelHint(action, now - Math.max(lastChange, runStart));
 
   return (
-    <div className="turn-progress" role="status" aria-live="polite" data-testid="turn-progress">
-      <LineLoader className="turn-progress-loader" />
-      <span className="turn-progress-action" data-testid="turn-progress-action">
-        {t(props.locale, action.key, action.vars)}
-      </span>
-      {/* Same clock and format as the step header above («1 мин 59 с»), so the two agree. */}
-      <RollText className="turn-progress-time" text={formatDurationMs(elapsed, props.locale)} />
-      <button
-        type="button"
-        className="turn-progress-stop"
-        data-testid="turn-progress-stop"
-        onClick={props.onStop}
-      >
-        <Square className="size-3" strokeWidth={2} />
-        {t(props.locale, "progress.stop")}
-      </button>
-    </div>
+    <>
+      <div className="turn-progress" role="status" aria-live="polite" data-testid="turn-progress">
+        <LineLoader className="turn-progress-loader" />
+        <span className="turn-progress-action" data-testid="turn-progress-action">
+          {t(props.locale, action.key, action.vars)}
+        </span>
+        {/* Same clock and format as the step header above («1 мин 59 с»), so the two agree. */}
+        <RollText className="turn-progress-time" text={formatDurationMs(elapsed, props.locale)} />
+        <button
+          type="button"
+          className="turn-progress-stop"
+          data-testid="turn-progress-stop"
+          onClick={props.onStop}
+        >
+          <Square className="size-3" strokeWidth={2} />
+          {t(props.locale, "progress.stop")}
+        </button>
+      </div>
+      {slow ? (
+        <p className="turn-progress-hint" data-testid="turn-progress-slow">
+          {t(props.locale, "progress.slowHint")}
+        </p>
+      ) : null}
+    </>
   );
 }

@@ -73,6 +73,8 @@ export { looksLikeServer, detectPorts } from "./process-registry.ts";
 export { resolveToolPath } from "./paths.ts";
 export {
   ReliabilityProxy,
+  MODEL_SLOW_CODE,
+  MODEL_SLOW_MESSAGE,
   STREAM_INTERRUPTED_CODE,
   STREAM_INTERRUPTED_MESSAGE,
   type ReliabilityOptions,
