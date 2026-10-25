@@ -477,6 +477,18 @@ test("newest release has no assets yet: A skips it and still finds B", async () 
   }
 });
 
+/** Every file under `dir` (relative path → bytes). */
+function contents(dir: string): Record<string, Buffer> {
+  const out: Record<string, Buffer> = {};
+  if (!existsSync(dir)) return out;
+  for (const entry of readdirSync(dir, { recursive: true, withFileTypes: true })) {
+    if (!entry.isFile()) continue;
+    const path = join(entry.parentPath, entry.name);
+    out[path.slice(dir.length + 1)] = readFileSync(path);
+  }
+  return out;
+}
+
 /** sha256 of every file under `dir` (relative path → hash), for «nothing lost, nothing rewritten». */
 function hashes(dir: string): Record<string, string> {
   const out: Record<string, string> = {};
@@ -560,7 +572,8 @@ test("previous public release → this build: key, project, chat and memory surv
     await expect(page.locator(READY)).toBeVisible({ timeout: 300_000 });
     const data = {
       key: hashes(join(profile, "prsloy")),
-      sessions: hashes(join(profile, "agent", "sessions")),
+      // A chat file is a log: lines may be added later, what was written must stay as it was.
+      sessions: contents(join(profile, "agent", "sessions")),
       memory: hashes(join(profile, "agent", "prsloy-memory")),
     };
     metrics.files = {
@@ -616,7 +629,7 @@ test("previous public release → this build: key, project, chat and memory surv
     );
     await shot(after.page, "37-public-after-update");
     const keyAfter = hashes(join(profile, "prsloy"));
-    const sessionsAfter = hashes(join(profile, "agent", "sessions"));
+    const sessionsAfter = contents(join(profile, "agent", "sessions"));
     metrics.after = {
       gate,
       hasKey: state.hasKey,
@@ -629,8 +642,19 @@ test("previous public release → this build: key, project, chat and memory surv
     expect(state.needsWorkspace, "project kept").toBe(false);
     expect(memoryAfter, "memory kept and readable by the new version").toContain(fact);
     expect(keyAfter["gateway-key.bin"], "key file unchanged").toBe(data.key["gateway-key.bin"]);
-    for (const [file, hash] of Object.entries(data.sessions)) {
-      expect(sessionsAfter[file], `chat file ${file} kept as it was`).toBe(hash);
+    metrics.chatFiles = Object.fromEntries(
+      Object.entries(data.sessions).map(([f, b]) => [
+        f,
+        { before: b.length, after: sessionsAfter[f]?.length ?? null },
+      ]),
+    );
+    for (const [file, bytes] of Object.entries(data.sessions)) {
+      const now = sessionsAfter[file];
+      expect(now, `chat file ${file} kept`).toBeDefined();
+      expect(
+        now!.subarray(0, bytes.length).equals(bytes),
+        `chat file ${file}: what was written before the update is unchanged`,
+      ).toBe(true);
     }
     expect(after.pageErrors, after.pageErrors.join("\n\n")).toEqual([]);
   } finally {
