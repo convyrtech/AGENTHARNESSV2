@@ -57,7 +57,6 @@ import {
   screen,
   session,
   shell,
-  utilityProcess,
   type UtilityProcess,
 } from "electron";
 import { randomUUID } from "node:crypto";
@@ -143,7 +142,7 @@ import {
   normalizeBundledRuntimePrefs,
   type BundledRuntimePrefs,
 } from "./bundled-runtimes.ts";
-import { electronFetch, initPrsloy, logStartupTiming } from "./prsloy/electron.ts";
+import { electronFetch, forkAgentHost, initPrsloy, logStartupTiming } from "./prsloy/electron.ts";
 import { saveSupportReport, SUPPORT_REPORT_IPC } from "./prsloy/support/electron.ts";
 import {
   guardIpcMain,
@@ -3971,7 +3970,7 @@ class HostSupervisor {
     ensurePiSubagentsSpawnPatch(defaultAgentDir());
 
     const hostEntry = resolveAgentHostEntry(currentDirectory);
-    const child = utilityProcess.fork(hostEntry, [], {
+    const child = forkAgentHost(hostEntry, {
       env: sanitizeUtilityProcessEnv(env),
       serviceName: "PRSLOY Agent Host",
       stdio: "pipe",
