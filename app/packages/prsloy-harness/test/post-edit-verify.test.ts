@@ -34,7 +34,8 @@ describe("checkers", () => {
     const bad = await check("a.mjs", "const a = ;\n");
     expect(bad?.ok).toBe(false);
     expect(bad?.message).toContain("SyntaxError");
-    expect(bad?.message).not.toMatch(/\bat (?:wrapSafe|checkSyntax)|\u001b/);
+    expect(bad?.message).not.toMatch(/\bat (?:wrapSafe|checkSyntax)/);
+    expect(bad?.message?.includes(String.fromCharCode(27))).toBe(false); // без цветов node
   });
 
   it("checks ESM syntax in plain .js (node --check alone silently passes it)", async () => {
