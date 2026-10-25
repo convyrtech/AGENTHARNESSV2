@@ -57,6 +57,38 @@ async function getJson(
 
 // ---------- что в запросе ----------
 
+/** Слова команд установки и связки — не имена пакетов. */
+const COMMAND = new Set([
+  "install",
+  "i",
+  "add",
+  "update",
+  "upgrade",
+  "uninstall",
+  "remove",
+  "show",
+  "view",
+  "info",
+  "how",
+  "to",
+  "use",
+  "using",
+  "with",
+  "and",
+  "or",
+  "a",
+  "an",
+  "on",
+  "at",
+  "by",
+  "from",
+  "my",
+  "it",
+  "does",
+  "do",
+  "can",
+]);
+
 const STOP = new Set([
   "npm",
   "pypi",
@@ -93,10 +125,21 @@ function latinTokens(query: string): string[] {
 }
 
 /** `owner/repo` или ссылка на github.com в запросе. */
+/** Пары через «/», которые пишут в тексте, а не как репозиторий. */
+const SLASH_WORDS =
+  /^(async\/await|client\/server|input\/output|read\/write|true\/false|yes\/no|and\/or|on\/off|tcp\/ip|i\/o|front\/back|frontend\/backend|get\/set|start\/stop|open\/close|import\/export|dev\/prod|key\/value|request\/response|src\/\w+|\w+\/(src|lib|bin|dist|index))$/i;
+/** Без ссылки на github.com «owner/repo» — репозиторий, только если в запросе про него речь. */
+const REPO_CONTEXT =
+  /github|репозитор|\brepo\b|release|релиз|\btag\b|changelog|верси|version|\blts\b|latest|последн|commit|коммит/i;
+
 export function githubRepo(query: string): { owner: string; repo: string } | undefined {
-  const m =
-    /github\.com\/([\w.-]+)\/([\w.-]+)/i.exec(query) ??
-    /(?:^|\s)([a-z0-9][\w.-]*)\/([a-z0-9][\w.-]*)(?=\s|$)/i.exec(query);
+  const url = /github\.com\/([\w.-]+)\/([\w.-]+)/i.exec(query);
+  const bare = url
+    ? undefined
+    : /(?:^|\s)([a-z0-9][\w.-]*)\/([a-z0-9][\w.-]*)(?=\s|$)/i.exec(query);
+  if (bare && (SLASH_WORDS.test(`${bare[1]}/${bare[2]}`) || !REPO_CONTEXT.test(query)))
+    return undefined;
+  const m = url ?? bare;
   if (!m) return undefined;
   const owner = m[1]!;
   const repo = m[2]!.replace(/\.git$/, "");
@@ -108,13 +151,23 @@ export function npmPackage(query: string): string | undefined {
   const scoped = /(?:^|\s)(@[a-z0-9][\w.-]*\/[a-z0-9][\w.-]*)/i.exec(query)?.[1];
   if (scoped) return scoped.toLowerCase();
   if (!/\bnpm\b/i.test(query)) return undefined;
-  return latinTokens(query).find((t) => !STOP.has(t));
+  // «npm install react», «npm i -D vite»: пакет — после команды
+  const after =
+    /\bnpm\s+(?:i|install|add|update|upgrade|view|info|show)\s+(?:-[\w-]+\s+)*([a-z0-9][\w.-]*)/i.exec(
+      query,
+    )?.[1];
+  if (after) return after.toLowerCase();
+  return latinTokens(query).find((t) => !STOP.has(t) && !COMMAND.has(t));
 }
 
 export function pypiPackage(query: string): string | undefined {
   if (!/\b(pypi|pip)\b|python[\s-]+(package|пакет)|пакет[а-я]*\s+python/i.test(query))
     return undefined;
-  return latinTokens(query).find((t) => !STOP.has(t) && !t.startsWith("@"));
+  const after = /\bpip3?\s+(?:install|show|download)\s+(?:-[\w-]+\s+)*([a-z0-9][\w.-]*)/i.exec(
+    query,
+  )?.[1];
+  if (after) return after.toLowerCase();
+  return latinTokens(query).find((t) => !STOP.has(t) && !COMMAND.has(t) && !t.startsWith("@"));
 }
 
 const EOL_WORDS =
@@ -197,9 +250,10 @@ async function endoflife(query: string, deps: SearchDeps, now: Date): Promise<Se
     .toLowerCase()
     .split(/[\s,;:!?()«»"]+/)
     .filter(Boolean);
+  // STOP здесь не нужен: в нём «python» и «node», а это и есть продукты endoflife.date
   const product = tokens
     .map((t) => EOL_ALIAS[t] ?? t.replace(/\.js$/, "js"))
-    .find((t) => known.has(t) && !STOP.has(t));
+    .find((t) => known.has(t));
   if (!product) return [];
   const cycles = (await getJson(`https://endoflife.date/api/${product}.json`, deps)) as
     | EolCycle[]
@@ -315,7 +369,11 @@ async function duckduckgo(q: SearchQuery, deps: SearchDeps): Promise<SearchHit[]
   // 202 с anomaly.js — проверка «вы робот?»: с этого адреса DuckDuckGo сейчас не отвечает
   if (!res.ok || res.status === 202 || /anomaly\.js|anomaly-modal/.test(html))
     throw new SearchError("network", UNAVAILABLE);
-  return duckHits(html);
+  const hits = duckHits(html);
+  // ни результатов, ни «ничего не найдено» — разметка сменилась: это сбой, а не пустая выдача (дальше — запасной)
+  if (!hits.length && !/class="[^"]*no-results|No results\./i.test(html))
+    throw new SearchError("network", UNAVAILABLE);
+  return hits;
 }
 
 // ---------- сборка ----------

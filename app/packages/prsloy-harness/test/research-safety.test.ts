@@ -2,7 +2,15 @@
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { describe, expect, it } from "vite-plus/test";
+import { beforeEach, describe, expect, it } from "vite-plus/test";
+import {
+  freeSearch,
+  githubRepo,
+  npmPackage,
+  pypiPackage,
+  resetFreeCache,
+  UNAVAILABLE,
+} from "../src/research/free.ts";
 import { resolveOptions } from "../src/options.ts";
 import { search } from "../src/research/search.ts";
 import { installResearch } from "../src/research/tools.ts";
@@ -307,5 +315,66 @@ describe("keys never reach text the model sees (review #23, item 4)", () => {
     ).not.toContain("123e4567");
     // UUID без exa рядом — обычный id, не трогаем
     expect(scrubSecrets("id 123e4567-e89b-42d3-a456-426614174000").text).toContain("123e4567");
+  });
+});
+
+describe("free search heuristics (review #23, item 6)", () => {
+  beforeEach(() => resetFreeCache());
+
+  it("endoflife.date answers Python (python was a stop word)", async () => {
+    const f = fakeFetch([
+      ["https://endoflife.date/api/all.json", () => json(["python", "nodejs"])],
+      [
+        "https://endoflife.date/api/python.json",
+        () => json([{ cycle: "3.10", eol: "2026-10-01", latest: "3.10.19" }]),
+      ],
+      [
+        "https://html.duckduckgo.com/",
+        () => new Response('<div class="no-results">No results.</div>'),
+      ],
+      ["https://en.wikipedia.org/", () => json({ query: { search: [] } })],
+    ]);
+    const hits = await freeSearch(
+      { query: "is python 3.10 still supported" },
+      { fetchImpl: f.impl },
+    );
+    expect(hits[0]?.url).toBe("https://endoflife.date/python");
+  });
+
+  it("«pip install requests latest» looks up requests, not «install»", () => {
+    expect(pypiPackage("pip install requests latest")).toBe("requests");
+    expect(pypiPackage("pip install -U pydantic")).toBe("pydantic");
+    expect(npmPackage("npm install zod latest version")).toBe("zod");
+    expect(npmPackage("npm i -D vite")).toBe("vite");
+    expect(npmPackage("how to use npm with react")).toBe("react");
+  });
+
+  it("DuckDuckGo with a layout the parser does not know is a failure, so the fallback runs", async () => {
+    const f = fakeFetch([
+      [
+        "https://html.duckduckgo.com/",
+        () => new Response("<html><body><div class='new-layout'>…</div></body></html>"),
+      ],
+      ["https://en.wikipedia.org/", () => json({ query: { search: [] } })],
+    ]);
+    await expect(freeSearch({ query: "anything" }, { fetchImpl: f.impl })).rejects.toThrow(
+      UNAVAILABLE,
+    );
+    // a real «no results» page is an empty answer, not a failure
+    const g = fakeFetch([
+      [
+        "https://html.duckduckgo.com/",
+        () => new Response('<div class="no-results">No results.</div>'),
+      ],
+      ["https://en.wikipedia.org/", () => json({ query: { search: [] } })],
+    ]);
+    expect(await freeSearch({ query: "qwzxv" }, { fetchImpl: g.impl })).toEqual([]);
+  });
+
+  it("«async/await», «client/server» are words, not repositories: no GitHub call", async () => {
+    for (const q of ["async/await in python", "client/server architecture", "read/write lock"])
+      expect(githubRepo(q), q).toBeUndefined();
+    expect(githubRepo("latest release vitejs/vite")).toEqual({ owner: "vitejs", repo: "vite" });
+    expect(githubRepo("https://github.com/a/b")).toEqual({ owner: "a", repo: "b" });
   });
 });

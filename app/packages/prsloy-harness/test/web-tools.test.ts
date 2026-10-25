@@ -263,7 +263,7 @@ describe("free search: official sources, then the web, Wikipedia when the web is
       ["https://en.wikipedia.org/", () => json({ query: { search: [] } })],
     ]);
     const deps = { fetchImpl: f.impl, now: NOW };
-    expect(await freeSearch({ query: "o/r" }, deps)).toEqual([
+    expect(await freeSearch({ query: "o/r release" }, deps)).toEqual([
       expect.objectContaining({
         url: "https://github.com/o/r/commit/abcdef1234",
         title: "o/r: релизов нет, последний коммит abcdef1",
