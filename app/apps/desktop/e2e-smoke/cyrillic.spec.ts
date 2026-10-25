@@ -73,9 +73,11 @@ test("Cyrillic profile + project: runtimes, Git, bash cd, python3 привет, 
     });
     await shot(page, "20-cyrillic-window");
 
+    // Soft: one broken piece must not hide the others (each finding goes to the report).
     const bundled = bundledRuntimes(userData);
-    expect(bundled.node, `bundled node missing under ${userData}`).toBeTruthy();
-    expect(bundled.python, `bundled python missing under ${userData}`).toBeTruthy();
+    await writeMetrics({ cyrillicRuntimes: bundled });
+    expect.soft(bundled.node, `bundled node missing under ${userData}`).toBeTruthy();
+    expect.soft(bundled.python, `bundled python missing under ${userData}`).toBeTruthy();
 
     await startHost(page);
     await send(page, "Привет! Ответь одной фразой.");
@@ -96,14 +98,16 @@ test("Cyrillic profile + project: runtimes, Git, bash cd, python3 привет, 
     });
     await shot(page, "21-cyrillic-bash");
 
-    expect(bash.result, report).toMatch(HARNESS_HEADER);
-    expect(bash.result, report).toMatch(/^привет$/m);
-    expect(bash.result, report).toContain(NOTE);
-    expect(bash.result, report).toMatch(/^тест$/m);
-    expect(bash.result, report).toMatch(isWindows ? /\/c\/Проекты\/мой сайт/ : /Проекты\/мой сайт/);
-    expect(note, `${notePath} on disk`).toBe("тест\n");
-    if (isWindows) expect(launched.gitSetup.status, "PortableGit unpack").toBe("ready");
-    expect(launched.pageErrors, launched.pageErrors.join("\n\n")).toEqual([]);
+    expect.soft(bash.result, report).toMatch(HARNESS_HEADER);
+    expect.soft(bash.result, report).toMatch(/^привет$/m);
+    expect.soft(bash.result, report).toContain(NOTE);
+    expect.soft(bash.result, report).toMatch(/^тест$/m);
+    expect
+      .soft(bash.result, report)
+      .toMatch(isWindows ? /\/c\/Проекты\/мой сайт/ : /Проекты\/мой сайт/);
+    expect.soft(note, `${notePath} on disk`).toBe("тест\n");
+    if (isWindows) expect.soft(launched.gitSetup.status, "PortableGit unpack").toBe("ready");
+    expect.soft(launched.pageErrors, launched.pageErrors.join("\n\n")).toEqual([]);
   } finally {
     if (launched) await shot(launched.page, "99-cyrillic-final");
     await close(launched);

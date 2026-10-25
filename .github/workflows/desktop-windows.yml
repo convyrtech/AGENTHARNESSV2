@@ -153,6 +153,19 @@ jobs:
           @{ exe = $exe; installSeconds = [math]::Round($sw.Elapsed.TotalSeconds, 1) } |
             ConvertTo-Json | Out-File -Encoding utf8 smoke-out/install-cyrillic.json
           Get-Content smoke-out/install-cyrillic.json
+      # Evidence for the runtime extraction under Cyrillic paths: the same System32\tar.exe call
+      # the app makes, per path variant, plus the system codepages (runner: 1252, Russian Windows: 1251).
+      - name: Probe tar with Cyrillic paths
+        if: (success() || failure()) && env.PRSLOY_EXE_CYRILLIC != ''
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          $nls = Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control\Nls\CodePage'
+          @{ ACP = $nls.ACP; OEMCP = $nls.OEMCP; systemLocale = (Get-WinSystemLocale).Name } |
+            ConvertTo-Json | Out-File -Encoding utf8 smoke-out/codepage.json
+          Get-Content smoke-out/codepage.json
+          $archive = Join-Path (Split-Path $env:PRSLOY_EXE_CYRILLIC) 'resources\runtimes\archives\node.tar.gz'
+          node apps/desktop/e2e-smoke/tar-probe.mjs $archive (Join-Path $env:SMOKE_CYRILLIC_PROFILE 'tar probe') (Join-Path $env:RUNNER_TEMP 'tarprobe') smoke-out/tar-probe.json
       - name: Smoke test (Cyrillic profile)
         if: (success() || failure()) && env.PRSLOY_EXE_CYRILLIC != ''
         working-directory: app/apps/desktop
@@ -183,7 +196,7 @@ jobs:
         shell: pwsh
         run: |
           "## Smoke" | Out-File -Append $env:GITHUB_STEP_SUMMARY
-          foreach ($f in 'install.json','install-cyrillic.json','metrics.json','bash-runner.json','bash-clean.json','bash-cyrillic.json','clean-env.json') {
+          foreach ($f in 'install.json','install-cyrillic.json','metrics.json','bash-runner.json','bash-clean.json','bash-cyrillic.json','clean-env.json','codepage.json','tar-probe.json') {
             $path = Join-Path smoke-out $f
             if (Test-Path $path) { "### $f", '```json', (Get-Content $path -Raw), '```' | Out-File -Append $env:GITHUB_STEP_SUMMARY }
           }
