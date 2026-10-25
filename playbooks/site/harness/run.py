@@ -5,7 +5,8 @@
 бюджет — stages.json, судью зовёт харнесс, второе мнение стоит перед каждым сообщением владельцу.
 
   run.py init <ws> --page <имя> [--materials <папка>]   завести рабочую папку
-  run.py say  <ws> "<текст владельца>" [--files f ...]   сообщение владельца → шаги до следующего вопроса
+  run.py say  <ws> "<текст владельца>" [--files f ...] [--retry]   сообщение владельца → шаги до следующего вопроса
+                                                         (--retry: после stuck начать лестницу моделей заново)
   run.py status <ws>                                     где мы, сколько потрачено
 
 Вывод `say` — события JSONL в stdout (их читает вкладка «Дизайн» приложения):
@@ -340,6 +341,9 @@ def say(a):
             if h.get("waiting_owner"):
                 h.update(n=0, last=None, waiting_owner=False)
         ws.save()
+    if a.retry:                                          # «Попробовать ещё раз» в приложении: лестница шагов заново
+        ws.state.pop("attempts", None)
+        ws.save()
     notes = list(ws.state.pop("carry_notes", []))
     ws.state["transport_errors"] = 0
     for _ in range(CFG["max_stages_per_turn"]):
@@ -460,7 +464,7 @@ if __name__ == "__main__":
     i = sp.add_parser("init"); i.add_argument("ws"); i.add_argument("--page", required=True)
     i.add_argument("--materials"); i.add_argument("--pipeline")
     s = sp.add_parser("say"); s.add_argument("ws"); s.add_argument("text", nargs="?", default="")
-    s.add_argument("--files", nargs="*")
+    s.add_argument("--files", nargs="*"); s.add_argument("--retry", action="store_true")
     t = sp.add_parser("status"); t.add_argument("ws")
     a = ap.parse_args()
     {"init": init, "say": say, "status": status}[a.cmd](a)
