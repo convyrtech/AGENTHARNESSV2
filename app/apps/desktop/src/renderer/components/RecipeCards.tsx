@@ -50,13 +50,12 @@ export function RecipeCards(props: {
               type="button"
               className="recipe-card"
               data-testid={`recipe-${recipe.id}`}
+              title={recipe.description}
+              aria-description={recipe.description}
               onClick={() => setOpen(recipe)}
             >
-              <Icon className="size-4 shrink-0" strokeWidth={1.75} aria-hidden />
-              <span className="recipe-card-text">
-                <span className="recipe-card-title">{recipe.title}</span>
-                <span className="recipe-card-desc">{recipe.description}</span>
-              </span>
+              <Icon className="size-3.5 shrink-0" strokeWidth={1.75} aria-hidden />
+              <span className="recipe-card-title">{recipe.title}</span>
             </button>
           );
         })}

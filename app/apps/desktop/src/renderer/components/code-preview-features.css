@@ -227,32 +227,33 @@
 .recipes {
   width: 100%;
   max-width: 640px;
-  margin-top: 28px;
-  text-align: left;
+  margin-top: 20px;
 }
 .recipes-title {
-  margin: 0 0 10px;
+  margin: 0 0 8px;
   font-size: 13px;
   font-weight: 500;
   color: var(--muted-foreground);
   text-align: center;
 }
+/* One line per recipe, like the example chips: the description is in the form and the tooltip. */
 .recipes-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
   gap: 8px;
 }
 .recipe-card {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  min-height: 44px;
-  padding: 10px 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  padding: 6px 14px;
   border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
+  border-radius: 9999px;
   background: var(--card);
   color: var(--foreground);
-  text-align: left;
+  font-size: 13px;
   cursor: pointer;
   transition:
     background-color 0.15s,
@@ -266,23 +267,8 @@
   outline: 2px solid var(--ring);
   outline-offset: 2px;
 }
-.recipe-card svg {
-  margin-top: 2px;
-}
-.recipe-card-text {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
 .recipe-card-title {
-  font-size: 13px;
   font-weight: 500;
-}
-.recipe-card-desc {
-  font-size: 12px;
-  line-height: 1.4;
-  color: var(--muted-foreground);
 }
 .recipe-form {
   display: flex;
