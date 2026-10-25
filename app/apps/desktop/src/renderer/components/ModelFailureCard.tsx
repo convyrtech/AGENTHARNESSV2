@@ -15,11 +15,14 @@ export function ModelFailureCard(props: {
   disabled?: boolean | undefined;
 }) {
   const [open, setOpen] = useState(false);
+  const title = t(props.locale, "system.responseFailed");
+  // The gateway's own drop already says «Связь с моделью оборвалась»; nothing more to unfold.
+  const detail = props.detail.trim() === title ? "" : props.detail;
   return (
     <div className="model-failure" data-kind="system" data-testid="model-failure" role="alert">
       <div className="model-failure-head">
         <CircleAlert className="size-4 shrink-0" strokeWidth={1.75} />
-        <span className="model-failure-title">{t(props.locale, "system.responseFailed")}</span>
+        <span className="model-failure-title">{title}</span>
         {props.onRetry ? (
           <button
             type="button"
@@ -33,7 +36,7 @@ export function ModelFailureCard(props: {
           </button>
         ) : null}
       </div>
-      {props.detail ? (
+      {detail ? (
         <>
           <button
             type="button"
@@ -47,7 +50,7 @@ export function ModelFailureCard(props: {
             />
             {t(props.locale, "system.details")}
           </button>
-          {open ? <pre className="model-failure-detail">{props.detail}</pre> : null}
+          {open ? <pre className="model-failure-detail">{detail}</pre> : null}
         </>
       ) : null}
     </div>

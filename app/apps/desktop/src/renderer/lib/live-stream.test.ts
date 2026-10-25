@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
+import { isModelFailure } from "./system-notices.ts";
 import {
   appendMonotonicText,
   applyRuntimeEventToLiveStream,
@@ -57,6 +58,29 @@ describe("streamed text never loses characters", () => {
     });
     const item = state.items[0];
     expect(item && "text" in item ? item.text : undefined).toBe("100");
+  });
+});
+
+describe("a model failure becomes the failure card", () => {
+  // The proxy's mid-stream drop (code prsloy_stream_interrupted) reaches pi's errorMessage as
+  // «Связь с моделью оборвалась»; it must look exactly like a network drop.
+  it.each([
+    ["Связь с моделью оборвалась", "unknown"],
+    ["Connection error.", "network"],
+  ] as const)("%s (%s)", (message, code) => {
+    let state = emptyLiveStream();
+    state = applyRuntimeEventToLiveStream(state, { type: "message.delta", delta: "Нача" }, [], {
+      sequence: 1,
+    });
+    state = applyRuntimeEventToLiveStream(
+      state,
+      { type: "message.failed", reason: "error", message, code },
+      [],
+      { sequence: 2 },
+    );
+    const failure = state.items.at(-1);
+    expect(failure?.kind).toBe("system");
+    expect(failure && isModelFailure(failure as { title?: string; tone?: string })).toBe(true);
   });
 });
 

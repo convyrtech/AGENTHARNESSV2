@@ -26,4 +26,11 @@ describe("ModelFailureCard", () => {
     rerender(<ModelFailureCard locale="ru" detail="x" />);
     expect(screen.queryByTestId("model-failure-retry")).toBeNull();
   });
+
+  it("shows the gateway's stream drop without repeating it under «Подробности»", () => {
+    render(<ModelFailureCard locale="ru" detail="Связь с моделью оборвалась" onRetry={() => {}} />);
+    expect(screen.getByText("Связь с моделью оборвалась")).toBeTruthy();
+    expect(screen.getByTestId("model-failure-retry")).toBeTruthy();
+    expect(screen.queryByText("Подробности")).toBeNull();
+  });
 });
