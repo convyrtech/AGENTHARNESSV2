@@ -1507,4 +1507,5 @@ export const ru = {
   "prsloy.update.dismiss": "Скрыть",
   "prsloy.firstRun.folderRefused": "Это служебная папка приложения — выберите другую",
   "prsloy.firstRun.folderFailed": "Не получилось открыть папку {path}",
+  "prsloy.host.restarted": "Агент перезапущен после сбоя — разговор сохранён",
 } as const;
