@@ -2,6 +2,12 @@
 # и сессии Electron-e2e последнего зелёного desktop-ci на main (#29), детекторы-код по ним. REPORT-audit.md и SUMMARY.md (без цитат) — в summary прогона, всё остальное —
 # артефактом на 14 дней. Еженедельный разбор сессий дирижёра и владельца идёт на их машине:
 #   node packages/prsloy-harness/scripts/audit-sessions.mts --sessions ~/.pi/agent/sessions --since <неделю назад>
+# Живой стенд дирижёра (сессии с настоящей моделью, A-1): либо локально, тем же разбором, что ночью:
+#   node packages/prsloy-harness/scripts/audit-sessions.mts --sessions bench-out --bench bench-out/bench-*.json --out audit-live
+# либо артефактом: загрузить папку сессий артефактом любого прогона (имя с «sessions», например
+# bench-sessions-live-<дата>) и запустить этот workflow вручную с sessions_run=<id прогона>. В summary идут
+# только REPORT-audit.md и SUMMARY.md (без цитат); findings.jsonl с цитатами — в артефакте разбора, а репозиторий
+# публичный: живые сессии и так лежат в публичном артефакте того прогона.
 name: desktop-audit
 
 on:
@@ -9,6 +15,16 @@ on:
     # 01:17 UTC (04:17 МСК): не на ровном часе, чтобы не ждать очереди раннеров.
     - cron: "17 1 * * *"
   workflow_dispatch:
+    inputs:
+      sessions_run:
+        description: "id прогона, чьи артефакты с сессиями добавить к разбору (например, живой стенд); пусто — только ночное"
+        required: false
+        type: string
+      sessions_artifact:
+        description: "шаблон имени артефакта с сессиями в этом прогоне"
+        required: false
+        type: string
+        default: "*sessions*"
 
 permissions:
   contents: read
@@ -61,19 +77,45 @@ jobs:
           path: ${{ runner.temp }}/e2e-sessions
           run-id: ${{ steps.e2e.outputs.run }}
           github-token: ${{ github.token }}
+      # Optional: sessions uploaded as an artifact of another run (the conductor's live bench, A-1).
+      - name: Extra sessions run
+        id: extra
+        env:
+          RUN: ${{ inputs.sessions_run }}
+        run: |
+          if [[ -n "$RUN" && ! "$RUN" =~ ^[0-9]+$ ]]; then echo "::error::sessions_run «$RUN»: нужен числовой id прогона"; exit 1; fi
+          echo "run=$RUN" >> "$GITHUB_OUTPUT"
+      - uses: actions/download-artifact@v4
+        if: steps.extra.outputs.run != ''
+        with:
+          pattern: ${{ inputs.sessions_artifact || '*sessions*' }}
+          path: ${{ runner.temp }}/extra-sessions
+          run-id: ${{ steps.extra.outputs.run }}
+          github-token: ${{ github.token }}
       - name: Audit sessions (code detectors, 0 tokens)
         run: |
           args=(--sessions "$RUNNER_TEMP/bench-out")
           [ -d "$RUNNER_TEMP/e2e-sessions" ] && args+=(--sessions "$RUNNER_TEMP/e2e-sessions")
+          if [ -d "$RUNNER_TEMP/extra-sessions" ]; then
+            n=$(find "$RUNNER_TEMP/extra-sessions" -name '*.jsonl' | wc -l)
+            if [ "$n" -eq 0 ]; then echo "::error::в артефактах прогона $EXTRA_RUN нет *.jsonl"; exit 1; fi
+            echo "extra sessions: $n .jsonl files"
+            args+=(--sessions "$RUNNER_TEMP/extra-sessions")
+            # bench-*.json next to them gives D2 the check outcome per session
+            while IFS= read -r f; do args+=(--bench "$f"); done < <(find "$RUNNER_TEMP/extra-sessions" -name 'bench-*.json')
+          fi
           node packages/prsloy-harness/scripts/audit-sessions.mts "${args[@]}" --out "$RUNNER_TEMP/audit-out" > /dev/null
+        env:
+          EXTRA_RUN: ${{ steps.extra.outputs.run }}
       - name: Report
         if: always()
         env:
           BENCH: ${{ steps.bench.outcome }}
           E2E_RUN: ${{ steps.e2e.outputs.run }}
+          EXTRA_RUN: ${{ steps.extra.outputs.run }}
         run: |
           {
-            echo "Стенд на фейковой модели: $BENCH. Сессии e2e: run ${E2E_RUN:-нет}."
+            echo "Стенд на фейковой модели: $BENCH. Сессии e2e: run ${E2E_RUN:-нет}. Добавленные сессии: run ${EXTRA_RUN:-нет}."
             echo
             [ -f "$RUNNER_TEMP/audit-out/REPORT-audit.md" ] && cat "$RUNNER_TEMP/audit-out/REPORT-audit.md"
             echo
