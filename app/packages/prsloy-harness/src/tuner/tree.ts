@@ -29,9 +29,12 @@ export const SKILL_DESCRIPTION_MAX = 300;
 export const SKILL_BODY_MAX = 8000;
 export const LESSON_TEXT_MAX = 400;
 
-/** lessons.json, model-delta.md и файлы навыков (SKILL.md и его материалы: шаблоны, примеры). */
+/**
+ * lessons.json, model-delta.md и файлы навыков (SKILL.md и его материалы: шаблоны, примеры) — плоско, без подпапок:
+ * так навыки раскладывает materializeSkills.
+ */
 const ALLOWED =
-  /^(?:lessons\.json|model-delta\.md|skills\/[a-z0-9][a-z0-9-]*\/(?:[A-Za-z0-9_-][A-Za-z0-9_.-]*\/)*[A-Za-z0-9_-][A-Za-z0-9_.-]*)$/;
+  /^(?:lessons\.json|model-delta\.md|skills\/[a-z0-9][a-z0-9-]*\/[A-Za-z0-9_-][A-Za-z0-9_.-]*)$/;
 
 /** Обвязка, с которой улучшатель начинает: то, что сейчас едет в приложении, для этой модели. */
 export function baseTree(model: string): HarnessTree {

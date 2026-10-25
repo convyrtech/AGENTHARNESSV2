@@ -126,6 +126,9 @@ describe("tuner harness tree: only data, validated", () => {
 
     expect(validateTree({ ...base, "src/index.ts": "x" }).join()).toMatch(/менять нельзя/);
     expect(validateTree({ ...base, "skills/a/../../x.md": "x" }).join()).toMatch(/менять нельзя/);
+    expect(validateTree({ ...base, "skills/fix-code/sub/x.md": "x" }).join()).toMatch(
+      /менять нельзя/,
+    );
     expect(validateTree({ ...base, "lessons.json": "{" }).join()).toMatch(/не JSON/);
     expect(
       validateTree({
