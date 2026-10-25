@@ -15,8 +15,8 @@ import { installRequestSecret } from "./request-secret.ts";
 import { installSkills } from "./skills.ts";
 import { installAutoMemory } from "./memory-auto.ts";
 import { installClaimCheck } from "./claim-check.ts";
-import { installHonestExit } from "./honest-exit.ts";
-import { installTestGuard } from "./test-guard.ts";
+import { createHonesty, installHonestExit } from "./honest-exit.ts";
+import { readFlags } from "./flags.ts";
 import { installVagueRequest } from "./vague-request.ts";
 import { installReusePrompt } from "./reuse-prompt.ts";
 import { installLessons } from "./lessons.ts";
@@ -132,8 +132,13 @@ export function createPrsloyHarness(options: HarnessOptions = {}): (pi: Extensio
     if (on("skills")) installSkills(pi, opts, { dir: opts.skillsDir });
     // Раньше стоп-гейта: сорванный вызов инструмента — сначала повтор, проверки проекта потом.
     if (on("toolLeak")) installToolLeak(pi);
+    // Честный выход и страж старых тестов (research/24 §4, H-1): за флагами honestExit / testGuard, по умолчанию
+    // выкл. Состояние сообщения общее у report_blocker и гейта: принятый блокер снимает возвраты «почини».
+    const honesty = opts.profile === "code" && on("honestExit") ? createHonesty() : undefined;
     if (codeGate)
       installStopGate(pi, opts, {
+        ...(honesty ? { honesty } : {}),
+        ...(on("testGuard") ? { testGuard: () => readFlags(opts.settingsPath).testGuard } : {}),
         ...(changes ? { changes } : {}),
         ...(budget ? { budget } : {}),
         ...(on("pagePaths") ? {} : { pagePaths: false as const }),
@@ -160,8 +165,7 @@ export function createPrsloyHarness(options: HarnessOptions = {}): (pi: Extensio
     // Страж и сверка — рядом со стоп-гейтом (им нужен снимок хода), до чистки секретов.
     if (opts.profile === "code") {
       if (on("autoMemory")) installAutoMemory(pi, opts);
-      if (on("honestExit")) installHonestExit(pi, opts);
-      if (on("testGuard")) installTestGuard(pi, opts);
+      if (honesty) installHonestExit(pi, opts, { state: honesty, changes });
       if (on("claimCheck")) installClaimCheck(pi, opts);
     }
     if (on("secretScrub")) installSecretScrub(pi);
