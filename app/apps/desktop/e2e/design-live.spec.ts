@@ -334,14 +334,18 @@ test("a full turn on the real tools: sheet and videos, choice «A», the page", 
     await shot(page, "videos");
 
     // the brand of the owner's site, measured before the turn: no model
-    const brand = JSON.parse(readFileSync(join(ws(l), "materials", "brand.json"), "utf8")) as {
-      colors: Record<string, string>;
-      fonts: { body: { family: string } };
-      radius: string;
-    };
-    expect(brand.colors).toEqual({ background: "#f3eee3", text: "#3b2a1e", accent: "#a4472c" });
-    expect(brand.fonts.body.family).toBe("Georgia");
-    expect(brand.radius).toBe("10px");
+    // (the installed package is main's latest build, which may predate this branch)
+    if (!EXE) {
+      const brandFile = join(ws(l), "materials", "brand.json");
+      const brand = JSON.parse(readFileSync(brandFile, "utf8")) as {
+        colors: Record<string, string>;
+        fonts: { body: { family: string } };
+        radius: string;
+      };
+      expect(brand.colors).toEqual({ background: "#f3eee3", text: "#3b2a1e", accent: "#a4472c" });
+      expect(brand.fonts.body.family).toBe("Georgia");
+      expect(brand.radius).toBe("10px");
+    }
 
     // the agent shell ran python3 from the app's shim: the venv's interpreter, full stdlib
     const probe = readFileSync(join(piHome(l), "live-probe.txt"), "utf8");
