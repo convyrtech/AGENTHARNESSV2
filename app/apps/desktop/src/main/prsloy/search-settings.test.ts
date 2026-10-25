@@ -24,31 +24,55 @@ const settings = () => {
 };
 
 describe("search settings", () => {
-  it("off by default; a provider is usable only with what it needs", () => {
+  it("free by default; a provider is usable only with what it needs; screen order", () => {
     const { s } = settings();
     const st = s.state(false);
-    expect(st.active).toBeNull();
+    expect(st.active).toBe("free");
+    expect(st.providers.map((p) => p.id)).toEqual([
+      "free",
+      "deepseek",
+      "yandex",
+      "searxng",
+      "brave",
+      "exa",
+      "firecrawl",
+      "jina",
+      "prsloy",
+      "model",
+    ]);
     const byId = Object.fromEntries(st.providers.map((p) => [p.id, p.configured]));
     expect(byId).toMatchObject({
+      free: true,
       prsloy: false,
       brave: false,
       yandex: false,
       searxng: false,
-      model: true,
+      model: false,
     });
-    expect(st.providers.map((p) => p.id)).not.toContain("tavily");
     s.setKey("yandex", "AQVN-yandex-key");
     expect(s.state(false).providers.find((p) => p.id === "yandex")!.configured).toBe(false);
-    s.setKey("yandex", "", { folderId: "b1g-folder" });
+    s.setKey("yandex", "AQVN-yandex-key", { folderId: "b1g-folder" });
     expect(s.state(true).providers.find((p) => p.id === "yandex")).toMatchObject({
       configured: true,
       keyMask: "AQV…-key",
       fields: { folderId: "b1g-folder" },
     });
     expect(s.state(true).providers.find((p) => p.id === "prsloy")!.configured).toBe(true);
+    expect(s.state(true).providers.find((p) => p.id === "model")!.configured).toBe(true);
   });
 
-  it("keys are encrypted at rest and never in search.json", () => {
+  it("a blank key is an error; SearXNG needs an address, not a key; free, prsloy, model take none", () => {
+    const { s } = settings();
+    expect(() => s.setKey("brave", "")).toThrow("Ключ пустой");
+    expect(() => s.setKey("brave", "   ")).toThrow("Ключ пустой");
+    expect(() => s.setKey("searxng", "")).toThrow("адрес");
+    s.setKey("searxng", "", { url: "https://sx.example" });
+    expect(s.state(false).providers.find((p) => p.id === "searxng")!.configured).toBe(true);
+    for (const id of ["free", "prsloy", "model"] as const)
+      expect(() => s.setKey(id, "x")).toThrow("ключ не нужен");
+  });
+
+  it("keys are encrypted at rest and never in search.json; removing the active key falls back to free", () => {
     const { dir, s } = settings();
     s.setKey("brave", "BSA-very-secret-1234");
     s.setKey("searxng", "", { url: "https://sx.example" });
@@ -61,30 +85,51 @@ describe("search settings", () => {
     expect(JSON.parse(readFileSync(join(dir, "search.json"), "utf8"))).toEqual({
       active: "brave",
       fields: { brave: {}, searxng: { url: "https://sx.example" } },
+      checks: {},
     });
     s.clearKey("brave");
     expect(existsSync(join(dir, "search-key-brave.bin"))).toBe(false);
-    expect(s.state(false).active).toBeNull();
+    expect(s.state(false).active).toBe("free");
   });
 
-  it("handoff: the active provider's config, nothing when off, without a key, or the model's own search", () => {
+  it("the last «Проверить» is kept per provider until its key changes", () => {
     const { s } = settings();
-    expect(s.handoff("https://gw/v1")).toBeUndefined();
+    s.setKey("brave", "BSA-1");
+    s.recordCheck(
+      "brave",
+      { ok: false, code: "limit", error: "лимит" },
+      new Date("2026-10-25T10:00:00Z"),
+    );
+    expect(s.state(false).providers.find((p) => p.id === "brave")!.lastCheck).toEqual({
+      at: "2026-10-25T10:00:00.000Z",
+      ok: false,
+      code: "limit",
+    });
+    s.recordCheck("free", { ok: true, latencyMs: 5, dated: true, firstUrl: "https://x" });
+    expect(s.state(false).providers.find((p) => p.id === "free")!.lastCheck).toMatchObject({
+      ok: true,
+    });
+    s.setKey("brave", "BSA-2");
+    expect(s.state(false).providers.find((p) => p.id === "brave")!.lastCheck).toBeUndefined();
+  });
+
+  it("handoff: always set — the active provider's config, or free when it is not set up", () => {
+    const { s } = settings();
+    const gw = "https://gw/v1";
+    expect(JSON.parse(s.handoff(gw))).toEqual({ search: { provider: "free" }, gatewayUrl: gw });
     s.setActive("exa");
-    expect(s.handoff("https://gw/v1")).toBeUndefined();
+    expect(JSON.parse(s.handoff(gw)).search).toEqual({ provider: "free" });
     s.setKey("exa", "exa-key");
-    expect(JSON.parse(s.handoff("https://gw/v1")!)).toEqual({
+    expect(JSON.parse(s.handoff(gw))).toEqual({
       search: { provider: "exa", key: "exa-key" },
-      gatewayUrl: "https://gw/v1",
+      gatewayUrl: gw,
     });
     s.setActive("prsloy");
-    expect(JSON.parse(s.handoff("https://gw/v1")!)).toEqual({
-      search: { provider: "prsloy", url: "https://gw/v1" },
-      gatewayUrl: "https://gw/v1",
-    });
+    expect(JSON.parse(s.handoff(gw)).search).toEqual({ provider: "prsloy", url: gw });
     s.setActive("model");
-    expect(s.handoff("https://gw/v1")).toBeUndefined();
-    expect(() => s.setKey("prsloy", "x")).toThrow("ключ не нужен");
+    expect(JSON.parse(s.handoff(gw)).search).toEqual({ provider: "model", url: gw });
+    s.setActive(null);
+    expect(JSON.parse(s.handoff(gw)).search).toEqual({ provider: "free" });
   });
 });
 
@@ -198,6 +243,20 @@ describe("search IPC", () => {
       code: "no_key",
       error: "Сначала введите ключ",
     });
-    expect(await call(SEARCH_IPC.check, "model")).toMatchObject({ ok: false, code: "no_channel" });
+    // the model's search: the gateway's chat completions with web_search_options, the PRSLOY key
+    expect(await call(SEARCH_IPC.check, "model")).toMatchObject({ ok: false, code: "format" });
+    expect(calls.at(-1)!.url).toBe("https://gw.example/v1/chat/completions");
+    expect(JSON.parse(calls.at(-1)!.init!.body as string)).toMatchObject({
+      model: "gpt-6.1-sol",
+      web_search_options: {},
+    });
+    const st = (await call(SEARCH_IPC.getState)) as {
+      providers: { id: string; lastCheck?: unknown }[];
+    };
+    expect(st.providers.find((p) => p.id === "prsloy")!.lastCheck).toMatchObject({ ok: true });
+    expect(st.providers.find((p) => p.id === "exa")!.lastCheck).toMatchObject({
+      ok: false,
+      code: "no_key",
+    });
   });
 });

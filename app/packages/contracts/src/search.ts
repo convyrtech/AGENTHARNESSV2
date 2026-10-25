@@ -5,11 +5,13 @@
  */
 
 /**
- * `prsloy` — «Поиск PRSLOY» through the gateway (no key of its own: the PRSLOY key); `model` — the model's
- * built-in search, a fallback with sources unchecked by code. Tavily is not offered: its terms bar users in
- * Russia (research/26 §3.2).
+ * `free` — the default, no key: official sources (GitHub, npm, PyPI, endoflife.date, Wikipedia) and a keyless
+ * web search, always configured; `prsloy` — «Поиск PRSLOY» through the gateway (no key of its own: the PRSLOY
+ * key, issue #31); `model` — the model's built-in search, the last fallback, sources unchecked by code. Tavily is
+ * not offered: its terms bar users in Russia (research/26 §3.2). Screen order: free, own keys, prsloy, model.
  */
 export type SearchProviderId =
+  | "free"
   | "prsloy"
   | "deepseek"
   | "yandex"
@@ -22,16 +24,26 @@ export type SearchProviderId =
 
 export type SearchProviderState = {
   id: SearchProviderId;
-  /** A key (and the required fields) is stored; `prsloy` — the PRSLOY key is set; `model` — always. */
+  /**
+   * A key (and the required fields) is stored; SearXNG — its address; `free` — always; `prsloy` and `model` —
+   * the PRSLOY key is set.
+   */
   configured: boolean;
   /** «sk-…a1b2»: the key itself never leaves main. */
   keyMask?: string;
   /** Not secret: Yandex folder ID, SearXNG server address. */
   fields?: { folderId?: string; url?: string };
+  /** The last «Проверить», stored by main. */
+  lastCheck?: { at: string; ok: boolean; code?: SearchErrorCode };
 };
 
+export type SearchErrorCode = "no_key" | "auth" | "limit" | "network" | "format" | "no_channel";
+
 export type SearchState = {
-  /** `null` — web search is off. */
+  /**
+   * The provider tried first; the agent falls back to `free`, then `model`. Default `free`. `null` (kept for
+   * older files) means the same as `free`. The tools themselves are behind the harness flag `webTools`.
+   */
   active: SearchProviderId | null;
   providers: SearchProviderState[];
 };
@@ -49,19 +61,31 @@ export type SearchCheckResult =
       ok: false;
       error: string;
       /** `limit` → the card «лимит поиска исчерпан, добавьте ключ или выберите другой поиск». */
-      code: "no_key" | "auth" | "limit" | "network" | "format" | "no_channel";
+      code: SearchErrorCode;
     };
+
+/**
+ * `details` of the card the harness shows when a search provider stops working mid-session: `customType`
+ * "prsloy-harness.search-limit", `display: true`. The agent goes on down the chain.
+ */
+export type SearchLimitCardDetails = {
+  provider: SearchProviderId;
+  code: "limit" | "auth" | "no_key";
+};
 
 export interface SearchApi {
   getState(): Promise<SearchState>;
+  /**
+   * A blank key is an error; SearXNG takes no key (pass "") but needs `fields.url`. `free`, `prsloy` and `model`
+   * take no key.
+   */
   setKey(
     id: SearchProviderId,
     key: string,
     fields?: { folderId?: string; url?: string },
   ): Promise<SearchState>;
   clearKey(id: SearchProviderId): Promise<SearchState>;
-  /** `null` turns web search off. */
   setActive(id: SearchProviderId | null): Promise<SearchState>;
-  /** One query «Пушкин», 1 result, from the user's own network. */
+  /** One query «Пушкин», 1 result, from the user's own network; the result is stored as `lastCheck`. */
   check(id: SearchProviderId): Promise<SearchCheckResult>;
 }

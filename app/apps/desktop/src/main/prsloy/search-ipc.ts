@@ -74,18 +74,22 @@ export function registerPrsloySearchIpc(ipcMain: IpcMainLike, deps: SearchIpcDep
   });
   ipcMain.handle(SEARCH_IPC.check, async (_e, raw): Promise<SearchCheckResult> => {
     const id = provider(raw);
-    if (id === "model") {
-      return {
-        ok: false,
-        code: "no_channel",
-        error: "Встроенный поиск модели проверяется в чате: источники у него не проверяются кодом",
-      };
-    }
+    const result = await runCheck(id);
+    deps.settings.recordCheck(id, result);
+    return result;
+  });
+
+  async function runCheck(id: SearchProviderId): Promise<SearchCheckResult> {
     const cfg = deps.settings.config(id, deps.gatewayUrl());
     if (!cfg) return { ok: false, code: "no_key", error: "Сначала введите ключ" };
-    const effective = id === "prsloy" ? { ...cfg, key: deps.gatewayKey() ?? "" } : cfg;
-    if (id === "prsloy" && !effective.key)
-      return { ok: false, code: "no_key", error: "Нет ключа PRSLOY" };
-    return checkProvider(effective, deps.fetch ? { fetchImpl: deps.fetch } : {});
-  });
+    const gateway = id === "prsloy" || id === "model";
+    const effective = gateway ? { ...cfg, key: deps.gatewayKey() ?? "" } : cfg;
+    if (gateway && !effective.key) return { ok: false, code: "no_key", error: "Нет ключа PRSLOY" };
+    if (gateway && !effective.url)
+      return { ok: false, code: "no_channel", error: "Нет адреса шлюза" };
+    const result = await checkProvider(effective, deps.fetch ? { fetchImpl: deps.fetch } : {});
+    return id === "model" && result.ok
+      ? { ...result, note: "поиск модели, источники не проверены кодом" }
+      : result;
+  }
 }

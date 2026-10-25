@@ -433,14 +433,14 @@ async function handleCommand(command: HostCommand): Promise<void> {
         ];
         if (prsloyHandoff.harnessEnabled) {
           // Bundled into the host (survives asar); profile from PRSLOY_PROFILE (main sets "code").
-          // Web search (issue #23): the provider and key main handed over, if the user turned search on.
+          // Web search (issue #23): the provider and key main handed over; the tools themselves are behind
+          // the harness flag `webTools`, read every turn.
           const search = prsloyHandoff.search;
           options.extensionFactories.push(
             createPrsloyHarness(
               search
                 ? {
                     research: {
-                      enabled: true,
                       // main wrote it from its own list of providers (search-settings.ts)
                       search: search.search as NonNullable<
                         NonNullable<HarnessOptions["research"]>["search"]
