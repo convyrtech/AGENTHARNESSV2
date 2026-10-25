@@ -5,7 +5,7 @@ import { closeLaunched, launchRu, shot } from "./features-helpers.ts";
 
 /**
  * «Память» (research/18 §6.7, S5 UI): the harness's real `memory` tool (memory on via
- * PRSLOY_MEMORY=1) shows «Запомнил: …» in the chat; «Изменить» asks in the composer.
+ * PRSLOY_MEMORY=1) shows «Запомнил «…»» in the chat; «Изменить» asks in the composer.
  * Settings → «Память» writes the harness flag and lists the memory through core's
  * `prsloy:memory-*` (window.zeno.memory): «Забыть» moves the entry to «Забытое».
  */
@@ -31,7 +31,7 @@ test("a memory card in the chat and the «Память» settings", async () => 
     await sendPrompt(page, `Use the tool: ${QUOTE}`);
     await waitSettled(page);
     const card = page.getByTestId("memory-card");
-    await expect(card).toContainText("Запомнил: Отвечать коротко, без умных слов");
+    await expect(card).toContainText("Запомнил «Отвечать коротко, без умных слов»");
     await expect(card).toHaveAttribute("data-memory", "saved");
     const saved = JSON.parse(await readFile(join(agentDir, "prsloy-memory", "user.json"), "utf8"));
     expect(saved.entries[0].text).toBe("Отвечать коротко, без умных слов");
@@ -62,9 +62,14 @@ test("a memory card in the chat and the «Память» settings", async () => 
     expect(after.entries).toEqual([]);
     expect(after.tombstones).toHaveLength(1);
 
-    // Turning it off by hand is written and stays (it also erases the memory, research/24 §3.6).
+    // Nothing remembered now: the switch turns memory off at once and writes false.
     await toggle.click();
+    await expect(page.getByTestId("memory-off-confirm")).toHaveCount(0);
     await expect(toggle).toHaveAttribute("aria-checked", "false");
+    await expect(page.getByTestId("settings-memory-auto-toggle")).toHaveAttribute(
+      "aria-checked",
+      "false",
+    );
     const flags = JSON.parse(await readFile(join(agentDir, "prsloy-harness.json"), "utf8"));
     expect(flags.memory).toBe(false);
     await shot(page, "memory-3-settings-after");
@@ -95,7 +100,7 @@ test("«Забыть» and «Вернуть» from the card and the panel, «З�
     await sendPrompt(page, "Use the tool: зови меня Аня, пожалуйста");
     await waitSettled(page);
     const card = page.getByTestId("memory-card");
-    await expect(card).toContainText("Запомнил: Звать меня Аня");
+    await expect(card).toContainText("Запомнил «Звать меня Аня");
 
     // The card: «Забыть» → «Забыл.» [Вернуть] → «Вернул.», each on disk.
     await card.getByTestId("memory-card-forget").click();

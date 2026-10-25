@@ -19,7 +19,9 @@
 //   … --test-guard on          страж старых тестов (флаг "testGuard", H-1; по умолчанию выкл.)
 //   … --audit                  разборщик сессий после прогона (research/24 §6, ci; пока только метка в отчёте)
 //   … --allow-outside          отвечать «Да» на «менять файлы вне проекта?» (по умолчанию «Нет»)
-//   … --out bench-out          куда писать отчёт, сессии и папки задач
+//   … --out bench-out          куда писать отчёт, сессии и папки задач; результат каждой задачи — results/<задача>.json
+//   … --resume bench-out       продолжить прерванный прогон в этой папке: готовые задачи не гоняются, отчёт — по всем
+//                              (настройки — те же, что в прошлый раз; иначе ошибка)
 //   … --lessons-file <json>    уроки вместо lessons/code.json пакета (оффлайн-улучшатель, #33)
 //   … --skills-dir <папка>     навыки из папки <навык>/SKILL.md вместо встроенных; включает навыки (#33)
 //   … --delta-file <md>        добавка промпта модели из файла; включает дельту (#33)
@@ -54,6 +56,7 @@ const { values } = parseArgs({
     "test-guard": { type: "string", default: "off" },
     web: { type: "string", default: "off" },
     out: { type: "string", default: "bench-out" },
+    resume: { type: "string" },
     "lessons-file": { type: "string" },
     "skills-dir": { type: "string" },
     "delta-file": { type: "string" },
@@ -78,8 +81,9 @@ async function main(): Promise<number> {
     console.error("Нужен ключ шлюза в PRSLOY_GATEWAY_KEY (или --fake).");
     return 2;
   }
-  const outDir = resolve(values.out);
+  const outDir = resolve(values.resume ?? values.out);
   const report = await runBench({
+    ...(values.resume ? { resume: true } : {}),
     harness: values.harness === "on",
     lessons: values.lessons !== "off",
     review: values.review !== "off",

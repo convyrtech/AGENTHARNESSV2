@@ -21,8 +21,8 @@ export const MEMORY_HEADER =
 
 /** Тексты §6.7 (для человека — карточки; для модели — те же слова в результате инструмента). */
 export const MEMORY_TEXT = {
-  saved: (text: string) => `Запомнил: ${text}`,
-  savedProject: (text: string) => `Запомнил для этого проекта: ${text}`,
+  saved: (text: string) => `Запомнил «${text}»`,
+  savedProject: (text: string) => `Запомнил для этого проекта «${text}»`,
   updated: (before: string, after: string) => `Обновил: было «${before}», стало «${after}»`,
   forgot: "Забыл.",
   secret: "Это похоже на пароль или ключ. Такое не запоминаю.",
@@ -32,10 +32,11 @@ export const MEMORY_TEXT = {
   full: "Память заполнена. Что забыть?",
   threat: "Это похоже на команду, а не на факт о вас. Такое не запоминаю.",
   off: "Память выключена в настройках.",
-  noticed: (text: string) => `Заметил и запомнил: ${text}`,
-  noticedMany: (n: number) => `Запомнил ${n}`,
+  noticed: (text: string) => `Заметил и запомнил «${text}»`,
+  noticedMany: (n: number) => `Запомнил несколько вещей (${n})`,
   confirmForget: (text: string) => `Забыть «${text}»?`,
-  confirmReplace: (before: string, after: string) => `Раньше: «${before}». Теперь: «${after}»?`,
+  confirmReplace: (before: string, after: string) =>
+    `Раньше вы просили «${before}». Теперь — «${after}»?`,
   asked:
     "Менять уже запомненное сам я не могу: спросил пользователя карточкой. Решит он — продолжай работу.",
 } as const;
