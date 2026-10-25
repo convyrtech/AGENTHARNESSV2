@@ -84,6 +84,8 @@ import {
 } from "../lib/timeline.ts";
 import { cn } from "../lib/utils.ts";
 import { useCasualPrefs } from "../hooks/useCasualPrefs.ts";
+import { harnessCardKind, isHarnessData } from "../lib/harness-card.ts";
+import { HarnessCard } from "./HarnessCard.tsx";
 import { isModelFailure, isModelOnlyNote, localizedSystemTitle } from "../lib/system-notices.ts";
 import { ModelFailureCard } from "./ModelFailureCard.tsx";
 
@@ -804,6 +806,19 @@ export const TimelineRow = memo(function TimelineRow(props: {
         locale={props.locale}
         detail={item.text}
         code={item.code}
+        onRetry={props.onRetry}
+        disabled={props.editingLocked}
+      />
+    );
+  }
+  const harness = item.extension ? harnessCardKind(item.title) : undefined;
+  if (harness) {
+    if (isHarnessData(item.text)) return null;
+    return (
+      <HarnessCard
+        locale={props.locale}
+        kind={harness}
+        text={item.text}
         onRetry={props.onRetry}
         disabled={props.editingLocked}
       />

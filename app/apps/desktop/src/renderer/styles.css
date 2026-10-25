@@ -6870,6 +6870,14 @@ textarea.models-scoped-patterns-input[data-slot="textarea"] {
   color: var(--muted-foreground);
   cursor: pointer;
 }
+/* A harness card is a note, not an error: the same shape in the quiet card colours. */
+.harness-card {
+  border-color: var(--border);
+  background: var(--card);
+}
+.harness-card .model-failure-head {
+  color: var(--muted-foreground);
+}
 .model-failure-hint {
   margin: 4px 0 0 24px;
   font-size: 13px;

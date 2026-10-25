@@ -225,11 +225,17 @@ export function historyToTimeline(history: SessionHistoryMessage[]): TimelineIte
       });
       continue;
     }
+    // History flattens a custom message to «[customType] text»: give it back its type, as live.
+    const custom = item.title ? undefined : /^\[([\w.-]+)\] ?([\s\S]*)$/u.exec(item.text);
     items.push({
       id: `history-system-${index}`,
       kind: "system",
-      text: item.text,
-      ...(item.title ? { title: item.title } : {}),
+      text: custom ? (custom[2] ?? "") : item.text,
+      ...(custom
+        ? { title: custom[1] ?? "", extension: true }
+        : item.title
+          ? { title: item.title }
+          : {}),
       ...(item.timestamp ? { timestamp: item.timestamp } : {}),
     });
   }

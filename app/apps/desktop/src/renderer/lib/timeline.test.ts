@@ -30,6 +30,21 @@ function runtimeEvent(sequence: number, event: RuntimeEvent): HostEvent {
 }
 
 describe("runtime timeline", () => {
+  it("a custom message from history gets its type back, as live", () => {
+    const items = historyToTimeline([
+      { role: "system", text: "[prsloy-harness.budget] Задача остановлена: исчерпан лимит" },
+      { role: "system", text: "Обычная заметка" },
+    ]);
+    expect(items[0]).toMatchObject({
+      kind: "system",
+      title: "prsloy-harness.budget",
+      text: "Задача остановлена: исчерпан лимит",
+      extension: true,
+    });
+    expect(items[1]).toMatchObject({ kind: "system", text: "Обычная заметка" });
+    expect(items[1]).not.toHaveProperty("extension");
+  });
+
   it("takes pi's stored text at message end when the deltas lost a character", () => {
     const timeline = projectEventsToTimeline(
       [

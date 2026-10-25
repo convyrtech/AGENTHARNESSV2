@@ -8,7 +8,8 @@
  *
  * The real first run (no test bypass) against a local mock of the PRSLOY gateway. What the
  * mock does depends on the prompt: «сайт» writes a page (preview, undo), «денег» answers 402,
- * «ключ» 401, «модель» 404 model_not_found, «обрыв» cuts the stream after the first token.
+ * «ключ» 401, «модель» 404 model_not_found, «обрыв» cuts the stream after the first token,
+ * «разметк» answers with a tool call leaked as text (the harness's «Модель сбилась» card).
  * Besides the shots, every screen is checked for Latin technical words and Chinese text.
  */
 import { expect, test, type Page } from "@playwright/test";
@@ -85,6 +86,14 @@ function mockGateway(): Server {
           })}\n\n`,
         );
       send({ role: "assistant", content: "" });
+      // The harness's retry note reaches the model as a user message: keep leaking all turn long.
+      if (body.includes("сбой разметки")) {
+        // DeepSeek sometimes sends its tool call as text; the harness retries, then shows a card.
+        send({ content: '<｜DSML｜invoke name="write">\n<｜DSML｜parameter name="path">a.html' });
+        send({}, "stop", { prompt_tokens: 100, completion_tokens: 20, total_tokens: 120 });
+        res.end("data: [DONE]\n\n");
+        return;
+      }
       if (prompt.includes("обрыв")) {
         send({ content: "Начинаю" });
         res.destroy();
@@ -300,6 +309,16 @@ for (const scale of [1, 1.25, 1.5]) {
           await page.waitForTimeout(1500);
           await shot(page, name);
         }
+
+        await send("Проверим сбой разметки");
+        await expect(page.getByTestId("harness-card"))
+          .toBeVisible({ timeout: 120_000 })
+          .catch(async (error: unknown) => {
+            await shot(page, "debug-harness-leak");
+            throw error;
+          });
+        await expect(page.getByTestId("turn-progress")).toBeHidden({ timeout: 120_000 });
+        await shot(page, "12b-harness-leak");
 
         await page.getByTestId("nav-design").click();
         await shot(page, "13-design");
