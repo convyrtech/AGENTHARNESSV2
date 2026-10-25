@@ -8,7 +8,7 @@ export interface HarnessFlags {
   lessons: boolean;
   /** Уроки, выключенные вручную (срочный откат, §7.6). */
   disabledLessons: string[];
-  /** «Запоминать, когда я прошу» (память, S4). */
+  /** «Запоминать, когда я прошу» (память, S4). По умолчанию выкл., пока в приложении нет «Забыть» и панели «Память» (S5). */
   memory: boolean;
   /** Системный промпт «Кода»: базовый Pi + разделы (pi) или свой (prsloy, research/17 §9). По умолчанию pi. */
   prompt: "pi" | "prsloy";
@@ -21,7 +21,7 @@ export function readFlags(settingsPath: string | undefined): HarnessFlags {
     secondOpinion: true,
     lessons: true,
     disabledLessons: [],
-    memory: true,
+    memory: false,
     prompt: "pi",
     promptDelta: false,
   };
@@ -30,7 +30,7 @@ export function readFlags(settingsPath: string | undefined): HarnessFlags {
       const raw = JSON.parse(readFileSync(settingsPath, "utf8")) as Record<string, unknown>;
       if (raw.secondOpinion === false) flags.secondOpinion = false;
       if (raw.lessons === false) flags.lessons = false;
-      if (raw.memory === false) flags.memory = false;
+      if (raw.memory === true) flags.memory = true;
       if (raw.prompt === "prsloy") flags.prompt = "prsloy";
       if (raw.promptDelta === true) flags.promptDelta = true;
       if (Array.isArray(raw.disabledLessons))
@@ -43,6 +43,7 @@ export function readFlags(settingsPath: string | undefined): HarnessFlags {
   }
   if (process.env.PRSLOY_SECOND_OPINION === "0") flags.secondOpinion = false;
   if (process.env.PRSLOY_LESSONS === "0") flags.lessons = false;
+  if (process.env.PRSLOY_MEMORY === "1") flags.memory = true;
   if (process.env.PRSLOY_MEMORY === "0") flags.memory = false;
   if (process.env.PRSLOY_PROMPT === "prsloy" || process.env.PRSLOY_PROMPT === "pi")
     flags.prompt = process.env.PRSLOY_PROMPT;
