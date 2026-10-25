@@ -10,8 +10,14 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { isAbsolute, join } from "node:path";
 import { MemoryStore, memoryDirFor } from "@prsloy/harness";
-import type { PrsloyMemoryChange, PrsloyMemoryEntry, PrsloyMemoryList } from "@zeno/contracts";
+import type {
+  PrsloyMemoryChange,
+  PrsloyMemoryEntry,
+  PrsloyMemoryForgotten,
+  PrsloyMemoryList,
+} from "@zeno/contracts";
 import type { IpcMainLike } from "./ipc.ts";
+import { workspaceKey } from "./turn-snapshots.ts";
 
 export const PRSLOY_MEMORY_IPC = {
   list: "prsloy:memory-list",
@@ -55,6 +61,54 @@ function idOf(raw: unknown): string {
   return raw;
 }
 
+const FORGOTTEN_MAX = 20;
+
+/** Tombstones of the user file and this project's file, with the text the journal kept. */
+function forgottenOf(store: MemoryStore, workspace: string): PrsloyMemoryForgotten[] {
+  const texts = new Map<string, string>();
+  try {
+    for (const line of readFileSync(join(store.dir, "journal.jsonl"), "utf8").split("\n")) {
+      if (!line.trim()) continue;
+      const j = JSON.parse(line) as { op?: string; id?: string; before?: unknown };
+      const before = j.before as { id?: unknown; text?: unknown } | unknown[] | null | undefined;
+      if (
+        j.op === "forget" &&
+        j.id &&
+        before &&
+        !Array.isArray(before) &&
+        typeof before.text === "string"
+      ) {
+        texts.set(j.id, before.text);
+      }
+    }
+  } catch {
+    // no journal yet
+  }
+  const read = (path: string) => {
+    try {
+      const file = JSON.parse(readFileSync(path, "utf8")) as {
+        tombstones?: { id?: unknown; forgotten?: unknown }[];
+      };
+      return file.tombstones ?? [];
+    } catch {
+      return [];
+    }
+  };
+  const out: PrsloyMemoryForgotten[] = [];
+  for (const [scope, path] of [
+    ["user", join(store.dir, "user.json")],
+    ["project", join(store.dir, "projects", workspaceKey(workspace), "project.json")],
+  ] as const) {
+    for (const t of read(path)) {
+      if (typeof t.id !== "string" || typeof t.forgotten !== "string") continue;
+      const text = texts.get(t.id);
+      // «Забыть всё» keeps no per-entry text to restore from: not offered.
+      if (text !== undefined) out.push({ id: t.id, text, scope, forgotten: t.forgotten });
+    }
+  }
+  return out.sort((a, b) => b.forgotten.localeCompare(a.forgotten)).slice(0, FORGOTTEN_MAX);
+}
+
 function list(store: MemoryStore, workspace: string): PrsloyMemoryList {
   const view = (scope: "user" | "project"): PrsloyMemoryEntry[] =>
     store
@@ -65,6 +119,7 @@ function list(store: MemoryStore, workspace: string): PrsloyMemoryList {
     user: view("user"),
     project: view("project"),
     ...(digest ? { digest: { text: digest.text, updated: digest.updated } } : {}),
+    forgotten: forgottenOf(store, workspace),
   };
 }
 

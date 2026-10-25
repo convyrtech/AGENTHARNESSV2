@@ -69,11 +69,21 @@ export interface PrsloyMemoryEntry {
   created: string;
 }
 
+/** A forgotten entry that «Вернуть» can still bring back. */
+export interface PrsloyMemoryForgotten {
+  id: string;
+  text: string;
+  scope: "user" | "project";
+  forgotten: string;
+}
+
 /** «Память»: about the user, about this project, and the code-written «last time» digest. */
 export interface PrsloyMemoryList {
   user: PrsloyMemoryEntry[];
   project: PrsloyMemoryEntry[];
   digest?: { text: string; updated: string };
+  /** Restorable: still in tombstones, text from the journal; newest first, up to 20. */
+  forgotten: PrsloyMemoryForgotten[];
 }
 
 export type PrsloyMemoryChange = { ok: boolean; list: PrsloyMemoryList };

@@ -144,7 +144,12 @@ describe("memory IPC (S5)", () => {
     ]);
     const file = JSON.parse(readFileSync(t.projectFile(t.projectA), "utf8"));
     expect(file.tombstones.map((x: { id: string }) => x.id)).toEqual(["p-bbbb"]);
+    // «Вернуть» is on offer with the text.
+    expect(forgot.list.forgotten).toMatchObject([
+      { id: "p-bbbb", text: "Сайт для пекарни «Колос»", scope: "project" },
+    ]);
     const back = await t.invoke<PrsloyMemoryChange>(PRSLOY_MEMORY_IPC.restore, "p-bbbb");
+    expect(back.list.forgotten).toEqual([]);
     expect(back.ok).toBe(true);
     expect(back.list.project.map((e) => e.id)).toEqual(["p-bbbb"]);
     // Unknown id: nothing changes, no note.
@@ -159,9 +164,9 @@ describe("memory IPC (S5)", () => {
   it("«Забыть всё» clears the user and every project, one note", async () => {
     const t = setup();
     const all = await t.invoke<PrsloyMemoryChange>(PRSLOY_MEMORY_IPC.forgetAll);
-    expect(all.list).toEqual({ user: [], project: [] });
+    expect(all.list).toEqual({ user: [], project: [], forgotten: [] });
     const b = await t.invoke<PrsloyMemoryList>(PRSLOY_MEMORY_IPC.list, t.projectB);
-    expect(b).toEqual({ user: [], project: [] });
+    expect(b).toEqual({ user: [], project: [], forgotten: [] });
     expect(t.notes).toEqual([
       { customType: MEMORY_FORGOT_NOTE_TYPE, text: MEMORY_FORGOT_ALL_NOTE },
     ]);
