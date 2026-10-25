@@ -107,3 +107,20 @@
 .version-history-note[data-kind="error"] {
   color: var(--destructive);
 }
+/* «Что дальше» under the last turn */
+.next-steps {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 0 16px;
+}
+.next-steps-title {
+  font-size: 12px;
+  color: var(--muted-foreground);
+}
+.next-step {
+  min-height: 30px;
+  padding: 4px 14px;
+  text-align: left;
+}

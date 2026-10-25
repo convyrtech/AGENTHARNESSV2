@@ -4,6 +4,15 @@
 import type { featuresZh } from "./features.zh.ts";
 
 export const featuresEn: Record<keyof typeof featuresZh, string> = {
+  "features.next.title": "What next:",
+  "features.next.site.phone": "Make the page look good on a phone",
+  "features.next.site.form": "Add a sign-up form",
+  "features.next.site.bright": "Make the design brighter",
+  "features.next.bot.help": "Add a /help command to the bot",
+  "features.next.bot.buttons": "Add buttons to the bot's menu",
+  "features.next.bot.run": "Explain simply how to start the bot",
+  "features.next.code.check": "Check that everything works",
+  "features.next.code.explain": "Explain in simple words what you did",
   "features.history.open": "Version history",
   "features.history.title": "Version history",
   "features.history.hint":

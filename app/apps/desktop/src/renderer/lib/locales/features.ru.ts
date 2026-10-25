@@ -4,6 +4,15 @@
 import type { featuresZh } from "./features.zh.ts";
 
 export const featuresRu: Record<keyof typeof featuresZh, string> = {
+  "features.next.title": "Что дальше:",
+  "features.next.site.phone": "Сделай, чтобы на телефоне тоже было красиво",
+  "features.next.site.form": "Добавь форму заявки",
+  "features.next.site.bright": "Сделай дизайн ярче",
+  "features.next.bot.help": "Добавь боту команду /help",
+  "features.next.bot.buttons": "Добавь кнопки в меню бота",
+  "features.next.bot.run": "Расскажи простыми словами, как запустить бота",
+  "features.next.code.check": "Проверь, что всё работает",
+  "features.next.code.explain": "Объясни простыми словами, что ты сделал",
   "features.history.open": "История версий",
   "features.history.title": "История версий",
   "features.history.hint":
