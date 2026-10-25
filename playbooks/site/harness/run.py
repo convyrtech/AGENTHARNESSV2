@@ -21,6 +21,33 @@ for _s in (sys.stdout, sys.stderr):  # Windows: под -I PYTHONUTF8 не дей
 HERE = Path(__file__).resolve().parent
 PLAYBOOK = HERE.parent                                  # playbooks/site
 CFG = json.loads((HERE / "stages.json").read_text(encoding="utf-8"))
+# HARNESS_MODELS: модели, которые реально есть на шлюзе (приложение берёт их из /v1/models). Лестница сужается до них,
+# ступень без модели поднимается до ближайшей доступной: шлюз PRSLOY 2026-10-25 отдавал qwen и opus, но не deepseek и kimi
+AVAILABLE = {m.strip() for m in os.environ.get("HARNESS_MODELS", "").split(",") if m.strip()}
+
+
+def fit_ladder(cfg, available):
+    if not available:
+        return cfg
+    orig = cfg["ladder"]
+    keep = [m for m in orig if m.split("/", 1)[-1] in available]
+    if not keep:
+        return cfg                                   # ничего из лестницы нет: пусть шаг упадёт понятной ошибкой модели
+
+    def remap(i):
+        return next((keep.index(m) for m in orig[i:] if m in keep), len(keep) - 1)
+
+    cfg["ladder"] = keep
+    cfg["defaults"]["start"] = remap(cfg["defaults"].get("start", 0))
+    for st in cfg["stages"].values():
+        if "start" in st:
+            st["start"] = remap(st["start"])
+    if cfg.get("judge", {}).get("model") not in available:
+        cfg.setdefault("judge", {})["model"] = keep[-1].split("/", 1)[-1]
+    return cfg
+
+
+CFG = fit_ladder(CFG, AVAILABLE)
 # уроки шагов по моделям (research/18 §8): в задание идут только active/trial; HARNESS_LESSONS=0 выключает
 LESSONS = (json.loads((HERE / "lessons.json").read_text(encoding="utf-8"))["lessons"]
            if (HERE / "lessons.json").exists() else [])

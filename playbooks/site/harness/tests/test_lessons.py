@@ -62,3 +62,30 @@ class Lessons(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class FitLadder(unittest.TestCase):
+    """Лестница по моделям шлюза (HARNESS_MODELS): живой PRSLOY 2026-10-25 отдавал qwen, opus, gpt, grok, fable."""
+
+    def cfg(self):
+        return {"ladder": ["a6p/deepseek-v4.1-flash-1017", "a6p/kimi-k3.1-pro", "a6p/qwen3.8-max", "a6p/claude-opus-5-5"],
+                "judge": {"model": "claude-opus-5-5"}, "defaults": {"start": 0},
+                "stages": {"1": {"start": 1}, "7": {"start": 0}, "2": {}}}
+
+    def test_prsloy_today(self):
+        g = load_run()
+        c = g["fit_ladder"](self.cfg(), {"qwen3.8-max", "claude-opus-5-5", "gpt-6.1-sol"})
+        self.assertEqual(c["ladder"], ["a6p/qwen3.8-max", "a6p/claude-opus-5-5"])
+        self.assertEqual(c["defaults"]["start"], 0)        # deepseek → qwen
+        self.assertEqual(c["stages"]["1"]["start"], 0)     # kimi → ближайшая выше: qwen
+        self.assertEqual(c["judge"]["model"], "claude-opus-5-5")
+
+    def test_judge_falls_back_to_strongest(self):
+        g = load_run()
+        c = g["fit_ladder"](self.cfg(), {"deepseek-v4.1-flash-1017", "kimi-k3.1-pro"})
+        self.assertEqual(c["judge"]["model"], "kimi-k3.1-pro")
+
+    def test_nothing_known_keeps_config(self):
+        g = load_run()
+        self.assertEqual(g["fit_ladder"](self.cfg(), {"grok-4.7"})["ladder"][0], "a6p/deepseek-v4.1-flash-1017")
+        self.assertEqual(g["fit_ladder"](self.cfg(), set())["ladder"][0], "a6p/deepseek-v4.1-flash-1017")
