@@ -1,0 +1,91 @@
+import { describe, expect, it } from "vite-plus/test";
+import { installBudget, messageCostUsd } from "../src/budget.ts";
+import { resolveOptions } from "../src/options.ts";
+import { MockPi } from "./mock-pi.ts";
+
+function setup(options: Parameters<typeof resolveOptions>[0] = {}, model?: { cost?: Record<string, number> }) {
+  const pi = new MockPi(process.cwd(), model);
+  const budget = installBudget(pi.api, resolveOptions(options));
+  return { pi, budget };
+}
+
+describe("budget", () => {
+  it("warns once at 80% of tool calls", async () => {
+    const { pi } = setup({ maxToolCalls: 10 });
+    await pi.userPrompt();
+    const texts: string[] = [];
+    for (let i = 0; i < 9; i++) texts.push((await pi.call("read", { path: `f${i}` }, "ok")).result?.text ?? "");
+    expect(texts.slice(0, 7).every((t) => t === "ok")).toBe(true);
+    expect(texts[7]).toContain("[Бюджет задачи: 80%");
+    expect(texts[8]).toBe("ok");
+  });
+
+  it("stops cleanly at 100%: first block asks for a Russian summary, then terminates", async () => {
+    const { pi, budget } = setup({ maxToolCalls: 3 });
+    await pi.userPrompt();
+    await pi.call("edit", { path: "src/app.ts", edits: [] }, "ok");
+    await pi.call("bash", { command: "npm test" }, "ok");
+    await pi.call("read", { path: "README.md" }, "ok");
+
+    const first = await pi.toolCall("bash", { command: "npm run build" });
+    expect(first?.block).toBe(true);
+    expect(first?.terminate).toBe(false);
+    expect(first?.reason).toContain("Напиши пользователю по-русски");
+    const second = await pi.toolCall("bash", { command: "npm run build" });
+    expect(second?.terminate).toBe(true);
+    expect(budget.state().exhausted).toBe("calls");
+
+    const settle = await pi.boundary("agent_before_settle");
+    const message = settle.entries.find((e: any) => e.type === "custom_message") as { content: string; display: boolean };
+    expect(message.display).toBe(true);
+    expect(message.content).toContain("исчерпан лимит вызовов тулов (3)");
+    expect(message.content).toContain("изменены файлы: src/app.ts");
+    expect(message.content).toContain("команд запущено: 1");
+    // Итог пишется один раз.
+    expect((await pi.boundary("agent_before_settle")).entries).toEqual([]);
+  });
+
+  it("counts money from usage.cost and stops at the limit", async () => {
+    const { pi, budget } = setup({ maxCostUsd: 0.05 });
+    await pi.userPrompt();
+    await pi.assistantMessage({ usage: { input: 1000, output: 100, cost: { total: 0.03 } } });
+    expect(await pi.toolCall("read", { path: "a" })).toBeUndefined();
+    await pi.assistantMessage({ usage: { input: 1000, output: 100, cost: { total: 0.03 } } });
+    expect(budget.state().exhausted).toBe("money");
+    const blocked = await pi.toolCall("read", { path: "b" });
+    expect(blocked?.block).toBe(true);
+    const settle = await pi.boundary("agent_before_settle");
+    expect(JSON.stringify(settle.entries)).toContain("лимит денег на задачу ($0.050)");
+  });
+
+  it("falls back to the model cost table when the gateway reports no cost", async () => {
+    const { pi, budget } = setup({}, { cost: { input: 0.14, output: 0.28, cacheRead: 0.014, cacheWrite: 0 } });
+    await pi.assistantMessage({ usage: { input: 1_000_000, output: 500_000, cacheRead: 0, cacheWrite: 0, cost: { total: 0 } } });
+    expect(budget.state().costUsd).toBeCloseTo(0.28, 6);
+  });
+
+  it("resets per user task", async () => {
+    const { pi, budget } = setup({ maxToolCalls: 1 });
+    await pi.userPrompt();
+    await pi.call("read", { path: "a" }, "ok");
+    expect((await pi.toolCall("read", { path: "b" }))?.block).toBe(true);
+    await pi.userPrompt("следующая задача");
+    expect(budget.state().toolCalls).toBe(0);
+    expect(await pi.toolCall("read", { path: "b" })).toBeUndefined();
+  });
+
+  it("aborts if the model keeps calling tools after the stop", async () => {
+    const { pi } = setup({ maxToolCalls: 0 });
+    for (let i = 0; i < 4; i++) await pi.toolCall("read", { path: "x" });
+    expect(pi.aborted).toBe(1);
+  });
+});
+
+describe("messageCostUsd", () => {
+  it("prefers the reported total", () => {
+    expect(messageCostUsd({ input: 10, cost: { total: 0.5 } }, { input: 100 })).toBe(0.5);
+  });
+  it("is zero without usage", () => {
+    expect(messageCostUsd(undefined, { input: 1 })).toBe(0);
+  });
+});
