@@ -71,6 +71,22 @@ describe("Settings → Память", () => {
     await waitFor(() => expect(toggle.getAttribute("aria-checked")).toBe("true"));
   });
 
+  it("the intro says the agent also notices by itself when «Замечать важное само» is on", async () => {
+    flags.get.mockResolvedValue({ secondOpinion: true, memory: true, autoMemory: true });
+    render(<MemorySection tr={tr} locale="ru" workspace={undefined} />);
+    await waitFor(() =>
+      expect(screen.getByTestId("memory-hint").textContent).toContain("сам замечает важное"),
+    );
+    cleanup();
+    flags.get.mockResolvedValue({ secondOpinion: true, memory: true, autoMemory: "off" });
+    render(<MemorySection tr={tr} locale="ru" workspace={undefined} />);
+    await waitFor(() =>
+      expect(screen.getByTestId("memory-hint").textContent).toContain(
+        "только когда вы сами просите",
+      ),
+    );
+  });
+
   it("says so while main has no memory yet", () => {
     (window as unknown as { zeno: unknown }).zeno = { harnessFlags: flags };
     render(<MemorySection tr={tr} locale="ru" workspace={undefined} />);
