@@ -560,11 +560,11 @@ describe("web_search: chain, year guard, tiers, site", () => {
     return { mock, run };
   }
 
-  it("the flag lives in flags.ts, off by default; env PRSLOY_WEB_TOOLS overrides", () => {
-    expect(readFlags(undefined).webTools).toBe(false);
-    process.env.PRSLOY_WEB_TOOLS = "1";
+  it("the flag lives in flags.ts, on by default in the RC; env PRSLOY_WEB_TOOLS overrides", () => {
+    expect(readFlags(undefined).webTools).toBe(true);
+    process.env.PRSLOY_WEB_TOOLS = "0";
     try {
-      expect(readFlags(undefined).webTools).toBe(true);
+      expect(readFlags(undefined).webTools).toBe(false);
     } finally {
       delete process.env.PRSLOY_WEB_TOOLS;
     }

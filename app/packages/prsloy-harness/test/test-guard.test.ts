@@ -412,7 +412,7 @@ describe("H-1 in the gate: guard, signatures, report_blocker", () => {
     expect(await ask("../outside.csv")).toBe(BLOCKER_TEXT.noPath);
     expect(await ask("sales-2025.csv")).toBe(BLOCKER_TEXT.accepted);
     s.off();
-    const off = await scene({}, "задача");
+    const off = await scene({ honestExit: false }, "задача");
     expect(off.pi.activeTools).not.toContain("report_blocker");
     off.off();
   });

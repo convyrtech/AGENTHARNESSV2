@@ -197,9 +197,10 @@ describe("integration: H-1 test guard and report_blocker", () => {
     expect(t.cards("prsloy-harness.stop-gate")).toEqual([]);
   }, 90_000);
 
-  it("flags off (the default): no report_blocker for the model, the rewritten test passes the gate", async () => {
+  it("flags off: no report_blocker for the model, the rewritten test passes the gate", async () => {
+    // the RC turns honestExit on by default: off has to be said
     const t = await startSession(
-      {},
+      { honestExit: false },
       (_r, i) =>
         [
           write("test.js", TEST_JS.replace("170", "190").replace("170", "190")),

@@ -378,8 +378,11 @@ describe("web_search / web_fetch tools", () => {
     return { mock, out };
   }
 
-  it("off by default: the tools are not offered to the model until the webTools flag is on", async () => {
-    const off = setup({ search: { provider: "deepseek", key: "k" } });
+  it("on by default in the RC; webTools false hides the tools, read every turn", async () => {
+    expect(setup({ search: { provider: "deepseek", key: "k" } }).mock.activeTools).toEqual(
+      expect.arrayContaining(["web_search", "web_fetch"]),
+    );
+    const off = setup({ search: { provider: "deepseek", key: "k" } }, { webTools: false });
     expect(off.mock.activeTools).not.toContain("web_search");
     await off.mock.userPrompt();
     expect(off.mock.activeTools).not.toContain("web_search");
@@ -393,8 +396,8 @@ describe("web_search / web_fetch tools", () => {
     writeFileSync(join(on.out, "prsloy-harness.json"), JSON.stringify({ webTools: true }));
     await on.mock.userPrompt();
     expect(on.mock.activeTools).toEqual(expect.arrayContaining(["web_search", "web_fetch"]));
-    // the old key `research` no longer turns them on
-    expect(setup({}, { research: true }).mock.activeTools).not.toContain("web_search");
+    // the old key `research` does not turn them off either: only webTools decides
+    expect(setup({}, { research: false }).mock.activeTools).toContain("web_search");
   });
 
   it("search with the gateway key from Pi, numbered sources with dates; fetch by [n] saves the text", async () => {

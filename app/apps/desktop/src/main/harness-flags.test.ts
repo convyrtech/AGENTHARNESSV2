@@ -5,12 +5,13 @@ import { describe, expect, it, vi } from "vite-plus/test";
 
 const DEFAULTS = {
   secondOpinion: true,
-  memory: false,
-  autoMemory: "off",
-  honestExit: false,
+  // RC check (desktop/ui-rc): memory, auto memory, honest exit and web tools on by default
+  memory: true,
+  autoMemory: true,
+  honestExit: true,
   testGuard: false,
   claimCheck: false,
-  webTools: false,
+  webTools: true,
 } as const;
 
 vi.mock("electron", () => ({ app: { getPath: () => tmpdir() }, ipcMain: { handle: vi.fn() } }));
@@ -35,15 +36,15 @@ describe("harness flags (prsloy-harness.json)", () => {
       secondOpinion: false,
     });
     expect(JSON.parse(readFileSync(path, "utf8"))).toEqual({ other: 1, secondOpinion: false });
-    expect(writeHarnessFlags(path, { memory: true })).toEqual({
+    expect(writeHarnessFlags(path, { memory: false })).toEqual({
       ...DEFAULTS,
       secondOpinion: false,
-      memory: true,
+      memory: false,
     });
     expect(JSON.parse(readFileSync(path, "utf8"))).toEqual({
       other: 1,
       secondOpinion: false,
-      memory: true,
+      memory: false,
     });
   });
 
@@ -66,11 +67,11 @@ describe("harness flags (prsloy-harness.json)", () => {
     expect(() => writeHarnessFlags(path, { honestExit: "on" })).toThrow();
   });
 
-  it("webTools (issue #23): web_search and web_fetch in «Код», off until measured, a boolean", () => {
+  it("webTools (issue #23): web_search and web_fetch in «Код», on in the RC, a boolean", () => {
     const path = harnessFlagsPath(mkdtempSync(join(tmpdir(), "flags-")));
-    expect(readHarnessFlags(path).webTools).toBe(false);
-    expect(writeHarnessFlags(path, { webTools: true })).toEqual({ ...DEFAULTS, webTools: true });
-    expect(JSON.parse(readFileSync(path, "utf8"))).toEqual({ webTools: true });
+    expect(readHarnessFlags(path).webTools).toBe(true);
+    expect(writeHarnessFlags(path, { webTools: false })).toEqual({ ...DEFAULTS, webTools: false });
+    expect(JSON.parse(readFileSync(path, "utf8"))).toEqual({ webTools: false });
     expect(() => writeHarnessFlags(path, { webTools: "on" })).toThrow();
   });
 

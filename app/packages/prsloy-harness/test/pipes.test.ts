@@ -29,12 +29,24 @@ const flagsFile = (v: unknown) => {
 };
 
 describe("pipes: flags", () => {
-  it("off by default; autoMemory off | shadow | true, the rest booleans", () => {
+  it("RC defaults: memory, autoMemory, honestExit, webTools on; testGuard, claimCheck off", () => {
     expect(readFlags(undefined)).toMatchObject({
-      autoMemory: "off",
-      honestExit: false,
+      memory: true,
+      autoMemory: true,
+      honestExit: true,
+      webTools: true,
       testGuard: false,
       claimCheck: false,
+    });
+    expect(
+      readFlags(
+        flagsFile({ memory: false, autoMemory: "off", honestExit: false, webTools: false }),
+      ),
+    ).toMatchObject({
+      memory: false,
+      autoMemory: "off",
+      honestExit: false,
+      webTools: false,
     });
     expect(readFlags(flagsFile({ autoMemory: "shadow", honestExit: true }))).toMatchObject({
       autoMemory: "shadow",
@@ -48,10 +60,10 @@ describe("pipes: flags", () => {
       testGuard: true,
       claimCheck: true,
     });
-    // чужие значения — по умолчанию
+    // чужие значения — по умолчанию (в RC — включено)
     expect(readFlags(flagsFile({ autoMemory: "yes", honestExit: "1" }))).toMatchObject({
-      autoMemory: "off",
-      honestExit: false,
+      autoMemory: true,
+      honestExit: true,
     });
   });
 

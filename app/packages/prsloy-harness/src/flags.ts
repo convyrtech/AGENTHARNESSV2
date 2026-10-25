@@ -39,14 +39,16 @@ export function readFlags(settingsPath: string | undefined): HarnessFlags {
     lessons: true,
     skills: false,
     disabledLessons: [],
-    memory: false,
+    // RC check (desktop/ui-rc): memory, auto memory, honest exit and web tools on by default;
+    // an explicit false (or "off" / "shadow") in the file still turns each off. testGuard waits for #25.
+    memory: true,
     prompt: "prsloy",
     promptDelta: false,
-    autoMemory: "off",
-    honestExit: false,
+    autoMemory: true,
+    honestExit: true,
     testGuard: false,
     claimCheck: false,
-    webTools: false,
+    webTools: true,
   };
   if (settingsPath && existsSync(settingsPath)) {
     try {
@@ -54,15 +56,15 @@ export function readFlags(settingsPath: string | undefined): HarnessFlags {
       if (raw.secondOpinion === false) flags.secondOpinion = false;
       if (raw.lessons === false) flags.lessons = false;
       if (raw.skills === true) flags.skills = true;
-      if (raw.memory === true) flags.memory = true;
+      if (raw.memory === false) flags.memory = false;
       if (raw.prompt === "prsloy" || raw.prompt === "pi") flags.prompt = raw.prompt;
       if (raw.promptDelta === true) flags.promptDelta = true;
       if (raw.autoMemory === true || raw.autoMemory === "shadow" || raw.autoMemory === "off")
         flags.autoMemory = raw.autoMemory;
-      if (raw.honestExit === true) flags.honestExit = true;
+      if (raw.honestExit === false) flags.honestExit = false;
       if (raw.testGuard === true) flags.testGuard = true;
       if (raw.claimCheck === true) flags.claimCheck = true;
-      if (raw.webTools === true) flags.webTools = true;
+      if (raw.webTools === false) flags.webTools = false;
       if (Array.isArray(raw.disabledLessons))
         flags.disabledLessons = raw.disabledLessons.filter(
           (x): x is string => typeof x === "string",

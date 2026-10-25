@@ -4,4 +4,5 @@
  * «Поиск в интернете» shows only in developer mode. The harness flag `webTools` stays off either way
  * until someone turns it on.
  */
-export const SEARCH_READY = false;
+// RC check (desktop/ui-rc): search shown to everyone.
+export const SEARCH_READY = true;

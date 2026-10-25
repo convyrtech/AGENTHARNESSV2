@@ -38,8 +38,9 @@ describe("prsloy first run", () => {
   });
 
   it("skips the search step until SEARCH_READY (#23)", () => {
-    expect(SEARCH_READY).toBe(false);
-    expect(firstRunStep({ ...base, hasKey: true }, { import: true })).toBe("folder");
+    // RC check (desktop/ui-rc): search is shown to everyone
+    expect(SEARCH_READY).toBe(true);
+    expect(firstRunStep({ ...base, hasKey: true }, { import: true })).toBe("search");
     expect(firstRunStep({ ...base, hasKey: true }, { import: true }, false)).toBe("folder");
   });
 

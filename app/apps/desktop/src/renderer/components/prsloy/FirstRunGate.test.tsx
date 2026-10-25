@@ -19,6 +19,8 @@ const fresh: PrsloyState = {
 };
 
 function mockZeno(overrides: Record<string, unknown> = {}) {
+  // the search step has its own tests (FirstRunGate.search.test.tsx); these walk past it
+  localStorage.setItem("prsloy.firstRun.searchSeen", "1");
   const api = {
     prsloy: {
       getState: vi.fn().mockResolvedValue(fresh),
@@ -38,8 +40,8 @@ function mockZeno(overrides: Record<string, unknown> = {}) {
 
 describe("FirstRunGate", () => {
   it("walks key → (import, search) → folder → app and shows a human error for a bad key", async () => {
-    localStorage.clear();
     const api = mockZeno();
+    localStorage.clear();
     api.prsloy.setKey
       .mockResolvedValueOnce({ ok: false, code: "invalid_key", status: 401 })
       .mockResolvedValueOnce({ ok: true, modelIds: [], state: { ...fresh, hasKey: true } });
@@ -58,11 +60,11 @@ describe("FirstRunGate", () => {
 
     fireEvent.change(input, { target: { value: "sk-good" } });
     fireEvent.submit(input.closest("form")!);
+    // import passed by itself on the way and is remembered; search is asked once, then the folder
+    fireEvent.click(await screen.findByTestId("first-run-search-skip"));
     await screen.findByTestId("prsloy-first-run-folder");
     expect(screen.queryByText("APP")).toBeNull();
-    // import passed by itself on the way and is remembered; search waits for SEARCH_READY (#23)
     expect(localStorage.getItem("prsloy.firstRun.importSeen")).toBe("1");
-    expect(screen.queryByTestId("first-run-search")).toBeNull();
 
     api.prsloy.getState.mockResolvedValue({ ...fresh, hasKey: true, needsWorkspace: false });
     fireEvent.click(screen.getByTestId("prsloy-folder-pick"));
