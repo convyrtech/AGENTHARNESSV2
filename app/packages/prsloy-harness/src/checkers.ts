@@ -96,6 +96,7 @@ function run(
 /** Сокращает вывод node/python до сути: строка с файлом и сообщение об ошибке. */
 function firstLines(text: string, max = 6): string {
   return text
+    .replace(new RegExp(`${String.fromCharCode(27)}\\[[0-9;]*m`, "g"), "") // цвета node
     .split(/\r?\n/)
     .filter((line) => line.trim().length > 0 && !/^\s*at\s|^Node\.js v/.test(line))
     .slice(0, max)
@@ -107,7 +108,7 @@ async function nodeCheck(path: string, env: CheckerEnv): Promise<CheckResult> {
   const result = await run(
     node,
     ["--check", path],
-    { ...process.env, ELECTRON_RUN_AS_NODE: "1" },
+    { ...process.env, ELECTRON_RUN_AS_NODE: "1", NO_COLOR: "1", FORCE_COLOR: "0" },
     env.timeoutMs ?? 10_000,
   );
   if (result.spawnError)
@@ -385,13 +386,64 @@ export function checkHtml(source: string): CheckResult {
     : { ok: true, tool: "баланс тегов" };
 }
 
+/**
+ * Запасная проверка CSS без зависимостей: незакрытые комментарии, строки и скобки. Нужна, если postcss
+ * не загрузился (он CommonJS, и в ESM-бандле без require падает на require("fs")).
+ */
+export function checkCssBalance(source: string): CheckResult {
+  const tool = "баланс скобок CSS";
+  const stack: { ch: string; line: number }[] = [];
+  const pairs: Record<string, string> = { "}": "{", ")": "(", "]": "[" };
+  let line = 1;
+  for (let i = 0; i < source.length; i++) {
+    const ch = source[i] ?? "";
+    if (ch === "\n") line++;
+    else if (ch === "/" && source[i + 1] === "*") {
+      const end = source.indexOf("*/", i + 2);
+      if (end < 0) return { ok: false, tool, message: `не закрыт комментарий /* (строка ${line})` };
+      line += source.slice(i, end).split("\n").length - 1;
+      i = end + 1;
+    } else if (ch === '"' || ch === "'") {
+      let j = i + 1;
+      while (j < source.length && source[j] !== ch && source[j] !== "\n")
+        j += source[j] === "\\" ? 2 : 1;
+      if (source[j] !== ch)
+        return { ok: false, tool, message: `не закрыта строка ${ch} (строка ${line})` };
+      i = j;
+    } else if (ch === "{" || ch === "(" || ch === "[") stack.push({ ch, line });
+    else if (ch in pairs) {
+      const open = stack.pop();
+      if (!open || open.ch !== pairs[ch]) {
+        return { ok: false, tool, message: `лишняя «${ch}» (строка ${line})` };
+      }
+    }
+  }
+  const open = stack.pop();
+  return open
+    ? { ok: false, tool, message: `не закрыта «${open.ch}» (строка ${open.line})` }
+    : { ok: true, tool };
+}
+
 export async function checkCss(path: string, source: string): Promise<CheckResult> {
-  const { default: postcss } = await import("postcss");
+  let postcss: { parse(css: string, opts: { from: string }): unknown };
+  try {
+    postcss = (await import("postcss")).default;
+  } catch {
+    return checkCssBalance(source);
+  }
   try {
     postcss.parse(source, { from: path });
     return { ok: true, tool: "postcss" };
   } catch (error) {
-    const e = error as { reason?: string; line?: number; column?: number; message?: string };
+    const e = error as {
+      name?: string;
+      reason?: string;
+      line?: number;
+      column?: number;
+      message?: string;
+    };
+    // Не синтаксическая ошибка, а сам postcss не работает в этом окружении (например, require в бандле).
+    if (e.name !== "CssSyntaxError") return checkCssBalance(source);
     const where = e.line ? `${basename(path)}:${e.line}:${e.column ?? 0}: ` : "";
     return {
       ok: false,

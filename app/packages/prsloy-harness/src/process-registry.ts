@@ -2,7 +2,6 @@ import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 import { createWriteStream, mkdirSync, readFileSync, type WriteStream } from "node:fs";
 import { join } from "node:path";
 import { getShellConfig } from "@earendil-works/pi-coding-agent";
-import onExit from "signal-exit";
 import { tailBytes } from "./text.ts";
 
 export interface BackgroundProcess {
@@ -106,17 +105,46 @@ function killTree(pid: number, signal: "SIGTERM" | "SIGKILL" = "SIGTERM"): void 
   }
 }
 
+interface ExitEmitter {
+  on(event: "exit", listener: () => void): unknown;
+}
+
+/** Эмиттер signal-exit, если его уже загрузил Pi: v3 — process.__signal_exit_emitter__, v4 — символ. */
+function signalExitEmitter(): ExitEmitter | undefined {
+  const proc = process as unknown as Record<string | symbol, unknown>;
+  const candidate = proc.__signal_exit_emitter__ ?? proc[Symbol.for("signal-exit emitter")];
+  return candidate && typeof (candidate as ExitEmitter).on === "function"
+    ? (candidate as ExitEmitter)
+    : undefined;
+}
+
 /** Живые реестры процесса: если Pi упадёт или выйдет без session_shutdown, фон всё равно гасится. */
 const liveRegistries = new Set<ProcessRegistry>();
 let exitHookInstalled = false;
 function installExitHook(): void {
   if (exitHookInstalled) return;
   exitHookInstalled = true;
-  // «exit» не приходит, если процесс убили сигналом. Pi уже держит сигналы через signal-exit, и свой
-  // обработчик сломал бы его повтор сигнала — поэтому подписываемся через него же.
-  onExit(() => {
+  const killAll = () => {
     for (const registry of liveRegistries) registry.killAllNow();
-  });
+  };
+  process.once("exit", killAll);
+  // «exit» не приходит, если процесс убили сигналом. Pi держит сигналы через signal-exit: свой
+  // обработчик сломал бы его повтор сигнала, поэтому подписываемся на его общий эмиттер — ровно это
+  // делает onExit(). Сам пакет signal-exit не импортируем: это CommonJS, и в ESM-бандле хоста
+  // его require("assert") роняет хост при старте.
+  const emitter = signalExitEmitter();
+  if (emitter) {
+    emitter.on("exit", killAll);
+    return;
+  }
+  for (const signal of ["SIGTERM", "SIGINT", "SIGHUP"] as const) {
+    if (process.platform === "win32" && signal === "SIGHUP") continue;
+    if (process.listenerCount(signal) > 0) continue; // чужой обработчик хоста не перебиваем
+    process.once(signal, () => {
+      killAll();
+      if (process.listenerCount(signal) === 0) process.kill(process.pid, signal);
+    });
+  }
 }
 
 export class ProcessRegistry {

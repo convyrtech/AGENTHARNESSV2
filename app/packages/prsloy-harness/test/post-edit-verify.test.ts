@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vite-plus/test";
-import { checkFile, checkHtml, stripJsonc } from "../src/checkers.ts";
+import { checkCssBalance, checkFile, checkHtml, stripJsonc } from "../src/checkers.ts";
 import { resolveOptions } from "../src/options.ts";
 import { installPostEditVerify } from "../src/post-edit-verify.ts";
 import { MockPi } from "./mock-pi.ts";
@@ -34,6 +34,7 @@ describe("checkers", () => {
     const bad = await check("a.mjs", "const a = ;\n");
     expect(bad?.ok).toBe(false);
     expect(bad?.message).toContain("SyntaxError");
+    expect(bad?.message).not.toMatch(/\bat (?:wrapSafe|checkSyntax)|\u001b/);
   });
 
   it("checks ESM syntax in plain .js (node --check alone silently passes it)", async () => {
@@ -132,6 +133,17 @@ describe("checkers", () => {
     const bad = await check("a.css", "a { color: red;\n\nb { }\n");
     expect(bad?.ok).toBe(false);
     expect(bad?.message).toMatch(/a\.css:1:1: Unclosed block/);
+  });
+
+  it("CSS fallback without postcss: comments, strings, brackets", () => {
+    expect(checkCssBalance("a { color: red; }\n/* ok */ b[x='}'] { }")).toEqual({
+      ok: true,
+      tool: "баланс скобок CSS",
+    });
+    expect(checkCssBalance("a { color: red;\n").message).toBe("не закрыта «{» (строка 1)");
+    expect(checkCssBalance("a { }\n}").message).toBe("лишняя «}» (строка 2)");
+    expect(checkCssBalance('a { content: "x; }').message).toContain("не закрыта строка");
+    expect(checkCssBalance("/* open").message).toContain("не закрыт комментарий");
   });
 
   it("unknown types are not checked", async () => {
