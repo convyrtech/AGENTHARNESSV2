@@ -122,7 +122,9 @@ def init(a):
     flow(ws, "--init")
     st = ws.page / "STATUS.md"
     t = st.read_text(encoding="utf-8")
+    # «Текст владельца» — его готовый текст для страницы, не переписка: канал там давал вечный FAIL text_diff (E9)
     known = {"Канал владельца": "owner/messages.jsonl", "Решения": "нет", "Расшифровки голоса": "нет",
+             "Текст владельца": "нет",
              "Исходники": f"site/{a.page}/**", "Материалы владельца": "есть" if any((ws.root / "materials").iterdir()) else "ждём"}
     for k, v in known.items():
         t = re.sub(rf"(?m)^- {re.escape(k)}:.*$", f"- {k}: {v}", t)
