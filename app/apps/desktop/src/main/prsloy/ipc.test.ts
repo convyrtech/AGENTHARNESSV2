@@ -192,7 +192,7 @@ describe("undo turn over IPC", () => {
     // The model is told on its next turn (it re-created undone files in the live test).
     expect(t.notes).toHaveLength(1);
     expect(t.notes[0]!.customType).toBe("prsloy.undo");
-    expect(t.notes[0]!.text).toContain("Файлы хода 1 откатены");
+    expect(t.notes[0]!.text).toContain("Файлы хода 1 откачены");
     expect(t.notes[0]!.text).toContain("Удалены: extra.css.");
     expect(t.notes[0]!.text).toContain("Возвращены к прежнему виду: page.html.");
   });

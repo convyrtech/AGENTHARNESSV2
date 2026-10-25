@@ -58,7 +58,7 @@ export function undoNoteText(result: {
       ? `${paths.slice(0, 20).join(", ")} и ещё ${paths.length - 20}`
       : paths.join(", ");
   const lines = [
-    `Файлы хода ${result.restoredTo.turn} откатены: папка проекта возвращена к состоянию до этого хода.`,
+    `Файлы хода ${result.restoredTo.turn} откачены: папка проекта возвращена к состоянию до этого хода.`,
   ];
   if (result.removed.length > 0) lines.push(`Удалены: ${list(result.removed)}.`);
   if (result.rewritten.length > 0)
