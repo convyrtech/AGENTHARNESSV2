@@ -15,20 +15,18 @@
       "title": "референсы только из skillry-index.json, не из памяти",
       "surface": "design",
       "class": "K6",
-      "type": "write-requires-read",
+      "type": "refs-in-index",
       "path": "03-references\\.md$",
-      "pattern": "https?://\\S+",
-      "requires": "skillry-index"
+      "pattern": "."
     },
     {
       "id": "materials-raster",
       "title": "скриншот из материалов владельца вставлен в страницу картинкой вместо своей вёрстки",
       "surface": "design",
       "class": "K3",
-      "type": "write-forbid",
-      "path": "\\.html?$",
-      "pattern": "(?:src|href|srcset)\\s*=\\s*[\"'][^\"']*materials/[^\"']+\\.(?:png|jpe?g|webp)[\"']|url\\(\\s*[\"']?[^)\"']*materials/[^)\"']+\\.(?:png|jpe?g|webp)",
-      "copiedFrom": "materials/"
+      "type": "page-raster",
+      "path": "(?:^|[\\\\/])site[\\\\/].*\\.html?$",
+      "pattern": "."
     }
   ]
 }

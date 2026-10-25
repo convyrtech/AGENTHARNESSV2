@@ -63,6 +63,20 @@ export interface Session {
   owner?: OwnerTurn[];
   /** Исход проверки стенда `check.mjs` (bench-*.json), если известен. */
   benchOk?: boolean;
+  /** Журнал шагов дизайна (`<rec>/state/ledger.jsonl`): записи `stage`. */
+  ledger?: LedgerStage[];
+  /** Индекс референсов (`etalons/skillry-index.json`): slug, author и хост page — в нижнем регистре. */
+  refIndex?: ReadonlySet<string>;
+  /** Папка прогона дизайна (где owner/messages.jsonl): сессии одного прогона сравниваются между собой. */
+  run?: string;
+}
+
+export interface LedgerStage {
+  gate: string;
+  end?: string;
+  killed?: string | null;
+  /** Время записи, мс. */
+  at: number;
 }
 
 interface Part {
@@ -370,6 +384,75 @@ function nearby(file: string, name: string): string | undefined {
   return undefined;
 }
 
+/** ts записи ledger: секунды или мс эпохи, либо ISO. */
+function tsMs(v: unknown): number | undefined {
+  if (typeof v === "number") return v < 1e12 ? v * 1000 : v;
+  if (typeof v === "string") {
+    const t = Date.parse(v);
+    return Number.isNaN(t) ? undefined : t;
+  }
+  return undefined;
+}
+
+export function parseLedger(entries: readonly unknown[]): LedgerStage[] {
+  const out: LedgerStage[] = [];
+  for (const raw of entries) {
+    const e = raw as Record<string, unknown>;
+    if (e.kind !== "stage") continue;
+    const at = tsMs(e.ts);
+    if (at === undefined) continue;
+    out.push({
+      gate: typeof e.gate === "string" || typeof e.gate === "number" ? String(e.gate) : "?",
+      ...(typeof e.end === "string" ? { end: e.end } : {}),
+      killed: typeof e.killed === "string" && e.killed ? e.killed : null,
+      at,
+    });
+  }
+  return out;
+}
+
+/** skillry-index.json: список {slug, page, author} → слова для сверки референсов. */
+export function parseRefIndex(json: unknown): Set<string> {
+  const out = new Set<string>();
+  const list = Array.isArray(json) ? json : ((json as { items?: unknown[] })?.items ?? []);
+  for (const raw of list as Record<string, unknown>[]) {
+    for (const k of ["slug", "author"])
+      if (typeof raw?.[k] === "string") out.add((raw[k] as string).toLowerCase());
+    if (typeof raw?.page === "string") {
+      try {
+        out.add(new URL(raw.page).hostname.replace(/^www\./, "").toLowerCase());
+      } catch {
+        out.add(raw.page.toLowerCase());
+      }
+    }
+  }
+  return out;
+}
+
+const LEDGER_FILES = [
+  "ledger.jsonl",
+  join("state", "ledger.jsonl"),
+  join("harness", "ledger.jsonl"),
+];
+const INDEX_FILES = [join("etalons", "skillry-index.json"), "skillry-index.json"];
+
+/** Файл рядом с сессией или в её рабочей папке (cwd из записи `session`, если он есть на диске). */
+function findNear(
+  file: string,
+  cwd: string | undefined,
+  names: readonly string[],
+): string | undefined {
+  for (const name of names) {
+    if (cwd) {
+      const p = join(cwd, name);
+      if (existsSync(p)) return p;
+    }
+    const near = nearby(file, name);
+    if (near) return near;
+  }
+  return undefined;
+}
+
 /** Признаки прогона «Дизайна» дирижёра рядом с сессией: реплики, журнал шагов, сообщения владельца. */
 const DESIGN_MARKERS = [
   "turns.jsonl",
@@ -398,6 +481,8 @@ export interface LoadOptions {
 export function loadSessions(root: string, options: LoadOptions = {}): Session[] {
   const out: Session[] = [];
   const turnsCache = new Map<string, OwnerTurn[]>();
+  const ledgerCache = new Map<string, LedgerStage[]>();
+  const indexCache = new Map<string, Set<string>>();
   for (const file of findJsonl(root)) {
     if (/(?:^|[\\/])(?:turns|events|ledger|messages|owner-messages)\.jsonl$/.test(file)) continue;
     const entries = readJsonl(file);
@@ -407,6 +492,27 @@ export function loadSessions(root: string, options: LoadOptions = {}): Session[]
       options.surface ?? (DESIGN_MARKERS.some((m) => nearby(file, m)) ? "design" : "code");
     const task = taskFromPath(file);
     const session = normalizePi(entries, { file, surface, ...(task ? { task } : {}) });
+    if (surface === "design") {
+      const ledgerFile = findNear(file, session.cwd, LEDGER_FILES);
+      if (ledgerFile) {
+        if (!ledgerCache.has(ledgerFile))
+          ledgerCache.set(ledgerFile, parseLedger(readJsonl(ledgerFile)));
+        session.ledger = ledgerCache.get(ledgerFile)!;
+      }
+      const indexFile = findNear(file, session.cwd, INDEX_FILES);
+      if (indexFile) {
+        if (!indexCache.has(indexFile)) {
+          try {
+            indexCache.set(indexFile, parseRefIndex(JSON.parse(readFileSync(indexFile, "utf8"))));
+          } catch {
+            indexCache.set(indexFile, new Set());
+          }
+        }
+        if (indexCache.get(indexFile)!.size) session.refIndex = indexCache.get(indexFile)!;
+      }
+      const messages = nearby(file, join("owner", "messages.jsonl"));
+      session.run = messages ? dirname(dirname(messages)) : dirname(file);
+    }
     if (turnsFile && surface === "design") {
       if (!turnsCache.has(turnsFile))
         turnsCache.set(turnsFile, parseOwnerTurns(readJsonl(turnsFile)));

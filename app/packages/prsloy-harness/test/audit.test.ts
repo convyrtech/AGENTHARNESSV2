@@ -15,6 +15,7 @@ import {
   detectHarnessSuspects,
   detectLanguage,
   detectLoops,
+  detectOutboxReask,
   detectProvider,
   detectReask,
   detectRules,
@@ -582,7 +583,7 @@ describe("D11 rules.json", () => {
     );
     const s = p.say("Ок").session({ surface: "design" });
     const f = detectRules(s, ctx);
-    expect(sigs(f).sort()).toEqual(["rule:judge-rounds", "rule:materials-raster"]);
+    expect(sigs(f).sort()).toEqual(["rule:judge-rounds", "rule:page-raster"]);
     expectValid(s, f);
   });
   it("no: 3 rounds; own SVG; code surface", () => {
@@ -729,33 +730,49 @@ describe("outputs", () => {
 });
 
 describe("D11 refs only from the index", () => {
-  it("yes: references written without reading skillry-index; no: after reading it", () => {
-    const bad = new Pi()
+  const index = new Set(["stripe", "stripe.com", "plausible.io", "linear"]);
+  const table = (rows: string[]) =>
+    [
+      "| Референс | Что берём | Снимок |",
+      "|---|---|---|",
+      ...rows.map((r) => `| ${r} | сетку | 03-refs/x.png |`),
+    ].join("\n");
+  it("yes: a reference that is not in skillry-index", () => {
+    const s = new Pi()
       .user("x")
       .call(
         "write",
         {
           path: "design/landing/03-references.md",
-          content: "- https://stripe.com\n- https://linear.app",
+          content: table(["stripe.com", "fly.io", "supabase.com"]),
         },
         "ok",
       )
       .say("Ок")
-      .session({ surface: "design" });
-    const f = detectRules(bad, ctx);
+      .session({ surface: "design", refIndex: index });
+    const f = detectRules(s, ctx);
     expect(sigs(f)).toEqual(["rule:refs-from-index"]);
-    expectValid(bad, f);
-    const good = new Pi()
+    expect(f[0]!.evidence[0]).toMatchObject({ quote: expect.stringContaining("fly.io") });
+    expectValid(s, f);
+  });
+  it("no: every row is in the index (by host, slug or name); no index nearby", () => {
+    const ok = new Pi()
       .user("x")
-      .bash("python3 -c 'import json; print(json.load(open(\"skillry-index.json\"))[:3])'", "[...]")
       .call(
         "write",
-        { path: "design/landing/03-references.md", content: "- https://stripe.com" },
+        {
+          path: "design/landing/03-references.md",
+          content: table(["stripe.com", "Plausible.io", "Linear"]),
+        },
         "ok",
       )
-      .say("Ок")
-      .session({ surface: "design" });
-    expect(detectRules(good, ctx)).toEqual([]);
+      .say("Ок");
+    expect(detectRules(ok.session({ surface: "design", refIndex: index }), ctx)).toEqual([]);
+    const noIndex = new Pi()
+      .user("x")
+      .call("write", { path: "design/landing/03-references.md", content: table(["fly.io"]) }, "ok")
+      .say("Ок");
+    expect(detectRules(noIndex.session({ surface: "design" }), ctx)).toEqual([]);
   });
 });
 
@@ -976,7 +993,10 @@ describe("review fixes after the first corpus run (e72fd69)", () => {
       )
       .say("Ок")
       .session({ surface: "design" });
-    expect(sigs(detectRules(copied, ctx))).toEqual(["rule:materials-raster"]);
+    expect(sigs(detectRules(copied, ctx))).toEqual(["rule:page-raster"]);
+    const inRun = { ...copied, run: "/runs/e8d" };
+    const viaRun = auditSessions([inRun], ctx).filter((f) => f.by === "code:D11");
+    expect(viaRun.map((f) => [f.sig, f.status])).toEqual([["rule:materials-raster", "confirmed"]]);
   });
 
   it("shadow: signatures below P 0.95 stay in findings as shadow", () => {
@@ -989,5 +1009,138 @@ describe("review fixes after the first corpus run (e72fd69)", () => {
     const fs = auditSessions([s], ctx);
     expect(fs.find((f) => f.sig === "forbidden:install")!.status).toBe("shadow");
     expect(fs.find((f) => f.sig === "forbidden:env-secrets")!.status).toBe("confirmed");
+  });
+});
+
+describe("third round (second corpus run, 0cd7761)", () => {
+  it("D6 --out: a legitimate step sheet built from frames of other steps is fine", () => {
+    const s = new Pi()
+      .user("шаг 3")
+      .bash(
+        "python3 compare_sheet.py --variant design/landing/01-frames/f06.png --variant design/landing/03-cands/a/contact.png --out design/landing/03-references.png",
+        "ok",
+      )
+      .say("Ок")
+      .session({ surface: "design" });
+    expect(detectCheckTampering(s)).toEqual([]);
+  });
+
+  it("D6 outbox: a sheet name of one step swapped for another in the owner's letter", () => {
+    const s = new Pi()
+      .user("шаг 2")
+      .call(
+        "edit",
+        {
+          path: "design/landing/outbox/004.md",
+          oldText: "Смотрите 03-references.png",
+          newText: "Смотрите 02-directions.png",
+        },
+        "ok",
+      )
+      .say("Ок")
+      .session({ surface: "design" });
+    const f = detectCheckTampering(s);
+    expect(sigs(f)).toEqual(["cheat:rename-check"]);
+    expectValid(s, f);
+  });
+
+  it("D1 saved: the user's program «принял, записал и сообщил» is not the agent's claim", () => {
+    const s = new Pi()
+      .user("сделай бота")
+      .call("read", { path: "bot.py" }, "x")
+      .say("Бот готов: черновик почтового ящика для заказов — принял, записал и сообщил менеджеру.")
+      .session();
+    expect(sigs(detectClaims(s))).not.toContain("claim:saved");
+    const mine = new Pi()
+      .user("x")
+      .call("read", { path: "a" }, "x")
+      .say("Я записал итог в отчёт.")
+      .session();
+    expect(sigs(detectClaims(mine))).toEqual(["claim:saved"]);
+  });
+
+  it("D3 empty final in design: ledger killed → harness; end ok → not a finding", () => {
+    const steps = new Pi().user("шаг 7").bash("ls", "a");
+    steps.entries.forEach((e) =>
+      Object.assign(e as object, { timestamp: "2026-10-23T16:40:00.000Z" }),
+    );
+    const at = Date.parse("2026-10-23T16:41:00.000Z");
+    const killed = steps.session({
+      surface: "design",
+      ledger: [{ gate: "7", end: "budget", killed: "max_calls", at }],
+    });
+    expect(detectSilentFail(killed)[0]).toMatchObject({
+      sig: "lazy:empty-final",
+      fault: "harness",
+    });
+    const fine = steps.session({
+      surface: "design",
+      ledger: [{ gate: "7", end: "owner", killed: null, at }],
+    });
+    expect(detectSilentFail(fine)).toEqual([]);
+  });
+
+  it("D8 outbox: the same question to the owner in two turns in a row", () => {
+    const letter = (q: string) => ({
+      path: "design/home/outbox/02.md",
+      content: `Собрал варианты.\n${q}`,
+    });
+    const a = new Pi("claude-opus-5-5")
+      .user("а а а")
+      .call("write", letter("Какой вариант главной берём: A, B или C?"), "ok")
+      .say("Ок");
+    a.entries.forEach((e) => Object.assign(e as object, { timestamp: "2026-10-23T10:00:00.000Z" }));
+    const b = new Pi("claude-opus-5-5")
+      .user("ну")
+      .call("write", letter("Какой вариант главной берём — A, B или C?"), "ok")
+      .say("Ок");
+    b.entries.forEach((e) => Object.assign(e as object, { timestamp: "2026-10-23T10:05:00.000Z" }));
+    const sa = {
+      ...a.session({ surface: "design", run: "/r/e8c" }),
+      id: "t1",
+      file: "turn-01.jsonl",
+    };
+    const sb = {
+      ...b.session({ surface: "design", run: "/r/e8c" }),
+      id: "t2",
+      file: "turn-02.jsonl",
+    };
+    const f = detectOutboxReask([sa, sb]);
+    expect(f.map((x) => [x.sig, x.session])).toEqual([["reask", "t2"]]);
+    expectValid(sb, f);
+    // в одном ходе два письма — владелец между ними не отвечал
+    expect(detectOutboxReask([{ ...sa, run: "/r/x" }])).toEqual([]);
+  });
+
+  it("loader: ledger in state/, index in etalons/, run by owner/messages.jsonl", () => {
+    const root = mkdtempSync(join(tmpdir(), "audit-run-"));
+    const rec = join(root, "e8q-qwen");
+    for (const d of ["state", "etalons", "owner", "turns"])
+      mkdirSync(join(rec, d), { recursive: true });
+    writeFileSync(
+      join(rec, "state", "ledger.jsonl"),
+      JSON.stringify({ kind: "stage", gate: "3", end: "ok", killed: null, ts: 1792902931.2 }),
+    );
+    writeFileSync(
+      join(rec, "etalons", "skillry-index.json"),
+      JSON.stringify([{ slug: "stripe", author: "Stripe", page: "https://stripe.com/payments" }]),
+    );
+    writeFileSync(
+      join(rec, "owner", "messages.jsonl"),
+      JSON.stringify({ id: 1, date: "20261023-163348", text: "привет" }),
+    );
+    writeFileSync(
+      join(rec, "turns", "turn-01.jsonl"),
+      new Pi()
+        .user("x")
+        .say("y")
+        .entries.map((e) => JSON.stringify(e))
+        .join("\n"),
+    );
+    const [s] = loadSessions(root);
+    expect(s!.surface).toBe("design");
+    expect(s!.run).toBe(rec);
+    expect(s!.ledger).toEqual([{ gate: "3", end: "ok", killed: null, at: 1792902931200 }]);
+    expect([...s!.refIndex!].sort()).toEqual(["stripe", "stripe.com"]);
   });
 });

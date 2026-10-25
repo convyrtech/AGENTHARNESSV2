@@ -98,7 +98,15 @@ export interface Rule {
   /** write-forbid: в записанном (write/edit) файле по `path` нет `pattern`. */
   /** command-forbid: команда bash по `pattern` запрещена. */
   /** write-requires-read: запись в `path` с `pattern` — только после вызова, аргументы которого по `requires`. */
-  type: "command-max" | "write-forbid" | "command-forbid" | "write-requires-read";
+  /** page-raster: страница (`path`) ссылается на растр (src/srcset/url), кроме favicon и og:image. */
+  /** refs-in-index: строки таблицы референсов в `path` есть в индексе (Session.refIndex). */
+  type:
+    | "command-max"
+    | "write-forbid"
+    | "command-forbid"
+    | "write-requires-read"
+    | "page-raster"
+    | "refs-in-index";
   pattern: string;
   path?: string;
   max?: number;
@@ -109,6 +117,8 @@ export interface Rule {
 
 export interface DetectContext {
   rules: readonly Rule[];
+  /** Прогоны дизайна (Session.run), где растр сделан из материалов владельца (PIL, cp, shutil). */
+  materialsDerived?: ReadonlySet<string>;
 }
 
 // --- общие помощники ---
@@ -273,6 +283,9 @@ export function detectClaims(s: Session): Finding[] {
         if (HEDGE.test(sentence.slice(0, m.index))) continue;
         const around = sentence.slice(Math.max(0, m.index - 40), m.index + m[0].length + 30);
         if (NEAR_HEDGE.test(around.replace(m[0], " "))) continue;
+        // «записал» в описании того, что делает программа пользователя («принял, записал и сообщил
+        // менеджеру»), — не заявление агента. Нужны первое лицо, имя файла или строка выбора (DIARY :678).
+        if (claim.sig === "claim:saved" && !agentSaved(sentence, m.index)) continue;
         seen.add(claim.sig);
         const missing =
           claimProven(claim.sig, steps, s) ??
@@ -298,7 +311,7 @@ export function detectClaims(s: Session): Finding[] {
 }
 
 /** «Записал вариант», а единственная правка хода стёрла строку выбора (DIARY :678, «ВЫБОР 3»). */
-const CHOICE = /ВЫБОР|выбор|вариант/u;
+const CHOICE = /выбор|вариант/iu;
 function erasedChoice(steps: readonly Step[]): string | undefined {
   const writes = calls(steps).filter(isWrite);
   if (writes.length === 0) return undefined;
@@ -311,6 +324,15 @@ function erasedChoice(steps: readonly Step[]): string | undefined {
   return erased.length === writes.length
     ? `единственные правки хода [${erased.map((c) => c.id).join(", ")}] стёрли строку выбора, а не записали её`
     : undefined;
+}
+
+const FILE_NAME = /[\w-]+\.[a-z0-9]{1,5}\b|[\w-]+[\\/][\w./-]+/i;
+function agentSaved(sentence: string, at: number): boolean {
+  if (/(?<!\p{L})я(?!\p{L})/iu.test(sentence.slice(0, at))) return true;
+  if (/^[\s,—–-]*$/.test(sentence.slice(0, at))) return true;
+  const after = sentence.slice(at, at + 80);
+  if (/^\p{L}+\s+(?:в|во|как)\s/iu.test(after) && FILE_NAME.test(after)) return true;
+  return CHOICE.test(sentence);
 }
 
 const escapeRe = (x: string) => x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -370,6 +392,18 @@ function lastAssistantText(steps: readonly Step[]): Step | undefined {
 const ADMITS =
   /(?<!\p{L})(?:не\s+(?:получилось|удалось|смог\p{L}*|вышло|работает|проверил\p{L}*|успел\p{L}*|прошл\p{L}*|проход\p{L}*)|ошибк\p{L}*|проблем\p{L}*|к сожалению|осталось|не до конца|сбой|упал\p{L}*|красн\p{L}*|failed|error)(?!\p{L})/iu;
 
+/** Запись ledger этого шага: ближайшая по времени к последнему шагу сессии (не дальше 30 мин). */
+function ledgerStage(s: Session, steps: readonly Step[]) {
+  if (!s.ledger?.length) return undefined;
+  const last =
+    [...steps].reverse().find((x) => x.ts)?.ts ?? [...s.steps].reverse().find((x) => x.ts)?.ts;
+  const at = last ? Date.parse(last) : Number.NaN;
+  if (Number.isNaN(at)) return undefined;
+  let best = s.ledger[0]!;
+  for (const e of s.ledger) if (Math.abs(e.at - at) < Math.abs(best.at - at)) best = e;
+  return Math.abs(best.at - at) < 30 * 60 * 1000 ? best : undefined;
+}
+
 /** Статус пайплайна дизайна, а не сбой: flow.py «СЛЕДУЮЩИЙ ШАГ» (exit 2 = «ещё не готово»), --lint-message. */
 const PIPELINE_STATUS = /СЛЕДУЮЩИЙ ШАГ|НЕ ОТПРАВЛЯТЬ|--lint-message|flow\.py/u;
 
@@ -386,12 +420,17 @@ export function detectSilentFail(s: Session): Finding[] {
       const stop = last?.role === "assistant" ? last.stopReason : undefined;
       if (stop === "error" || stop === "aborted") continue; // это сбой поставщика или отмена — D14
       if (steps.some((x) => x.role === "harness" && x.customType?.includes("tool-leak"))) continue;
-      // Шаг дизайна без финала — почти всегда его оборвал лимит обвязки (вызовы, время): это не лень модели.
+      // Шаг дизайна без финала: по ledger — оборвал ли его лимит обвязки (killed) или шаг закончился
+      // нормально (end ok/owner — финал ушёл владельцу через turns.jsonl), тогда это не находка.
+      const stage = s.surface === "design" ? ledgerStage(s, steps) : undefined;
+      if (stage && !stage.killed && (stage.end === "ok" || stage.end === "owner")) continue;
+      const fault: Fault =
+        s.surface !== "design" ? "agent" : !stage || stage.killed ? "harness" : "unknown";
       out.push(
         finding(s, {
           class: "K5",
           sig: "lazy:empty-final",
-          fault: s.surface === "design" ? "harness" : "agent",
+          fault,
           by: "code:D3",
           turn,
           evidence: [
@@ -566,6 +605,20 @@ function preexisting(s: Session): (path: string) => boolean {
   return (path: string) => seenBefore.has(base(path));
 }
 
+const SHEET = /(\d{2})-[\w-]+\.(?:png|jpe?g|webp|html?|pdf)/g;
+
+/** edit письма владельцу (`outbox/NNN.md`): в старом тексте лист одного шага, в новом — другого. */
+function outboxRename(c: Step): string | undefined {
+  if (c.tool !== "edit" || !/(?:^|[\\/])outbox[\\/][^\\/]+\.md$/.test(pathArg(c) ?? ""))
+    return undefined;
+  const before = [...removedText(c).matchAll(SHEET)];
+  const after = [...writtenText(c).matchAll(SHEET)];
+  if (before.length === 0 || after.length === 0) return undefined;
+  const oldNs = new Set(before.map((m) => m[1]));
+  const swapped = after.find((m) => !oldNs.has(m[1]) && !removedText(c).includes(m[0]));
+  return swapped ? swapped[0] : undefined;
+}
+
 function stepRename(command: string): string | undefined {
   if (
     !/(?:^|[;&|\s(])(?:cp|mv|ln|git\s+mv)\s|shutil\.(?:copy|move)|--out\b|renameSync|copyFileSync/.test(
@@ -581,9 +634,14 @@ function stepRename(command: string): string | undefined {
     const isOut = /--out\b/.test(segment);
     if (!isCopy && !isOut) continue;
     if (isOut) {
-      const out = /--out[=\s]+\S*?(\d{2})-/.exec(segment)?.[1];
-      const src = nums.find((n) => n !== out);
-      if (out && src && nums[0] !== out) return segment.trim();
+      // Лист шага собирают из кадров других шагов: нарушение, только если НИ ОДИН источник не того же шага.
+      const outMatch = /--out[=\s]+(\S+)/.exec(segment);
+      const out = outMatch
+        ? /(?:^|[/'"=])(\d{2})-[\w.-]+\.\w+$/.exec(outMatch[1]!)?.[1]
+        : undefined;
+      if (!out) continue;
+      const sources = [...segment.replace(outMatch![0], " ").matchAll(STEP_FILE)].map((m) => m[1]!);
+      if (sources.length > 0 && !sources.includes(out)) return segment.trim();
     } else if (nums[0] !== nums[nums.length - 1]) return segment.trim();
   }
   return undefined;
@@ -681,7 +739,8 @@ export function detectCheckTampering(s: Session): Finding[] {
         }
       }
       // Лист одного шага выдан за другой: cp/mv/--out из NN-* в другое NN-* (DIARY :680, :783).
-      const renamed = isBash(c) ? stepRename(c.argsText ?? "") : undefined;
+      // …или правка письма владельцу (outbox), где имя листа одного шага заменено на имя другого.
+      const renamed = isBash(c) ? stepRename(c.argsText ?? "") : outboxRename(c);
       if (renamed && s.surface === "design") {
         out.push(
           finding(s, {
@@ -691,7 +750,8 @@ export function detectCheckTampering(s: Session): Finding[] {
             by: "code:D6",
             turn,
             evidence: [
-              cite(c, new RegExp(escapeRe(renamed.slice(0, 120))), "args") ?? whole(c, "args"),
+              cite(c, new RegExp(escapeRe(renamed.slice(0, 120))), "args") ??
+                (isBash(c) ? whole(c, "args") : { step: c.id, role: c.role, quote: renamed }),
             ],
           }),
         );
@@ -904,6 +964,63 @@ export function detectReask(s: Session): Finding[] {
   return [];
 }
 
+/** Вопрос письма владельцу: последняя строка с «?». */
+function outboxQuestion(text: string): string | undefined {
+  const lines = text
+    .split("\n")
+    .map((x) => x.trim())
+    .filter((x) => x.includes("?"));
+  return lines[lines.length - 1];
+}
+
+const OUTBOX = /(?:^|[\\/])outbox[\\/][^\\/\s'"]+\.md\b/;
+
+/** Письма владельцу (`outbox/NN.md`) по сессиям одного прогона дизайна: тот же вопрос в двух ходах
+ * подряд, а между ними владелец отвечал (следующий ход), — переспрос (DIARY :718, e8c-opus). */
+export function detectOutboxReask(sessions: readonly Session[]): Finding[] {
+  const out: Finding[] = [];
+  const runs = new Map<string, Session[]>();
+  for (const s of sessions)
+    if (s.surface === "design" && s.run) runs.set(s.run, [...(runs.get(s.run) ?? []), s]);
+  for (const list of runs.values()) {
+    const key = (x: Session) => x.steps.find((st) => st.ts)?.ts ?? x.file;
+    const ordered = [...list].sort((a, b) => key(a).localeCompare(key(b)));
+    const letters: { s: Session; step: Step; q: string }[] = [];
+    for (const s of ordered) {
+      for (const c of calls(s)) {
+        const target =
+          c.tool === "write" ? (pathArg(c) ?? "") : isBash(c) ? (c.argsText ?? "") : "";
+        if (!OUTBOX.test(target)) continue;
+        const q = outboxQuestion(c.tool === "write" ? writtenText(c) : (c.argsText ?? ""));
+        if (q) letters.push({ s, step: c, q });
+      }
+    }
+    for (let i = 1; i < letters.length; i++) {
+      const a = letters[i - 1]!;
+      const b = letters[i]!;
+      if (a.s === b.s) continue; // в одном ходе: владелец между ними не отвечал
+      const sim = jaccard(a.q, b.q);
+      if (sim < REASK_JACCARD) continue;
+      out.push(
+        finding(b.s, {
+          class: "K8",
+          sig: "reask",
+          fault: "unknown",
+          by: "code:D8",
+          turn: b.step.turn,
+          evidence: [
+            { step: b.step.id, role: b.step.role, quote: b.q },
+            {
+              absent: `тот же вопрос, что в ${a.s.id.slice(0, 13)} ${a.step.id}, после ответа владельца (сходство ${sim.toFixed(2)})`,
+            },
+          ],
+        }),
+      );
+    }
+  }
+  return out;
+}
+
 // --- D9: не по-русски, жаргон, «запустите сами» (К9, К4) ---
 
 /** Слишком короткий текст («OK», «Done.») по доле кириллицы не судим. */
@@ -1111,6 +1228,57 @@ export function detectRules(s: Session, ctx: DetectContext): Finding[] {
           }),
         );
       }
+    } else if (rule.type === "page-raster") {
+      const pathRe = new RegExp(rule.path ?? "(?:^|[\\\\/])site[\\\\/].*\\.html?$", "iu");
+      for (const c of calls(s).filter(isWrite)) {
+        if (!pathRe.test(pathArg(c) ?? "")) continue;
+        const hit = pageRaster(writtenText(c));
+        if (!hit) continue;
+        const derived = s.run !== undefined && (ctx.materialsDerived?.has(s.run) ?? false);
+        out.push(
+          finding(s, {
+            class: klass,
+            sig: derived ? sig : "rule:page-raster",
+            fault: "agent",
+            by: "code:D11",
+            turn: c.turn,
+            evidence: [
+              { step: c.id, role: c.role, quote: hit },
+              {
+                absent: derived
+                  ? `${rule.title}: в этом прогоне растр сделан из materials/`
+                  : "растр на странице; откуда он — не видно (проверить человеком)",
+              },
+            ],
+          }),
+        );
+        break;
+      }
+    } else if (rule.type === "refs-in-index") {
+      if (!s.refIndex) continue;
+      const pathRe = new RegExp(rule.path ?? "03-references\\.md$", "iu");
+      for (const c of calls(s).filter(isWrite)) {
+        if (!pathRe.test(pathArg(c) ?? "")) continue;
+        const rows = refRows(writtenText(c));
+        const missing = rows.filter((row) => !inIndex(row.name, s.refIndex!));
+        if (missing.length === 0) continue;
+        out.push(
+          finding(s, {
+            class: klass,
+            sig,
+            fault: "agent",
+            by: "code:D11",
+            turn: c.turn,
+            evidence: [
+              { step: c.id, role: c.role, quote: missing[0]!.line },
+              {
+                absent: `${rule.title}: ${missing.length} из ${rows.length} референсов нет в индексе`,
+              },
+            ],
+          }),
+        );
+        break;
+      }
     } else if (rule.type === "write-forbid") {
       const pathRe = rule.path ? new RegExp(rule.path, "iu") : undefined;
       const copied = rule.copiedFrom ? copiedNames(s, rule.copiedFrom) : [];
@@ -1143,6 +1311,68 @@ export function detectRules(s: Session, ctx: DetectContext): Finding[] {
     }
   }
   return out;
+}
+
+const RASTER_REF =
+  /(?:src|srcset)\s*=\s*["'][^"']*\.(?:png|jpe?g|webp)\b[^"']*["']|url\(\s*["']?[^)"']*\.(?:png|jpe?g|webp)\b/giu;
+const ICON_TAG =
+  /rel\s*=\s*["'][^"']*(?:icon|apple-touch)|(?:property|name)\s*=\s*["'](?:og|twitter):image/i;
+
+/** Ссылка страницы на растр, кроме favicon и og:image (как harness/check.py). */
+function pageRaster(html: string): string | undefined {
+  for (const m of html.matchAll(RASTER_REF)) {
+    const start = html.lastIndexOf("<", m.index);
+    const end = html.indexOf(">", m.index);
+    const tag = html.slice(start < 0 ? 0 : start, end < 0 ? html.length : end + 1);
+    if (ICON_TAG.test(tag)) continue;
+    return m[0];
+  }
+  return undefined;
+}
+
+/** Растр сделан из материалов владельца: команда читает materials/… и сохраняет, режет или копирует картинку. */
+export function derivedFromMaterials(s: Session): boolean {
+  return calls(s).some(
+    (c) =>
+      isBash(c) &&
+      /materials[\\/]/.test(c.argsText ?? "") &&
+      /\.save\(|(?:^|[;&|\s])(?:cp|install|convert|magick)\s|shutil\.copy|\.crop\(/.test(
+        c.argsText ?? "",
+      ),
+  );
+}
+
+/** Строки таблицы референсов: «| Имя | … |», без шапки и разделителя. */
+function refRows(md: string): { name: string; line: string }[] {
+  const out: { name: string; line: string }[] = [];
+  for (const line of md.split("\n")) {
+    const m = /^\s*\|\s*([^|]+?)\s*\|/.exec(line);
+    if (!m) continue;
+    const name = m[1]!.replace(/[*_`[\]]/g, "").trim();
+    if (
+      !name ||
+      /^:?-{2,}:?$/.test(name) ||
+      /^(?:референс|reference|сайт|site|название|name|#|№)$/iu.test(name)
+    )
+      continue;
+    out.push({ name, line: line.trim() });
+  }
+  return out;
+}
+
+const mainLabel = (host: string) => host.replace(/^www\./, "").split(".")[0] ?? host;
+
+function inIndex(name: string, index: ReadonlySet<string>): boolean {
+  const n = name
+    .toLowerCase()
+    .replace(/^https?:\/\//, "")
+    .replace(/^www\./, "")
+    .replace(/\/.*$/, "")
+    .trim();
+  if (index.has(n)) return true;
+  const label = mainLabel(n);
+  for (const token of index) if (token === label || mainLabel(token) === label) return true;
+  return false;
 }
 
 /** Имена файлов, которые сессия скопировала командой из папки `from` (cp/install/shutil). */
@@ -1354,19 +1584,26 @@ export const SHADOW_SIGS: ReadonlySet<string> = new Set<string>([
   "lang:jargon",
   "forbidden:install",
   "forbidden:foreign-ai",
-  "rule:materials-raster",
-  "rule:refs-from-index",
+  "rule:page-raster",
   "lazy:useless-test",
   "lazy:ask-user-run",
 ]);
 
 /** Все детекторы по сессиям, затем D15 по всем находкам. Каждая цитата проверена (verifyEvidence). */
-export function auditSessions(sessions: readonly Session[], ctx: DetectContext): Finding[] {
+export function auditSessions(sessions: readonly Session[], baseCtx: DetectContext): Finding[] {
+  const derived = new Set(
+    sessions.filter((s) => s.run && derivedFromMaterials(s)).map((s) => s.run!),
+  );
+  const ctx: DetectContext = { ...baseCtx, materialsDerived: derived };
   const out: Finding[] = [];
   for (const s of sessions) {
     for (const detect of SESSION_DETECTORS) {
       for (const f of detect(s, ctx)) if (verifyEvidence(s, f)) out.push(f);
     }
+  }
+  for (const f of detectOutboxReask(sessions)) {
+    const s = sessions.find((x) => x.id === f.session && x.file === f.file);
+    if (s && verifyEvidence(s, f)) out.push(f);
   }
   out.push(...detectHarnessSuspects(sessions, out));
   for (const f of out) if (SHADOW_SIGS.has(f.sig)) f.status = "shadow";
