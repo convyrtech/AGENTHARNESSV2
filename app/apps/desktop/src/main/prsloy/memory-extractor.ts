@@ -6,11 +6,37 @@
  *
  * Probe mode (PRSLOY_MEMORY_EXTRACTOR=probe) asks for a fixed JSON with no user data: the
  * pipe is proven on Windows and Linux before M-3 puts the user's own words through it.
+ *
+ * Shadow mode (M-3, research/24 §3.1): PRSLOY_MEMORY_EXTRACTOR=shadow, or memory on with
+ * `autoMemory` "shadow" / true in the owner's prsloy-harness.json. The user's own words since
+ * the session's watermark (harness `extractorInput`, M-2) → signals → one JSON call only when
+ * there is a signal → the §3.4 checks → candidates in `prsloy-memory/candidates.jsonl`. Nothing
+ * goes into the memory files or the prompt. At start, ≤2 sessions left unprocessed catch up.
  */
 import { createHash } from "node:crypto";
-import { appendFileSync, mkdirSync, readFileSync } from "node:fs";
+import {
+  appendFileSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { join } from "node:path";
-import { memoryDirFor } from "@prsloy/harness";
+import {
+  type Candidate,
+  checkCandidates,
+  type ExtractorOp,
+  type MemoryEntry,
+  type MemorySignalKind,
+  extractorInput,
+  extractorPrompt,
+  memoryDirFor,
+  MemoryStore,
+  parseExtractorReply,
+  sessionSignals,
+  withMemoryLock,
+} from "@prsloy/harness";
 import {
   isPrsloyChatModelId,
   prsloyModelCost,
@@ -32,7 +58,7 @@ export function extractorModel(available: readonly string[] | undefined): string
 
 export type ExtractorRun = {
   ts: string;
-  kind: "probe";
+  kind: "probe" | "extract";
   /** sha256 of the session file path, first 16: which chat, without its name. */
   session: string;
   model: string;
@@ -46,7 +72,98 @@ export type ExtractorRun = {
   /** The answer parsed as the JSON we asked for. */
   json: boolean;
   error?: string;
+  /** extract: user messages since the watermark, those with a signal, ops by verdict. */
+  messages?: number;
+  signals?: number;
+  ops?: number;
+  accepted?: number;
+  /** extract: no signal → no model call. */
+  skipped?: "no-signal" | "no-messages";
 };
+
+const sessionHash = (sessionFile: string) =>
+  createHash("sha256").update(sessionFile).digest("hex").slice(0, 16);
+
+type GatewayCall = {
+  status: number;
+  text: string;
+  input: number;
+  output: number;
+  costUsd: number | null;
+  error?: string;
+};
+
+/** One streamed chat call with usage; never throws. */
+async function callGateway(options: {
+  baseUrl: string;
+  apiKey: string;
+  model: string;
+  messages: { role: string; content: string }[];
+  maxTokens: number;
+  fetch: FetchLike;
+  timeoutMs?: number;
+}): Promise<GatewayCall> {
+  const out: GatewayCall = { status: 0, text: "", input: 0, output: 0, costUsd: null };
+  try {
+    const response = await options.fetch(
+      `${options.baseUrl.replace(/\/+$/u, "")}/chat/completions`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${options.apiKey}`,
+          "Content-Type": "application/json",
+          Accept: "text/event-stream",
+        },
+        body: JSON.stringify({
+          model: options.model,
+          messages: options.messages,
+          max_tokens: options.maxTokens,
+          stream: true,
+          stream_options: { include_usage: true },
+        }),
+        signal: AbortSignal.timeout(options.timeoutMs ?? 60_000),
+      },
+    );
+    out.status = response.status;
+    const body = await response.text();
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    for (const line of body.split("\n")) {
+      const data = line.startsWith("data:") ? line.slice(5).trim() : "";
+      if (!data || data === "[DONE]") continue;
+      try {
+        const chunk = JSON.parse(data) as {
+          choices?: { delta?: { content?: string } }[];
+          usage?: { prompt_tokens?: number; completion_tokens?: number };
+        };
+        out.text += chunk.choices?.[0]?.delta?.content ?? "";
+        if (chunk.usage) {
+          out.input = chunk.usage.prompt_tokens ?? 0;
+          out.output = chunk.usage.completion_tokens ?? 0;
+        }
+      } catch {
+        // a keep-alive or a vendor line
+      }
+    }
+    const price = prsloyModelCost(options.model);
+    const metered = out.input > 0 || out.output === 0;
+    out.costUsd =
+      price.input > 0 && metered
+        ? (out.input * price.input + out.output * price.output) / 1e6
+        : null;
+  } catch (error) {
+    out.error = (error instanceof Error ? error.message : String(error)).slice(0, 120);
+  }
+  return out;
+}
+
+function journalRun(journalDir: string, run: ExtractorRun): void {
+  try {
+    mkdirSync(journalDir, { recursive: true });
+    appendFileSync(join(journalDir, "extractor.jsonl"), `${JSON.stringify(run)}\n`);
+  } catch (error) {
+    console.warn("[prsloy] extractor journal:", error);
+  }
+}
 
 const PROBE_MESSAGES = [
   { role: "system", content: 'Ответь строго одним JSON-объектом: {"ok":true}. Без пояснений.' },
@@ -64,12 +181,159 @@ export async function runExtractorProbe(options: {
   now?: () => Date;
 }): Promise<ExtractorRun> {
   const started = Date.now();
+  const ts = (options.now?.() ?? new Date()).toISOString();
+  const call = await callGateway({ ...options, messages: PROBE_MESSAGES, maxTokens: 64 });
+  let json = false;
+  try {
+    json = (JSON.parse(call.text.trim()) as { ok?: unknown }).ok === true;
+  } catch {
+    json = false;
+  }
   const run: ExtractorRun = {
-    ts: (options.now?.() ?? new Date()).toISOString(),
+    ts,
     kind: "probe",
-    session: createHash("sha256").update(options.sessionFile).digest("hex").slice(0, 16),
+    session: sessionHash(options.sessionFile),
     model: options.model,
-    ok: false,
+    ok: !call.error && call.text.trim().length > 0,
+    status: call.status,
+    ms: Date.now() - started,
+    input: call.input,
+    output: call.output,
+    costUsd: call.error ? null : call.costUsd,
+    json,
+    ...(call.error ? { error: call.error } : {}),
+  };
+  journalRun(options.journalDir, run);
+  return run;
+}
+
+/**
+ * One extractor call on already selected messages (with their signals) and the current
+ * memory: prompt → model → parse → §3.4 checks. Shared by the shadow run and the live check
+ * (scripts/memory-shadow-check.mts).
+ */
+export async function extractOnce(options: {
+  baseUrl: string;
+  apiKey: string;
+  model: string;
+  messages: { id: string; text: string; kinds: MemorySignalKind[] }[];
+  memory: { user: MemoryEntry[]; project: MemoryEntry[] };
+  isForgotten?: (scope: "user" | "project", text: string) => boolean;
+  fetch: FetchLike;
+  timeoutMs?: number;
+}): Promise<{ call: GatewayCall; ops: ExtractorOp[] | undefined; candidates: Candidate[] }> {
+  const call = await callGateway({
+    ...options,
+    messages: [{ role: "user", content: extractorPrompt(options.messages, options.memory) }],
+    maxTokens: 600,
+  });
+  const ops = call.error ? undefined : parseExtractorReply(call.text);
+  const candidates = checkCandidates(
+    ops ?? [],
+    options.messages,
+    options.memory,
+    options.isForgotten,
+  );
+  return { call, ops, candidates };
+}
+
+/** Per session (hash of the path): the id of the last user message already looked at. */
+const STATE_FILE = "extractor-state.json";
+type ExtractorState = { sessions: Record<string, { watermark: string; at: string }> };
+
+function readState(dir: string): ExtractorState {
+  try {
+    const raw = JSON.parse(readFileSync(join(dir, STATE_FILE), "utf8")) as ExtractorState;
+    return raw && typeof raw.sessions === "object" ? raw : { sessions: {} };
+  } catch {
+    return { sessions: {} };
+  }
+}
+
+function saveWatermark(dir: string, session: string, watermark: string, at: string): void {
+  withMemoryLock(dir, () => {
+    const state = readState(dir);
+    state.sessions[session] = { watermark, at };
+    writeFileSync(join(dir, STATE_FILE), `${JSON.stringify(state, null, 2)}\n`);
+  });
+}
+
+function readSession(sessionFile: string): { entries: unknown[]; id?: string; cwd?: string } {
+  const entries: unknown[] = [];
+  let id: string | undefined;
+  let cwd: string | undefined;
+  for (const line of readFileSync(sessionFile, "utf8").split("\n")) {
+    if (!line.trim()) continue;
+    try {
+      const entry = JSON.parse(line) as { type?: string; id?: string; cwd?: string };
+      if (entry.type === "session") {
+        id = entry.id;
+        cwd = entry.cwd;
+      }
+      entries.push(entry);
+    } catch {
+      // a torn last line while the host writes
+    }
+  }
+  return { entries, ...(id ? { id } : {}), ...(cwd ? { cwd } : {}) };
+}
+
+/** «Отменить» times for this session from the learning log (`turn.undo`, no texts). */
+function undoTimes(learningDir: string, sessionId: string | undefined): string[] {
+  if (!sessionId) return [];
+  try {
+    return readFileSync(join(learningDir, "events.jsonl"), "utf8")
+      .split("\n")
+      .flatMap((line) => {
+        try {
+          const e = JSON.parse(line) as { kind?: string; session?: string; ts?: string };
+          return e.kind === "turn.undo" && e.session === sessionId && e.ts ? [e.ts] : [];
+        } catch {
+          return [];
+        }
+      });
+  } catch {
+    return [];
+  }
+}
+
+/** Is there anything new with a signal in this session since its watermark? (No model call.) */
+export function sessionHasSignal(agentDir: string, sessionFile: string): boolean {
+  try {
+    const dir = memoryDirFor(agentDir);
+    const { entries } = readSession(sessionFile);
+    const watermark = readState(dir).sessions[sessionHash(sessionFile)]?.watermark;
+    return sessionSignals(extractorInput(entries, watermark).messages).length > 0;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * M-3 in the shadow: one session since its watermark → candidates.jsonl. The watermark moves
+ * only when the call went through (or there was nothing to send), so a failed call is retried.
+ */
+export async function runExtractorShadow(options: {
+  baseUrl: string;
+  apiKey: string;
+  model: string;
+  sessionFile: string;
+  agentDir: string;
+  learningDir: string;
+  fetch: FetchLike;
+  timeoutMs?: number;
+  now?: () => Date;
+}): Promise<ExtractorRun> {
+  const started = Date.now();
+  const ts = (options.now?.() ?? new Date()).toISOString();
+  const dir = memoryDirFor(options.agentDir);
+  const session = sessionHash(options.sessionFile);
+  const base: ExtractorRun = {
+    ts,
+    kind: "extract",
+    session,
+    model: options.model,
+    ok: true,
     status: 0,
     ms: 0,
     input: 0,
@@ -77,79 +341,114 @@ export async function runExtractorProbe(options: {
     costUsd: null,
     json: false,
   };
-  try {
-    const response = await options.fetch(
-      `${options.baseUrl.replace(/\/+$/u, "")}/chat/completions`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${options.apiKey}`,
-          "Content-Type": "application/json",
-          Accept: "text/event-stream",
-        },
-        body: JSON.stringify({
-          model: options.model,
-          messages: PROBE_MESSAGES,
-          max_tokens: 64,
-          stream: true,
-          stream_options: { include_usage: true },
-        }),
-        signal: AbortSignal.timeout(options.timeoutMs ?? 60_000),
-      },
+  const { entries, id, cwd } = readSession(options.sessionFile);
+  const watermark = readState(dir).sessions[session]?.watermark;
+  const input = extractorInput(entries, watermark, undoTimes(options.learningDir, id));
+  const signals = sessionSignals(input.messages);
+  const finish = (run: ExtractorRun) => {
+    run.ms = Date.now() - started;
+    journalRun(dir, run);
+    return run;
+  };
+  if (!signals.length) {
+    if (input.watermark) saveWatermark(dir, session, input.watermark, ts);
+    return finish({
+      ...base,
+      messages: input.messages.length,
+      signals: 0,
+      skipped: input.messages.length ? "no-signal" : "no-messages",
+    });
+  }
+  const store = new MemoryStore(dir);
+  const workspace = cwd ?? "";
+  const memory = {
+    user: store.entries("user", workspace),
+    project: cwd ? store.entries("project", cwd) : [],
+  };
+  const kinds = new Map(signals.map((s) => [s.id, s.kinds]));
+  const selected = input.messages
+    .filter((m) => kinds.has(m.id))
+    .map((m) => ({ id: m.id, text: m.text, kinds: kinds.get(m.id)! }));
+  const result = await extractOnce({
+    ...options,
+    messages: selected,
+    memory,
+    isForgotten: (scope, text) => store.isForgotten(scope, workspace, text),
+  });
+  const { call, ops } = result;
+  const candidates = result.candidates.filter((c) => c.scope === "user" || cwd);
+  if (candidates.length) {
+    store.recordCandidates(
+      candidates.map((c) => ({
+        session,
+        model: options.model,
+        op: c.op,
+        scope: c.scope,
+        kind: c.kind,
+        text: c.text,
+        quote: c.quote,
+        verdict: c.verdict,
+        ...(c.target ? { target: c.target } : {}),
+      })),
     );
-    run.status = response.status;
-    const body = await response.text();
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    let text = "";
-    for (const line of body.split("\n")) {
-      const data = line.startsWith("data:") ? line.slice(5).trim() : "";
-      if (!data || data === "[DONE]") continue;
-      try {
-        const chunk = JSON.parse(data) as {
-          choices?: { delta?: { content?: string } }[];
-          usage?: { prompt_tokens?: number; completion_tokens?: number };
-        };
-        text += chunk.choices?.[0]?.delta?.content ?? "";
-        if (chunk.usage) {
-          run.input = chunk.usage.prompt_tokens ?? 0;
-          run.output = chunk.usage.completion_tokens ?? 0;
-        }
-      } catch {
-        // a keep-alive or a vendor line
-      }
-    }
-    run.ok = text.trim().length > 0;
-    try {
-      run.json = (JSON.parse(text.trim()) as { ok?: unknown }).ok === true;
-    } catch {
-      run.json = false;
-    }
-    const price = prsloyModelCost(options.model);
-    const metered = run.input > 0 || run.output === 0;
-    run.costUsd =
-      price.input > 0 && metered
-        ? (run.input * price.input + run.output * price.output) / 1e6
-        : null;
-  } catch (error) {
-    run.error = (error instanceof Error ? error.message : String(error)).slice(0, 120);
   }
-  run.ms = Date.now() - started;
+  if (!call.error && input.watermark) saveWatermark(dir, session, input.watermark, ts);
+  return finish({
+    ...base,
+    ok: !call.error,
+    status: call.status,
+    input: call.input,
+    output: call.output,
+    costUsd: call.error ? null : call.costUsd,
+    json: ops !== undefined,
+    messages: input.messages.length,
+    signals: selected.length,
+    ops: ops?.length ?? 0,
+    accepted: candidates.filter((c) => c.verdict === "ok").length,
+    ...(call.error ? { error: call.error } : {}),
+  });
+}
+
+/** Session files under `dir`, newest first. */
+function sessionFiles(dir: string): { path: string; mtime: number }[] {
   try {
-    mkdirSync(options.journalDir, { recursive: true });
-    appendFileSync(join(options.journalDir, "extractor.jsonl"), `${JSON.stringify(run)}\n`);
-  } catch (error) {
-    console.warn("[prsloy] extractor journal:", error);
+    return readdirSync(dir, { recursive: true })
+      .map(String)
+      .filter((name) => name.endsWith(".jsonl"))
+      .map((name) => {
+        const path = join(dir, name);
+        return { path, mtime: statSync(path).mtimeMs };
+      })
+      .sort((a, b) => b.mtime - a.mtime);
+  } catch {
+    return [];
   }
-  return run;
+}
+
+export type ExtractorMode = "probe" | "shadow" | "off";
+
+/**
+ * PRSLOY_MEMORY_EXTRACTOR wins (probe / shadow / off, owner and developer builds); otherwise
+ * memory on with `autoMemory` "shadow" or true → shadow. `true` writes nothing yet: writing is
+ * M-3b, until then it is the shadow too.
+ */
+export function extractorMode(
+  env: string | undefined,
+  flags: { memory: boolean; autoMemory: "off" | "shadow" | true },
+): ExtractorMode {
+  if (env === "probe" || env === "shadow" || env === "off") return env;
+  return flags.memory && flags.autoMemory !== "off" ? "shadow" : "off";
 }
 
 /**
- * The queue: one call at a time, each session once per app run. Turned on only by
- * PRSLOY_MEMORY_EXTRACTOR=probe (owner and developer builds); off, it does nothing.
+ * The queue: one call at a time. Probe: each session once per app run. Shadow: each time the
+ * user leaves a chat (the watermark keeps it to new words), plus a catch-up of ≤2 sessions at
+ * start. The mode is read on every event, so the owner's flag needs no restart.
  */
 export function installMemoryExtractor(options: {
-  mode: string | undefined;
+  mode: () => ExtractorMode;
   agentDir: string;
+  learningDir?: string;
   baseUrl: () => string;
   apiKey: () => string | undefined;
   availableModels: () => readonly string[] | undefined;
@@ -157,28 +456,80 @@ export function installMemoryExtractor(options: {
   /** Model override (tests). */
   model?: string | undefined;
   onRun?: (run: ExtractorRun) => void;
+  /** Catch-up at start (shadow): delay, how many; `false` — none. */
+  catchUp?: { delayMs: number; max: number; quietMs?: number } | false;
 }): { stop(): void; idle(): Promise<void> } {
-  if (options.mode !== "probe") return { stop: () => undefined, idle: async () => undefined };
-  const done = new Set<string>();
+  const probed = new Set<string>();
+  const queued = new Set<string>();
   let chain: Promise<void> = Promise.resolve();
-  const stop = onSessionLeft((sessionFile) => {
-    if (done.has(sessionFile)) return;
-    done.add(sessionFile);
+  const learningDir =
+    options.learningDir ??
+    process.env.PRSLOY_LEARN_DIR ??
+    join(options.agentDir, "prsloy-learning");
+  const enqueue = (sessionFile: string) => {
+    const mode = options.mode();
+    if (mode === "off") return;
+    if (mode === "probe") {
+      if (probed.has(sessionFile)) return;
+      probed.add(sessionFile);
+    } else if (queued.has(sessionFile)) return;
+    queued.add(sessionFile);
     chain = chain.then(async () => {
-      const apiKey = options.apiKey();
-      if (!apiKey) return;
-      const run = await runExtractorProbe({
-        baseUrl: options.baseUrl(),
-        apiKey,
-        model: options.model ?? extractorModel(options.availableModels()),
-        sessionFile,
-        journalDir: memoryDirFor(options.agentDir),
-        fetch: options.fetch,
-      });
-      options.onRun?.(run);
+      try {
+        const apiKey = options.apiKey();
+        if (!apiKey) return;
+        const common = {
+          baseUrl: options.baseUrl(),
+          apiKey,
+          model: options.model ?? extractorModel(options.availableModels()),
+          sessionFile,
+          fetch: options.fetch,
+        };
+        const run =
+          mode === "probe"
+            ? await runExtractorProbe({ ...common, journalDir: memoryDirFor(options.agentDir) })
+            : await runExtractorShadow({ ...common, agentDir: options.agentDir, learningDir });
+        options.onRun?.(run);
+      } catch (error) {
+        console.warn("[prsloy] memory extractor failed:", error);
+      } finally {
+        queued.delete(sessionFile);
+      }
     });
-  });
-  return { stop, idle: () => chain };
+  };
+  const stop = onSessionLeft(enqueue);
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const catchUp = options.catchUp ?? { delayMs: 30_000, max: 2 };
+  if (catchUp) {
+    timer = setTimeout(() => {
+      if (options.mode() !== "shadow") return;
+      const quiet = catchUp.quietMs ?? 60_000;
+      let n = 0;
+      for (const file of sessionFiles(join(options.agentDir, "sessions"))) {
+        if (n >= catchUp.max) break;
+        // Still being written: it will come with «session left».
+        if (Date.now() - file.mtime < quiet) continue;
+        if (!sessionHasSignal(options.agentDir, file.path)) continue;
+        n += 1;
+        enqueue(file.path);
+      }
+    }, catchUp.delayMs);
+    timer.unref?.();
+  }
+  return {
+    stop: () => {
+      stop();
+      if (timer) clearTimeout(timer);
+    },
+    idle: async () => {
+      // Chained runs may add more while we wait.
+      let last: Promise<void> | undefined;
+      while (last !== chain) {
+        last = chain;
+        await chain;
+      }
+    },
+  };
 }
 
 /**

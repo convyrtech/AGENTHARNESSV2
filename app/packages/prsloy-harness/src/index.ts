@@ -45,6 +45,18 @@ export { harnessStats } from "./stats.ts";
 export { LEARNING_MAX_BYTES, learningDir, projectKey, recordEvent } from "./learning-log.ts";
 export { installReusePrompt } from "./reuse-prompt.ts";
 export { MemoryStore, memoryDirFor, MEMORY_LIMITS } from "./memory-store.ts";
+// Память вне хода (research/24 M-2, M-3, core): вход экстрактора, сигналы, промпт и проверки.
+export { CANDIDATES_FILE, type MemoryEntry, withMemoryLock } from "./memory-store.ts";
+export { extractorInput, INPUT_SOURCE_TYPE, type InputSource } from "./memory-input.ts";
+export { messageSignals, sessionSignals, type MemorySignalKind } from "./memory-signals.ts";
+export {
+  checkCandidates,
+  extractorPrompt,
+  parseExtractorReply,
+  type Candidate,
+  type ExtractorOp,
+} from "./memory-extract.ts";
+export { readFlags } from "./flags.ts";
 export { detectToolLeak, stripToolMarkup } from "./tool-leak.ts";
 export {
   evidenceInDiff,

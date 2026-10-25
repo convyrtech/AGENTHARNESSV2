@@ -48,3 +48,35 @@ test("extractor probe: a call outside the turn after leaving a chat, its own jou
     await launched.fakeModel.stop().catch(() => undefined);
   }
 });
+
+/**
+ * Memory M-3 in the shadow: the user's own words with a signal reach the model outside the
+ * turn; the result is journaled, nothing is written into the memory or the chat.
+ */
+test("extractor shadow: a signal goes to the model after leaving a chat, memory untouched", async () => {
+  const launched = await launchZenoApp({
+    env: {
+      PRSLOY_MEMORY_EXTRACTOR: "shadow",
+      PRSLOY_MEMORY_EXTRACTOR_PROVIDER: "zeno-fake",
+      PRSLOY_MEMORY_EXTRACTOR_MODEL: "zeno-fake",
+    },
+  });
+  try {
+    const { page, agentDir, fakeModel } = launched;
+    await startHost(page);
+    await sendPrompt(page, "Запомни: я не программист, объясняй проще.");
+    const requestsBefore = fakeModel.requests.length;
+    await page.evaluate(() => window.zeno.session.create());
+    const journal = join(agentDir, "prsloy-memory", "extractor.jsonl");
+    await expect.poll(() => existsSync(journal), { timeout: 30_000 }).toBe(true);
+    const line = JSON.parse((await readFile(journal, "utf8")).trim().split("\n")[0]!);
+    // The fake model answers with prose, not JSON: the pipe and the checks, no candidates.
+    expect(line).toMatchObject({ kind: "extract", ok: true, signals: 1, json: false });
+    expect(fakeModel.requests.length).toBe(requestsBefore + 1);
+    expect(JSON.stringify(fakeModel.requests.at(-1)?.messages ?? [])).toContain("я не программист");
+    expect(existsSync(join(agentDir, "prsloy-memory", "user.json"))).toBe(false);
+  } finally {
+    await launched.app.close().catch(() => undefined);
+    await launched.fakeModel.stop().catch(() => undefined);
+  }
+});

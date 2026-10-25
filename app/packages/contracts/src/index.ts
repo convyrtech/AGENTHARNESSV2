@@ -1823,10 +1823,10 @@ export interface ZenoDesktopApi {
   features: FeaturesApi;
   /** «Память» (see ./memory.ts). Optional until main serves `prsloy:memory-*`. */
   memory?: MemoryApi;
-  /** Settings → «Поиск в интернете» (see ./search.ts). */
-  search: SearchApi;
   /** Chats from other agents (see ./session-import.ts). Optional: older mains skip the step. */
   sessionImport?: SessionImportApi;
+  /** Settings → «Поиск в интернете» (see ./search.ts). */
+  search: SearchApi;
   /**
    * Always-on-top desktop pet (bloub) — a living SVG companion driven by
    * per-session focus + task bubbles. Enabled from Settings → 宠物.
