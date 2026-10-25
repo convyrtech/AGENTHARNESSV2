@@ -52,6 +52,7 @@ class Lessons(unittest.TestCase):
         line = (Path(d) / "design-events.jsonl").read_text(encoding="utf-8")
         ev = json.loads(line)
         self.assertEqual(ev["killed"], "loop")
+        self.assertRegex(ev["session"], r"^[0-9a-f]{12}$")              # сессия для рефлектора (S7)
         self.assertIs(ev["error"], True)
         for bad in ("Иван", "секрет", "Откат", "судьи", "why", "out"):
             self.assertNotIn(bad, line)
