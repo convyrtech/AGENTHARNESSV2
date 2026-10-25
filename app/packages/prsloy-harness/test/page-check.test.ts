@@ -10,6 +10,7 @@ import {
   designPython,
   findPageEntry,
   groupIssues,
+  hasBlocking,
   pageCheckMessage,
   type PageIssue,
   serveStatic,
@@ -97,6 +98,20 @@ describe("page check: the message", () => {
     expect(text).not.toContain("последняя попытка");
   });
 
+  it("target-size and small-text are hints: listed last, never a push-back on their own", () => {
+    const small = issue({ rule: "small-text", where: "p", detail: "текст 9 px" });
+    expect(hasBlocking({ entry: "index.html", issues: [small] })).toBe(false);
+    const both = {
+      entry: "index.html",
+      issues: [small, issue({ rule: "overlap", detail: "кнопки наезжают" })],
+    };
+    expect(hasBlocking(both)).toBe(true);
+    const text = pageCheckMessage(both, 1, 2);
+    expect(text.indexOf("кнопки наезжают")).toBeLessThan(
+      text.indexOf("текст 9 px — p (подсказка)"),
+    );
+  });
+
   it("file-only problems get the double-click hint; the last attempt says so", () => {
     const text = pageCheckMessage(
       {
@@ -146,6 +161,23 @@ describe("page check in a real Chromium", async () => {
       expect(m!.issues.length).toBeGreaterThan(0);
       expect(m!.issues.every((i) => i.target === "file")).toBe(true);
       expect(pageCheckMessage(m!, 1, 2)).toContain("двойной клик");
+
+      // Функция правил получает опции (как lintLayout ci); window-min и focus-hidden для страницы не смотрим.
+      const custom = await checkPage(project({ "index.html": "<p>Привет</p>" }), {
+        playwright: pw!,
+        executablePath,
+        lint: String((o: unknown) => [
+          { rule: "small-text", selector: "p", text: "", detail: JSON.stringify(o) },
+          { rule: "window-min", selector: "html", text: "", detail: "окно" },
+        ]),
+      });
+      expect(custom!.issues.map((i) => [i.rule, i.detail])).toEqual([
+        ["small-text", '{"minWidth":0,"minHeight":0,"checkFocus":false}'],
+        ["small-text", '{"minWidth":0,"minHeight":0,"checkFocus":false}'],
+        ["small-text", '{"minWidth":0,"minHeight":0,"checkFocus":false}'],
+        ["small-text", '{"minWidth":0,"minHeight":0,"checkFocus":false}'],
+      ]);
+      expect(hasBlocking(custom!)).toBe(false);
 
       const clean = project({
         "index.html": `<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width">

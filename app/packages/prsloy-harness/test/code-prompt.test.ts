@@ -32,7 +32,7 @@ describe("PRSLOY code prompt (research/17 §9)", () => {
     expect(lines.filter((l) => !added.has(l)).join("\n")).toBe(block);
   });
 
-  it("additions: relative paths for pages, request_secret and ask_user", () => {
+  it("additions: relative paths for pages, request_secret and ask_user, the final reminder", () => {
     expect(PRSLOY_CODE_PROMPT).toContain("for Vite set `base: './'`");
     expect(PRSLOY_CODE_PROMPT).toContain(
       "use the request_secret tool, never ask for it in the chat",

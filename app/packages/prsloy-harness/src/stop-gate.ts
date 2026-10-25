@@ -23,7 +23,7 @@ import { headTail, showCard } from "./text.ts";
 import type { TurnChanges } from "./turn-changes.ts";
 import { modelFamily, recordEvent } from "./learning-log.ts";
 import { checkPagePaths, type PagePathReport, pagePathsMessage } from "./page-paths.ts";
-import { checkPage, type PageCheckResult, pageCheckMessage } from "./page-check.ts";
+import { checkPage, hasBlocking, type PageCheckResult, pageCheckMessage } from "./page-check.ts";
 import { intervene } from "./lessons.ts";
 
 export interface ProjectCheck {
@@ -370,7 +370,7 @@ export function installStopGate(
     webEdited = false;
     if (pageCheck && web && pushbacks < MAX_PUSHBACKS && !ctx.signal?.aborted) {
       const page = await pageCheck(ctx.cwd);
-      if (page && !page.skipped && page.issues.length > 0) {
+      if (page && !page.skipped && hasBlocking(page)) {
         pushbacks += 1;
         const tip = intervene(ctx, { kind: "gate.page", sig: "gate:page", n: pushbacks });
         return {

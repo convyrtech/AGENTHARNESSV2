@@ -899,6 +899,14 @@ i18n во все локали (дорожка ui).
   рядом с модулем — asar), на Windows `channel=msedge`. Нет переменной или файла — проверка молча пропускается,
   ничего не ставится; браузер не запустился / таймаут 30 с — тоже не красное. Для тестов и замера — Node-Playwright
   (`pageCheck: { playwright, executablePath }`). Отключается `disable: { pageCheck: true }`.
+- Правила получают опции `{minWidth: 0, minHeight: 0, checkFocus: false}` (как `lintLayout` ci), перед ними в
+  страницу ставится стиль без transition/animation. `target-size` и `small-text` — подсказки: идут в конце списка
+  с пометкой и сами к работе не возвращают; `window-min` и `focus-hidden` для страницы пользователя не смотрим.
+  `lintLayout` из `@zeno/layout-rules` (ветка ci @ 1febe3c) проверен этим же сценарием вручную: обрезанный текст
+  и наезжающие кнопки ловятся. Подключение по умолчанию — когда пакет будет в main.
+- Промпт: в «Before you end your turn» добавлено «If you chose for the user (what to build, prices, names, texts),
+  say so in one line.» — Opus на «сделай что-нибудь для кофейни» выдумал меню, цены и адрес и не сказал об этом.
+  Промпт 7 376 символов.
 - Нужно от core: `PRSLOY_DESIGN_PYTHON=<venv>/Scripts/python.exe` в окружение агент-хоста, когда инструменты
   «Дизайна» готовы (`toolsReady`).
 - Находка: Chromium под `file://` не грузит `type="module"` (CORS, origin null) — Vite-сборка двойным кликом не

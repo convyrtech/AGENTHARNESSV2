@@ -181,7 +181,8 @@ with sync_playwright() as p:
                 try:
                     page.goto(t["url"], wait_until="load", timeout=job["navTimeoutMs"])
                     page.wait_for_timeout(job["settleMs"])
-                    for v in page.evaluate(job["lint"]):
+                    page.evaluate(job["freeze"])
+                    for v in page.evaluate(job["lint"], job["lintArg"]):
                         found.append({"kind": "layout", "rule": v["rule"], "where": v["selector"] + (" «" + v["text"] + "»" if v.get("text") else ""), "detail": v["detail"]})
                 except Exception as e:
                     found.append({"kind": "pageerror", "detail": "страница не открылась: " + str(e).splitlines()[0]})
@@ -218,6 +219,8 @@ interface Job {
   targets: { name: string; url: string }[];
   viewports: readonly { width: number; height: number }[];
   lint: string;
+  lintArg: unknown;
+  freeze: string;
   navTimeoutMs: number;
   settleMs: number;
 }
@@ -249,7 +252,8 @@ async function runNode(pw: NodePlaywright, job: Job, executablePath?: string): P
         try {
           await page.goto(t.url, { waitUntil: "load", timeout: job.navTimeoutMs });
           await page.waitForTimeout(job.settleMs);
-          const lint = (await page.evaluate(`(${job.lint})()`)) as {
+          await page.evaluate(job.freeze);
+          const lint = (await page.evaluate(`(${job.lint})(${JSON.stringify(job.lintArg)})`)) as {
             rule: string;
             selector: string;
             text?: string;
@@ -277,6 +281,14 @@ async function runNode(pw: NodePlaywright, job: Job, executablePath?: string): P
   }
   return out;
 }
+
+/** Анимации и переходы в ноль перед правилами: элемент посреди анимации даёт ложные срабатывания (так же у ci). */
+const FREEZE = `() => { const s = document.createElement("style"); s.textContent = "*, *::before, *::after { transition: none !important; animation: none !important; }"; document.head.appendChild(s); }`;
+
+/** Правила-подсказки: сами по себе к работе не возвращают, идут в конце списка. */
+export const HINT_RULES = new Set(["target-size", "small-text"]);
+/** Для страницы пользователя не смотрим: минимальное окно и фокус — правила окна приложения. */
+const IGNORED_RULES = new Set(["window-min", "focus-hidden"]);
 
 export interface PageCheckOptions {
   /** Python с Playwright (venv «Дизайна»). Без него — пропуск. */
@@ -356,6 +368,9 @@ export async function checkPage(
       ],
       viewports: PAGE_VIEWPORTS,
       lint: options.lint ?? basicLint.toString(),
+      // Для lintLayout ci: окно чужой страницы без минимума, фокус не трогаем (он меняет состояние страницы).
+      lintArg: { minWidth: 0, minHeight: 0, checkFocus: false },
+      freeze: FREEZE,
       navTimeoutMs: 8_000,
       settleMs: 300,
     };
@@ -393,11 +408,17 @@ export async function checkPage(
     const issues = raw
       // «Failed to load resource» в консоли дублирует незагрузившийся запрос (там виден файл).
       .filter((i) => !(i.kind === "console" && /^Failed to load resource\b/.test(i.detail)))
+      .filter((i) => !(i.kind === "layout" && i.rule && IGNORED_RULES.has(i.rule)))
       .map((i) => ({ ...i, where: i.where ?? "", detail: local(i.detail) }));
     return { entry: rel, issues };
   } finally {
     await server.close();
   }
+}
+
+/** Есть ли что-то, ради чего возвращать к работе (не только подсказки). */
+export function hasBlocking(result: PageCheckResult): boolean {
+  return result.issues.some((i) => !(i.kind === "layout" && i.rule && HINT_RULES.has(i.rule)));
 }
 
 const TARGET = { file: "файлом", http: "через сервер" } as const;
@@ -425,16 +446,20 @@ export function groupIssues(issues: PageIssue[]): string[] {
 }
 
 export function pageCheckMessage(result: PageCheckResult, attempt: number, max: number): string {
-  const lines = groupIssues(result.issues);
+  const hint = (i: PageIssue) => i.kind === "layout" && !!i.rule && HINT_RULES.has(i.rule);
+  const lines = [
+    ...groupIssues(result.issues.filter((i) => !hint(i))),
+    ...groupIssues(result.issues.filter(hint)).map((l) => `${l} (подсказка)`),
+  ];
   const shown = lines.slice(0, 6);
   if (lines.length > 6) shown.push(`- … и ещё ${lines.length - 6}`);
   const fileOnly = result.issues.length > 0 && result.issues.every((i) => i.target === "file");
-  const hint = fileOnly
+  const fileHint = fileOnly
     ? '\nЧерез сервер всё хорошо, а файлом — нет: двойной клик открывает страницу как file://. Пути — относительные (./…); скрипты с type="module" при открытии файлом не грузятся — для простой страницы используй обычный <script src="./app.js">.'
     : "";
   const last =
     attempt >= max
       ? " Это последняя попытка: если не выйдет — честно скажи пользователю, что не так со страницей."
       : "";
-  return `Открыл ${result.entry} в браузере (файлом и через сервер, ширина 390 и 1440 px) — есть проблемы:\n${shown.join("\n")}${hint}\nПочини и проверь снова.${last}`;
+  return `Открыл ${result.entry} в браузере (файлом и через сервер, ширина 390 и 1440 px) — есть проблемы:\n${shown.join("\n")}${fileHint}\nПочини и проверь снова.${last}`;
 }

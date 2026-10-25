@@ -83,6 +83,11 @@ export const PROMPT_ADDITIONS: readonly (readonly [string, string])[] = [
     // Инструменты research/19: ключ — формой, выбор вкуса — кнопками.
     "- For a token or key use the request_secret tool, never ask for it in the chat. For a choice only the user can make use ask_user: one question, 2–4 options, your recommendation.",
   ],
+  [
+    "The task is done, or you are blocked",
+    // Стенд a6, Opus на «сделай что-нибудь для кофейни»: выдумал меню, цены и адрес и не сказал об этом.
+    "If you chose for the user (what to build, prices, names, texts), say so in one line.",
+  ],
 ];
 
 function withAdditions(base: string): string {
