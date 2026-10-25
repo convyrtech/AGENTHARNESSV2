@@ -61,7 +61,7 @@ export const featuresRu: Record<keyof typeof featuresZh, string> = {
   "features.proc.logEmpty": "Пока ничего не написал.",
   "features.proc.notOurs": "Этот процесс запущен не из этого окна, остановить его здесь нельзя.",
   "features.proc.stillRunning": "Не получилось остановить: процесс ещё работает.",
-  "features.recipes.title": "Или начните с рецепта",
+  "features.recipes.title": "Начните с рецепта",
   "features.recipes.hint":
     "Ответьте на пару вопросов — PRSLOY создаст папку проекта с заготовкой и сам начнёт работу.",
   "features.recipes.start": "Начать",

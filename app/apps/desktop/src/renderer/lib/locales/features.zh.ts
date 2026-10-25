@@ -56,7 +56,7 @@ export const featuresZh = {
   "features.proc.logEmpty": "暂无输出。",
   "features.proc.notOurs": "此进程不是从这个窗口启动的，无法在这里停止。",
   "features.proc.stillRunning": "无法停止：进程仍在运行。",
-  "features.recipes.title": "或者从配方开始",
+  "features.recipes.title": "从配方开始",
   "features.recipes.hint": "回答几个问题：PRSLOY 会创建带模板的项目文件夹并开始工作。",
   "features.recipes.start": "开始",
   "features.recipes.cancel": "取消",

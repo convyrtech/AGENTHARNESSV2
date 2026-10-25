@@ -17,7 +17,7 @@ test("a recipe: card → form → new project with the starter → the filled re
       electronApp.getPath("documents"),
     );
     const cards = page.getByTestId("recipes");
-    await expect(cards).toContainText("Или начните с рецепта");
+    await expect(cards).toContainText("Начните с рецепта");
     await expect(cards.locator(".recipe-card")).toHaveCount(5);
     await shot(page, "recipes-1-cards");
 
