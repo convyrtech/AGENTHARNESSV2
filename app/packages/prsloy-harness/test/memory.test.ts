@@ -24,7 +24,8 @@ function setup(flags: Record<string, unknown> = {}) {
   const dir = join(root, `m${n++}`);
   const cwd = join(root, `project${n}`);
   const settingsPath = join(root, `flags${n}.json`);
-  writeFileSync(settingsPath, JSON.stringify(flags));
+  // Память по умолчанию выключена (до S5) — тесты включают её явно.
+  writeFileSync(settingsPath, JSON.stringify({ memory: true, ...flags }));
   const pi = new MockPi(cwd);
   // У каждого теста своя сессия: снимок памяти — на сессию.
   const session = `s${n}`;
@@ -173,6 +174,16 @@ describe("memory: the tool", () => {
       quote: "Обращайся ко мне на ты",
     });
     expect(again.content[0]!.text).toContain("просил это забыть");
+  });
+
+  it("off by default (no flag) — the tool refuses and there is no section", async () => {
+    const { pi, call, sections } = setup({ memory: undefined });
+    await pi.userPrompt("Пиши проще, без умных слов");
+    expect(
+      (await call({ action: "remember", text: "Проще", quote: "Пиши проще, без умных слов" }))
+        .content[0]!.text,
+    ).toBe(MEMORY_TEXT.off);
+    expect((await sections()).prsloy_memory).toBeUndefined();
   });
 
   it("memory:false — the tool refuses and there is no section", async () => {

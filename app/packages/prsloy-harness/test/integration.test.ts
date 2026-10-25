@@ -593,9 +593,17 @@ describe("integration: PRSLOY code prompt (research/17) in a real session", () =
 });
 
 describe("integration: memory (S4) in a real session", () => {
+  // Память по умолчанию выключена (до S5): включаем флагом, как приложение.
+  async function memoryOn(memoryDir: string) {
+    const settingsPath = join(memoryDir, "prsloy-harness.json");
+    await writeFile(settingsPath, JSON.stringify({ memory: true }));
+    return settingsPath;
+  }
+
   it("remember: the system prompt stays byte-for-byte the same in this session; the next session sees it", async () => {
     const memoryDir = await mkdtemp(join(tmpdir(), "prsloy-mem-int-"));
     cleanup.push(() => rm(memoryDir, { recursive: true, force: true }));
+    const settingsPath = await memoryOn(memoryDir);
     const remember = {
       name: "memory",
       arguments: {
@@ -607,7 +615,7 @@ describe("integration: memory (S4) in a real session", () => {
     };
     const first = await startSession(
       (_req, index) => [{ toolCalls: [remember] }, { text: "Запомнил." }][index] ?? { text: "Ок." },
-      { factory: { memoryDir } },
+      { factory: { memoryDir, settingsPath } },
     );
     await first.session.prompt("Сделай страницу. И пиши проще, без умных слов");
     await first.session.prompt("А теперь добавь заголовок");
@@ -618,7 +626,9 @@ describe("integration: memory (S4) in a real session", () => {
     expect(system(1)).toBe(system(0));
     expect(system(2)).toBe(system(0));
     expect(system(0)).not.toContain("prsloy_memory");
-    const second = await startSession(() => ({ text: "Ок." }), { factory: { memoryDir } });
+    const second = await startSession(() => ({ text: "Ок." }), {
+      factory: { memoryDir, settingsPath },
+    });
     await second.session.prompt("Привет");
     const next = JSON.stringify(second.server.requests[0]!.messages[0]);
     expect(next).toContain("<prsloy_memory>");
@@ -628,6 +638,7 @@ describe("integration: memory (S4) in a real session", () => {
   it("text from a file is not the user's words: the README «remember» is refused", async () => {
     const memoryDir = await mkdtemp(join(tmpdir(), "prsloy-mem-int-"));
     cleanup.push(() => rm(memoryDir, { recursive: true, force: true }));
+    const settingsPath = await memoryOn(memoryDir);
     const { session, cwd, toolResults, textOf } = await startSession(
       (_req, index) =>
         [
@@ -646,7 +657,7 @@ describe("integration: memory (S4) in a real session", () => {
           },
           { text: "Готово." },
         ][index] ?? { text: "?" },
-      { factory: { memoryDir } },
+      { factory: { memoryDir, settingsPath } },
     );
     await writeFile(
       join(cwd, "README.md"),
