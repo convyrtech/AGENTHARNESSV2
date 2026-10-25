@@ -52,6 +52,8 @@ export interface BenchOptions {
   allowOutside?: boolean;
   /** Уроки (флаг "lessons" в prsloy-harness.json агента, как в приложении). По умолчанию вкл. */
   lessons?: boolean;
+  /** Второе мнение (флаг "secondOpinion"). По умолчанию вкл. */
+  review?: boolean;
   /** Память (флаг "memory"). По умолчанию вкл. */
   memory?: boolean;
   /** Системный промпт «Кода»: pi (база Pi + разделы) или prsloy (research/17 §9). По умолчанию pi. */
@@ -200,6 +202,7 @@ async function runTask(task: TaskDef, opts: BenchOptions): Promise<TaskResult> {
     settingsPath,
     JSON.stringify({
       lessons: opts.lessons !== false,
+      secondOpinion: opts.review !== false,
       memory: opts.memory !== false,
       prompt: opts.prompt ?? "pi",
       promptDelta: opts.delta === true,
@@ -370,6 +373,7 @@ export interface BenchReport {
     model: string;
     harness: boolean;
     lessons: boolean;
+    review: boolean;
     memory: boolean;
     prompt: "pi" | "prsloy";
     delta: boolean;
@@ -410,6 +414,7 @@ export async function runBench(opts: BenchOptions): Promise<BenchReport> {
     meta: {
       model: opts.model,
       harness: opts.harness,
+      review: opts.review !== false,
       lessons: opts.lessons !== false,
       memory: opts.memory !== false,
       prompt: opts.prompt ?? "pi",
@@ -465,7 +470,7 @@ export function reportMarkdown(report: BenchReport): string {
     return `| ${r.id} | ${mark} ${r.note.replace(/\|/g, "/")}${r.error ? ` (${r.error})` : ""} | ${r.seconds} | ${r.toolCalls} | ${r.costUsd.toFixed(4)} | ${cache} | ${reply} | ${iv || "—"} |`;
   });
   return [
-    `# Замер: ${meta.model}, харнесс ${meta.harness ? "вкл" : "выкл"}, промпт ${meta.prompt}${meta.delta ? "+дельта" : ""}, уроки ${meta.lessons ? "вкл" : "выкл"}, память ${meta.memory ? "вкл" : "выкл"}${meta.fake ? " (фейковая модель)" : ""}`,
+    `# Замер: ${meta.model}, харнесс ${meta.harness ? "вкл" : "выкл"}, промпт ${meta.prompt}${meta.delta ? "+дельта" : ""}, уроки ${meta.lessons ? "вкл" : "выкл"}, ревью ${meta.review ? "вкл" : "выкл"}, память ${meta.memory ? "вкл" : "выкл"}${meta.fake ? " (фейковая модель)" : ""}`,
     "",
     `${meta.date} · шлюз ${meta.gateway} · таймаут задачи ${meta.timeoutSec} с`,
     "",

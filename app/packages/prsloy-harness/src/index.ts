@@ -113,6 +113,7 @@ export function createPrsloyHarness(options: HarnessOptions = {}): (pi: Extensio
       installStopGate(pi, opts, {
         ...(changes ? { changes } : {}),
         ...(budget ? { budget } : {}),
+        ...(on("pagePaths") ? {} : { pagePaths: false as const }),
         ...(on("secondOpinion")
           ? {
               reviewer: modelReviewer(opts.review),

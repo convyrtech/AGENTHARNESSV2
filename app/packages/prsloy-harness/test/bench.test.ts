@@ -108,6 +108,26 @@ describe("bench --fake", () => {
   }
 });
 
+describe("bench --review off", () => {
+  it("the harness runs without the second opinion: no review cards, the header says so", async () => {
+    const report = await runBench({
+      fake: true,
+      harness: true,
+      review: false,
+      model: "prsloy/deepseek-v4.1-flash-1017",
+      outDir: join(out, "noreview"),
+      timeoutSec: 60,
+    });
+    expect(report.meta.review).toBe(false);
+    const reviews = report.results.reduce(
+      (n, r) => n + (r.interventions.reviewPass ?? 0) + (r.interventions.reviewFail ?? 0),
+      0,
+    );
+    expect(reviews).toBe(0);
+    expect(reportMarkdown(report)).toContain("ревью выкл");
+  }, 120_000);
+});
+
 describe("bench: final answer metrics (research/17 §11.3)", () => {
   it("counts commands to the user, questions, jargon and false «done»", () => {
     const m = answerMetrics(

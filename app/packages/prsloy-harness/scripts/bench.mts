@@ -9,6 +9,7 @@
 //   … --prompt prsloy          свой системный промпт «Кода» (research/17 §9); по умолчанию pi
 //   … --delta on               дельта промпта под модель (qwen, opus)
 //   … --lessons off            без уроков (флаг "lessons" в prsloy-harness.json агента)
+//   … --review off             без второго мнения (флаг "secondOpinion"): честный A/B цены ревью
 //   … --memory off             без памяти (флаг "memory")
 //   … --allow-outside          отвечать «Да» на «менять файлы вне проекта?» (по умолчанию «Нет»)
 //   … --out bench-out          куда писать отчёт, сессии и папки задач
@@ -30,6 +31,7 @@ const { values } = parseArgs({
     timeout: { type: "string", default: "600" },
     "allow-outside": { type: "boolean" },
     lessons: { type: "string", default: "on" },
+    review: { type: "string", default: "on" },
     prompt: { type: "string", default: "pi" },
     delta: { type: "string", default: "off" },
     memory: { type: "string", default: "on" },
@@ -55,6 +57,7 @@ async function main(): Promise<number> {
   const report = await runBench({
     harness: values.harness === "on",
     lessons: values.lessons !== "off",
+    review: values.review !== "off",
     prompt: values.prompt === "prsloy" ? "prsloy" : "pi",
     delta: values.delta === "on",
     memory: values.memory !== "off",
@@ -68,7 +71,7 @@ async function main(): Promise<number> {
     log: (line) => console.log(line),
   });
   const stamp = report.meta.date.replace(/[:.]/g, "-");
-  const mode = `${values.harness}-${values.prompt}${values.delta === "on" ? "-delta" : ""}${values.lessons === "off" ? "-nolessons" : ""}${values.memory === "off" ? "-nomemory" : ""}`;
+  const mode = `${values.harness}-${values.prompt}${values.delta === "on" ? "-delta" : ""}${values.lessons === "off" ? "-nolessons" : ""}${values.review === "off" ? "-noreview" : ""}${values.memory === "off" ? "-nomemory" : ""}`;
   const base = join(outDir, `bench-${values.model.replace(/\//g, "_")}-${mode}-${stamp}`);
   const md = reportMarkdown(report);
   writeFileSync(`${base}.md`, md);
