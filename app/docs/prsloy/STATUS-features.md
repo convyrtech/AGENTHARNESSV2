@@ -487,3 +487,25 @@ UI готов на контрактах, данные — с моков. Вкл�
   - Решают `firstRunStep(state, seen, searchReady)` и `isSettingsSectionVisible(section, dev, searchReady)`;
     тесты на оба значения: `prsloy-first-run.test.ts`, `casual-prefs.test.ts`, `FirstRunGate.test.tsx` (false),
     `FirstRunGate.search.test.tsx` (true через `vi.mock`). e2e, layout-lint и casual-audit идут по `false`.
+
+## Этап 6 · Агент спрашивает, прежде чем забыть; «Забыть всё из этого чата» (#14, research/27 §2)
+
+Backend и контракт — core (desktop/core, `memory.ts`: `confirm?`, `forgetSource?`, `MemoryItem.sessions`,
+`MemoryConfirmCardDetails`), в main с dce7185.
+
+- Карточка `prsloy-memory.confirm` (`MemoryConfirmCard` в `MemoryAutoCards.tsx`): «Забыть «…»?» или «Раньше: «…».
+  Теперь: «…»?» · [Да] [Нет] → `memory.confirm(confirmId, yes)`. После ответа — «Забыл.», «Запомнил по-новому.» или
+  «Оставил как было.», кнопки уходят. Отказ main (например, предложение устарело) — под карточкой, кнопки остаются.
+  Без `confirm` в main (старая сборка) — только вопрос.
+- Меню чата ⋯ → «Забыть всё, что выучено из этого чата» (`ForgetChatMemory.tsx`): подтверждение, потом
+  `forgetSource(snapshot.sessionId)`. Итог — «Забыл записей: N» со списком и [Вернуть]: это `restore` ровно для
+  ушедших записей (разница снимков до и после). Записи, которые агент узнал и в других чатах, не уходят, теряют
+  только цитаты этого чата. Пункта нет без `forgetSource` в main или без id сессии.
+- M-3b (карточки `auto`/`updated` от экстрактора) и M-4 (`expired` в «Было» с [Вернуть]) работают на том, что уже
+  было, без правок.
+- Тесты: `lib/memory.test.ts` (разбор confirm, разница снимков), `MemoryAutoCards.test.tsx` (да, нет, отказ, старый
+  main), `ForgetChatMemory.test.tsx` (вопрос → id сессии → список → «Вернуть»; без метода и без id пункта нет).
+  e2e `features-memory-confirm.spec.ts` на настоящем инструменте `memory` и `prsloy:memory-*` core (PRSLOY_MEMORY=1):
+  запись в файле → инструмент просит «забыть» → карточка «Забыть «…»?» → запись ещё на месте → [Да] → «Забыл.», в файле
+  пусто; «запомни» в чате → ⋯ → «Забыть всё, что выучено из этого чата» → «Забыл записей: 1 · «Отвечать коротко»» →
+  в файле пусто → [Вернуть] → запись снова в файле. Скриншоты `features-memory-6-confirm.png` … `-9-forgot-chat.png`.

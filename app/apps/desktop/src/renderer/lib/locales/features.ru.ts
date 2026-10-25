@@ -88,6 +88,23 @@ export const featuresRu: Record<keyof typeof featuresZh, string> = {
   "features.memory.history.replaced": "заменено, теперь «{now}»",
   "features.memory.history.expired": "устарело",
   "features.memory.history.forgotten": "забыто",
+  "features.memory.confirm.forget": "Забыть «{text}»?",
+  "features.memory.confirm.replace": "Раньше: «{before}». Теперь: «{after}»?",
+  "features.memory.confirm.yes": "Да",
+  "features.memory.confirm.no": "Нет",
+  "features.memory.confirm.forgot": "Забыл.",
+  "features.memory.confirm.replaced": "Запомнил по-новому.",
+  "features.memory.confirm.kept": "Оставил как было.",
+  "features.memory.chat.forget": "Забыть всё, что выучено из этого чата",
+  "features.memory.chat.forgetTitle": "Забыть выученное в этом чате?",
+  "features.memory.chat.forgetMessage":
+    "Записи, которые агент выучил только здесь, забудутся — их можно будет вернуть. Записи, которые он узнал и в других чатах, останутся, из них уйдут только цитаты этого чата.",
+  "features.memory.chat.forgetConfirm": "Забыть",
+  "features.memory.chat.forgotCount": "Забыл записей: {count}",
+  "features.memory.chat.forgotNone": "Только из этого чата ничего не запомнено",
+  "features.memory.chat.forgotNoneHint":
+    "У записей, которые агент узнал и в других чатах, ушли только цитаты этого чата.",
+  "features.memory.chat.done": "Готово",
   "features.memory.autoToggle": "Замечать важное само",
   "features.memory.autoToggleHint":
     "Агент сам запоминает важное из ваших слов: как отвечать, что вам нравится, решения проекта. Из файлов и сайтов — никогда.",

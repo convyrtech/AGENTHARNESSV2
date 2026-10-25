@@ -4,13 +4,22 @@
  * reading and forgetting; here only what the renderer decides.
  */
 import type {
+  MemoryConfirmCardDetails,
   MemoryApi,
   MemoryAutoCardDetails,
+  MemoryItem,
   MemorySnapshot,
   MemoryUpdatedCardDetails,
 } from "@zeno/contracts";
 
-export type MemoryCardKind = "saved" | "forgot" | "full" | "refused" | "auto" | "updated";
+export type MemoryCardKind =
+  | "saved"
+  | "forgot"
+  | "full"
+  | "refused"
+  | "auto"
+  | "updated"
+  | "confirm";
 
 const CARD_TYPES: Record<string, MemoryCardKind> = {
   "prsloy-memory.saved": "saved",
@@ -20,6 +29,8 @@ const CARD_TYPES: Record<string, MemoryCardKind> = {
   // Memory v2 (research/24 §3.6): written by the harness itself, from the owner's words.
   "prsloy-memory.auto": "auto",
   "prsloy-memory.updated": "updated",
+  // research/27 §2: the agent's tool asks before it forgets or replaces (core, #14).
+  "prsloy-memory.confirm": "confirm",
 };
 
 export function memoryCardKind(customType: string | undefined): MemoryCardKind | undefined {
@@ -103,6 +114,25 @@ export function parseUpdatedDetails(details: unknown): MemoryUpdatedCardDetails 
   };
 }
 
+/** `prsloy-memory.confirm` details: forget needs the text, replace needs before and after. */
+export function parseConfirmDetails(details: unknown): MemoryConfirmCardDetails | undefined {
+  const d = details as Record<string, unknown> | null | undefined;
+  const confirmId = str(d?.confirmId, 80);
+  const id = str(d?.id, 80);
+  if (!confirmId || !id) return undefined;
+  const base = { confirmId, id, scope: scopeOf(d?.scope) };
+  if (d?.action === "forget") {
+    const text = str(d?.text);
+    return text ? { ...base, action: "forget", text } : undefined;
+  }
+  if (d?.action === "replace") {
+    const before = str(d?.before);
+    const after = str(d?.after);
+    return before && after ? { ...base, action: "replace", before, after } : undefined;
+  }
+  return undefined;
+}
+
 /** A date for the panel: «25 окт.», with the year when it is not this year. */
 export function memoryDate(locale: string, iso: string | undefined, now = new Date()): string {
   const at = iso ? new Date(iso) : undefined;
@@ -131,4 +161,10 @@ export function markAutoIntroSeen(): void {
   } catch {
     // no storage: the card shows again next time
   }
+}
+
+/** Entries in `before` that are gone from `after` — what «Забыть всё из этого чата» took away. */
+export function forgottenBetween(before: MemorySnapshot, after: MemorySnapshot): MemoryItem[] {
+  const kept = new Set([...after.user, ...after.project].map((item) => item.id));
+  return [...before.user, ...before.project].filter((item) => !kept.has(item.id));
 }

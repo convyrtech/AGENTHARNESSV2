@@ -6,6 +6,8 @@ import {
   memoryCardKind,
   restoreLeftMs,
   savedCardText,
+  forgottenBetween,
+  parseConfirmDetails,
 } from "./memory.ts";
 
 afterEach(() => {
@@ -109,5 +111,59 @@ describe("memory v2 cards", () => {
   it("knows the v2 card types", () => {
     expect(memoryCardKind("prsloy-memory.auto")).toBe("auto");
     expect(memoryCardKind("prsloy-memory.updated")).toBe("updated");
+  });
+});
+
+describe("research/27 §2: confirm cards and «Забыть всё из этого чата»", () => {
+  it("reads a confirm card: forget needs the text, replace needs before and after", () => {
+    expect(memoryCardKind("prsloy-memory.confirm")).toBe("confirm");
+    expect(
+      parseConfirmDetails({
+        confirmId: "c1",
+        action: "forget",
+        scope: "project",
+        id: "m1",
+        text: "Тёмная тема",
+      }),
+    ).toEqual({
+      confirmId: "c1",
+      action: "forget",
+      scope: "project",
+      id: "m1",
+      text: "Тёмная тема",
+    });
+    expect(
+      parseConfirmDetails({
+        confirmId: "c2",
+        action: "replace",
+        id: "m1",
+        before: "А",
+        after: "Б",
+      }),
+    ).toEqual({
+      confirmId: "c2",
+      action: "replace",
+      scope: "user",
+      id: "m1",
+      before: "А",
+      after: "Б",
+    });
+    expect(parseConfirmDetails({ confirmId: "c3", action: "forget", id: "m1" })).toBeUndefined();
+    expect(
+      parseConfirmDetails({ confirmId: "c4", action: "drop", id: "m1", text: "x" }),
+    ).toBeUndefined();
+    expect(parseConfirmDetails({ action: "forget", id: "m1", text: "x" })).toBeUndefined();
+  });
+
+  it("lists what forgetSource took away", () => {
+    const a = { id: "a", text: "А" };
+    const b = { id: "b", text: "Б" };
+    const c = { id: "c", text: "В" };
+    expect(
+      forgottenBetween(
+        { user: [a, b], project: [c], forgotten: [] },
+        { user: [b], project: [], forgotten: [] },
+      ).map((item) => item.id),
+    ).toEqual(["a", "c"]);
   });
 });
