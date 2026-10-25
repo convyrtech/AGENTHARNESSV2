@@ -12,6 +12,7 @@ import type { ResolvedOptions } from "../options.ts";
 import { rememberSecretValue } from "../secret-scrub.ts";
 import { showCard } from "../text.ts";
 import { readPage, ReadError, type PageText, type ReadDeps } from "./fetch.ts";
+import type { Resolve } from "./net-guard.ts";
 import { SourceLedger } from "./ledger.ts";
 import { MODEL_SEARCH_NOTE } from "./model-search.ts";
 import { guardQuery } from "./query-guard.ts";
@@ -45,6 +46,8 @@ export interface ResearchOptions {
   /** Подмена сети и даты (тесты). */
   fetchImpl?: typeof fetch;
   now?: () => Date;
+  /** Подмена DNS для проверки частных адресов (тесты). */
+  resolve?: Resolve;
 }
 
 const PRSLOY_PROVIDER = "prsloy";
@@ -124,6 +127,7 @@ export function installResearch(
     const gw = await gateway(ctx);
     return {
       ...(research.fetchImpl ? { fetchImpl: research.fetchImpl } : {}),
+      ...(research.resolve ? { resolve: research.resolve } : {}),
       ...(gw ? { gateway: gw } : {}),
       jina: research.jina !== false,
     };

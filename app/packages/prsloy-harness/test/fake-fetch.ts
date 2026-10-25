@@ -30,3 +30,6 @@ export function fakeFetch(routes: [string, (c: Call) => Response][]) {
 
 export const json = (data: unknown, status = 200) =>
   new Response(JSON.stringify(data), { status, headers: { "content-type": "application/json" } });
+
+/** DNS для тестов с поддельной сетью: любое имя — публичный адрес, без настоящих запросов к DNS. */
+export const PUBLIC_DNS = async (): Promise<string[]> => ["93.184.215.14"];

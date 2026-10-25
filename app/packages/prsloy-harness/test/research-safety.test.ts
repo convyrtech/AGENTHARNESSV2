@@ -1,9 +1,12 @@
 // Ревью #23 перед включением webTools: враждебные страницы, адреса, ключи. Каждый тест падает без своей правки.
 import { mkdtempSync } from "node:fs";
+import { createServer } from "node:http";
+import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { beforeEach, describe, expect, it } from "vite-plus/test";
 import { guardQuery } from "../src/research/query-guard.ts";
+import { pinnedFetch, proxyFor } from "../src/research/pinned.ts";
 import { githubSearch } from "../src/research/github.ts";
 import {
   freeSearch,
@@ -19,7 +22,7 @@ import { installResearch } from "../src/research/tools.ts";
 import { scrubSecrets } from "../src/secret-scrub.ts";
 import { MockPi } from "./mock-pi.ts";
 import { isPrivateHost, isPrivateIp, type Resolve } from "../src/research/net-guard.ts";
-import { fakeFetch, json } from "./fake-fetch.ts";
+import { fakeFetch, json, PUBLIC_DNS } from "./fake-fetch.ts";
 import {
   htmlToText,
   isTextType,
@@ -98,6 +101,7 @@ describe("the body is streamed up to the cap (review #23, item 2)", () => {
       new Response(endless, { headers: { "content-type": "text/html" } })) as typeof fetch;
     const page = await readPage("https://example.com/huge", {
       fetchImpl,
+      resolve: PUBLIC_DNS,
       maxBytes: 1_000_000,
       jina: false,
     });
@@ -123,7 +127,7 @@ describe("the body is streamed up to the cap (review #23, item 2)", () => {
         headers: { "content-type": "application/x-msdownload" },
       })) as typeof fetch;
     await expect(
-      readPage("https://example.com/setup.exe", { fetchImpl, jina: false }),
+      readPage("https://example.com/setup.exe", { fetchImpl, jina: false, resolve: PUBLIC_DNS }),
     ).rejects.toThrow("не текст");
   });
 });
@@ -261,7 +265,11 @@ describe("keys never reach text the model sees (review #23, item 4)", () => {
     (mock.ctx as unknown as { modelRegistry: unknown }).modelRegistry = {
       getApiKeyForProvider: async () => "sk-gw-0123456789abcdefghij",
     };
-    installResearch(mock.api, resolveOptions({ outputDir: out }), { enabled: true, ...research });
+    installResearch(mock.api, resolveOptions({ outputDir: out }), {
+      enabled: true,
+      resolve: PUBLIC_DNS,
+      ...research,
+    });
     return mock;
   }
 
@@ -376,7 +384,17 @@ describe("free search heuristics (review #23, item 6)", () => {
   it("«async/await», «client/server» are words, not repositories: no GitHub call", async () => {
     for (const q of ["async/await in python", "client/server architecture", "read/write lock"])
       expect(githubRepo(q), q).toBeUndefined();
-    expect(githubRepo("latest release vitejs/vite")).toEqual({ owner: "vitejs", repo: "vite" });
+    expect(githubRepo("latest release vitejs/vite on github")).toEqual({
+      owner: "vitejs",
+      repo: "vite",
+    });
+    // round 2: two package names, not a repository
+    for (const q of [
+      "react/vue latest version",
+      "последний релиз react/vue",
+      "vite/webpack changelog",
+    ])
+      expect(githubRepo(q), q).toBeUndefined();
     expect(githubRepo("https://github.com/a/b")).toEqual({ owner: "a", repo: "b" });
   });
 });
@@ -454,7 +472,7 @@ describe("GitHub limits are shown, npm versions come from the registry (review #
     ]);
     const issues: [string, string][] = [];
     await freeSearch(
-      { query: "latest release vitejs/vite" },
+      { query: "latest release vitejs/vite github" },
       { fetchImpl: f.impl, onIssue: (p, e) => issues.push([p, e.code]) },
     );
     expect(issues).toEqual([["github", "limit"]]);
@@ -532,5 +550,95 @@ describe("the tool's abort signal is respected (review #23, nits)", () => {
         .get("web_search")!
         .execute("1", { query: "q" }, controller.signal, undefined, mock.ctx as never),
     ).rejects.toThrow("Поиск остановлен");
+  });
+});
+
+describe("follow-ups after the merge (review #23, round 2)", () => {
+  it("«İ» before a <script> does not shift the scanner: the script stays out of the text", () => {
+    const html = `<p>İstanbul İzmir</p><SCRIPT>leak("secret")</ScRiPt><p>after</p>`;
+    const { text } = htmlToText(html);
+    expect(text).not.toContain("secret");
+    expect(text).toContain("İstanbul İzmir");
+    expect(text).toContain("after");
+    // </scripts is not </script
+    expect(htmlToText("<script>a</scripts>b</script><p>ok</p>").text).toBe("ok");
+  });
+});
+
+describe("the year guard leaves versions and codes alone (review #23, round 2)", () => {
+  const TODAY = new Date("2026-10-25T12:00:00Z");
+  it("YYYY.N is a version; product and error words keep their numbers", () => {
+    for (const q of [
+      "IntelliJ IDEA 2024.2 release notes",
+      "Unity 2022.3 LTS",
+      "PyCharm 2024.3 debugger",
+      "mysql 2002 socket",
+      "Can't connect, code 2003",
+    ])
+      expect(guardQuery(q, TODAY), q).toEqual({ query: q, removed: [] });
+    expect(guardQuery("лучшие ноутбуки 2024.", TODAY).removed).toEqual([2024]);
+  });
+});
+
+describe("the connection goes to the IP that passed the check (review #23, round 2)", () => {
+  it("pinnedFetch connects to the given IP and keeps the name in Host", async () => {
+    const seen: string[] = [];
+    const server = createServer((req, res) => {
+      seen.push(String(req.headers.host));
+      res.writeHead(200, { "content-type": "text/plain" });
+      res.end("pinned ok");
+    });
+    await new Promise<void>((r) => server.listen(0, "127.0.0.1", r));
+    const port = (server.address() as AddressInfo).port;
+    try {
+      // the name does not resolve at all: only the pin can reach the server
+      const res = await pinnedFetch(`http://never-resolves.invalid:${port}/x`, {}, "127.0.0.1");
+      expect(res.status).toBe(200);
+      expect(await res.text()).toBe("pinned ok");
+      expect(seen).toEqual([`never-resolves.invalid:${port}`]);
+    } finally {
+      server.close();
+    }
+  });
+
+  it("readPage pins every hop to its own checked IP; a proxy in env means no pin", async () => {
+    const pins: [string, string][] = [];
+    const pinned = (async (url: string, _init: unknown, ip: string) => {
+      pins.push([new URL(url).hostname, ip]);
+      return url.includes("/start")
+        ? new Response(null, { status: 302, headers: { location: "https://b.example/page" } })
+        : new Response(`<article>${"Текст. ".repeat(60)}</article>`, {
+            headers: { "content-type": "text/html" },
+          });
+    }) as typeof pinnedFetch;
+    const resolve: Resolve = async (h) =>
+      h === "a.example" ? ["93.184.215.14"] : ["151.101.1.69"];
+    const saved = { ...process.env };
+    for (const k of ["HTTPS_PROXY", "https_proxy", "HTTP_PROXY", "http_proxy"])
+      delete process.env[k];
+    try {
+      const page = await readPage("https://a.example/start", {
+        resolve,
+        pinnedFetch: pinned,
+        jina: false,
+      });
+      expect(page.finalUrl).toBe("https://b.example/page");
+      expect(pins).toEqual([
+        ["a.example", "93.184.215.14"],
+        ["b.example", "151.101.1.69"],
+      ]);
+    } finally {
+      Object.assign(process.env, saved);
+    }
+    expect(proxyFor(new URL("https://a.example/"), { HTTPS_PROXY: "http://proxy:3128" })).toBe(
+      "http://proxy:3128",
+    );
+    expect(
+      proxyFor(new URL("https://a.example/"), {
+        HTTPS_PROXY: "http://proxy:3128",
+        NO_PROXY: ".example",
+      }),
+    ).toBeUndefined();
+    expect(proxyFor(new URL("https://a.example/"), {})).toBeUndefined();
   });
 });
