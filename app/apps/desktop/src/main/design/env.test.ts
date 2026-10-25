@@ -21,6 +21,27 @@ describe("buildModelsJson", () => {
     );
   });
 
+  it("takes compat from the PRSLOY catalog so tool turns work on DeepSeek and Kimi", () => {
+    const json = buildModelsJson(
+      { ladder: ["a6p/deepseek-v4.1-flash-1017", "a6p/claude-opus-5-5", "a6p/unknown-1"] },
+      "http://127.0.0.1:5",
+    ) as {
+      providers: {
+        a6p: {
+          compat: Record<string, unknown>;
+          models: { id: string; compat?: Record<string, unknown>; reasoning: boolean }[];
+        };
+      };
+    };
+    const p = json.providers.a6p;
+    expect(p.compat).toMatchObject({ maxTokensField: "max_tokens", supportsDeveloperRole: false });
+    expect(p.models[0]!.compat).toMatchObject({
+      requiresReasoningContentOnAssistantMessages: true,
+    });
+    expect(p.models[1]!.reasoning).toBe(false);
+    expect(p.models[2]).toMatchObject({ id: "unknown-1", reasoning: false });
+  });
+
   it("ignores malformed ladders", () => {
     expect(buildModelsJson({ ladder: ["bare", 3] }, "http://x")).toEqual({ providers: {} });
     expect(buildModelsJson({}, "http://x")).toEqual({ providers: {} });

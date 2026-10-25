@@ -3,12 +3,15 @@
  * use, the clean environment `run.py` runs in, and venv paths per platform.
  */
 import { join } from "node:path";
+import { buildPrsloyModelsJsonProvider } from "../../shared/prsloy-config.ts";
 
 export type StagesConfig = { ladder?: unknown };
 
 /**
  * Provider entry named the way stages.json addresses models (`a6p/<id>`), pointed at the
- * local reliability proxy. The proxy holds the real key; pi only sees a placeholder.
+ * local reliability proxy. Model compat comes from core's PRSLOY catalog (DeepSeek and Kimi
+ * answer 400 on tool turns without it); ids the catalog lacks get the provider profile.
+ * The proxy holds the real key; pi only sees a placeholder.
  */
 export function buildModelsJson(stages: StagesConfig, proxyUrl: string): Record<string, unknown> {
   const ladder = Array.isArray(stages.ladder)
@@ -21,29 +24,25 @@ export function buildModelsJson(stages: StagesConfig, proxyUrl: string): Record<
     if (!provider || !id) continue;
     (providers[provider] ??= { ids: [] }).ids.push(id);
   }
+  const catalog = buildPrsloyModelsJsonProvider(`${proxyUrl.replace(/\/+$/, "")}/v1`);
+  const known = new Map((catalog.models as { id: string }[]).map((m) => [m.id, m] as const));
   const out: Record<string, unknown> = {};
   for (const [name, { ids }] of Object.entries(providers)) {
     out[name] = {
-      name: "PRSLOY",
-      baseUrl: `${proxyUrl.replace(/\/+$/, "")}/v1`,
-      api: "openai-completions",
+      ...catalog,
       apiKey: "local",
-      // Behind a relay pi's URL-based compat detection guesses the stock OpenAI profile.
-      compat: {
-        supportsStore: false,
-        supportsDeveloperRole: false,
-        supportsReasoningEffort: false,
-        maxTokensField: "max_tokens",
-      },
-      models: ids.map((id) => ({
-        id,
-        name: id,
-        reasoning: false,
-        input: ["text", "image"],
-        contextWindow: 200_000,
-        maxTokens: 32_000,
-        cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-      })),
+      models: ids.map(
+        (id) =>
+          known.get(id) ?? {
+            id,
+            name: id,
+            reasoning: false,
+            input: ["text", "image"],
+            contextWindow: 128_000,
+            maxTokens: 16_384,
+            cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+          },
+      ),
     };
   }
   return { providers: out };
