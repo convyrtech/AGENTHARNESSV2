@@ -25,6 +25,39 @@
      out = [e.strip() for e in value.split(",") if e.strip()]
      for e in out:
          if e not in ("chromium", "webkit"):
+@@ -134,6 +147,32 @@
+     return re.sub(r"\s+", " ", re.sub(r"[^\w]+", " ", s)).strip()
+ 
+ 
++def owner_text_edits(start=None):
++    """Text the owner retyped on the page, oldest first: [{"before", "after", "file"}, ...].
++
++    The app appends accepted edits to <project>/owner/text-edits.jsonl. DP_TEXT_EDITS names the file; otherwise it is
++    looked up from `start` (default: the working directory) upwards. Missing file or broken lines: nothing."""
++    path = os.environ.get("DP_TEXT_EDITS")
++    if not path:
++        for d in [Path(start or Path.cwd()).resolve(), *Path(start or Path.cwd()).resolve().parents][:5]:
++            if (d / "owner" / "text-edits.jsonl").is_file():
++                path = d / "owner" / "text-edits.jsonl"
++                break
++    try:
++        lines = Path(path).read_text(encoding="utf-8").splitlines() if path else []
++    except OSError:
++        return []
++    out = []
++    for ln in lines:
++        try:
++            r = json.loads(ln)
++        except ValueError:
++            continue
++        if isinstance(r, dict) and isinstance(r.get("after"), str) and isinstance(r.get("before", ""), str):
++            out.append({"before": r.get("before", ""), "after": r["after"], "file": r.get("file", "")})
++    return out
++
++
+ def md_tables(text):
+     """[(header_cells, [row_cells, ...]), ...] for every markdown table in text."""
+     import re
 --- a/tools/compare_sheet.py
 +++ b/tools/compare_sheet.py
 @@ -86,7 +86,7 @@
@@ -207,7 +240,132 @@
  
 --- a/tools/slop_lint.py
 +++ b/tools/slop_lint.py
-@@ -274,7 +274,7 @@
+@@ -19,6 +19,8 @@
+   EMOJI       эмодзи вместо иконок                                                -> CONCERNS
+ 
+ Слова владельца (--source) не судим за стиль: NOT_BUT, TRIAD, HYPE, EXCLAIM к ним не применяются.
++Текст, который владелец сам перепечатал на странице (owner/text-edits.jsonl, см. _common.owner_text_edits), —
++тоже слова владельца: к ним не применяются и DASH, JARGON, FACT_PLAN, ENGLISH, EMOJI, COUNTER.
+ Источник: --url (рендер в браузере, видимый текст + alt/aria-label/placeholder/title)
+ или --file (.html открывается в браузере; другие файлы — построчно).
+ Выход: 1 есть FAIL, 2 только CONCERNS, 0 чисто.
+@@ -100,6 +102,7 @@
+               "мил", "кил", "лит", "мет", "сан", "про", "шту", "раз", "гра", "пор", "сут")
+ FAIL_RULES = {"DASH", "PLACEHOLDER", "NOT_BUT", "TRIAD", "HYPE", "EXCLAIM", "REPEAT", "JARGON", "FACT_PLAN"}
+ STYLE_RULES = {"NOT_BUT", "TRIAD", "HYPE", "EXCLAIM"}          # owner's own words are exempt from these
++EDIT_EXEMPT = STYLE_RULES | {"DASH", "JARGON", "FACT_PLAN", "ENGLISH", "EMOJI", "COUNTER"}  # owner's retyped text
+ RU_NAMES = {"DASH": "длинное тире", "PLACEHOLDER": "заглушка/TODO", "COUNTER": "счётчик-украшение",
+             "REPEAT": "повтор подписи", "ENGLISH": "английская заглушка", "MORE_SPAM": "спам «Подробнее»",
+             "EMOJI": "эмодзи-иконка", "NOT_BUT": "«не X, а Y» больше одного раза", "TRIAD": "тройка через запятую",
+@@ -149,6 +152,16 @@
+     return {w[:6] for w in C.norm_words(s).split() if len(w) >= 4}
+ 
+ 
++def owner_mask(text, phrases):
++    """`text` with the phrases the owner retyped on the page cut out; a text node inside one of them is all theirs."""
++    t = " ".join(text.split())
++    for p in phrases:
++        if t == p or (len(t) >= 8 and t in p):
++            return ""
++        t = t.replace(p, " ; ")
++    return t
++
++
+ def match_promise(text, promises):
+     """The «план» promise this text repeats, or None. Substring or ≥ 70 % of the promise's word stems."""
+     nt = C.norm_words(text)
+@@ -184,15 +197,16 @@
+     return out
+ 
+ 
+-def lint(items, lang="", beginner=False, plan_promises=(), source_text="", blocks=None):
++def lint(items, lang="", beginner=False, plan_promises=(), source_text="", blocks=None, owner_phrases=()):
+     """items: text nodes (character rules, repeats); blocks: block-level text (phrase rules). A text file has no
+-    markup, so its lines serve as both."""
++    markup, so its lines serve as both. owner_phrases: text the owner retyped on the page (EDIT_EXEMPT)."""
+     blocks = items if blocks is None else blocks
+     findings = []
+     cyr = sum(len(re.findall(r"[а-яё]", it["text"], re.I)) for it in items)
+     lat = sum(len(re.findall(r"[a-z]", it["text"], re.I)) for it in items)
+     is_ru = lang.startswith("ru") or cyr > lat
+     src_norm = C.norm_words(source_text)
++    phrases = [p for p in (" ".join(x.split()) for x in owner_phrases) if p]
+     seen = defaultdict(list)
+     more, not_but = [], []
+ 
+@@ -203,6 +217,13 @@
+             f.update(extra)
+         findings.append(f)
+ 
++    def owned(rule, it, check):
++        """The rule's hit, unless it lies only in words the owner retyped on the page."""
++        m = check(it["text"])
++        if m and phrases and rule in EDIT_EXEMPT and not check(owner_mask(it["text"], phrases)):
++            return None
++        return m
++
+     for it in items:
+         t = it["text"]
+         if it["kind"] == "comment":          # only TODO-like markers matter in comments
+@@ -210,20 +231,20 @@
+             if m:
+                 add("PLACEHOLDER", it, m, {"where": "HTML-комментарий"})
+             continue
+-        m = bad_dash(t)
++        m = owned("DASH", it, bad_dash)
+         if m:
+             add("DASH", it, m)
+         m = PLACEHOLDER.search(t)
+         if m:
+             add("PLACEHOLDER", it, m)
+-        m = COUNTER.search(t)
++        m = owned("COUNTER", it, COUNTER.search)
+         if m:
+             add("COUNTER", it, m)
+-        m = EMOJI.search(t)
++        m = owned("EMOJI", it, EMOJI.search)
+         if m:
+             add("EMOJI", it, m)
+         if is_ru:
+-            m = EN_RE.search(t)
++            m = owned("ENGLISH", it, EN_RE.search)
+             if m and not PLACEHOLDER.search(t):
+                 add("ENGLISH", it, m)
+         if MORE_RE.match(t):
+@@ -236,22 +257,25 @@
+         t = it["text"]
+         owner_words = bool(src_norm) and C.norm_words(t) in src_norm and len(C.norm_words(t)) > 0
+         if beginner:
++            left = {w.lower() for w in JARGON.findall(owner_mask(t, phrases))} if phrases else None
+             for m in JARGON.finditer(t):
+-                add("JARGON", it, m, {"word": m.group(1)})
++                if left is None or m.group(1).lower() in left:
++                    add("JARGON", it, m, {"word": m.group(1)})
+         if plan_promises:
+-            hit = match_promise(t, plan_promises)
++            hit = owned("FACT_PLAN", it, lambda x: match_promise(x, plan_promises))
+             if hit:
+                 add("FACT_PLAN", it, None, {"promise": hit})
+         if not owner_words:
+-            m = NOT_BUT.search(t)
++            m = owned("NOT_BUT", it, NOT_BUT.search)
+             if m:
+                 not_but.append((it, m))
+-            m = HYPE.search(t)
++            m = owned("HYPE", it, HYPE.search)
+             if m:
+                 add("HYPE", it, m, {"word": m.group(1)})
+-            if "!" in t:
+-                add("EXCLAIM", it, re.search("!", t))
+-            tr = triad(t)
++            m = owned("EXCLAIM", it, lambda x: re.search("!", x))
++            if m:
++                add("EXCLAIM", it, m)
++            tr = owned("TRIAD", it, triad)
+             if tr:
+                 add("TRIAD", it, None, {"triad": tr})
+     if len(not_but) > 1:
+@@ -274,7 +298,7 @@
  def collect_url(url, engine, timeout):
      from playwright.sync_api import sync_playwright
      with sync_playwright() as p:
@@ -216,6 +374,25 @@
          pg = b.new_page(viewport={"width": 1440, "height": 900})
          try:
              C.goto(pg, url, timeout, 600)
+@@ -326,12 +350,16 @@
+     except Exception as e:
+         print(f"slop_lint: не удалось прочитать {target}: {str(e)[:300]}\n{C.VPN_HINT}")
+         return 1
+-    res = lint(items, lang, beginner=args.beginner, plan_promises=plan, source_text=source_text, blocks=blocks)
++    edits = C.owner_text_edits()
++    res = lint(items, lang, beginner=args.beginner, plan_promises=plan, source_text=source_text, blocks=blocks,
++               owner_phrases=[e["after"] for e in edits])
+     res.update({"tool": "slop_lint", "target": target, "generatedAt": C.now_iso(), "beginner": args.beginner,
+                 "factsFile": str(Path(args.facts).resolve()) if args.facts else None, "planPromises": len(plan),
+-                "sourceFile": args.source})
++                "sourceFile": args.source, "ownerTextEdits": len(edits)})
+     rp = C.write_json(C.ensure_dir(args.out) / "slop-lint.json", res)
+     print(f"slop_lint: {res['verdict']}  находок {len(res['findings'])} (проверено фрагментов {res['itemsChecked']})")
++    if edits:
++        print(f"  правок текста владельцем: {len(edits)} (слова владельца стилем не судим)")
+     for f in res["findings"][:40]:
+         cnt = f" ×{f['count']}" if "count" in f else ""
+         extra = f" (план: «{f['promise'][:50]}»)" if "promise" in f else ""
 --- a/tools/storyboard.py
 +++ b/tools/storyboard.py
 @@ -93,7 +93,7 @@
@@ -229,7 +406,81 @@
          try:
 --- a/tools/text_diff.py
 +++ b/tools/text_diff.py
-@@ -115,7 +115,7 @@
+@@ -7,6 +7,10 @@
+ Лишние слова страницы = не покрытые ни одним предложением источника (модель
+ дописала текст). Навигацию/подвал отсекайте через --selector (по умолчанию main).
+ 
++Правки текста, которые владелец сам сделал на странице (owner/text-edits.jsonl,
++см. _common.owner_text_edits), — слова владельца: исходник читается с ними, а новый
++текст правки лишним не считается.
++
+ Выход: 1 — пропало хотя бы одно предложение; 2 — есть лишние слова сверх
+ допуска (--allow, --max-extra); 0 — совпало.
+ """
+@@ -56,13 +60,46 @@
+     return [i for i in range(len(hay) - n + 1) if hay[i] == first and hay[i:i + n] == needle]
+ 
+ 
+-def compare(page_text, source_text, allow=(), max_extra=0):
++def replace_run(seq, old, new):
++    """`seq` with every run of `old` replaced by `new`, left to right."""
++    out, i, n = [], 0, len(old)
++    while i < len(seq):
++        if n and seq[i:i + n] == old:
++            out += new
++            i += n
++        else:
++            out.append(seq[i])
++            i += 1
++    return out
++
++
++def owner_sentences(sentences, edits):
++    """Source sentences read with the owner's edits on the page, oldest first: [(text, words), ...].
++    A sentence inside a longer retyped passage gives way to the passage's new text (once)."""
++    out = []
++    for s in sentences:
++        sw, label = words(s), s
++        for e in edits:
++            bw, aw = words(e["before"]), words(e["after"])
++            if not bw:
++                continue
++            if len(bw) > len(sw) and find_run(bw, sw):
++                sw, label = aw, e["after"]
++            else:
++                new = replace_run(sw, bw, aw)
++                if new != sw:
++                    sw, label = new, " ".join(new)
++        if sw and all(sw != w for _, w in out):
++            out.append((label, sw))
++    return out
++
++
++def compare(page_text, source_text, allow=(), max_extra=0, edits=()):
+     page = words(page_text)
+     covered = [False] * len(page)
+-    sentences = split_sentences(source_text)
++    sentences = owner_sentences(split_sentences(source_text), edits)
+     missing, found = [], 0
+-    for s in sentences:
+-        sw = words(s)
++    for s, sw in sentences:
+         hits = find_run(page, sw)
+         if hits:
+             found += 1
+@@ -85,6 +122,11 @@
+                     covered[i] = True
+         missing.append({"sentence": s, "coverage": round(present / max(1, len(sw)), 2),
+                         "missingWords": lost[:40]})
++    for e in edits:                              # the owner's own words are not the model's additions
++        aw = words(e["after"])
++        for h in find_run(page, aw):
++            for i in range(h, h + len(aw)):
++                covered[i] = True
+     allow_set = {w for a in allow for w in words(a)}
+     extra_runs, cur = [], []
+     for i, wd in enumerate(page):
+@@ -115,7 +157,7 @@
  def page_text(url, selector, engine, timeout):
      from playwright.sync_api import sync_playwright
      with sync_playwright() as p:
@@ -238,6 +489,25 @@
          pg = b.new_page(viewport={"width": 1440, "height": 900})
          try:
              C.goto(pg, url, timeout, 600)
+@@ -159,13 +201,16 @@
+         except Exception as e:
+             print(f"text_diff: страница не открылась: {str(e)[:300]}\n{C.VPN_HINT}")
+             return 1
+-    res = compare(text, src, allow, args.max_extra)
++    edits = C.owner_text_edits()
++    res = compare(text, src, allow, args.max_extra, edits)
+     res.update({"tool": "text_diff", "url": args.url, "selector": used, "source": args.source,
+-                "generatedAt": C.now_iso()})
++                "generatedAt": C.now_iso(), "ownerTextEdits": len(edits)})
+     out = C.ensure_dir(args.out)
+     rp = C.write_json(out / "text-diff.json", res)
+     print(f"text_diff: {res['verdict']}  предложений найдено {res['foundSentences']} из {res['sourceSentences']}, "
+           f"лишних слов {res['extraWordCount']} (область: {used})")
++    if edits:
++        print(f"  правок текста владельцем: {len(edits)} (исходник сверялся с ними)")
+     if used == "body" and args.selector != "body":
+         print(f"  ! селектор {args.selector} не найден, сверялся весь body (нав/подвал попадут в лишние)")
+     for m in res["missing"]:
 --- a/tools/visual_gate.py
 +++ b/tools/visual_gate.py
 @@ -608,7 +608,7 @@
