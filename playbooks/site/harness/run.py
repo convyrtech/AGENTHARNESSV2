@@ -175,6 +175,18 @@ def harness_check(ws):
     return r.stdout if r.returncode else ""
 
 
+def tree_fp(*dirs):
+    """Отпечаток файлов (имя, размер, mtime) — признак, что шаг что-то сделал."""
+    h = hashlib.sha1()
+    for d in dirs:
+        if not d.exists():
+            continue
+        for f in sorted(x for x in d.rglob("*") if x.is_file() and "outbox" not in x.parts):
+            st = f.stat()
+            h.update(f"{f.relative_to(d)}:{st.st_size}:{int(st.st_mtime)}".encode())
+    return h.hexdigest()
+
+
 def snapshots_fp(ws):
     """Отпечаток контакт-листов гейта: судья смотрит их, новый раунд имеет смысл только по новым."""
     h = hashlib.sha1()
@@ -424,7 +436,10 @@ def say(a):
         # попытки и лестница моделей по шагу
         key = f"g{gate}"
         hist = ws.state.setdefault("attempts", {}).setdefault(key, {"n": 0, "rung": cfg["start"], "last": None})
-        if hist["last"] == probs and hist["n"] >= cfg["max_attempts"]:
+        # нет прогресса = те же замечания flow И не менялся ни код страницы, ни артефакты шага (E9: на шаге 7 текст
+        # «судья: FAIL» одинаков в каждом раунде, хотя агент честно правил страницу)
+        work_fp = tree_fp(ws.root / "site", ws.page)
+        if hist["last"] == probs and hist.get("work_fp") == work_fp and hist["n"] >= cfg["max_attempts"]:
             hist["rung"] += 1
             hist["n"] = 0
             ws.ledger(kind="escalate", gate=gate, to=hist["rung"], why=probs[:3])
@@ -433,8 +448,11 @@ def say(a):
             ws.save()
             return
         model = CFG["ladder"][hist["rung"]]
+        if hist.get("work_fp") != work_fp:                       # был прогресс: попытки с нуля на той же ступени
+            hist["n"] = 0
         hist["n"] += 1
         hist["last"] = probs
+        hist["work_fp"] = work_fp
         ws.save()
         sess = ws.h / "sessions" / f"{gate}-{int(time.time())}.jsonl"
         emit(ev="stage", gate=gate, title=nx.get("title"), model=model, attempt=hist["n"])
