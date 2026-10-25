@@ -98,6 +98,7 @@ export type SettingsSection =
   | "behavior"
   | "pet"
   | "memory"
+  | "webSearch"
   | "git"
   | "usage"
   | "notifications"

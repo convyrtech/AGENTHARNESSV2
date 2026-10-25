@@ -146,7 +146,7 @@ import {
   SettingsToggle,
 } from "./SettingsPrimitives.tsx";
 import { PetSection } from "./PetSection.tsx";
-import { MemorySection } from "./MemorySection.tsx";
+import { FeatureSection, isFeatureSection } from "./FeatureSections.tsx";
 import { EnvironmentSection } from "./EnvironmentSection.tsx";
 import { BehaviorSection } from "./BehaviorSection.tsx";
 import { AccountSection } from "./AccountSection.tsx";
@@ -227,8 +227,8 @@ export function SettingsPage(props: SettingsPageProps) {
           <BehaviorSection tr={tr} />
         ) : props.section === "pet" ? (
           <PetSection tr={tr} />
-        ) : props.section === "memory" ? (
-          <MemorySection tr={tr} locale={props.locale} workspace={props.snapshot?.cwd} />
+        ) : isFeatureSection(props.section) ? (
+          <FeatureSection section={props.section} tr={tr} page={props} />
         ) : props.section === "environment" ? (
           <EnvironmentSection tr={tr} />
         ) : props.section === "worktree" ? (

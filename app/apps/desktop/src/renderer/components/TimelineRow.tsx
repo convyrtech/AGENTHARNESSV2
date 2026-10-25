@@ -90,7 +90,9 @@ import { isTurnStatusItem, parseTurnStatus } from "../lib/turn-status.ts";
 import { HarnessCard } from "./HarnessCard.tsx";
 import { MemoryCard } from "./MemoryCard.tsx";
 import { BlockerCard } from "./BlockerCard.tsx";
+import { SearchLimitCard } from "./SearchLimitCard.tsx";
 import { BLOCKER_TYPE } from "../lib/blocker-card.ts";
+import { SEARCH_LIMIT_TYPE } from "../lib/search-settings.ts";
 import { memoryCardKind } from "../lib/memory.ts";
 import {
   isHostCrash,
@@ -838,6 +840,9 @@ export const TimelineRow = memo(function TimelineRow(props: {
   if (isTurnStatusItem(item)) {
     const status = parseTurnStatus(item.kind === "system" ? item.details : undefined);
     return status ? <TurnStatusLine locale={props.locale} status={status} /> : null;
+  }
+  if (item.extension && item.title === SEARCH_LIMIT_TYPE) {
+    return <SearchLimitCard locale={props.locale} text={item.text} details={item.details} />;
   }
   if (item.extension && item.title === BLOCKER_TYPE) {
     return (
