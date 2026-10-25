@@ -1516,4 +1516,5 @@ export const en = {
   "prsloy.update.dismiss": "Hide",
   "prsloy.firstRun.folderRefused": "This is the app's own scratch folder — choose another one",
   "prsloy.firstRun.folderFailed": "Could not open the folder {path}",
+  "prsloy.host.restarted": "The agent restarted after a crash — the conversation is kept",
 } as const;

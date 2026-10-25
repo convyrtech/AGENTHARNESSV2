@@ -324,6 +324,19 @@ export type RuntimeEvent =
       type: "message.failed";
       reason: "aborted" | "error" | "pending" | "deferred";
       message: string;
+      /**
+       * Stable category of the failure (gateway down, auth, balance, …) so the UI can show a
+       * human error card with «Повторить» instead of the raw provider text.
+       */
+      code?:
+        | "network"
+        | "timeout"
+        | "auth"
+        | "no_balance"
+        | "rate_limit"
+        | "server"
+        | "aborted"
+        | "unknown";
     }
   | { type: "tool.started"; toolCallId: string; toolName: string; args: unknown }
   | {
@@ -2717,7 +2730,19 @@ function isRuntimeEvent(value: unknown): value is RuntimeEvent {
           value.reason === "error" ||
           value.reason === "pending" ||
           value.reason === "deferred") &&
-        typeof value.message === "string"
+        typeof value.message === "string" &&
+        (value.code === undefined ||
+          (typeof value.code === "string" &&
+            [
+              "network",
+              "timeout",
+              "auth",
+              "no_balance",
+              "rate_limit",
+              "server",
+              "aborted",
+              "unknown",
+            ].includes(value.code)))
       );
     case "tool.started":
       return typeof value.toolCallId === "string" && typeof value.toolName === "string";

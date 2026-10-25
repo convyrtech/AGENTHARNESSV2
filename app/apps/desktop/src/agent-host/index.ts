@@ -2,6 +2,7 @@ import "./proxy-bootstrap.ts";
 import { prsloyHandoff } from "./prsloy-handoff.ts";
 import { createPrsloyHarness } from "@prsloy/harness";
 import {
+  classifyModelError,
   createPixRuntime,
   projectCustomEntry,
   projectCustomMessage,
@@ -291,6 +292,7 @@ function projectRuntimeEvent(event: AgentSessionEvent): RuntimeEvent | undefined
           type: "message.failed",
           reason: stopReason,
           message: event.message.errorMessage ?? `Model response ${stopReason}`,
+          code: classifyModelError(event.message.errorMessage, stopReason),
         };
       }
       return undefined;

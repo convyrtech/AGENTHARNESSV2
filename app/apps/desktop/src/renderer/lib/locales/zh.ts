@@ -1485,4 +1485,5 @@ export const zh = {
   "prsloy.update.dismiss": "隐藏",
   "prsloy.firstRun.folderRefused": "这是应用的临时文件夹，请选择其他文件夹",
   "prsloy.firstRun.folderFailed": "无法打开文件夹 {path}",
+  "prsloy.host.restarted": "代理在崩溃后已重启，对话已保留",
 } as const;

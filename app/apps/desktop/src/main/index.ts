@@ -143,6 +143,7 @@ import {
 import { ensureProvisionedRuntimes } from "./runtime-provision.ts";
 import { electronFetch, initPrsloy } from "./prsloy/electron.ts";
 import { prepareTurn, registerPrsloyIpc } from "./prsloy/ipc.ts";
+import { CRASH_RESTART_DELAY_MS, nextCrashRestart } from "./prsloy/crash-restart.ts";
 import {
   isConversationWorkspacePath,
   isNonProjectWorkspacePath,
@@ -4173,8 +4174,19 @@ class HostSupervisor {
       };
       if (runtimeId) crashed.runtimeId = runtimeId;
       this.#emit(crashed);
+      // PRSLOY: come back on the same session file (pinned above) → host.restarted.
+      const history = nextCrashRestart(this.#crashRestarts, Date.now());
+      if (history) {
+        this.#crashRestarts = history;
+        setTimeout(() => {
+          if (this.#host) return;
+          void this.start().catch((e) => console.warn("[prsloy] host auto-restart failed:", e));
+        }, CRASH_RESTART_DELAY_MS);
+      }
     }
   }
+
+  #crashRestarts: number[] = [];
 
   #acceptSnapshot(snapshot: HostSnapshot): void {
     this.#snapshot = snapshot;

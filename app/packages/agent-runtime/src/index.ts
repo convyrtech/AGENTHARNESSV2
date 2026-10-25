@@ -2765,3 +2765,4 @@ export function listProviderAuthSummaries(services: AgentSessionServices): Provi
     return summary;
   });
 }
+export { classifyModelError, type ModelErrorCode } from "./model-error.ts";

@@ -5,6 +5,7 @@
 import { StrictMode, type ComponentType } from "react";
 import { createRoot } from "react-dom/client";
 import { FirstRunGate } from "./FirstRunGate.tsx";
+import { HostRecoveryNotice } from "./HostRecoveryNotice.tsx";
 import { UpdateReadyNotice } from "./UpdateReadyNotice.tsx";
 
 export function renderAppRoot(App: ComponentType): void {
@@ -15,6 +16,7 @@ export function renderAppRoot(App: ComponentType): void {
       <FirstRunGate>
         <App />
         <UpdateReadyNotice />
+        <HostRecoveryNotice />
       </FirstRunGate>
     </StrictMode>,
   );
