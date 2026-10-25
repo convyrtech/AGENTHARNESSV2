@@ -479,7 +479,8 @@ init` получил копию из userData; сборка с пайплайн�
 - design-windows: smoke делает тот же импорт под «Иван Петров» (zip заглушки → `AppData\Roaming\PRSLOY\design`),
   проверяет отказ zip-slip и чужой папки, потом `run.py init` из этой копии. Локально (Linux) smoke 12/12.
 - `pnpm check` — pass; `pnpm test` — desktop 988.
-- CI: идёт на ветке (desktop-ci + design-windows), номер прогона — в сообщении дирижёру.
+- CI: design-windows зелёный на `75d3209` (run 40171065586, smoke 12/12, импорт под «Иван Петров» на windows-latest);
+  desktop-ci зелёный на `af92341` (run 40171112930: тот же код + STATUS; прогон на `75d3209` отменён новым пушем).
 
 ## Не сделано / нужно от других
 
