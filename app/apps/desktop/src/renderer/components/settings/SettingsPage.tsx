@@ -43,12 +43,6 @@ import {
 } from "../../lib/i18n.ts";
 import { groupModelsByProvider } from "../../lib/model-groups.ts";
 import type { ServiceTierId } from "../../lib/service-tier.ts";
-import { requestMacNotificationPermission } from "../../lib/notification-permission.ts";
-import {
-  loadNotificationPrefs,
-  patchNotificationPrefs,
-  type NotificationPrefs,
-} from "../../lib/notification-prefs.ts";
 import {
   comboToDisplayParts,
   eventToCombo,
@@ -154,7 +148,10 @@ import { PetSection } from "./PetSection.tsx";
 import { EnvironmentSection } from "./EnvironmentSection.tsx";
 import { BehaviorSection } from "./BehaviorSection.tsx";
 import { AccountSection } from "./AccountSection.tsx";
+import { NotificationsSection } from "./NotificationsSection.tsx";
 import { CasualPrefsBlock } from "./CasualPrefsBlock.tsx";
+import { isShortcutVisible } from "../../lib/casual-prefs.ts";
+import { useCasualPrefs } from "../../hooks/useCasualPrefs.ts";
 
 export interface SettingsPageProps {
   snapshot: HostSnapshot | undefined;
@@ -237,7 +234,7 @@ export function SettingsPage(props: SettingsPageProps) {
         ) : props.section === "usage" ? (
           <UsageLimitsSection {...props} tr={tr} />
         ) : props.section === "notifications" ? (
-          <NotificationsSection {...props} tr={tr} />
+          <NotificationsSection tr={tr} />
         ) : props.section === "shortcuts" ? (
           <ShortcutsSection {...props} tr={tr} />
         ) : props.section === "proxy" ? (
@@ -509,15 +506,17 @@ function ShortcutsSection(
   const [recordingId, setRecordingId] = useState<ShortcutId | null>(null);
   const [conflict, setConflict] = useState<string>();
 
+  const { developerMode } = useCasualPrefs();
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return SHORTCUT_DEFINITIONS;
-    return SHORTCUT_DEFINITIONS.filter((def) => {
+    const shown = SHORTCUT_DEFINITIONS.filter((d) => isShortcutVisible(d.id, developerMode));
+    if (!q) return shown;
+    return shown.filter((def) => {
       const label = tr(def.labelKey as MessageKey).toLowerCase();
       const combo = formatComboDisplay(getEffectiveCombo(def.id, overrides)).toLowerCase();
       return label.includes(q) || def.id.includes(q) || combo.includes(q);
     });
-  }, [query, overrides, tr]);
+  }, [query, overrides, tr, developerMode]);
 
   useEffect(() => {
     if (!recordingId) return;
@@ -690,148 +689,6 @@ function ShortcutsSection(
           })
         )}
       </SettingsSectionBlock>
-    </SettingsPageShell>
-  );
-}
-
-function NotificationsSection(
-  props: SettingsPageProps & { tr: (key: MessageKey, vars?: Record<string, string>) => string },
-) {
-  const { tr } = props;
-  const showAppError = useShellStore((s) => s.showAppError);
-  const [prefs, setPrefs] = useState<NotificationPrefs>(loadNotificationPrefs);
-  const [testing, setTesting] = useState(false);
-
-  function update(patch: Partial<NotificationPrefs>) {
-    setPrefs(patchNotificationPrefs(patch));
-  }
-
-  async function updateEnabled(enabled: boolean) {
-    update({ enabled });
-    if (enabled && !(await requestMacNotificationPermission())) {
-      showAppError(tr("notify.permissionDenied"));
-    }
-  }
-
-  async function sendTest() {
-    setTesting(true);
-    try {
-      if (!(await requestMacNotificationPermission())) {
-        showAppError(tr("notify.permissionDenied"));
-        return;
-      }
-      // Test always posts even when focused (diagnostics).
-      const ok = await window.zeno.notifications.show({
-        title: tr("notify.testTitle"),
-        body: tr("notify.testBody"),
-        silent: !prefs.sound,
-        force: true,
-      });
-      if (!ok) {
-        showAppError(tr("notify.testFailed"));
-      }
-    } catch (error) {
-      showAppError(error instanceof Error ? error.message : tr("notify.testFailed"));
-    } finally {
-      setTesting(false);
-    }
-  }
-
-  return (
-    <SettingsPageShell title={tr("section.notifications")} testId="settings-notifications">
-      <SettingsSectionBlock label={tr("section.notifications")} testId="settings-notify-options">
-        <SettingsRow
-          title={tr("notify.master")}
-          description={tr("notify.masterHint")}
-          control={
-            <SettingsToggle
-              checked={prefs.enabled}
-              onChange={(on) => void updateEnabled(on)}
-              testId="settings-notify-enabled"
-              aria-label={tr("notify.master")}
-            />
-          }
-        />
-        <SettingsRow
-          title={tr("notify.onComplete")}
-          description={tr("notify.onCompleteHint")}
-          control={
-            <SettingsToggle
-              checked={prefs.onComplete}
-              onChange={(on) => update({ onComplete: on })}
-              testId="settings-notify-complete"
-              disabled={!prefs.enabled}
-              aria-label={tr("notify.onComplete")}
-            />
-          }
-        />
-        <SettingsRow
-          title={tr("notify.onError")}
-          description={tr("notify.onErrorHint")}
-          control={
-            <SettingsToggle
-              checked={prefs.onError}
-              onChange={(on) => update({ onError: on })}
-              testId="settings-notify-error"
-              disabled={!prefs.enabled}
-              aria-label={tr("notify.onError")}
-            />
-          }
-        />
-        <SettingsRow
-          title={tr("notify.onHostCrash")}
-          description={tr("notify.onHostCrashHint")}
-          control={
-            <SettingsToggle
-              checked={prefs.onHostCrash}
-              onChange={(on) => update({ onHostCrash: on })}
-              testId="settings-notify-crash"
-              disabled={!prefs.enabled}
-              aria-label={tr("notify.onHostCrash")}
-            />
-          }
-        />
-        <SettingsRow
-          title={tr("notify.onlyWhenUnfocused")}
-          description={tr("notify.onlyWhenUnfocusedHint")}
-          control={
-            <SettingsToggle
-              checked={prefs.onlyWhenUnfocused}
-              onChange={(on) => update({ onlyWhenUnfocused: on })}
-              testId="settings-notify-unfocused"
-              disabled={!prefs.enabled}
-              aria-label={tr("notify.onlyWhenUnfocused")}
-            />
-          }
-        />
-        <SettingsRow
-          title={tr("notify.sound")}
-          description={tr("notify.soundHint")}
-          control={
-            <SettingsToggle
-              checked={prefs.sound}
-              onChange={(on) => update({ sound: on })}
-              testId="settings-notify-sound"
-              disabled={!prefs.enabled}
-              aria-label={tr("notify.sound")}
-            />
-          }
-          last
-        />
-      </SettingsSectionBlock>
-      <div className="mt-3 flex flex-wrap items-center gap-2">
-        <SettingsPillButton
-          label={testing ? "…" : tr("notify.test")}
-          testId="settings-notify-test"
-          disabled={!prefs.enabled || testing}
-          onClick={() => void sendTest()}
-        />
-        <SettingsPillButton
-          label={tr("notify.openSystem")}
-          testId="settings-notify-open-system"
-          onClick={() => void window.zeno.notifications.openSystemSettings()}
-        />
-      </div>
     </SettingsPageShell>
   );
 }
@@ -1194,7 +1051,7 @@ function GitSection(
 ) {
   const { tr } = props;
   const [prefs, setPrefs] = useState<GitDraft>({
-    branchPrefix: "zeno/",
+    branchPrefix: "prsloy/",
     pullMode: "merge",
     forcePush: false,
     draftPr: false,
@@ -1203,7 +1060,7 @@ function GitSection(
     modelKey: "",
   });
   const [saved, setSaved] = useState<GitDraft>({
-    branchPrefix: "zeno/",
+    branchPrefix: "prsloy/",
     pullMode: "merge",
     forcePush: false,
     draftPr: false,

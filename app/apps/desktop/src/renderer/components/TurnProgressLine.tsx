@@ -5,13 +5,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { Square } from "lucide-react";
 import { t, type Locale } from "../lib/i18n.ts";
-import type { TimelineItem } from "../lib/timeline.ts";
-import {
-  currentTurnAction,
-  elapsedLabel,
-  PROGRESS_LINE_DELAY_MS,
-  turnStartedAt,
-} from "../lib/turn-progress.ts";
+import { formatDurationMs, type TimelineItem } from "../lib/timeline.ts";
+import { currentTurnAction, PROGRESS_LINE_DELAY_MS, turnStartedAt } from "../lib/turn-progress.ts";
 
 export function TurnProgressLine(props: {
   locale: Locale;
@@ -36,14 +31,14 @@ export function TurnProgressLine(props: {
   if (!props.running || runStart === undefined) return null;
   const elapsed = now - turnStartedAt(props.items, runStart);
   if (elapsed < PROGRESS_LINE_DELAY_MS) return null;
-  const time = elapsedLabel(elapsed);
 
   return (
     <div className="turn-progress" role="status" aria-live="polite" data-testid="turn-progress">
       <span className="turn-progress-action" data-testid="turn-progress-action">
         {t(props.locale, action.key, action.vars)}
       </span>
-      <span className="turn-progress-time">{t(props.locale, time.key, time.vars)}</span>
+      {/* Same clock and format as the step header above («1 мин 59 с»), so the two agree. */}
+      <span className="turn-progress-time">{formatDurationMs(elapsed, props.locale)}</span>
       <button
         type="button"
         className="turn-progress-stop"

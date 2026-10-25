@@ -71,27 +71,13 @@ export function liveStreamNotCoveredByHistory(
 }
 
 /**
- * Grow text without ever shrinking.
- * - incremental chunk → append
- * - cumulative snapshot (delta starts with prev) → take delta
- * - exact redelivery of the same chunk → keep prev
- * - overlapping redelivery (e.g. "Hello wor" + "world") → merge without duplicating
+ * Append a streamed delta. Deltas are incremental and arrive once per host sequence
+ * (redelivery is dropped by `seenSequences` before this runs), so the text is simply
+ * concatenated. Guessing at duplicates from the content lost real characters: the deltas
+ * «800» + «0» rendered as «800» and «1000 ₽» as «100 ₽», because a delta equal to the
+ * tail of the text looked like a redelivery.
  */
 export function appendMonotonicText(prev: string, delta: string): string {
-  if (!delta) return prev;
-  if (!prev) return delta;
-  if (delta === prev) return prev;
-  // Cumulative full text so far (some providers re-send the whole buffer).
-  if (delta.startsWith(prev) && delta.length >= prev.length) return delta;
-  // Exact chunk redelivery.
-  if (prev.endsWith(delta)) return prev;
-  // Overlapping redelivery: require ≥2 chars so normal "Hel"+"lo" still appends.
-  const maxOverlap = Math.min(prev.length, delta.length - 1, 64);
-  for (let n = maxOverlap; n >= 2; n--) {
-    if (prev.endsWith(delta.slice(0, n))) {
-      return prev + delta.slice(n);
-    }
-  }
   return prev + delta;
 }
 

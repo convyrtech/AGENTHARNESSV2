@@ -6852,3 +6852,21 @@ textarea.models-scoped-patterns-input[data-slot="textarea"] {
   outline: 2px solid var(--ring);
   outline-offset: 2px;
 }
+.prsloy-first-run-link-quiet {
+  margin-top: -6px;
+  color: var(--muted-foreground);
+}
+
+/* Casual mode: model reasoning folded into one quiet row. */
+.process-step-thinking-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 0;
+  font-size: 13px;
+  color: var(--muted-foreground);
+  cursor: pointer;
+}
+.process-step-thinking-toggle:hover {
+  color: var(--foreground);
+}

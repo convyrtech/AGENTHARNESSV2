@@ -51,7 +51,8 @@ const FROZEN = {
   "renderer/main.tsx": 3803,
   // 5163 → 5109: `EnvironmentSection` moved out, paying for the ru option and casual prefs.
   // 5109 → 5062: `BehaviorSection` moved out, paying for the «Аккаунт» route.
-  "renderer/components/settings/SettingsPage.tsx": 5062,
+  // → 4919: `NotificationsSection` moved out, paying for the casual shortcut filter.
+  "renderer/components/settings/SettingsPage.tsx": 4919,
   // 2194 → 1811: the composer's menu rows moved to `components/ComposerMenus.tsx` and its
   // suggestion helpers to `components/ComposerSuggestMenus.tsx`, which paid for the composer's
   // right-click menu. Banked rather than left as slack, per the note above.

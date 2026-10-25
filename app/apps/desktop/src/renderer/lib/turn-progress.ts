@@ -49,7 +49,7 @@ export function currentTurnAction(items: readonly TimelineItem[]): ProgressActio
   const vars = { detail };
   switch (view.kind) {
     case "run":
-      return { key: "progress.run", vars };
+      return summarizeCommand(view.detail);
     case "edit":
       return { key: "progress.edit", vars };
     case "write":
@@ -70,14 +70,72 @@ export function turnStartedAt(items: readonly TimelineItem[], fallbackMs: number
   return Number.isFinite(at) && at <= fallbackMs ? at : fallbackMs;
 }
 
-/** «40 с», «2 мин», «1 ч 5 мин»: coarse on purpose, the line updates every second. */
-export function elapsedLabel(ms: number): ProgressAction {
-  const seconds = Math.max(0, Math.floor(ms / 1000));
-  if (seconds < 60) return { key: "progress.elapsed.seconds", vars: { n: String(seconds) } };
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return { key: "progress.elapsed.minutes", vars: { n: String(minutes) } };
-  return {
-    key: "progress.elapsed.hours",
-    vars: { h: String(Math.floor(minutes / 60)), m: String(minutes % 60) },
-  };
+const SHELL_NOISE = /^(cd|export|set|source|\.|true|:|echo)$/u;
+const MAX_COMMAND_DETAIL = 40;
+
+function basename(path: string): string {
+  return (
+    path
+      .replace(/^["']|["']$/gu, "")
+      .split(/[\\/]/u)
+      .pop() ?? path
+  );
+}
+
+/**
+ * A shell line in plain words: the program or the intent, never the raw line. Agents chain
+ * `cd /long/path && …`, pass heredocs and env assignments; a casual reader needs «Запускаю
+ * тесты», not «cd /dev/shm/…/проект && npm test -- --run».
+ */
+export function summarizeCommand(command: string): ProgressAction {
+  const firstLine = command.trim().split(/\r?\n/u)[0] ?? "";
+  // A heredoc writing a file: «Пишу index.html».
+  const heredoc =
+    /(?:^|\s)(?:cat|tee)\s+>{1,2}?\s*(\S+)\s*<<|>{1,2}\s*(\S+)\s*<<|<<-?\s*['"]?\w+['"]?\s*>{1,2}\s*(\S+)/u.exec(
+      firstLine,
+    );
+  const target = heredoc?.[1] ?? heredoc?.[2] ?? heredoc?.[3];
+  if (target) return { key: "progress.write", vars: { detail: basename(target) } };
+
+  const segments = firstLine
+    .split(/&&|\|\||;|\|/u)
+    .map((part) => part.trim())
+    .filter(Boolean);
+  for (const segment of segments) {
+    const words = segment.split(/\s+/u).filter((w) => !/^[A-Za-z_][A-Za-z0-9_]*=/u.test(w));
+    const program = basename(words[0] ?? "");
+    if (!program || SHELL_NOISE.test(program)) continue;
+    const rest = words.slice(1).join(" ");
+    if (/^(npm|pnpm|yarn|bun|npx|vp)$/u.test(program)) {
+      if (/\b(test|vitest|jest)\b/u.test(rest)) return { key: "progress.runTests" };
+      if (/\b(install|add|ci|i)\b/u.test(rest)) return { key: "progress.runInstall" };
+      if (/\b(build|compile)\b/u.test(rest)) return { key: "progress.runBuild" };
+      if (/\b(dev|start|serve|preview)\b/u.test(rest)) return { key: "progress.runServer" };
+    }
+    if (/^(pytest|vitest|jest|mocha)$/u.test(program)) return { key: "progress.runTests" };
+    if (/^(pip|pip3|uv|poetry)$/u.test(program) && /\binstall|add|sync\b/u.test(rest)) {
+      return { key: "progress.runInstall" };
+    }
+    if (/^python[\d.]*$|^node$/u.test(program)) {
+      // The script says what it does better than the interpreter: check_page.py → проверка.
+      const script = words.slice(1).find((w) => !w.startsWith("-"));
+      if (script && /(check|verify|lint|test|shot|screen|audit|gate|judge)/iu.test(script)) {
+        return { key: script.match(/test/iu) ? "progress.runTests" : "progress.runCheck" };
+      }
+      return { key: "progress.runProgram", vars: { program } };
+    }
+    if (/^(playwright|lighthouse)$/u.test(program)) return { key: "progress.runCheck" };
+    if (/^(ls|cat|head|tail|find|grep|rg|fd|tree|wc|stat|file)$/u.test(program)) {
+      return { key: "progress.runLook" };
+    }
+    if (/^(mkdir|cp|mv|rm|touch|chmod|ln|unzip|tar)$/u.test(program)) {
+      return { key: "progress.runFiles" };
+    }
+    if (/^(curl|wget)$/u.test(program)) return { key: "progress.runDownload" };
+    if (program === "git") return { key: "progress.runGit" };
+    return program.length <= MAX_COMMAND_DETAIL
+      ? { key: "progress.runProgram", vars: { program } }
+      : { key: "progress.runOpen" };
+  }
+  return { key: "progress.runOpen" };
 }

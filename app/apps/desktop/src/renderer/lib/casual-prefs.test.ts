@@ -4,6 +4,7 @@ import {
   DEFAULT_RUB_PER_USD,
   DEVELOPER_SETTINGS_SECTIONS,
   isSettingsSectionVisible,
+  isShortcutVisible,
   loadCasualPrefs,
   normalizeCasualPrefs,
   normalizeRubPerUsd,
@@ -61,7 +62,7 @@ describe("casual-prefs", () => {
   });
 
   it("hides developer settings pages until developer mode is on", () => {
-    for (const section of ["terminal", "models", "pi", "proxy", "usage"] as const) {
+    for (const section of ["terminal", "models", "pi", "proxy", "usage", "git"] as const) {
       expect(DEVELOPER_SETTINGS_SECTIONS.has(section)).toBe(true);
       expect(isSettingsSectionVisible(section, false)).toBe(false);
       expect(isSettingsSectionVisible(section, true)).toBe(true);
@@ -69,5 +70,13 @@ describe("casual-prefs", () => {
     for (const section of ["general", "appearance", "notifications", "archived"] as const) {
       expect(isSettingsSectionVisible(section, false)).toBe(true);
     }
+  });
+
+  it("hides shortcuts to developer surfaces until developer mode is on", () => {
+    for (const id of ["packages", "resources", "toggle-content-mode"]) {
+      expect(isShortcutVisible(id, false)).toBe(false);
+      expect(isShortcutVisible(id, true)).toBe(true);
+    }
+    expect(isShortcutVisible("new-thread", false)).toBe(true);
   });
 });

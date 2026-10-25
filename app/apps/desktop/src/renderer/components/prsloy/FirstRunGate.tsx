@@ -35,6 +35,9 @@ export function FirstRunGate({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string>();
   const [bypass, setBypass] = useState(false);
   const [recent, setRecent] = useState<string[]>([]);
+  /** «Другой сервер»: the gateway address, checked together with the key. */
+  const [serverOpen, setServerOpen] = useState(false);
+  const [server, setServer] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -76,7 +79,10 @@ export function FirstRunGate({ children }: { children: ReactNode }) {
       setBusy(true);
       setError(undefined);
       try {
-        const result = await window.zeno.prsloy.setKey(cleaned);
+        const address = serverOpen ? server.trim() : "";
+        const result = address
+          ? await window.zeno.prsloy.setKey(cleaned, address)
+          : await window.zeno.prsloy.setKey(cleaned);
         if (result.ok) {
           setKey("");
           setState(result.state);
@@ -89,7 +95,7 @@ export function FirstRunGate({ children }: { children: ReactNode }) {
         setBusy(false);
       }
     },
-    [busy, key, locale],
+    [busy, key, locale, server, serverOpen],
   );
 
   const openFolder = useCallback(
@@ -157,6 +163,19 @@ export function FirstRunGate({ children }: { children: ReactNode }) {
               onChange={(event) => setKey(event.target.value)}
               disabled={busy}
             />
+            {serverOpen ? (
+              <Input
+                type="url"
+                spellCheck={false}
+                value={server}
+                className="h-10"
+                placeholder={state?.defaultBaseUrl}
+                aria-label={t(locale, "prsloy.settings.baseUrl")}
+                data-testid="prsloy-server-input"
+                onChange={(event) => setServer(event.target.value)}
+                disabled={busy}
+              />
+            ) : null}
             {error ? (
               <p role="alert" className="prsloy-first-run-error">
                 {error}
@@ -177,6 +196,19 @@ export function FirstRunGate({ children }: { children: ReactNode }) {
             >
               {t(locale, "prsloy.firstRun.keyWhere")}
             </button>
+            {serverOpen ? null : (
+              <button
+                type="button"
+                className="prsloy-first-run-link prsloy-first-run-link-quiet"
+                data-testid="prsloy-server-link"
+                onClick={() => {
+                  setServer(state?.baseUrl ?? state?.defaultBaseUrl ?? "");
+                  setServerOpen(true);
+                }}
+              >
+                {t(locale, "prsloy.firstRun.otherServer")}
+              </button>
+            )}
           </form>
         ) : (
           <div className="prsloy-first-run-form">
