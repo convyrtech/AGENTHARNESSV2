@@ -48,6 +48,23 @@ def fit_ladder(cfg, available):
 
 
 CFG = fit_ladder(CFG, AVAILABLE)
+# пометки владельца кистью на картинке («Дизайн», research/20 §10): файл marks-*.png; такой ход — модели со зрением
+MARKS = re.compile(r"^marks-.+\.png$", re.I)
+VISION = re.compile(r"kimi|claude|opus", re.I)
+
+
+def marks_note(files):
+    """Строка в задание, когда владелец приложил пометки поверх картинки."""
+    marked = [f for f in files if MARKS.match(Path(f).name)]
+    if not marked:
+        return ""
+    return ("Владелец обвёл места на картинке: " + ", ".join(marked) + ". Открой файл и посмотри. Красное на "
+            "картинке — пометки владельца, не дизайн: исправь то, что он обвёл, красное в работу не переносить.")
+
+
+def vision_model(ladder, rung):
+    """Ступень лестницы со зрением: с текущей вверх, иначе любая со зрением, иначе текущая."""
+    return next((m for m in ladder[rung:] + ladder if VISION.search(m)), ladder[min(rung, len(ladder) - 1)])
 # уроки шагов по моделям (research/18 §8): в задание идут только active/trial; HARNESS_LESSONS=0 выключает
 LESSONS = (json.loads((HERE / "lessons.json").read_text(encoding="utf-8"))["lessons"]
            if (HERE / "lessons.json").exists() else [])
@@ -164,9 +181,9 @@ def init(a):
     if cat.exists() and not (ws.root / "etalons").exists():
         shutil.copytree(cat, ws.root / "etalons", ignore=shutil.ignore_patterns("*.mp4", "frames*", "__pycache__"))
     shutil.copyfile(HERE / "AGENTS.md", ws.root / "AGENTS.md")
-    for f in ("check.py", "second_opinion.py"):                 # служебные: в состоянии харнесса
+    for f in ("check.py", "brand_check.py", "second_opinion.py"):  # служебные: в состоянии харнесса
         shutil.copyfile(HERE / f, ws.h / f)
-    for f in ("moves.py", "check.py"):                           # инструменты агента: в его папке
+    for f in ("moves.py", "check.py", "brand_check.py"):        # инструменты агента: в его папке
         shutil.copyfile(HERE / f, ws.tools / f)
     for name in SHIMS:                                   # чужие ИИ-программы первыми на PATH: блок в коде, не в промпте
         msg = "запрещено харнессом: другие ИИ-программы запускать нельзя (аккаунт и деньги владельца)"
@@ -740,6 +757,9 @@ def say(a):
         ws.state.pop("attempts", None)
         ws.save()
     notes = list(ws.state.pop("carry_notes", []))
+    marked = marks_note(files)
+    if marked:
+        notes.append(marked)
     ws.state["transport_errors"] = 0
     if a.text and ws.state.pop("judge_cap_asked", False):
         fix = re.match(r"\s*[бb6]\b", a.text.lower()) or "исправ" in a.text.lower()
@@ -828,6 +848,8 @@ def say(a):
             ws.save()
             return
         model = CFG["ladder"][hist["rung"]]
+        if marked:                                   # красное на картинке видит только модель со зрением
+            model = vision_model(CFG["ladder"], hist["rung"])
         if hist.get("work_fp") != work_fp:                       # был прогресс: попытки с нуля на той же ступени
             hist["n"] = 0
         hist["n"] += 1

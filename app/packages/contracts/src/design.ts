@@ -142,6 +142,15 @@ export interface DesignApi {
     retry?: boolean,
   ): Promise<void>;
   cancel(projectPath: string | undefined): Promise<void>;
+  /**
+   * Red marks drawn over a picture of a card: `strokes` is the drawing layer as a PNG of the picture's
+   * size; main lays it over the picture and returns an attachment for the next `say`, like `pickFiles`.
+   */
+  attachMarks(
+    projectPath: string | undefined,
+    pictureUrl: string,
+    strokes: Uint8Array,
+  ): Promise<{ ok: true; token: string; name: string } | { ok: false; error: string }>;
   /** Native file picker; returns opaque tokens main accepts in `say`, plus display names. */
   pickFiles(): Promise<{ token: string; name: string }[]>;
   /**

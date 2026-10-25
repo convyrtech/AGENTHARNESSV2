@@ -119,7 +119,7 @@ def main():
     if "Правка владельца на готовой странице" in brief:
         page = WS / "site" / "landing" / "index.html"
         html = page.read_text(encoding="utf-8")
-        write("site/landing/index.html", html.replace("<h1 style='", "<h1 style='color:#b4532a;", 1))
+        write("site/landing/index.html", html.replace("<h1 style='", "<h1 style='color:#a4472c;", 1))
         finish("Заголовок теперь в цвете акцента.\nЭТАП ГОТОВ")
     if "[харнесс] Проверка правки" in brief:
         finish("Остальное не трогал.\nЭТАП ГОТОВ")
@@ -166,13 +166,14 @@ def main():
                "A. Кольцо и счётчик (рекомендую)\nB. Выдача с печатью\nC. Тропа к кнопке")
 
     if gate == "2":
+        # the colours of materials/brand.json (brand_probe on the owner's site): check.py holds the page to them
         write("design/landing/04-motion.md", "# Движение\n\n## Фирменный приём\nКадр f05 набора A → кольцо вокруг цены.\n")
         write("site/landing/index.html", (
             "<!doctype html><html lang=ru><meta charset=utf-8><title>Зерно</title>"
-            "<body style='margin:0;font:18px/1.5 Georgia,serif;background:#f4ede1;color:#2b211b'>"
-            "<main style='padding:64px 48px'><p style='letter-spacing:.2em;color:#b4532a'>КОФЕЙНЯ</p>"
+            "<body style='margin:0;font:18px/1.5 Georgia,serif;background:#f3eee3;color:#3b2a1e'>"
+            "<main style='padding:64px 48px'><p style='letter-spacing:.2em;color:#a4472c'>КОФЕЙНЯ</p>"
             "<h1 style='font-size:64px;margin:.2em 0'>Зерно</h1>"
-            "<p data-signature='ring' style='display:inline-block;border:2px solid #b4532a;border-radius:50%;"
+            "<p data-signature='ring' style='display:inline-block;border:2px solid #a4472c;border-radius:50%;"
             "padding:18px 28px'>180 ₽</p></main>"))
         bash("python3 -I harness/check.py site design/landing")
         bash("python3 -I design-pipeline/tools/flow.py --page design/landing", check=False)

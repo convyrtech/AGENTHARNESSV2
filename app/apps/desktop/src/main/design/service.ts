@@ -35,6 +35,7 @@ import {
   dialog,
   ipcMain,
   type IpcMainInvokeEvent,
+  nativeImage,
   protocol,
   shell,
 } from "electron";
@@ -64,6 +65,7 @@ import {
 } from "./paths.ts";
 import { PREVIEW_BRIDGE_SCRIPT } from "../preview-bridge/index.ts";
 import { editPayload, editPins, editSummary } from "./edit-pins.ts";
+import { blendBitmaps, marksName, marksPng } from "./marks.ts";
 import { applyTextEdit, type TextEdit, textEditArg } from "./text-edit.ts";
 import textOverlay from "./text-overlay.js?raw";
 import { findEntry, type PreviewServer, startPreviewServer } from "./preview-server.ts";
@@ -700,6 +702,38 @@ export class DesignService {
     });
   }
 
+  /** Red marks over a card's picture → `marks-….png` in userData, an attachment token for the next answer. */
+  attachMarks(
+    projectPath: string | undefined,
+    pictureUrl: unknown,
+    strokes: unknown,
+  ): { ok: true; token: string; name: string } | { ok: false; error: string } {
+    const ws = this.workspace(projectPath);
+    const parsed = typeof pictureUrl === "string" ? parseDesignUrl(pictureUrl) : undefined;
+    const picture =
+      parsed && parsed.id === workspaceId(ws) && /\.(png|jpe?g|webp)$/i.test(parsed.rel)
+        ? insideRoot(ws, parsed.rel)
+        : undefined;
+    const png = marksPng(strokes);
+    if (!picture || !png) return { ok: false, error: "Пометки к этой картинке не приложить" };
+    const base = nativeImage.createFromPath(picture);
+    let top = nativeImage.createFromBuffer(png);
+    if (base.isEmpty() || top.isEmpty()) return { ok: false, error: "Картинка не открылась" };
+    const size = base.getSize();
+    const drawn = top.getSize();
+    if (drawn.width !== size.width || drawn.height !== size.height) top = top.resize(size);
+    const out = nativeImage
+      .createFromBitmap(blendBitmaps(base.toBitmap(), top.toBitmap()), size)
+      .toPNG();
+    const dir = join(this.#deps.userDataPath, "design", "marks", randomUUID());
+    mkdirSync(dir, { recursive: true });
+    const name = marksName(parsed!.rel);
+    writeFileSync(join(dir, name), out);
+    const token = randomUUID();
+    this.#picked.set(token, join(dir, name));
+    return { ok: true, token, name };
+  }
+
   async preview(projectPath: string | undefined, edit = false): Promise<{ url: string } | null> {
     const ws = this.workspace(projectPath);
     const site = join(ws, "site");
@@ -886,6 +920,12 @@ export function registerDesignIpc(deps: DesignServiceDeps): DesignService {
   ipcMain.handle(
     "prsloy:design:cancel",
     guard((p: unknown) => svc.cancel(projectArg(p))),
+  );
+  ipcMain.handle(
+    "prsloy:design:attach-marks",
+    guard((p: unknown, url: unknown, strokes: unknown) =>
+      svc.attachMarks(projectArg(p), url, strokes),
+    ),
   );
   ipcMain.handle(
     "prsloy:design:pick-files",

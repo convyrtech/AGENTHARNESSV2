@@ -5,6 +5,7 @@
  *
  * DESIGN_E2E_LOCALE picks the UI language (default: the app's own default).
  */
+import { AxeBuilder } from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 import { _electron as electron, type ElectronApplication } from "playwright";
 import { execFileSync } from "node:child_process";
@@ -118,8 +119,27 @@ async function launch(opts: {
   return { app, page, root };
 }
 
+/** Screens of the built page and its tools: axe (WCAG A/AA, contrast included) in the theme under test. */
+const AXE_SCREENS = new Set(["done", "tweak", "edit", "edit-result", "edit-text", "marks"]);
+
+async function axeClean(page: Page, name: string) {
+  const result = await new AxeBuilder({ page })
+    .setLegacyMode(true)
+    .withTags(["wcag2a", "wcag2aa"])
+    // the owner's page inside the preview and the harness's pictures are not the app's UI
+    .exclude('[data-testid="design-preview"]')
+    .exclude('[data-testid="runtime-snapshot"]')
+    .analyze();
+  const found = result.violations.map((v: { id: string; nodes: { html: string }[] }) => ({
+    id: v.id,
+    nodes: v.nodes.slice(0, 5).map((n) => n.html.slice(0, 160)),
+  }));
+  expect(found, `axe on «${name}»`).toEqual([]);
+}
+
 async function shot(page: Page, name: string, settleMs = 250) {
   await page.waitForTimeout(settleMs);
+  if (AXE_SCREENS.has(name)) await axeClean(page, name);
   // DESIGN_E2E_THEME=dark → design-dark-<name>.png next to the light set.
   const theme = process.env.DESIGN_E2E_THEME;
   const suffix = theme && theme !== "light" ? `${theme}-` : "";
@@ -332,16 +352,59 @@ test("owner leads a landing page from request to preview", async () => {
     await expect(card).not.toContainText("00-moods.png");
     await expect(first.getByTestId("design-options")).toHaveCount(0);
     await shot(page, "choice");
-    // a picture opens full size and closes again
+    // a picture of an open card opens full size with a red brush: circle, attach, it goes with the answer
     await img.click();
-    await expect(page.getByTestId("image-preview-dialog")).toBeVisible();
+    const marks = page.getByTestId("design-marks");
+    await expect(marks).toBeVisible();
     await shot(page, "image-full");
-    await page.keyboard.press("Escape");
-    await expect(page.getByTestId("image-preview-dialog")).toHaveCount(0);
+    await expect(marks.getByTestId("design-marks-attach")).toBeDisabled();
+    const canvas = marks.getByTestId("design-marks-canvas");
+    const box = (await canvas.boundingBox())!;
+    await page.mouse.move(box.x + box.width * 0.3, box.y + box.height * 0.3);
+    await page.mouse.down();
+    for (const [fx, fy] of [
+      [0.6, 0.3],
+      [0.6, 0.6],
+      [0.3, 0.6],
+      [0.3, 0.3],
+    ] as const) {
+      await page.mouse.move(box.x + box.width * fx, box.y + box.height * fy, { steps: 6 });
+    }
+    await page.mouse.up();
+    await shot(page, "marks");
+    await marks.getByTestId("design-marks-attach").click();
+    await expect(marks).toHaveCount(0);
+    await expect(page.getByTestId("design-attachments")).toContainText(/marks-[\w-]+\.png/);
 
     // turn 3: progress line while the harness works; the turn's stage budget runs out
     await card.getByTestId("design-recommend").click();
-    await expect(page.getByTestId("design-user").nth(2)).toHaveText("как рекомендуешь");
+    await expect(page.getByTestId("design-user").nth(2)).toContainText("как рекомендуешь");
+    await expect(page.getByTestId("design-user").nth(2)).toContainText("marks-");
+    // the picture with the red over it reached the workspace's materials
+    const materials = join(
+      await app.evaluate(({ app: a }) => a.getPath("documents")),
+      "PRSLOY",
+      "prsloy-design",
+      "materials",
+    );
+    const markedFiles = () =>
+      existsSync(materials) ? readdirSync(materials).filter((n) => /^marks-.+\.png$/.test(n)) : [];
+    await expect.poll(markedFiles).toHaveLength(1);
+    const marked = markedFiles();
+    const pixels = await app.evaluate(
+      ({ nativeImage }, path) => {
+        const image = nativeImage.createFromPath(path);
+        const bgra = image.toBitmap();
+        let red = 0;
+        for (let i = 0; i < bgra.length; i += 4) {
+          if (bgra[i + 2]! > 200 && bgra[i + 1]! < 60 && bgra[i]! < 60) red++;
+        }
+        return { ...image.getSize(), red };
+      },
+      join(materials, marked[0]!),
+    );
+    expect(pixels.width).toBe(480);
+    expect(pixels.red).toBeGreaterThan(500);
     await expect(page.getByTestId("design-progress")).toBeVisible();
     await expect(page.getByTestId("design-progress-meta")).toContainText("1");
     // the raw tool calls sit under «Подробности», not in the owner's face

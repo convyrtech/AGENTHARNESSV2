@@ -33,6 +33,7 @@ import {
   type TextRefusal,
 } from "../../lib/design-edit.ts";
 import { EditPanel } from "./EditPanel.tsx";
+import { MarksDialog } from "./MarksDialog.tsx";
 import { TokenPanel } from "./TokenPanel.tsx";
 import { type PreviewDevice, PreviewDeviceSwitch, PreviewStage } from "../PreviewFrame.tsx";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -245,6 +246,7 @@ export function DesignPage({ locale, projectPath }: Props) {
               projectPath={projectPath}
               tr={tr}
               onEdit={edit}
+              onMarks={(file) => setPicked((all) => [...all, file])}
               onAnswer={(text) => {
                 // files attached before a button answer go with it
                 setPicked([]);
@@ -320,6 +322,7 @@ export function DesignPage({ locale, projectPath }: Props) {
             </Button>
             <Textarea
               data-testid="design-input"
+              aria-label={tr("design.input")}
               className="max-h-48 min-h-9 flex-1 resize-none border-0 bg-transparent shadow-none focus-visible:ring-0 dark:bg-transparent"
               placeholder={view.items.length === 0 ? tr("design.placeholder") : ""}
               value={draft}
@@ -434,7 +437,16 @@ function SetupCard({
   );
 }
 
-function Media({ file, locale }: { file: DesignFile; locale: Locale }) {
+function Media({
+  file,
+  locale,
+  marks,
+}: {
+  file: DesignFile;
+  locale: Locale;
+  /** On an open card the picture takes red marks that go with the answer. */
+  marks?: { projectPath: string | undefined; onAttached: (f: Picked) => void } | undefined;
+}) {
   const [open, setOpen] = useState(false);
   if (file.kind === "image") {
     return (
@@ -447,7 +459,23 @@ function Media({ file, locale }: { file: DesignFile; locale: Locale }) {
         >
           <img src={file.url} alt="" className="design-media" data-testid="design-image" />
         </button>
-        <ImagePreviewDialog open={open} onOpenChange={setOpen} source={file.url} locale={locale} />
+        {marks ? (
+          <MarksDialog
+            open={open}
+            onOpenChange={setOpen}
+            url={file.url}
+            projectPath={marks.projectPath}
+            locale={locale}
+            onAttached={marks.onAttached}
+          />
+        ) : (
+          <ImagePreviewDialog
+            open={open}
+            onOpenChange={setOpen}
+            source={file.url}
+            locale={locale}
+          />
+        )}
       </>
     );
   }
@@ -480,6 +508,7 @@ function StreamItem({
   tr,
   onAnswer,
   onEdit,
+  onMarks,
   onRetry,
   onContinue,
 }: {
@@ -491,6 +520,7 @@ function StreamItem({
   tr: Tr;
   onAnswer: (text: string) => void;
   onEdit: (pins: DesignEditPin[]) => Promise<void>;
+  onMarks: (file: Picked) => void;
   onRetry: () => void;
   onContinue: () => void;
 }) {
@@ -527,7 +557,12 @@ function StreamItem({
           {media.length > 0 ? (
             <div className={cn("grid gap-2", media.length > 1 && "sm:grid-cols-2")}>
               {media.map((f) => (
-                <Media key={f.path} file={f} locale={locale} />
+                <Media
+                  key={f.path}
+                  file={f}
+                  locale={locale}
+                  marks={open ? { projectPath, onAttached: onMarks } : undefined}
+                />
               ))}
             </div>
           ) : null}
@@ -634,7 +669,11 @@ function OwnerChoices({
                   {isLetterKey(o.key) ? <span className="font-semibold">{o.key}</span> : null}
                   {optionLabel(o) ? <span>{optionLabel(o)}</span> : null}
                   {o.recommended ? (
-                    <span className="text-xs opacity-60">{tr("design.recommended")}</span>
+                    <span
+                      className={cn("text-xs", picked ? "opacity-90" : "text-muted-foreground")}
+                    >
+                      {tr("design.recommended")}
+                    </span>
                   ) : null}
                 </Button>
               );
