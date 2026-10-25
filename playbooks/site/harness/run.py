@@ -175,6 +175,15 @@ def harness_check(ws):
     return r.stdout if r.returncode else ""
 
 
+def snapshots_fp(ws):
+    """Отпечаток контакт-листов гейта: судья смотрит их, новый раунд имеет смысл только по новым."""
+    h = hashlib.sha1()
+    for f in sorted((ws.page / "artifacts" / "visual-gate").glob("contact-*.png")):
+        st = f.stat()
+        h.update(f"{f.name}:{st.st_size}:{int(st.st_mtime)}".encode())
+    return h.hexdigest()
+
+
 def run_judge(ws):
     r = subprocess.run([PY, "-I", str(HERE / "judge.py"), "--page", str(ws.page), "--transcripts", str(ws.h / "tx"),
                         "--pipeline", str(ws.pipe), "--model", CFG["judge"]["model"],
@@ -380,11 +389,29 @@ def say(a):
         gate = nx.get("gate", "?")
         cfg = {**CFG["defaults"], **CFG["stages"].get(gate, {})}
         probs = nx.get("problems", [])
-        # судью зовёт харнесс: когда в шаге 7 не хватает только судьи
+        # судью зовёт харнесс: когда в шаге 7 не хватает только судьи. Новый раунд — только по новым снимкам:
+        # после FAIL сначала правит агент (E9: раунд 2 шёл сразу по тем же снимкам и сжёг лимит). Исключение —
+        # PASS в раунде 1: пайплайн требует второй раунд, его можно по тем же снимкам.
+        judge_now = False
         if gate == "7" and probs and all("судь" in x for x in probs):
+            fp = snapshots_fp(ws)
+            last = ws.state.get("judge_last") or {}
+            judge_now = last.get("fp") != fp or (last.get("verdict") == "PASS" and last.get("round", 0) < 2)
+            if not judge_now:
+                notes = [f"Судья (раунд {last.get('round')}, {last.get('verdict')}) смотрел эти снимки: его находки в "
+                         "artifacts/judge/JUDGE.md. Исправь в коде находки, подтверждённые кадром (Blocker и Critical — "
+                         "обязательно), отметь их в колонке «Статус», перезапусти гейт и закончи «ЭТАП ГОТОВ». "
+                         "Судью позовёт харнесс по новым снимкам."]
+        if judge_now:
             code, out = run_judge(ws)
             emit(ev="note", text=f"судья: {out[-300:]}")
             if code == 0:
+                try:
+                    j = json.loads(out.strip().splitlines()[-1])
+                except (ValueError, IndexError):
+                    j = {}
+                ws.state["judge_last"] = {"fp": snapshots_fp(ws), "verdict": j.get("verdict"), "round": j.get("round")}
+                ws.save()
                 continue
             if code == 3:
                 notes = ["Лимит раундов судьи исчерпан. Покажи владельцу страницу и открытые находки JUDGE.md одним "
