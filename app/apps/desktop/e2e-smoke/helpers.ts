@@ -65,6 +65,12 @@ export interface LaunchOptions {
   workspace?: string;
   /** Extra Chromium/Electron switches (e.g. `--proxy-server=…`). */
   args?: string[];
+  /** Selector that means "launched" (default: app ready in test mode, key screen otherwise). */
+  readySelector?: string;
+  /** Reuse an existing userData dir (e.g. relaunch after an update). */
+  userData?: string;
+  /** Extra env for the app, applied last (product mode strips ZENO_/PRSLOY_/PI_ before). */
+  env?: Record<string, string>;
   /** Runs before launch with the userData dir (seed state files). */
   prepare?: (userData: string) => Promise<void>;
   /**
@@ -213,6 +219,8 @@ export async function launch(label: string, options: LaunchOptions = {}): Promis
     env.Path = cleanWindowsPath(takeEnv(env, "Path") ?? "");
   }
 
+  Object.assign(env, options.env ?? {});
+
   const mainLog = join(outDir, `${label}-main.log`);
   const rendererLog = join(outDir, `${label}-renderer.log`);
   const t0 = Date.now();
@@ -271,7 +279,9 @@ export async function launch(label: string, options: LaunchOptions = {}): Promis
   });
   page.on("crash", () => void appendFile(rendererLog, `[crash] renderer crashed\n`));
 
-  await page.waitForSelector(testMode ? APP_READY : FIRST_RUN_KEY, { timeout: 180_000 });
+  await page.waitForSelector(options.readySelector ?? (testMode ? APP_READY : FIRST_RUN_KEY), {
+    timeout: 180_000,
+  });
   const readyMs = Date.now() - t0;
   if (defaultProfile) userData = await app.evaluate(({ app: a }) => a.getPath("userData"));
   return {

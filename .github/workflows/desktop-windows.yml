@@ -210,8 +210,97 @@ jobs:
           path: app/smoke-out
           retention-days: 14
 
+  # Auto-update end to end: build A and a newer B like the tag build, install A, serve B from a
+  # local feed (test-only loopback override, see auto-update.ts resolveUpdateFeed) and check
+  # that a tampered B is refused quietly and a good B installs and relaunches as B.
+  update-e2e:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    env:
+      ELECTRON_BUILDER_CACHE: ${{ github.workspace }}/../.cache/electron-builder
+      ELECTRON_CACHE: ${{ github.workspace }}/../.cache/electron
+      UPDATE_VERSION_A: 0.1.0-alpha.90
+      UPDATE_VERSION_B: 0.1.0-alpha.91
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11.15.1
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: app/pnpm-lock.yaml
+      - name: Install
+        run: pnpm install --frozen-lockfile
+      - name: Electron binary
+        run: pnpm electron:install
+      - name: Build A and B (same path as the tag build)
+        shell: bash
+        run: |
+          set -euo pipefail
+          export CSC_IDENTITY_AUTO_DISCOVERY=false
+          for VERSION in "$UPDATE_VERSION_A" "$UPDATE_VERSION_B"; do
+            node -e "const f='./apps/desktop/package.json';const p=require(f);p.version='${VERSION}';require('fs').writeFileSync(f,JSON.stringify(p,null,2)+'\n')"
+            rm -rf apps/desktop/release/app
+            start=$(date +%s)
+            pnpm package
+            echo "built ${VERSION} in $(( $(date +%s) - start )) s"
+            node scripts/release-assets.mjs collect apps/desktop/release/app "${RUNNER_TEMP}/upd/${VERSION}" --platform win --arch X64
+            ls -la "${RUNNER_TEMP}/upd/${VERSION}"
+          done
+      - name: Feeds (good, tampered) and install A
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          New-Item -ItemType Directory -Force smoke-out | Out-Null
+          $a = Join-Path $env:RUNNER_TEMP "upd\$env:UPDATE_VERSION_A"
+          $b = Join-Path $env:RUNNER_TEMP "upd\$env:UPDATE_VERSION_B"
+          $good = Join-Path $env:RUNNER_TEMP 'feed-good'
+          $bad = Join-Path $env:RUNNER_TEMP 'feed-bad'
+          New-Item -ItemType Directory -Force $good, $bad | Out-Null
+          # B's feed + A's blockmap (electron-updater diffs the old and new blockmaps).
+          Copy-Item "$b\*" $good
+          Copy-Item "$a\*.blockmap" $good
+          Copy-Item "$good\*" $bad
+          # Tampered B: same size, one byte flipped mid-file, latest.yml unchanged → sha512 mismatch.
+          $exeBad = Get-ChildItem $bad -Filter '*.exe' | Select-Object -First 1
+          $bytes = [IO.File]::ReadAllBytes($exeBad.FullName)
+          $i = [int]($bytes.Length / 2)
+          $bytes[$i] = $bytes[$i] -bxor 0xFF
+          [IO.File]::WriteAllBytes($exeBad.FullName, $bytes)
+          Copy-Item "$b\latest.yml" smoke-out/latest-B.yml
+          Get-ChildItem $a, $b | Select-Object Name, Length | Format-Table | Out-String | Write-Host
+          $setup = Get-ChildItem $a -Filter 'PRSLOY-*-win-x64.exe' | Select-Object -First 1
+          $p = Start-Process $setup.FullName -ArgumentList '/S','/currentuser' -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "installer exit code $($p.ExitCode)" }
+          $exe = Join-Path $env:LOCALAPPDATA 'Programs\PRSLOY\PRSLOY.exe'
+          if (-not (Test-Path $exe)) { throw 'PRSLOY.exe not found after install' }
+          "PRSLOY_EXE=$exe" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
+          "UPDATE_FEED_GOOD=$good" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
+          "UPDATE_FEED_BAD=$bad" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
+      - name: Update e2e
+        working-directory: app/apps/desktop
+        env:
+          SMOKE_OUT: ${{ github.workspace }}/app/smoke-out
+          SMOKE_REPORT: update
+        run: pnpm exec playwright test -c playwright.smoke.config.ts update.spec.ts
+      - name: Summary
+        if: always()
+        shell: pwsh
+        run: |
+          "## Auto-update e2e" | Out-File -Append $env:GITHUB_STEP_SUMMARY
+          $path = Join-Path smoke-out 'metrics.json'
+          if (Test-Path $path) { '```json', (Get-Content $path -Raw), '```' | Out-File -Append $env:GITHUB_STEP_SUMMARY }
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: prsloy-win-update-e2e
+          path: app/smoke-out
+          retention-days: 14
+
   release:
-    needs: [package, smoke]
+    needs: [package, smoke, update-e2e]
     if: github.ref_type == 'tag'
     runs-on: ubuntu-latest
     permissions:
