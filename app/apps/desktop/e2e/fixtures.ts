@@ -34,6 +34,13 @@ export interface LaunchOptions {
   toolCall?: { name: string; arguments: Record<string, unknown> };
 }
 
+/**
+ * `PRSLOY_E2E_PACKAGED=<path to the packaged app executable>` runs the suite against an
+ * electron-builder output (e.g. release/app/linux-unpacked/PRSLOY) instead of the dev tree:
+ * catches modules missing from app.asar.
+ */
+const packagedExecutable = process.env.PRSLOY_E2E_PACKAGED?.trim() || undefined;
+
 export async function launchZenoApp(options: LaunchOptions = {}): Promise<LaunchedZeno> {
   const root = await mkdtemp(join(tmpdir(), "zeno-e2e-"));
   const home = join(root, "home");
@@ -182,9 +189,13 @@ export async function launchZenoApp(options: LaunchOptions = {}): Promise<Launch
   await mkdir(userData, { recursive: true });
 
   const app = await electron.launch({
-    executablePath: electronBinary,
+    executablePath: packagedExecutable ?? electronBinary,
     // The suite asserts Chinese copy; PRSLOY otherwise detects ru for this environment.
-    args: [appDirectory, `--user-data-dir=${userData}`, "--lang=zh-CN"],
+    args: [
+      ...(packagedExecutable ? [] : [appDirectory]),
+      `--user-data-dir=${userData}`,
+      "--lang=zh-CN",
+    ],
     cwd: appDirectory,
     env,
     timeout: 60_000,

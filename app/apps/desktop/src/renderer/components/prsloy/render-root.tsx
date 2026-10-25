@@ -5,6 +5,7 @@
 import { StrictMode, type ComponentType } from "react";
 import { createRoot } from "react-dom/client";
 import { FirstRunGate } from "./FirstRunGate.tsx";
+import { UpdateReadyNotice } from "./UpdateReadyNotice.tsx";
 
 export function renderAppRoot(App: ComponentType): void {
   const root = document.querySelector("#root");
@@ -13,6 +14,7 @@ export function renderAppRoot(App: ComponentType): void {
     <StrictMode>
       <FirstRunGate>
         <App />
+        <UpdateReadyNotice />
       </FirstRunGate>
     </StrictMode>,
   );

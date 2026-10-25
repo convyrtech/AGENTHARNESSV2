@@ -16,10 +16,11 @@ import {
   type PrsloyHomePaths,
 } from "./agent-home.ts";
 import { PrsloyKeyStore, type SecretCipher } from "./key-store.ts";
+import { GitRuntime, type GitSetupState } from "./runtime-git.ts";
 import { TurnSnapshots } from "./turn-snapshots.ts";
 import { chooseGitBinary, chooseWindowsShellPath } from "./windows-shell.ts";
 
-export type PrsloyState = { baseUrl: string };
+export type PrsloyState = { baseUrl: string; migrations?: string[] };
 
 export type PrsloyContext = {
   paths: PrsloyHomePaths;
@@ -28,9 +29,12 @@ export type PrsloyContext = {
   /** prsloy-harness extensions run in every session (bundled into the host). */
   harnessEnabled: boolean;
   /** Windows only: what pi's bash tool runs. */
-  shellPath?: string;
-  shellSource?: "bundled" | "system" | "missing";
-  gitBinary: string;
+  readonly shellPath: string | undefined;
+  readonly shellSource: "bundled" | "system" | "missing" | undefined;
+  /** git for turn snapshots, re-resolved per call (PortableGit may still be unpacking). */
+  gitBinary(): string;
+  /** PortableGit unpacked in the background on first launch (Windows). */
+  git: GitRuntime;
   keyStore: PrsloyKeyStore;
   snapshots: TurnSnapshots;
   getState(): PrsloyState;
@@ -43,8 +47,13 @@ export type PrsloyContext = {
 function readState(path: string): PrsloyState {
   try {
     const parsed = JSON.parse(readFileSync(path, "utf8")) as Partial<PrsloyState>;
-    const baseUrl = normalizePrsloyBaseUrl(parsed.baseUrl);
-    if (baseUrl) return { baseUrl };
+    const baseUrl = normalizePrsloyBaseUrl(parsed.baseUrl) ?? PRSLOY_DEFAULT_BASE_URL;
+    return {
+      baseUrl,
+      ...(Array.isArray(parsed.migrations)
+        ? { migrations: parsed.migrations.filter((m) => typeof m === "string") }
+        : {}),
+    };
   } catch {
     // fall through to defaults
   }
@@ -84,6 +93,9 @@ export function bootstrapPrsloy(options: {
   runtimesRoot?: string | undefined;
   pythonExecutable?: string | undefined;
   cipher: SecretCipher;
+  /** Shipped PortableGit self-extractor (Windows packaged builds). */
+  gitArchive?: { path: string; version?: string | undefined; files?: number | undefined };
+  onGitSetup?: (state: GitSetupState) => void;
   env?: NodeJS.ProcessEnv;
   platform?: NodeJS.Platform;
 }): PrsloyContext {
@@ -108,15 +120,25 @@ export function bootstrapPrsloy(options: {
   installSearchTools(join(runtimesRoot, "tools"), agentDir);
   let shellPath: string | undefined;
   let shellSource: PrsloyContext["shellSource"];
-  if (platform === "win32") {
+  // Re-run when PortableGit finishes unpacking: bundled bash wins over a system Git.
+  const refreshShell = () => {
+    if (platform !== "win32") return;
     const chosen = chooseWindowsShellPath({ bundledGitRoot, env });
     shellPath = chosen.shellPath;
     shellSource = chosen.source;
-  }
-  const gitBinary = chooseGitBinary({ platform, bundledGitRoot, env });
+    ensurePrsloySettings(agentDir, { shellPath });
+  };
+  const gitBinary = () => chooseGitBinary({ platform, bundledGitRoot, env });
 
   ensurePrsloyModelsJson(agentDir, state.baseUrl);
-  ensurePrsloySettings(agentDir, { shellPath });
+  const MCP_MIGRATION = "no-auto-mcp-adapter";
+  const dropAutoMcpAdapter = !state.migrations?.includes(MCP_MIGRATION);
+  ensurePrsloySettings(agentDir, { shellPath, dropAutoMcpAdapter });
+  if (dropAutoMcpAdapter) {
+    state = { ...state, migrations: [...(state.migrations ?? []), MCP_MIGRATION] };
+    writeState(statePath, state);
+  }
+  refreshShell();
   try {
     writeAgentShims({
       shimsDir: paths.shimsDir,
@@ -130,15 +152,30 @@ export function bootstrapPrsloy(options: {
   const harnessEnabled = env.PRSLOY_HARNESS !== "0";
   const keyStore = new PrsloyKeyStore(join(paths.stateDir, "gateway-key.bin"), options.cipher);
   const snapshots = new TurnSnapshots({ root: paths.snapshotsDir, gitBinary, platform });
+  const git = new GitRuntime({
+    runtimesRoot,
+    archive: options.gitArchive?.path,
+    version: options.gitArchive?.version,
+    expectedFiles: options.gitArchive?.files,
+    onChange: (gitState) => {
+      if (gitState.status === "ready") refreshShell();
+      options.onGitSetup?.(gitState);
+    },
+  });
 
   return {
     paths,
     agentDir,
     sessionDir,
     harnessEnabled,
-    ...(shellPath ? { shellPath } : {}),
-    ...(shellSource ? { shellSource } : {}),
+    get shellPath() {
+      return shellPath;
+    },
+    get shellSource() {
+      return shellSource;
+    },
     gitBinary,
+    git,
     keyStore,
     snapshots,
     getState: () => ({ ...state }),

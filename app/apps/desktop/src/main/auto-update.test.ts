@@ -3,6 +3,7 @@ import {
   buildAppUpdateStatus,
   createAutoUpdateController,
   DEFAULT_UPDATE_FEED,
+  updatesDisabledByEnv,
 } from "./auto-update.ts";
 
 describe("buildAppUpdateStatus", () => {
@@ -238,5 +239,81 @@ describe("createAutoUpdateController", () => {
     expect(status.state).toBe("error");
     expect(status.error).toContain("network down");
     controller.dispose();
+  });
+
+  it("PRSLOY feed: own repo, prereleases allowed, quiet download after the startup check", async () => {
+    vi.useFakeTimers();
+    try {
+      const listeners = new Map<string, Array<(...args: unknown[]) => void>>();
+      const emit = (event: string, ...args: unknown[]) =>
+        (listeners.get(event) ?? []).forEach((fn) => fn(...args));
+      const broadcast = vi.fn();
+      const updater = {
+        autoDownload: true,
+        autoInstallOnAppQuit: false,
+        allowPrerelease: false,
+        logger: null as typeof console | null,
+        checkForUpdates: vi.fn(async () => {
+          emit("update-available", { version: "0.1.0-alpha.3" });
+          return { updateInfo: { version: "0.1.0-alpha.3" } };
+        }),
+        downloadUpdate: vi.fn(async () => {
+          emit("update-downloaded", { version: "0.1.0-alpha.3" });
+        }),
+        quitAndInstall: vi.fn(),
+        setFeedURL: vi.fn(),
+        on(event: string, listener: (...args: unknown[]) => void) {
+          listeners.set(event, [...(listeners.get(event) ?? []), listener]);
+        },
+        removeAllListeners() {
+          listeners.clear();
+        },
+      };
+      const controller = createAutoUpdateController({
+        broadcast,
+        isPackaged: true,
+        getVersion: () => "0.1.0-alpha.2",
+        loadUpdater: () => updater,
+        platform: "win32",
+        startupDelayMs: 10,
+        disabled: false,
+      });
+      expect(DEFAULT_UPDATE_FEED).toMatchObject({ owner: "convyrtech", repo: "AGENTHARNESSV2" });
+      await vi.advanceTimersByTimeAsync(20);
+      expect(updater.allowPrerelease).toBe(true);
+      expect(updater.setFeedURL).toHaveBeenCalledWith(DEFAULT_UPDATE_FEED);
+      expect(updater.downloadUpdate).toHaveBeenCalledTimes(1);
+      expect(controller.getStatus()).toMatchObject({
+        state: "downloaded",
+        availableVersion: "0.1.0-alpha.3",
+      });
+      controller.dispose();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("never checks in test mode", async () => {
+    vi.useFakeTimers();
+    try {
+      const loadUpdater = vi.fn();
+      const controller = createAutoUpdateController({
+        broadcast: () => undefined,
+        isPackaged: true,
+        getVersion: () => "0.1.0-alpha.2",
+        loadUpdater,
+        platform: "win32",
+        startupDelayMs: 10,
+        disabled: updatesDisabledByEnv({ ZENO_ENABLE_TEST_COMMANDS: "1" }),
+      });
+      await vi.advanceTimersByTimeAsync(50);
+      expect((await controller.checkForUpdates()).state).toBe("not-available");
+      expect(loadUpdater).not.toHaveBeenCalled();
+      expect(updatesDisabledByEnv({ PRSLOY_NO_UPDATE: "1" })).toBe(true);
+      expect(updatesDisabledByEnv({})).toBe(false);
+      controller.dispose();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

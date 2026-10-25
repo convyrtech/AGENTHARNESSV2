@@ -150,8 +150,10 @@ describe.skipIf(process.platform === "win32")("shims (real shell)", () => {
       platform: "win32",
     });
     expect(written.some((p) => p.endsWith("claude.cmd"))).toBe(true);
-    expect(readFileSync(join(shimsDir, "python3"), "utf8")).toContain(
-      "C:/Users/u/AppData/Roaming/PRSLOY/runtimes/python/python.exe",
+    // Exact format: fetch-runtimes.mjs verifyPythonShimInGitBash() smokes the same script
+    // inside Git Bash on the Windows runner.
+    expect(readFileSync(join(shimsDir, "python3"), "utf8")).toBe(
+      `#!/bin/sh\nexec 'C:/Users/u/AppData/Roaming/PRSLOY/runtimes/python/python.exe' "$@"\n`,
     );
     expect(readFileSync(join(shimsDir, "python3.cmd"), "utf8")).toContain(
       '"C:\\Users\\u\\AppData\\Roaming\\PRSLOY\\runtimes\\python\\python.exe" %*',

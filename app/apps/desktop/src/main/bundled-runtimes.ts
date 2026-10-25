@@ -25,6 +25,8 @@ export type BundledRuntimeManifest = {
   python?: string;
   /** Windows: Git for Windows version (PortableGit under runtimes/git). */
   git?: string;
+  /** Windows: file count of the unpacked PortableGit tree (first-launch progress). */
+  gitFiles?: number;
   pythonReleaseTag?: string;
   platform?: string;
   arch?: string;

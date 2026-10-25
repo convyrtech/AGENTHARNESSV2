@@ -15,6 +15,7 @@ const state: PrsloyState = {
   needsWorkspace: false,
   harnessLoaded: true,
   firstRunBypass: false,
+  gitSetup: { status: "absent" },
 };
 
 function mockPrsloy() {

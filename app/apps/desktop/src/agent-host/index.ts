@@ -626,6 +626,21 @@ async function handleCommand(command: HostCommand): Promise<void> {
         });
         break;
       }
+      case "session.note": {
+        if (!handle) throw new Error("Agent Host is not ready");
+        // Idle: appended to the session now; the model reads it on its next turn.
+        await handle.runtime.session.sendCustomMessage(
+          { customType: command.customType, content: command.text, display: true },
+          { triggerTurn: false },
+        );
+        post({
+          protocolVersion: IPC_PROTOCOL_VERSION,
+          type: "runtime.snapshot",
+          requestId: command.requestId,
+          snapshot: handle.snapshot(++sequence),
+        });
+        break;
+      }
       case "session.clone": {
         if (!handle) throw new Error("Agent Host is not ready");
         const result = await handle.cloneSession();

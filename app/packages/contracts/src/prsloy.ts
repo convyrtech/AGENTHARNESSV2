@@ -31,6 +31,11 @@ export interface PrsloyState {
    * `ZENO_ENABLE_TEST_COMMANDS=1` unless `PRSLOY_FORCE_FIRST_RUN=1`.
    */
   firstRunBypass: boolean;
+  /**
+   * Windows first launch: bundled Git (the agent's bash) is being unpacked in the
+   * background. "absent" elsewhere.
+   */
+  gitSetup: { status: "absent" | "installing" | "ready" | "failed"; percent?: number };
 }
 
 export type PrsloyKeyResult =

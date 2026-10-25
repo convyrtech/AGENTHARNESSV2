@@ -38,7 +38,36 @@ export type PrsloyIpcDeps = {
   getWorkspace(): string | undefined;
   needsWorkspace(): boolean;
   isAgentBusy(): boolean;
+  /** Tell the model (next turn) what an undo changed; best effort. */
+  appendSessionNote?(customType: string, text: string): Promise<void>;
 };
+
+export const UNDO_NOTE_CUSTOM_TYPE = "prsloy.undo";
+
+/**
+ * What the model reads after «Откатить ход»: without it the next turn still "remembers"
+ * files from the undone turn (live test: it re-created hello.py).
+ */
+export function undoNoteText(result: {
+  restoredTo: { turn: number };
+  removed: string[];
+  rewritten: string[];
+}): string {
+  const list = (paths: string[]) =>
+    paths.length > 20
+      ? `${paths.slice(0, 20).join(", ")} и ещё ${paths.length - 20}`
+      : paths.join(", ");
+  const lines = [
+    `Файлы хода ${result.restoredTo.turn} откатены: папка проекта возвращена к состоянию до этого хода.`,
+  ];
+  if (result.removed.length > 0) lines.push(`Удалены: ${list(result.removed)}.`);
+  if (result.rewritten.length > 0)
+    lines.push(`Возвращены к прежнему виду: ${list(result.rewritten)}.`);
+  lines.push(
+    "Изменения из этого и следующих ходов больше не действуют. Не опирайся на них: перед работой с этими файлами прочитай их заново.",
+  );
+  return lines.join("\n");
+}
 
 export function buildPrsloyState(ctx: PrsloyContext, needsWorkspace: boolean): PrsloyState {
   const key = ctx.keyStore.read();
@@ -51,6 +80,9 @@ export function buildPrsloyState(ctx: PrsloyContext, needsWorkspace: boolean): P
     needsWorkspace,
     ...(ctx.shellSource ? { shellSource: ctx.shellSource } : {}),
     harnessLoaded: ctx.harnessEnabled,
+    gitSetup: (({ status, percent }) => (percent === undefined ? { status } : { status, percent }))(
+      ctx.git.state(),
+    ),
     firstRunBypass:
       process.env.ZENO_ENABLE_TEST_COMMANDS === "1" && process.env.PRSLOY_FORCE_FIRST_RUN !== "1",
   };
@@ -144,6 +176,11 @@ export function registerPrsloyIpc(ipcMain: IpcMainLike, deps: PrsloyIpcDeps): vo
     const workspace = deps.getWorkspace();
     if (!workspace) throw new Error("No workspace is open");
     const result = await ctx.snapshots.restore(workspace, rawId);
+    try {
+      await deps.appendSessionNote?.(UNDO_NOTE_CUSTOM_TYPE, undoNoteText(result));
+    } catch (error) {
+      console.warn("[prsloy] undo note for the model failed:", error);
+    }
     return {
       restoredTo: toSnapshotView(result.restoredTo),
       ...(result.backup ? { backup: toSnapshotView(result.backup) } : {}),
@@ -151,6 +188,19 @@ export function registerPrsloyIpc(ipcMain: IpcMainLike, deps: PrsloyIpcDeps): vo
       removed: result.removed,
     };
   });
+}
+
+/**
+ * Before an agent turn: wait (bounded) for PortableGit if it is still unpacking on first
+ * launch (pi's bash needs it), then snapshot the workspace for «Откатить ход».
+ */
+export async function prepareTurn(
+  ctx: PrsloyContext,
+  workspace: string | undefined,
+  meta: { prompt?: string; sessionId?: string },
+): Promise<void> {
+  if (ctx.git.state().status === "installing") await ctx.git.whenReady(180_000);
+  await snapshotBeforeTurn(ctx, workspace, meta);
 }
 
 /** Snapshot before an agent turn; bounded so a huge folder never delays the prompt long. */

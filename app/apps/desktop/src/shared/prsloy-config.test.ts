@@ -5,6 +5,8 @@ import {
   PRSLOY_DEFAULT_BASE_URL,
   PRSLOY_MODELS,
   PRSLOY_UNPRICED,
+  PRSLOY_PRICES_USD_PER_M,
+  prsloyModelCost,
   PRSLOY_SPEED_MODES,
   prsloyModelForSpeed,
   prsloySpeedForModel,
@@ -72,16 +74,38 @@ describe("prsloy config", () => {
     expect(byId["claude-opus-5-5"]!.reasoning).toBe(false);
     expect(byId["claude-opus-5-5"]!.compat.supportsReasoningEffort).toBe(false);
   });
+
+  it("prices every catalog model; cache read is 10% of input where measured", () => {
+    for (const model of PRSLOY_MODELS) expect(PRSLOY_PRICES_USD_PER_M[model.id]).toBeDefined();
+    expect(prsloyModelCost("deepseek-v4.1-flash-1017")).toEqual({
+      input: 0.0012,
+      output: 0.0048,
+      cacheRead: 0.00012,
+      cacheWrite: 0.0012,
+    });
+    expect(prsloyModelCost("claude-opus-5-5").cacheRead).toBe(0.096);
+    expect(prsloyModelCost("kimi-k3.1-pro", 3).output).toBeCloseTo(0.612, 10);
+    expect(prsloyModelCost("unknown")).toEqual({
+      input: 0,
+      output: 0,
+      cacheRead: 0,
+      cacheWrite: 0,
+    });
+    const block = buildPrsloyModelsJsonProvider("https://gw/v1") as {
+      models: { id: string; cost: { input: number } }[];
+    };
+    expect(block.models.find((m) => m.id === "qwen3.8-max")!.cost.input).toBe(0.036);
+  });
 });
 
 describe("model prices", () => {
-  it("writes each model's price into models.json, zero when unknown", () => {
+  it("writes each model's price from the one price table into models.json", () => {
     const provider = buildPrsloyModelsJsonProvider("https://api.prsloy.online/v1") as {
       models: Array<{ id: string; cost: unknown }>;
     };
     for (const model of provider.models) {
-      const def = PRSLOY_MODELS.find((m) => m.id === model.id)!;
-      expect(model.cost).toEqual(def.cost ?? PRSLOY_UNPRICED);
+      expect(model.cost).toEqual(prsloyModelCost(model.id));
+      expect(model.cost).not.toEqual(PRSLOY_UNPRICED);
     }
     expect(PRSLOY_UNPRICED).toEqual({ input: 0, output: 0, cacheRead: 0, cacheWrite: 0 });
   });

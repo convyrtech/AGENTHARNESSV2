@@ -19,7 +19,7 @@ export type PrsloyCompat = {
   thinkingFormat?: "openai" | "deepseek" | "qwen";
 };
 
-/** Retail price in US dollars per 1M tokens (pi's `models.json` cost unit). */
+/** Price in US dollars per 1M tokens (pi's `models.json` cost unit). */
 export type PrsloyModelCost = {
   input: number;
   output: number;
@@ -38,8 +38,6 @@ export const PRSLOY_UNPRICED: PrsloyModelCost = {
 export type PrsloyModelDef = {
   id: string;
   name: string;
-  /** Set once retail prices are known; pi computes turn and session cost from it. */
-  cost?: PrsloyModelCost;
   reasoning: boolean;
   input: ("text" | "image")[];
   contextWindow: number;
@@ -118,6 +116,38 @@ export const PRSLOY_MODELS: readonly PrsloyModelDef[] = [
   },
 ];
 
+/**
+ * Gateway prices, USD per 1M tokens (measured gateway cost for now). `cacheRead` omitted →
+ * cached input is billed like input; where measured it is 10% of input. Retail = cost × PRSLOY_PRICE_MULTIPLIER.
+ */
+export const PRSLOY_PRICES_USD_PER_M: Readonly<
+  Record<string, { input: number; output: number; cacheRead?: number }>
+> = {
+  "deepseek-v4.1-flash-1017": { input: 0.0012, output: 0.0048, cacheRead: 0.00012 },
+  "kimi-k3.1-pro": { input: 0.041, output: 0.204, cacheRead: 0.0041 },
+  "qwen3.8-max": { input: 0.036, output: 0.108 },
+  "claude-opus-5-5": { input: 0.096, output: 0.48 },
+};
+
+/** One knob for the owner to move from cost to retail pricing. */
+export const PRSLOY_PRICE_MULTIPLIER = 1;
+
+/** pi `cost` block (USD per 1M tokens) for a catalog model, multiplier applied. */
+export function prsloyModelCost(
+  modelId: string,
+  multiplier: number = PRSLOY_PRICE_MULTIPLIER,
+): PrsloyModelCost {
+  const price = PRSLOY_PRICES_USD_PER_M[modelId];
+  if (!price) return { ...PRSLOY_UNPRICED };
+  const input = price.input * multiplier;
+  return {
+    input,
+    output: price.output * multiplier,
+    cacheRead: (price.cacheRead ?? price.input) * multiplier,
+    cacheWrite: input,
+  };
+}
+
 export type PrsloySpeedMode = "fast" | "quality";
 
 /**
@@ -189,7 +219,7 @@ export function buildPrsloyModelsJsonProvider(baseUrl: string): Record<string, u
       input: [...model.input],
       contextWindow: model.contextWindow,
       maxTokens: model.maxTokens,
-      cost: { ...(model.cost ?? PRSLOY_UNPRICED) },
+      cost: prsloyModelCost(model.id),
       compat: { ...model.compat },
     })),
   };

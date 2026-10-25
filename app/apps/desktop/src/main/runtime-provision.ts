@@ -28,7 +28,10 @@ export type VendorRuntimeLayout = {
   archives?: {
     node?: string;
     python?: string;
-    /** Windows: PortableGit (bash for the agent, git for turn snapshots). */
+    /**
+     * Windows: PortableGit self-extractor (bash for the agent, git for turn snapshots).
+     * Not unpacked here: `prsloy/runtime-git.ts` does it in the background.
+     */
     git?: string;
     /** Windows: rg.exe / fd.exe for pi grep/find. */
     tools?: string;
@@ -93,7 +96,7 @@ export function resolveVendorRuntimeLayout(options: {
     const manifestPath = join(vendorRoot, "manifest.json");
     const nodeArchive = join(archivesDir, "node.tar.gz");
     const pythonArchive = join(archivesDir, "python.tar.gz");
-    const gitArchive = join(archivesDir, "git.tar.gz");
+    const gitArchive = join(archivesDir, "git.7z.exe");
     const toolsArchive = join(archivesDir, "tools.tar.gz");
     const hasArchives =
       existsSync(archivesDir) && (existsSync(nodeArchive) || existsSync(pythonArchive));
@@ -167,13 +170,9 @@ export function isProvisionStampCurrent(
   if (expectedPython && stamp.python !== expectedPython) return false;
   const nodeOk = !expectedNode || Boolean(getBundledNodeExecutable(roots.nodeRoot));
   const pyOk = !expectedPython || Boolean(getBundledPythonExecutable(roots.pythonRoot));
-  // Git arrived after the first alpha installs: a stamp without it must re-extract.
-  const expectedGit = manifest?.git;
-  const gitOk =
-    !expectedGit ||
-    (stamp.git === expectedGit && existsSync(join(userRoot, "git", "bin", "bash.exe")));
+  // tools/ arrived after the first alpha installs: re-extract when it is missing.
   const toolsOk = !vendor.archives?.tools || existsSync(join(userRoot, "tools"));
-  return nodeOk && pyOk && gitOk && toolsOk;
+  return nodeOk && pyOk && toolsOk;
 }
 
 export function readProvisionStamp(userDataPath: string): ProvisionStamp | undefined {
@@ -212,7 +211,7 @@ function runTar(args: string[]): void {
  * Uses system `tar` (macOS/Linux/modern Windows).
  */
 export function extractRuntimeArchives(
-  archives: { node?: string; python?: string; git?: string; tools?: string },
+  archives: { node?: string; python?: string; tools?: string },
   destRoot: string,
 ): void {
   mkdirSync(destRoot, { recursive: true });
@@ -226,11 +225,9 @@ export function extractRuntimeArchives(
     rmSync(pyDest, { recursive: true, force: true });
     runTar(["-xzf", archives.python, "-C", destRoot]);
   }
-  for (const name of ["git", "tools"] as const) {
-    const archive = archives[name];
-    if (!archive) continue;
-    rmSync(join(destRoot, name), { recursive: true, force: true });
-    runTar(["-xzf", archive, "-C", destRoot]);
+  if (archives.tools) {
+    rmSync(join(destRoot, "tools"), { recursive: true, force: true });
+    runTar(["-xzf", archives.tools, "-C", destRoot]);
   }
 }
 
@@ -377,7 +374,6 @@ export function ensureProvisionedRuntimes(options: {
         {
           ...(vendor.archives.node ? { node: vendor.archives.node } : {}),
           ...(vendor.archives.python ? { python: vendor.archives.python } : {}),
-          ...(vendor.archives.git ? { git: vendor.archives.git } : {}),
           ...(vendor.archives.tools ? { tools: vendor.archives.tools } : {}),
         },
         userRoot,
@@ -406,7 +402,6 @@ export function ensureProvisionedRuntimes(options: {
           provisionedAt: new Date().toISOString(),
           ...(vendor.archives.manifest.node ? { node: vendor.archives.manifest.node } : {}),
           ...(vendor.archives.manifest.python ? { python: vendor.archives.manifest.python } : {}),
-          ...(vendor.archives.manifest.git ? { git: vendor.archives.manifest.git } : {}),
           ...(vendor.archives.manifest.pythonReleaseTag
             ? { pythonReleaseTag: vendor.archives.manifest.pythonReleaseTag }
             : {}),

@@ -142,7 +142,7 @@ import {
 } from "./bundled-runtimes.ts";
 import { ensureProvisionedRuntimes } from "./runtime-provision.ts";
 import { electronFetch, initPrsloy } from "./prsloy/electron.ts";
-import { registerPrsloyIpc, snapshotBeforeTurn } from "./prsloy/ipc.ts";
+import { prepareTurn, registerPrsloyIpc } from "./prsloy/ipc.ts";
 import {
   isConversationWorkspacePath,
   isNonProjectWorkspacePath,
@@ -2230,8 +2230,8 @@ function pendingHasPrompt(pending: Map<string, PendingWaiter>): boolean {
   return false;
 }
 
-/** Auto-installed so every user has MCP. pi's own MCP is built-in but unreachable from the SDK — earendil-works/pi#10337. */
-const BUILTIN_PACKAGES = ["npm:pi-mcp-adapter"];
+/** PRSLOY alpha: nothing is installed from npm on first launch (MCP is off; bundle it if needed). */
+const BUILTIN_PACKAGES: string[] = [];
 
 class HostSupervisor {
   #host: ActiveHost | undefined;
@@ -2588,6 +2588,19 @@ class HostSupervisor {
     return this.#exclusive(() => this.#startExclusive(options));
   }
 
+  /** PRSLOY: a note the model reads on its next turn (pi custom message). */
+  async appendSessionNote(customType: string, text: string): Promise<void> {
+    if (!this.#host) return;
+    const event = await this.#request({
+      protocolVersion: IPC_PROTOCOL_VERSION,
+      type: "session.note",
+      requestId: randomUUID(),
+      customType,
+      text,
+    });
+    if (event.type === "runtime.snapshot") this.#acceptSnapshot(event.snapshot);
+  }
+
   /** PRSLOY: respawn with a fresh env (gateway key / URL changed), same workspace + session. */
   restartWithFreshEnv(): Promise<HostSnapshot | undefined> {
     return this.#exclusive(async () => {
@@ -2892,7 +2905,7 @@ class HostSupervisor {
     if (!this.#host) await this.start();
     // «Откатить ход»: snapshot the workspace before a new turn (not for steer/follow-up).
     if (!streamingBehavior && !this.#isForegroundBusy()) {
-      await snapshotBeforeTurn(prsloy, this.#workspaceCwd ?? this.#snapshot?.cwd, {
+      await prepareTurn(prsloy, this.#workspaceCwd ?? this.#snapshot?.cwd, {
         prompt: message,
         ...(this.#snapshot?.sessionId ? { sessionId: this.#snapshot.sessionId } : {}),
       });
@@ -4818,6 +4831,9 @@ void app
       getWorkspace: () => supervisor?.getWorkspaceCwd(),
       needsWorkspace: () => !durableWorkspacePath(loadDesktopPrefs().lastWorkspace),
       isAgentBusy: () => supervisor?.getSdkSwitchActivity().agentBusy ?? false,
+      appendSessionNote: async (customType, text) => {
+        await supervisor?.appendSessionNote(customType, text);
+      },
     });
     ipcMain.handle("zeno:window:minimize", () => {
       if (mainWindow && !mainWindow.isDestroyed()) mainWindow.minimize();

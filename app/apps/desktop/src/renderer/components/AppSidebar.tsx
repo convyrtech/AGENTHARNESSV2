@@ -962,8 +962,9 @@ function SidebarUpdateButton(props: {
               ? tr("nav.update.restartInstall")
               : tr("nav.update.github");
 
-  // Idle, the button is a link to the upstream repository — a developer's concern.
-  if (phase === "github" && !developerMode) return null;
+  // Casual mode stays quiet: idle (repo link), checks, background downloads and errors are
+  // a developer's concern; a ready update shows UpdateReadyNotice and this button.
+  if (!developerMode && phase !== "downloaded" && phase !== "installing") return null;
 
   return (
     <button

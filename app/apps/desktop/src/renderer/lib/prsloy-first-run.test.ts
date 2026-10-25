@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vite-plus/test";
 import type { PrsloyState } from "@zeno/contracts";
-import { cleanPastedKey, firstRunStep, gatewayErrorKey } from "./prsloy-first-run.ts";
+import {
+  cleanPastedKey,
+  firstRunStep,
+  gatewayErrorKey,
+  gitSetupPercent,
+} from "./prsloy-first-run.ts";
 import { t } from "./i18n.ts";
 
 const base: PrsloyState = {
@@ -12,6 +17,7 @@ const base: PrsloyState = {
   needsWorkspace: true,
   harnessLoaded: false,
   firstRunBypass: false,
+  gitSetup: { status: "absent" },
 };
 
 describe("prsloy first run", () => {
@@ -37,6 +43,14 @@ describe("prsloy first run", () => {
       expect(t("zh", key)).not.toBe(key);
     }
     expect(gatewayErrorKey(undefined)).toBe("prsloy.error.server");
+  });
+
+  it("shows git setup progress only while installing", () => {
+    expect(gitSetupPercent(base)).toBeUndefined();
+    expect(gitSetupPercent({ ...base, gitSetup: { status: "installing", percent: 42 } })).toBe(
+      "42",
+    );
+    expect(gitSetupPercent({ ...base, gitSetup: { status: "installing" } })).toBe("0");
   });
 
   it("cleans pasted keys", () => {

@@ -1502,4 +1502,9 @@ export const ru = {
   "empty.example.site": "Сделай простой сайт-визитку",
   "empty.example.explore": "Разберись, что в этой папке",
   "empty.example.fix": "Найди и почини ошибку",
+  "prsloy.setup.git": "Готовлю окружение для команд… {percent}%",
+  "prsloy.update.ready": "Обновление готово — перезапустить",
+  "prsloy.update.dismiss": "Скрыть",
+  "prsloy.firstRun.folderRefused": "Это служебная папка приложения — выберите другую",
+  "prsloy.firstRun.folderFailed": "Не получилось открыть папку {path}",
 } as const;

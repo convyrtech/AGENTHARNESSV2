@@ -10,6 +10,7 @@ import {
   getActiveBundledRuntimeRoots,
   getActiveBundledRuntimeStatus,
 } from "../bundled-runtimes.ts";
+import { resolveVendorRuntimeLayout } from "../runtime-provision.ts";
 import { bootstrapPrsloy, pickPythonExecutable, type PrsloyContext } from "./context.ts";
 import type { FetchLike } from "./gateway-check.ts";
 
@@ -22,9 +23,15 @@ export function initPrsloy(mainModuleUrl: string): PrsloyContext {
   }
   const status = getActiveBundledRuntimeStatus();
   const roots = getActiveBundledRuntimeRoots();
+  const resourcesPath =
+    typeof process.resourcesPath === "string" ? process.resourcesPath : undefined;
+  const vendor = resolveVendorRuntimeLayout({
+    ...(resourcesPath ? { resourcesPath } : {}),
+    mainModuleUrl,
+  });
   const ctx = bootstrapPrsloy({
     userDataPath,
-    resourcesPath: typeof process.resourcesPath === "string" ? process.resourcesPath : undefined,
+    resourcesPath,
     mainModuleUrl,
     runtimesRoot: roots?.root,
     pythonExecutable: pickPythonExecutable({
@@ -33,7 +40,22 @@ export function initPrsloy(mainModuleUrl: string): PrsloyContext {
       bundledPython: status.python?.path,
     }),
     cipher: safeStorage,
+    ...(vendor?.archives?.git
+      ? {
+          gitArchive: {
+            path: vendor.archives.git,
+            version: vendor.archives.manifest.git,
+            files: vendor.archives.manifest.gitFiles,
+          },
+        }
+      : {}),
+    onGitSetup: (state) => {
+      if (state.status !== "installing")
+        console.log(`[prsloy] PortableGit: ${state.status}`, state.error ?? "");
+    },
   });
+  // Unpack PortableGit in the background on first launch; the first turn waits for it.
+  void ctx.git.ensure();
   console.log(
     `[prsloy] agent home ${ctx.agentDir}; harness ${ctx.harnessEnabled ? "on" : "off"}` +
       (ctx.shellPath ? `; shell ${ctx.shellPath} (${ctx.shellSource})` : ""),
