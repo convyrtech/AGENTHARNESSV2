@@ -20,6 +20,7 @@
  */
 import { expect, test } from "@playwright/test";
 import { execFileSync, spawn } from "node:child_process";
+import { existsSync } from "node:fs";
 import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { passFirstRun, seedGateway, startGateway } from "./gateway.ts";
@@ -143,9 +144,15 @@ test.beforeAll(async () => {
   expect(versionA && versionB && feedGood && feedBad && installerA, "UPDATE_* env").toBeTruthy();
 });
 
+const updaterCache = join(process.env.LOCALAPPDATA ?? "", "prsloy-updater");
+
 test.beforeEach(() => {
   if (process.platform !== "win32") return;
   expect(reinstallA()).toContain(versionA);
+  // The installer keeps its own copy here: the base for differential downloads.
+  expect(existsSync(join(updaterCache, "installer.exe")), `${updaterCache}\\installer.exe`).toBe(
+    true,
+  );
 });
 
 test("tampered update (sha512 mismatch): A refuses quietly and keeps running", async () => {
@@ -224,6 +231,19 @@ test("good update: detect, download, «Обновление готово — п�
     await expect(page.locator(READY)).toBeVisible({ timeout: 300_000 });
     const readyMs = Date.now() - t0;
     await expect(page.locator(READY)).toContainText("Обновление готово — перезапустить");
+    // electron-updater downloaded into %LOCALAPPDATA%\prsloy-updater, differentially.
+    const updaterLog = await readFile(launched.mainLog, "utf8").catch(() => "");
+    const cacheLine = /updater cache dir: (.+)/.exec(updaterLog)?.[1]?.trim() ?? "";
+    const toDownload = /To download: ([\d,.]+ KB) \((\d+)%\)/.exec(updaterLog);
+    await writeMetrics({
+      updaterCache: {
+        dir: cacheLine,
+        toDownload: toDownload?.[1] ?? null,
+        percent: toDownload?.[2],
+      },
+    });
+    expect(cacheLine.toLowerCase()).toBe(updaterCache.toLowerCase());
+    expect(Number(toDownload?.[2] ?? 100), "differential download").toBeLessThan(20);
     await shot(page, "31-update-ready");
     await writeMetrics({ updateGood: { readyMs, feed: summarize(feed.hits) } });
 
