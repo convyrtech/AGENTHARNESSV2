@@ -572,6 +572,8 @@ export function projectSessionHistory(
       toolName?: string;
       isError?: boolean;
       customType?: string;
+      /** pi custom messages: false = for the model only (live projection hides them too). */
+      display?: boolean;
       command?: string;
       output?: string;
       exitCode?: number;
@@ -642,10 +644,16 @@ export function projectSessionHistory(
       history.push(item);
     } else if (row.role === "custom") {
       if (isInternalCustomType(row.customType)) continue;
-      const text = textFromMessageContent(row.content).trim();
+      // Notes written for the model (harness reminders, stop-gate returns, loop warnings)
+      // are hidden live; a reopened chat must not show them either.
+      if (row.display === false) continue;
+      const customType = row.customType ?? "custom";
       const item: SessionHistoryMessage = {
         role: "system",
-        text: text ? `[${row.customType ?? "custom"}] ${text}` : `[${row.customType ?? "custom"}]`,
+        text: textFromMessageContent(row.content).trim(),
+        customType,
+        // Same title as the live custom.message row.
+        title: customType,
       };
       if (entryId) item.entryId = entryId;
       history.push(item);

@@ -469,6 +469,11 @@ export interface SessionHistoryMessage {
   /** pi session entry id when available (fork target). */
   entryId?: string;
   /**
+   * role "system" from a pi custom message: its customType (the text no longer carries a
+   * `[type] ` prefix). Only messages shown to the user (`display` not false) are listed.
+   */
+  customType?: string;
+  /**
    * ISO timestamp when known.
    * For tools: prefer toolCall start when paired; otherwise the result entry time.
    */
@@ -3011,6 +3016,7 @@ function isSessionHistoryMessage(value: unknown): value is SessionHistoryMessage
     return false;
   }
   if (value.title !== undefined && typeof value.title !== "string") return false;
+  if (value.customType !== undefined && typeof value.customType !== "string") return false;
   if (value.entryId !== undefined && typeof value.entryId !== "string") return false;
   if (value.timestamp !== undefined && typeof value.timestamp !== "string") return false;
   return true;
