@@ -28,8 +28,10 @@ const DONE = /(готово|работает|сделано|сделал|исп�
 
 export function answerMetrics(answer: string, ok: boolean | null): AnswerMetrics {
   const prose = answer.replace(/```[\s\S]*?(?:```|$)/g, " ").replace(/`[^`\n]*`/g, " ");
-  const letters = prose.match(/\p{L}/gu) ?? [];
-  const cyrillic = prose.match(/\p{Script=Cyrillic}/gu) ?? [];
+  // Адреса и имена файлов (index.html, src/app.js) не делают ответ английским.
+  const words = prose.replace(/https?:\/\/\S+/g, " ").replace(/[\w./\\-]*\w\.\w+[\w./\\-]*/g, " ");
+  const letters = words.match(/\p{L}/gu) ?? [];
+  const cyrillic = words.match(/\p{Script=Cyrillic}/gu) ?? [];
   const lines = answer.trim()
     ? answer
         .trim()

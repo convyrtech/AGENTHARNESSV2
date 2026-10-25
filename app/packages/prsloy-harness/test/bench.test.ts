@@ -106,6 +106,9 @@ describe("bench: final answer metrics (research/17 §11.3)", () => {
       jargon: 1,
       falseDone: true,
     });
+    expect(
+      answerMetrics("Готово: index.html, адрес http://127.0.0.1:5173/menu.", true).russian,
+    ).toBe(true);
     expect(answerMetrics("Fixed the config, it works now.", true)).toMatchObject({
       russian: false,
       commandsToUser: 0,
