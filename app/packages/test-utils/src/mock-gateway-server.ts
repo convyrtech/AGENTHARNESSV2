@@ -26,6 +26,8 @@ export interface MockGatewayOptions {
   turns?: MockGatewayTurn[];
   /** Force a status for every request (e.g. 500 / 503 for error mapping tests). */
   failWithStatus?: number;
+  /** Answer 404 on `GET /v1/models` (gateways that hide the list). */
+  noModelsEndpoint?: boolean;
 }
 
 function sendChunk(response: ServerResponse, delta: Record<string, unknown>, finish?: string) {
@@ -93,7 +95,11 @@ export class MockGatewayServer {
       return;
     }
 
-    if (request.method === "GET" && request.url === "/v1/models") {
+    if (
+      request.method === "GET" &&
+      request.url === "/v1/models" &&
+      !this.#options.noModelsEndpoint
+    ) {
       this.modelListRequests.push(record);
       if (!this.#authorized(request)) {
         response.writeHead(401, { "content-type": "application/json" });
