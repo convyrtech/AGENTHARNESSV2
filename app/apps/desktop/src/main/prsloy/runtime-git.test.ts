@@ -12,6 +12,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 import {
+  GIT_POST_INSTALL,
   GitRuntime,
   INSTALLER_GIT_MARKER,
   isInstallerGit,
@@ -144,6 +145,51 @@ describe("PortableGit unpacked by the installer", () => {
     expect(isInstallerGit(installerTree(true))).toBe(true);
     expect(isInstallerGit(installerTree(false))).toBe(false);
     expect(isInstallerGit(undefined)).toBe(false);
+  });
+
+  it("runs PortableGit's post-install.bat once (the -y -o unpack skips it), then ready", async () => {
+    const readyDir = installerTree(true);
+    writeFileSync(join(readyDir, GIT_POST_INSTALL), "@echo off");
+    const calls: { command: string; args: string[]; cwd?: string }[] = [];
+    const git = new GitRuntime({
+      runtimesRoot: tempDir(),
+      readyDir,
+      spawn: (command, args, options) => {
+        calls.push({ command, args, ...(options?.cwd ? { cwd: options.cwd } : {}) });
+        const child = new EventEmitter() as EventEmitter & { kill(): void };
+        child.kill = () => undefined;
+        // The real script deletes itself when done.
+        setTimeout(() => {
+          rmSync(join(readyDir, GIT_POST_INSTALL), { force: true });
+          child.emit("exit", 0);
+        }, 5);
+        return child as never;
+      },
+    });
+    expect((await git.ensure()).status).toBe("ready");
+    expect(calls).toHaveLength(1);
+    expect(calls[0]!.args.slice(0, 3)).toEqual(["/d", "/s", "/c"]);
+    expect(calls[0]!.args[3]).toBe(`"${join(readyDir, GIT_POST_INSTALL)}"`);
+    expect(calls[0]!.cwd).toBe(readyDir);
+    // Done once: the next start finds no script and spawns nothing.
+    await git.ensure();
+    expect(calls).toHaveLength(1);
+  });
+
+  it("a failing post-install does not block git", async () => {
+    const readyDir = installerTree(true);
+    writeFileSync(join(readyDir, GIT_POST_INSTALL), "@echo off");
+    const git = new GitRuntime({
+      runtimesRoot: tempDir(),
+      readyDir,
+      spawn: () => {
+        const child = new EventEmitter() as EventEmitter & { kill(): void };
+        child.kill = () => undefined;
+        setTimeout(() => child.emit("exit", 1), 5);
+        return child as never;
+      },
+    });
+    expect((await git.ensure()).status).toBe("ready");
   });
 
   it("readyDir: ready at once, nothing is extracted into userData", async () => {

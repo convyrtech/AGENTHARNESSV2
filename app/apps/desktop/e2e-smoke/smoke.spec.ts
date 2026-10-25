@@ -166,7 +166,9 @@ const AGENT_COMMAND =
   `git --version; ls | head -5 | tr "\\n" " "; echo; grep -c . fixture.txt; sed -n 1p fixture.txt; ` +
   `awk "BEGIN{print 6*7}"; find . -maxdepth 1 -name "*.txt"; echo GIT_ROOT=$(cygpath -w /); ` +
   // Russian output from the bundled Python (needs UTF-8 stdout; Windows pipes default to ANSI).
-  `echo PY=$(command -v python3); python3 -c "print('привет')"`;
+  `echo PY=$(command -v python3); python3 -c "print('привет')"; ` +
+  // Bundled Git only, in a new folder with a Cyrillic name.
+  `mkdir -p 'проект с гитом' && cd 'проект с гитом' && git init -q && git status --porcelain -b && echo GIT_INIT_OK`;
 
 test("clean Windows (system Git hidden): bash tool via bundled Git", async () => {
   test.skip(process.platform !== "win32", "Windows only");
@@ -190,6 +192,11 @@ test("clean Windows (system Git hidden): bash tool via bundled Git", async () =>
     expect(bash.result, report).not.toMatch(/command not found|Windows Subsystem for Linux/);
     // Bundled Git lives under userData\runtimes (not Program Files, not WSL).
     expect(bash.result, report).toMatch(/GIT_ROOT=.*\\runtimes\\/i);
+    expect(bash.result, report).toContain("GIT_INIT_OK");
+    expect(bash.result, report).toMatch(/^## (No commits yet on|Initial commit on) /m);
+    expect(existsSync(join(launched.workspace, "проект с гитом", ".git", "HEAD")), report).toBe(
+      true,
+    );
     const ru = findings("encoding", process.env.SMOKE_STRICT_RU === "1");
     ru.check("bundled python3 prints привет", /^привет$/m.test(bash.result), report);
     await ru.finish();

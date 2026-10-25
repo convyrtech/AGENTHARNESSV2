@@ -39,11 +39,18 @@ export type GitRuntimeOptions = {
   readyDir?: string | undefined;
   onChange?: (state: GitSetupState) => void;
   /** Injectable for tests. */
-  spawn?: (command: string, args: string[]) => ChildProcess;
+  spawn?: (command: string, args: string[], options?: { cwd?: string }) => ChildProcess;
   pollMs?: number;
 };
 
 const STAMP = ".prsloy-git.json";
+/**
+ * PortableGit's own first-run step. Its self-extractor runs it only when started by hand;
+ * `-y -o<dir>` (ours and the installer's) leaves it, so /dev/fd, /etc/mtab, … are never set
+ * up. It deletes itself when done, so it runs once per tree.
+ */
+export const GIT_POST_INSTALL = "post-install.bat";
+const POST_INSTALL_TIMEOUT_MS = 120_000;
 /** Written by build/installer.nsh after a successful unpack during installation. */
 export const INSTALLER_GIT_MARKER = ".prsloy-installer-git";
 
@@ -117,8 +124,48 @@ export class GitRuntime {
     return this.#running;
   }
 
+  /** Run `post-install.bat` once if PortableGit still has it; a failure is only logged. */
+  async #postInstall(root: string): Promise<void> {
+    const bat = join(root, GIT_POST_INSTALL);
+    if (!existsSync(bat)) return;
+    const spawn =
+      this.#opts.spawn ??
+      ((command: string, args: string[], options?: { cwd?: string }) =>
+        nodeSpawn(command, args, {
+          ...options,
+          stdio: "ignore",
+          windowsHide: true,
+          // `"…\post-install.bat"` as one argument, even with spaces / Cyrillic in the path.
+          windowsVerbatimArguments: true,
+        }));
+    try {
+      await new Promise<void>((resolve, reject) => {
+        const child = spawn(process.env.ComSpec || "cmd.exe", ["/d", "/s", "/c", `"${bat}"`], {
+          cwd: root,
+        });
+        const timer = setTimeout(() => {
+          child.kill();
+          reject(new Error("post-install.bat timed out"));
+        }, POST_INSTALL_TIMEOUT_MS);
+        child.once("error", (error) => {
+          clearTimeout(timer);
+          reject(error);
+        });
+        child.once("exit", (code) => {
+          clearTimeout(timer);
+          if (code === 0) resolve();
+          else reject(new Error(`post-install.bat exited with ${code}`));
+        });
+      });
+    } catch (error) {
+      // Read-only install dir (per-machine) or a broken script: git still works for most use.
+      console.warn("[prsloy] PortableGit post-install:", error);
+    }
+  }
+
   async #ensure(): Promise<GitSetupState> {
     if (this.#opts.readyDir || (await this.#stampMatches())) {
+      await this.#postInstall(this.dir);
       this.#set({ status: "ready" });
       return this.state();
     }
@@ -165,6 +212,7 @@ export class GitRuntime {
       );
       await rm(this.dir, { recursive: true, force: true });
       await rename(partial, this.dir);
+      await this.#postInstall(this.dir);
       this.#set({ status: "ready" });
     } catch (error) {
       await rm(partial, { recursive: true, force: true }).catch(() => undefined);

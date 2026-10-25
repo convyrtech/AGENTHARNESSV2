@@ -9,6 +9,7 @@ import {
   getActiveBundledNodeExecutable,
   getActiveRuntimeIsolationEnv,
 } from "./bundled-runtimes.ts";
+import { scrubSecretEnv } from "./prsloy/agent-env.ts";
 import { augmentEnvPath, commonUserBinDirs, mergePathDirs } from "./shell-path.ts";
 
 /** pi `ENV_AGENT_DIR` — tools live at `<agentDir>/bin`. */
@@ -38,6 +39,8 @@ function expandTilde(path: string, env: NodeJS.ProcessEnv): string {
  * - stable PI_CODING_AGENT_DIR (shared with host / previous TUI runs)
  * - prepend managed bin + common tool locations so getToolPath finds fd/rg
  * - GUI-minimal PATH is augmented like the rest of packaged Zeno
+ * - machine secrets dropped exactly as for the Agent Host (`*_TOKEN`, `*_KEY`, `AWS_*`, …):
+ *   the TUI's bash tool inherits this env. No gateway key either.
  */
 export function buildPiTuiEnv(baseEnv: NodeJS.ProcessEnv = process.env): Record<string, string> {
   // Bundled Node/Python bins first so TUI tools resolve without a system install.
@@ -77,5 +80,5 @@ export function buildPiTuiEnv(baseEnv: NodeJS.ProcessEnv = process.env): Record<
     env[key] = value;
   }
 
-  return env;
+  return scrubSecretEnv(env);
 }
