@@ -433,9 +433,9 @@ async function handleCommand(command: HostCommand): Promise<void> {
         ];
         if (prsloyHandoff.harnessEnabled) {
           // Bundled into the host (survives asar); profile from PRSLOY_PROFILE (main sets "code").
-          // Web search (issue #23): the provider and key main handed over; the tools themselves are behind
-          // the harness flag `webTools`, read every turn.
-          const search = prsloyHandoff.search;
+          // Web search (issue #23): config and keys come in host.start over the message channel (never env),
+          // and only while the harness flag `webTools` is on.
+          const search = command.search;
           options.extensionFactories.push(
             createPrsloyHarness(
               search

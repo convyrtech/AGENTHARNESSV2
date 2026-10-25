@@ -6,7 +6,7 @@ import type { FeaturesApi } from "./features.ts";
 export type * from "./features.ts";
 import type { MemoryApi } from "./memory.ts";
 export type * from "./memory.ts";
-import type { SearchApi } from "./search.ts";
+import type { PrsloySearchHandoff, SearchApi } from "./search.ts";
 export type * from "./search.ts";
 export type * from "./honesty.ts";
 import type { PrsloyDesktopApi } from "./prsloy.ts";
@@ -843,6 +843,8 @@ export type HostCommand =
       /** Open most recent session for cwd when no sessionFile is given. */
       resumeRecent?: boolean;
       projectTrusted?: boolean;
+      /** Web search config and keys (issue #23) — only while `webTools` is on. */
+      search?: PrsloySearchHandoff;
     }
   | {
       protocolVersion: typeof IPC_PROTOCOL_VERSION;
@@ -2843,6 +2845,25 @@ function isRuntimeEvent(value: unknown): value is RuntimeEvent {
   }
 }
 
+function isSearchHandoff(value: unknown): value is PrsloySearchHandoff {
+  if (!value || typeof value !== "object") return false;
+  const v = value as Record<string, unknown>;
+  const s = v.search as Record<string, unknown> | undefined;
+  const optStr = (x: unknown) => x === undefined || typeof x === "string";
+  return (
+    !!s &&
+    typeof s === "object" &&
+    typeof s.provider === "string" &&
+    optStr(s.key) &&
+    optStr(s.folderId) &&
+    optStr(s.url) &&
+    (s.models === undefined || isStringArray(s.models)) &&
+    optStr(v.gatewayUrl) &&
+    optStr(v.githubToken) &&
+    (v.modelSearch === undefined || isStringArray(v.modelSearch))
+  );
+}
+
 export function isHostCommand(value: unknown): value is HostCommand {
   if (!hasEnvelope(value) || typeof value.requestId !== "string") return false;
 
@@ -2855,7 +2876,8 @@ export function isHostCommand(value: unknown): value is HostCommand {
       (value.persistSession === undefined || typeof value.persistSession === "boolean") &&
       (value.sessionFile === undefined || typeof value.sessionFile === "string") &&
       (value.resumeRecent === undefined || typeof value.resumeRecent === "boolean") &&
-      (value.projectTrusted === undefined || typeof value.projectTrusted === "boolean")
+      (value.projectTrusted === undefined || typeof value.projectTrusted === "boolean") &&
+      (value.search === undefined || isSearchHandoff(value.search))
     );
   }
   if (value.type === "agent.prompt") {

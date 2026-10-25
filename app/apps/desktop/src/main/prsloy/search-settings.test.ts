@@ -2,8 +2,11 @@ import { existsSync, mkdtempSync, readFileSync, readdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vite-plus/test";
-import { takePrsloyHandoff } from "../../agent-host/prsloy-handoff.ts";
-import { sanitizedEnv } from "@prsloy/harness";
+import { execFileSync } from "node:child_process";
+import { writeFileSync } from "node:fs";
+import { bootstrapPrsloy } from "./context.ts";
+import { resolvePrsloyAgentDir } from "./agent-home.ts";
+import { IPC_PROTOCOL_VERSION, isHostCommand } from "@zeno/contracts";
 import { buildPrsloyHostEnv, SEARCH_HANDOFF_ENV } from "./agent-env.ts";
 import type { SecretCipher } from "./key-store.ts";
 import { registerPrsloySearchIpc, SEARCH_IPC } from "./search-ipc.ts";
@@ -121,28 +124,28 @@ describe("search settings", () => {
   it("handoff: always set — the active provider's config, or free when it is not set up", () => {
     const { s } = settings();
     const gw = "https://gw/v1";
-    expect(JSON.parse(s.handoff(gw))).toEqual({
+    expect(s.handoff(gw)).toEqual({
       search: { provider: "free" },
       gatewayUrl: gw,
       modelSearch: ["gpt-6.1-sol"],
     });
     s.setActive("exa");
-    expect(JSON.parse(s.handoff(gw)).search).toEqual({ provider: "free" });
+    expect(s.handoff(gw).search).toEqual({ provider: "free" });
     s.setKey("exa", "exa-key");
-    expect(JSON.parse(s.handoff(gw))).toMatchObject({
+    expect(s.handoff(gw)).toMatchObject({
       search: { provider: "exa", key: "exa-key" },
       gatewayUrl: gw,
     });
     s.setActive("prsloy");
-    expect(JSON.parse(s.handoff(gw)).search).toEqual({ provider: "prsloy", url: gw });
+    expect(s.handoff(gw).search).toEqual({ provider: "prsloy", url: gw });
     s.setActive("model");
-    expect(JSON.parse(s.handoff(gw)).search).toEqual({
+    expect(s.handoff(gw).search).toEqual({
       provider: "model",
       url: gw,
       models: ["gpt-6.1-sol"],
     });
     s.setActive(null);
-    expect(JSON.parse(s.handoff(gw)).search).toEqual({ provider: "free" });
+    expect(s.handoff(gw).search).toEqual({ provider: "free" });
   });
 
   it("GitHub token (optional): kept like a key, handed to the host for the free search too", () => {
@@ -155,17 +158,17 @@ describe("search settings", () => {
       keyMask: expect.stringContaining("…"),
     });
     // free stays active: the token goes along anyway
-    expect(JSON.parse(s.handoff(undefined))).toMatchObject({
+    expect(s.handoff(undefined)).toMatchObject({
       search: { provider: "free" },
       githubToken: "ghp_secret_token_1234",
     });
     s.setActive("github");
-    expect(JSON.parse(s.handoff(undefined)).search).toEqual({
+    expect(s.handoff(undefined).search).toEqual({
       provider: "github",
       key: "ghp_secret_token_1234",
     });
     s.clearKey("github");
-    expect(JSON.parse(s.handoff(undefined)).githubToken).toBeUndefined();
+    expect(s.handoff(undefined).githubToken).toBeUndefined();
   });
 
   it("the model's search: a list of models from the gateway's catalog, in order", () => {
@@ -174,7 +177,7 @@ describe("search settings", () => {
       models: ["gpt-6.1-sol"],
     });
     s.setModels(["gpt-5.4", " grok-4.20-multi-agent-0309 ", "gpt-5.4"]);
-    expect(JSON.parse(s.handoff("https://gw/v1")).modelSearch).toEqual([
+    expect(s.handoff("https://gw/v1").modelSearch).toEqual([
       "gpt-5.4",
       "grok-4.20-multi-agent-0309",
     ]);
@@ -183,42 +186,74 @@ describe("search settings", () => {
   });
 });
 
-describe("0 keys in the agent's env (issue #23)", () => {
-  it("main → host env → host takes the handoff → the agent's env has no search key", () => {
+describe("0 keys in the agent's env (issue #23, review item 5)", () => {
+  const SECRET = "BSA-brave-secret-9999";
+
+  /** The host's env as main builds it, and what a child of that host (bash, a tool) can read about it. */
+  function childView(hostEnv: Record<string, string>): string {
+    const probe = [
+      "const fs = require('node:fs');",
+      "let parent = '';",
+      // Linux: the parent's (host's) environ as the kernel kept it at exec — `delete` in JS does not change it
+      "try { parent = fs.readFileSync('/proc/' + process.ppid + '/environ', 'utf8'); } catch {}",
+      "process.stdout.write(JSON.stringify(process.env) + '\\n' + parent);",
+    ].join(" ");
+    // host = a node process with the host env; it runs the probe as its child, like pi's bash tool does
+    const host = `require('node:child_process').execFileSync(process.execPath, ['-e', ${JSON.stringify(probe)}], { stdio: 'inherit' })`;
+    return execFileSync(process.execPath, ["-e", host], {
+      env: { ...hostEnv, PATH: process.env.PATH ?? "" },
+      encoding: "utf8",
+    });
+  }
+
+  it("main → host: the search key is not in the host env; a child of the host sees no key", () => {
     const { s } = settings();
-    s.setKey("brave", "BSA-brave-secret-9999");
+    s.setKey("brave", SECRET);
     s.setActive("brave");
     const hostEnv = buildPrsloyHostEnv(
       { PATH: "/usr/bin", BRAVE_API_KEY: "user-own", [SEARCH_HANDOFF_ENV]: "stale" },
-      {
-        agentDir: "/a",
-        sessionDir: "/s",
-        shimsDir: "/sh",
-        gatewayKey: "sk-gw",
-        searchHandoff: s.handoff("https://gw/v1"),
-        platform: "linux",
-      },
-    );
-    expect(hostEnv.BRAVE_API_KEY).toBeUndefined();
-    const env: NodeJS.ProcessEnv = { ...hostEnv };
-    const handoff = takePrsloyHandoff(env);
-    expect(handoff.search).toMatchObject({
-      search: { provider: "brave", key: "BSA-brave-secret-9999" },
-      gatewayUrl: "https://gw/v1",
-    });
-    // what bash and background processes of the agent inherit
-    const agentEnv = JSON.stringify([env, sanitizedEnv(env)]);
-    expect(agentEnv).not.toContain("BSA-brave-secret-9999");
-    expect(agentEnv).not.toContain("sk-gw");
-    expect(agentEnv).not.toContain(SEARCH_HANDOFF_ENV);
-  });
-
-  it("a stale handoff in the user's own env is dropped when search is off", () => {
-    const env = buildPrsloyHostEnv(
-      { PATH: "/usr/bin", [SEARCH_HANDOFF_ENV]: '{"search":{"provider":"brave","key":"x"}}' },
       { agentDir: "/a", sessionDir: "/s", shimsDir: "/sh", platform: "linux" },
     );
-    expect(env[SEARCH_HANDOFF_ENV]).toBeUndefined();
+    expect(hostEnv.BRAVE_API_KEY).toBeUndefined();
+    expect(hostEnv[SEARCH_HANDOFF_ENV]).toBeUndefined();
+    const seen = childView(hostEnv);
+    expect(seen).not.toContain(SECRET);
+    expect(seen).not.toContain(SEARCH_HANDOFF_ENV);
+    // the key goes in host.start over the message channel instead
+    expect(s.handoff("https://gw/v1").search).toEqual({ provider: "brave", key: SECRET });
+  });
+
+  it("main hands search to the host only while webTools is on", () => {
+    const userData = mkdtempSync(join(tmpdir(), "search-ctx-"));
+    const cipher: SecretCipher = fakeCipher();
+    const ctx = bootstrapPrsloy({ userDataPath: userData, cipher, env: {}, platform: "linux" });
+    ctx.search.setKey("brave", SECRET);
+    ctx.search.setActive("brave");
+    expect(ctx.searchForHost()).toBeUndefined();
+    const flags = join(resolvePrsloyAgentDir(userData, {}), "prsloy-harness.json");
+    writeFileSync(flags, JSON.stringify({ webTools: true }));
+    expect(ctx.searchForHost()?.search).toEqual({ provider: "brave", key: SECRET });
+    writeFileSync(flags, JSON.stringify({ webTools: false }));
+    expect(ctx.searchForHost()).toBeUndefined();
+  });
+
+  it("host.start carries search only in a valid shape", () => {
+    const base = {
+      protocolVersion: IPC_PROTOCOL_VERSION,
+      type: "host.start",
+      requestId: "r",
+      cwd: "/w",
+    };
+    expect(
+      isHostCommand({
+        ...base,
+        search: { search: { provider: "free" }, modelSearch: ["gpt-6.1-sol"] },
+      }),
+    ).toBe(true);
+    expect(isHostCommand({ ...base, search: { search: { provider: 1 } } })).toBe(false);
+    expect(isHostCommand({ ...base, search: { search: { provider: "brave", key: 5 } } })).toBe(
+      false,
+    );
   });
 });
 

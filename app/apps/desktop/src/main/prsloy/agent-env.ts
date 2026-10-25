@@ -132,14 +132,15 @@ export type PrsloyHostEnvOptions = {
   shimsDir: string;
   /** Gateway key handed to the host; the host removes it from its env at boot. */
   gatewayKey?: string | undefined;
-  /** Web search provider and its key (JSON, search-settings.ts); the host removes it from its env at boot. */
-  searchHandoff?: string | undefined;
   platform?: NodeJS.Platform;
 };
 
 /** Env var the host reads (and deletes) at boot. Added after the scrub on purpose. */
 export const GATEWAY_KEY_HANDOFF_ENV = "PRSLOY_GATEWAY_KEY";
-/** The same for the web search config (issue #23). */
+/**
+ * The old env name for the web search config (issue #23). Search keys now go in `host.start` over the message
+ * channel (review #23, item 5); a stale value in the user's own env is still removed.
+ */
 export const SEARCH_HANDOFF_ENV = "PRSLOY_SEARCH_HANDOFF";
 
 export function buildPrsloyHostEnv(
@@ -169,8 +170,7 @@ export function buildPrsloyHostEnv(
   // prsloy-harness profile for the «Код» tab.
   env.PRSLOY_PROFILE = "code";
   if (options.gatewayKey) env[GATEWAY_KEY_HANDOFF_ENV] = options.gatewayKey;
-  // A stale value in the user's own env never reaches the host: main sets it or removes it.
-  if (options.searchHandoff) env[SEARCH_HANDOFF_ENV] = options.searchHandoff;
-  else delete env[SEARCH_HANDOFF_ENV];
+  // Search keys never go through env (a child or /proc/<pid>/environ would see them): host.start carries them.
+  delete env[SEARCH_HANDOFF_ENV];
   return env;
 }

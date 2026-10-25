@@ -2858,6 +2858,9 @@ class HostSupervisor {
     // Persist sessions like the CLI unless explicitly disabled.
     else if (process.env.ZENO_PERSIST_SESSION !== "0") command.persistSession = true;
     if (this.#resumeRecent && !this.#sessionFile) command.resumeRecent = true;
+    // Web search keys over the message channel, never env (issue #23); only while webTools is on.
+    const search = prsloy.searchForHost();
+    if (search) command.search = search;
 
     const event = await this.#request(command);
     if (event.type !== "host.ready")

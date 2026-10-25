@@ -8,6 +8,7 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import type {
+  PrsloySearchHandoff,
   SearchCheckResult,
   SearchProviderId,
   SearchProviderState,
@@ -60,20 +61,7 @@ type Stored = {
 };
 
 /** What the host gets: the active provider's config and the gateway address (no gateway key: Pi has it). */
-export type SearchHandoff = {
-  search: {
-    provider: SearchProviderId;
-    key?: string;
-    folderId?: string;
-    url?: string;
-    models?: string[];
-  };
-  gatewayUrl?: string;
-  /** The user's GitHub token, if set: the free search uses it whatever provider is active. */
-  githubToken?: string;
-  /** Models for the model's search fallback, in order. */
-  modelSearch?: string[];
-};
+export type SearchHandoff = PrsloySearchHandoff;
 
 export function isSearchProviderId(value: unknown): value is SearchProviderId {
   return typeof value === "string" && (SEARCH_PROVIDER_IDS as readonly string[]).includes(value);
@@ -260,10 +248,10 @@ export class SearchSettings {
   }
 
   /**
-   * JSON the host takes (and deletes from its env) at boot. Always set: an active provider that is not set up
-   * (its key was removed) falls back to the free search. Whether the agent has the tools is the `webTools` flag.
+   * What `host.start` carries for web search (over the message channel, not env — review #23, item 5). An active
+   * provider that is not set up (its key was removed) falls back to the free search.
    */
-  handoff(gatewayUrl: string | undefined): string {
+  handoff(gatewayUrl: string | undefined): SearchHandoff {
     const search = this.config(this.#read().active ?? DEFAULT_SEARCH, gatewayUrl) ?? {
       provider: "free" as const,
     };
@@ -274,6 +262,6 @@ export class SearchSettings {
       ...(githubToken ? { githubToken } : {}),
       modelSearch: this.#models(this.#read()),
     };
-    return JSON.stringify(handoff);
+    return handoff;
   }
 }
