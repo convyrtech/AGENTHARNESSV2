@@ -126,6 +126,8 @@ export type HarnessEnvInput = {
   chromiumOnly: boolean;
   /** run.py state outside the workspace (HARNESS_STATE_DIR); unset keeps run.py's default. */
   stateDir?: string;
+  /** Text-free learning events (HARNESS_LEARN_DIR): the «Код» harness's prsloy-learning folder. */
+  learnDir?: string;
 };
 
 /**
@@ -161,5 +163,6 @@ export function buildHarnessEnv(input: HarnessEnvInput): Record<string, string> 
   if (input.browserChannel) env.DP_BROWSER_CHANNEL = input.browserChannel;
   if (input.chromiumOnly) env.DP_CHROMIUM_ONLY = "1";
   if (input.stateDir) env.HARNESS_STATE_DIR = input.stateDir;
+  if (input.learnDir) env.HARNESS_LEARN_DIR = input.learnDir;
   return env;
 }

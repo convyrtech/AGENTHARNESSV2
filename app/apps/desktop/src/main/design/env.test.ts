@@ -90,6 +90,14 @@ describe("buildHarnessEnv", () => {
     });
   });
 
+  it("sets HARNESS_LEARN_DIR only from the service, never from the host env", () => {
+    const base = { PATH: "/usr/bin", HARNESS_LEARN_DIR: "/elsewhere" };
+    expect(buildHarnessEnv({ ...input, base }).HARNESS_LEARN_DIR).toBeUndefined();
+    expect(
+      buildHarnessEnv({ ...input, base, learnDir: "/pi/agent/prsloy-learning" }).HARNESS_LEARN_DIR,
+    ).toBe("/pi/agent/prsloy-learning");
+  });
+
   it("sets HARNESS_STATE_DIR only from the service, never from the host env", () => {
     const base = { PATH: "/usr/bin", HARNESS_STATE_DIR: "/somewhere/else" };
     expect(buildHarnessEnv({ ...input, base }).HARNESS_STATE_DIR).toBeUndefined();

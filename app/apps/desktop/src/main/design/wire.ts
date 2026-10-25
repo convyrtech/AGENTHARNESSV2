@@ -64,5 +64,7 @@ export function installDesign(
     },
     nodeExecutable: () => getActiveBundledNodeExecutable() ?? "node",
     gitBinary: () => prsloy.gitBinary(),
+    // <pi agent dir>/prsloy-learning (%APPDATA%\\PRSLOY\\agent\\prsloy-learning), next to the «Код» harness's events
+    learnDir: join(prsloy.agentDir, "prsloy-learning"),
   });
 }

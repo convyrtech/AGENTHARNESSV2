@@ -86,6 +86,8 @@ export type DesignServiceDeps = {
   assertTrustedSender(event: IpcMainInvokeEvent): void;
   /** Where workspaces go when no project folder is open. */
   fallbackRoot: string;
+  /** run.py's text-free learning events; the «Код» harness keeps its own in the same folder. */
+  learnDir?: string;
   /** git for run.py's `git apply` of pipeline-fixes.patch (Windows: the app's PortableGit). */
   gitBinary?: () => string;
 };
@@ -151,6 +153,7 @@ export class DesignService {
       ...(this.#browserChannel() ? { browserChannel: this.#browserChannel() as string } : {}),
       chromiumOnly: process.env.DP_CHROMIUM_ONLY !== "0",
       ...(stateDir ? { stateDir } : {}),
+      ...(this.#deps.learnDir ? { learnDir: this.#deps.learnDir } : {}),
     });
   }
 
