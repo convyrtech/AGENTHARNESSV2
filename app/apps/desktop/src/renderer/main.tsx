@@ -3490,6 +3490,9 @@ function App() {
                   locale={locale}
                   sessionKey={sessionKey}
                   composerRef={composerRef}
+                  onSend={(text) =>
+                    void sendPrompt(undefined, undefined, { text, attachments: [] })
+                  }
                 />
               ) : null}
             </div>

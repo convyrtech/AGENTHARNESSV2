@@ -72,12 +72,16 @@ describe("CodePreviewPanel", () => {
 describe("CodePreviewPanel: «Выбрать на странице»", () => {
   const URL_ = "http://127.0.0.1:41000/index.html";
 
-  async function openWithBridge() {
+  async function openWithBridge(onSend = vi.fn()) {
     open.mockResolvedValue({ ok: true, url: URL_ });
     const composerRef = { current: document.createElement("textarea") };
-    render(<CodePreviewPanel locale="ru" sessionKey="s1" composerRef={composerRef} />);
+    render(
+      <CodePreviewPanel locale="ru" sessionKey="s1" composerRef={composerRef} onSend={onSend} />,
+    );
     act(() => openCodePreview({ kind: "file", path: "index.html" }, "/p"));
     const frame = (await screen.findByTestId("code-preview-frame")) as HTMLIFrameElement;
+    // The frame's message listener is a passive effect: let it attach before the page talks.
+    await act(async () => {});
     const posted: unknown[] = [];
     vi.spyOn(frame.contentWindow!, "postMessage").mockImplementation((m: unknown) => {
       posted.push(m);
@@ -132,5 +136,66 @@ describe("CodePreviewPanel: «Выбрать на странице»", () => {
     fireEvent.click(screen.getByTestId("code-preview-pick"));
     fireEvent.keyDown(window, { key: "Escape" });
     expect(screen.getByTestId("code-preview-pick").getAttribute("aria-pressed")).toBe("false");
+  });
+});
+
+describe("CodePreviewPanel: «На странице ошибка → Починить»", () => {
+  const error = {
+    source: "prsloy-preview",
+    type: "error",
+    kind: "script",
+    message: "Uncaught ReferenceError: price is not defined",
+    file: "/app.js",
+    line: 3,
+    column: 1,
+    page: "/index.html",
+  };
+
+  async function openPage(onSend = vi.fn()) {
+    open.mockResolvedValue({ ok: true, url: "http://127.0.0.1:41000/index.html" });
+    render(<CodePreviewPanel locale="ru" sessionKey="s1" onSend={onSend} />);
+    act(() => openCodePreview({ kind: "file", path: "index.html" }, "/p"));
+    const frame = (await screen.findByTestId("code-preview-frame")) as HTMLIFrameElement;
+    await act(async () => {});
+    const say = (data: unknown, origin = "http://127.0.0.1:41000") =>
+      act(() => {
+        window.dispatchEvent(
+          new MessageEvent("message", { data, origin, source: frame.contentWindow }),
+        );
+      });
+    return { say, onSend };
+  }
+
+  it("shows the error and «Починить» sends it with its place, only on click", async () => {
+    const { say, onSend } = await openPage();
+    expect(screen.queryByTestId("code-preview-errors")).toBeNull();
+    say(error, "http://127.0.0.1:9");
+    expect(screen.queryByTestId("code-preview-errors")).toBeNull();
+    say(error);
+    const banner = screen.getByTestId("code-preview-errors");
+    expect(banner.textContent).toContain("На странице ошибка");
+    expect(banner.textContent).toContain("price is not defined (/app.js:3:1)");
+    expect(onSend).not.toHaveBeenCalled();
+    say({ ...error, kind: "resource", file: "/logo.png" });
+    expect(banner.textContent).toContain("Ошибок на странице: 2");
+    fireEvent.click(screen.getByTestId("code-preview-fix"));
+    expect(onSend).toHaveBeenCalledWith(
+      [
+        "Исправь ошибки на странице index.html. Что показывает браузер:",
+        "- Uncaught ReferenceError: price is not defined (/app.js:3:1)",
+        "- не загрузился файл /logo.png",
+      ].join("\n"),
+    );
+    expect(screen.queryByTestId("code-preview-errors")).toBeNull();
+  });
+
+  it("«Скрыть» hides it; «Обновить» starts clean", async () => {
+    const { say } = await openPage();
+    say(error);
+    fireEvent.click(screen.getByTestId("code-preview-errors-hide"));
+    expect(screen.queryByTestId("code-preview-errors")).toBeNull();
+    fireEvent.click(screen.getByTestId("code-preview-reload"));
+    await screen.findByTestId("code-preview-frame");
+    expect(screen.queryByTestId("code-preview-errors")).toBeNull();
   });
 });

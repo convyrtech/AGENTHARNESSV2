@@ -34,3 +34,31 @@
   font-size: 12px;
   color: var(--muted-foreground);
 }
+/* «На странице ошибка · Починить · Скрыть» */
+.code-preview-errors {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 8px 8px 12px;
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--destructive, #c2410c) 9%, var(--canvas));
+}
+.code-preview-errors-icon {
+  flex: 0 0 auto;
+  color: var(--destructive, #c2410c);
+}
+.code-preview-errors-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  font-size: 12px;
+  line-height: 1.35;
+}
+.code-preview-errors-text span {
+  overflow: hidden;
+  font-family: var(--font-mono);
+  color: var(--muted-foreground);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

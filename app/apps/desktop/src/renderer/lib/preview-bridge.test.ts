@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vite-plus/test";
 import {
+  addPageError,
   appendToDraft,
+  type PageError,
+  pageErrorLine,
+  pageErrorsPrompt,
   parseBridgeMessage,
   pickCommand,
   pickedLabel,
@@ -74,5 +78,54 @@ describe("picked element in the composer", () => {
 
   it("the pick command is tagged as ours", () => {
     expect(pickCommand(true)).toEqual({ source: "prsloy-host", type: "pick", active: true });
+  });
+});
+
+describe("page errors", () => {
+  const script = {
+    source: "prsloy-preview",
+    type: "error",
+    kind: "script",
+    message: "Uncaught TypeError: menu is null",
+    file: "/js/app.js",
+    line: 12,
+    column: 5,
+    page: "/index.html",
+  };
+
+  it("parses our error messages and refuses odd ones", () => {
+    expect(parseBridgeMessage(script)).toMatchObject({ type: "error", kind: "script", line: 12 });
+    expect(parseBridgeMessage({ ...script, kind: "eval" })).toBeUndefined();
+    expect(parseBridgeMessage({ ...script, message: "  " })).toBeUndefined();
+    expect(parseBridgeMessage({ ...script, line: -1, column: "x" })).toMatchObject({
+      line: 0,
+      column: 0,
+    });
+  });
+
+  it("keeps ten distinct errors", () => {
+    const base = parseBridgeMessage(script) as PageError;
+    let list: PageError[] = [];
+    list = addPageError(list, base);
+    list = addPageError(list, base);
+    expect(list).toHaveLength(1);
+    for (let i = 0; i < 20; i++) list = addPageError(list, { ...base, line: i + 100 });
+    expect(list).toHaveLength(10);
+  });
+
+  it("says what and where, in plain words for a missing file", () => {
+    const base = parseBridgeMessage(script) as PageError;
+    expect(pageErrorLine("ru", base)).toBe("Uncaught TypeError: menu is null (/js/app.js:12:5)");
+    expect(pageErrorLine("ru", { ...base, file: "" })).toBe("Uncaught TypeError: menu is null");
+    expect(pageErrorLine("ru", { ...base, kind: "resource", file: "/img/logo.png" })).toBe(
+      "не загрузился файл /img/logo.png",
+    );
+    expect(pageErrorsPrompt("ru", [base, { ...base, kind: "resource", file: "/a.css" }])).toBe(
+      [
+        "Исправь ошибки на странице index.html. Что показывает браузер:",
+        "- Uncaught TypeError: menu is null (/js/app.js:12:5)",
+        "- не загрузился файл /a.css",
+      ].join("\n"),
+    );
   });
 });

@@ -11,5 +11,11 @@ export const featuresZh = {
   "features.pick.block.element": "元素",
   "features.pick.block.text": "文字",
   "features.pick.block.code": "代码",
+  "features.errors.one": "页面上有错误",
+  "features.errors.many": "页面上有 {count} 个错误",
+  "features.errors.fix": "修复",
+  "features.errors.hide": "隐藏",
+  "features.errors.prompt": "修复页面 {page} 上的错误。浏览器显示：",
+  "features.errors.missing": "文件没有加载：{file}",
   "features.pick.block.ask": "这里要改什么：",
 } as const;

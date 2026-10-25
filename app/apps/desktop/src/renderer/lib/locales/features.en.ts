@@ -12,5 +12,11 @@ export const featuresEn: Record<keyof typeof featuresZh, string> = {
   "features.pick.block.element": "Element",
   "features.pick.block.text": "Text",
   "features.pick.block.code": "Code",
+  "features.errors.one": "The page has an error",
+  "features.errors.many": "Errors on the page: {count}",
+  "features.errors.fix": "Fix",
+  "features.errors.hide": "Hide",
+  "features.errors.prompt": "Fix the errors on page {page}. The browser shows:",
+  "features.errors.missing": "file didn't load: {file}",
   "features.pick.block.ask": "What to change here:",
 };

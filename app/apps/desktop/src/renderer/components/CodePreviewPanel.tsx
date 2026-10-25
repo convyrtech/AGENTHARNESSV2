@@ -3,13 +3,17 @@
  * the «Дизайн» preview, with «Компьютер / Телефон», «Обновить» and «Открыть в браузере».
  */
 import type { CodePreviewResult } from "@zeno/contracts";
-import { ExternalLink, MousePointerClick, RotateCw, X } from "lucide-react";
+import { CircleAlert, ExternalLink, MousePointerClick, RotateCw, X } from "lucide-react";
 import { type RefObject, useEffect, useState } from "react";
 import { closeCodePreview, useCodePreview } from "../lib/code-preview-store.ts";
 import { t, type Locale, type MessageKey } from "../lib/i18n.ts";
 import {
+  addPageError,
   appendToDraft,
   type BridgeMessage,
+  type PageError,
+  pageErrorLine,
+  pageErrorsPrompt,
   pickedLabel,
   pickedPrompt,
 } from "../lib/preview-bridge.ts";
@@ -33,6 +37,8 @@ export function CodePreviewPanel(props: {
   sessionKey: string;
   /** The chat's composer: «Выбрать на странице» puts the picked place there to finish. */
   composerRef?: RefObject<HTMLTextAreaElement | null>;
+  /** «Починить»: sends the page's errors to the agent, the same way as «Повторить». */
+  onSend?: (text: string) => void;
 }) {
   const preview = useCodePreview();
   const [result, setResult] = useState<CodePreviewResult | undefined>();
@@ -42,12 +48,16 @@ export function CodePreviewPanel(props: {
   const [bridgeReady, setBridgeReady] = useState(false);
   const [picking, setPicking] = useState(false);
   const [pickedWhat, setPickedWhat] = useState<string | undefined>();
+  const [errors, setErrors] = useState<PageError[]>([]);
+  const [errorsHidden, setErrorsHidden] = useState(false);
 
   // A new page or a reload starts clean.
   useEffect(() => {
     setBridgeReady(false);
     setPicking(false);
     setPickedWhat(undefined);
+    setErrors([]);
+    setErrorsHidden(false);
   }, [preview, reloads]);
 
   // Esc cancels picking wherever focus is: the frame tells us itself, the app hears it here.
@@ -73,6 +83,7 @@ export function CodePreviewPanel(props: {
 
   function onBridgeMessage(message: BridgeMessage) {
     if (message.type === "ready") setBridgeReady(true);
+    else if (message.type === "error") setErrors((list) => addPageError(list, message));
     else if (message.type === "pick-cancel") setPicking(false);
     else if (message.type === "picked") {
       setPicking(false);
@@ -178,6 +189,44 @@ export function CodePreviewPanel(props: {
                 : t(props.locale, "features.pick.picked", { what: pickedWhat ?? "" })}
             </span>
           ) : null}
+        </div>
+      ) : null}
+      {result?.ok && errors.length > 0 && !errorsHidden ? (
+        <div className="code-preview-errors" role="alert" data-testid="code-preview-errors">
+          <CircleAlert className="code-preview-errors-icon size-4" strokeWidth={1.75} />
+          <div className="code-preview-errors-text">
+            <strong>
+              {errors.length === 1
+                ? tr("features.errors.one")
+                : t(props.locale, "features.errors.many", { count: String(errors.length) })}
+            </strong>
+            <span title={errors.map((e) => pageErrorLine(props.locale, e)).join("\n")}>
+              {pageErrorLine(props.locale, errors[0]!)}
+            </span>
+          </div>
+          {props.onSend ? (
+            <button
+              type="button"
+              className="code-preview-tool"
+              data-testid="code-preview-fix"
+              onClick={() => {
+                props.onSend?.(pageErrorsPrompt(props.locale, errors));
+                setErrorsHidden(true);
+              }}
+            >
+              {tr("features.errors.fix")}
+            </button>
+          ) : null}
+          <button
+            type="button"
+            className="code-preview-icon"
+            data-testid="code-preview-errors-hide"
+            title={tr("features.errors.hide")}
+            aria-label={tr("features.errors.hide")}
+            onClick={() => setErrorsHidden(true)}
+          >
+            <X className="size-4" strokeWidth={1.75} />
+          </button>
         </div>
       ) : null}
       {result?.ok ? (

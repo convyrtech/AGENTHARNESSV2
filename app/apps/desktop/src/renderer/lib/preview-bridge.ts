@@ -22,10 +22,28 @@ export type PickedElement = {
   page: string;
 };
 
+/** What went wrong on the page (`main/preview-bridge/page-errors.js`). */
+export type PageError = {
+  kind: "script" | "promise" | "resource" | "console";
+  message: string;
+  /** Page-relative path of the script or file, when known. */
+  file: string;
+  line: number;
+  column: number;
+  page: string;
+};
+
 export type BridgeMessage =
   | { type: "ready" }
   | { type: "pick-cancel" }
-  | ({ type: "picked" } & PickedElement);
+  | ({ type: "picked" } & PickedElement)
+  | ({ type: "error" } & PageError);
+
+const ERROR_KINDS = new Set(["script", "promise", "resource", "console"]);
+
+function count(value: unknown): number {
+  return typeof value === "number" && Number.isInteger(value) && value > 0 ? value : 0;
+}
 
 function str(value: unknown, max: number): string {
   return typeof value === "string" ? value.slice(0, max) : "";
@@ -50,7 +68,50 @@ export function parseBridgeMessage(data: unknown): BridgeMessage | undefined {
       page: str(raw.page, 300) || "/",
     };
   }
+  if (raw.type === "error") {
+    const message = str(raw.message, 500).trim();
+    if (!message || typeof raw.kind !== "string" || !ERROR_KINDS.has(raw.kind)) return undefined;
+    return {
+      type: "error",
+      kind: raw.kind as PageError["kind"],
+      message,
+      file: str(raw.file, 300),
+      line: count(raw.line),
+      column: count(raw.column),
+      page: str(raw.page, 300) || "/",
+    };
+  }
   return undefined;
+}
+
+/** The banner keeps the first ten distinct errors of the page. */
+export function addPageError(list: readonly PageError[], error: PageError): PageError[] {
+  const same = (e: PageError) =>
+    e.kind === error.kind &&
+    e.message === error.message &&
+    e.file === error.file &&
+    e.line === error.line;
+  if (list.length >= 10 || list.some(same)) return list as PageError[];
+  return [...list, error];
+}
+
+/** One line per error for the owner and the agent: what, then where. */
+export function pageErrorLine(locale: Locale, error: PageError): string {
+  if (error.kind === "resource") {
+    return t(locale, "features.errors.missing", { file: error.file || error.message });
+  }
+  if (!error.file) return error.message;
+  const where = [error.file, error.line || "", error.column || ""].filter(Boolean).join(":");
+  return `${error.message} (${where})`;
+}
+
+/** What «Починить» sends: the page and every error with its place. */
+export function pageErrorsPrompt(locale: Locale, errors: readonly PageError[]): string {
+  const page = pageName(errors[0]?.page ?? "/");
+  return [
+    t(locale, "features.errors.prompt", { page }),
+    ...errors.map((error) => `- ${pageErrorLine(locale, error)}`),
+  ].join("\n");
 }
 
 /** The command that turns picking on or off inside the frame. */
