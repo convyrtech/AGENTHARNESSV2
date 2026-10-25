@@ -236,11 +236,18 @@ export async function runLiveGatewayCheck(options: {
       const first = mine[0];
       if (first) {
         const steps = mine.map((r) => `${String(r.body.max_tokens)}→${r.status}`).join(", ");
+        const sent = Number(first.body.max_tokens);
+        // pi caps the limit at the context window minus the input before sending; that is
+        // ours, not a gateway step-down (which only follows a 400).
+        const capped =
+          sent < PRSLOY_MAX_TOKENS
+            ? ` (cap = context window ${PRSLOY_MODELS.find((m) => m.id === model)?.contextWindow ?? "?"} − input)`
+            : "";
         row.max_tokens =
-          first.body.max_tokens === PRSLOY_MAX_TOKENS && first.status === 200
-            ? { ok: true, note: `${PRSLOY_MAX_TOKENS} accepted` }
+          first.status === 200
+            ? { ok: true, note: `${sent} accepted${capped}` }
             : okRequest
-              ? { ok: true, note: `stepped down: ${steps}` }
+              ? { ok: true, note: `gateway refused, stepped down: ${steps}` }
               : { ok: false, note: steps };
       }
       const expected = expectedThinking(model);
@@ -269,10 +276,15 @@ export async function runLiveGatewayCheck(options: {
       if (usage) {
         const priced = prsloyModelCost(model).input > 0;
         const cost = usage.cost?.total ?? 0;
+        const unmetered = (usage.output ?? 0) > 0 && (usage.input ?? 0) === 0;
         row.usage = {
           ok: (usage.input ?? 0) > 0 && (usage.output ?? 0) > 0 && (!priced || cost > 0),
           note: `in ${usage.input ?? 0} / out ${usage.output ?? 0}; ${
-            priced ? `$${cost.toFixed(6)}` : "нет цены (₽ не показываем)"
+            unmetered
+              ? "шлюз не прислал input: цена неизвестна (₽ не показываем)"
+              : priced
+                ? `$${cost.toFixed(6)}`
+                : "нет цены (₽ не показываем)"
           }`,
         };
       }

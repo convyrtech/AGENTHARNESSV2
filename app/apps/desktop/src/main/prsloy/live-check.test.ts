@@ -40,7 +40,7 @@ describe("live gateway check (mock)", () => {
     for (const row of report.rows) {
       expect(row.stream.ok, JSON.stringify(row)).toBe(true);
       expect(row.max_tokens).toMatchObject({ ok: true });
-      expect(row.max_tokens.note).toContain("128000→400, 64000→200");
+      expect(row.max_tokens.note).toContain("gateway refused, stepped down: 128000→400, 64000→200");
       expect(row.usage.ok, row.usage.note).toBe(true);
       expect(row.tool.ok, row.tool.note).toBe(true);
     }
@@ -55,5 +55,29 @@ describe("live gateway check (mock)", () => {
     // ≤ 3 answered requests per model (stream 1 + tool 2), step-downs aside.
     const answered = server.requests.filter((r) => (r.body.max_tokens as number) <= 64_000);
     expect(answered).toHaveLength(6);
+  }, 120_000);
+
+  it("deepseek live case: pi's own cap is not a step-down; no input metered = price unknown", async () => {
+    const key = "sk-live-ds";
+    const server = new MockGatewayServer({
+      apiKey: key,
+      modelIds: ["deepseek-v4.1-flash-1017"],
+      promptTokens: 0,
+      turns: [
+        { reasoning: "Думаю.", text: "Привет" },
+        { reasoning: "Читаю.", toolCall: { name: "read", arguments: { path: "ok.txt" } } },
+        { text: "PRSLOY-LIVE-42" },
+      ],
+    });
+    await server.start();
+    cleanups.push(() => server.stop());
+    const report = await runLiveGatewayCheck({ baseUrl: server.baseUrl, apiKey: key });
+    const row = report.rows[0]!;
+    // 128 000 window, 128 000 limit: pi sends window − input.
+    expect(row.max_tokens.ok).toBe(true);
+    expect(row.max_tokens.note).toMatch(/^\d+ accepted \(cap = context window 128000 − input\)$/u);
+    expect(row.max_tokens.note).not.toContain("stepped down");
+    expect(row.usage.ok).toBe(false);
+    expect(row.usage.note).toContain("шлюз не прислал input: цена неизвестна");
   }, 120_000);
 });
