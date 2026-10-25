@@ -45,11 +45,12 @@ test("«Поиск в интернете»: free by default, a key only as a mas
     await expect(free.getByTestId("web-search-use")).toBeVisible();
 
     const toggle = page.getByTestId("web-search-toggle");
-    await expect(toggle).toHaveAttribute("aria-checked", "false");
-    await toggle.click();
+    // RC check (desktop/ui-rc): on by default; the switch writes false
     await expect(toggle).toHaveAttribute("aria-checked", "true");
+    await toggle.click();
+    await expect(toggle).toHaveAttribute("aria-checked", "false");
     const flags = JSON.parse(await readFile(join(agentDir, "prsloy-harness.json"), "utf8"));
-    expect(flags.webTools).toBe(true);
+    expect(flags.webTools).toBe(false);
     await brave.scrollIntoViewIfNeeded();
     await shot(page, "web-search-3-brave");
 

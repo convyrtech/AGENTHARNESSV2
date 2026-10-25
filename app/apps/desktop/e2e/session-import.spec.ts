@@ -180,6 +180,8 @@ test("first run brings Claude Code and Codex chats over and continues one", asyn
       timeout: 60_000,
     });
     await page.getByTestId("prsloy-import-next").click();
+    // RC check (desktop/ui-rc): the search step shows once SEARCH_READY
+    await page.getByTestId("first-run-search-skip").click({ timeout: 60_000 });
 
     // the imported project is offered first on the folder step
     await expect(page.getByTestId("prsloy-first-run-folder")).toBeVisible({ timeout: 60_000 });
@@ -238,6 +240,8 @@ test("no other agents: the first run goes straight from the key to the folder", 
   const launched = await launch(false);
   try {
     await passKey(launched.page);
+    // RC check (desktop/ui-rc): the search step shows once SEARCH_READY
+    await launched.page.getByTestId("first-run-search-skip").click({ timeout: 60_000 });
     await expect(launched.page.getByTestId("prsloy-first-run-folder")).toBeVisible({
       timeout: 60_000,
     });

@@ -48,13 +48,9 @@ test("a memory card in the chat and the «Память» settings", async () => 
     await expect(page.getByTestId("memory-unavailable")).toHaveCount(0);
     await expect(page.getByTestId("memory-user")).toContainText("Отвечать коротко, без умных слов");
     const toggle = page.getByTestId("settings-memory-toggle");
-    await expect(toggle).toHaveAttribute("aria-checked", "false");
-    await shot(page, "memory-2-settings-before");
-    await toggle.click();
+    // RC check (desktop/ui-rc): on by default
     await expect(toggle).toHaveAttribute("aria-checked", "true");
-    const flags = JSON.parse(await readFile(join(agentDir, "prsloy-harness.json"), "utf8"));
-    expect(flags.memory).toBe(true);
-    await shot(page, "memory-3-settings-after");
+    await shot(page, "memory-2-settings-before");
 
     // «Забыть» → gone from «Обо мне», offered in «Забытое», tombstone on disk.
     await page.getByTestId("memory-user-forget").first().click();
@@ -65,6 +61,18 @@ test("a memory card in the chat and the «Память» settings", async () => 
     const after = JSON.parse(await readFile(join(agentDir, "prsloy-memory", "user.json"), "utf8"));
     expect(after.entries).toEqual([]);
     expect(after.tombstones).toHaveLength(1);
+
+    // Nothing remembered now: the switch turns memory off at once and writes false.
+    await toggle.click();
+    await expect(page.getByTestId("memory-off-confirm")).toHaveCount(0);
+    await expect(toggle).toHaveAttribute("aria-checked", "false");
+    await expect(page.getByTestId("settings-memory-auto-toggle")).toHaveAttribute(
+      "aria-checked",
+      "false",
+    );
+    const flags = JSON.parse(await readFile(join(agentDir, "prsloy-harness.json"), "utf8"));
+    expect(flags.memory).toBe(false);
+    await shot(page, "memory-3-settings-after");
   } finally {
     await closeLaunched(launched);
   }

@@ -111,6 +111,8 @@ test("first run (no test mode): wrong key → Russian error, right key → folde
 
     await keyInput.fill(GOOD_KEY);
     await submit.click();
+    // RC check (desktop/ui-rc): the search step shows once SEARCH_READY
+    await page.getByTestId("first-run-search-skip").click({ timeout: 60_000 });
     await expect(page.getByTestId("prsloy-first-run-folder")).toBeVisible({ timeout: 60_000 });
     await shot(page, "12-firstrun-folder");
 
