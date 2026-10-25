@@ -72,4 +72,13 @@ export interface PrsloyDesktopApi {
   listTurns(options?: { sessionId?: string }): Promise<PrsloyTurnSnapshot[]>;
   /** «Откатить ход»: restore the workspace to the snapshot taken before that turn. */
   undoTurn(snapshotId: string): Promise<PrsloyUndoResult>;
+  /**
+   * Write a support zip (versions, scrubbed logs and settings, last turns as metadata) to
+   * the desktop and show it in its folder. Nothing is sent anywhere.
+   */
+  saveSupportReport(): Promise<PrsloySupportReportResult>;
 }
+
+export type PrsloySupportReportResult =
+  | { ok: true; path: string; name: string }
+  | { ok: false; error: string };

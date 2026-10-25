@@ -249,4 +249,50 @@ describe("session history projection", () => {
       ),
     ).toEqual([{ role: "user", text: "hello", entryId: "user-entry" }]);
   });
+
+  it("lists only custom messages shown to the user, with customType as a field", () => {
+    expect(
+      projectSessionHistory(
+        [
+          { role: "user", content: "сделай сайт" },
+          {
+            role: "custom",
+            customType: "prsloy.loop",
+            display: false,
+            content: [{ type: "text", text: "Твой последний вызов инструмента не дошёл…" }],
+          },
+          {
+            role: "custom",
+            customType: "prsloy.stop-gate",
+            display: false,
+            content: "Сначала проверь страницу.",
+          },
+          {
+            role: "custom",
+            customType: "prsloy.undo",
+            display: true,
+            content: [{ type: "text", text: "Ход откачен" }],
+          },
+          { role: "custom", customType: "status-update", content: "ok" },
+        ],
+        ["u", "c1", "c2", "c3", "c4"],
+      ),
+    ).toEqual([
+      { role: "user", text: "сделай сайт", entryId: "u" },
+      {
+        role: "system",
+        text: "Ход откачен",
+        customType: "prsloy.undo",
+        title: "prsloy.undo",
+        entryId: "c3",
+      },
+      {
+        role: "system",
+        text: "ok",
+        customType: "status-update",
+        title: "status-update",
+        entryId: "c4",
+      },
+    ]);
+  });
 });
