@@ -14,6 +14,8 @@ import type { PrsloyContext } from "./context.ts";
 import { checkPrsloyKey, type FetchLike } from "./gateway-check.ts";
 import { maskKey } from "./key-store.ts";
 import { recordTurnUndo } from "./learning-undo.ts";
+import { registerPrsloyMemoryIpc } from "./memory-ipc.ts";
+import { startPrsloyModelRefresh } from "./model-list.ts";
 import type { TurnRecord } from "./turn-snapshots.ts";
 
 export const PRSLOY_IPC = {
@@ -42,6 +44,12 @@ export type PrsloyIpcDeps = {
   isAgentBusy(): boolean;
   /** Tell the model (next turn) what an undo changed; best effort. */
   appendSessionNote?(customType: string, text: string): Promise<void>;
+  /** models.json changed (the gateway's model list): the host reloads its catalog. */
+  onModelsChanged?(): Promise<void>;
+  /** Startup + hourly `/v1/models` refresh; off in unit tests that don't want it. */
+  refreshModels?: boolean;
+  /** Only the main window's top frame may call these (as the other IPC in main/index.ts). */
+  isTrustedSender?(event: unknown): boolean;
 };
 
 export const UNDO_NOTE_CUSTOM_TYPE = "prsloy.undo";
@@ -102,11 +110,35 @@ function toSnapshotView(record: TurnRecord): PrsloyTurnSnapshot {
   };
 }
 
-export function registerPrsloyIpc(ipcMain: IpcMainLike, deps: PrsloyIpcDeps): void {
+export function registerPrsloyIpc(rawIpcMain: IpcMainLike, deps: PrsloyIpcDeps): void {
   const { ctx } = deps;
+  const ipcMain: IpcMainLike = {
+    handle(channel, listener) {
+      rawIpcMain.handle(channel, (event, ...args) => {
+        if (deps.isTrustedSender && !deps.isTrustedSender(event)) {
+          throw new Error("Untrusted IPC sender");
+        }
+        return listener(event, ...args);
+      });
+    },
+  };
   const state = () => buildPrsloyState(ctx, deps.needsWorkspace());
 
   ipcMain.handle(PRSLOY_IPC.getState, () => state());
+
+  registerPrsloyMemoryIpc(ipcMain, {
+    agentDir: ctx.agentDir,
+    getWorkspace: () => deps.getWorkspace(),
+    appendSessionNote: async (customType, text) => deps.appendSessionNote?.(customType, text),
+  });
+
+  if (deps.refreshModels !== false) {
+    startPrsloyModelRefresh({
+      ctx,
+      fetch: deps.fetch,
+      onChanged: () => deps.onModelsChanged?.(),
+    });
+  }
 
   ipcMain.handle(
     PRSLOY_IPC.setKey,
@@ -127,6 +159,7 @@ export function registerPrsloyIpc(ipcMain: IpcMainLike, deps: PrsloyIpcDeps): vo
       const check = await checkPrsloyKey({ baseUrl, apiKey: key, fetch: deps.fetch });
       if (!check.ok) return check;
       if (baseUrl !== ctx.getState().baseUrl) ctx.setBaseUrl(baseUrl);
+      if (check.via === "models") ctx.setAvailableModels(check.modelIds);
       ctx.keyStore.write(key);
       await deps.restartHost();
       return { ok: true, state: state(), modelIds: check.modelIds };
@@ -147,12 +180,15 @@ export function registerPrsloyIpc(ipcMain: IpcMainLike, deps: PrsloyIpcDeps): vo
     if (!baseUrl) return { ok: false, code: "bad_url" };
     const key = ctx.keyStore.read();
     let modelIds: string[] = [];
+    let listed = false;
     if (key) {
       const check = await checkPrsloyKey({ baseUrl, apiKey: key, fetch: deps.fetch });
       if (!check.ok) return check;
       modelIds = check.modelIds;
+      listed = check.via === "models";
     }
     ctx.setBaseUrl(baseUrl);
+    if (listed) ctx.setAvailableModels(modelIds);
     await deps.restartHost();
     return { ok: true, state: state(), modelIds };
   });

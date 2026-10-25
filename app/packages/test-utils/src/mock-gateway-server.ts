@@ -28,6 +28,10 @@ export interface MockGatewayOptions {
   failWithStatus?: number;
   /** Answer 404 on `GET /v1/models` (gateways that hide the list). */
   noModelsEndpoint?: boolean;
+  /** Completions for a model not in `modelIds` answer 404 model_not_found. */
+  serveListedOnly?: boolean;
+  /** `max_tokens` above this answers 400 (a gateway with a lower output cap). */
+  maxTokensLimit?: number;
 }
 
 function sendChunk(response: ServerResponse, delta: Record<string, unknown>, finish?: string) {
@@ -45,6 +49,8 @@ function sendChunk(response: ServerResponse, delta: Record<string, unknown>, fin
 export class MockGatewayServer {
   readonly requests: MockGatewayRequest[] = [];
   readonly modelListRequests: MockGatewayRequest[] = [];
+  /** What `GET /v1/models` lists; change it to drop a model mid-test. */
+  modelIds: string[];
   #server: Server;
   #baseUrl: string | undefined;
   #options: MockGatewayOptions;
@@ -52,6 +58,7 @@ export class MockGatewayServer {
 
   constructor(options: MockGatewayOptions) {
     this.#options = options;
+    this.modelIds = [...(options.modelIds ?? [])];
     this.#turns = [...(options.turns ?? [])];
     this.#server = createServer((request, response) => {
       void this.#handle(request, response);
@@ -110,7 +117,7 @@ export class MockGatewayServer {
       response.end(
         JSON.stringify({
           object: "list",
-          data: (this.#options.modelIds ?? []).map((id) => ({ id, object: "model" })),
+          data: this.modelIds.map((id) => ({ id, object: "model" })),
         }),
       );
       return;
@@ -127,6 +134,26 @@ export class MockGatewayServer {
       return;
     }
 
+    const model = typeof record.body.model === "string" ? record.body.model : "";
+    if (this.#options.serveListedOnly && !this.modelIds.includes(model)) {
+      response.writeHead(404, { "content-type": "application/json" });
+      response.end(
+        JSON.stringify({
+          error: { message: `The model \`${model}\` does not exist`, code: "model_not_found" },
+        }),
+      );
+      return;
+    }
+    const limit = this.#options.maxTokensLimit;
+    if (limit && typeof record.body.max_tokens === "number" && record.body.max_tokens > limit) {
+      response.writeHead(400, { "content-type": "application/json" });
+      response.end(
+        JSON.stringify({
+          error: { message: `max_tokens is too large: ${record.body.max_tokens} > ${limit}` },
+        }),
+      );
+      return;
+    }
     const turn = this.#turns.shift() ?? { text: "ok" };
     if (record.body.stream === false) {
       response.writeHead(200, { "content-type": "application/json" });

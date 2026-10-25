@@ -327,6 +327,11 @@ export class DesignService {
       console.warn("[design] pipeline-fixes.patch on the imported copy:", code, err.slice(-300));
   }
 
+  /** The venv's python once the design tools are installed; undefined before. */
+  designPython(): string | undefined {
+    return this.#toolsReady() ? venvPython(this.#venv) : undefined;
+  }
+
   #toolsReady(): boolean {
     return process.env.PRSLOY_DESIGN_VENV
       ? existsSync(venvPython(this.#venv))

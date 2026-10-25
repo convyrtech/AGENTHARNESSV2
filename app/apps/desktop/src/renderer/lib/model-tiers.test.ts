@@ -22,6 +22,18 @@ describe("model tiers", () => {
     expect(modelForTier("quality", [options[0]!])).toEqual(options[0]);
   });
 
+  it("follows what the gateway serves: no DeepSeek / Kimi → Qwen and Opus", () => {
+    const served = ["qwen3.8-max", "claude-opus-5-5", "grok-4.7", "gpt-6.1-sol"].map((id) => ({
+      provider: MODEL_TIER_PROVIDER,
+      id,
+    }));
+    expect(modelForTier("fast", served).id).toBe("qwen3.8-max");
+    expect(modelForTier("quality", served).id).toBe("claude-opus-5-5");
+    expect(tierForModel("prsloy/qwen3.8-max", served)).toBe("fast");
+    expect(tierForModel("prsloy/claude-opus-5-5", served)).toBe("quality");
+    expect(tierForModel("prsloy/grok-4.7", served)).toBeUndefined();
+  });
+
   it("falls back to the PRSLOY provider when the host does not list the model", () => {
     expect(modelForTier("fast", [])).toEqual({
       provider: MODEL_TIER_PROVIDER,

@@ -21,7 +21,10 @@ import {
   buildPrsloyModelsJsonProvider,
   PRSLOY_DEFAULT_SPEED_MODE,
   PRSLOY_PROVIDER_ID,
-  PRSLOY_SPEED_MODES,
+  PRSLOY_SPEED_PREFERENCE,
+  prsloyFallbackModelId,
+  prsloySpeedModelId,
+  type PrsloySpeedMode,
 } from "../../shared/prsloy-config.ts";
 
 export type PrsloyHomePaths = {
@@ -88,14 +91,19 @@ function writeJsonAtomic(path: string, value: unknown): void {
  * Write/refresh `providers.prsloy` in models.json, keeping any other providers the
  * developer added under «Для разработчиков». Returns true when the file changed.
  */
-export function ensurePrsloyModelsJson(agentDir: string, baseUrl: string): boolean {
+export function ensurePrsloyModelsJson(
+  agentDir: string,
+  baseUrl: string,
+  /** What the gateway serves (`/v1/models`); undefined = not known, whole catalog. */
+  available?: readonly string[],
+): boolean {
   const path = join(agentDir, "models.json");
   const root = readJsonObject(path);
   const providers =
     root.providers && typeof root.providers === "object" && !Array.isArray(root.providers)
       ? { ...(root.providers as Record<string, unknown>) }
       : {};
-  const next = buildPrsloyModelsJsonProvider(baseUrl);
+  const next = buildPrsloyModelsJsonProvider(baseUrl, available);
   if (JSON.stringify(providers[PRSLOY_PROVIDER_ID]) === JSON.stringify(next) && existsSync(path)) {
     return false;
   }
@@ -109,6 +117,8 @@ export type PrsloySettingsSeed = {
   shellPath?: string | undefined;
   /** One-time migration: drop the npm:pi-mcp-adapter that early alphas auto-installed. */
   dropAutoMcpAdapter?: boolean;
+  /** Models the gateway serves: a PRSLOY default it no longer serves moves to its preset's next. */
+  available?: readonly string[] | undefined;
 };
 
 /** Package source early alphas installed from npm on first launch. */
@@ -134,7 +144,19 @@ export function ensurePrsloySettings(agentDir: string, seed: PrsloySettingsSeed)
   const next: Record<string, unknown> = { ...before };
   if (typeof next.defaultProvider !== "string" || typeof next.defaultModel !== "string") {
     next.defaultProvider = PRSLOY_PROVIDER_ID;
-    next.defaultModel = PRSLOY_SPEED_MODES[PRSLOY_DEFAULT_SPEED_MODE].modelId;
+    next.defaultModel = prsloySpeedModelId(PRSLOY_DEFAULT_SPEED_MODE, seed.available);
+  } else if (
+    next.defaultProvider === PRSLOY_PROVIDER_ID &&
+    seed.available &&
+    !seed.available.includes(next.defaultModel)
+  ) {
+    // A model the gateway stopped serving: the same preset's next model, else «Быстрее».
+    const mode = (Object.keys(PRSLOY_SPEED_PREFERENCE) as PrsloySpeedMode[]).find((m) =>
+      PRSLOY_SPEED_PREFERENCE[m].includes(next.defaultModel as string),
+    );
+    next.defaultModel =
+      prsloyFallbackModelId(next.defaultModel, seed.available) ??
+      prsloySpeedModelId(mode ?? PRSLOY_DEFAULT_SPEED_MODE, seed.available);
   }
   if (seed.shellPath) next.shellPath = seed.shellPath;
   else delete next.shellPath;

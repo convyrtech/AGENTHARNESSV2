@@ -24,6 +24,7 @@ import type { AgentSessionEvent } from "@earendil-works/pi-coding-agent";
 import { readFile } from "node:fs/promises";
 import { extname } from "node:path";
 import { ProviderOAuthCoordinator, type OAuthModelRuntime } from "./provider-oauth.ts";
+import { installPrsloyFetch, modelSwitchText } from "./prsloy-fetch.ts";
 import { PRSLOY_PROVIDER_ID } from "../shared/prsloy-config.ts";
 
 interface ElectronParentPort {
@@ -54,6 +55,36 @@ let sequence = 0;
 function post(event: HostEvent): void {
   parentPort.postMessage(event);
 }
+
+// PRSLOY gateway requests: quiet max_tokens step-down and a switch to the next served model
+// when the chosen one is gone (prsloy-fetch.ts).
+if (prsloyHandoff.gatewayKey) {
+  installPrsloyFetch({
+    apiKey: prsloyHandoff.gatewayKey,
+    agentDir: () => process.env.PI_CODING_AGENT_DIR,
+    onModelSwitch(from, to) {
+      const current = handle;
+      if (!current) return;
+      post({
+        protocolVersion: IPC_PROTOCOL_VERSION,
+        type: "runtime.event",
+        runtimeId: current.runtimeId,
+        sequence: ++sequence,
+        event: {
+          type: "custom.message",
+          customType: "prsloy.model-switch",
+          content: modelSwitchText(from, to),
+          details: { from, to },
+        },
+      });
+      // Next turns ask for it directly (until then the wrapper rewrites the requests).
+      void current.setModel(PRSLOY_PROVIDER_ID, to).catch(() => undefined);
+    },
+  });
+}
+
+/** session.note types the model reads but the timeline doesn't show. */
+const HIDDEN_NOTE_TYPES = new Set(["prsloy-memory.forgot"]);
 
 const providerOAuth = new ProviderOAuthCoordinator(post);
 const testOAuthProviders = new Set<string>();
@@ -641,9 +672,14 @@ async function handleCommand(command: HostCommand): Promise<void> {
       }
       case "session.note": {
         if (!handle) throw new Error("Agent Host is not ready");
-        // Idle: appended to the session now; the model reads it on its next turn.
+        // Idle: appended to the session now; the model reads it on its next turn. Memory's
+        // «забыть» note is for the model only (the panel already said «Забыл»).
         await handle.runtime.session.sendCustomMessage(
-          { customType: command.customType, content: command.text, display: true },
+          {
+            customType: command.customType,
+            content: command.text,
+            display: !HIDDEN_NOTE_TYPES.has(command.customType),
+          },
           { triggerTurn: false },
         );
         post({
