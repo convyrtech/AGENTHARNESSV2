@@ -107,10 +107,13 @@ export const PRSLOY_MODELS: readonly PrsloyModelDef[] = [
     thinkingLevelMap: { off: null, minimal: null, low: null, medium: null, high: "high" },
   },
   {
+    // Through the gateway (2026-10-25 probe) Qwen goes via a third-party coding-assistant channel that
+    // adds a hidden prompt, drops our system/developer messages and silently drops images: text only,
+    // and no preset picks it. Still selectable by hand.
     id: "qwen3.8-max",
     name: "Qwen 3.8 Max",
     reasoning: true,
-    input: ["text", "image"],
+    input: ["text"],
     contextWindow: 256_000,
     maxTokens: PRSLOY_MAX_TOKENS,
     compat: {
@@ -254,10 +257,16 @@ export const PRSLOY_DEFAULT_SPEED_MODE: PrsloySpeedMode = "fast";
 /**
  * Owner's rule «лучший результат за минимум денег»: each preset is the first model of its
  * list the gateway serves. The first entry is PRSLOY_SPEED_MODES' model.
+ *
+ * Only models that reach the vendor as asked (gateway probe 2026-10-25): DeepSeek and Kimi are genuine;
+ * GPT-6.1 Sol sometimes goes through another channel but still obeys our system message; Opus obeys it
+ * too but streams nothing until the whole answer is ready (quality's last resort). Never in a preset:
+ * Qwen (our system message is dropped), Grok (tool calls come back as text, minutes of hidden thinking),
+ * Fable (its channel overrides our system message). They stay selectable by hand.
  */
 export const PRSLOY_SPEED_PREFERENCE: Readonly<Record<PrsloySpeedMode, readonly string[]>> = {
-  fast: ["deepseek-v4.1-flash-1017", "qwen3.8-max", "grok-4.7", "claude-opus-5-5"],
-  quality: ["kimi-k3.1-pro", "claude-opus-5-5", "qwen3.8-max", "gpt-6.1-sol"],
+  fast: ["deepseek-v4.1-flash-1017", "kimi-k3.1-pro", "gpt-6.1-sol"],
+  quality: ["kimi-k3.1-pro", "gpt-6.1-sol", "deepseek-v4.1-flash-1017", "claude-opus-5-5"],
 };
 
 /** The preset's model id for what the gateway serves (`undefined` list = not known yet). */

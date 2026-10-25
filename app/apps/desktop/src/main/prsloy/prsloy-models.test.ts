@@ -67,9 +67,11 @@ describe("catalog and presets from the gateway's list", () => {
     }
   });
 
-  it("no DeepSeek and Kimi on the gateway → «Быстрее» = Qwen, «Качественнее» = Opus", () => {
-    expect(prsloySpeedModelId("fast", LIVE)).toBe("qwen3.8-max");
-    expect(prsloySpeedModelId("quality", LIVE)).toBe("claude-opus-5-5");
+  it("no DeepSeek and Kimi on the gateway → both presets GPT-6.1 Sol, never Qwen or Grok", () => {
+    expect(prsloySpeedModelId("fast", LIVE)).toBe("gpt-6.1-sol");
+    expect(prsloySpeedModelId("quality", LIVE)).toBe("gpt-6.1-sol");
+    // Only Kimi: it is «Быстрее» too, ahead of anything that drops our system message.
+    expect(prsloySpeedModelId("fast", ["qwen3.8-max", "kimi-k3.1-pro"])).toBe("kimi-k3.1-pro");
     // Once the owner adds them, they win again.
     const full = [...LIVE, "deepseek-v4.1-flash-1017", "kimi-k3.1-pro"];
     expect(prsloySpeedModelId("fast", full)).toBe("deepseek-v4.1-flash-1017");
@@ -79,12 +81,12 @@ describe("catalog and presets from the gateway's list", () => {
   });
 
   it("a vanished model falls to the next served one of its preset", () => {
-    expect(prsloyFallbackModelId("deepseek-v4.1-flash-1017", LIVE)).toBe("qwen3.8-max");
-    expect(prsloyFallbackModelId("kimi-k3.1-pro", LIVE)).toBe("claude-opus-5-5");
+    expect(prsloyFallbackModelId("deepseek-v4.1-flash-1017", LIVE)).toBe("gpt-6.1-sol");
+    expect(prsloyFallbackModelId("kimi-k3.1-pro", LIVE)).toBe("gpt-6.1-sol");
     expect(prsloyFallbackModelId("claude-opus-5-5", ["qwen3.8-max", "gpt-6.1-sol"])).toBe(
-      "qwen3.8-max",
+      "gpt-6.1-sol",
     );
-    expect(prsloyFallbackModelId("something-old", LIVE)).toBe("qwen3.8-max");
+    expect(prsloyFallbackModelId("something-old", LIVE)).toBe("gpt-6.1-sol");
     expect(prsloyFallbackModelId("qwen3.8-max", ["qwen3.8-max"])).toBeUndefined();
   });
 
@@ -134,7 +136,7 @@ describe("catalog and presets from the gateway's list", () => {
     const models = readJson(join(ctx.agentDir, "models.json")).providers.prsloy.models;
     expect(models.map((m: { id: string }) => m.id)).not.toContain("deepseek-v4.1-flash-1017");
     expect(models.map((m: { id: string }) => m.id)).not.toContain("gpt-image-2");
-    expect(readJson(settingsPath).defaultModel).toBe("qwen3.8-max");
+    expect(readJson(settingsPath).defaultModel).toBe("gpt-6.1-sol");
     // Same list again: nothing to reload.
     expect(await refresh()).toBe(false);
     expect(changed).toBe(1);

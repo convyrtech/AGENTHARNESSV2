@@ -10,7 +10,7 @@ import {
 } from "node:http";
 
 export type Behaviour =
-  | { kind: "ok"; text?: string; delayMs?: number; tokenDelayMs?: number }
+  | { kind: "ok"; text?: string; delayMs?: number; tokenDelayMs?: number; promptTokens?: number }
   | { kind: "stream-error"; message?: string }
   | { kind: "status"; status: number; body?: string }
   | { kind: "json-error"; message?: string }
@@ -34,18 +34,20 @@ export function chunk(delta: Record<string, unknown>, finish: string | null = nu
   });
 }
 
-const USAGE = JSON.stringify({
-  id: "chatcmpl-fake",
-  object: "chat.completion.chunk",
-  created: 1,
-  model: "fake",
-  choices: [],
-  usage: {
-    prompt_tokens: 120,
-    completion_tokens: 7,
-    prompt_tokens_details: { cached_tokens: 100 },
-  },
-});
+const usage = (promptTokens = 120) =>
+  JSON.stringify({
+    id: "chatcmpl-fake",
+    object: "chat.completion.chunk",
+    created: 1,
+    model: "fake",
+    choices: [],
+    usage: {
+      prompt_tokens: promptTokens,
+      completion_tokens: 7,
+      prompt_tokens_details: { cached_tokens: 100 },
+    },
+  });
+const USAGE = usage();
 
 export class FakeGateway {
   readonly requests: { headers: IncomingHttpHeaders; body: Record<string, unknown> }[] = [];
@@ -85,7 +87,7 @@ export class FakeGateway {
     const answer = (text: string) => {
       for (const part of text.split(" ")) event(chunk({ content: `${part} ` }));
       event(chunk({}, "stop"));
-      event(USAGE);
+      event(b.kind === "ok" ? usage(b.promptTokens) : USAGE);
       res.end("data: [DONE]\n\n");
     };
     if (body.stream !== true) {
@@ -121,7 +123,7 @@ export class FakeGateway {
           if (b.tokenDelayMs) await sleep(b.tokenDelayMs);
         }
         event(chunk({}, "stop"));
-        event(USAGE);
+        event(usage(b.promptTokens));
         res.end("data: [DONE]\n\n");
         return;
       }
