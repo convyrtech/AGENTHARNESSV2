@@ -87,6 +87,12 @@ jobs:
         if: always()
         shell: pwsh
         run: |
+          $fin = "${{ runner.temp }}\design-live-shots\finish.json"
+          if (Test-Path $fin) {
+            "### «Дизайн» after «готово» (dev build): archive, phone, edit`n``````json" | Out-File -Append -Encoding utf8 $env:GITHUB_STEP_SUMMARY
+            Get-Content $fin -Encoding utf8 | Out-File -Append -Encoding utf8 $env:GITHUB_STEP_SUMMARY
+            "``````" | Out-File -Append -Encoding utf8 $env:GITHUB_STEP_SUMMARY
+          }
           $f = "${{ runner.temp }}\design-smoke\design-smoke.json"
           if (Test-Path $f) {
             "### design smoke`n``````json" | Out-File -Append -Encoding utf8 $env:GITHUB_STEP_SUMMARY
@@ -166,10 +172,17 @@ jobs:
           DESIGN_LIVE_SHOTS: ${{ runner.temp }}\design-live-installed
         run: npx playwright test e2e/design-live.spec.ts --reporter=list --trace=retain-on-failure
       # the owner's first use, measured: time to the tools, the phases he sees, longest still stretch, disk
-      - name: First-use summary
+      - name: First-use and finish summary
         if: always()
         shell: pwsh
         run: |
+          $fin = "${{ runner.temp }}\design-live-installed\finish.json"
+          if (Test-Path $fin) {
+            "### «Дизайн» after «готово» (installed): archive, phone, edit`n``````json" | Out-File -Append -Encoding utf8 $env:GITHUB_STEP_SUMMARY
+            Get-Content $fin -Encoding utf8 | Out-File -Append -Encoding utf8 $env:GITHUB_STEP_SUMMARY
+            "``````" | Out-File -Append -Encoding utf8 $env:GITHUB_STEP_SUMMARY
+            Get-Content $fin -Encoding utf8
+          }
           $f = "${{ runner.temp }}\design-live-installed\firstuse.json"
           if (Test-Path $f) {
             "### «Дизайн», first use on the installed app`n``````json" | Out-File -Append -Encoding utf8 $env:GITHUB_STEP_SUMMARY
