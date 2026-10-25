@@ -9,6 +9,9 @@ export type UndoOutcome =
   | { kind: "restored"; count: number };
 
 const KEY = "prsloy.undo.log.v1";
+/** Fired after a save: the undo note core appends re-renders the timeline mid-undo, so the
+ * action that saves may already be unmounted and its replacement must pick the result up. */
+export const UNDO_LOG_CHANGED_EVENT = "prsloy-undo-log";
 const MAX_ENTRIES = 200;
 
 function readLog(): Record<string, UndoOutcome> {
@@ -44,5 +47,10 @@ export function saveUndoOutcome(snapshotId: string, outcome: UndoOutcome): void 
     localStorage.setItem(KEY, JSON.stringify(log));
   } catch {
     // Storage unavailable: the marker lives until the next remount.
+  }
+  try {
+    window.dispatchEvent(new CustomEvent(UNDO_LOG_CHANGED_EVENT, { detail: snapshotId }));
+  } catch {
+    // No window in node tests.
   }
 }

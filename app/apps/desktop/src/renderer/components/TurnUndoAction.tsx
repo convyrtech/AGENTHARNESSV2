@@ -3,11 +3,16 @@
  * the snapshot taken before that turn, then say how many files came back. «Вернуть как
  * было» re-applies the backup main took right before the undo.
  */
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { RotateCcw, Undo2 } from "lucide-react";
 import { t, type Locale } from "../lib/i18n.ts";
 import { undoneFileCount, undoResultKey } from "../lib/turn-undo.ts";
-import { loadUndoOutcome, saveUndoOutcome, type UndoOutcome } from "../lib/undo-log.ts";
+import {
+  loadUndoOutcome,
+  saveUndoOutcome,
+  UNDO_LOG_CHANGED_EVENT,
+  type UndoOutcome,
+} from "../lib/undo-log.ts";
 import { ConfirmDialog } from "./ConfirmDialog.tsx";
 
 type Outcome = UndoOutcome | { kind: "error"; message: string };
@@ -47,6 +52,15 @@ export function TurnUndoAction(props: {
       setBusy(false);
     }
   }
+
+  useEffect(() => {
+    const sync = () => {
+      const saved = loadUndoOutcome(props.snapshotId);
+      if (saved) setOutcome(saved);
+    };
+    window.addEventListener(UNDO_LOG_CHANGED_EVENT, sync);
+    return () => window.removeEventListener(UNDO_LOG_CHANGED_EVENT, sync);
+  }, [props.snapshotId]);
 
   const locked = props.disabled || busy;
   return (

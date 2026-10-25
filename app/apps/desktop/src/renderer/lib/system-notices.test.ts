@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
-import { isModelFailure, localizedSystemTitle } from "./system-notices.ts";
+import { isModelFailure, isModelOnlyNote, localizedSystemTitle } from "./system-notices.ts";
 
 describe("system notices", () => {
   it("says a failed response in plain Russian", () => {
@@ -16,5 +16,11 @@ describe("system notices", () => {
     expect(isModelFailure({ title: "Response failed", tone: "error" })).toBe(true);
     expect(isModelFailure({ title: "Response failed", tone: "info" })).toBe(false);
     expect(isModelFailure({ title: "Response stopped", tone: "error" })).toBe(false);
+  });
+
+  it("hides notes that are written for the model only", () => {
+    expect(isModelOnlyNote({ extension: true, title: "prsloy.undo" })).toBe(true);
+    expect(isModelOnlyNote({ extension: false, title: "prsloy.undo" })).toBe(false);
+    expect(isModelOnlyNote({ extension: true, title: "my-extension" })).toBe(false);
   });
 });

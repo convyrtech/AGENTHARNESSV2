@@ -24,3 +24,15 @@ export function localizedSystemTitle(locale: Locale, title: string): string {
 export function isModelFailure(item: { title?: string; tone?: string }): boolean {
   return item.tone === "error" && item.title === RESPONSE_FAILED_TITLE;
 }
+
+/**
+ * Session notes written for the model, not the reader: core's «Файлы хода N откатены…»
+ * after an undo (the transcript already shows «Ход откатен: …»).
+ */
+const MODEL_ONLY_CUSTOM_TYPES: ReadonlySet<string> = new Set(["prsloy.undo"]);
+
+export function isModelOnlyNote(item: { extension?: boolean; title?: string }): boolean {
+  return (
+    item.extension === true && item.title !== undefined && MODEL_ONLY_CUSTOM_TYPES.has(item.title)
+  );
+}

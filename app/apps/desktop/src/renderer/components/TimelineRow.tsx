@@ -84,7 +84,7 @@ import {
 } from "../lib/timeline.ts";
 import { cn } from "../lib/utils.ts";
 import { useCasualPrefs } from "../hooks/useCasualPrefs.ts";
-import { isModelFailure, localizedSystemTitle } from "../lib/system-notices.ts";
+import { isModelFailure, isModelOnlyNote, localizedSystemTitle } from "../lib/system-notices.ts";
 import { ModelFailureCard } from "./ModelFailureCard.tsx";
 
 /** Tick wall-clock once per second while `active` so elapsed labels stay live. */
@@ -795,6 +795,7 @@ export const TimelineRow = memo(function TimelineRow(props: {
   // Shell / errors / other system notes — default Marker card.
   // Extension custom message/entry use the same generic serializable fallback
   // (no TUI renderer factories); content is still sanitized Markdown.
+  if (isModelOnlyNote(item)) return null;
   if (isModelFailure(item)) {
     return (
       <ModelFailureCard
