@@ -8,6 +8,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ImportRunResult, ImportScanResult, ImportToolId } from "@zeno/contracts";
 import { Button } from "@/components/ui/button";
 import { LineLoader } from "@/components/motion/LineLoader";
+import { refreshImportOrigins } from "../../hooks/useImportOrigins.ts";
 import { t, type Locale, type MessageKey } from "@/lib/i18n";
 import {
   countText,
@@ -93,6 +94,7 @@ export function ImportChats({
     try {
       const result = await api.run(keys);
       saveImportedProjects(result.projects);
+      void refreshImportOrigins();
       setPhase({ kind: "done", result });
     } catch (cause) {
       setPhase({

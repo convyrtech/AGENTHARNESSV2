@@ -104,4 +104,25 @@ describe("SessionImportService", () => {
     expect(scan.unreadable).toEqual(["opencode"]);
     expect(scan.chats).toHaveLength(5);
   });
+
+  it("lists imported chats by normalized session path and tool only", async () => {
+    const { machine, svc } = await service();
+    const scan = await svc.scan(NOW);
+    await svc.run(scan.selected);
+    const linux = await svc.origins("linux");
+    expect(linux.foldCase).toBe(false);
+    const files = await readdir(machine.sessionDir);
+    expect(Object.keys(linux.origins)).toHaveLength(files.length);
+    expect(new Set(Object.values(linux.origins))).toEqual(
+      new Set(["claude-code", "codex", "pi-cli"]),
+    );
+    expect(
+      Object.keys(linux.origins).every((key) =>
+        key.startsWith(machine.sessionDir.replaceAll("\\", "/")),
+      ),
+    ).toBe(true);
+    const windows = await svc.origins("win32");
+    expect(windows.foldCase).toBe(true);
+    expect(Object.keys(windows.origins).every((key) => key === key.toLowerCase())).toBe(true);
+  });
 });

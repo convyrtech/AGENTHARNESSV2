@@ -56,9 +56,20 @@ export interface ImportProgress {
   total: number;
 }
 
+/**
+ * Which PRSLOY chats were brought over, from the import journal: session file → tool. Keys are
+ * normalized in main (shared/import-origin.ts); `foldCase` tells the renderer to compare
+ * case-insensitively (Windows). Nothing but paths and tools.
+ */
+export interface ImportOrigins {
+  origins: Record<string, ImportToolId>;
+  foldCase: boolean;
+}
+
 export interface SessionImportApi {
   scan(): Promise<ImportScanResult>;
   /** Unknown keys are ignored; rejects when an import is already running. */
   run(keys: string[]): Promise<ImportRunResult>;
   onProgress(listener: (progress: ImportProgress) => void): () => void;
+  origins(): Promise<ImportOrigins>;
 }
