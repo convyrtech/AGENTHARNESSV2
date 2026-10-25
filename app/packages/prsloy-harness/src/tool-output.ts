@@ -112,9 +112,10 @@ export function installToolOutput(pi: ExtensionAPI, opts: ResolvedOptions): void
       cut = true;
     }
 
+    const exitLine = EXIT_LINE.exec(text)?.[1];
     const exit =
       structured?.exit_code ??
-      (EXIT_LINE.exec(text)?.[1] !== undefined ? Number(EXIT_LINE.exec(text)?.[1]) : undefined) ??
+      (exitLine !== undefined ? Number(exitLine) : undefined) ??
       (event.isError ? undefined : 0);
     const exitLabel =
       exit !== undefined ? `exit ${exit}` : /таймаут|timed out/i.test(text) ? "таймаут" : "ошибка";
