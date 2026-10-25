@@ -43,24 +43,58 @@
 Бюджеты больших файлов не превышены и даже уменьшены: из них вынесены `ResourcesPage`, `EnvironmentSection` и
 `ContextUsageIndicator` (main.tsx 4534 → 4476, SettingsPage 5163 → 5109, Composer 1811 → 1758).
 
+## Этап 2 (после слияния с ядром)
+
+1. **«Откатить ход».** Под каждым законченным ходом, где работал `edit` или `write`, — тихое действие «Откатить».
+   - Открывает `ConfirmDialog` «Вернуть файлы как были до этого хода?», зовёт `undoTurn` ядра и пишет итог
+     («Вернул 3 файла», «Файлы не менялись»).
+   - Рядом «Вернуть как было»: откатывает обратно на снимок, который ядро делает прямо перед откатом.
+   - Пока идёт ход, действие выключено.
+   - Ход сопоставляется со снимком по первой строке запроса, новые раньше, снимок не используется дважды
+     (`lib/turn-undo.ts`). `sessionId` есть не у всех снимков: первый ход нового чата снимается до создания сессии.
+2. **Первый запуск** (`components/prsloy/FirstRunGate.tsx`).
+   - Бумажный фон, слово PRSLOY в Piazzolla, одно поле и одна кнопка.
+   - Ошибки ядра по-человечески: «Ключ не подошёл. Проверьте, что скопировали его целиком», «На балансе пусто.
+     Пополните его на prsloy.online» и т. д.
+   - «Где взять ключ» → https://prsloy.online.
+   - Затем «Выбрать папку» и недавние папки, если есть. При живом первом запуске их нет: если недавние уже есть,
+     main сам открывает первую.
+3. **Настройки → «Аккаунт»** (видно и в казуальном режиме).
+   - Ключ маской, «Сменить ключ» с проверкой через ядро.
+   - «Адрес сервера»: по умолчанию `https://api.prsloy.online/v1`, «Сохранить» и «Вернуть по умолчанию».
+   - «Курс ₽ за $» переехал сюда из «Общих».
+4. **Казуальный чат.** Карточки читаются как «Прочитал README.md», «Поправил…», «Запустил…».
+   - Сырое имя инструмента (`read`, `bash`) скрыто без режима разработчика.
+   - Группа шагов и выводы свёрнуты по умолчанию.
+5. **Скриншоты** (светлая и тёмная): `{light,dark}-first-run-key`, `-first-run-folder`, `-undo`, `-undo-done`,
+   `-account` из `e2e-screens/first-run.spec.ts`.
+   - Это настоящий первый запуск против мок-шлюза: неверный ключ даёт `invalid_key`, верный проходит.
+   - Нативный диалог папки подменён ответом с демо-проектом.
+   - Модель пишет файл, «Откатить» его удаляет (тест проверяет диск).
+
+### Замечания ядру
+
+- **Рубли для моделей PRSLOY всегда 0.** `buildPrsloyModelsJsonProvider` пишет `cost: 0` для всех моделей, поэтому
+  pi считает сессию бесплатной. Плашка с рублями при нулевой стоимости скрыта, чтобы не показывать «0,00 ₽».
+  Нужны цены за 1M токенов в `PRSLOY_MODELS` (или стоимость от шлюза).
+- На Linux без keyring `safeStorage` недоступен даже с `--password-store=basic`, поэтому на скриншотах видна
+  подпись «Ключ не сохранится». На Windows (DPAPI) её не будет.
+
 ## Как проверено
 
 ```
-$ pnpm exec vp check --no-fmt
-pass: Found no warnings, lint errors, or type errors in 421 files
+$ pnpm check
+pass: All 529 files are correctly formatted
+pass: Found no warnings, lint errors, or type errors in 486 files
 $ pnpm test
- Test Files  95 passed (95)
-      Tests  690 passed (690)
+ desktop: Test Files 112 passed, Tests 767 passed; harness 104; agent-runtime 115
 file budgets ok (4 frozen, 2000-line ceiling for the rest)
 $ pnpm --filter @zeno/desktop run build
 $ xvfb-run -a npx playwright test -c playwright.screens.config.ts   # в apps/desktop
-  1 passed (21.8s)
+  3 passed (first-run light/dark + main screens)
 $ identify build/icon.ico   → 16, 24, 32, 48, 64, 128, 256
 $ file build/icon.icns      → Mac OS X icon, "ic07" type
 ```
-
-`pnpm check` целиком красный только из-за форматирования `docs/prsloy/CONTEXT.md`. Это уже так на `main`, и файл
-правит ветка ci, поэтому я его не трогал. Достаточно одного `vp check --fix` при слиянии.
 
 ## Что не сделано и почему
 

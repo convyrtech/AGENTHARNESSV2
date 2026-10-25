@@ -129,6 +129,11 @@ export function FirstRunGate({ children }: { children: ReactNode }) {
               onChange={(event) => setKey(event.target.value)}
               disabled={busy}
             />
+            {error ? (
+              <p role="alert" className="prsloy-first-run-error">
+                {error}
+              </p>
+            ) : null}
             <Button type="submit" className="h-10" disabled={busy || !cleanPastedKey(key)}>
               {busy
                 ? t(locale, "prsloy.firstRun.keyChecking")
@@ -176,16 +181,16 @@ export function FirstRunGate({ children }: { children: ReactNode }) {
                 ))}
               </div>
             ) : null}
+            {error ? (
+              <p role="alert" className="prsloy-first-run-error">
+                {error}
+              </p>
+            ) : null}
             {state?.keyMemoryOnly ? (
               <p className="prsloy-first-run-note">{t(locale, "prsloy.firstRun.keyMemoryOnly")}</p>
             ) : null}
           </div>
         )}
-        {error ? (
-          <p role="alert" className="prsloy-first-run-error">
-            {error}
-          </p>
-        ) : null}
       </div>
     </div>
   );

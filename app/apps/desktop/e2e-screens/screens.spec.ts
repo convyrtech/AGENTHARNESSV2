@@ -6,7 +6,7 @@
  *
  * Runs the dev bundle isolated (ZENO_ISOLATED=1, temp HOME and userData) against a local
  * OpenAI-compatible fake that answers in Russian, reads one file, and reports token usage
- * so the ruble cost shows. The two tier models are registered under the PRSLOY provider.
+ * so the ruble cost shows. The two tier models are registered under a demo provider.
  */
 import { expect, test, type Page } from "@playwright/test";
 import { _electron as electron, type ElectronApplication } from "playwright";
@@ -110,7 +110,8 @@ async function launch(): Promise<{ app: ElectronApplication; page: Page; server:
     join(agentDir, "models.json"),
     JSON.stringify({
       providers: {
-        prsloy: {
+        // Not `prsloy`: core owns that provider and supplies its key at runtime.
+        "prsloy-demo": {
           baseUrl: `http://127.0.0.1:${port}/v1`,
           apiKey: "test-key-not-secret",
           api: "openai-completions",
@@ -133,8 +134,11 @@ async function launch(): Promise<{ app: ElectronApplication; page: Page; server:
     XDG_CONFIG_HOME: join(home, ".config"),
     PI_CODING_AGENT_DIR: agentDir,
     ZENO_ISOLATED: "1",
+    // Core honors PI_CODING_AGENT_DIR (this fake provider) only in test mode, which also
+    // skips the first-run screens; first-run.spec.ts covers those.
+    ZENO_ENABLE_TEST_COMMANDS: "1",
     ZENO_WORKSPACE: workspace,
-    ZENO_MODEL_PROVIDER: "prsloy",
+    ZENO_MODEL_PROVIDER: "prsloy-demo",
     ZENO_MODEL_ID: "deepseek-v4.1-flash-1017",
     ZENO_TOOLS: "read",
     ZENO_PERSIST_SESSION: "0",

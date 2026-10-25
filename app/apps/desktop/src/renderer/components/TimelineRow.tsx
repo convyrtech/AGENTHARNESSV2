@@ -83,6 +83,7 @@ import {
   type TimelineItem,
 } from "../lib/timeline.ts";
 import { cn } from "../lib/utils.ts";
+import { useCasualPrefs } from "../hooks/useCasualPrefs.ts";
 
 /** Tick wall-clock once per second while `active` so elapsed labels stay live. */
 function useNow(active: boolean): number {
@@ -1266,7 +1267,10 @@ function ProcessToolRow(props: {
         })
       : openTitleBase;
 
-  const typeLabel = hasBody ? processToolTypeLabel(props.item.toolName) : undefined;
+  // The raw tool name («read», «bash») is a developer's detail; the verb already says it.
+  const { developerMode } = useCasualPrefs();
+  const typeLabel =
+    hasBody && developerMode ? processToolTypeLabel(props.item.toolName) : undefined;
 
   // Nested under a group: no in-flow icon so the verb shares the left edge with the group label.
   // Running spinner sits in the left gutter via CSS, not the text column.
