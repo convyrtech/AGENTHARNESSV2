@@ -32,3 +32,20 @@ export function dated(value: unknown): { date: string } | Record<string, never> 
   const d = isoDate(value);
   return d ? { date: d } : {};
 }
+
+/**
+ * Причина сетевой ошибки — фиксированными словами. Текст исключения в ответ инструмента не идёт: в нём бывает
+ * адрес с токеном или значение заголовка (Node: «Invalid header value "Bearer sk-…"»), а ответ видит модель.
+ */
+export function netReason(e: unknown): string {
+  const err = e as { name?: string; code?: string; cause?: { code?: string; name?: string } };
+  const code = err?.cause?.code ?? err?.code ?? "";
+  const name = err?.cause?.name ?? err?.name ?? "";
+  if (name === "TimeoutError" || name === "AbortError" || code === "UND_ERR_CONNECT_TIMEOUT")
+    return "время ожидания вышло";
+  if (code === "ENOTFOUND" || code === "EAI_AGAIN") return "имя сайта не найдено";
+  if (code === "ECONNREFUSED") return "соединение отклонено";
+  if (code === "ECONNRESET" || code === "UND_ERR_SOCKET") return "соединение сброшено";
+  if (/CERT|SSL|TLS/i.test(code)) return "ошибка сертификата сайта";
+  return "сеть недоступна";
+}

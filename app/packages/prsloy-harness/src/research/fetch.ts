@@ -5,6 +5,9 @@
 // а не инструкции. Дата берётся со страницы: мета article:published_time, JSON-LD, <time>; иначе — заголовок
 // Last-Modified; иначе «дата неизвестна».
 
+import { netReason } from "./common.ts";
+import { assertPublicUrl, PrivateAddressError, type Resolve } from "./net-guard.ts";
+
 export interface PageText {
   url: string;
   /** Адрес после редиректов. */
@@ -28,15 +31,23 @@ export interface ReadDeps {
   jina?: boolean;
   /** Больше этого страницу не читаем, байт. */
   maxBytes?: number;
+  /** Разрешение имён для проверки частных адресов (тесты). */
+  resolve?: Resolve;
 }
 
 export class ReadError extends Error {
   readonly status: number;
-  constructor(message: string, status = 0) {
+  /** Запасные пути не пробовать: страницы нет или адрес частный (его нельзя отдавать наружу). */
+  readonly final: boolean;
+  constructor(message: string, status = 0, final = false) {
     super(message);
     this.status = status;
+    this.final = final || status === 404 || status === 410;
   }
 }
+
+/** Сколько редиректов проходим (каждый шаг проверяется на частный адрес). */
+const MAX_REDIRECTS = 5;
 
 const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36";
@@ -373,19 +384,40 @@ async function cappedJson<T>(res: Response, max = MAX_BODY_BYTES): Promise<T> {
 }
 
 async function direct(url: string, deps: ReadDeps): Promise<PageText> {
-  let res: Response;
-  try {
-    res = await (deps.fetchImpl ?? fetch)(url, {
-      redirect: "follow",
-      headers: {
-        "User-Agent": UA,
-        Accept: "text/html,application/xhtml+xml,text/plain;q=0.9,*/*;q=0.5",
-        "Accept-Language": "ru,en;q=0.8",
-      },
-      signal: AbortSignal.timeout(deps.timeoutMs ?? 20_000),
-    });
-  } catch (e) {
-    throw new ReadError(`не открылась: ${(e as Error).message}`);
+  let res: Response | undefined;
+  let current = url;
+  const signal = AbortSignal.timeout(deps.timeoutMs ?? 20_000);
+  for (let hop = 0; ; hop++) {
+    try {
+      res = await (deps.fetchImpl ?? fetch)(current, {
+        // редиректы — сами: каждый шаг проверяем, не ведёт ли он на частный адрес
+        redirect: "manual",
+        headers: {
+          "User-Agent": UA,
+          Accept: "text/html,application/xhtml+xml,text/plain;q=0.9,*/*;q=0.5",
+          "Accept-Language": "ru,en;q=0.8",
+        },
+        signal,
+      });
+    } catch (e) {
+      throw new ReadError(`не открылась: ${netReason(e)}`);
+    }
+    const location = res.status >= 300 && res.status < 400 ? res.headers.get("location") : null;
+    if (!location) break;
+    await res.body?.cancel().catch(() => undefined);
+    if (hop >= MAX_REDIRECTS) throw new ReadError("слишком много редиректов");
+    let next: string;
+    try {
+      next = new URL(location, current).toString();
+      await assertPublicUrl(next, deps.resolve);
+    } catch (e) {
+      throw new ReadError(
+        `редирект на ${e instanceof PrivateAddressError ? "частный адрес" : "неверный адрес"} — не читаем`,
+        0,
+        true,
+      );
+    }
+    current = next;
   }
   if (!res.ok) throw new ReadError(`HTTP ${res.status}`, res.status);
   const type = res.headers.get("content-type") ?? "";
@@ -402,7 +434,7 @@ async function direct(url: string, deps: ReadDeps): Promise<PageText> {
   const header = isoDay(res.headers.get("last-modified") ?? undefined);
   const page: PageText = {
     url,
-    finalUrl: res.url || url,
+    finalUrl: current,
     status: res.status,
     title,
     text,
@@ -510,6 +542,16 @@ export async function readPage(url: string, deps: ReadDeps = {}): Promise<PageTe
     throw new ReadError("только http и https");
   if (parsed.username || parsed.password)
     throw new ReadError("адрес с логином и паролем не читаем");
+  // частный адрес не читаем и в запасные пути (шлюз, Jina, jsDelivr) не отдаём
+  try {
+    await assertPublicUrl(url, deps.resolve);
+  } catch (e) {
+    throw new ReadError(
+      e instanceof PrivateAddressError ? e.message : "это не адрес страницы",
+      0,
+      true,
+    );
+  }
   const errors: string[] = [];
   let first: PageText | undefined;
   try {
@@ -518,7 +560,7 @@ export async function readPage(url: string, deps: ReadDeps = {}): Promise<PageTe
     errors.push("почти пустая страница (собирается скриптом?)");
   } catch (e) {
     const err = e as ReadError;
-    if (err.status === 404 || err.status === 410) throw err;
+    if (err.final) throw err;
     errors.push(err.message);
   }
   const cdn = first ? undefined : jsdelivrUrl(url);

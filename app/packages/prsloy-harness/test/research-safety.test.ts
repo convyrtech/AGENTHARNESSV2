@@ -1,5 +1,7 @@
 // Ревью #23 перед включением webTools: враждебные страницы, адреса, ключи. Каждый тест падает без своей правки.
 import { describe, expect, it } from "vite-plus/test";
+import { isPrivateHost, isPrivateIp, type Resolve } from "../src/research/net-guard.ts";
+import { fakeFetch, json } from "./fake-fetch.ts";
 import {
   htmlToText,
   isTextType,
@@ -105,5 +107,124 @@ describe("the body is streamed up to the cap (review #23, item 2)", () => {
     await expect(
       readPage("https://example.com/setup.exe", { fetchImpl, jina: false }),
     ).rejects.toThrow("не текст");
+  });
+});
+
+describe("local and private addresses are never read or sent out (review #23, item 3)", () => {
+  const html = (body: string) =>
+    new Response(`<html><body><article>${body}</article></body></html>`, {
+      headers: { "content-type": "text/html" },
+    });
+  const publicDns: Resolve = async () => ["93.184.215.14"];
+
+  it("private IPs and local names", () => {
+    for (const ip of [
+      "127.0.0.1",
+      "127.8.9.1",
+      "10.1.2.3",
+      "172.16.0.1",
+      "172.31.255.255",
+      "192.168.1.1",
+      "169.254.169.254",
+      "100.64.0.1",
+      "0.0.0.0",
+      "::1",
+      "::",
+      "fc00::1",
+      "fd12:3456::1",
+      "fe80::1",
+      "::ffff:127.0.0.1",
+      "::ffff:7f00:1",
+      "224.0.0.1",
+    ])
+      expect(isPrivateIp(ip), ip).toBe(true);
+    for (const ip of ["93.184.215.14", "8.8.8.8", "172.32.0.1", "2606:4700::1111", "100.128.0.1"])
+      expect(isPrivateIp(ip), ip).toBe(false);
+    for (const h of [
+      "localhost",
+      "app.localhost",
+      "printer.local",
+      "nas",
+      "router.lan",
+      "[::1]",
+      "2130706433",
+      "0x7f000001",
+      "corp.internal",
+    ])
+      expect(isPrivateHost(h), h).toBe(true);
+    for (const h of ["example.com", "cbr.ru", "github.com"])
+      expect(isPrivateHost(h), h).toBe(false);
+  });
+
+  it("http://localhost:8888/tree?token=SECRET reaches neither the network nor the gateway nor Jina", async () => {
+    const f = fakeFetch([]);
+    await expect(
+      readPage("http://localhost:8888/tree?token=SECRET", {
+        fetchImpl: f.impl,
+        gateway: { url: "https://gw.example/v1", key: "k" },
+      }),
+    ).rejects.toThrow("частный адрес");
+    expect(f.calls).toEqual([]);
+  });
+
+  it("a public page that redirects to 127.0.0.1 is not followed, and no fallback gets the address", async () => {
+    const f = fakeFetch([
+      [
+        "https://evil.example/",
+        () =>
+          new Response(null, {
+            status: 302,
+            headers: { location: "http://127.0.0.1:8888/tree?token=SECRET" },
+          }),
+      ],
+      ["https://gw.example/", () => json({ content: "x" })],
+      ["https://r.jina.ai/", () => json({ data: { content: "x" } })],
+    ]);
+    await expect(
+      readPage("https://evil.example/go", {
+        fetchImpl: f.impl,
+        resolve: publicDns,
+        gateway: { url: "https://gw.example/v1", key: "k" },
+      }),
+    ).rejects.toThrow("редирект на частный адрес");
+    expect(f.calls.map((c) => c.url)).toEqual(["https://evil.example/go"]);
+    expect(JSON.stringify(f.calls)).not.toContain("SECRET");
+  });
+
+  it("a name that resolves to a private IP is refused; public redirects are followed hop by hop", async () => {
+    const f = fakeFetch([
+      // по префиксу: длинный адрес — первым
+      ["https://a.example/b", () => html("Текст. ".repeat(60))],
+      [
+        "https://a.example/",
+        () => new Response(null, { status: 301, headers: { location: "/b" } }),
+      ],
+    ]);
+    await expect(
+      readPage("https://rebind.example/", { fetchImpl: f.impl, resolve: async () => ["10.0.0.5"] }),
+    ).rejects.toThrow("частный адрес");
+    expect(f.calls).toEqual([]);
+    const page = await readPage("https://a.example/", { fetchImpl: f.impl, resolve: publicDns });
+    expect(page.finalUrl).toBe("https://a.example/b");
+    expect(f.calls.map((c) => c.url)).toEqual(["https://a.example/", "https://a.example/b"]);
+  });
+
+  it("the redirect target is checked through DNS too", async () => {
+    const f = fakeFetch([
+      [
+        "https://a.example/",
+        () =>
+          new Response(null, {
+            status: 302,
+            headers: { location: "https://intranet-wiki.example/" },
+          }),
+      ],
+    ]);
+    const resolve: Resolve = async (h) =>
+      h === "intranet-wiki.example" ? ["192.168.0.10"] : ["93.184.215.14"];
+    await expect(
+      readPage("https://a.example/", { fetchImpl: f.impl, resolve, jina: true }),
+    ).rejects.toThrow("редирект на частный адрес");
+    expect(f.calls).toHaveLength(1);
   });
 });
