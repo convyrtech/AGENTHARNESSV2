@@ -2,7 +2,7 @@
 import { findFiles } from "../../lib/check-utils.mjs";
 
 const ASSUMPTION =
-  /допущ|предполож|решил|исходил|сделал(?:а)? так|по умолчанию|если нужно (?:другое|иначе)/iu;
+  /понял(?:а)? так|допущ|предполож|решил|исходил|сделал(?:а)? так|по умолчанию|если (?:нужно )?(?:другое|иначе)/iu;
 
 export default async function check({ ws, answer, reply }) {
   const made = findFiles(ws, [".html", ".js", ".py", ".md", ".css"]).length > 0;

@@ -320,12 +320,14 @@ describe("integration: real createAgentSession + mock gateway", () => {
     expect(textOf(write!)).toContain("[Проверка синтаксиса (JSON.parse): ОШИБКА в data.json");
     expect(textOf(read!)).not.toContain("sk-proj-");
     expect(textOf(read!)).toContain("[СКРЫТО: sk-ключ]");
-    // Раздел «поиск готового» (профиль «Код» по умолчанию) дошёл до шлюза в системном промпте.
+    // Промпт «Кода» PRSLOY (по умолчанию с этапа 14) с правилом «сначала готовое» дошёл до шлюза.
     const system = server.requests[0]!.messages.find(
       (m) => m.role === "system" || m.role === "developer",
     );
-    expect(messageText(system)).toContain("<prsloy_reuse_first>");
-    expect(messageText(system)).toContain("well-established library");
+    expect(messageText(system)).toContain("You are the coding agent of PRSLOY");
+    expect(messageText(system)).toContain(
+      "Use the find_ready tool before writing a utility from scratch",
+    );
   }, 30_000);
 
   it("loads as a Pi package directory (package.json pi.extensions)", async () => {
@@ -588,6 +590,48 @@ describe("integration: lessons (S3) in a real session", () => {
   }, 60_000);
 });
 
+describe("integration: vague request (stage 14) in a real session", () => {
+  const page = {
+    toolCalls: [
+      { name: "write", arguments: { path: "index.html", content: "<h1>Кофейня</h1>\n" } },
+    ],
+  };
+
+  it("«сделай что-нибудь» + done + no reading named → one «допиши, как понял», then the turn ends", async () => {
+    const { session, server } = await startSession(
+      (_req, index) =>
+        [
+          page,
+          { text: "Готово! Сделал сайт для кофейни." },
+          { text: "Понял так: нужна страница с меню и часами. Если иначе — скажи." },
+        ][index] ?? { text: "?" },
+      { factory: {} },
+    );
+    await session.prompt("Сделай что-нибудь для моей кофейни.");
+    expect(server.requests).toHaveLength(3);
+    expect(JSON.stringify(server.requests[2]!.messages)).toContain(
+      "Просьба была расплывчатой, а в ответе не сказано, как ты её понял.",
+    );
+  }, 30_000);
+
+  it("a concrete request, or a reading already named — no nudge", async () => {
+    for (const [prompt, answer] of [
+      ["Сделай сайт-визитку для фотографа Анны", "Готово! Сделал визитку."],
+      [
+        "Сделай что-нибудь для моей кофейни.",
+        "Понял так: нужна визитка кофейни. Если иначе — скажи.",
+      ],
+    ] as const) {
+      const { session, server } = await startSession(
+        (_req, index) => [page, { text: answer }][index] ?? { text: "?" },
+        { factory: {} },
+      );
+      await session.prompt(prompt);
+      expect(server.requests, prompt).toHaveLength(2);
+    }
+  }, 30_000);
+});
+
 describe("integration: curated skills (S9) in a real session", () => {
   it("flag on: the skills are listed in the prompt (same on every turn), the model reads one, it is logged", async () => {
     const skillsDir = await mkdtemp(join(tmpdir(), "prsloy-skills-int-"));
@@ -642,21 +686,20 @@ describe("integration: curated skills (S9) in a real session", () => {
 });
 
 describe("integration: PRSLOY code prompt (research/17) in a real session", () => {
-  const prepare =
-    (prompt: "pi" | "prsloy") => async (d: { root: string; agentDir: string; cwd: string }) => {
-      await writeFile(join(d.root, "flags.json"), JSON.stringify({ prompt }));
-      await writeFile(join(d.cwd, "AGENTS.md"), "Project rule: use tabs for indentation.\n");
-      await mkdir(join(d.agentDir, "skills", "csv-report"), { recursive: true });
-      await writeFile(
-        join(d.agentDir, "skills", "csv-report", "SKILL.md"),
-        "---\nname: csv-report\ndescription: Summarize a CSV file into a short report.\n---\n\nRead the CSV, sum by month.\n",
-      );
-    };
+  const prepare = (prompt?: "pi") => async (d: { root: string; agentDir: string; cwd: string }) => {
+    await writeFile(join(d.root, "flags.json"), JSON.stringify(prompt ? { prompt } : {}));
+    await writeFile(join(d.cwd, "AGENTS.md"), "Project rule: use tabs for indentation.\n");
+    await mkdir(join(d.agentDir, "skills", "csv-report"), { recursive: true });
+    await writeFile(
+      join(d.agentDir, "skills", "csv-report", "SKILL.md"),
+      "---\nname: csv-report\ndescription: Summarize a CSV file into a short report.\n---\n\nRead the CSV, sum by month.\n",
+    );
+  };
 
-  it("prompt: prsloy — our preamble replaces Pi's; AGENTS.md, skills and cwd stay; turn 1 = turn 5 byte for byte", async () => {
+  it("prompt: prsloy (the default, no flag) — our preamble replaces Pi's; AGENTS.md, skills and cwd stay; turn 1 = turn 5 byte for byte", async () => {
     const { session, server, cwd } = await startSession(() => ({ text: "Готово." }), {
       factory: {},
-      prepare: prepare("prsloy"),
+      prepare: prepare(),
     });
     for (let i = 1; i <= 5; i++) await session.prompt(`шаг ${i}`);
     const system = (i: number) => (server.requests[i]!.messages[0] as { content: string }).content;
@@ -674,7 +717,7 @@ describe("integration: PRSLOY code prompt (research/17) in a real session", () =
     expect(system(4)).toBe(first);
   }, 60_000);
 
-  it("prompt: pi (the default) — Pi's preamble plus our two sections, as before", async () => {
+  it("prompt: pi (by flag) — Pi's preamble plus our two sections, as before", async () => {
     const { session, server } = await startSession(() => ({ text: "Готово." }), {
       factory: {},
       prepare: prepare("pi"),

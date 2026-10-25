@@ -58,7 +58,7 @@ export interface BenchOptions {
   skills?: boolean;
   /** Память (флаг "memory"). По умолчанию вкл. */
   memory?: boolean;
-  /** Системный промпт «Кода»: pi (база Pi + разделы) или prsloy (research/17 §9). По умолчанию pi. */
+  /** Системный промпт «Кода»: pi (база Pi + разделы) или prsloy (research/17 §9). По умолчанию prsloy. */
   prompt?: "pi" | "prsloy";
   /** Дельта промпта под модель (qwen, opus). По умолчанию выкл. */
   delta?: boolean;
@@ -209,7 +209,7 @@ async function runTask(task: TaskDef, opts: BenchOptions): Promise<TaskResult> {
       secondOpinion: opts.review !== false,
       skills: opts.skills === true,
       memory: opts.memory !== false,
-      prompt: opts.prompt ?? "pi",
+      prompt: opts.prompt ?? "prsloy",
       promptDelta: opts.delta === true,
     }),
   );
@@ -426,7 +426,7 @@ export async function runBench(opts: BenchOptions): Promise<BenchReport> {
       skills: opts.skills === true,
       lessons: opts.lessons !== false,
       memory: opts.memory !== false,
-      prompt: opts.prompt ?? "pi",
+      prompt: opts.prompt ?? "prsloy",
       delta: opts.delta === true,
       fake: opts.fake === true,
       date: new Date().toISOString(),

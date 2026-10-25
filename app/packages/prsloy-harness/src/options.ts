@@ -88,7 +88,8 @@ export type PracticeName =
   | "requestSecret"
   | "pagePaths"
   | "pageCheck"
-  | "skills";
+  | "skills"
+  | "vagueRequest";
 
 export interface ResolvedOptions {
   profile: HarnessProfile;

@@ -12,7 +12,7 @@ export interface HarnessFlags {
   disabledLessons: string[];
   /** «Запоминать, когда я прошу» (память, S4). По умолчанию выкл., пока в приложении нет «Забыть» и панели «Память» (S5). */
   memory: boolean;
-  /** Системный промпт «Кода»: базовый Pi + разделы (pi) или свой (prsloy, research/17 §9). По умолчанию pi. */
+  /** Системный промпт «Кода»: базовый Pi + разделы (pi) или свой (prsloy, research/17 §9). По умолчанию prsloy (этап 14, A/B: 11/12 против 10/12). */
   prompt: "pi" | "prsloy";
   /** Дельта под модель (prsloy_model, research/17 §9.1). По умолчанию выкл. */
   promptDelta: boolean;
@@ -25,7 +25,7 @@ export function readFlags(settingsPath: string | undefined): HarnessFlags {
     skills: false,
     disabledLessons: [],
     memory: false,
-    prompt: "pi",
+    prompt: "prsloy",
     promptDelta: false,
   };
   if (settingsPath && existsSync(settingsPath)) {
@@ -35,7 +35,7 @@ export function readFlags(settingsPath: string | undefined): HarnessFlags {
       if (raw.lessons === false) flags.lessons = false;
       if (raw.skills === true) flags.skills = true;
       if (raw.memory === true) flags.memory = true;
-      if (raw.prompt === "prsloy") flags.prompt = "prsloy";
+      if (raw.prompt === "prsloy" || raw.prompt === "pi") flags.prompt = raw.prompt;
       if (raw.promptDelta === true) flags.promptDelta = true;
       if (Array.isArray(raw.disabledLessons))
         flags.disabledLessons = raw.disabledLessons.filter(
