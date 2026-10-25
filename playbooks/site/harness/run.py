@@ -292,7 +292,14 @@ def run_judge(ws):
                         "--pipeline", str(ws.pipe), "--model", CFG["judge"]["model"],
                         "--max-rounds", str(CFG["judge"]["max_rounds"] + ws.state.get("judge_bonus", 0)), *PROXY],
                        cwd=ws.root, capture_output=True, text=True, encoding="utf-8")
-    ws.ledger(kind="judge", exit=r.returncode, out=r.stdout[-400:])
+    # вердикт полями, а не только хвостом вывода: хвост в 400 знаков режет JSON со списком снимков, а A/B (#21)
+    # считает по ним качество — вердикт первого раунда, раунды до PASS, находки по серьёзности
+    try:
+        j = json.loads(r.stdout.strip().splitlines()[-1]) if r.returncode == 0 else {}
+    except (ValueError, IndexError):
+        j = {}
+    ws.ledger(kind="judge", exit=r.returncode, out=r.stdout[-400:],
+              **{k: j[k] for k in ("round", "verdict", "findings", "yes", "no", "cost") if k in j})
     return r.returncode, r.stdout.strip()
 
 
