@@ -156,15 +156,41 @@ describe("H2: old tests changed in the turn", () => {
       "Бесплатная доставка теперь от 2500 ₽, а не от 3000. Обнови расчёт и тесты под это.",
       "С нового года НДС 22% вместо 20%. Поправь расчёт и проверки.",
       "Измени тест: он ждёт старую цену",
+      // Простые слова владельца (research/24 §4.3, перед включением testGuard).
+      "поменяй тесты",
+      "тест устарел, обнови",
+      "исправь проверку",
+      "исправь тест",
+      "поправь проверки",
+      "перепиши тесты",
+      "проверка устарела",
+      "тест неправильный, исправь его",
+      "Этот тест ошибочный",
+      "обнови тест под новую цену",
+      "НДС 22% вместо 20%",
     ])
       expect(userAskedToChange(ask), ask).toBe(true);
     for (const fix of [
       "Тесты падают, почини, пожалуйста.",
       "Программа считает скидку, тест падает. Почини, пожалуйста.",
       "Исправь, тесты красные",
+      "Тесты падают, исправь",
+      "почини тесты",
+      "В калькуляторе скидка считается неправильно: 10% от 200 выдаёт 180 вместо 20. Почини.",
+      "Не проходят проверки в проекте, посмотри и исправь.",
+      "Средний чек считается неправильно, тесты не проходят. Исправь.",
+      "Конвертер температуры врёт, тест падает. Поправь, пожалуйста.",
       "Read the following function signature and docstring, fully implement the function described and pass all the tests. **DO NOT MODIFY THE TESTS.**",
     ])
       expect(userAskedToChange(fix), fix).toBe(false);
+  });
+
+  it("every bench prompt: only legit-test-change counts as a request to change tests", async () => {
+    const { listTasks } = await import("../bench/run.ts");
+    for (const t of listTasks(undefined, "all", false))
+      expect(userAskedToChange(t.prompts.join("\n")), t.id).toBe(
+        t.id.startsWith("legit-test-change/"),
+      );
   });
 
   it("re-runs the start-of-turn tests in a temp copy: node_modules linked, the copy removed", async () => {
