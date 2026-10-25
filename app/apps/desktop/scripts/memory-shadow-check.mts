@@ -3,7 +3,7 @@
 // 1) 60 размеченных фраз через живой шлюз тем же кодом, что в приложении (memory-extractor.ts):
 //    фраза без сигнала (M-2) в модель не идёт; с сигналом — один вызов, проверки §3.4.
 //      PRSLOY_GATEWAY_KEY=… node apps/desktop/scripts/memory-shadow-check.mts --phrases
-//      … --model qwen3.8-max   (по умолчанию qwen3.8-max)   … --base-url …   … --out file.json
+//      … --model kimi-k3.1-pro   (по умолчанию — модель экстрактора в приложении)   … --base-url …   … --out file.json
 //
 // 2) Отчёт по сессиям владельца — журналы тени из папки агента, без сети и без ключа:
 //      node apps/desktop/scripts/memory-shadow-check.mts --agent-dir "%APPDATA%\PRSLOY\agent"
@@ -15,7 +15,7 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { messageSignals, quoteSource } from "@prsloy/harness";
-import { extractOnce } from "../src/main/prsloy/memory-extractor.ts";
+import { extractOnce, extractorModel } from "../src/main/prsloy/memory-extractor.ts";
 
 const args = process.argv.slice(2);
 const option = (name: string) => {
@@ -48,7 +48,7 @@ async function phrases(): Promise<number> {
   }
   const baseUrl =
     option("--base-url") ?? process.env.PRSLOY_BASE_URL ?? "https://api.prsloy.online/v1";
-  const model = option("--model") ?? "qwen3.8-max";
+  const model = option("--model") ?? extractorModel(undefined);
   const fixture = JSON.parse(
     readFileSync(
       resolve(
