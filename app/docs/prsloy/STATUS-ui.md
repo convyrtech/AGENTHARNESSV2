@@ -1020,7 +1020,7 @@ Playwright) с точным временем кадров, ffmpeg собирае
 вопрос о закреплённой записи, «Не получилось», «Лимит поиска». Окно 1366×768, масштаб 100 % и 125 %, светлая и
 тёмная темы. Спек ищет вылезший или обрезанный текст и кнопки меньше 24 px: находок нет. Листы с карточками лежат в
 `screens/rc-cards-100-light.png` и `screens/rc-cards-125-dark.png`. Локально прошли layout-lint и casual-audit
-(29/29, все масштабы, обе темы, с шагом поиска), спеки features-*, session-import и screens first-run. Снимки шага
+(29/29, все масштабы, обе темы, с шагом поиска), спеки features-\*, session-import и screens first-run. Снимки шага
 поиска лежат в `screens/{light,dark}-first-run-search.png`. Smoke-тесты (firstrun, cyrillic, gateway) запускаются
 только на собранном Windows-приложении (`PRSLOY_EXE`), здесь их не запустить: правка в них такая же, пройти шаг
 поиска.
