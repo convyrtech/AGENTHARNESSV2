@@ -3,6 +3,7 @@
  *   node --experimental-strip-types apps/desktop/e2e-audit/layout-report.ts <out dir> [<out dir>…]
  * --seed-baseline=YYYY-MM-DD also adds every open finding (rule × selector, any screen) to
  * layout-baseline.json with that deadline: a first run's debt, to be paid down to empty.
+ * --seed-rules=target-size,… limits the seed to those rules (real bugs stay red).
  */
 import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -12,12 +13,17 @@ import {
   expired,
   parseBaseline,
   reportTable,
+  summaryTable,
   RULE_TEXT,
   type BaselineEntry,
   type Finding,
 } from "./layout-baseline.ts";
 
 const seed = process.argv.find((a) => a.startsWith("--seed-baseline="))?.split("=")[1];
+const seedRules = process.argv
+  .find((a) => a.startsWith("--seed-rules="))
+  ?.split("=")[1]
+  ?.split(",");
 const dirs = process.argv.slice(2).filter((a) => !a.startsWith("--"));
 if (dirs.length === 0) throw new Error("usage: layout-report.ts <out dir> [<out dir>…]");
 const today = new Date().toISOString().slice(0, 10);
@@ -55,7 +61,7 @@ const report = [
       ]
     : []),
   "",
-  open.length ? reportTable(open) : "Нарушений нет.",
+  ...(open.length ? [summaryTable(open), reportTable(open)] : ["Нарушений нет."]),
 ].join("\n");
 writeFileSync(join(dirs[0]!, "layout-report.md"), `${report}\n`);
 console.log(report);
@@ -63,7 +69,7 @@ console.log(report);
 if (seed) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(seed)) throw new Error("--seed-baseline=YYYY-MM-DD");
   const added = new Map<string, BaselineEntry>();
-  for (const f of open) {
+  for (const f of open.filter((x) => !seedRules || seedRules.includes(x.rule))) {
     added.set(`${f.rule}\u0000${f.selector}`, {
       rule: f.rule,
       selector: f.selector,
