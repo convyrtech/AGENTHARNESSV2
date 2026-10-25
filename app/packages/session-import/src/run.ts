@@ -7,6 +7,7 @@
  */
 import { readClaudeCodeChat } from "./adapters/claude-code.ts";
 import { codexTitles, readCodexChat } from "./adapters/codex.ts";
+import { readGeminiChat } from "./adapters/gemini.ts";
 import { readOpenCodeChat, releaseOpenCodeSnapshots } from "./adapters/opencode.ts";
 import { readPiCliSession } from "./adapters/pi-cli.ts";
 import { candidateKey } from "./detect.ts";
@@ -88,6 +89,8 @@ async function prepare(
   if (candidate.tool === "claude-code") chat = await readClaudeCodeChat(candidate.sourcePath);
   else if (candidate.tool === "opencode")
     chat = readOpenCodeChat(candidate.sourcePath, candidate.sourceId);
+  else if (candidate.tool === "gemini")
+    chat = await readGeminiChat(candidate.sourcePath, candidate.cwd);
   else chat = await readCodexChat(candidate.sourcePath, await titles());
   if (!chat || chat.turns.length === 0) return "empty";
   const cwd = resolveProject(chat.cwd, { home: options.home });

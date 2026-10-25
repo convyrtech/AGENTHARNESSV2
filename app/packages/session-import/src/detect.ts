@@ -6,6 +6,7 @@
  */
 import { claudeCodeCandidate, claudeCodeFiles } from "./adapters/claude-code.ts";
 import { codexCandidate, codexFiles, codexTitles, richestPerChat } from "./adapters/codex.ts";
+import { geminiCandidate, geminiChatFiles, newestGeminiFile } from "./adapters/gemini.ts";
 import {
   opencodeCandidates,
   opencodeDatabases,
@@ -79,10 +80,11 @@ export async function scanSources(options: {
     mapLimited(claudeFiles, (file) => safely(() => claudeCodeCandidate(file))),
     mapLimited(codex, (file) => safely(() => codexCandidate(file, titles))),
     mapLimited(piFiles, (file) => safely(() => piCliCandidate(file))),
+    mapLimited(geminiChatFiles(roots), (file) => safely(() => geminiCandidate(file))),
   ]);
-  const [claude, codexAll, pi] = found.map((list) =>
+  const [claude, codexAll, pi, gemini] = found.map((list) =>
     list.filter((c): c is ChatCandidate => c !== undefined),
-  ) as [ChatCandidate[], ChatCandidate[], ChatCandidate[]];
+  ) as [ChatCandidate[], ChatCandidate[], ChatCandidate[], ChatCandidate[]];
   const opencode: ChatCandidate[] = [];
   const skipped: SourceSkip[] = [];
   try {
@@ -94,7 +96,13 @@ export async function scanSources(options: {
   } finally {
     releaseOpenCodeSnapshots();
   }
-  const candidates = [...claude, ...richestPerChat(codexAll), ...pi, ...opencode]
+  const candidates = [
+    ...claude,
+    ...richestPerChat(codexAll),
+    ...pi,
+    ...opencode,
+    ...newestGeminiFile(gemini),
+  ]
     .map((c) => (isImported(ledger, c) ? { ...c, alreadyImported: true } : c))
     .sort((a, b) => b.updatedAt - a.updatedAt);
 

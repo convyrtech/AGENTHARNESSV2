@@ -27,7 +27,11 @@ describe("paths", () => {
       codexHome: "/x",
       piSessions: join("/h", ".pi", "agent", "sessions"),
       opencodeData: join("/h", ".local", "share", "opencode"),
+      geminiDir: join("/h", ".gemini"),
     });
+    expect(sourceRoots({ HOME: "/h", GEMINI_CLI_HOME: "/g" }, "linux").geminiDir).toBe(
+      join("/g", ".gemini"),
+    );
     expect(
       sourceRoots({ USERPROFILE: "C:\\Users\\Пётр", XDG_DATA_HOME: "D:\\данные" }, "win32"),
     ).toMatchObject({ opencodeData: join("D:\\данные", "opencode") });

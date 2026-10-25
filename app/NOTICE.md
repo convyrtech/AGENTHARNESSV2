@@ -106,3 +106,8 @@
 - `packages/session-import/src/adapters/opencode.ts` — текущая схема OpenCode (`session_v2`, `session_message`) прочитана
   по определениям [sst/opencode](https://github.com/sst/opencode) (`packages/core/src/session/sql.ts`,
   `packages/schema/src/session-message.ts`, коммит `450e7b9`). MIT License, Copyright (c) 2025 opencode. Код не копировался.
+- `packages/session-import/src/adapters/gemini.ts` — формат чатов Gemini CLI (записи `$set` / `$patch` / `$rewindTo`, реестр
+  `projects.json`, `.project_root`) по [google-gemini/gemini-cli](https://github.com/google-gemini/gemini-cli)
+  (`packages/core/src/services/chatRecordingTypes.ts`, `chatRecordingService.ts`, `config/projectRegistry.ts`, коммит
+  `cd1b45c`). Apache License 2.0, Copyright 2025 Google LLC. Изменено PRSLOY: только текст с пометками инструментов, только
+  чтение, чаты субагентов пропускаются, код переписан на нашу схему разбора.

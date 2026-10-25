@@ -1,7 +1,7 @@
 /**
  * Where the other agents keep their chats (research/25 §2), Windows first. The home folder on
  * Windows is USERPROFILE, then HOMEDRIVE+HOMEPATH, then os.homedir(); each tool's own override
- * variable wins over its default (CLAUDE_CONFIG_DIR, CODEX_HOME, XDG_DATA_HOME / OPENCODE_DB). Pi CLI's override variables are not read: inside PRSLOY they
+ * variable wins over its default (CLAUDE_CONFIG_DIR, CODEX_HOME, XDG_DATA_HOME / OPENCODE_DB, GEMINI_CLI_HOME). Pi CLI's override variables are not read: inside PRSLOY they
  * point at our own agent folder, and importing our own chats would duplicate them.
  */
 import { homedir } from "node:os";
@@ -26,6 +26,8 @@ export type SourceRoots = {
   opencodeData: string;
   /** `OPENCODE_DB`: one database file named by the user, read instead of the folder. */
   opencodeDb?: string;
+  /** Gemini CLI's folder: `<GEMINI_CLI_HOME or home>/.gemini` (chats under `tmp/<project>/chats`). */
+  geminiDir: string;
 };
 
 export function sourceRoots(
@@ -42,5 +44,6 @@ export function sourceRoots(
     // OpenCode uses the XDG layout on Windows too: %USERPROFILE%\.local\share\opencode
     opencodeData: join(env.XDG_DATA_HOME || join(home, ".local", "share"), "opencode"),
     ...(env.OPENCODE_DB ? { opencodeDb: env.OPENCODE_DB } : {}),
+    geminiDir: join(env.GEMINI_CLI_HOME || home, ".gemini"),
   };
 }

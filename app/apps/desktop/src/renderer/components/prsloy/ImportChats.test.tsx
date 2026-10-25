@@ -13,6 +13,7 @@ const found: ImportScanResult = {
     codex: zero,
     "pi-cli": zero,
     opencode: zero,
+    gemini: zero,
   },
   chats: [
     {

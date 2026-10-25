@@ -4,7 +4,7 @@
  * the keys main gave it, never by path: main reads nothing the scan did not find.
  */
 
-export type ImportToolId = "claude-code" | "codex" | "pi-cli" | "opencode";
+export type ImportToolId = "claude-code" | "codex" | "pi-cli" | "opencode" | "gemini";
 
 export type ImportToolCount = { chats: number; projects: number; recent: number };
 
