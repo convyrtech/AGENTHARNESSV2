@@ -1,5 +1,13 @@
 // Ревью #23 перед включением webTools: враждебные страницы, адреса, ключи. Каждый тест падает без своей правки.
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vite-plus/test";
+import { resolveOptions } from "../src/options.ts";
+import { search } from "../src/research/search.ts";
+import { installResearch } from "../src/research/tools.ts";
+import { scrubSecrets } from "../src/secret-scrub.ts";
+import { MockPi } from "./mock-pi.ts";
 import { isPrivateHost, isPrivateIp, type Resolve } from "../src/research/net-guard.ts";
 import { fakeFetch, json } from "./fake-fetch.ts";
 import {
@@ -226,5 +234,78 @@ describe("local and private addresses are never read or sent out (review #23, it
       readPage("https://a.example/", { fetchImpl: f.impl, resolve, jina: true }),
     ).rejects.toThrow("редирект на частный адрес");
     expect(f.calls).toHaveLength(1);
+  });
+});
+
+describe("keys never reach text the model sees (review #23, item 4)", () => {
+  const KEY = "BSAq7sEcReTkEy1234567890abcdef";
+  /** Как Node: значение заголовка целиком в тексте ошибки. */
+  const leaky = (async (_url: string, init?: RequestInit) => {
+    const auth = Object.values((init?.headers as Record<string, string>) ?? {}).join(" ");
+    throw new TypeError(`Headers.append: "${auth}\nX" is an invalid header value.`);
+  }) as typeof fetch;
+
+  function tools(research: Parameters<typeof installResearch>[2]) {
+    const out = mkdtempSync(join(tmpdir(), "keys-"));
+    const mock = new MockPi(out);
+    (mock.ctx as unknown as { modelRegistry: unknown }).modelRegistry = {
+      getApiKeyForProvider: async () => "sk-gw-0123456789abcdefghij",
+    };
+    installResearch(mock.api, resolveOptions({ outputDir: out }), { enabled: true, ...research });
+    return mock;
+  }
+
+  it("a fetch error that quotes the header does not carry the key into the tool's error", async () => {
+    const mock = tools({
+      search: { provider: "brave", key: KEY },
+      gatewayUrl: "https://gw.example/v1",
+      fetchImpl: leaky,
+    });
+    const err = await mock.tools
+      .get("web_search")!
+      .execute("1", { query: "q" }, undefined, undefined, mock.ctx as never)
+      .catch((e: Error) => e);
+    expect(String((err as Error).message)).not.toContain(KEY);
+    expect(String((err as Error).message)).not.toContain("sk-gw-0123456789abcdefghij");
+    expect(String((err as Error).message)).toContain("Brave: нет ответа (сеть недоступна)");
+    const read = await mock.tools
+      .get("web_fetch")!
+      .execute("2", { source: "https://example.com/" }, undefined, undefined, mock.ctx as never)
+      .catch((e: Error) => e);
+    expect(String((read as Error).message)).not.toContain("sk-gw-0123456789abcdefghij");
+  });
+
+  it("a server body that repeats the key is not shown", async () => {
+    const f = fakeFetch([
+      ["https://api.search.brave.com/", () => new Response(`bad token ${KEY}`, { status: 500 })],
+    ]);
+    const err = await search(
+      { provider: "brave", key: KEY },
+      { query: "q" },
+      { fetchImpl: f.impl },
+    ).catch((e: Error) => e);
+    expect((err as Error).message).toBe("Brave: HTTP 500");
+  });
+
+  it("search keys are in the scrubber: verbatim once configured, and by their formats", () => {
+    tools({
+      search: { provider: "deepseek", key: "plainkey-without-format-42" },
+      githubToken: "tok-github-777",
+    });
+    expect(scrubSecrets("x plainkey-without-format-42 y tok-github-777").text).toBe(
+      "x [СКРЫТО: ключ поиска DeepSeek] y [СКРЫТО: ключ GitHub]",
+    );
+    const formats = [
+      KEY,
+      "AQVN1a2b3c4d5e6f7g8h9i0jKlMnOpQrStUvWx",
+      "jina_0123456789abcdef0123456789abcdef0123",
+      "fc-0123456789abcdef0123456789abcdef",
+    ];
+    for (const k of formats) expect(scrubSecrets(`key: ${k}`).text, k).not.toContain(k);
+    expect(
+      scrubSecrets('{"x-api-key": "123e4567-e89b-42d3-a456-426614174000"}').text,
+    ).not.toContain("123e4567");
+    // UUID без exa рядом — обычный id, не трогаем
+    expect(scrubSecrets("id 123e4567-e89b-42d3-a456-426614174000").text).toContain("123e4567");
   });
 });

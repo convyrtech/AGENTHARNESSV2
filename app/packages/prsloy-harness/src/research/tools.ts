@@ -9,8 +9,9 @@ import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-a
 import { Type } from "typebox";
 import { readFlags } from "../flags.ts";
 import type { ResolvedOptions } from "../options.ts";
+import { rememberSecretValue } from "../secret-scrub.ts";
 import { showCard } from "../text.ts";
-import { readPage, type PageText, type ReadDeps } from "./fetch.ts";
+import { readPage, ReadError, type PageText, type ReadDeps } from "./fetch.ts";
 import { SourceLedger } from "./ledger.ts";
 import { MODEL_SEARCH_NOTE } from "./model-search.ts";
 import { guardQuery } from "./query-guard.ts";
@@ -91,6 +92,10 @@ export function installResearch(
   if (opts.profile !== "code") return;
   const enabled = () => research.enabled === true || readFlags(opts.settingsPath).webTools;
   const now = research.now ?? (() => new Date());
+  // Ключи поиска — в список чистки секретов дословно: где бы ни всплыли в выводе инструментов, модель их не увидит.
+  if (research.search?.key)
+    rememberSecretValue(research.search.key, `поиска ${providerName(research.search.provider)}`);
+  if (research.githubToken) rememberSecretValue(research.githubToken, "GitHub");
   const ledgers = new Map<string, SourceLedger>();
   const ledger = (ctx: ExtensionContext) => {
     const id = sessionOf(ctx);
@@ -106,6 +111,7 @@ export function installResearch(
     const key = await ctx.modelRegistry
       .getApiKeyForProvider(PRSLOY_PROVIDER)
       .catch(() => undefined);
+    if (key) rememberSecretValue(key, "PRSLOY");
     return key ? { url: research.gatewayUrl, key } : undefined;
   };
   const searchDeps: SearchDeps = {
@@ -211,7 +217,7 @@ export function installResearch(
           used = cfg;
           break;
         } catch (e) {
-          const err = e instanceof SearchError ? e : new SearchError("network", String(e));
+          const err = e instanceof SearchError ? e : new SearchError("network", "сбой поиска");
           limited ||= err.code === "limit";
           const name = providerName(cfg.provider);
           failures.push(err.message.startsWith(name) ? err.message : `${name}: ${err.message}`);
@@ -287,7 +293,9 @@ export function installResearch(
       try {
         page = await readPage(url, await readDeps(ctx));
       } catch (e) {
-        throw new Error(`Страница не прочиталась: ${(e as Error).message}`);
+        throw new Error(
+          `Страница не прочиталась: ${e instanceof ReadError ? e.message : "сбой чтения"}`,
+        );
       }
       const s = known ?? l.add({ url, title: page.title, foundBy: "url" });
       const path = l.saveText(s.n, {

@@ -3,7 +3,7 @@
 // токена releases/repo — 60 в час, /search/repositories|issues — 10 в минуту, /search/code — только с токеном.
 // Лимит каждого ресурса (core, search, code_search) считаем по заголовкам ответа и до сброса не спрашиваем; ответы
 // кэшируем. Токен — из настроек приложения (safeStorage → хост), агенту не виден.
-import { clean, dated, SearchError } from "./common.ts";
+import { clean, dated, netReason, SearchError } from "./common.ts";
 import type { SearchDeps, SearchHit } from "./search.ts";
 
 const API = "https://api.github.com";
@@ -49,7 +49,7 @@ async function gh(
       signal: AbortSignal.timeout(deps.timeoutMs ?? 10_000),
     });
   } catch (e) {
-    throw new SearchError("network", `GitHub: нет ответа (${(e as Error).message})`);
+    throw new SearchError("network", `GitHub: нет ответа (${netReason(e)})`);
   }
   const remaining = res.headers.get("x-ratelimit-remaining");
   const reset = Number(res.headers.get("x-ratelimit-reset")) * 1000;
@@ -209,7 +209,8 @@ export async function githubSearch(
         }
       }
     } catch (e) {
-      firstError ??= e instanceof SearchError ? e : new SearchError("network", String(e));
+      firstError ??=
+        e instanceof SearchError ? e : new SearchError("network", "GitHub: сбой поиска");
     }
   }
   if (!out.length && firstError) throw firstError;

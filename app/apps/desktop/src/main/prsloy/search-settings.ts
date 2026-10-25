@@ -33,6 +33,8 @@ export const SEARCH_PROVIDER_IDS: readonly SearchProviderId[] = [
 export const DEFAULT_SEARCH: SearchProviderId = "free";
 /** Models whose built-in web search works on the owner's gateway (the conductor's probe, 2026-10-25). */
 export const DEFAULT_MODEL_SEARCH: readonly string[] = ["gpt-6.1-sol"];
+/** Ключ API — печатные ASCII без пробелов. */
+const PRINTABLE_KEY = /^[\x21-\x7e]{1,4096}$/;
 const MODEL_ID = /^[\w.:/-]{1,128}$/;
 /** No key of their own: free needs nothing, prsloy and model use the PRSLOY key. */
 const KEYLESS = new Set<SearchProviderId>(["free", "prsloy", "model"]);
@@ -163,6 +165,11 @@ export class SearchSettings {
       if (!fields.url?.trim()) throw new Error("Нужен адрес сервера SearXNG");
     } else if (!key.trim()) {
       throw new Error("Ключ пустой");
+    } else if (!PRINTABLE_KEY.test(key.trim())) {
+      // перевод строки или не-ASCII в ключе ломает заголовок запроса, а Node повторяет значение заголовка в ошибке
+      throw new Error(
+        "В ключе только латинские буквы, цифры и знаки, без пробелов и переводов строки",
+      );
     } else {
       this.#store(id).write(key.trim());
     }

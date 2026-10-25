@@ -2,7 +2,7 @@
 // `web_search_options`. Работает не у всех моделей (замер дирижёра 2026-10-25: на шлюзе владельца — gpt-6.1-sol;
 // на a6 — gpt-5.4 и grok-4.20-multi-agent-0309), поэтому список моделей настраивается (по каталогу шлюза) и
 // пробуется по порядку. Источники берутся из аннотаций url_citation и строк ответа; код их не проверял — это видно в выдаче («поиск модели, источники не проверены кодом»).
-import { clean, dated, SearchError } from "./common.ts";
+import { clean, dated, netReason, SearchError } from "./common.ts";
 import type { SearchDeps, SearchHit, SearchQuery } from "./search.ts";
 
 export const MODEL_SEARCH_MODELS: readonly string[] = ["gpt-6.1-sol"];
@@ -61,7 +61,8 @@ export async function modelSearch(
       if (hits.length) return hits;
       last = new SearchError("format", `Поиск модели: ${model} не вернула источников`);
     } catch (e) {
-      const err = e instanceof SearchError ? e : new SearchError("network", String(e));
+      const err =
+        e instanceof SearchError ? e : new SearchError("network", `Поиск модели (${model}): сбой`);
       if (err.code === "auth") throw err;
       last = err;
     }
@@ -108,10 +109,7 @@ async function askModel(
       signal: AbortSignal.timeout(deps.timeoutMs ?? 90_000),
     });
   } catch (e) {
-    throw new SearchError(
-      "network",
-      `Поиск модели (${model}): нет ответа (${(e as Error).message})`,
-    );
+    throw new SearchError("network", `Поиск модели (${model}): нет ответа (${netReason(e)})`);
   }
   if (res.status === 401 || res.status === 403)
     throw new SearchError(

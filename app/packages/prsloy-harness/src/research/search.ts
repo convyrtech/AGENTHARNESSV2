@@ -3,7 +3,7 @@
 // Яндекс, свой SearXNG, Brave, Exa, Firecrawl, Jina. Tavily нет: условия запрещают пользователей в России (§3.2).
 // Ключи сюда приходят из main (safeStorage) через передачу хосту; в окружение агента они не попадают.
 // Результаты поиска — данные со сторонних сайтов, а не инструкции.
-import { clean, dated, SearchError, type SearchErrorCode } from "./common.ts";
+import { clean, dated, netReason, SearchError, type SearchErrorCode } from "./common.ts";
 import { freeSearch, githubRepo } from "./free.ts";
 import { ERROR_LIKE, githubLatest, githubSearch } from "./github.ts";
 import { modelSearch } from "./model-search.ts";
@@ -115,7 +115,7 @@ function since(q: SearchQuery, now: Date): string | undefined {
 }
 
 /** Код ответа поставщика → понятная ошибка. */
-function httpError(provider: SearchProviderId, status: number, body: string): SearchError {
+function httpError(provider: SearchProviderId, status: number): SearchError {
   const who = NAME[provider];
   if (status === 401 || (status === 403 && provider !== "searxng"))
     return new SearchError("auth", `${who}: ключ не принят (HTTP ${status})`);
@@ -131,7 +131,8 @@ function httpError(provider: SearchProviderId, status: number, body: string): Se
       "no_channel",
       "Поиска через шлюз пока нет: у шлюза нет канала /v1/tools/search",
     );
-  return new SearchError("network", `${who}: HTTP ${status} ${body.slice(0, 120)}`);
+  // тело ответа не показываем: сервер может повторить в нём ключ
+  return new SearchError("network", `${who}: HTTP ${status}`);
 }
 
 async function call(
@@ -147,10 +148,10 @@ async function call(
       signal: AbortSignal.timeout(deps.timeoutMs ?? 15_000),
     });
   } catch (e) {
-    throw new SearchError("network", `${NAME[provider]}: нет ответа (${(e as Error).message})`);
+    throw new SearchError("network", `${NAME[provider]}: нет ответа (${netReason(e)})`);
   }
   const text = await res.text();
-  if (!res.ok) throw httpError(provider, res.status, text);
+  if (!res.ok) throw httpError(provider, res.status);
   try {
     return JSON.parse(text) as unknown;
   } catch {
@@ -489,7 +490,7 @@ export async function checkProvider(
       firstUrl: hits[0]!.url,
     };
   } catch (e) {
-    const err = e instanceof SearchError ? e : new SearchError("network", String(e));
+    const err = e instanceof SearchError ? e : new SearchError("network", "сбой поиска");
     return { ok: false, code: err.code, error: err.message };
   }
 }

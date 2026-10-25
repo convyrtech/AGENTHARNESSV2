@@ -46,6 +46,11 @@ export class ReadError extends Error {
   }
 }
 
+/** Наша ошибка — её текст; чужое исключение (в нём бывает ключ из заголовка) — фиксированными словами. */
+function safeReason(e: unknown): string {
+  return e instanceof ReadError ? e.message : netReason(e);
+}
+
 /** Сколько редиректов проходим (каждый шаг проверяется на частный адрес). */
 const MAX_REDIRECTS = 5;
 
@@ -569,21 +574,21 @@ export async function readPage(url: string, deps: ReadDeps = {}): Promise<PageTe
       const page = await direct(cdn, deps);
       return { ...page, url, via: "jsdelivr" };
     } catch (e) {
-      errors.push(`jsDelivr: ${(e as Error).message}`);
+      errors.push(`jsDelivr: ${safeReason(e)}`);
     }
   }
   if (deps.gateway?.key) {
     try {
       return await viaGateway(url, deps.gateway, deps);
     } catch (e) {
-      errors.push((e as Error).message);
+      errors.push(`шлюз: ${safeReason(e)}`);
     }
   }
   if (deps.jina !== false) {
     try {
       return await viaJina(url, deps);
     } catch (e) {
-      errors.push((e as Error).message);
+      errors.push(`Jina: ${safeReason(e)}`);
     }
   }
   if (first) return first;

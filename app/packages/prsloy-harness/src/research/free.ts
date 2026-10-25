@@ -345,7 +345,8 @@ export async function freeSearch(q: SearchQuery, deps: FreeDeps = {}): Promise<S
       : [];
   const ghSearch = kinds.length
     ? githubSearch(q.query, kinds, deps, onGithub ? count : 3).catch((e: unknown) => {
-        githubError = e instanceof SearchError ? e : new SearchError("network", String(e));
+        githubError =
+          e instanceof SearchError ? e : new SearchError("network", "GitHub: сбой поиска");
         return [] as SearchHit[];
       })
     : Promise.resolve([] as SearchHit[]);

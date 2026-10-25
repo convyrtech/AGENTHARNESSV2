@@ -63,9 +63,13 @@ describe("search settings", () => {
   });
 
   it("a blank key is an error; SearXNG needs an address, not a key; free, prsloy, model take none", () => {
-    const { s } = settings();
+    const { dir, s } = settings();
     expect(() => s.setKey("brave", "")).toThrow("Ключ пустой");
     expect(() => s.setKey("brave", "   ")).toThrow("Ключ пустой");
+    // review #23, item 4: a newline or non-ASCII breaks the header, and Node quotes the header in the error
+    for (const bad of ["BSA-abc\nX-Evil: 1", "ключ-1234567", "two words", "tab\there"])
+      expect(() => s.setKey("brave", bad), JSON.stringify(bad)).toThrow("только латинские");
+    expect(existsSync(join(dir, "search-key-brave.bin"))).toBe(false);
     expect(() => s.setKey("searxng", "")).toThrow("адрес");
     s.setKey("searxng", "", { url: "https://sx.example" });
     expect(s.state(false).providers.find((p) => p.id === "searxng")!.configured).toBe(true);
