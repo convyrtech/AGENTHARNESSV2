@@ -152,8 +152,16 @@
 
 ## Как проверено (Linux, без ключа шлюза)
 
-- `pnpm --filter @zeno/desktop test`: **105 files / 731 tests passed**, `fetch-runtimes.test.mjs`
-  ok, `after-pack` ok, file budgets ok.
+- `pnpm check` чистый. `pnpm test` (корень) зелёный:
+  - desktop: **109 files / 751 tests**, плюс `fetch-runtimes`, `after-pack`, file budgets;
+  - harness: 8 files / 104 tests.
+- e2e (`xvfb-run playwright test`, весь набор): 28 passed, 5 failed. Все 5 падают так же на
+  чистом `origin/main` (прогнал отдельно), то есть они не из этой ветки:
+  - вставка из буфера обмена;
+  - rich content;
+  - palette/theme/fork;
+  - collapse sidebar/appearance;
+  - overlay scrollbar.
 - `packages/agent-runtime`: 28 files / 115 tests passed, включая новый `runtime-hooks.test.ts`:
   - runtime key без ключа на диске;
   - extensionPaths;
