@@ -4,6 +4,9 @@
 
 Прогон: https://github.com/convyrtech/AGENTHARNESSV2/actions/runs/40177012147 — зелёный: package; smoke на
 windows-latest и windows-2022; update-e2e 3/3.
+После rebase на `main` d7dfac5 (прогон 40178160991) все проверки этой дорожки зелёные на обоих образах: one-click,
+smoke, кириллица, update-e2e 3/3. Красный только шаг harness «9–12: second opinion». Он так же падает на самом
+`main` a423983 (прогон 40178242034), то есть это регрессия `main` между c7e9c0a и d7dfac5, не этой ветки.
 
 ### 1. update-e2e через провайдер `github`
 
