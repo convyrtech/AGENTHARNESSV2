@@ -106,6 +106,11 @@ describe("secret scrub", () => {
     const stripe = ["sk", "live", "51Habcdefghijklmnopqrstuv"].join("_");
     expect(scrubSecrets(`STRIPE_SECRET_KEY=${stripe}`).count).toBe(1);
     expect(scrubSecrets('<div class="sk-folding-cube-container-wrapper">').count).toBe(0);
+    const tg = `7123456789:AAH${"x9Y_z-".repeat(5)}Qw`;
+    expect(scrubSecrets(`BOT_TOKEN=${tg}`).text).toBe("BOT_TOKEN=[СКРЫТО: токен Telegram-бота]");
+    expect(scrubSecrets(`bot = Bot(token="${tg}")`).count).toBe(1);
+    // Время и короткие «число:слово» — не токен.
+    expect(scrubSecrets("12345678:abc, 10:30:15, 1234567890:short_tail").count).toBe(0);
   });
 
   it("blocks writing the placeholder back into a file", async () => {
