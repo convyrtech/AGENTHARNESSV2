@@ -14,7 +14,6 @@
 import { expect, test } from "@playwright/test";
 import { createServer as createTcpServer, type Server as TcpServer, type Socket } from "node:net";
 import { once } from "node:events";
-import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync } from "node:fs";
 import { mkdir, readFile, rm } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
@@ -28,6 +27,8 @@ import {
   shot,
   writeMetrics,
   type Launched,
+  reinstall,
+  uninstallAndWait,
 } from "./helpers.ts";
 
 const WRONG_KEY = "sk-prsloy-smoke-wrong-0002";
@@ -265,21 +266,19 @@ test("key and chats survive uninstall → reinstall (no first-run gate)", async 
     launched = undefined;
 
     // 2. Uninstall silently; the program goes, the profile stays.
-    let t = Date.now();
-    execFileSync(join(installDir, "Uninstall PRSLOY.exe"), ["/S"], { timeout: 120_000 });
-    expect(await until(() => !existsSync(exe), 120_000), "PRSLOY.exe left after uninstall").toBe(
-      true,
-    );
-    metrics.uninstallMs = Date.now() - t;
+    // The %TEMP% copy of the uninstaller keeps deleting after PRSLOY.exe is gone: wait for it (#32).
+    const uninstall = await uninstallAndWait(installDir, exe);
+    metrics.uninstall = uninstall;
+    expect(uninstall.exeGone, "PRSLOY.exe left after uninstall").toBe(true);
     expect(existsSync(profile), `${profile} removed by uninstall`).toBe(true);
 
-    // 3. Reinstall silently into the same folder (/D= last, unquoted).
-    t = Date.now();
-    execFileSync(installer!, ["/S", "/currentuser", `/D=${installDir}`], { timeout: 300_000 });
+    // 3. Reinstall silently into the same folder (/D= last, unquoted); exit codes in the metrics.
+    const install = await reinstall(installer!, installDir);
+    metrics.reinstall = install;
+    expect(install.attempts.at(-1), JSON.stringify(install.attempts)).toMatchObject({ code: 0 });
     expect(await until(() => existsSync(exe), 60_000), "PRSLOY.exe missing after reinstall").toBe(
       true,
     );
-    metrics.reinstallMs = Date.now() - t;
 
     // 4. Same profile: straight into the app, key kept, the chat is there.
     launched = await launch("keep-key-after", {

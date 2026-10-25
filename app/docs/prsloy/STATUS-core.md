@@ -1320,6 +1320,33 @@ text, quote?}]}`. Нынешний renderer знает только `prsloy-memo
 - e2e `prsloy-memory.spec.ts` «memory M-1»: через настоящий preload — pin, «Вернуть» по opId на место,
   `harnessFlags.set({memory:false})` стирает файлы. `features-memory`, `prsloy-extractor` — зелёные.
 
+## Windows: «Удалить» и сразу «Установить» (#32)
+
+### 59. Гонка с деинсталлятором
+
+Smoke «uninstall → reinstall» стал красным на main и на ветках (оба раннера). Механизм (шаблоны electron-builder
+26.15.3, `uninstaller.nsh`, `installUtil.nsh`):
+
+1. `Uninstall PRSLOY.exe /S` копирует себя в `%TEMP%` (`Au_.exe` / `Un_A.exe`) и сразу возвращается.
+2. Копия удаляет `PRSLOY.exe` рано, потом тысячи файлов PortableGit (распакован установщиком), а ключи удаления в
+   реестре — последними.
+3. Установщик, запущенный в это окно, видит старый ключ (`uninstallOldVersion`), не может запустить уже
+   удалённый деинсталлятор и ставит файлы, пока копия ещё стирает папку. Итог — ненулевой код выхода и нет
+   `PRSLOY.exe`.
+
+Это касается и пользователя, который удалил и сразу ставит заново.
+
+Что сделано:
+
+- **Установщик** (`build/installer.nsh`, `customInit`): пока ключ установки говорит «установлено»
+  (`InstallLocation`), а `PRSLOY.exe` там нет — это идущее удаление; ждём по 0,5 с, до 60 с. Обычное
+  обновление (exe на месте) не ждёт.
+- **Smoke** (`e2e-smoke/helpers.ts`): `uninstallAndWait` — ждёт исчезновения `PRSLOY.exe`, процесса
+  деинсталлятора (`tasklist`: `Au_.exe`, `Un_A.exe`) и папки; `reinstall` — код выхода установщика в метриках
+  и один повтор после паузы. Оба теста переустановки (`firstrun.spec.ts`, `smoke.spec.ts`) на них.
+
+Как проверено: `pnpm check`; сборка установщика и сам сценарий — Windows CI (`desktop-windows`).
+
 ## Как проверено (Linux, без ключа шлюза)
 
 - `pnpm check` чистый. `pnpm test` (корень) зелёный:
