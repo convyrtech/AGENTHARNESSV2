@@ -58,7 +58,8 @@ export type PracticeName =
   | "reusePrompt"
   | "reliabilityProxy"
   | "findReady"
-  | "stopGate";
+  | "stopGate"
+  | "toolLeak";
 
 export interface ResolvedOptions {
   profile: HarnessProfile;

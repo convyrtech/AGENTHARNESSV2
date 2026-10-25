@@ -87,7 +87,7 @@ describe("loop detector", () => {
     const message = {
       role: "assistant",
       stopReason: "stop",
-      content: [{ type: "text", text: "<tool_call>{}</tool_call>" }],
+      content: [{ type: "text", text: "<function=bash>{}</function>" }],
     };
     const result = await pi.boundary("turn_end", { message, toolResults: [], entries: [other] });
     expect(result.entries[0]).toEqual(other);
@@ -117,7 +117,8 @@ describe("loop detector", () => {
       content: [
         {
           type: "text",
-          text: 'Сейчас посмотрю.\n<tool_call>{"name": "bash", "arguments": {"command": "ls"}}</tool_call>',
+          // Служебные токены (<tool_call>, DSML, …) — забота tool-leak.ts; здесь — разметка Llama.
+          text: 'Сейчас посмотрю.\n<function=bash>{"command": "ls"}</function>',
         },
       ],
     };

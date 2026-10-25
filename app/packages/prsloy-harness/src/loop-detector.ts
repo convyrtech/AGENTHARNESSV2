@@ -3,6 +3,7 @@
 // research/08-practitioners-research.md (Cline: нативные вызовы, DeepSeek V4 Flash 13.4% → 1.3%).
 import { createHash } from "node:crypto";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { detectToolLeak } from "./tool-leak.ts";
 import type { ResolvedOptions } from "./options.ts";
 import { contentText, stableStringify } from "./text.ts";
 
@@ -187,6 +188,11 @@ export function installLoopDetector(pi: ExtensionAPI, opts: ResolvedOptions): vo
     }
     if (hasCalls || message.stopReason !== "stop") return undefined;
     const text = message.content.map((part) => (part.type === "text" ? part.text : "")).join("\n");
+    const thinking = message.content
+      .map((part) => (part.type === "thinking" ? part.thinking : ""))
+      .join("\n");
+    // Служебные токены и дубль рассуждения — забота tool-leak.ts (на agent_before_settle, свой лимит).
+    if (detectToolLeak(text, thinking)) return undefined;
     const toolNames = pi.getActiveTools();
     const marker = detectPseudoToolCall(text, toolNames);
     if (!marker || pseudoNudges >= 2) return undefined;

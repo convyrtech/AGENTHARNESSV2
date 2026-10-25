@@ -1,5 +1,6 @@
 import type { HostEvent, SessionHistoryMessage, ZenoRunState } from "@zeno/contracts";
 import { localeTag, type Locale } from "./i18n.ts";
+import { hideToolLeaks } from "./tool-markup.ts";
 
 export type ThreadRunState = ZenoRunState;
 
@@ -129,6 +130,7 @@ export function deriveRunState(input: {
  *
  * Two contracts live here rather than inline in the shell:
  * - `hideThinkingBlock` drops thinking rows.
+ * - leaked tool-call markup never shows as an answer (`hideToolLeaks`).
  * - Ids are prefixed with the session key so React cannot reuse a row across a session
  *   switch — which would briefly render the *previous* session's content under the new
  *   one. An empty key means no session is bound yet, so ids are left alone.
@@ -145,7 +147,8 @@ export function projectTimeline(options: {
   hideThinkingBlock?: boolean | undefined;
 }): TimelineItem[] {
   const { history, liveItems, sessionKey, hideThinkingBlock } = options;
-  const items = [...historyToTimeline(history), ...liveItems].filter(
+  // Leaked tool-call markup is cut before thinking rows are dropped: the duplicate check needs them.
+  const items = hideToolLeaks([...historyToTimeline(history), ...liveItems]).filter(
     (item) => !(hideThinkingBlock && item.kind === "thinking"),
   );
   if (!sessionKey) return items;

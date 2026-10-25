@@ -14,6 +14,8 @@ export interface ChatRequest {
 }
 
 export interface ScriptedReply {
+  /** Рассуждение (`reasoning_content`, как у DeepSeek). */
+  reasoning?: string;
   text?: string;
   toolCalls?: { name: string; arguments: Record<string, unknown> }[];
   finishReason?: "stop" | "tool_calls" | "length";
@@ -89,6 +91,7 @@ export class ScriptedOpenAiServer {
         })}\n\n`,
       );
     send({ role: "assistant", content: "" });
+    if (reply.reasoning) send({ reasoning_content: reply.reasoning });
     if (reply.text) send({ content: reply.text });
     (reply.toolCalls ?? []).forEach((call, i) => {
       send({

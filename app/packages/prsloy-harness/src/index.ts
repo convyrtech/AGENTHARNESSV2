@@ -12,6 +12,7 @@ import { installReliability } from "./reliability.ts";
 import { installReusePrompt } from "./reuse-prompt.ts";
 import { installSecretScrub } from "./secret-scrub.ts";
 import { installStopGate } from "./stop-gate.ts";
+import { installToolLeak } from "./tool-leak.ts";
 import { installToolOutput } from "./tool-output.ts";
 
 export type { HarnessOptions, HarnessProfile, PracticeName } from "./options.ts";
@@ -20,6 +21,7 @@ export { checkFile } from "./checkers.ts";
 export { FindReady, formatResult as formatFindReady } from "./find-ready.ts";
 export { detectPseudoToolCall } from "./loop-detector.ts";
 export { scrubSecrets } from "./secret-scrub.ts";
+export { detectToolLeak, stripToolMarkup } from "./tool-leak.ts";
 export { looksLikeServer, detectPorts } from "./process-registry.ts";
 export {
   ReliabilityProxy,
@@ -46,6 +48,8 @@ export function createPrsloyHarness(options: HarnessOptions = {}): (pi: Extensio
     budget?.installWarning();
     if (on("reusePrompt")) installReusePrompt(pi, opts);
     if (on("findReady")) installFindReady(pi, opts, opts.findReady);
+    // Раньше стоп-гейта: сорванный вызов инструмента — сначала повтор, проверки проекта потом.
+    if (on("toolLeak")) installToolLeak(pi);
     if (on("stopGate")) installStopGate(pi, opts);
     if (on("secretScrub")) installSecretScrub(pi);
     if (on("reliabilityProxy")) installReliability(pi, opts);
