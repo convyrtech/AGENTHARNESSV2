@@ -80,3 +80,59 @@ test("extractor shadow: a signal goes to the model after leaving a chat, memory 
     await launched.fakeModel.stop().catch(() => undefined);
   }
 });
+
+/**
+ * Memory M-3b (#14), the first hour with defaults: the extractor writes after «Новый чат», and its
+ * «Заметил и запомнил» card reaches the chat the person is in now. «Забыть» and «Вернуть» on the card
+ * change the memory on disk.
+ */
+test("extractor write: the «Заметил и запомнил» card shows in the chat the person moved to", async () => {
+  const launched = await launchZenoApp({
+    env: {
+      PRSLOY_MEMORY_EXTRACTOR: "write",
+      PRSLOY_MEMORY_EXTRACTOR_PROVIDER: "zeno-fake",
+      PRSLOY_MEMORY_EXTRACTOR_MODEL: "zeno-fake",
+    },
+    // The extractor's request (its messages come wrapped in <message>): a model's JSON answer.
+    reply: (text) =>
+      text.includes('<message id="')
+        ? JSON.stringify({
+            ops: [
+              {
+                op: "add",
+                scope: "user",
+                kind: "preference",
+                text: "Делать сайты без анимаций",
+                quote: "без анимаций",
+              },
+            ],
+          })
+        : undefined,
+  });
+  try {
+    const { page, agentDir } = launched;
+    await startHost(page);
+    await sendPrompt(
+      page,
+      "Сделай сайт-визитку, только без анимаций — терпеть не могу, когда всё прыгает.",
+    );
+    await page.evaluate(() => window.zeno.session.create());
+    const userFile = join(agentDir, "prsloy-memory", "user.json");
+    const texts = async () =>
+      existsSync(userFile)
+        ? (
+            JSON.parse(await readFile(userFile, "utf8")) as { entries: { text: string }[] }
+          ).entries.map((e) => e.text)
+        : [];
+    await expect.poll(texts, { timeout: 30_000 }).toEqual(["Делать сайты без анимаций"]);
+    const card = page.getByTestId("memory-card").filter({ hasText: "Делать сайты без анимаций" });
+    await expect(card).toBeVisible({ timeout: 30_000 });
+    await card.getByTestId("memory-auto-forget").click();
+    await expect.poll(texts).toEqual([]);
+    await card.getByTestId("memory-auto-restore").click();
+    await expect.poll(texts).toEqual(["Делать сайты без анимаций"]);
+  } finally {
+    await launched.app.close().catch(() => undefined);
+    await launched.fakeModel.stop().catch(() => undefined);
+  }
+});

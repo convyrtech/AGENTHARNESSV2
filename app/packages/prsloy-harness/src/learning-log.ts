@@ -62,6 +62,8 @@ export type LearningKind =
   | "test_guard.original_rerun"
   | "test_guard.signature"
   | "test_guard.allowed"
+  | "test_quality.weak"
+  | "test_quality.fail_to_pass"
   // Слова и факты (harness, §4.1 H-2): «проверил» без прогона харнесса, заглушки, «готово» при красном.
   | "claim.unverified"
   | "claim.stub"

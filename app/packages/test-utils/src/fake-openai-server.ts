@@ -5,6 +5,8 @@ import { setTimeout as delay } from "node:timers/promises";
 
 interface FakeOpenAiServerOptions {
   toolPath: string;
+  /** Text to answer with instead of the default, when it returns a string (e.g. JSON for an off-turn call). */
+  reply?: (lastUserText: string) => string | undefined;
   /** Optional tool name/arguments for the "tool" prompt path (default: read). */
   toolCall?: {
     name: string;
@@ -63,6 +65,7 @@ export class FakeOpenAiServer {
   #toolCall: { name: string; arguments: Record<string, unknown> };
   #remainingRateLimits: number;
   #streamDelayMs: number;
+  #reply: ((lastUserText: string) => string | undefined) | undefined;
 
   constructor(options: FakeOpenAiServerOptions) {
     this.#toolPath = options.toolPath;
@@ -72,6 +75,7 @@ export class FakeOpenAiServer {
     };
     this.#remainingRateLimits = options.rateLimitFailures ?? 0;
     this.#streamDelayMs = options.streamDelayMs ?? 0;
+    this.#reply = options.reply;
     this.#server = createServer((request, response) => {
       void this.#handle(request, response);
     });
@@ -252,13 +256,17 @@ export class FakeOpenAiServer {
       "<style>body { display: none; }</style>",
       "<script>window.__pixUnsafeScript = true;</script>",
     ].join("\n");
-    const text = isSummary
-      ? "Compaction summary of the conversation."
-      : hasToolResult
-        ? "Tool result received."
-        : prompt.includes("rich content fixture")
-          ? richContent
-          : "Zeno fake model response.";
+    const scripted = this.#reply?.(textContent(lastUser));
+    const text =
+      scripted !== undefined
+        ? scripted
+        : isSummary
+          ? "Compaction summary of the conversation."
+          : hasToolResult
+            ? "Tool result received."
+            : prompt.includes("rich content fixture")
+              ? richContent
+              : "Zeno fake model response.";
     for (const part of text.split(" ")) {
       sendChunk(response, chunk({ content: `${part} ` }));
       if (this.#streamDelayMs > 0) await delay(this.#streamDelayMs);

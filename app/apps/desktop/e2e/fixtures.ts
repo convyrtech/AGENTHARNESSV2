@@ -38,6 +38,8 @@ export interface LaunchOptions {
   model?: { provider: string; id: string };
   /** Extra env for the app process (e.g. a planted secret the agent must not see). */
   env?: Record<string, string>;
+  /** Scripted model answer for a request whose last user message matches (see FakeOpenAiServer). */
+  reply?: (lastUserText: string) => string | undefined;
 }
 
 /**
@@ -117,6 +119,7 @@ export async function launchZenoApp(options: LaunchOptions = {}): Promise<Launch
   const fakeModel = new FakeOpenAiServer({
     toolPath,
     ...(options.toolCall ? { toolCall: options.toolCall } : {}),
+    ...(options.reply ? { reply: options.reply } : {}),
   });
   await fakeModel.start();
   await writeFile(

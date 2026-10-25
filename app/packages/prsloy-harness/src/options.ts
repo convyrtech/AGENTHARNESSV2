@@ -107,7 +107,9 @@ export type PracticeName =
   | "testGuard"
   | "claimCheck"
   // Строка статуса хода по фактам (H9, research/24 §4.4–4.5): одна карточка в конце хода.
-  | "turnStatus";
+  | "turnStatus"
+  // Полезность новых тестов (H-3): за флагом "testQuality".
+  | "testQuality";
 
 export interface ResolvedOptions {
   profile: HarnessProfile;

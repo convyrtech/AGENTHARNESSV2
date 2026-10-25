@@ -18,6 +18,7 @@ export type TurnFact =
   | "page-fail"
   | "stubs-left"
   | "tests-changed"
+  | "tests-weak"
   | "page-hints"
   | "checks-pass"
   | "page-ok"
@@ -31,12 +32,13 @@ export const TURN_FACT_TEXT: Readonly<Record<TurnFact, string>> = {
   "page-fail": "На странице остались ошибки — посмотрите",
   "stubs-left": "Остались заглушки",
   "tests-changed": "Агент поменял старые проверки — посмотрите",
+  "tests-weak": "Новые тесты почти ничего не проверяют — посмотрите",
   "page-hints": "Есть подсказки по удобству страницы",
   "checks-pass": "Проверки прошли",
   "page-ok": "Страница открылась без ошибок",
   "ran-ok": "Программу запускал — работает",
   "tests-updated": "Проверки обновлены по вашей просьбе",
-  "no-checks": "Нечем проверить",
+  "no-checks": "Проверить нечем — в проекте нет проверок",
 };
 const ORDER = Object.keys(TURN_FACT_TEXT) as TurnFact[];
 
@@ -55,6 +57,8 @@ export interface TurnStatusState {
   edited: boolean;
   /** Программу запускали после последней правки, и она отработала. */
   ranOk: boolean;
+  /** Слабые новые тесты (H-3, флаг testQuality): файлы. */
+  weakTests: string[];
 }
 
 export function createTurnStatus(): TurnStatusState {
@@ -66,6 +70,7 @@ export function createTurnStatus(): TurnStatusState {
     pageIssues: [],
     edited: false,
     ranOk: false,
+    weakTests: [],
   };
 }
 
@@ -108,12 +113,17 @@ export function turnFacts(
   else if (state.page === false) facts.add("page-fail");
   if (state.page === true && state.pageIssues.length) facts.add("page-hints");
   if (state.ranOk) facts.add("ran-ok");
-  if (edited && !state.hasCheck) facts.add("no-checks");
+  // Страница открылась или программа отработала — это и есть проверка для новичка: «нечем» только если не было ничего.
+  if (edited && !state.hasCheck && state.page !== true && !state.ranOk) facts.add("no-checks");
   if (patch) {
     const tests = oldTestChanges(patch);
     if (tests.length) {
       facts.add(userAskedToChange(state.task) ? "tests-updated" : "tests-changed");
       files.push(...tests.map((t) => t.file));
+    }
+    if (state.weakTests.length) {
+      facts.add("tests-weak");
+      files.push(...state.weakTests);
     }
     const stubs = stubFiles(patch);
     if (stubs.length) {

@@ -243,6 +243,7 @@ describe("memory IPC (S5)", () => {
       testGuard: false,
       claimCheck: false,
       webTools: false,
+      testQuality: false,
     } as const;
     // Other switches: nothing happens.
     await harnessFlagsChanged(flags, { ...flags, secondOpinion: false });

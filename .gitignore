@@ -8,3 +8,6 @@ logs/
 experiments/**/logs/
 experiments/intent/shots/
 __pycache__/
+# model passport: raw answers and findings about gateway suppliers stay private (public repo)
+experiments/model-passport/out/
+experiments/model-passport/RESULTS-*.md
