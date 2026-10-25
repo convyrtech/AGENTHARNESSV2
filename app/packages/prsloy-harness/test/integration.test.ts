@@ -176,13 +176,13 @@ describe("integration: real createAgentSession + mock gateway", () => {
     await session.prompt("делай");
     const results = toolResults();
     expect(results.map((r) => r.isError)).toEqual([false, false, true, true]);
-    expect(textOf(results[2]!)).toContain("Бюджет задачи исчерпан");
+    expect(textOf(results[2]!)).toContain("Лимит шагов задачи исчерпан");
     expect(server.requests).toHaveLength(4);
     const summary = (
       session.messages as unknown as { role: string; customType?: string; content?: unknown }[]
     ).find((m) => m.role === "custom" && m.customType === "prsloy-harness.budget");
     expect(String(summary?.content)).toContain(
-      "Задача остановлена: исчерпан лимит вызовов тулов (2)",
+      "Я остановился: на одну задачу у меня 2 шага, и они закончились.",
     );
   }, 30_000);
 

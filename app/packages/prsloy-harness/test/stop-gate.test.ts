@@ -10,6 +10,7 @@ import {
   detectProjectCheck,
   installStopGate,
   MAX_PUSHBACKS,
+  STILL_RED_NOTE,
   runProjectCheck,
 } from "../src/stop-gate.ts";
 import { MockPi } from "./mock-pi.ts";
@@ -197,11 +198,12 @@ describe("stop gate", () => {
     expect((second.entries[0] as { content: string }).content).toContain("Это последняя попытка");
     const third = await settle();
     expect(third).toEqual({ entries: [], continue: false });
-    const note = pi.sent[0] as { content: string; display: boolean };
+    const note = pi.sent[0] as { content: string; display: boolean; details: unknown };
     expect(note.display).toBe(true);
-    expect(note.content).toContain(
-      `Проверка проекта всё ещё не проходит (\`npm run test\`) — после ${MAX_PUSHBACKS} попыток`,
-    );
+    // Человеку — без команды и вывода; они в details.
+    expect(note.content).toBe(STILL_RED_NOTE);
+    expect(note.details).toMatchObject({ command: "npm run test", code: 1 });
+    expect(MAX_PUSHBACKS).toBe(2);
     expect(await settle()).toEqual({ entries: [], continue: false });
     expect(runs).toHaveLength(3);
     // Новое сообщение пользователя — новый счёт.

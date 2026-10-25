@@ -7,7 +7,7 @@ import type { BudgetHandle } from "../src/budget.ts";
 import { resolveOptions } from "../src/options.ts";
 import type { Reviewer } from "../src/reviewer.ts";
 import { REVIEW_PASS_CARD } from "../src/second-opinion.ts";
-import { type CheckRun, installStopGate, MAX_PUSHBACKS } from "../src/stop-gate.ts";
+import { type CheckRun, installStopGate, STILL_RED_NOTE } from "../src/stop-gate.ts";
 import type { TurnChanges, TurnDiff } from "../src/turn-changes.ts";
 import { MockPi } from "./mock-pi.ts";
 import { BUGGY_DIFF } from "./review-fixtures.ts";
@@ -155,7 +155,7 @@ describe("second opinion in the stop gate", () => {
     expect((await t.settle()).continue).toBe(true); // ревью: 2
     const last = await t.settle(); // снова красно — возвратов больше нет
     expect(last.continue).toBe(false);
-    expect(cards(t.pi).at(-1)).toContain(`после ${MAX_PUSHBACKS} попыток`);
+    expect(cards(t.pi).at(-1)).toBe(STILL_RED_NOTE);
   });
 
   it("gate used both push backs: no review at all", async () => {

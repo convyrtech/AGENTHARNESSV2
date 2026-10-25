@@ -60,24 +60,42 @@ function freshState(): BudgetState {
   };
 }
 
-function money(usd: number): string {
-  return `$${usd.toFixed(usd < 0.1 ? 3 : 2)}`;
+/** «1 шаг», «3 шага», «150 шагов». */
+function steps(n: number): string {
+  const tens = n % 100;
+  const ones = n % 10;
+  const word =
+    tens >= 11 && tens <= 14
+      ? "шагов"
+      : ones === 1
+        ? "шаг"
+        : ones >= 2 && ones <= 4
+          ? "шага"
+          : "шагов";
+  return `${n} ${word}`;
 }
 
+/**
+ * Итог для человека: без «тулов», «вызовов» и долларов (цифры — в details карточки). Что успел и как продолжить.
+ */
 export function budgetSummary(state: BudgetState, opts: ResolvedOptions): string {
   const reason =
     state.exhausted === "calls"
-      ? `лимит вызовов тулов (${opts.maxToolCalls})`
-      : `лимит денег на задачу (${money(opts.maxCostUsd)})`;
+      ? `на одну задачу у меня ${steps(opts.maxToolCalls)}, и они закончились`
+      : "на эту задачу ушла вся отведённая на неё сумма";
   const files = [...state.filesChanged];
   const done = files.length
-    ? `изменены файлы: ${files.slice(0, 10).join(", ")}${files.length > 10 ? ` и ещё ${files.length - 10}` : ""}`
-    : "файлы не менялись";
-  return `Задача остановлена: исчерпан ${reason}. Вызовов: ${state.toolCalls}, потрачено ${money(state.costUsd)}. Сделано: ${done}; команд запущено: ${state.commands}.`;
+    ? `Что успел: изменил ${files.slice(0, 5).join(", ")}${files.length > 5 ? ` и ещё ${files.length - 5}` : ""}.`
+    : "Файлы я не менял.";
+  return `Я остановился: ${reason}. ${done} Если нужно доделать, напишите «продолжай».`;
 }
 
-const STOP_REASON =
-  "Бюджет задачи исчерпан, тулы больше не выполняются. Не вызывай тулы. Напиши пользователю по-русски 2–4 строки: что уже сделано и что осталось сделать.";
+/** Модели: лимит исчерпан, тулы больше не выполняются — коротко подвести итог для человека. */
+function stopReason(state: BudgetState): string {
+  const what =
+    state.exhausted === "money" ? "Лимит денег на задачу исчерпан" : "Лимит шагов задачи исчерпан";
+  return `${what}: инструменты больше не выполняются, не вызывай их. Напиши пользователю по-русски 2–4 строки без технических слов: что уже сделано и что осталось.`;
+}
 
 export interface BudgetHandle {
   state: () => BudgetState;
@@ -112,7 +130,7 @@ export function installBudget(pi: ExtensionAPI, opts: ResolvedOptions): BudgetHa
       state.blockedAfterStop += 1;
       // Первый раз даём модели ход на итог; если она снова зовёт тулы — завершаем.
       if (state.blockedAfterStop > 3) ctx.abort();
-      return { block: true, reason: STOP_REASON, terminate: state.blockedAfterStop > 1 };
+      return { block: true, reason: stopReason(state), terminate: state.blockedAfterStop > 1 };
     }
     state.toolCalls += 1;
     if (event.toolName === "bash" || event.toolName === "powershell") state.commands += 1;
@@ -144,8 +162,8 @@ export function installBudget(pi: ExtensionAPI, opts: ResolvedOptions): BudgetHa
         return undefined;
       state.warned = true;
       const note =
-        `[Бюджет задачи: ${Math.round(ratio() * 100)}% — вызовов ${state.toolCalls}/${opts.maxToolCalls}, ` +
-        `${money(state.costUsd)} из ${money(opts.maxCostUsd)}. Заканчивай главное, без лишних шагов.]`;
+        `[Задача израсходовала ${Math.round(ratio() * 100)}% лимита (шагов ${state.toolCalls} из ${opts.maxToolCalls}). ` +
+        "Заканчивай главное, без лишних шагов.]";
       return { content: appendText(event.content, note), ...keepStructured(event) };
     });
   };
