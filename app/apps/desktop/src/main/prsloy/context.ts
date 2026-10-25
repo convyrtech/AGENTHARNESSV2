@@ -16,6 +16,7 @@ import {
   type PrsloyHomePaths,
 } from "./agent-home.ts";
 import { PrsloyKeyStore, type SecretCipher } from "./key-store.ts";
+import { restrictToCurrentUser } from "./file-acl.ts";
 import { GitRuntime, type GitSetupState } from "./runtime-git.ts";
 import { TurnSnapshots } from "./turn-snapshots.ts";
 import { chooseGitBinary, chooseWindowsShellPath } from "./windows-shell.ts";
@@ -105,6 +106,9 @@ export function bootstrapPrsloy(options: {
   const agentDir = resolvePrsloyAgentDir(options.userDataPath, env);
   const sessionDir = join(agentDir, "sessions");
   ensurePrsloyHomeDirs(paths, agentDir);
+  // The encrypted gateway key lives here: user-only ACL before anything is written.
+  const acl = restrictToCurrentUser(paths.stateDir, { isDir: true, platform, env });
+  if (!acl.ok) console.warn("[prsloy] could not restrict state dir:", acl.detail);
   mkdirSync(sessionDir, { recursive: true });
 
   // Everything in this process that asks pi for its home (TUI, package manager,
