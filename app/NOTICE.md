@@ -124,3 +124,12 @@
   (`packages/core/src/services/chatRecordingTypes.ts`, `chatRecordingService.ts`, `config/projectRegistry.ts`, коммит
   `cd1b45c`). Apache License 2.0, Copyright 2025 Google LLC. Изменено PRSLOY: только текст с пометками инструментов, только
   чтение, чаты субагентов пропускаются, код переписан на нашу схему разбора.
+- `packages/prsloy-harness/src/tuner/prompts.ts`, `src/tuner/leaks.ts` — оффлайн-улучшатель обвязки (#33) по
+  [google-research/harness2](https://github.com/google-research/harness2) (коммит `1cfe254`). Apache License 2.0,
+  Copyright 2026 Google LLC; текст лицензии — `licenses/harness2-Apache-2.0.txt`, файла NOTICE у проекта нет.
+  Взяты: промпты редакторов INV / DOM, правила композитора и таблица рефлектора (`harness2/core/prompts.py`, строки
+  38–63, 333–407, 893–961, 1105–1163) и tripwire'ы контекста (`harness2/core/context.py` 399–518,
+  `assert_no_leak_paths`, `assert_no_grader_verdicts`). Изменено PRSLOY: перенесено на TypeScript, править можно
+  только данные (уроки, навыки, добавку промпта модели), метки вердикта — нашего стенда (check.mjs и отчёт),
+  добавлена проверка строк check.mjs; заголовки Google LLC сохранены, правки отмечены в файлах. `third_party/`
+  не брался. Схема раунда в `src/tuner/ppc.ts` — своя, по описанию Propose–Probe–Compose.
