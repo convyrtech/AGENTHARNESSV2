@@ -4,7 +4,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { messageCostUsd } from "./budget.ts";
-import { pickModel, reviewerFor } from "./second-opinion.ts";
+import { pickModel, reviewersFor } from "./second-opinion.ts";
 
 export interface ReviewReply {
   text: string;
@@ -39,14 +39,14 @@ export function resolveReviewerModel(
   }
   const writer = ctx.model;
   if (!writer) return undefined;
-  const prefix = reviewerFor(writer.id);
-  if (!prefix) return undefined;
-  const candidate = pickModel(
-    all.filter((m) => m.provider === writer.provider),
-    prefix,
-  );
-  // Своей семье не доверяем (ADR-7): если пара случайно указала на ту же модель — ревью нет.
-  return candidate && candidate.id !== writer.id ? candidate : undefined;
+  // Каталог сессии (тот, что видит Pi): у core в models.json только модели, которые есть на шлюзе.
+  const same = all.filter((m) => m.provider === writer.provider);
+  for (const prefix of reviewersFor(writer.id)) {
+    const candidate = pickModel(same, prefix);
+    // Своей семье не доверяем (ADR-7): ту же модель не берём, идём к следующему по списку.
+    if (candidate && candidate.id !== writer.id) return candidate;
+  }
+  return undefined;
 }
 
 export function modelReviewer(options: ReviewerOptions = {}): Reviewer {

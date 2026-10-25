@@ -1027,3 +1027,13 @@ SSE) и заглушки flow.py: раунд 1 — 10 «да», 2 «нет» Maj
 по Q1 и новое Major не считаются → PASS, «ДА: 12/12», JUDGE.md = запись переписки; открытый Blocker держит FAIL
 при всех «да»; неотвеченное → просьба поправить формат → «нет»; `--questions off` — прежний ответ без блока; лимит
 3 раунда (выход 3); A/B на копии печатает таблицу и не трогает оригинал. Все тесты папки: 49, OK.
+
+### Этап 12 · второе мнение «Кода» — по каталогу шлюза
+
+- Фиксированные пары (qwen → deepseek, opus → kimi) заменены списком предпочтений по семье
+  (`REVIEWER_PREFERENCES` в `src/second-opinion.ts`): qwen → deepseek, kimi, opus; opus → kimi, deepseek, qwen;
+  deepseek → kimi, qwen, opus; kimi → deepseek, qwen, opus. Проверяющий — первый, кто есть в каталоге моделей
+  сессии (`ctx.modelRegistry.getAll()` того же провайдера; у core в models.json теперь только модели шлюза,
+  `/v1/models`). Своя семья не берётся; никого нет — ревью нет.
+- Тест: каталог без deepseek → qwen проверяет kimi; opus при каталоге {opus, qwen} → qwen; только своя семья —
+  без ревью. harness 341/341.

@@ -5,17 +5,25 @@
 // замечания хуже, чем никаких.
 import { headTail } from "./text.ts";
 
-/** Пары «писатель → проверяющий» (префиксы id моделей шлюза PRSLOY). */
-export const REVIEWER_PAIRS: readonly (readonly [RegExp, string])[] = [
-  [/deepseek/i, "kimi-k3.1-pro"],
-  [/kimi/i, "deepseek-v4.1-flash"],
-  [/qwen/i, "deepseek-v4.1-flash"],
-  [/opus|claude/i, "kimi-k3.1-pro"],
+/**
+ * Кто проверяет кого: семья писателя → проверяющие других семей по предпочтению (префиксы id моделей шлюза PRSLOY).
+ * Каталог шлюза (core, `/v1/models`) бывает неполным: берётся первый, кто в нём есть.
+ */
+export const REVIEWER_PREFERENCES: readonly (readonly [RegExp, readonly string[]])[] = [
+  [/qwen/i, ["deepseek", "kimi", "claude-opus"]],
+  [/opus|claude/i, ["kimi", "deepseek", "qwen"]],
+  [/deepseek/i, ["kimi", "qwen", "claude-opus"]],
+  [/kimi/i, ["deepseek", "qwen", "claude-opus"]],
 ];
 
-/** Префикс id проверяющего для модели-писателя; undefined — пары нет, ревью не делаем. */
+/** Проверяющие для модели-писателя по порядку предпочтения; пусто — семьи нет в списке, ревью не делаем. */
+export function reviewersFor(writerModelId: string): readonly string[] {
+  return REVIEWER_PREFERENCES.find(([family]) => family.test(writerModelId))?.[1] ?? [];
+}
+
+/** Первый по предпочтению префикс (без учёта каталога). */
 export function reviewerFor(writerModelId: string): string | undefined {
-  return REVIEWER_PAIRS.find(([family]) => family.test(writerModelId))?.[1];
+  return reviewersFor(writerModelId)[0];
 }
 
 /** Модель с id, равным префиксу или начинающимся с него (`deepseek-v4.1-flash` → `deepseek-v4.1-flash-1017`). */
