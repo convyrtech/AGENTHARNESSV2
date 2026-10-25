@@ -6,6 +6,7 @@
  */
 import { claudeCodeCandidate, claudeCodeFiles } from "./adapters/claude-code.ts";
 import { codexCandidate, codexFiles, codexTitles, richestPerChat } from "./adapters/codex.ts";
+import { aiderCandidates } from "./adapters/aider.ts";
 import { clineCandidate, clineTasks } from "./adapters/cline-family.ts";
 import { cursorCandidate, cursorTranscripts } from "./adapters/cursor-agent.ts";
 import { geminiCandidate, geminiChatFiles, newestGeminiFile } from "./adapters/gemini.ts";
@@ -75,6 +76,8 @@ export async function scanSources(options: {
   now?: number;
   days?: number;
   limit?: number;
+  /** More project folders to look for Aider's history in (besides those other chats point to). */
+  extraProjects?: string[];
 }): Promise<ScanResult> {
   const { roots, ledger } = options;
   const now = options.now ?? Date.now();
@@ -119,7 +122,7 @@ export async function scanSources(options: {
   } finally {
     releaseOpenCodeSnapshots();
   }
-  const candidates = [
+  const all = [
     ...claude,
     ...richestPerChat(codexAll),
     ...pi,
@@ -127,7 +130,11 @@ export async function scanSources(options: {
     ...newestGeminiFile(gemini),
     ...cursor,
     ...clineFamily,
-  ]
+  ];
+  // Aider keeps its history inside the project: look in every folder we already know of
+  const projects = new Set([...all.map((c) => c.cwd), ...(options.extraProjects ?? [])]);
+  for (const project of projects) all.push(...safelySync(() => aiderCandidates(project)));
+  const candidates = all
     .map((c) => (isImported(ledger, c) ? { ...c, alreadyImported: true } : c))
     .sort((a, b) => b.updatedAt - a.updatedAt);
 

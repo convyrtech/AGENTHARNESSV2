@@ -126,3 +126,5 @@
   `workspace`) — по [jhlee0409/claude-code-history-viewer](https://github.com/jhlee0409/claude-code-history-viewer)
   (`src-tauri/src/providers/cline.rs`, MIT License, Copyright (c) jhlee0409) и cline/cline (Apache-2.0,
   `apps/vscode/src/core/storage`, `src/shared/HistoryItem.ts`, коммит `40c5d99`). Код не копировался.
+- `packages/session-import/src/adapters/aider.ts` — формат `.aider.chat.history.md` (заголовок сессии, `#### ` — человек,
+  `> ` — вывод Aider, блоки SEARCH/REPLACE) по документации [Aider](https://aider.chat/docs) (Apache-2.0). Код не копировался.

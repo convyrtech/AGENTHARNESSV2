@@ -24,6 +24,7 @@ describe("scanSources", () => {
       cline: { chats: 0, projects: 0, recent: 0 },
       "roo-code": { chats: 0, projects: 0, recent: 0 },
       "kilo-code": { chats: 0, projects: 0, recent: 0 },
+      aider: { chats: 0, projects: 0, recent: 0 },
     });
     expect(result.skipped).toEqual([]);
     expect(result.selected).toHaveLength(5);

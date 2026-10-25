@@ -13,7 +13,8 @@ export type ImportToolId =
   | "cursor-agent"
   | "cline"
   | "roo-code"
-  | "kilo-code";
+  | "kilo-code"
+  | "aider";
 
 export type ImportToolCount = { chats: number; projects: number; recent: number };
 

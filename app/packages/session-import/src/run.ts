@@ -7,6 +7,7 @@
  */
 import { readClaudeCodeChat } from "./adapters/claude-code.ts";
 import { codexTitles, readCodexChat } from "./adapters/codex.ts";
+import { readAiderChat } from "./adapters/aider.ts";
 import { readClineChat } from "./adapters/cline-family.ts";
 import { readCursorChat } from "./adapters/cursor-agent.ts";
 import { readGeminiChat } from "./adapters/gemini.ts";
@@ -117,6 +118,9 @@ async function prepare(
         },
         candidate.cwd,
       );
+      break;
+    case "aider":
+      chat = readAiderChat(candidate.sourcePath, candidate.sourceId, candidate.cwd);
       break;
     default: {
       const unknown: never = candidate.tool;

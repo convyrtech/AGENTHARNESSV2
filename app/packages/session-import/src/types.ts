@@ -14,6 +14,7 @@ export const IMPORT_TOOLS = [
   "cline",
   "roo-code",
   "kilo-code",
+  "aider",
 ] as const;
 export type ImportTool = (typeof IMPORT_TOOLS)[number];
 
@@ -27,6 +28,7 @@ export const IMPORT_TOOL_LABELS: Record<ImportTool, string> = {
   cline: "Cline",
   "roo-code": "Roo Code",
   "kilo-code": "Kilo Code",
+  aider: "Aider",
 };
 
 export type ImportedTurn = {
