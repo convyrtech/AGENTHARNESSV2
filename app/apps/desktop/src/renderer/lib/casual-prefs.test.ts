@@ -72,6 +72,13 @@ describe("casual-prefs", () => {
     }
   });
 
+  it("shows «Поиск в интернете» to everyone only once SEARCH_READY (#23)", () => {
+    expect(isSettingsSectionVisible("webSearch", false)).toBe(false);
+    expect(isSettingsSectionVisible("webSearch", true)).toBe(true);
+    expect(isSettingsSectionVisible("webSearch", false, true)).toBe(true);
+    expect(isSettingsSectionVisible("memory", false, false)).toBe(true);
+  });
+
   it("hides shortcuts to developer surfaces until developer mode is on", () => {
     for (const id of ["packages", "resources", "toggle-content-mode"]) {
       expect(isShortcutVisible(id, false)).toBe(false);

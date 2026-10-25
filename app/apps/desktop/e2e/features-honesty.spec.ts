@@ -1,9 +1,5 @@
-import { copyFileSync, mkdirSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
-import type { Page } from "@playwright/test";
-import { expect, sendPrompt, startHost, test, waitSettled } from "./fixtures.ts";
-import { closeLaunched, launchRu, shot } from "./features-helpers.ts";
+import { expect, sendPrompt, test, waitSettled } from "./fixtures.ts";
+import { closeLaunched, launchWithCard, shot, startHostWithCard } from "./features-helpers.ts";
 
 /**
  * research/24 §3.6 and §4.5 on mocks: the harness's future cards — «Заметил и запомнил»,
@@ -11,27 +7,6 @@ import { closeLaunched, launchRu, shot } from "./features-helpers.ts";
  * through the real host. A test-only Pi extension (`features-cards-ext.mjs`) shows them as the
  * harness will (sendMessage with customType and details); the fake model calls it.
  */
-const HERE = dirname(fileURLToPath(import.meta.url));
-
-async function launchWithCard(card: { customType: string; content: string; details: unknown }) {
-  const launched = await launchRu({
-    tools: "read,emit_card",
-    toolCall: { name: "emit_card", arguments: card },
-  });
-  const dir = join(launched.agentDir, "extensions");
-  mkdirSync(dir, { recursive: true });
-  copyFileSync(join(HERE, "features-cards-ext.mjs"), join(dir, "features-cards-ext.ts"));
-  return launched;
-}
-
-/** The extension is picked up on reload, as in extension-ui-select.spec.ts. */
-async function startHostWithCard(page: Page): Promise<void> {
-  await startHost(page);
-  await page.evaluate(async () => {
-    await window.zeno.runtime.reload();
-  });
-}
-
 test("«Не получилось»: three lines, a ready answer goes to the agent", async () => {
   const launched = await launchWithCard({
     customType: "prsloy-harness.blocker",

@@ -1,9 +1,9 @@
-import { mkdirSync } from "node:fs";
+import { copyFileSync, mkdirSync } from "node:fs";
 import { rm } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Page } from "@playwright/test";
-import { launchZenoApp, type LaunchOptions } from "./fixtures.ts";
+import { launchZenoApp, startHost, type LaunchOptions } from "./fixtures.ts";
 
 /**
  * Shared bits of the `features-*` specs (research 19 §1): the app in Russian at a fixed
@@ -41,4 +41,34 @@ export async function shot(page: Page, name: string, settleMs = 300): Promise<vo
   mkdirSync(SCREENS, { recursive: true });
   await page.waitForTimeout(settleMs);
   await page.screenshot({ path: join(SCREENS, `features-${name}.png`) });
+}
+
+/**
+ * The app with a test-only Pi extension (`features-cards-ext.mjs`) whose `emit_card` tool shows a
+ * card as the harness will (sendMessage with customType and details); the fake model calls it.
+ */
+export async function launchWithCard(card: {
+  customType: string;
+  content: string;
+  details: unknown;
+}) {
+  const launched = await launchRu({
+    tools: "read,emit_card",
+    toolCall: { name: "emit_card", arguments: card },
+  });
+  const dir = join(launched.agentDir, "extensions");
+  mkdirSync(dir, { recursive: true });
+  copyFileSync(
+    join(dirname(fileURLToPath(import.meta.url)), "features-cards-ext.mjs"),
+    join(dir, "features-cards-ext.ts"),
+  );
+  return launched;
+}
+
+/** The extension is picked up on reload, as in extension-ui-select.spec.ts. */
+export async function startHostWithCard(page: Page): Promise<void> {
+  await startHost(page);
+  await page.evaluate(async () => {
+    await window.zeno.runtime.reload();
+  });
 }
