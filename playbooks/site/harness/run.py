@@ -658,6 +658,63 @@ def options_of(text):
     return [g for g in groups if g["options"]][:3] or inline_options(text)
 
 
+# ---------- шаг 5: «рекомендую» между A и B — моделью в обеих перестановках (research/28 §4.4) ----------
+PAIR_LETTER = {"a": "a", "а": "a", "b": "b", "б": "b"}
+
+
+def pair_pick(ws):
+    """Какой прототип лучше: pair_pick.py в двух порядках, ответ засчитывается при совпадении. Кэш — по файлам
+    прототипов. {"winner": "a"|"b"|None, ...} или None, когда сравнивать нечего (нет двух прототипов)."""
+    pa, pb = (ws.page / "05-proto" / x / "index.html" for x in "ab")
+    if not (pa.exists() and pb.exists()):
+        return None
+    fp = ":".join(f"{p.stat().st_size}:{int(p.stat().st_mtime)}" for p in (pa, pb))
+    cached = ws.state.get("pair5") or {}
+    if cached.get("fp") == fp:
+        return cached
+    if not CFG["judge"].get("model"):
+        res = {"winner": None, "why": "нет модели уровня Opus"}
+    else:
+        r = subprocess.run([PY, "-I", str(HERE / "pair_pick.py"), "--a", str(pa), "--b", str(pb),
+                            "--brief", str(ws.page / "MESSAGE.md"), "--pipeline", str(ws.pipe),
+                            "--out", str(ws.page / "artifacts" / "pair5"), "--model", CFG["judge"]["model"], *PROXY],
+                           cwd=ws.root, env={**os.environ, **ws.env()}, capture_output=True, text=True,
+                           encoding="utf-8")
+        try:
+            res = json.loads(r.stdout.strip().splitlines()[-1])
+        except (ValueError, IndexError):
+            ws.ledger(kind="pair5", ok=False, out=(r.stdout + r.stderr)[-300:])
+            return None                                   # сбой сравнения: карточку не трогаем
+    res["fp"] = fp
+    ws.state["pair5"] = res
+    ws.save()
+    ws.ledger(kind="pair5", ok=True, winner=res.get("winner"), answers=res.get("answers"))
+    return res
+
+
+def apply_pair_pick(text, options, res):
+    """«(рекомендую)» у A или B — только по выбору, совпавшему в обоих порядках; разошлись — ни у одного, и строка
+    владельцу. Остальные варианты (гибрид и т. п.) не трогаются."""
+    if not res:
+        return text, options
+    win = res.get("winner")
+    lines = []
+    for ln in text.splitlines():
+        m = re.match(r"^(\s*)([A-BА-Б])([.)]\s+)(.*?)(\s*\(рекомендую\))?\s*$", ln)
+        if m:
+            mark = " (рекомендую)" if PAIR_LETTER.get(m.group(2).lower()) == win else ""
+            ln = f"{m.group(1)}{m.group(2)}{m.group(3)}{m.group(4)}{mark}"
+        lines.append(ln)
+    if not win:
+        lines.append("Какой из двух лучше, проверка не решила: выберите сами.")
+    for g in options or []:
+        for o in g.get("options", []):
+            k = PAIR_LETTER.get(str(o.get("key", "")).strip().lower())
+            if k:
+                o["recommended"] = k == win
+    return "\n".join(lines), options
+
+
 # ---------- шаг 5: прототипы параллельно одним вызовом (research/20, вопрос 3; stages.json → 5.parallel) ----------
 # Вместо одной сессии до 40 минут: 2–3 одноразовых вызова «создай index.html целиком» на разных ступенях лестницы,
 # у каждого блок дизайн-системы (идея screenshot-to-code prompts/design_system.py, MIT: «при конфликте побеждает
@@ -1119,6 +1176,8 @@ def say(a):
                     text, options = card = card2
                 elif TO_OWNER in f2:
                     text, options = f2.split(TO_OWNER, 1)[1].strip(), None
+            if gate == "5":
+                text, options = apply_pair_pick(text, options, pair_pick(ws))
             hist["waiting_owner"] = True
             ws.state["outbox"] = ws.state.get("outbox", 0) + 1
             sent = ws.h / "sent"                       # отправленное владельцу; outbox/ страницы — черновики агента
