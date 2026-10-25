@@ -18,6 +18,7 @@ import {
   copyFileSync,
   cpSync,
   existsSync,
+  lstatSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -41,6 +42,8 @@ const FIXTURE = join(HERE, "design");
 const REPO = join(APP, "..", "..", "..");
 const VENV = process.env.DESIGN_LIVE_VENV ?? "";
 const EXE = process.env.DESIGN_LIVE_EXE ?? "";
+/** Dev build without a given venv: the app sets its tools up itself, as on first use (the first-use test). */
+const FIRSTUSE = process.env.DESIGN_LIVE_FIRSTUSE === "1";
 const WIN = process.platform === "win32";
 const VENV_PY = WIN ? join(VENV, "Scripts", "python.exe") : join(VENV, "bin", "python");
 const SHA = "39fcac42db4bd344c7d9747a5903cc18c9d87718";
@@ -63,7 +66,10 @@ const CHECKS = [
 ];
 
 test.describe.configure({ mode: "serial" });
-test.skip(!VENV && !EXE, "DESIGN_LIVE_VENV (dev build) or DESIGN_LIVE_EXE (installed app)");
+test.skip(
+  !VENV && !EXE && !FIRSTUSE,
+  "DESIGN_LIVE_VENV (dev build), DESIGN_LIVE_EXE (installed app) or DESIGN_LIVE_FIRSTUSE=1",
+);
 test.setTimeout(600_000);
 
 /** Fake gateway behind the app's a6proxy: every second-opinion check passes. */
@@ -159,7 +165,12 @@ function lab(): Lab {
   });
 }
 
-async function launch(l: Lab): Promise<{ app: ElectronApplication; page: Page }> {
+async function launch(
+  l: Lab,
+  /** Extra env for this launch (the no-network run points the proxy at a closed port). */
+  extra: Record<string, string> = {},
+  drop: string[] = [],
+): Promise<{ app: ElectronApplication; page: Page }> {
   const home = join(l.root, "home");
   mkdirSync(join(home, ".pi", "agent"), { recursive: true });
   mkdirSync(l.userData, { recursive: true });
@@ -221,6 +232,8 @@ async function launch(l: Lab): Promise<{ app: ElectronApplication; page: Page }>
       PRSLOY_DESIGN_VENV: VENV,
     });
   }
+  for (const k of Object.keys(env)) if (drop.includes(k.toUpperCase())) delete env[k];
+  Object.assign(env, extra);
   const app = await electron.launch({
     executablePath: EXE || electronBinary(),
     args: [...(EXE ? [] : [APP]), `--user-data-dir=${l.userData}`],
@@ -244,15 +257,19 @@ async function shot(page: Page, name: string) {
   await page.screenshot({ path: join(dir, `design-${tag}-${name}.png`) });
 }
 
-/** The owner adds the pinned-commit zip; the tab becomes the empty design page. */
-async function importTools(app: ElectronApplication, page: Page, l: Lab) {
-  const zip = join(l.downloads, `design-pipeline-${SHA}.zip`);
+/** The file picker answers with this path. */
+async function pickFile(app: ElectronApplication, path: string) {
   await app.evaluate(({ dialog }, p) => {
     Object.defineProperty(dialog, "showOpenDialog", {
       configurable: true,
       value: async () => ({ canceled: false, filePaths: [p] }),
     });
-  }, zip);
+  }, path);
+}
+
+/** The owner adds the pinned-commit zip; the tab becomes the empty design page. */
+async function importTools(app: ElectronApplication, page: Page, l: Lab) {
+  await pickFile(app, join(l.downloads, `design-pipeline-${SHA}.zip`));
   await page.getByTestId("nav-design").click();
   // a public build: harness shipped, pipeline not — the owner adds his zip
   await page.getByTestId("design-import-tools").click();
@@ -310,6 +327,153 @@ function leftovers(l: Lab): string[] {
     .filter((r) => marks.some((m) => r.cmd.includes(m)) || browser(r.cmd))
     .map((r) => `${r.pid} ${r.cmd}`);
 }
+
+/** Size of a folder on disk, MB (the venv after first use). */
+function folderMb(dir: string): number {
+  let bytes = 0;
+  if (!existsSync(dir)) return 0;
+  for (const rel of readdirSync(dir, { recursive: true }) as string[]) {
+    // lstat: a Linux venv has lib64 → lib, followed it would count everything twice
+    const st = lstatSync(join(dir, rel), { throwIfNoEntry: false });
+    if (st?.isFile()) bytes += st.size;
+  }
+  return Math.round(bytes / 1024 / 1024);
+}
+
+type Sample = { t: number; phase: string; text: string; loader: boolean };
+
+/** What the owner sees while the tools set up: the card's phase and text twice a second until it is gone. */
+async function watchSetup(page: Page, limitMs = 600_000): Promise<Sample[]> {
+  const t0 = Date.now();
+  const samples: Sample[] = [];
+  while (Date.now() - t0 < limitMs) {
+    const card = page.getByTestId("design-setup");
+    if ((await card.count()) === 0) break;
+    const phase = (await card.getAttribute("data-phase").catch(() => null)) ?? "gone";
+    const text = ((await card.innerText().catch(() => "")) || "").replace(/\s+/g, " ").trim();
+    const loader = (await page.getByTestId("design-setup-loader").count()) > 0;
+    samples.push({ t: Date.now() - t0, phase, text, loader });
+    if (phase === "error") break;
+    await page.waitForTimeout(500);
+  }
+  return samples;
+}
+
+/** The longest stretch with the same visible text and no moving bar: «silence» for the owner. */
+function longestStill(samples: Sample[]): number {
+  let best = 0;
+  let from = 0;
+  for (let i = 1; i < samples.length; i++) {
+    const a = samples[i - 1]!;
+    const b = samples[i]!;
+    // a running line loader moves on its own: not silence
+    if (b.text !== a.text || b.loader) from = b.t;
+    best = Math.max(best, b.t - from);
+  }
+  return best;
+}
+
+test("first use: a zip that is not the design tools is refused in plain words", async () => {
+  const l = lab();
+  const notes = join(l.root, "notes");
+  mkdirSync(notes, { recursive: true });
+  writeFileSync(join(notes, "README.md"), "# Мои заметки\n");
+  const zip = join(l.downloads, "notes-main.zip");
+  writeFileSync(zip, zipDirectory(notes, "notes-main"));
+  const { app, page } = await launch(l);
+  try {
+    await pickFile(app, zip);
+    await page.getByTestId("nav-design").click();
+    await page.getByTestId("design-import-tools").click();
+    await expect(page.getByTestId("design-import-error")).toContainText("не");
+    await expect(page.getByTestId("design-import-error")).not.toContainText(/Error|at |\\|\//);
+    // the owner can try again with the right file
+    await expect(page.getByTestId("design-import-tools")).toBeVisible();
+    await shot(page, "firstuse-wrong-zip");
+  } finally {
+    await app.close();
+  }
+});
+
+test("first use on the installed app: no network → plain words and «Повторить»; then the tools set up with progress, measured", async () => {
+  test.skip(
+    !EXE && !FIRSTUSE,
+    "first-use setup: the installed app, or the dev build with DESIGN_LIVE_FIRSTUSE=1",
+  );
+  const l = lab();
+  const report: Record<string, unknown> = { profile: l.profile };
+  // 1) no network while the tools download: pip goes through a proxy on a closed port
+  {
+    const dead = "http://127.0.0.1:9";
+    const { app, page } = await launch(
+      l,
+      { HTTPS_PROXY: dead, HTTP_PROXY: dead, https_proxy: dead, http_proxy: dead },
+      ["NO_PROXY"],
+    );
+    try {
+      await pickFile(app, join(l.downloads, `design-pipeline-${SHA}.zip`));
+      await page.getByTestId("nav-design").click();
+      await page.getByTestId("design-import-tools").click();
+      await expect(page.getByTestId("design-setup")).toBeVisible();
+      if ((await page.getByTestId("design-setup-start").count()) > 0)
+        await page.getByTestId("design-setup-start").click();
+      const samples = await watchSetup(page, 300_000);
+      const last = samples.at(-1);
+      expect(last?.phase, JSON.stringify(samples.slice(-3))).toBe("error");
+      await expect(page.getByTestId("design-setup-error")).toContainText("Нет связи");
+      await expect(page.getByTestId("design-setup-start")).toBeVisible();
+      report.offline = { seconds: Math.round((last?.t ?? 0) / 1000), error: last?.text };
+      await shot(page, "firstuse-no-network");
+    } finally {
+      await app.close();
+    }
+  }
+  // 2) the network is back: «Повторить» sets the tools up; what the owner sees is sampled the whole time
+  const { app, page } = await launch(l);
+  try {
+    await page.getByTestId("nav-design").click();
+    await expect(page.getByTestId("design-setup")).toBeVisible();
+    const t0 = Date.now();
+    await page.getByTestId("design-setup-start").click();
+    const samples = await watchSetup(page);
+    const seconds = Math.round((Date.now() - t0) / 1000);
+    await expect(page.getByTestId("design-empty")).toBeVisible();
+    const phases = [...new Set(samples.map((x) => x.phase))];
+    const firstAt = Object.fromEntries(
+      phases.map((ph) => [ph, Math.round(samples.find((x) => x.phase === ph)!.t / 1000)]),
+    );
+    const still = longestStill(samples);
+    Object.assign(report, {
+      setupSeconds: seconds,
+      phases: firstAt,
+      longestStillSeconds: Math.round(still / 1000),
+      venvMb: folderMb(join(l.userData, "design", "venv")),
+      designMb: folderMb(join(l.userData, "design")),
+      texts: [...new Set(samples.map((x) => x.text))].slice(0, 12),
+    });
+    // progress, not silence: every sample shows a phase in words and a moving bar until it is done
+    expect(
+      samples.every((x) => x.loader && x.text.length > 0),
+      JSON.stringify(samples.slice(0, 5)),
+    ).toBe(true);
+    // the failed offline try already made the venv: the retry may go straight to the download
+    expect(phases).toContain("browser");
+    expect(phases.some((ph) => ph === "download" || ph === "install")).toBe(true);
+    await shot(page, "firstuse-ready");
+
+    // 3) the first «Сделай лендинг…»: the step 1 card
+    const t1 = Date.now();
+    await say(page, "Сделай лендинг для кофейни «Зерно»");
+    await expect(page.getByTestId("design-owner").first()).toBeVisible({ timeout: 300_000 });
+    report.firstCardSeconds = Math.round((Date.now() - t1) / 1000);
+    await shot(page, "firstuse-step1");
+  } finally {
+    await app.close();
+    const dir = process.env.DESIGN_LIVE_SHOTS || test.info().outputDir;
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, "firstuse.json"), JSON.stringify(report, null, 2));
+  }
+});
 
 test("a full turn on the real tools: sheet and videos, choice «A», the page", async () => {
   const l = lab();

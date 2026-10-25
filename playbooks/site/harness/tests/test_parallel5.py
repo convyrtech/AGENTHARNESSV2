@@ -26,16 +26,18 @@ PAGE = ("<!doctype html><html lang=ru><head><meta charset=utf-8><title>Зерн�
         + "p{margin:0 0 1em}" * 60 + "</style></head><body><main data-signature>"
         "<h1>Зерно — {model}</h1>" + "<p>Обжариваем сами, каждое утро.</p>" * 10 + "</main></body></html>")
 
-STUB_PI = r'''import json, sys, time
+STUB_PI = r'''import json, os, sys, time
 for _s in (sys.stdout, sys.stderr):
     _s.reconfigure(encoding="utf-8", errors="replace")
 from pathlib import Path
 a = sys.argv[1:]
 model = a[a.index("--model") + 1]
 brief = Path(next(x for x in a if x.startswith("@"))[1:]).read_text(encoding="utf-8")
-log = Path(__file__).with_name("calls.jsonl")
-with open(log, "a", encoding="utf-8") as f:
-    f.write(json.dumps({"model": model, "one_shot": "--no-tools" in a, "brief": brief[:4000]}, ensure_ascii=False) + "\n")
+# one file per call: on Windows appends to one file from parallel processes are not atomic (a call went missing)
+log = Path(__file__).with_name("calls")
+log.mkdir(exist_ok=True)
+(log / f"{time.time_ns():020d}-{os.getpid()}.json").write_text(
+    json.dumps({"model": model, "one_shot": "--no-tools" in a, "brief": brief[:4000]}, ensure_ascii=False), encoding="utf-8")
 def end(content, cost=0.01):
     print(json.dumps({"type": "message_end", "message": {"role": "assistant", "stopReason": "stop", "content": content,
           "usage": {"input": 5000, "output": 3000, "cost": {"total": cost}}}}, ensure_ascii=False))
@@ -52,6 +54,12 @@ end([{"type": "toolCall", "name": "ask_owner", "arguments": {}}])
 print(json.dumps({"type": "tool_execution_end", "toolName": "ask_owner", "isError": False,
                   "result": {"content": [], "details": ask, "terminate": True}}, ensure_ascii=False))
 '''.replace("PAGE", repr(PAGE))
+
+def read_calls(tmp):
+    """The stub's calls in the order they started (file names are nanosecond stamps)."""
+    d = tmp / "calls"
+    return [json.loads(f.read_text(encoding="utf-8")) for f in sorted(d.glob("*.json"))] if d.exists() else []
+
 
 STUB_FLOW = r'''import json, sys
 for _s in (sys.stdout, sys.stderr):
@@ -136,7 +144,7 @@ class Parallel(unittest.TestCase):
         for r in protos:                                       # time and price of every variant
             self.assertGreaterEqual(r["seconds"], 1)
             self.assertAlmostEqual(r["cost"], 0.01)
-        briefs = [json.loads(x)["brief"] for x in (self.tmp / "calls.jsonl").read_text(encoding="utf-8").splitlines()]
+        briefs = [c["brief"] for c in read_calls(self.tmp)]
         for b in briefs:
             self.assertIn("побеждает дизайн-система", b)
             self.assertIn("| --ink | #2b211b |", b)
@@ -203,7 +211,7 @@ class Say(unittest.TestCase):
         return tmp, ws, run
 
     def calls(self, tmp):
-        return [json.loads(x) for x in (tmp / "calls.jsonl").read_text(encoding="utf-8").splitlines()]
+        return read_calls(tmp)
 
     def test_flag_on(self):
         tmp, ws, run = self.lab(parallel=True)
