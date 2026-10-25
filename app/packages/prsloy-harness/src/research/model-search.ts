@@ -2,10 +2,12 @@
 // `web_search_options`. Работает не у всех моделей (замер дирижёра 2026-10-25: на шлюзе владельца — gpt-6.1-sol;
 // на a6 — gpt-5.4 и grok-4.20-multi-agent-0309), поэтому список моделей настраивается (по каталогу шлюза) и
 // пробуется по порядку. Источники берутся из аннотаций url_citation и строк ответа; код их не проверял — это видно в выдаче («поиск модели, источники не проверены кодом»).
-import { clean, dated, netReason, SearchError } from "./common.ts";
+import { clean, dated, netReason, SearchError, timeoutSignal } from "./common.ts";
 import type { SearchDeps, SearchHit, SearchQuery } from "./search.ts";
 
 export const MODEL_SEARCH_MODELS: readonly string[] = ["gpt-6.1-sol"];
+const MODEL_TIMEOUT_MS = 60_000;
+const MODEL_SEARCH_BUDGET_MS = 120_000;
 export const MODEL_SEARCH_NOTE = "поиск модели, источники не проверены кодом";
 
 const LINE =
@@ -55,9 +57,17 @@ export async function modelSearch(
 ): Promise<SearchHit[]> {
   const models = gateway.models?.length ? gateway.models : MODEL_SEARCH_MODELS;
   let last: SearchError | undefined;
+  // весь перебор — не дольше MODEL_SEARCH_BUDGET_MS, каждая модель — не дольше MODEL_TIMEOUT_MS; Esc — сразу
+  const deadline = Date.now() + MODEL_SEARCH_BUDGET_MS;
   for (const model of models) {
+    const left = deadline - Date.now();
+    if (deps.signal?.aborted) throw new SearchError("network", "Поиск модели: остановлено");
+    if (left <= 1_000) break;
     try {
-      const hits = await askModel(model, gateway, q, deps);
+      const hits = await askModel(model, gateway, q, {
+        ...deps,
+        timeoutMs: Math.min(deps.timeoutMs ?? MODEL_TIMEOUT_MS, left),
+      });
       if (hits.length) return hits;
       last = new SearchError("format", `Поиск модели: ${model} не вернула источников`);
     } catch (e) {
@@ -67,7 +77,7 @@ export async function modelSearch(
       last = err;
     }
   }
-  throw last ?? new SearchError("format", "Поиск модели: нет моделей");
+  throw last ?? new SearchError("network", "Поиск модели: время вышло");
 }
 
 async function askModel(
@@ -106,7 +116,7 @@ async function askModel(
           { role: "user", content: ask },
         ],
       }),
-      signal: AbortSignal.timeout(deps.timeoutMs ?? 90_000),
+      signal: timeoutSignal(deps.timeoutMs ?? MODEL_TIMEOUT_MS, deps.signal),
     });
   } catch (e) {
     throw new SearchError("network", `Поиск модели (${model}): нет ответа (${netReason(e)})`);

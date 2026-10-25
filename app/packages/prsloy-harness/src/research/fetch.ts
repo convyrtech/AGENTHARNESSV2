@@ -5,7 +5,7 @@
 // а не инструкции. Дата берётся со страницы: мета article:published_time, JSON-LD, <time>; иначе — заголовок
 // Last-Modified; иначе «дата неизвестна».
 
-import { netReason } from "./common.ts";
+import { netReason, timeoutSignal } from "./common.ts";
 import { assertPublicUrl, PrivateAddressError, type Resolve } from "./net-guard.ts";
 
 export interface PageText {
@@ -31,6 +31,8 @@ export interface ReadDeps {
   jina?: boolean;
   /** Больше этого страницу не читаем, байт. */
   maxBytes?: number;
+  /** Отмена хода: чтение обрывается. */
+  signal?: AbortSignal;
   /** Разрешение имён для проверки частных адресов (тесты). */
   resolve?: Resolve;
 }
@@ -391,7 +393,7 @@ async function cappedJson<T>(res: Response, max = MAX_BODY_BYTES): Promise<T> {
 async function direct(url: string, deps: ReadDeps): Promise<PageText> {
   let res: Response | undefined;
   let current = url;
-  const signal = AbortSignal.timeout(deps.timeoutMs ?? 20_000);
+  const signal = timeoutSignal(deps.timeoutMs ?? 20_000, deps.signal);
   for (let hop = 0; ; hop++) {
     try {
       res = await (deps.fetchImpl ?? fetch)(current, {
@@ -465,7 +467,7 @@ async function viaGateway(
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${gw.key}` },
     body: JSON.stringify({ url }),
-    signal: AbortSignal.timeout(deps.timeoutMs ?? 30_000),
+    signal: timeoutSignal(deps.timeoutMs ?? 30_000, deps.signal),
   });
   if (!res.ok) throw new ReadError(`шлюз: HTTP ${res.status}`, res.status);
   const data = await cappedJson<{ title?: string; content?: string }>(res, deps.maxBytes).catch(
@@ -485,7 +487,7 @@ async function viaGateway(
 async function viaJina(url: string, deps: ReadDeps): Promise<PageText> {
   const res = await (deps.fetchImpl ?? fetch)(`https://r.jina.ai/${url}`, {
     headers: { Accept: "application/json" },
-    signal: AbortSignal.timeout(deps.timeoutMs ?? 30_000),
+    signal: timeoutSignal(deps.timeoutMs ?? 30_000, deps.signal),
   });
   if (!res.ok) throw new ReadError(`Jina: HTTP ${res.status}`, res.status);
   const data = await cappedJson<{

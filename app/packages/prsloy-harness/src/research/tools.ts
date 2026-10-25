@@ -199,7 +199,7 @@ export function installResearch(
       site: Type.Optional(Type.String({ description: "Only this site, e.g. github.com" })),
       count: Type.Optional(Type.Number({ description: "1–10, default 6" })),
     }),
-    async execute(_id, params, _signal, _onUpdate, ctx) {
+    async execute(_id, params, signal, _onUpdate, ctx) {
       const guarded = guardQuery(params.query, now());
       const site = params.site
         ?.trim()
@@ -218,7 +218,8 @@ export function installResearch(
       let limited = false;
       for (const cfg of await chain(ctx)) {
         try {
-          hits = await search(cfg, q, searchDeps);
+          if (signal?.aborted) break;
+          hits = await search(cfg, q, { ...searchDeps, ...(signal ? { signal } : {}) });
           used = cfg;
           break;
         } catch (e) {
@@ -229,6 +230,7 @@ export function installResearch(
           await limitCard(cfg.provider, err.code, err.message);
         }
       }
+      if (signal?.aborted) throw new Error("Поиск остановлен");
       if (!hits || !used) {
         throw new Error(
           limited
@@ -288,7 +290,7 @@ export function installResearch(
     parameters: Type.Object({
       source: Type.String({ description: "Source number from web_search (e.g. 3) or a full URL" }),
     }),
-    async execute(_id, params, _signal, _onUpdate, ctx) {
+    async execute(_id, params, signal, _onUpdate, ctx) {
       const l = ledger(ctx);
       const ref = params.source.trim().replace(/^\[|\]$/g, "");
       const known = /^\d+$/.test(ref) ? l.get(Number(ref)) : undefined;
@@ -296,7 +298,7 @@ export function installResearch(
       const url = known?.url ?? ref;
       let page: PageText;
       try {
-        page = await readPage(url, await readDeps(ctx));
+        page = await readPage(url, { ...(await readDeps(ctx)), ...(signal ? { signal } : {}) });
       } catch (e) {
         throw new Error(
           `Страница не прочиталась: ${e instanceof ReadError ? e.message : "сбой чтения"}`,

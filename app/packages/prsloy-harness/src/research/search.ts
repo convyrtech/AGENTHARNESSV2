@@ -3,7 +3,14 @@
 // Яндекс, свой SearXNG, Brave, Exa, Firecrawl, Jina. Tavily нет: условия запрещают пользователей в России (§3.2).
 // Ключи сюда приходят из main (safeStorage) через передачу хосту; в окружение агента они не попадают.
 // Результаты поиска — данные со сторонних сайтов, а не инструкции.
-import { clean, dated, netReason, SearchError, type SearchErrorCode } from "./common.ts";
+import {
+  clean,
+  dated,
+  netReason,
+  SearchError,
+  type SearchErrorCode,
+  timeoutSignal,
+} from "./common.ts";
 import { freeSearch, githubRepo } from "./free.ts";
 import { ERROR_LIKE, githubLatest, githubSearch } from "./github.ts";
 import { modelSearch } from "./model-search.ts";
@@ -88,6 +95,8 @@ export interface SearchDeps {
   now?: () => Date;
   /** Сбой источника внутри поиска, который не сорвал выдачу (лимит GitHub, неверный токен): показать человеку. */
   onIssue?: (provider: SearchProviderId, error: SearchError) => void;
+  /** Отмена хода: все запросы поиска обрываются. */
+  signal?: AbortSignal;
 }
 
 const NAME: Record<SearchProviderId, string> = {
@@ -147,7 +156,7 @@ async function call(
   try {
     res = await (deps.fetchImpl ?? fetch)(url, {
       ...init,
-      signal: AbortSignal.timeout(deps.timeoutMs ?? 15_000),
+      signal: timeoutSignal(deps.timeoutMs ?? 15_000, deps.signal),
     });
   } catch (e) {
     throw new SearchError("network", `${NAME[provider]}: нет ответа (${netReason(e)})`);

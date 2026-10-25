@@ -480,3 +480,53 @@ describe("GitHub limits are shown, npm versions come from the registry (review #
     expect(hit!.date).toBeUndefined();
   });
 });
+
+describe("the tool's abort signal is respected (review #23, nits)", () => {
+  /** fetch, который висит, пока его не отменят — как медленная модель со встроенным поиском. */
+  const hanging = (asked: string[]) =>
+    (async (_url: string, init?: RequestInit) => {
+      asked.push(String((JSON.parse(String(init?.body ?? "{}")) as { model?: string }).model));
+      return new Promise<Response>((_resolve, reject) => {
+        init?.signal?.addEventListener("abort", () =>
+          reject(new DOMException("aborted", "AbortError")),
+        );
+      });
+    }) as typeof fetch;
+
+  it("Esc stops the model search at once, not after 10 models × 90 s", async () => {
+    const asked: string[] = [];
+    const controller = new AbortController();
+    setTimeout(() => controller.abort(), 50);
+    const t0 = Date.now();
+    await expect(
+      search(
+        { provider: "model", url: "https://gw/v1", key: "k", models: ["a", "b", "c"] },
+        { query: "q" },
+        { fetchImpl: hanging(asked), signal: controller.signal },
+      ),
+    ).rejects.toThrow("остановлено");
+    expect(Date.now() - t0).toBeLessThan(2_000);
+    expect(asked).toEqual(["a"]);
+  });
+
+  it("web_search passes the tool's signal down the chain", async () => {
+    const asked: string[] = [];
+    const mock = new MockPi(mkdtempSync(join(tmpdir(), "abort-")));
+    installResearch(
+      mock.api,
+      resolveOptions({ outputDir: mkdtempSync(join(tmpdir(), "abort-")) }),
+      {
+        enabled: true,
+        search: { provider: "model", url: "https://gw/v1", key: "k", models: ["slow"] },
+        fetchImpl: hanging(asked),
+      },
+    );
+    const controller = new AbortController();
+    setTimeout(() => controller.abort(), 50);
+    await expect(
+      mock.tools
+        .get("web_search")!
+        .execute("1", { query: "q" }, controller.signal, undefined, mock.ctx as never),
+    ).rejects.toThrow("Поиск остановлен");
+  });
+});

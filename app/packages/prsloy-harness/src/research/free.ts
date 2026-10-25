@@ -6,7 +6,7 @@
 //      путь (идея из пакета ddgs, MIT; код свой);
 //   3) Википедия (ru/en), когда выдачи по вебу нет или мало.
 // У каждого результата — дата, где источник её даёт. Всё идёт с машины пользователя (системный прокси хоста).
-import { clean, dated, SearchError } from "./common.ts";
+import { clean, dated, SearchError, timeoutSignal } from "./common.ts";
 import { decodeEntities } from "./fetch.ts";
 import { ERROR_LIKE, githubLatest, githubSearch, resetGithub, type GithubKind } from "./github.ts";
 import type { SearchDeps, SearchHit, SearchQuery } from "./search.ts";
@@ -46,7 +46,7 @@ async function getJson(
   if (hit && now - hit.at < ttl) return hit.value;
   const res = await (deps.fetchImpl ?? fetch)(url, {
     headers: { Accept: "application/json", "User-Agent": API_UA, ...headers },
-    signal: AbortSignal.timeout(deps.timeoutMs ?? 10_000),
+    signal: timeoutSignal(deps.timeoutMs ?? 10_000, deps.signal),
   });
   // 404 — ответ «нет такого», его тоже кэшируем
   const value = res.ok ? ((await res.json()) as unknown) : res.status === 404 ? null : undefined;
@@ -366,7 +366,7 @@ async function duckduckgo(q: SearchQuery, deps: SearchDeps): Promise<SearchHit[]
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded", "User-Agent": UA },
       body: form.toString(),
-      signal: AbortSignal.timeout(deps.timeoutMs ?? 12_000),
+      signal: timeoutSignal(deps.timeoutMs ?? 12_000, deps.signal),
     });
   } catch {
     throw new SearchError("network", UNAVAILABLE);

@@ -49,3 +49,8 @@ export function netReason(e: unknown): string {
   if (/CERT|SSL|TLS/i.test(code)) return "ошибка сертификата сайта";
   return "сеть недоступна";
 }
+
+/** Таймаут запроса вместе с отменой хода (Esc): что раньше. */
+export function timeoutSignal(ms: number, signal?: AbortSignal): AbortSignal {
+  return signal ? AbortSignal.any([AbortSignal.timeout(ms), signal]) : AbortSignal.timeout(ms);
+}
