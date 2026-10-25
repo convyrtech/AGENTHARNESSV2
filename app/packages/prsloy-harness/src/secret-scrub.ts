@@ -2,6 +2,7 @@
 // Ключи из результатов тулов не уходят модели (и дальше — поставщику) даже если агент прочитал .env.
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { contentText, withText } from "./text.ts";
+import { recordEvent } from "./learning-log.ts";
 
 interface SecretRule {
   kind: string;
@@ -92,7 +93,7 @@ export const PLACEHOLDER_WRITE_NOTE =
 /** Регистрировать последним: tool_result-обработчики идут цепочкой, этот видит итоговый текст. */
 export function installSecretScrub(pi: ExtensionAPI): void {
   // Модель видит файл с заглушками; если она перепишет его как видит, ключ пользователя сотрётся.
-  pi.on("tool_call", (event) => {
+  pi.on("tool_call", (event, ctx) => {
     if (event.toolName !== "write" && event.toolName !== "edit") return undefined;
     const input = event.input as { content?: unknown; edits?: unknown };
     const texts = [
@@ -102,6 +103,7 @@ export function installSecretScrub(pi: ExtensionAPI): void {
         : []),
     ];
     if (texts.some((t) => typeof t === "string" && t.includes("[СКРЫТО: "))) {
+      recordEvent(ctx, { kind: "secret.placeholder", tool: event.toolName });
       return { block: true, reason: PLACEHOLDER_WRITE_NOTE };
     }
     return undefined;

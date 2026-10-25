@@ -13,6 +13,7 @@ import { installReusePrompt } from "./reuse-prompt.ts";
 import { installSecretScrub } from "./secret-scrub.ts";
 import { installStopGate } from "./stop-gate.ts";
 import { installArgRepair } from "./arg-repair.ts";
+import { configureLearning, installLearningLog } from "./learning-log.ts";
 import { installToolLeak } from "./tool-leak.ts";
 import { installToolOutput } from "./tool-output.ts";
 import { modelReviewer, secondOpinionFlag } from "./reviewer.ts";
@@ -27,6 +28,7 @@ export { detectPseudoToolCall } from "./loop-detector.ts";
 export { scrubSecrets } from "./secret-scrub.ts";
 export { repairToolCall } from "./arg-repair.ts";
 export { harnessStats } from "./stats.ts";
+export { learningDir, recordEvent } from "./learning-log.ts";
 export { installReusePrompt } from "./reuse-prompt.ts";
 export { detectToolLeak, stripToolMarkup } from "./tool-leak.ts";
 export {
@@ -56,6 +58,12 @@ export function createPrsloyHarness(options: HarnessOptions = {}): (pi: Extensio
   return (pi: ExtensionAPI) => {
     const opts = resolveOptions(options);
     const on = (name: keyof typeof opts.disable) => !opts.disable[name];
+    // Журнал событий для уроков (S0): первым, чтобы видеть все вызовы хода. Поведение не меняет.
+    configureLearning({
+      enabled: on("learningLog"),
+      ...(opts.learningDir ? { dir: opts.learningDir } : {}),
+    });
+    if (on("learningLog")) installLearningLog(pi);
     // Самым первым: вызовы с битыми аргументами чинятся до валидации Pi и до всех хуков ниже.
     if (on("argRepair")) installArgRepair(pi);
     const codeGate = opts.profile === "code" && on("stopGate");

@@ -3,6 +3,7 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import type { ResolvedOptions } from "./options.ts";
 import { appendText, keepStructured, showCard } from "./text.ts";
+import { recordEvent } from "./learning-log.ts";
 
 interface UsageLike {
   input?: number;
@@ -130,6 +131,8 @@ export function installBudget(pi: ExtensionAPI, opts: ResolvedOptions): BudgetHa
       state.blockedAfterStop += 1;
       // Первый раз даём модели ход на итог; если она снова зовёт тулы — завершаем.
       if (state.blockedAfterStop > 3) ctx.abort();
+      if (state.blockedAfterStop === 1)
+        recordEvent(ctx, { kind: "budget.stop", sig: `budget:${state.exhausted}` });
       return { block: true, reason: stopReason(state), terminate: state.blockedAfterStop > 1 };
     }
     state.toolCalls += 1;
@@ -157,10 +160,11 @@ export function installBudget(pi: ExtensionAPI, opts: ResolvedOptions): BudgetHa
    * иначе read сверх 30 КБ отрезал бы строку, а флаг «предупредили» уже стоял бы.
    */
   const installWarning = () => {
-    pi.on("tool_result", (event) => {
+    pi.on("tool_result", (event, ctx) => {
       if (event.parentToolCallId || state.warned || ratio() < opts.budgetWarnRatio)
         return undefined;
       state.warned = true;
+      recordEvent(ctx, { kind: "budget.warn" });
       const note =
         `[Задача израсходовала ${Math.round(ratio() * 100)}% лимита (шагов ${state.toolCalls} из ${opts.maxToolCalls}). ` +
         "Заканчивай главное, без лишних шагов.]";

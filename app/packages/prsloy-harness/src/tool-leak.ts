@@ -6,6 +6,7 @@
 // пользователя, отдельно от стоп-гейта), а из контекста модели убирает дубль рассуждения и теги.
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { showCard } from "./text.ts";
+import { recordEvent } from "./learning-log.ts";
 
 /** Служебные токены вызова инструмента. В обычном тексте их не бывает, поэтому код-блоки не исключаем. */
 export const TOOL_MARKUP: readonly RegExp[] = [
@@ -116,7 +117,7 @@ export function installToolLeak(pi: ExtensionAPI): void {
     return changed ? { messages } : undefined;
   });
 
-  pi.on("agent_before_settle", async (event) => {
+  pi.on("agent_before_settle", async (event, ctx) => {
     if (event.outcome !== "completed" || gaveUp || !last) return undefined;
     if (last.stopReason !== "stop") return undefined;
     const { text, thinking, calls } = partsOf(last);
@@ -124,10 +125,12 @@ export function installToolLeak(pi: ExtensionAPI): void {
     last = undefined;
     if (retries >= MAX_LEAK_RETRIES) {
       gaveUp = true;
+      recordEvent(ctx, { kind: "leak.gaveup" });
       await showCard(pi, "prsloy-harness.tool-leak", TOOL_LEAK_GAVE_UP);
       return undefined;
     }
     retries += 1;
+    recordEvent(ctx, { kind: "leak", sig: `leak:${detectToolLeak(text, thinking)}` });
     return {
       entries: [
         ...event.entries,

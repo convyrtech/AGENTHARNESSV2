@@ -24,6 +24,7 @@ import {
   safePkillCall,
 } from "./shell-rewrite.ts";
 import { appendText, contentText, withText, keepStructured } from "./text.ts";
+import { callSignature, recordEvent } from "./learning-log.ts";
 
 const SHELL_TOOLS = new Set(["bash", "powershell"]);
 const TIMEOUT_LINE = /Command timed out after (\d+(?:\.\d+)?) seconds/;
@@ -92,6 +93,7 @@ export function installBashTimeout(pi: ExtensionAPI, opts: ResolvedOptions): Pro
           : `Команда похожа на сервер; в фоне она сразу завершилась с кодом ${started.exitCode}.`;
       // Не block: у заблокированного вызова нет tool_result, а превью нужен порт в details. Команда становится
       // пустой, а результат — тот же текст с ошибкой, что дал бы block, плюс details.
+      recordEvent(ctx, { kind: "server.bg", tool: "bash", sig: callSignature("bash", input) });
       blockedById.set(event.toolCallId, {
         reason: scrubSecrets(
           `${state}\n${describeProcess(started)}${head}\nЛоги и остановка: тул process.`,
@@ -103,7 +105,17 @@ export function installBashTimeout(pi: ExtensionAPI, opts: ResolvedOptions): Pro
     }
     if (event.toolName === "bash" && typeof input.command === "string") {
       const rewrite = await rewriteShell(input.command, ctx.cwd);
-      if (rewrite.block) return { block: true, reason: rewrite.block };
+      if (rewrite.block) {
+        recordEvent(ctx, { kind: "shell.block", tool: "bash", sig: callSignature("bash", input) });
+        return { block: true, reason: rewrite.block };
+      }
+      if (rewrite.servers.length > 0)
+        recordEvent(ctx, {
+          kind: "server.bg",
+          tool: "bash",
+          sig: callSignature("bash", input),
+          n: rewrite.servers.length,
+        });
       if (rewrite.command !== input.command) input.command = rewrite.command;
       if (rewrite.notes.length)
         notesById.set(event.toolCallId, { notes: rewrite.notes, servers: rewrite.servers });
@@ -209,11 +221,16 @@ export function installBashTimeout(pi: ExtensionAPI, opts: ResolvedOptions): Pro
     };
   });
 
-  pi.on("tool_result", (event) => {
+  pi.on("tool_result", (event, ctx) => {
     if (!SHELL_TOOLS.has(event.toolName) || !event.isError) return undefined;
     const text = contentText(event.content);
     const match = TIMEOUT_LINE.exec(text);
     if (!match) return undefined;
+    recordEvent(ctx, {
+      kind: "bash.timeout",
+      tool: event.toolName,
+      sig: callSignature(event.toolName, event.input),
+    });
     return {
       content: withText(
         event.content,

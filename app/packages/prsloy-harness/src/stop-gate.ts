@@ -21,6 +21,7 @@ import {
 import type { Reviewer } from "./reviewer.ts";
 import { headTail, showCard } from "./text.ts";
 import type { TurnChanges } from "./turn-changes.ts";
+import { modelFamily, recordEvent } from "./learning-log.ts";
 
 export interface ProjectCheck {
   /** Команда оболочки, из каталога проекта. */
@@ -296,13 +297,18 @@ export function installStopGate(
     // Зелёное, таймаут или нечем проверять — не красное: не пилим казуала за отсутствие тестов.
     const red =
       check && run && !run.timedOut && run.code !== 0 && !check.missingTool?.test(run.output);
+    const gateSig = check
+      ? `gate:${check.label.split(/\s+/)[0]?.replace(/[^a-z0-9._-]/gi, "") ?? "?"}`
+      : undefined;
     if (check && run && red) {
       if (pushbacks >= MAX_PUSHBACKS) {
         gaveUp = true;
+        recordEvent(ctx, { kind: "gate.gaveup", ...(gateSig ? { sig: gateSig } : {}) });
         await showCard(pi, "prsloy-harness.stop-gate", STILL_RED_NOTE, stillRedDetails(check, run));
         return undefined;
       }
       pushbacks += 1;
+      recordEvent(ctx, { kind: "gate.red", ...(gateSig ? { sig: gateSig } : {}), n: pushbacks });
       return {
         entries: [
           ...event.entries,
@@ -317,6 +323,8 @@ export function installStopGate(
       };
     }
 
+    if (check && run && !run.timedOut && !check.missingTool?.test(run.output))
+      recordEvent(ctx, { kind: "gate.green", ...(gateSig ? { sig: gateSig } : {}) });
     if (!diff?.patch) return undefined;
     const result = await review(diff.patch, checksSummary(check, run), ctx);
     if (!result) return undefined;
@@ -326,10 +334,20 @@ export function installStopGate(
     // Данные ревью — в details карточки: отдельная запись custom показалась бы в чате сырым JSON.
     if (verdict.invalid) return undefined;
     if (verdict.verdict === "PASS") {
+      recordEvent(ctx, {
+        kind: "review.pass",
+        sig: `review:${modelFamily(model) ?? "?"}`,
+        n: verdict.rejected,
+      });
       await showCard(pi, "prsloy-harness.second-opinion", REVIEW_PASS_CARD, data);
       return undefined;
     }
     pushbacks += 1;
+    recordEvent(ctx, {
+      kind: "review.fail",
+      sig: `review:${modelFamily(model) ?? "?"}`,
+      n: verdict.items.length,
+    });
     await showCard(pi, "prsloy-harness.second-opinion", reviewFailCard(verdict.items.length), data);
     return {
       entries: [
