@@ -27,13 +27,25 @@ export type AutoUpdateController = {
   dispose(): void;
 };
 
-/** GitHub Releases feed — must match electron-builder.yml `publish`. */
+/**
+ * GitHub Releases feed — must match electron-builder.yml `publish`.
+ *
+ * Alphas are GitHub prereleases, so the updater runs with `allowPrerelease`. In that mode
+ * electron-updater's GitHub provider reads the releases atom feed and skips every tag that
+ * is not valid semver: tags must look like `v0.1.0-alpha.2` (a `desktop-v` prefix makes
+ * every release invisible → "No published versions").
+ */
 export const DEFAULT_UPDATE_FEED = {
   provider: "github" as const,
-  owner: "aletheics",
-  repo: "zeno",
-  releaseType: "release" as const,
+  owner: "convyrtech",
+  repo: "AGENTHARNESSV2",
+  releaseType: "prerelease" as const,
 };
+
+/** No update traffic in test harnesses / CI launches. */
+export function updatesDisabledByEnv(env: NodeJS.ProcessEnv = process.env): boolean {
+  return env.ZENO_ENABLE_TEST_COMMANDS === "1" || env.PRSLOY_NO_UPDATE === "1";
+}
 
 type UpdaterLike = {
   autoDownload: boolean;
@@ -97,12 +109,15 @@ export function createAutoUpdateController(options: {
   getExecPath?: () => string;
   /** Called after a successful mac install before process exit (tests). */
   relaunchApp?: () => void;
+  /** No checks at all (test mode). Defaults to `updatesDisabledByEnv()`. */
+  disabled?: boolean;
 }): AutoUpdateController {
   const isPackaged = options.isPackaged ?? app.isPackaged;
   const getVersion = options.getVersion ?? (() => app.getVersion());
   const platform = options.platform ?? process.platform;
   const startupDelayMs = options.startupDelayMs ?? 8_000;
   const isDarwin = platform === "darwin";
+  const disabled = options.disabled ?? updatesDisabledByEnv();
 
   let status: AppUpdateStatus = snapshotStatus({ state: "idle" }, getVersion(), isPackaged);
   let disposed = false;
@@ -186,7 +201,8 @@ export function createAutoUpdateController(options: {
     // macOS: never hand the zip to Squirrel.Mac (rejects unsigned/ad-hoc apps).
     // Windows/Linux still auto-install on quit after download.
     instance.autoInstallOnAppQuit = !isDarwin;
-    instance.allowPrerelease = false;
+    // Alphas ship as GitHub prereleases.
+    instance.allowPrerelease = true;
     instance.logger = console;
 
     instance.on("checking-for-update", () => {
@@ -246,7 +262,7 @@ export function createAutoUpdateController(options: {
   }
 
   async function checkForUpdates(): Promise<AppUpdateStatus> {
-    if (!isPackaged) {
+    if (!isPackaged || disabled) {
       return setStatus({
         state: "not-available",
         checkedAt: new Date().toISOString(),
@@ -419,11 +435,15 @@ export function createAutoUpdateController(options: {
     instance.quitAndInstall(false, true);
   }
 
-  if (isPackaged) {
+  if (isPackaged && !disabled) {
+    // One quiet check per launch; an available update downloads in the background and
+    // the UI only speaks up once it is ready («Обновление готово — перезапустить»).
     startupTimer = setTimeout(() => {
-      void checkForUpdates().catch((error) => {
-        console.warn("[zeno] startup update check failed:", error);
-      });
+      void checkForUpdates()
+        .then((checked) => (checked.state === "available" ? downloadUpdate() : checked))
+        .catch((error) => {
+          console.warn("[zeno] startup update check failed:", error);
+        });
     }, startupDelayMs);
   }
 

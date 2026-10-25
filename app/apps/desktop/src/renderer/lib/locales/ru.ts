@@ -1499,4 +1499,7 @@ export const ru = {
   "empty.example.site": "Сделай простой сайт-визитку",
   "empty.example.explore": "Разберись, что в этой папке",
   "empty.example.fix": "Найди и почини ошибку",
+  "prsloy.setup.git": "Готовлю окружение для команд… {percent}%",
+  "prsloy.update.ready": "Обновление готово — перезапустить",
+  "prsloy.update.dismiss": "Скрыть",
 } as const;

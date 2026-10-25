@@ -1477,4 +1477,7 @@ export const zh = {
   "empty.example.site": "做一个简单的名片网站",
   "empty.example.explore": "看看这个文件夹里有什么",
   "empty.example.fix": "找到并修复错误",
+  "prsloy.setup.git": "正在准备命令环境… {percent}%",
+  "prsloy.update.ready": "更新已就绪 — 重启",
+  "prsloy.update.dismiss": "隐藏",
 } as const;
