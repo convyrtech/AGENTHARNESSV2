@@ -1,5 +1,16 @@
 import type { HostEvent } from "@zeno/contracts";
-import { Fragment, useMemo, type ReactNode, type Ref } from "react";
+import {
+  Fragment,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type MutableRefObject,
+  type ReactNode,
+  type Ref,
+} from "react";
 import {
   MessageScroller,
   MessageScrollerContent,
@@ -16,7 +27,13 @@ import {
 } from "@/lib/timeline";
 import { ConversationMinimap } from "./ConversationMinimap.tsx";
 import { TimelineLiveStatus, TimelineProcessBlock, TimelineRow } from "./TimelineRow.tsx";
-import type { Locale } from "@/lib/i18n";
+import { t, type Locale } from "@/lib/i18n";
+import {
+  nextTimelineLimit,
+  TIMELINE_INITIAL_BLOCKS,
+  timelineWindowStart,
+} from "@/lib/timeline-window";
+import { TimelineWindowContext, type TimelineWindowApi } from "./timeline-window-context.tsx";
 import { matchTurnSnapshots, timelineTurns } from "@/lib/turn-undo";
 import { useTurnSnapshots } from "../hooks/useTurnSnapshots.ts";
 import { TurnUndoAction } from "./TurnUndoAction.tsx";
@@ -48,6 +65,12 @@ export type SessionTimelineContentProps = {
   emptyState?: ReactNode;
   footer?: ReactNode;
   testId?: string;
+  /** Render at most this many blocks from the end (long chats); default: all. */
+  renderLimit?: number;
+  /** Render one more step of earlier blocks. */
+  onShowEarlier?: () => void;
+  /** Filled with the ids of the rendered blocks (for minimap jumps). */
+  renderedIdsRef?: MutableRefObject<Set<string>>;
 };
 
 export type SessionTimelineScrollerProps = SessionTimelineContentProps & {
@@ -72,32 +95,51 @@ export function SessionTimelineScroller(props: SessionTimelineScrollerProps) {
     viewportReady,
     ...contentProps
   } = props;
+  const [renderLimit, setRenderLimit] = useState(TIMELINE_INITIAL_BLOCKS);
+  const renderedIdsRef = useRef(new Set<string>());
+  // Each chat opens with its tail only.
+  useEffect(() => setRenderLimit(TIMELINE_INITIAL_BLOCKS), [contentProps.sessionKey]);
+  const showEarlier = useCallback(() => setRenderLimit((limit) => nextTimelineLimit(limit)), []);
+  const windowApi = useMemo<TimelineWindowApi>(
+    () => ({
+      isRendered: (id) => renderedIdsRef.current.has(id),
+      showAll: () => setRenderLimit(Number.POSITIVE_INFINITY),
+    }),
+    [],
+  );
 
   return (
-    <MessageScrollerProvider
-      autoScroll={autoScroll}
-      defaultScrollPosition="end"
-      scrollEdgeThreshold={SESSION_SCROLL_BOTTOM_GAP_PX}
-    >
-      <MessageScroller className="size-full min-h-0">
-        <MessageScrollerViewport
-          ref={viewportRef}
-          className={cn(
-            "timeline-scroll thread-pane-scroll min-h-0",
-            viewportSizing === "content" ? "h-auto w-full" : "size-full",
-            viewportClassName,
-          )}
-          aria-busy={viewportBusy}
-          data-ready={viewportReady == null ? undefined : viewportReady ? "true" : "false"}
-        >
-          <SessionTimelineContent {...contentProps} />
-        </MessageScrollerViewport>
-        {/* Sibling of the viewport, not a child: the rail must not scroll with the
-         * transcript. It anchors to MessageScroller's relative box, and must stay
-         * inside the provider for the message-scroller hooks to resolve. */}
-        <ConversationMinimap items={contentProps.items} locale={contentProps.locale} />
-      </MessageScroller>
-    </MessageScrollerProvider>
+    <TimelineWindowContext.Provider value={windowApi}>
+      <MessageScrollerProvider
+        autoScroll={autoScroll}
+        defaultScrollPosition="end"
+        scrollEdgeThreshold={SESSION_SCROLL_BOTTOM_GAP_PX}
+      >
+        <MessageScroller className="size-full min-h-0">
+          <MessageScrollerViewport
+            ref={viewportRef}
+            className={cn(
+              "timeline-scroll thread-pane-scroll min-h-0",
+              viewportSizing === "content" ? "h-auto w-full" : "size-full",
+              viewportClassName,
+            )}
+            aria-busy={viewportBusy}
+            data-ready={viewportReady == null ? undefined : viewportReady ? "true" : "false"}
+          >
+            <SessionTimelineContent
+              {...contentProps}
+              renderLimit={renderLimit}
+              onShowEarlier={showEarlier}
+              renderedIdsRef={renderedIdsRef}
+            />
+          </MessageScrollerViewport>
+          {/* Sibling of the viewport, not a child: the rail must not scroll with the
+           * transcript. It anchors to MessageScroller's relative box, and must stay
+           * inside the provider for the message-scroller hooks to resolve. */}
+          <ConversationMinimap items={contentProps.items} locale={contentProps.locale} />
+        </MessageScroller>
+      </MessageScrollerProvider>
+    </TimelineWindowContext.Provider>
   );
 }
 
@@ -121,6 +163,29 @@ export function SessionTimelineContent(props: SessionTimelineContentProps) {
     () => buildTimelineBlocks(developerMode ? items : withoutRetryNoise(items)),
     [items, developerMode],
   );
+  const start = timelineWindowStart(blocks.length, props.renderLimit ?? Number.POSITIVE_INFINITY);
+  if (props.renderedIdsRef) {
+    props.renderedIdsRef.current = new Set(
+      blocks.slice(start).map((block) => (block.type === "process" ? block.id : block.item.id)),
+    );
+  }
+  // Prepending earlier blocks keeps what the reader is looking at in place.
+  const anchorRef = useRef<{ el: HTMLElement; height: number; top: number } | null>(null);
+  useLayoutEffect(() => {
+    const anchor = anchorRef.current;
+    if (!anchor) return;
+    anchorRef.current = null;
+    anchor.el.scrollTop = anchor.top + (anchor.el.scrollHeight - anchor.height);
+  }, [start]);
+  const onShowEarlier = props.onShowEarlier;
+  const showEarlier = useCallback(
+    (from: HTMLElement | null) => {
+      const el = from?.closest<HTMLElement>(".timeline-scroll");
+      if (el) anchorRef.current = { el, height: el.scrollHeight, top: el.scrollTop };
+      onShowEarlier?.();
+    },
+    [onShowEarlier],
+  );
   const liveActivity = useMemo(
     () => deriveLiveActivity({ items, events, running, waiting }),
     [items, events, running, waiting],
@@ -128,6 +193,13 @@ export function SessionTimelineContent(props: SessionTimelineContentProps) {
   const hasActivity = items.length > 0;
   /** Prompt of the turn being rendered, so a failure card can resend it. */
   let turnPrompt: string | undefined;
+  for (let i = start - 1; i >= 0; i--) {
+    const block = blocks[i]!;
+    if (block.type === "item" && block.item.kind === "user") {
+      turnPrompt = block.item.text;
+      break;
+    }
+  }
   // «Откатить» after each finished turn that changed files, keyed by the turn's last block.
   const snapshots = useTurnSnapshots(running, `${sessionKey}:${items.length}`);
   const undoAfterBlock = useMemo(() => {
@@ -159,7 +231,11 @@ export function SessionTimelineContent(props: SessionTimelineContentProps) {
     >
       {hasActivity ? (
         <>
-          {blocks.map((block, index) => {
+          {start > 0 ? (
+            <EarlierMessages hidden={start} locale={locale} onShow={showEarlier} />
+          ) : null}
+          {blocks.slice(start).map((block, offset) => {
+            const index = start + offset;
             const messageId = block.type === "process" ? block.id : block.item.id;
             if (block.type === "item" && block.item.kind === "user") turnPrompt = block.item.text;
             const resendText = turnPrompt;
@@ -239,5 +315,55 @@ export function SessionTimelineContent(props: SessionTimelineContentProps) {
       ) : null}
       {footer}
     </MessageScrollerContent>
+  );
+}
+
+/**
+ * «Показать предыдущие сообщения»: click, or scroll up to it. Scrolling only counts once
+ * the reader has scrolled themselves — right after opening, the top of the list can be
+ * on screen before the scroller has settled at the bottom.
+ */
+function EarlierMessages(props: {
+  hidden: number;
+  locale: Locale;
+  onShow: (from: HTMLElement | null) => void;
+}) {
+  const { hidden, locale, onShow } = props;
+  const ref = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    const el = ref.current;
+    const root = el?.closest<HTMLElement>(".timeline-scroll");
+    if (!el || !root || typeof IntersectionObserver === "undefined") return;
+    let armed = false;
+    const arm = () => {
+      armed = true;
+    };
+    root.addEventListener("wheel", arm, { passive: true });
+    root.addEventListener("touchmove", arm, { passive: true });
+    root.addEventListener("keydown", arm);
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (armed && entries.some((entry) => entry.isIntersecting)) onShow(el);
+      },
+      { root, rootMargin: "800px 0px 0px 0px" },
+    );
+    observer.observe(el);
+    return () => {
+      observer.disconnect();
+      root.removeEventListener("wheel", arm);
+      root.removeEventListener("touchmove", arm);
+      root.removeEventListener("keydown", arm);
+    };
+  }, [onShow, hidden]);
+  return (
+    <button
+      ref={ref}
+      type="button"
+      data-testid="timeline-show-earlier"
+      className="mx-auto mb-4 rounded-full px-3 py-1 text-[12px] text-[var(--muted-foreground)] hover:bg-[var(--muted)]"
+      onClick={() => onShow(ref.current)}
+    >
+      {t(locale, "timeline.showEarlier", { count: String(hidden) })}
+    </button>
   );
 }
