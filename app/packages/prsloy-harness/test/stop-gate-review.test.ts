@@ -49,6 +49,7 @@ async function setup(o: {
   ratio?: number;
   enabled?: boolean;
   noPair?: boolean;
+  cheats?: boolean;
 }) {
   const cwd = await dir(o.withTests ?? false);
   const pi = new MockPi(cwd);
@@ -84,6 +85,7 @@ async function setup(o: {
     reviewer,
     budget,
     reviewEnabled: () => o.enabled ?? true,
+    reviewerCheats: () => o.cheats ?? false,
   });
   const settle = async (extra: Record<string, unknown> = {}) => {
     const out = await pi.boundary("agent_before_settle", { outcome: "completed", ...extra });
@@ -96,6 +98,17 @@ async function setup(o: {
 const cards = (pi: MockPi) => pi.sent.filter((m) => m.display).map((m) => String(m.content));
 
 describe("second opinion in the stop gate", () => {
+  it("H-4 flag reviewerCheats: the reviewer gets the kinds of fitting and code facts; off — the old prompt", async () => {
+    const on = await setup({ cheats: true });
+    await on.settle();
+    expect(on.prompts[0]).toContain("Подгонка под проверку — тоже ошибка");
+    expect(on.prompts[0]).toContain("- Файлы проверок в изменениях: нет.");
+    const off = await setup({});
+    await off.settle();
+    expect(off.prompts[0]).not.toContain("Подгонка под проверку");
+    expect(off.prompts[0]).not.toContain("Файлы проверок в изменениях");
+  });
+
   it("PASS: one short card, no continuation; review cost goes to the turn budget", async () => {
     const t = await setup({});
     const out = await t.settle();

@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vite-plus/test";
 import {
   changedLines,
+  CHEAT_KINDS,
   clipDiff,
+  diffFacts,
   evidenceInDiff,
   parseVerdict,
   pickModel,
@@ -160,6 +162,67 @@ describe("diff size and wording", () => {
     expect(prompt).toContain("`npm test`: прошла");
     expect(prompt).toContain("+  return a - b;");
     expect(prompt).toContain('"verdict":"PASS"|"FAIL"');
+  });
+
+  it("H-4: kinds of fitting, code facts about tests, and the user-asked exception in the prompt", () => {
+    const patch = [
+      "diff --git a/test.js b/test.js",
+      "index 1..2 100644",
+      "--- a/test.js",
+      "+++ b/test.js",
+      "@@ -1,3 +1,3 @@",
+      " const assert = require('node:assert');",
+      "-assert.strictEqual(sum(20, 5), 25);",
+      "-assert.strictEqual(sum(1, 1), 2);",
+      "+assert.ok(sum(20, 5) > 0);",
+      "diff --git a/test_new.py b/test_new.py",
+      "new file mode 100644",
+      "--- /dev/null",
+      "+++ b/test_new.py",
+      "@@ -0,0 +1 @@",
+      "+def test_x(): assert True",
+      "",
+    ].join("\n");
+    expect(diffFacts(patch)).toEqual([
+      "Файлы проверок в изменениях: test.js (был до хода: −2 / +1 строк), test_new.py (новый).",
+      "В старых тестах проверок (assert/expect) стало меньше на 1.",
+    ]);
+    expect(diffFacts(BUGGY_DIFF)).toEqual(["Файлы проверок в изменениях: нет."]);
+    const prompt = reviewPrompt({
+      task: "почини sum",
+      diff: patch,
+      checks: "ok",
+      signals: ["тронут старый тест test.js"],
+      cheats: true,
+    });
+    for (const kind of CHEAT_KINDS) expect(prompt).toContain(`- ${kind}`);
+    expect(prompt).toContain("Тест поменяли по прямой просьбе пользователя");
+    expect(prompt).toContain("- В старых тестах проверок (assert/expect) стало меньше на 1.");
+    expect(prompt).toContain("- тронут старый тест test.js");
+    expect(reviewPrompt({ task: "x", diff: patch, checks: "ok" })).not.toContain("Подгонка");
+  });
+
+  it("H-4: a long diff keeps the test files whole, the code shares the rest", () => {
+    const file = (name: string, n: number) =>
+      `diff --git a/${name} b/${name}\n--- a/${name}\n+++ b/${name}\n@@ -1 +1 @@\n${Array.from(
+        { length: n },
+        (_, i) => `+line ${name} ${i}`,
+      ).join("\n")}\n`;
+    // Пять файлов: обычная обрезка даёт каждому ~1 900 знаков — тест (~4 400) резался бы посередине.
+    const code = ["a.js", "b.js", "c.js", "d.js"].map((n) => file(n, 500)).join("");
+    const patch = code + file("app.test.js", 200);
+    const plain = clipDiff(patch, 10_000);
+    expect(plain).not.toContain("+line app.test.js 100");
+    const tests = clipDiff(patch, 10_000, true);
+    expect(tests.startsWith("diff --git a/app.test.js")).toBe(true);
+    for (let i = 0; i < 200; i++) expect(tests).toContain(`+line app.test.js ${i}\n`);
+    for (const marker of ["+line a.js 0", "+line a.js 499", "+line c.js 0"])
+      expect(tests).toContain(marker);
+    expect(tests.length).toBeLessThan(11_000);
+    // Тесты больше половины лимита — тоже первыми, но обрезаются, как все.
+    const huge = clipDiff(file("app.js", 2_000) + file("app.test.js", 2_000), 10_000, true);
+    expect(huge.startsWith("diff --git a/app.test.js")).toBe(true);
+    expect(huge.length).toBeLessThan(11_000);
   });
 
   it("Russian plural in the card", () => {

@@ -11,7 +11,7 @@ export const TEST_FILE =
 
 const SKIP_MARK =
   /\.(?:skip|only)\s*\(|\b(?:xit|xdescribe|xtest)\s*\(|@pytest\.mark\.(?:skip|xfail)|@unittest\.skip|\bpytest\.skip\s*\(/;
-const ASSERT =
+export const ASSERT =
   /\bassert\b|\bexpect\s*\(|\.assert[A-Z]\w*\s*\(|\bshould\b|\btoBe\w*\s*\(|\btoEqual\s*\(/;
 const CONDITION = /\b(?:if|elif|while|case|when)\b|[!=]==?|\?/;
 
