@@ -104,7 +104,15 @@ export function parseHarnessLine(
         ...t,
       };
     case "tool":
-      return { ev: "tool", name: str(rec.name, 40), brief: str(rec.brief, MAX_SHORT), ...t };
+      return {
+        ev: "tool",
+        name: str(rec.name, 40),
+        brief: str(rec.brief, MAX_SHORT),
+        ...(typeof rec.doing === "string" && rec.doing.trim()
+          ? { doing: str(rec.doing, MAX_SHORT).trim() }
+          : {}),
+        ...t,
+      };
     case "note":
       return { ev: "note", text: str(rec.text, MAX_TEXT), ...t };
     case "owner": {

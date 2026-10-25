@@ -6,6 +6,7 @@ import {
   DESIGN_STEPS,
   EMPTY_DESIGN_VIEW,
   elapsedMinutes,
+  harnessNow,
   foldDesign,
   openQuestion,
   ownerText,
@@ -71,7 +72,9 @@ describe("reduceDesign on a recorded run.py log", () => {
     v = reduceDesign(v, user!, 1000);
     expect(v.running).toBe(true);
     v = reduceDesign(v, stage!, 1000);
-    expect(v.stage).toMatchObject({ gate: "0", attempt: 1, since: 1000 });
+    // times come from the harness clock (the event's `t`), not the moment it arrived
+    const at = (stage!.t ?? 0) * 1000;
+    expect(v.stage).toMatchObject({ gate: "0", attempt: 1, since: at, stepSince: at });
     v = reduceDesign(v, tool!);
     expect(v.ticker).toEqual(["bash flow.py --page design/landing"]);
     for (const e of turns[0]!.slice(3)) v = reduceDesign(v, e);
@@ -217,6 +220,70 @@ describe("answerText", () => {
 describe("elapsedMinutes", () => {
   it("counts whole minutes of the current stage", () => {
     expect(elapsedMinutes(undefined)).toBe(0);
-    expect(elapsedMinutes({ gate: "2", title: "", attempt: 1, since: 0 }, 185_000)).toBe(3);
+    expect(
+      elapsedMinutes({ gate: "2", title: "", attempt: 1, since: 0, stepSince: 0 }, 185_000),
+    ).toBe(3);
+  });
+});
+
+describe("step time on the harness clock", () => {
+  // a fixed «now» at the epoch: the small `t`s below are then fresh, not a stale clock
+  const at0 = (v: Parameters<typeof reduceDesign>[0], e: Parameters<typeof reduceDesign>[1]) =>
+    reduceDesign(v, e, 0);
+  const stageAt = (gate: string, t: number) =>
+    ({ ev: "stage", gate, title: gate, model: "m", attempt: 1, t }) as const;
+
+  it("a retried gate or the next gate of the same step keeps the step's start", () => {
+    let v = at0(EMPTY_DESIGN_VIEW, stageAt("6", 100));
+    v = at0(v, stageAt("7", 400));
+    v = at0(v, stageAt("7", 900));
+    expect(v.stage).toMatchObject({ gate: "7", since: 900_000, stepSince: 100_000 });
+    expect(elapsedMinutes(v.stage, 100_000 + 12 * 60_000)).toBe(12);
+    v = at0(v, stageAt("8", 1000));
+    expect(v.stage?.stepSince).toBe(1_000_000);
+  });
+
+  it("tracks the latest event and the harness's own words for the action", () => {
+    let v = at0(EMPTY_DESIGN_VIEW, stageAt("7", 100));
+    v = at0(v, { ev: "tool", name: "bash", brief: "python3 -c …", t: 160 });
+    expect(v.lastEventAt).toBe(160_000);
+    expect(v.doing).toBeUndefined();
+    v = at0(v, {
+      ev: "tool",
+      name: "bash",
+      brief: "gate.py",
+      doing: "Проверяю страницу на телефоне",
+      t: 170,
+    });
+    expect(v.doing).toBe("Проверяю страницу на телефоне");
+    expect(harnessNow(v, 100_000)).toBe(170_000);
+    expect(harnessNow(v, 200_000)).toBe(200_000);
+  });
+
+  it("a stale event clock (an old log, a clock far off) falls back to the arrival time", () => {
+    const now = 1_800_000_000_000;
+    const v = reduceDesign(EMPTY_DESIGN_VIEW, stageAt("2", now / 1000 - 8 * 3600), now);
+    expect(v.stage?.since).toBe(now);
+    const ahead = reduceDesign(EMPTY_DESIGN_VIEW, stageAt("2", now / 1000 + 600), now);
+    expect(ahead.stage?.since).toBe(now + 600_000);
+  });
+
+  it("keeps the last eight tool calls for «Подробности»", () => {
+    let v = reduceDesign(EMPTY_DESIGN_VIEW, stageAt("7", 1));
+    for (let i = 0; i < 12; i++)
+      v = reduceDesign(v, { ev: "tool", name: "read", brief: `f${i}.md` });
+    expect(v.ticker).toHaveLength(8);
+    expect(v.ticker.at(-1)).toBe("read f11.md");
+  });
+});
+
+describe("tickerLine", () => {
+  it("drops the «cd <workspace> &&» that opens almost every command", () => {
+    expect(
+      tickerLine("bash", "cd /home/u/run/сайт && grep -n ringHead design/landing/x.html"),
+    ).toBe("bash grep -n ringHead design/landing/x.html");
+    expect(tickerLine("bash", "cd /w && python3 -I design-pipeline/tools/gate.py --url x")).toBe(
+      "bash gate.py --url x",
+    );
   });
 });

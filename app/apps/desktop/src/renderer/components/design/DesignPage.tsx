@@ -30,18 +30,20 @@ import {
   type DesignItem,
   type DesignView,
   EMPTY_DESIGN_VIEW,
-  elapsedMinutes,
   foldDesign,
+  harnessNow,
   openQuestion,
   ownerText,
   RECOMMEND_ANSWER,
   reduceDesign,
-  stepOf,
 } from "../../lib/design-state.ts";
 import { t, type Locale, type MessageKey } from "../../lib/i18n.ts";
 import { cn } from "../../lib/utils.ts";
 import { Button } from "../ui/button.tsx";
 import { Textarea } from "../ui/textarea.tsx";
+import { ConfirmDialog } from "../ConfirmDialog.tsx";
+import { CONFIRM_STOP_AFTER_MS } from "../../lib/design-progress.ts";
+import { DesignProgress } from "./DesignProgress.tsx";
 
 type Props = { locale: Locale; projectPath: string | undefined };
 type Picked = { token: string; name: string };
@@ -59,6 +61,8 @@ export function DesignPage({ locale, projectPath }: Props) {
   const [picked, setPicked] = useState<Picked[]>([]);
   const [sendError, setSendError] = useState<string | undefined>();
   const [now, setNow] = useState(() => Date.now());
+  const [stopping, setStopping] = useState(false);
+  const [confirmStop, setConfirmStop] = useState(false);
   const workspaceRef = useRef<string | undefined>(undefined);
   const streamRef = useRef<HTMLDivElement>(null);
 
@@ -96,10 +100,25 @@ export function DesignPage({ locale, projectPath }: Props) {
   }, [api, refresh]);
 
   useEffect(() => {
-    if (!view.running) return;
-    const id = window.setInterval(() => setNow(Date.now()), 15_000);
+    if (!view.running) {
+      setStopping(false);
+      return;
+    }
+    const id = window.setInterval(() => setNow(Date.now()), 5_000);
     return () => window.clearInterval(id);
   }, [view.running]);
+
+  // «Остановить»: a turn that has run a while asks first; until the run exits, «Останавливаю…».
+  const stop = useCallback(() => {
+    setStopping(true);
+    void api.cancel(projectPath).catch(() => setStopping(false));
+  }, [api, projectPath]);
+  const requestStop = useCallback(() => {
+    const since = view.stage?.stepSince;
+    const ranFor = since === undefined ? 0 : harnessNow(view, Date.now()) - since;
+    if (ranFor >= CONFIRM_STOP_AFTER_MS) setConfirmStop(true);
+    else stop();
+  }, [view, stop]);
 
   useEffect(() => {
     const el = streamRef.current;
@@ -205,7 +224,22 @@ export function DesignPage({ locale, projectPath }: Props) {
         </div>
       </div>
 
-      {view.running ? <ProgressLine view={view} now={now} tr={tr} /> : null}
+      {view.running ? (
+        <DesignProgress view={view} now={now} tr={tr} stopping={stopping} onStop={requestStop} />
+      ) : null}
+      <ConfirmDialog
+        open={confirmStop}
+        title={tr("design.stop.confirmTitle")}
+        message={tr("design.stop.confirmBody")}
+        confirmLabel={tr("design.stop.button")}
+        cancelLabel={tr("design.stop.keep")}
+        testId="design-stop-confirm"
+        onConfirm={() => {
+          setConfirmStop(false);
+          stop();
+        }}
+        onCancel={() => setConfirmStop(false)}
+      />
 
       {status.toolsReady ? (
         <footer className="mx-auto w-full max-w-3xl px-6 pb-5">
@@ -269,7 +303,8 @@ export function DesignPage({ locale, projectPath }: Props) {
                 title={tr("design.stop")}
                 aria-label={tr("design.stop")}
                 data-testid="design-stop"
-                onClick={() => void api.cancel(projectPath)}
+                disabled={stopping}
+                onClick={requestStop}
               >
                 <Square className="fill-current" />
               </Button>
@@ -363,39 +398,6 @@ function SetupCard({
           </Button>
         </>
       )}
-    </div>
-  );
-}
-
-function ProgressLine({ view, now, tr }: { view: DesignView; now: number; tr: Tr }) {
-  const stage = view.stage;
-  const step = stage ? stepOf(stage.gate) : undefined;
-  const minutes = elapsedMinutes(stage, now);
-  return (
-    <div className="mx-auto w-full max-w-3xl px-6 pb-2" data-testid="design-progress">
-      <div className="flex items-center gap-2 text-sm">
-        <Loader2 className="size-4 shrink-0 animate-spin opacity-70" />
-        <span className="truncate" data-testid="design-progress-step">
-          {step
-            ? tr("design.progress", {
-                n: String(step.index),
-                total: String(step.total),
-                title: tr(step.key),
-              })
-            : tr("design.progress.working")}
-        </span>
-        {minutes > 0 ? (
-          <span className="shrink-0 text-muted-foreground">
-            · {tr("design.progress.minutes", { n: String(minutes) })}
-          </span>
-        ) : null}
-      </div>
-      <div
-        className="mt-0.5 truncate pl-6 font-mono text-xs text-muted-foreground/70"
-        data-testid="design-ticker"
-      >
-        {view.ticker.at(-1) ?? " "}
-      </div>
     </div>
   );
 }
