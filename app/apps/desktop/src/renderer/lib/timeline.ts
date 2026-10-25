@@ -97,6 +97,8 @@ export type TimelineBlock =
       durationLabel?: string;
       /** The turn's checks are red (turn-status card): the header must not say «Готово». */
       checksFailed?: true;
+      /** The turn ended with a model error card: «Остановлено за N с», not «Готово». */
+      stopped?: true;
     };
 
 function decodeXml(value: string): string {

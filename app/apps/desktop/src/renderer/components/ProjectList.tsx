@@ -469,7 +469,7 @@ export function ProjectList(props: ProjectListProps) {
   }
 
   function handleRenameThread(thread: SessionThreadSummary) {
-    const current = threadDisplayTitle(thread.id, threadAliases, thread.title);
+    const current = threadDisplayTitle(thread.id, threadAliases, thread.title, tr("thread.new"));
     closeMenus();
     window.setTimeout(() => {
       setRenameTarget({ kind: "thread", id: thread.id, value: current });
@@ -493,7 +493,7 @@ export function ProjectList(props: ProjectListProps) {
         .find((t) => t.id === id);
     const meta: { title?: string; path?: string; cwd?: string } = {};
     if (thread) {
-      meta.title = threadDisplayTitle(thread.id, threadAliases, thread.title);
+      meta.title = threadDisplayTitle(thread.id, threadAliases, thread.title, tr("thread.new"));
       meta.path = thread.path;
       meta.cwd = thread.cwd;
     }
@@ -512,7 +512,7 @@ export function ProjectList(props: ProjectListProps) {
         .flat()
         .find((t) => t.id === id);
     const name = thread
-      ? threadDisplayTitle(thread.id, threadAliases, thread.title)
+      ? threadDisplayTitle(thread.id, threadAliases, thread.title, tr("thread.new"))
       : id.slice(0, 8);
     if (loadConfirmArchive()) {
       setConfirm({ kind: "archive-thread", id, name });
@@ -552,7 +552,7 @@ export function ProjectList(props: ProjectListProps) {
         .flat()
         .find((t) => t.id === id);
     const name = thread
-      ? threadDisplayTitle(thread.id, threadAliases, thread.title)
+      ? threadDisplayTitle(thread.id, threadAliases, thread.title, tr("thread.new"))
       : id.slice(0, 8);
     if (loadConfirmDelete()) {
       setConfirm({ kind: "delete-thread", id, name });
@@ -569,7 +569,7 @@ export function ProjectList(props: ProjectListProps) {
         .flat()
         .find((t) => t.id === id);
     const name = thread
-      ? threadDisplayTitle(thread.id, threadAliases, thread.title)
+      ? threadDisplayTitle(thread.id, threadAliases, thread.title, tr("thread.new"))
       : id.slice(0, 8);
     if (loadConfirmDelete()) {
       setConfirm({ kind: "delete-thread-permanent", id, path, name });
@@ -863,7 +863,7 @@ export function ProjectList(props: ProjectListProps) {
     const kind = opts?.kind ?? "session";
     // The active runtime session is not the selected rail item while a project row is selected.
     const selected = thread.active && !props.selectedProjectPath;
-    const title = threadDisplayTitle(thread.id, threadAliases, thread.title);
+    const title = threadDisplayTitle(thread.id, threadAliases, thread.title, tr("thread.new"));
     const menuId = `${kind}:${thread.id}`;
     const showMenu = menuKey === menuId;
     const pinnedHere = isPinnedThread(thread.id, pinnedThreads);

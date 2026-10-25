@@ -41,7 +41,37 @@ const write = (path: string, content = "", status: "completed" | "error" = "comp
     kind: "tool";
   };
 
+const bash = (command: string, status: "completed" | "error", toolName = "bash") =>
+  ({
+    id: `b${command}${status}`,
+    kind: "tool",
+    toolName,
+    status,
+    args: { command },
+  }) as TimelineItem & { kind: "tool" };
+
 describe("fallback steps from the turn's files", () => {
+  it("a failed run comes first: fix it, not «проверь, что всё работает»", () => {
+    const steps = fallbackNextSteps("ru", [write("prices.py"), bash("python3 prices.py", "error")]);
+    expect(steps).toEqual([
+      "Почини ошибку и запусти снова",
+      "Объясни простыми словами, что сломалось",
+    ]);
+    // npm wrote nothing, still a failed run
+    expect(fallbackNextSteps("ru", [bash("npm install express", "error")])).toHaveLength(2);
+    expect(
+      fallbackNextSteps("ru", [bash("python3 -m http.server", "error", "bash_background")]),
+    ).toHaveLength(2);
+    // fixed within the turn: the last run passed
+    expect(
+      fallbackNextSteps("ru", [
+        write("prices.py"),
+        bash("python3 prices.py", "error"),
+        bash("python3 prices.py", "completed"),
+      ]),
+    ).not.toContain("Почини ошибку и запусти снова");
+  });
+
   it("a page, a bot, other code, nothing", () => {
     expect(fallbackNextSteps("ru", [write("site/index.html")])).toEqual([
       "Сделай, чтобы на телефоне тоже было красиво",

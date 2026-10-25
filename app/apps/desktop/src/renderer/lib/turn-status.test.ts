@@ -89,6 +89,23 @@ const ids = (blocks: TimelineBlock[]) =>
   blocks.map((b) => (b.type === "process" ? `${b.id}${b.checksFailed ? "!" : ""}` : b.item.id));
 
 describe("arrangeTurnStatus", () => {
+  it("a turn the model broke off (402, dropped connection) is marked stopped, not «Готово»", () => {
+    const failed: TimelineBlock = {
+      type: "item",
+      item: { id: "f1", kind: "system", text: "402", title: "Response failed", tone: "error" },
+    };
+    const out = arrangeTurnStatus([user("u1"), process("p1"), failed, user("u2"), process("p2")]);
+    const stopped = out.filter((b) => b.type === "process").map((b) => Boolean(b.stopped));
+    expect(stopped).toEqual([true, false]);
+  });
+
+  it("ran-fail is red and beats ran-ok", () => {
+    expect(parseTurnStatus({ facts: ["ran-ok", "ran-fail"] })).toMatchObject({
+      facts: ["ran-fail"],
+      tone: "fail",
+    });
+  });
+
   it("a red card moves above the model's reply and the turn's header loses «Готово»", () => {
     const blocks = [user("u1"), process("p1"), reply("a1"), status("s1", ["checks-fail"])];
     expect(ids(arrangeTurnStatus(blocks))).toEqual(["u1", "p1!", "s1", "a1"]);

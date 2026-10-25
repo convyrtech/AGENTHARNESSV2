@@ -4,6 +4,8 @@ import {
   normalizePrsloyBaseUrl,
   PRSLOY_DEFAULT_BASE_URL,
   PRSLOY_MODELS,
+  PRSLOY_PROVIDER_COMPAT,
+  PRSLOY_SPEED_PREFERENCE,
   PRSLOY_UNPRICED,
   PRSLOY_PRICES_USD_PER_M,
   prsloyModelCost,
@@ -38,6 +40,21 @@ describe("prsloy config", () => {
     expect(prsloySpeedForModel({ provider: "prsloy", id: "kimi-k3.1-pro" })).toBe("quality");
     expect(prsloySpeedForModel({ provider: "prsloy", id: "qwen3.8-max" })).toBeUndefined();
     expect(prsloySpeedForModel({ provider: "other", id: "kimi-k3.1-pro" })).toBeUndefined();
+  });
+
+  it("presets only pick models that reach the vendor as asked (gateway probe 2026-10-25)", () => {
+    const presets = [...PRSLOY_SPEED_PREFERENCE.fast, ...PRSLOY_SPEED_PREFERENCE.quality];
+    for (const id of ["qwen3.8-max", "grok-4.7", "claude-fable-5"])
+      expect(presets).not.toContain(id);
+    expect(PRSLOY_SPEED_PREFERENCE.fast[0]).toBe("deepseek-v4.1-flash-1017");
+    expect(PRSLOY_SPEED_PREFERENCE.quality[0]).toBe("kimi-k3.1-pro");
+    // Qwen's channel drops images silently: never send it one.
+    expect(PRSLOY_MODELS.find((m) => m.id === "qwen3.8-max")!.input).toEqual(["text"]);
+    // No reasoning field for Opus and Fable (effort routes them to worse channels); no developer role.
+    for (const id of ["claude-opus-5-5", "claude-fable-5"])
+      expect(PRSLOY_MODELS.find((m) => m.id === id)!.reasoning).toBe(false);
+    expect(PRSLOY_PROVIDER_COMPAT.supportsDeveloperRole).toBe(false);
+    for (const m of PRSLOY_MODELS) expect(m.compat?.supportsDeveloperRole).not.toBe(true);
   });
 
   it("normalizes gateway base URLs", () => {

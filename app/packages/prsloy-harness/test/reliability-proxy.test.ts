@@ -3,10 +3,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 import {
+  estimatePromptTokens,
   looksLikeGatewayError,
   ReliabilityProxy,
   SseParser,
   STREAM_INTERRUPTED_MESSAGE,
+  ttftFor,
 } from "../src/reliability-proxy.ts";
 import { type Behaviour, chunk, FakeGateway } from "./fake-gateway.ts";
 
@@ -258,6 +260,61 @@ describe("reliability proxy: non-streaming calls", () => {
     expect(status).toBe(200);
     expect(JSON.parse(text).choices[0].message.content).toBe("ok");
     expect(gateway.requests).toHaveLength(2);
+  });
+});
+
+describe("reliability proxy: per-model deadlines and the hidden-prompt canary", () => {
+  it("Opus and Grok get their own first-token deadline; the common one is the floor", () => {
+    expect(ttftFor("claude-opus-5-5", 60_000)).toBe(300_000);
+    expect(ttftFor("grok-4.7", 60_000)).toBe(180_000);
+    expect(ttftFor("deepseek-v4.1-flash-1017", 60_000)).toBe(60_000);
+    expect(ttftFor("grok-4.7", 400_000)).toBe(400_000);
+    expect(ttftFor(undefined, 2_000)).toBe(2_000);
+  });
+
+  it("a slow first token from Opus is waited for, not cut and retried", async () => {
+    const { gateway, base } = await setup(() => ({ kind: "ok", delayMs: 300 }), { ttftMs: 100 });
+    const { status, text } = await chat(base, true, { model: "claude-opus-5-5" });
+    expect(status).toBe(200);
+    expect(contentOf(events(text).data)).toContain("Привет");
+    expect(gateway.requests).toHaveLength(1);
+    const slow = await setup(() => ({ kind: "ok", delayMs: 300 }), { ttftMs: 100 });
+    await chat(slow.base, true);
+    expect(slow.gateway.requests.length).toBeGreaterThan(1);
+  });
+
+  it("the first call of a session with far more prompt tokens than ours is logged, once", async () => {
+    const warn: string[] = [];
+    const original = console.warn;
+    console.warn = (...args: unknown[]) => void warn.push(args.join(" "));
+    cleanup.push(async () => {
+      console.warn = original;
+    });
+    const { base, metricsPath } = await setup(() => ({ kind: "ok", promptTokens: 2_100 }));
+    await chat(base, true, { model: "qwen3.8-max" });
+    await chat(base, true, { model: "qwen3.8-max" });
+    await expect.poll(async () => (await metricsLines(metricsPath)).length).toBe(2);
+    const [first, second] = await metricsLines(metricsPath);
+    expect(first!.hidden_prompt).toBeGreaterThan(1_500);
+    expect(second!.hidden_prompt).toBeUndefined();
+    expect(warn).toHaveLength(1);
+    expect(warn[0]).toContain("канал добавляет скрытый промпт: qwen3.8-max");
+    expect(warn[0]).not.toContain("rk-test-key");
+  });
+
+  it("a genuine channel stays quiet", async () => {
+    const warn: string[] = [];
+    const original = console.warn;
+    console.warn = (...args: unknown[]) => void warn.push(args.join(" "));
+    cleanup.push(async () => {
+      console.warn = original;
+    });
+    const messages = [{ role: "system", content: "x".repeat(8_000) }];
+    const ours = estimatePromptTokens({ messages });
+    const { base, metricsPath } = await setup(() => ({ kind: "ok", promptTokens: ours + 400 }));
+    await chat(base, true, { messages });
+    expect((await metricsLines(metricsPath))[0]!.hidden_prompt).toBeUndefined();
+    expect(warn).toHaveLength(0);
   });
 });
 

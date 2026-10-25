@@ -1,6 +1,11 @@
+import { mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vite-plus/test";
 import {
   callShape,
+  installArgRepair,
+  restoreProviderOi,
   closeUnterminated,
   fixWindowsPathsInCommand,
   parseArgumentsText,
@@ -8,6 +13,8 @@ import {
   type ToolCallPart,
   validationHint,
 } from "../src/arg-repair.ts";
+import { type LearningEvent, onLearningEvent } from "../src/learning-log.ts";
+import { MockPi } from "./mock-pi.ts";
 
 const READ = {
   type: "object",
@@ -132,5 +139,89 @@ describe("count-tool-errors.mts (for the A/B sessions)", () => {
     expect(out.stdout).toContain(
       "ошибок проверки аргументов 3 (схема 2, битый JSON 1); из них чинит харнесс (без схемы) 2",
     );
+  });
+});
+
+describe("kimi channel «[OI]» → «OpenAI» in tool-call arguments", () => {
+  const assistant = (model: string, ...calls: ToolCallPart[]) => ({
+    role: "assistant",
+    model,
+    content: [{ type: "text", text: "Пишу клиент [OI]." }, ...calls],
+  });
+  const send = async (pi: MockPi, message: Record<string, unknown>) =>
+    (await pi.handlers.get("message_end")![0]!({ message }, pi.ctx)) as
+      | { message: { content: unknown[] } }
+      | undefined;
+
+  it("kimi: restored in every string argument; prose untouched; one learning event per call", async () => {
+    const pi = new MockPi(mkdtempSync(join(tmpdir(), "prsloy-oi-")));
+    installArgRepair(pi.api);
+    const events: LearningEvent[] = [];
+    const off = onLearningEvent((_s, e) => events.push(e));
+    try {
+      const out = await send(
+        pi,
+        assistant(
+          "kimi-k3.1-pro",
+          call("write", {
+            path: "bot.py",
+            content: "from openai import [OI]\nclient = [OI](base_url=URL)\n",
+          }),
+          call("edit", {
+            path: "app.py",
+            edits: [{ oldText: "# [OI] SDK", newText: "client = [OI]()" }],
+          }),
+          call("read", { path: "a.txt" }),
+        ),
+      );
+      const [text, write, edit, read] = out!.message.content as Record<string, unknown>[];
+      expect(text).toEqual({ type: "text", text: "Пишу клиент [OI]." });
+      expect(write!.arguments).toEqual({
+        path: "bot.py",
+        content: "from openai import OpenAI\nclient = OpenAI(base_url=URL)\n",
+      });
+      expect(edit!.arguments).toEqual({
+        path: "app.py",
+        edits: [{ oldText: "# OpenAI SDK", newText: "client = OpenAI()" }],
+      });
+      expect(read!.arguments).toEqual({ path: "a.txt" });
+      expect(events.filter((e) => e.sig === "repair:provider-oi")).toEqual([
+        { kind: "repair", tool: "write", sig: "repair:provider-oi", n: 2 },
+        { kind: "repair", tool: "edit", sig: "repair:provider-oi", n: 2 },
+      ]);
+    } finally {
+      off();
+    }
+  });
+
+  it("other models: untouched; similar tokens untouched; a file that already has «[OI]» keeps edit's oldText", async () => {
+    const cwd = mkdtempSync(join(tmpdir(), "prsloy-oi-"));
+    writeFileSync(join(cwd, "old.md"), "Адрес [OI]: https://x\n");
+    const pi = new MockPi(cwd);
+    installArgRepair(pi.api);
+    const write = call("write", { path: "a.py", content: "import [OI]" });
+    for (const model of ["deepseek-v4.1-flash-1017", "qwen3.8-max", "claude-opus"])
+      expect(await send(pi, assistant(model, write))).toBeUndefined();
+    expect(
+      await send(
+        pi,
+        assistant("kimi-k3.1-pro", call("write", { path: "a", content: "[O I] [oi] [OIX] OI" })),
+      ),
+    ).toBeUndefined();
+    const out = await send(
+      pi,
+      assistant(
+        "kimi-k3.1-pro",
+        call("edit", {
+          path: "old.md",
+          edits: [{ oldText: "Адрес [OI]:", newText: "Адрес [OI] API:" }],
+        }),
+      ),
+    );
+    expect((out!.message.content[1] as ToolCallPart).arguments).toEqual({
+      path: "old.md",
+      edits: [{ oldText: "Адрес [OI]:", newText: "Адрес OpenAI API:" }],
+    });
+    expect(restoreProviderOi(call("write", { path: "a", content: "ok" }), cwd)).toBeUndefined();
   });
 });

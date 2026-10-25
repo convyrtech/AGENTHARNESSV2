@@ -1751,6 +1751,8 @@ export const TimelineProcessBlock = memo(function TimelineProcessBlock(props: {
   workspacePath?: string | undefined;
   /** The turn's checks are red: say how long it worked, not «Готово». */
   checksFailed?: boolean | undefined;
+  /** The turn ended with a model error card: say it stopped, not «Готово». */
+  stopped?: boolean | undefined;
 }) {
   // Keep ticking while the turn is still open (including “responding” after tools).
   const active = Boolean(props.open && (props.running || props.waiting));
@@ -1766,9 +1768,13 @@ export const TimelineProcessBlock = memo(function TimelineProcessBlock(props: {
     props.durationLabel;
   const { developerMode } = useCasualPrefs();
   const label =
-    props.checksFailed && activity.phase === "processed"
-      ? t(props.locale, "timeline.processedChecksFailed", { duration: liveDuration ?? "" }).trim()
-      : activityLabel(props.locale, activity, liveDuration, developerMode);
+    props.stopped && activity.phase === "processed"
+      ? liveDuration
+        ? t(props.locale, "timeline.processedStopped", { duration: liveDuration })
+        : t(props.locale, "timeline.stoppedPlain")
+      : props.checksFailed && activity.phase === "processed"
+        ? t(props.locale, "timeline.processedChecksFailed", { duration: liveDuration ?? "" }).trim()
+        : activityLabel(props.locale, activity, liveDuration, developerMode);
 
   // Default-open while the agent is working this turn; force-close when the turn ends.
   const [detailsOpen, setDetailsOpen] = useState(active);

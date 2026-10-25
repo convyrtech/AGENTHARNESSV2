@@ -11,7 +11,13 @@ export const GOOD_KEY = "sk-good-0000abcd";
 
 export type ScriptStep =
   | { tools: { name: string; args: Record<string, unknown> }[] }
-  | { text: string };
+  | { text: string }
+  /** The gateway refuses: e.g. 402 «Insufficient balance». */
+  | { fail: { status: number; error: Record<string, unknown> } }
+  /** The connection drops before any answer (the internet went away). */
+  | { drop: true }
+  /** The first token comes after `afterMs` (a slow model). */
+  | { slow: { afterMs: number; text: string } };
 
 export type ScriptRule = { when: string; steps: ScriptStep[] };
 
@@ -91,12 +97,31 @@ export function scriptedGateway(
               : {}),
           })}\n\n`,
         );
-      res.writeHead(200, { "content-type": "text/event-stream" });
-      send({ role: "assistant", content: "" });
       const rule = parsed.tools?.length
         ? rules.find((r) => prompt.includes(r.when.toLowerCase()))
         : undefined;
       const next = rule?.steps[step];
+      if (next && "fail" in next) {
+        res.writeHead(next.fail.status, { "content-type": "application/json" });
+        res.end(JSON.stringify({ error: next.fail.error }));
+        return;
+      }
+      if (next && "drop" in next) {
+        req.socket.destroy();
+        return;
+      }
+      res.writeHead(200, { "content-type": "text/event-stream" });
+      if (next && "slow" in next) {
+        setTimeout(() => {
+          if (res.destroyed) return;
+          send({ role: "assistant", content: "" });
+          for (const part of next.slow.text.split(" ")) if (part) send({ content: `${part} ` });
+          send({}, "stop");
+          res.end("data: [DONE]\n\n");
+        }, next.slow.afterMs);
+        return;
+      }
+      send({ role: "assistant", content: "" });
       if (next && "tools" in next) {
         send({
           tool_calls: next.tools.map((call, index) => ({
