@@ -19,10 +19,10 @@ export const APPEARANCE_PREFS_CHANGED_EVENT = "zeno-appearance-prefs";
 
 /** Matches styles.css @theme --font-sans default. */
 export const DEFAULT_UI_FONT_FAMILY =
-  '"Inter", "SF Pro Text", "Segoe UI", system-ui, -apple-system, sans-serif';
+  '"Geologica", "Segoe UI", system-ui, -apple-system, sans-serif';
 /** Matches styles.css @theme --font-mono default. */
 export const DEFAULT_CODE_FONT_FAMILY =
-  '"SF Mono", "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace';
+  '"IBM Plex Mono", "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace';
 
 export const DEFAULT_APPEARANCE_PREFS: AppearancePrefs = {
   uiFontSize: 14,

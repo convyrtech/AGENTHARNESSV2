@@ -693,7 +693,7 @@ function isLinkedWorktreeDirectory(dir: string): boolean {
 }
 
 function pixWorktreesBaseDir(): string {
-  return join(app.getPath("documents"), "Zeno", "worktrees");
+  return join(app.getPath("documents"), "PRSLOY", "worktrees");
 }
 
 /**
@@ -797,7 +797,7 @@ function repoFolderName(repoCwd: string): string {
 }
 
 function defaultWorktreeRootForRepo(repoCwd: string): string {
-  return join(app.getPath("documents"), "Zeno", "worktrees", repoFolderName(repoCwd));
+  return join(app.getPath("documents"), "PRSLOY", "worktrees", repoFolderName(repoCwd));
 }
 
 function resolveWorktreeRoot(repoCwd: string, configured?: string): string {
@@ -1448,7 +1448,7 @@ function localDateFolderName(date = new Date()): string {
  * Reuses today's folder when it already exists as a directory.
  */
 function ensureDefaultWorkspacePath(): string {
-  const root = join(app.getPath("documents"), "Zeno");
+  const root = join(app.getPath("documents"), "PRSLOY");
   mkdirSync(root, { recursive: true });
   const base = localDateFolderName();
   const path = join(root, base);
@@ -1473,7 +1473,7 @@ function ensureDefaultWorkspacePath(): string {
  * Documents/Zeno/conversations
  */
 function ensureConversationWorkspacePath(): string {
-  const path = join(app.getPath("documents"), "Zeno", "conversations");
+  const path = join(app.getPath("documents"), "PRSLOY", "conversations");
   mkdirSync(path, { recursive: true });
   return path;
 }
@@ -4027,7 +4027,7 @@ class HostSupervisor {
     const hostEntry = resolveAgentHostEntry(currentDirectory);
     const child = utilityProcess.fork(hostEntry, [], {
       env: sanitizeUtilityProcessEnv(env),
-      serviceName: "Zeno Agent Host",
+      serviceName: "PRSLOY Agent Host",
       stdio: "pipe",
     });
     const host: ActiveHost = {
@@ -4364,9 +4364,9 @@ function resolveAppIconPath(): string | undefined {
 }
 
 /** Windows AppUserModelID — must match electron-builder appId for packaged installs. */
-const WINDOWS_APP_USER_MODEL_ID = "dev.zeno.app";
+const WINDOWS_APP_USER_MODEL_ID = "online.prsloy.desktop";
 /** Separate AUMID for unpackaged `electron .` so Start Menu Electron.lnk cannot steal the taskbar icon. */
-const WINDOWS_DEV_APP_USER_MODEL_ID = "dev.zeno.app.dev";
+const WINDOWS_DEV_APP_USER_MODEL_ID = "online.prsloy.desktop.dev";
 
 function applyWindowsAppUserModelId(): void {
   if (process.platform !== "win32") return;
@@ -4420,17 +4420,17 @@ function applyDockIcon(iconPath: string | undefined): void {
  * About panel needs an explicit iconPath or macOS falls back to Electron's icon.
  */
 function applyAppBranding(): void {
-  app.setName("Zeno");
+  app.setName("PRSLOY");
   applyWindowsAppUserModelId();
   const iconPath = resolveAppIconPath();
   applyDockIcon(iconPath);
   if (iconPath) {
     try {
       app.setAboutPanelOptions({
-        applicationName: "Zeno",
+        applicationName: "PRSLOY",
         applicationVersion: app.getVersion(),
         version: app.getVersion(),
-        copyright: "Zeno",
+        copyright: "PRSLOY · основано на Zeno, © 2026 aletheics, MIT",
         iconPath,
       });
     } catch (error) {
@@ -4503,7 +4503,7 @@ async function createWindow(): Promise<void> {
       : {}),
     minWidth: WINDOW_MIN_WIDTH,
     minHeight: WINDOW_MIN_HEIGHT,
-    title: "Zeno",
+    title: "PRSLOY",
     show: false,
     ...(iconPath ? { icon: iconPath } : {}),
     // macOS: traffic lights in the sidebar titlebar + real sidebar vibrancy (true glass).
@@ -4613,7 +4613,7 @@ async function createWindow(): Promise<void> {
 // Identity early (before ready). Full branding (About icon/Dock) re-applied in whenReady.
 // On Windows this must run before the first window, or the shell keeps the wrong taskbar icon.
 applyWindowsAppUserModelId();
-app.setName("Zeno");
+app.setName("PRSLOY");
 
 function openSystemNotificationSettings(): void {
   if (process.platform === "darwin") {
@@ -4680,7 +4680,7 @@ function noteOsNotificationFailure(error: unknown): void {
   const hint =
     process.platform === "darwin"
       ? " macOS blocked desktop notifications (permission denied or unsigned Electron in dev). " +
-        "Enable notifications for Electron/Zeno in System Settings → Notifications, " +
+        "Enable notifications for Electron/PRSLOY in System Settings → Notifications, " +
         "or use a packaged/signed build. Further failures are quiet for 5 minutes."
       : " Desktop notifications failed; further failures are quiet for 5 minutes.";
   console.warn(`[zeno] notification failed: ${detail}.${hint}`);
@@ -4911,7 +4911,7 @@ void app
     ipcMain.handle("zeno:themes:import-pick", async () => {
       if (!mainWindow) return undefined;
       const result = await dialog.showOpenDialog(mainWindow, {
-        title: "Import Zeno theme skin",
+        title: "Импорт темы",
         properties: ["openDirectory"],
       });
       if (result.canceled || !result.filePaths[0]) return undefined;
@@ -4920,7 +4920,7 @@ void app
     ipcMain.handle("zeno:themes:export-pick", async (_event, id: unknown) => {
       if (!mainWindow) return {};
       const result = await dialog.showOpenDialog(mainWindow, {
-        title: "Export Zeno theme skin",
+        title: "Экспорт темы",
         properties: ["openDirectory", "createDirectory"],
       });
       if (result.canceled || !result.filePaths[0]) return {};

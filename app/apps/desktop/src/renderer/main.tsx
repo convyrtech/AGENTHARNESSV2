@@ -3325,7 +3325,7 @@ function App() {
                         data-testid="empty-hero"
                       >
                         <PixLogo className="mb-5 size-12" title={t(locale, "app.name")} />
-                        <h1 className="m-0 max-w-lg text-[26px] leading-snug font-semibold tracking-[-0.03em] text-[var(--text)]">
+                        <h1 className="font-display m-0 max-w-lg text-[28px] leading-snug font-semibold tracking-[-0.01em] text-[var(--text)]">
                           {workspacePath
                             ? t(locale, "empty.title", { name: workspace.name })
                             : isPureConversation || snapshot || pendingPureConversation

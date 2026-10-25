@@ -354,7 +354,7 @@ function ProductRail(
           className="flex min-w-0 flex-1 cursor-pointer items-center rounded-md px-2.5 py-0.5 text-left transition-colors hover:bg-[var(--hover-fill)]"
           onClick={props.onOpenPalette}
         >
-          <span className="truncate text-[18px] leading-none font-semibold tracking-tight text-[var(--sidebar-foreground)]">
+          <span className="brand-wordmark truncate text-[19px] leading-none text-[var(--sidebar-foreground)]">
             {tr("app.name")}
           </span>
         </button>

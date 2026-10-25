@@ -26,6 +26,7 @@ export const SYSTEM_APPEARANCE_FONT_ID = "system";
 
 /** Common UI (sans) families to probe when queryLocalFonts is unavailable. */
 const UI_PROBE_FAMILIES = [
+  "Geologica",
   "Inter",
   "SF Pro Text",
   "SF Pro Display",
