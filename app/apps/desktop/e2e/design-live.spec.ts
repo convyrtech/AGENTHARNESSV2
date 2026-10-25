@@ -384,6 +384,16 @@ test("a full turn on the real tools: sheet and videos, choice «A», the page", 
     }
 
     // choice «A» → the next turn: pick, the page, check.py, done
+    // the buttons came from the ask_owner call, not from the text (dev build until merged)
+    if (!EXE) {
+      await expect(card.getByTestId("design-option-A")).toContainText("Кольцо и счётчик");
+      await expect(card.getByTestId("design-option-A")).toContainText("рекомендую");
+      await expect(card).toContainText("Какое движение берём?");
+      const sent = readdirSync(join(state, "sent"));
+      expect(readFileSync(join(state, "sent", sent.at(-1)!), "utf8")).toContain(
+        "A. Кольцо и счётчик (рекомендую)",
+      );
+    }
     await card.getByTestId("design-option-A").click();
     await expect(page.getByTestId("design-done")).toBeVisible({ timeout: 300_000 });
     await expect(page.frameLocator('[data-testid="design-preview"]').locator("h1")).toHaveText(

@@ -53,6 +53,11 @@
   `../playbooks/site/harness/run.py` — красные пометки на картинке. Правило «красное — пометки, не дизайн» — по идее
   системного промпта [tldraw/make-real](https://github.com/tldraw/make-real) (`prompts/anthropic-system-prompt.md`,
   Interpretation Rules). Ни кода, ни текста промпта, ни холста tldraw не брали.
+- `../playbooks/site/harness/ask_owner.ts` — вопрос владельцу инструментом Pi. Форма — по
+  [OpenCoworkAI/open-codesign](https://github.com/OpenCoworkAI/open-codesign) `packages/core/src/tools/ask.ts`
+  (коммит `4cf3393`, MIT License, Copyright (c) OpenCoworkAI): типы вопросов и чистая функция проверки, общая для
+  инструмента и тестов. Код не копировался: у нас два типа (text-options, freeform) и правила сообщения владельцу
+  из пайплайна.
 - `../playbooks/site/harness/brand_probe.py` — бренд по адресу сайта: по мотивам
   [dembrandt](https://github.com/dembrandt/dembrandt) (MIT, v0.39.2, вычисленные стили живой страницы) и методики
   `skills/brand-extract/SKILL.md` OpenDesign (Apache-2.0: «каждое значение — замер»). Код не копировался.

@@ -32,12 +32,13 @@ AGENTS_SWAPS = [
      "владельца. Его сообщения приходят\nсюда же; заметки харнесса помечены «[харнесс]»."),
     ("- Правила шагов: `design-pipeline/AGENTS.md` и `design-pipeline/PIPELINE.md` (нужный шаг уже вписан в задание).",
      "- Правила шагов: `design-pipeline/AGENTS.md` и `design-pipeline/PIPELINE.md`."),
-    ("- Пишешь ему только в конце сессии:", "- Пишешь ему только в конце хода:"),
+    ("- Пишешь ему только в конце сессии и только", "- Пишешь ему только в конце хода и только"),
 ]
 START = ("[харнесс] Ты ведёшь страницу design/{page} целиком в этой сессии. Где мы: `python3 -I "
          "design-pipeline/tools/flow.py --page design/{page}`. Делай шаги по порядку, пока шагу не нужен ответ владельца "
-         "(выбор по листу, «да», материалы); тогда закончи ход сообщением ему: первая строка «{to}», дальше текст по "
-         "design-pipeline/templates/OWNER-MESSAGE.md. Если остановился без вопроса владельцу, последней строкой "
+         "(выбор по листу, «да», материалы); тогда спроси его инструментом ask_owner — вызов заканчивает ход (без "
+         "инструмента — сообщением ему: первая строка «{to}», дальше текст по "
+         "design-pipeline/templates/OWNER-MESSAGE.md). Если остановился без вопроса владельцу, последней строкой "
          "напиши «{ok}».")
 
 
@@ -59,7 +60,7 @@ def init(a):
     ws.save()
 
 
-def to_owner(ws, text, files=None):
+def to_owner(ws, text, files=None, options=None):
     ws.state["outbox"] = ws.state.get("outbox", 0) + 1
     sent = ws.h / "sent"
     sent.mkdir(exist_ok=True)
@@ -68,7 +69,7 @@ def to_owner(ws, text, files=None):
         files = [str((ws.root / x).resolve()) for x in re.findall(r"[\w./\\-]+\.(?:png|jpe?g|mp4|webm|html)", text)
                  if (ws.root / x).exists()]
     ws.save()
-    R.emit(ev="owner", text=text, files=files, options=R.options_of(text))
+    R.emit(ev="owner", text=text, files=files, options=options if options is not None else R.options_of(text))
 
 
 def say(a):
@@ -120,7 +121,8 @@ def say(a):
         gate = (fl.get("next") or {}).get("gate", "?")
         R.emit(ev="stage", gate=gate, title="одна сессия", model=model, attempt=1)
         final, st = R.run_stage(ws, GATE, prompt, model, BUDGET, session)
-        end = "owner" if R.TO_OWNER in final else ("ok" if R.ENDS_OK in final else "other")
+        card = R.ask_card(st.get("ask"))              # вопрос инструментом ask_owner — как у дирижёра
+        end = "owner" if card or R.TO_OWNER in final else ("ok" if R.ENDS_OK in final else "other")
         ws.ledger(kind="stage", gate=gate, model=model, attempt=1, **st, end=end)
         notes = []
         if st.get("error") and not final:
@@ -140,22 +142,26 @@ def say(a):
         if hc:
             notes.append("Проверка харнесса (не владелец), страницу владельцу не показывать, пока это не исправлено:\n"
                          + hc.strip())
-        if R.TO_OWNER in final and not hc:
-            text = final.split(R.TO_OWNER, 1)[1].strip()
+        if (card or R.TO_OWNER in final) and not hc:
+            text, options = card or (final.split(R.TO_OWNER, 1)[1].strip(), None)
             for _fix in range(R.CFG["checker_retries"]):
                 op = R.second_opinion(ws, text, model, gate)
                 if not op or op.get("verdict") != "FAIL":
                     break
                 bad = [i for i in op.get("items", []) if not i.get("ok")]
+                again = "снова спроси его инструментом ask_owner" if card else f"снова закончи «{R.TO_OWNER}» и текстом"
                 fix = ("[второе мнение харнесса, не владелец: сообщение владельцу НЕ ушло. Исправь это в работе и в "
-                       f"сообщении, потом снова закончи «{R.TO_OWNER}» и текстом]\n" +
+                       f"сообщении, потом {again}]\n" +
                        "\n".join(f"- {i['check']}: {i['evidence']}" for i in bad))
                 R.emit(ev="note", text="второе мнение вернуло сообщение: " + "; ".join(i["check"] for i in bad))
                 f2, s2 = R.run_stage(ws, GATE, fix, model, BUDGET, session)
                 ws.ledger(kind="fix", gate=gate, model=model, **s2)
-                if R.TO_OWNER in f2:
-                    text = f2.split(R.TO_OWNER, 1)[1].strip()
-            to_owner(ws, text)
+                card2 = R.ask_card(s2.get("ask"))
+                if card2:
+                    text, options = card = card2
+                elif R.TO_OWNER in f2:
+                    text, options = f2.split(R.TO_OWNER, 1)[1].strip(), None
+            to_owner(ws, text, options=options)
             return
         # без вопроса владельцу: судья в коде, как у дирижёра, когда шагу 7 не хватает только его
         fl = R.flow(ws, "--json")
