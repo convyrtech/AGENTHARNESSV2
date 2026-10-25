@@ -14,6 +14,7 @@ export const SEARCH_IPC = {
   setKey: "prsloy:search:set-key",
   clearKey: "prsloy:search:clear-key",
   setActive: "prsloy:search:set-active",
+  setModels: "prsloy:search:set-models",
   check: "prsloy:search:check",
 } as const;
 
@@ -70,6 +71,12 @@ export function registerPrsloySearchIpc(ipcMain: IpcMainLike, deps: SearchIpcDep
   });
   ipcMain.handle(SEARCH_IPC.setActive, async (_e, id) => {
     deps.settings.setActive(id === null ? null : provider(id));
+    return applied();
+  });
+  ipcMain.handle(SEARCH_IPC.setModels, async (_e, models) => {
+    if (!Array.isArray(models) || models.some((m) => typeof m !== "string"))
+      throw new Error("Неверный список моделей");
+    deps.settings.setModels(models as string[]);
     return applied();
   });
   ipcMain.handle(SEARCH_IPC.check, async (_e, raw): Promise<SearchCheckResult> => {

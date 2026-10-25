@@ -25,11 +25,15 @@ export const SEARCH_PROVIDER_IDS: readonly SearchProviderId[] = [
   "exa",
   "firecrawl",
   "jina",
+  "github",
   "prsloy",
   "model",
 ];
 
 export const DEFAULT_SEARCH: SearchProviderId = "free";
+/** Models whose built-in web search works on the owner's gateway (the conductor's probe, 2026-10-25). */
+export const DEFAULT_MODEL_SEARCH: readonly string[] = ["gpt-6.1-sol"];
+const MODEL_ID = /^[\w.:/-]{1,128}$/;
 /** No key of their own: free needs nothing, prsloy and model use the PRSLOY key. */
 const KEYLESS = new Set<SearchProviderId>(["free", "prsloy", "model"]);
 
@@ -41,9 +45,11 @@ const KEYED = new Set<SearchProviderId>([
   "exa",
   "firecrawl",
   "jina",
+  // a token of the user's own: the free search goes to GitHub with it too (higher limits, code search)
+  "github",
 ]);
 
-type Fields = { folderId?: string; url?: string };
+type Fields = { folderId?: string; url?: string; models?: string[] };
 type LastCheck = NonNullable<SearchProviderState["lastCheck"]>;
 type Stored = {
   active: SearchProviderId | null;
@@ -58,8 +64,13 @@ export type SearchHandoff = {
     key?: string;
     folderId?: string;
     url?: string;
+    models?: string[];
   };
   gatewayUrl?: string;
+  /** The user's GitHub token, if set: the free search uses it whatever provider is active. */
+  githubToken?: string;
+  /** Models for the model's search fallback, in order. */
+  modelSearch?: string[];
 };
 
 export function isSearchProviderId(value: unknown): value is SearchProviderId {
@@ -127,14 +138,15 @@ export class SearchSettings {
   state(gatewayKey: boolean): SearchState {
     const stored = this.#read();
     const providers: SearchProviderState[] = SEARCH_PROVIDER_IDS.map((id) => {
-      const fields = stored.fields[id] ?? {};
+      const fields: Fields =
+        id === "model" ? { models: this.#models(stored) } : (stored.fields[id] ?? {});
       const key = KEYED.has(id) ? this.#store(id).read() : undefined;
       const lastCheck = stored.checks[id];
       return {
         id,
         configured: this.#configured(id, fields, gatewayKey),
         ...(key ? { keyMask: maskKey(key) } : {}),
-        ...(fields.folderId || fields.url ? { fields: { ...fields } } : {}),
+        ...(fields.folderId || fields.url || fields.models ? { fields: { ...fields } } : {}),
         ...(lastCheck ? { lastCheck: { ...lastCheck } } : {}),
       };
     });
@@ -165,6 +177,27 @@ export class SearchSettings {
     // a new key or address: the old check no longer says anything
     delete stored.checks[id];
     this.#write(stored);
+  }
+
+  /** Models with built-in web search for the last fallback, in order (from the gateway's catalog). */
+  setModels(models: readonly string[]): void {
+    const list = [...new Set(models.map((m) => m.trim()).filter(Boolean))];
+    if (!list.length) throw new Error("Нужна хотя бы одна модель");
+    if (list.length > 10 || list.some((m) => !MODEL_ID.test(m)))
+      throw new Error("Неверный список моделей");
+    const stored = this.#read();
+    stored.fields.model = { models: list };
+    delete stored.checks.model;
+    this.#write(stored);
+  }
+
+  #models(stored: Stored): string[] {
+    const list = stored.fields.model?.models;
+    return Array.isArray(list) &&
+      list.every((m) => typeof m === "string" && MODEL_ID.test(m)) &&
+      list.length
+      ? [...list]
+      : [...DEFAULT_MODEL_SEARCH];
   }
 
   clearKey(id: SearchProviderId): void {
@@ -200,9 +233,15 @@ export class SearchSettings {
   config(id: SearchProviderId | null, gatewayUrl?: string): SearchHandoff["search"] | undefined {
     if (!id) return undefined;
     if (id === "free") return { provider: "free" };
-    const fields = this.#read().fields[id] ?? {};
-    if (id === "prsloy" || id === "model")
-      return { provider: id, ...(gatewayUrl ? { url: gatewayUrl } : {}) };
+    const stored = this.#read();
+    const fields = stored.fields[id] ?? {};
+    if (id === "prsloy") return { provider: id, ...(gatewayUrl ? { url: gatewayUrl } : {}) };
+    if (id === "model")
+      return {
+        provider: id,
+        ...(gatewayUrl ? { url: gatewayUrl } : {}),
+        models: this.#models(stored),
+      };
     const key = KEYED.has(id) ? this.#store(id).read() : undefined;
     if (KEYED.has(id) && !key) return undefined;
     return {
@@ -221,7 +260,13 @@ export class SearchSettings {
     const search = this.config(this.#read().active ?? DEFAULT_SEARCH, gatewayUrl) ?? {
       provider: "free" as const,
     };
-    const handoff: SearchHandoff = { search, ...(gatewayUrl ? { gatewayUrl } : {}) };
+    const githubToken = this.#store("github").read();
+    const handoff: SearchHandoff = {
+      search,
+      ...(gatewayUrl ? { gatewayUrl } : {}),
+      ...(githubToken ? { githubToken } : {}),
+      modelSearch: this.#models(this.#read()),
+    };
     return JSON.stringify(handoff);
   }
 }
