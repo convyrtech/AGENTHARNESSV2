@@ -220,7 +220,7 @@
 ## Как проверено (Linux, без ключа шлюза)
 
 - `pnpm check` чистый. `pnpm test` (корень) зелёный:
-  - desktop: **113 files / 767 tests**, плюс `fetch-runtimes`, `after-pack`, file budgets;
+  - desktop: **791 tests** (после ребейза на main с ui), плюс `fetch-runtimes`, `after-pack`, file budgets;
   - harness: 8 files / 104 tests.
 - e2e (`xvfb-run playwright test`, весь набор): 28 passed, 5 failed. Все 5 падают так же на
   чистом `origin/main` (прогнал отдельно), то есть они не из этой ветки:
