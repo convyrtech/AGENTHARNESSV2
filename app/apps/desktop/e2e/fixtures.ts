@@ -1,7 +1,7 @@
 import { test as base, expect, type Page } from "@playwright/test";
 import { _electron as electron, type ElectronApplication } from "playwright";
 import { createRequire } from "node:module";
-import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
+import { cp, mkdtemp, mkdir, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -208,6 +208,8 @@ export async function launchZenoApp(options: LaunchOptions = {}): Promise<Launch
     timeout: 60_000,
   });
 
+  keepSessionsOnClose(app, agentDir);
+
   const output: string[] = [];
   app.process().stdout?.on("data", (chunk: Buffer) => output.push(chunk.toString("utf8")));
   app.process().stderr?.on("data", (chunk: Buffer) => output.push(chunk.toString("utf8")));
@@ -228,6 +230,36 @@ export async function launchZenoApp(options: LaunchOptions = {}): Promise<Launch
   });
 
   return { app, page, root, agentDir, workspace, attachmentPaths, fakeModel, output };
+}
+
+/**
+ * `PRSLOY_E2E_SESSIONS=<dir>`: after the app closes, the Pi sessions of this launch (`<agentDir>/sessions`)
+ * are copied to `<dir>/<test title>/` before the spec deletes its temp root — for the session auditor (#29).
+ * Every spec closes the app before `rm(root)`, so wrapping `close()` covers the fixture and direct launches.
+ */
+const keepSessionsDir = process.env.PRSLOY_E2E_SESSIONS?.trim() || undefined;
+
+function keepSessionsOnClose(app: ElectronApplication, agentDir: string): void {
+  if (!keepSessionsDir) return;
+  const close = app.close.bind(app);
+  let kept = false;
+  app.close = async () => {
+    await close();
+    if (kept) return;
+    kept = true;
+    const sessions = join(agentDir, "sessions");
+    const names = await readdir(sessions, { recursive: true }).catch(() => [] as string[]);
+    if (!names.some((name) => String(name).endsWith(".jsonl"))) return;
+    let title = "launch";
+    try {
+      title = test.info().titlePath.slice(1).join(" › ");
+    } catch {
+      // outside a test (global setup): generic name
+    }
+    const safe = title.replace(/[^\p{L}\p{N}._ -]+/gu, "_").slice(0, 120) || "launch";
+    const target = join(keepSessionsDir, safe, String(Date.now()));
+    await cp(sessions, target, { recursive: true }).catch(() => undefined);
+  };
 }
 
 export const test = base.extend<ZenoE2EFixtures>({
