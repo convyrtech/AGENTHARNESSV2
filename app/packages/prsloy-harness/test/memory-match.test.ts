@@ -27,11 +27,11 @@ describe("memory-match: text ↔ quote on 100 labeled pairs", () => {
     expect(fixture.pairs).toHaveLength(100);
   });
 
-  it("false refusals of real paraphrases ≤ 10%", () => {
+  it("false refusals of real paraphrases ≤ 5%", () => {
     console.log(
       `[memory-match] links ${links.length}, refused ${refused.length}:\n${refused.map((p) => `  «${p.text}» ← «${p.quote}»`).join("\n")}`,
     );
-    expect(refused.length / links.length).toBeLessThanOrEqual(0.1);
+    expect(refused.length / links.length).toBeLessThanOrEqual(0.05);
   });
 
   it("a negated quote never confirms the record (0 accepted)", () => {
@@ -60,6 +60,21 @@ describe("memory-match: records against records", () => {
     );
     expect(merged).toEqual([]);
     expect(wrong.length / fixture.entries.length).toBeLessThanOrEqual(0.1);
+  });
+
+  it("normalization: short names across scripts, a shared 4-letter prefix of long stems", () => {
+    expect(textMatchesQuote("Пользователь использует Mac", "у меня мак, а не винда")).toBe(true);
+    expect(textMatchesQuote("Не пользуется Google", "гуглом не пользуюсь")).toBe(true);
+    expect(textMatchesQuote("Не хочет платных сервисов", "не хочу платить за сервисы")).toBe(true);
+    // Different consonants, a long latin word, a negation — no match.
+    expect(textMatchesQuote("Пользователь использует Mac", "у меня мех")).toBe(false);
+    expect(textMatchesQuote("Пользователь использует Photoshop", "у меня фотошоп")).toBe(false);
+    expect(textMatchesQuote("Хочет платных сервисов", "не хочу платить за сервисы")).toBe(false);
+    expect(relation(signature("Хочет платный тариф"), signature("Не хочет платить за тариф"))).toBe(
+      "contradicts",
+    );
+    const forgotten = hashedSignature("Пользователь не хочет платных сервисов");
+    expect(matchesForgotten("Не хочу платить за сервисы", forgotten)).toBe(true);
   });
 
   it("forgotten by stem hashes: a paraphrase is caught, a negation is not", () => {
