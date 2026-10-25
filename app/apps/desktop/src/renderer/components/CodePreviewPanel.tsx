@@ -12,7 +12,7 @@ import {
   RotateCw,
   X,
 } from "lucide-react";
-import { type RefObject, useEffect, useState } from "react";
+import { type RefObject, useEffect, useRef, useState } from "react";
 import { closeCodePreview, useCodePreview } from "../lib/code-preview-store.ts";
 import { t, type Locale, type MessageKey } from "../lib/i18n.ts";
 import {
@@ -26,6 +26,7 @@ import {
   pickedPrompt,
 } from "../lib/preview-bridge.ts";
 import { useShellStore } from "../store/shell-store.ts";
+import { UNDO_LOG_CHANGED_EVENT } from "../lib/undo-log.ts";
 import { afterPaint, type Rect } from "../lib/preview-capture.ts";
 import { exportProjectZip, type ProjectZipNote } from "../lib/project-zip.ts";
 import { previewTargetLabel } from "../lib/turn-preview.ts";
@@ -66,6 +67,20 @@ export function CodePreviewPanel(props: {
   const [zipNote, setZipNote] = useState<ProjectZipNote>();
   const [zipping, setZipping] = useState(false);
   const [capturing, setCapturing] = useState(false);
+
+  // The agent changed the page (a turn ended) or «Откатить» put the files back: show what is on disk now,
+  // not the page from before (the first-hour walkthrough: «Сделай фон тёмным» left the preview white).
+  const running = useShellStore((s) => s.running);
+  const wasRunning = useRef(running);
+  useEffect(() => {
+    if (wasRunning.current && !running) setReloads((n) => n + 1);
+    wasRunning.current = running;
+  }, [running]);
+  useEffect(() => {
+    const reload = () => setReloads((n) => n + 1);
+    window.addEventListener(UNDO_LOG_CHANGED_EVENT, reload);
+    return () => window.removeEventListener(UNDO_LOG_CHANGED_EVENT, reload);
+  }, []);
 
   // A new page or a reload starts clean.
   useEffect(() => {

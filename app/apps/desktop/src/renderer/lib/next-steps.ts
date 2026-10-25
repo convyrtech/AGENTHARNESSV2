@@ -118,7 +118,9 @@ export function selectNextSteps(
   if (start < 0) return [];
   // The harness's turn-status card (H9) comes after the reply: it is not the end of the reply.
   const turn = items.slice(start + 1).filter((item) => !isTurnStatusItem(item));
-  const last = turn.at(-1);
+  // Other notes after the reply (the undo note main appends for the model) are not the turn's end
+  // either: «Откатить ход» used to take «Что дальше» away with it.
+  const last = turn.filter((item) => item.kind !== "system").at(-1);
   if (!last || last.kind !== "assistant" || !last.text.trim()) return [];
   if (turn.some((item) => item.kind === "system" && item.tone === "error")) return [];
   const fromModel = extractNextSteps(last.text);

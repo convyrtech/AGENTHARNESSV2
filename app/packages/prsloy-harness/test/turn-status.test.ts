@@ -38,10 +38,9 @@ describe("turn status facts", () => {
     expect(
       turnFacts(state({ edited: true, gate: "red", hasCheck: true, page: true }), "", 1)?.facts,
     ).toEqual(["checks-fail", "page-ok"]);
-    expect(turnFacts(state({ edited: true, ranOk: true }), "", 1)?.facts).toEqual([
-      "ran-ok",
-      "no-checks",
-    ]);
+    // Программа отработала или страница открылась — «нечем проверить» не добавляется.
+    expect(turnFacts(state({ edited: true, ranOk: true }), "", 1)?.facts).toEqual(["ran-ok"]);
+    expect(turnFacts(state({ edited: true, page: true }), "", 1)?.facts).toEqual(["page-ok"]);
     expect(turnFacts(state({ edited: true }), "", 1)?.facts).toEqual(["no-checks"]);
   });
 

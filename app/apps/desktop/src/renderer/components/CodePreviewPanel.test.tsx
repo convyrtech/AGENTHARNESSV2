@@ -49,6 +49,23 @@ describe("CodePreviewPanel", () => {
     expect(screen.queryByTestId("code-preview-panel")).toBeNull();
   });
 
+  it("reloads by itself when a turn ends and when «Откатить» puts files back", async () => {
+    open.mockResolvedValue({ ok: true, url: "http://127.0.0.1:41000/index.html" });
+    act(() => useShellStore.getState().setRunning(false));
+    render(<CodePreviewPanel locale="ru" sessionKey="s1" />);
+    act(() => openCodePreview({ kind: "file", path: "index.html" }, "/home/u/site"));
+    await screen.findByTestId("code-preview-frame");
+    expect(open).toHaveBeenCalledTimes(1);
+    act(() => useShellStore.getState().setRunning(true));
+    expect(open).toHaveBeenCalledTimes(1);
+    act(() => useShellStore.getState().setRunning(false));
+    await waitFor(() => expect(open).toHaveBeenCalledTimes(2));
+    act(() => {
+      window.dispatchEvent(new Event("prsloy-undo-log"));
+    });
+    await waitFor(() => expect(open).toHaveBeenCalledTimes(3));
+  });
+
   it("says plainly when the server is down", async () => {
     open.mockResolvedValue({ ok: false, reason: "down" });
     render(<CodePreviewPanel locale="ru" sessionKey="s1" />);

@@ -326,6 +326,14 @@ export function SessionTimelineContent(props: SessionTimelineContentProps) {
               </Fragment>
             );
           })}
+          {/* A running bot first: it matters more than the next request (first-hour walkthrough). */}
+          <MessageScrollerItem
+            messageId={`${sessionKey || "chat"}:agent-procs`}
+            scrollAnchor={false}
+            className="w-full"
+          >
+            <AgentProcesses locale={locale} items={items} />
+          </MessageScrollerItem>
           {nextSteps.length > 0 ? (
             <MessageScrollerItem
               messageId={`${sessionKey || "chat"}:next-steps`}
@@ -335,13 +343,6 @@ export function SessionTimelineContent(props: SessionTimelineContentProps) {
               <NextStepChips locale={locale} steps={nextSteps} />
             </MessageScrollerItem>
           ) : null}
-          <MessageScrollerItem
-            messageId={`${sessionKey || "chat"}:agent-procs`}
-            scrollAnchor={false}
-            className="w-full"
-          >
-            <AgentProcesses locale={locale} items={items} />
-          </MessageScrollerItem>
           {showLiveStatus && liveActivity ? (
             <MessageScrollerItem
               messageId={`${sessionKey || "live"}:live-status`}

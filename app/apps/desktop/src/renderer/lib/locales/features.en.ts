@@ -105,6 +105,10 @@ export const featuresEn: Record<keyof typeof featuresZh, string> = {
   "features.memory.chat.forgotNoneHint":
     "Entries also learned elsewhere only lost this chat's quotes.",
   "features.memory.chat.done": "Done",
+  "features.secret.placeholder": "Paste the key",
+  "features.secret.note":
+    "The key is saved in the .env file in the project folder. It is not sent to the model and does not appear in the chat.",
+  "features.secret.save": "Save",
   "features.memory.autoToggle": "Notice what matters by myself",
   "features.memory.autoToggleHint":
     "The agent remembers what matters from your own words: how to answer, what you like, project decisions. Never from files or sites.",
