@@ -106,9 +106,22 @@ async function prepare(
     case "cursor-agent":
       chat = await readCursorChat(candidate.sourcePath, candidate.cwd);
       break;
+    case "kilo-code":
+      // Kilo CLI keeps OpenCode's database; the editor extension keeps Cline's task files
+      chat = candidate.sourcePath.endsWith(".db")
+        ? readOpenCodeChat(candidate.sourcePath, candidate.sourceId, "kilo-code")
+        : await readClineChat(
+            {
+              tool: candidate.tool,
+              id: candidate.sourceId,
+              path: candidate.sourcePath,
+              title: candidate.title,
+            },
+            candidate.cwd,
+          );
+      break;
     case "cline":
     case "roo-code":
-    case "kilo-code":
       chat = await readClineChat(
         {
           tool: candidate.tool,

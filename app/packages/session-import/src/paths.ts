@@ -34,6 +34,8 @@ export type SourceRoots = {
   editorData: string;
   /** New Cline storage shared by its VS Code, CLI and JetBrains builds: `~/.cline/data`. */
   clineData: string;
+  /** Kilo CLI's database (OpenCode's schema): `<XDG_DATA_HOME or ~/.local/share>/kilo/kilo.db`. */
+  kiloDb?: string;
 };
 
 export function sourceRoots(
@@ -59,5 +61,6 @@ export function sourceRoots(
           ? join(home, "Library", "Application Support")
           : env.XDG_CONFIG_HOME || join(home, ".config"),
     clineData: join(home, ".cline", "data"),
+    kiloDb: join(env.XDG_DATA_HOME || join(home, ".local", "share"), "kilo", "kilo.db"),
   };
 }

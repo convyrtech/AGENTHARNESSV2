@@ -10,7 +10,9 @@ import { aiderCandidates } from "./adapters/aider.ts";
 import { clineCandidate, clineTasks } from "./adapters/cline-family.ts";
 import { cursorCandidate, cursorTranscripts } from "./adapters/cursor-agent.ts";
 import { geminiCandidate, geminiChatFiles, newestGeminiFile } from "./adapters/gemini.ts";
+import { existsSync } from "node:fs";
 import {
+  type OpenCodeTool,
   opencodeCandidates,
   opencodeDatabases,
   releaseOpenCodeSnapshots,
@@ -114,8 +116,13 @@ export async function scanSources(options: {
   const opencode: ChatCandidate[] = [];
   const skipped: SourceSkip[] = [];
   try {
-    for (const db of opencodeDatabases(roots)) {
-      const result = opencodeCandidates(db);
+    const databases: [string, OpenCodeTool][] = opencodeDatabases(roots).map((db) => [
+      db,
+      "opencode",
+    ]);
+    if (roots.kiloDb && existsSync(roots.kiloDb)) databases.push([roots.kiloDb, "kilo-code"]);
+    for (const [db, tool] of databases) {
+      const result = opencodeCandidates(db, tool);
       opencode.push(...result.candidates);
       if (result.skip) skipped.push(result.skip);
     }

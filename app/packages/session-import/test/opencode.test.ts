@@ -15,6 +15,10 @@ import {
   releaseOpenCodeSnapshots,
 } from "../src/adapters/opencode.ts";
 import { sha256File } from "../src/read-lines.ts";
+import { scanSources } from "../src/detect.ts";
+import { emptyLedger } from "../src/ledger.ts";
+import { importChats } from "../src/run.ts";
+import { fakeMachine } from "./helpers.ts";
 import { cleanTemp, tempDir } from "./helpers.ts";
 
 const CWD = "C:\\Users\\Пётр\\Проекты\\заметки";
@@ -291,5 +295,33 @@ describe("OpenCode adapter", () => {
     } finally {
       live.close();
     }
+  });
+
+  it("reads the Kilo CLI database (OpenCode's schema) as Kilo Code", async () => {
+    const machine = await fakeMachine();
+    const kiloDb = join(machine.root, "данные", "kilo", "kilo.db");
+    await mkdir(join(kiloDb, ".."), { recursive: true });
+    createV2(kiloDb, machine.projects.codex);
+    const roots = { ...machine.roots, kiloDb };
+    const scan = await scanSources({ roots, ledger: emptyLedger(), now: Date.UTC(2026, 9, 25) });
+    const kilo = scan.candidates.filter((c) => c.tool === "kilo-code");
+    expect(kilo.map((c) => c.title).sort((a, b) => a.localeCompare(b))).toEqual([
+      "Бот для заказов",
+      "Почини вёрстку",
+    ]);
+    expect(kilo[0]!.fingerprint).toMatch(/^kilo-code:v2:/u);
+    const main = kilo.find((c) => c.sourceId === "ses_main")!;
+    const [result] = await importChats({
+      candidates: [main],
+      roots,
+      home: machine.home,
+      sessionDir: machine.sessionDir,
+      ledgerPath: machine.ledgerPath,
+      target: { provider: "prsloy", modelId: "m" },
+    });
+    expect(result).toMatchObject({ status: "imported", title: "Бот для заказов" });
+    expect(readOpenCodeChat(kiloDb, "ses_main", "kilo-code")?.turns[1]?.text).toContain(
+      "(Kilo Code сократил разговор)",
+    );
   });
 });

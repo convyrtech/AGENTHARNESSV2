@@ -31,6 +31,7 @@ describe("paths", () => {
       cursorDir: join("/h", ".cursor"),
       editorData: join("/h", ".config"),
       clineData: join("/h", ".cline", "data"),
+      kiloDb: join("/h", ".local", "share", "kilo", "kilo.db"),
     });
     expect(
       sourceRoots(

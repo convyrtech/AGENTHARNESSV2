@@ -26,6 +26,7 @@ import { isRecord, type JsonRecord } from "../read-lines.ts";
 import { columnsOf, openSnapshot, type Snapshot } from "../sqlite-snapshot.ts";
 import { pickTitle } from "../title.ts";
 import {
+  IMPORT_TOOL_LABELS,
   emptyDropped,
   type ChatCandidate,
   type ImportedChat,
@@ -160,7 +161,13 @@ function firstUserText(
 }
 
 /** The chats of one database, or why it was skipped. */
-export function opencodeCandidates(dbPath: string): {
+/** OpenCode, and the Kilo CLI that keeps OpenCode's schema in `~/.local/share/kilo/kilo.db`. */
+export type OpenCodeTool = "opencode" | "kilo-code";
+
+export function opencodeCandidates(
+  dbPath: string,
+  tool: OpenCodeTool = "opencode",
+): {
   candidates: ChatCandidate[];
   skip?: SourceSkip;
 } {
@@ -168,11 +175,10 @@ export function opencodeCandidates(dbPath: string): {
   try {
     entry = snapshotOf(dbPath);
   } catch {
-    return { candidates: [], skip: { tool: "opencode", path: dbPath, reason: "unreadable" } };
+    return { candidates: [], skip: { tool, path: dbPath, reason: "unreadable" } };
   }
   const { snapshot, schema } = entry;
-  if (!schema)
-    return { candidates: [], skip: { tool: "opencode", path: dbPath, reason: "unknown-schema" } };
+  if (!schema) return { candidates: [], skip: { tool, path: dbPath, reason: "unknown-schema" } };
   const sql =
     schema === "v2"
       ? `SELECT s.id, s.title, s.directory, s.time_created, s.time_updated, COUNT(m.session_id) AS n
@@ -188,7 +194,7 @@ export function opencodeCandidates(dbPath: string): {
     const title =
       row.title?.trim() && !PLACEHOLDER_TITLE.test(row.title.trim()) ? row.title : undefined;
     candidates.push({
-      tool: "opencode",
+      tool,
       sourceId: row.id,
       sourcePath: dbPath,
       cwd: row.directory,
@@ -199,7 +205,7 @@ export function opencodeCandidates(dbPath: string): {
       updatedAt,
       size: row.n,
       mtimeMs: updatedAt,
-      fingerprint: `opencode:${schema}:${updatedAt}:${row.n}`,
+      fingerprint: `${tool}:${schema}:${updatedAt}:${row.n}`,
     });
   }
   return { candidates };
@@ -234,7 +240,11 @@ function toolText(
   return lines.join("\n");
 }
 
-export function readOpenCodeChat(dbPath: string, sessionId: string): ImportedChat | undefined {
+export function readOpenCodeChat(
+  dbPath: string,
+  sessionId: string,
+  tool: OpenCodeTool = "opencode",
+): ImportedChat | undefined {
   const { snapshot, schema } = snapshotOf(dbPath);
   if (!schema) return undefined;
   const table = schema === "v2" ? "session_v2" : "session";
@@ -287,7 +297,13 @@ export function readOpenCodeChat(dbPath: string, sessionId: string): ImportedCha
         pushTurn(turns, "assistant", parts.join("\n"), ts);
       } else if (row.type === "compaction") {
         const summary = typeof data.summary === "string" ? data.summary.trim() : "";
-        if (summary) pushTurn(turns, "assistant", `(OpenCode сократил разговор)\n${summary}`, ts);
+        if (summary)
+          pushTurn(
+            turns,
+            "assistant",
+            `(${IMPORT_TOOL_LABELS[tool]} сократил разговор)\n${summary}`,
+            ts,
+          );
       } else {
         // synthetic, system, skill, shell, agent/model/location switches
         dropped.service += 1;
@@ -354,7 +370,7 @@ export function readOpenCodeChat(dbPath: string, sessionId: string): ImportedCha
       ? session.title
       : undefined;
   return finishChat({
-    tool: "opencode",
+    tool,
     sourceId: sessionId,
     sourcePath: dbPath,
     cwd: session.directory,
