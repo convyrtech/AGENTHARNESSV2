@@ -36,6 +36,7 @@ export const designRu: Record<keyof typeof designZh, string> = {
   "design.error": "Что-то сломалось.",
   "design.cancelled": "Остановлено.",
   "design.paused": "Сделал часть работы.",
+  "design.interrupted": "Работа прервалась: приложение закрылось посреди шага.",
   "design.continue": "Продолжить",
   "design.done": "Страница готова.",
   "design.openFolder": "Открыть папку",

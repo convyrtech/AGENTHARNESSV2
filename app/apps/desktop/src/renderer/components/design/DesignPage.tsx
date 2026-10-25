@@ -519,10 +519,17 @@ function StreamItem({
       );
     case "paused":
     case "cancelled":
+    case "interrupted":
       return (
         <div className="flex items-center gap-3" data-testid={`design-${item.kind}`}>
           <p className="text-muted-foreground">
-            {tr(item.kind === "paused" ? "design.paused" : "design.cancelled")}
+            {tr(
+              item.kind === "paused"
+                ? "design.paused"
+                : item.kind === "interrupted"
+                  ? "design.interrupted"
+                  : "design.cancelled",
+            )}
           </p>
           {live ? (
             <Button variant="outline" size="sm" data-testid="design-continue" onClick={onContinue}>

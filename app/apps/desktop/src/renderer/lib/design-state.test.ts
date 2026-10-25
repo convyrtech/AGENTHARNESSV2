@@ -131,6 +131,26 @@ describe("reduceDesign on a recorded run.py log", () => {
     expect(crashed.items.at(-1)).toMatchObject({ kind: "error", detail: "Traceback" });
   });
 
+  it("a turn cut off by quitting the app offers «continue» once", () => {
+    const cut: DesignEvent[] = [
+      { ev: "user", text: "Сделай лендинг", files: [] },
+      { ev: "stage", gate: "1", title: "Кандидаты", model: "m", attempt: 1 },
+      { ev: "tool", name: "bash", brief: "python3 -I harness/moves.py candidates" },
+    ];
+    const v = foldDesign(cut, false);
+    expect(v.running).toBe(false);
+    expect(v.items.map((i) => i.kind)).toEqual(["user", "interrupted"]);
+    // continuing: the next run's events follow; the old item stays history, no second «continue»
+    const next = foldDesign(
+      [...cut, { ev: "stage", gate: "1", title: "", model: "m", attempt: 2 }],
+      true,
+    );
+    expect(next.items.filter((i) => i.kind === "interrupted")).toHaveLength(0);
+    // a turn that already asked the owner before the app closed is not «interrupted»
+    const asked = foldDesign([...cut, { ev: "owner", text: "?", files: [], options: [] }], false);
+    expect(asked.items.at(-1)?.kind).toBe("owner");
+  });
+
   it("history of a run still going keeps the progress line", () => {
     const v = foldDesign(turns[2]!.slice(0, 4), true);
     expect(v.running).toBe(true);

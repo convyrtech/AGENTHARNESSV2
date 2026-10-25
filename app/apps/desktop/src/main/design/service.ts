@@ -96,7 +96,8 @@ const EVENTS_FILE = "app-events.jsonl";
 const UNAVAILABLE = "Дизайн-инструменты появятся в следующей версии";
 const HISTORY_LIMIT = 400;
 
-type Run = { child: ChildProcess; cancelled: boolean };
+/** `quitting`: the app is closing; no exit event, so the tab shows the turn as interrupted. */
+type Run = { child: ChildProcess; cancelled: boolean; quitting?: boolean };
 
 export class DesignService {
   readonly #deps: DesignServiceDeps;
@@ -520,6 +521,7 @@ export class DesignService {
     child.on("close", (code) => {
       lines.flush().forEach(onLine);
       this.#runs.delete(ws);
+      if (run.quitting) return;
       const failed = !run.cancelled && !terminal && code !== 0;
       this.#emit(ws, {
         ev: "exit",
@@ -650,7 +652,7 @@ export class DesignService {
   /** App quit: nothing the harness started may outlive the window (proxy, pi, browsers). */
   dispose(): void {
     for (const run of this.#runs.values()) {
-      run.cancelled = true;
+      run.quitting = true;
       killTreeNow(run.child);
     }
     if (this.#proxy) killTreeNow(this.#proxy.child);
