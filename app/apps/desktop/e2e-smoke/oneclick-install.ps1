@@ -34,17 +34,32 @@ public static class Win {
     return sb.ToString();
   }
   static string Cls(IntPtr h) { var sb = new StringBuilder(256); GetClassName(h, sb, sb.Capacity); return sb.ToString(); }
-  // Visible top-level windows of the given processes: "pid|class|title" and their visible controls.
+  // Visible top-level windows of the given processes and their visible controls, one line each:
+  // "pid|top|class|text", "pid|child|class|text", or "pid|msgbtn|Button|text" for the buttons of a
+  // plain message box (Windows labels those in the OS language, not the installer's).
+  static readonly HashSet<string> MsgBoxButtons = new HashSet<string> {
+    "OK", "Cancel", "Yes", "No", "ОК", "Отмена", "Да", "Нет" };
   public static List<string> Read(uint[] pids) {
     var set = new HashSet<uint>(pids); var o = new List<string>();
     EnumWindows((h, l) => {
       uint pid; GetWindowThreadProcessId(h, out pid);
       if (!set.Contains(pid) || !IsWindowVisible(h)) return true;
-      o.Add(pid + "|" + Cls(h) + "|" + Text(h));
+      var kids = new List<KeyValuePair<string, string>>();
       EnumChildWindows(h, (c, l2) => {
-        if (IsWindowVisible(c)) { var t = Text(c); if (t.Length > 0) o.Add(pid + "|  " + Cls(c) + "|" + t); }
+        if (IsWindowVisible(c)) kids.Add(new KeyValuePair<string, string>(Cls(c), Text(c)));
         return true;
       }, IntPtr.Zero);
+      int buttons = 0; bool onlyMsgButtons = true, progress = false;
+      foreach (var k in kids) {
+        if (k.Key == "msctls_progress32") progress = true;
+        if (k.Key == "Button") { buttons++; if (!MsgBoxButtons.Contains(k.Value.Replace("&", ""))) onlyMsgButtons = false; }
+      }
+      bool msgBox = Cls(h) == "#32770" && !progress && buttons > 0 && buttons <= 3 && onlyMsgButtons;
+      o.Add(pid + "|top|" + Cls(h) + "|" + Text(h));
+      foreach (var k in kids) {
+        if (k.Value.Length == 0) continue;
+        o.Add(pid + "|" + (msgBox && k.Key == "Button" ? "msgbtn" : "child") + "|" + k.Key + "|" + k.Value);
+      }
       return true;
     }, IntPtr.Zero);
     return o;
@@ -71,7 +86,6 @@ public static class Win {
 $shots = Join-Path $OutDir 'oneclick'
 New-Item -ItemType Directory -Force $shots | Out-Null
 $wizard = 'Next|Install|Choose|Anyone who uses|Back|Browse|Cancel'
-$ignore = @('pwsh', 'powershell', 'conhost', 'node', 'Runner.Worker', 'Runner.Listener', 'PRSLOY', 'msedgewebview2')
 
 function Shot([string]$name) {
   try {
@@ -93,13 +107,16 @@ function Watch([string]$phase, [scriptblock]$start, [int]$timeoutSec) {
   $texts = [ordered]@{}; $i = 0; $seen = @{}; $confirmed = 0
   do {
     Start-Sleep -Milliseconds 500
-    $fresh = Get-Process | Where-Object { -not $before.ContainsKey($_.Id) -and $ignore -notcontains $_.Name }
+    # Installer, its re-launched copies and the uninstaller (Un_A / Au_ in %TEMP%) only: not the
+    # app it starts, nor the git/bash/python children of that app.
+    $fresh = Get-Process | Where-Object {
+      -not $before.ContainsKey($_.Id) -and ($_.Name -like 'PRSLOY-*' -or $_.Name -like 'Un_*' -or $_.Name -like 'Au_*' -or $_.Name -like 'Uninstall*') }
     foreach ($p in $fresh) { $seen[$p.Id] = $p.Name }
     if ($fresh) {
       $ids = [uint32[]]@($fresh | ForEach-Object { $_.Id })
       foreach ($line in [Win]::Read($ids)) { $texts[$line] = $true }
       # A confirmation box would block an unattended run: record it, then answer «Да».
-      if ([Win]::Click($ids, 'Да')) { $confirmed++ }
+      foreach ($label in 'Да', 'ОК', 'OK') { if ([Win]::Click($ids, $label)) { $confirmed++; break } }
     }
     Shot ('{0}-{1:D3}' -f $phase, $i); $i++
     $alive = if ($seen.Count) { Get-Process -Id @($seen.Keys) -ErrorAction SilentlyContinue } else { $null }
@@ -112,9 +129,16 @@ function Watch([string]$phase, [scriptblock]$start, [int]$timeoutSec) {
     exitCode = if ($proc.HasExited) { $proc.ExitCode } else { $null }
     processes = @($seen.Values | Sort-Object -Unique)
     windows = @($texts.Keys)
-    # NSIS's own branding line («Nullsoft Install System vX») is not a wizard.
+    # NSIS's own branding line («Nullsoft Install System vX») is not a wizard; message-box
+    # buttons are labelled by Windows in the OS language.
     wizardWords = @($texts.Keys | Where-Object {
-        $t = ($_ -split '\|', 3)[2]; $t -cmatch $wizard -and $t -notmatch 'Nullsoft' })
+        $f = $_ -split '\|', 4; $f[1] -ne 'msgbtn' -and $f[3] -cmatch $wizard -and $f[3] -notmatch 'Nullsoft' })
+    # Every text the installer itself writes must be Russian: English words without Cyrillic
+    # (product name and version aside) are leftovers.
+    englishTexts = @($texts.Keys | Where-Object {
+        $f = $_ -split '\|', 4
+        $t = ($f[3] -replace 'PRSLOY', '' -replace 'Nullsoft Install System v[\d.]+', '')
+        $f[1] -ne 'msgbtn' -and $t -match '[A-Za-z]{4,}' -and $t -notmatch '[А-Яа-яЁё]' })
     screenshots = $i
     confirmationsAnswered = $confirmed
   }
@@ -159,6 +183,7 @@ if ($report.requestedExecutionLevel -ne 'asInvoker') { $fail += "installer asks 
 foreach ($phase in 'install', 'uninstall') {
   $r = $report[$phase]
   if ($r.wizardWords.Count) { $fail += "${phase}: wizard text $($r.wizardWords -join ' ; ')" }
+  if ($r.englishTexts.Count) { $fail += "${phase}: not Russian $($r.englishTexts -join ' ; ')" }
   if (-not $r.finishedOnItsOwn) { $fail += "${phase}: still running after $($r.seconds) s" }
 }
 if (-not $report.installedExe) { $fail += 'PRSLOY.exe not installed' }

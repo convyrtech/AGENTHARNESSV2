@@ -96,8 +96,9 @@ nsis:
   perMachine: false
   allowToChangeInstallationDirectory: false
   runAfterFinish: true
+  # Russian only: a multi-language installer with a single language (multiLanguageInstaller:
+  # false would compile English only), no selector.
   unicode: true
-  multiLanguageInstaller: false
   installerLanguages: [ru_RU]
   language: "1049"
   # Key, chats and settings live in %APPDATA%\PRSLOY and survive uninstall / reinstall.
