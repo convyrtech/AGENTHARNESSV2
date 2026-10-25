@@ -546,3 +546,99 @@ e2e `features-first-hour.spec.ts`: настоящий первый запуск 
 - ui: на пустом экране «РИС. 01 — КОД»; два ряда похожих стартов («Сайт-визитка для моего дела» и «Визитка», два бота).
 - ui: при открытом превью у переключателя доступа остаётся только значок щита, без слова.
 - harness: «Запомнил: Не программист: объяснять…» — два двоеточия подряд.
+
+## Этап 7b · Первый час с настройками по умолчанию: память, «замечать само», статус хода
+
+Те же проходы на main, где память, «Замечать важное само» и карточка статуса хода включены по умолчанию. Плюс пятый
+проход: человек мимоходом говорит, что ему нравится, — сценарный шлюз отвечает экстрактору памяти core (запрос без
+инструментов с `{"ops":[…]}`), как ответила бы модель. Скриншоты `features-first-hour-15-defaults-turn.png` …
+`-17-noticed-in-settings.png`.
+
+Что видит новичок:
+
+- **Карточки памяти первый час не захламляют.** В проходах 1, 3 и 4 их нет вовсе. В проходе 2 одна, по просьбе
+  человека («Запомни…»).
+- **Карточка «Заметил и запомнил» не доходит ни до кого.** «Сделай сайт для пекарни, только без анимаций — терпеть не
+  могу…» → «Новый чат» → экстрактор записал «Сайты без анимаций…» в память (видно в «Память» с пометкой «заметил сам»).
+  Но карточка не появилась ни в новом чате, ни после первого сообщения там, ни в старом чате — человек не узнаёт, что
+  агент что-то запомнил. Передано core (M-3b: `note` уходит в чат, который ещё не создан).
+- **Проверка цитаты отбивает естественные формулировки.** Экстрактор (как модель) пишет «Сайты делать без анимаций»,
+  «Не любит анимации», «Не делать анимаций на сайтах» к словам «без анимаций — терпеть не могу, когда всё прыгает» —
+  все три отказаны как «not-linked». Проходит только «Без анимаций» или длинная почти-цитата. Передано core (#13).
+- **«ⓘ Нечем проверить» под каждым ходом с сайтом**, а у бота «Программу запускал — работает · Нечем проверить».
+  Новичку непонятно: это ошибка? что проверять? Передано harness.
+- **Повтор ответа в старом чате.** В живом ходе ответ один, в том же чате, открытом заново из боковой панели, — дважды, и
+  «Готово за 0 с» становится «Готово за 13 с». Может быть особенностью сценарного шлюза. Передано harness и ui с этой
+  оговоркой.
+- **Текст в «Память» был неправдой** при «замечать само»: «только когда вы сами просите». Исправлено: при включённом
+  «Замечать важное само» — «Агент запоминает, когда вы просите, и сам замечает важное в ваших словах. Пароли и ключи не
+  запоминает. Ниже видно, что он запомнил, — любое можно забыть.» (`MemorySection`, тест на оба режима).
+
+## Этап 8 · Первый час — каждую ночь (research/28 §5)
+
+`apps/desktop/scripts/first-hour-nightly.mjs`: пять проходов `features-first-hour.spec.ts` на сценарном шлюзе (без
+ключа, без токенов). Результат — одна папка для артефакта:
+
+- `screens/*.png` — скриншоты;
+- `seen.jsonl` — что было на экране в момент каждого скриншота: карточки в чате, открытое окно, последний ответ;
+- `NOVICE.md` — «что видит новичок»: по каждому проходу «прошёл / сломалось (где)» и по каждому скриншоту его карточки,
+  окно и ответ;
+- `results.json` — отчёт Playwright.
+
+Код выхода — как у проходов: красный, если проход сломался. Отчёт пишется в любом случае.
+
+```
+xvfb-run -a node scripts/first-hour-nightly.mjs --out first-hour-out [--no-build]
+```
+
+Workflow — у потока ci (я `.github/workflows` не трогаю), предлагаемый `desktop-first-hour.yml`:
+
+```yaml
+name: desktop-first-hour
+on:
+  schedule:
+    - cron: "43 1 * * *" # 04:43 МСК, после desktop-audit
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: desktop-first-hour
+  cancel-in-progress: false
+defaults:
+  run:
+    working-directory: app
+jobs:
+  first-hour:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11.15.1
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: app/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm electron:install
+      - run: pnpm build:desktop
+      # Ubuntu 24.04: AppArmor blocks the unprivileged user namespaces Chromium's sandbox needs
+      - name: Allow Electron's sandbox
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+      - name: First hour (fake gateway, no key)
+        working-directory: app/apps/desktop
+        run: xvfb-run -a node scripts/first-hour-nightly.mjs --no-build --out "$RUNNER_TEMP/first-hour"
+      - name: Summary
+        if: always()
+        run: cat "$RUNNER_TEMP/first-hour/NOVICE.md" >> "$GITHUB_STEP_SUMMARY" || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: first-hour-${{ github.run_id }}
+          path: ${{ runner.temp }}/first-hour
+          retention-days: 14
+```
+
+Установка — как в job `e2e` у `desktop-ci.yml`: `electron:install`, `build:desktop`, снятие ограничения AppArmor.

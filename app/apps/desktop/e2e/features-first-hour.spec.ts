@@ -1,13 +1,13 @@
 import { expect, test, type Page } from "@playwright/test";
 import { _electron as electron, type ElectronApplication } from "playwright";
-import { existsSync, readFileSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { homedir, tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { GOOD_KEY, scriptedGateway, type ScriptRule } from "./first-hour-gateway.ts";
-import { shot } from "./features-helpers.ts";
+import { shot as docsShot } from "./features-helpers.ts";
 
 /**
  * A novice's first hour, live-like: the real first run (key → folder), the real PRSLOY provider and
@@ -15,6 +15,46 @@ import { shot } from "./features-helpers.ts";
  * One journey per test, each ending in a screenshot (docs/prsloy/screens/features-first-hour-*.png).
  * What a person who never programmed trips over is written down in STATUS-features.md.
  */
+/**
+ * Nightly (scripts/first-hour-nightly.mjs): with FIRST_HOUR_OUT set, screenshots go there instead of the docs,
+ * and each one also records what a novice sees at that moment — the cards in the chat and the last reply — in
+ * seen.jsonl, which the script turns into NOVICE.md («что видит новичок»).
+ */
+const OUT = process.env.FIRST_HOUR_OUT?.trim() || undefined;
+
+async function shot(page: Page, name: string): Promise<void> {
+  if (!OUT) {
+    await docsShot(page, name);
+    return;
+  }
+  mkdirSync(join(OUT, "screens"), { recursive: true });
+  await page.waitForTimeout(300);
+  await page.screenshot({ path: join(OUT, "screens", `${name}.png`) });
+  const seen = await page.evaluate(() => {
+    const text = (el: Element) => (el as HTMLElement).innerText.replace(/\s+/gu, " ").trim();
+    const cards = [
+      ...document.querySelectorAll('[data-kind="system"], [data-testid="turn-status"]'),
+    ]
+      .map(text)
+      .filter(Boolean);
+    const dialog = document.querySelector('[role="dialog"], [role="alertdialog"]');
+    // The reply without its trailing time («вс 20:56»).
+    const replies = [...document.querySelectorAll('[data-kind="assistant"]')].map((el) =>
+      text(el).replace(/\s+\S{2}\s+\d{1,2}:\d{2}$/u, ""),
+    );
+    return {
+      title: document.querySelector("h1, h2")?.textContent?.trim() ?? "",
+      cards: [...new Set(cards)].slice(0, 12),
+      dialog: dialog ? text(dialog) : "",
+      reply: replies.at(-1) ?? "",
+    };
+  });
+  appendFileSync(
+    join(OUT, "seen.jsonl"),
+    `${JSON.stringify({ shot: name, test: test.info().title, ...seen })}\n`,
+  );
+}
+
 const require = createRequire(import.meta.url);
 const electronBinary = require("electron") as string;
 const APP = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -29,7 +69,11 @@ type Novice = {
 };
 
 /** A fresh computer: no key, no project. `flags` go to the harness flags file before the start. */
-async function launchNovice(rules: ScriptRule[], flags: Record<string, unknown> = {}) {
+async function launchNovice(
+  rules: ScriptRule[],
+  flags: Record<string, unknown> = {},
+  extractor?: { ops: Record<string, unknown>[] },
+) {
   const root = await mkdtemp(join(tmpdir(), "prsloy-first-hour-"));
   const home = join(root, "home");
   const userData = join(root, "userData");
@@ -47,7 +91,7 @@ async function launchNovice(rules: ScriptRule[], flags: Record<string, unknown> 
     await writeFile(join(agentDir, "prsloy-harness.json"), JSON.stringify(flags));
   }
   const bodies: string[] = [];
-  const server = scriptedGateway(rules, bodies);
+  const server = scriptedGateway(rules, bodies, extractor);
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   const { port } = server.address() as { port: number };
   await writeFile(
@@ -393,6 +437,58 @@ test("4 · the agent hits a wall: «Не получилось: …» with ready 
       timeout: 90_000,
     });
     await shot(page, "first-hour-14-answered");
+  } finally {
+    await n.close();
+  }
+});
+
+test("5 · defaults on (memory, «замечать само», turn status): a liking said in passing is remembered after «Новый чат»", async () => {
+  test.setTimeout(300_000);
+  const said = "без анимаций — терпеть не могу, когда всё прыгает";
+  const n = await launchNovice(
+    [
+      {
+        when: "сайт для пекарни",
+        steps: [
+          { tools: [{ name: "write", args: { path: "index.html", content: LIGHT } }] },
+          { text: "Готово: сделал страницу пекарни, без анимаций." },
+        ],
+      },
+    ],
+    {},
+    {
+      ops: [
+        {
+          op: "add",
+          scope: "user",
+          kind: "preference",
+          // Core's quote check (#13) refuses «Сайты делать без анимаций» / «Не любит анимации»:
+          // reported. This wording passes it.
+          text: "Сайты без анимаций: терпеть не может, когда всё прыгает",
+          quote: said,
+        },
+      ],
+    },
+  );
+  const page = n.page;
+  try {
+    await firstRun(n);
+    await ask(page, `Сделай сайт для пекарни, только ${said}`, "без анимаций.");
+    await shot(page, "first-hour-15-defaults-turn");
+    await page.getByText("Новый чат").first().click();
+    // Leaving the chat runs the extractor (core's M-3b): the liking is written to the memory. Its
+    // «Заметил и запомнил» card reaches neither chat today (reported to core), so the person learns it
+    // only in Settings → «Память».
+    await page.waitForTimeout(8000);
+    await expect(page.getByTestId("memory-card")).toHaveCount(0);
+    await shot(page, "first-hour-16-new-chat-silent");
+    await page.getByTestId("nav-settings").click();
+    await page.getByTestId("settings-nav-memory").click();
+    const user = page.getByTestId("memory-user");
+    await expect(user).toContainText("Сайты без анимаций", { timeout: 60_000 });
+    await expect(user).toContainText("заметил сам");
+    await expect(page.getByTestId("memory-hint")).toContainText("сам замечает важное");
+    await shot(page, "first-hour-17-noticed-in-settings");
   } finally {
     await n.close();
   }

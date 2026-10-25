@@ -140,6 +140,8 @@ export function MemorySection(props: { tr: Tr; locale: Locale; workspace: string
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | undefined>();
   const [confirming, setConfirming] = useState(false);
+  // Turning memory off erases it in main (eraseMemory): asked first when something is remembered.
+  const [confirmingOff, setConfirmingOff] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -196,7 +198,8 @@ export function MemorySection(props: { tr: Tr; locale: Locale; workspace: string
   return (
     <SettingsPageShell title={tr("features.memory.section")} testId="settings-memory">
       <p className="memory-note" data-testid="memory-hint">
-        {tr("features.memory.hint")}
+        {/* «Замечать важное само» is on by default now: «only when you ask» would not be true. */}
+        {tr(flags?.autoMemory === true ? "features.memory.hintAuto" : "features.memory.hint")}
       </p>
       <SettingsSectionBlock label={tr("features.memory.section")} showLabel={false}>
         <SettingsRow
@@ -206,7 +209,13 @@ export function MemorySection(props: { tr: Tr; locale: Locale; workspace: string
             <SettingsToggle
               checked={enabled ?? false}
               disabled={enabled === undefined}
-              onChange={(on) => void setFlag({ memory: on })}
+              onChange={(on) => {
+                const remembered = snapshot
+                  ? snapshot.user.length + snapshot.project.length > 0
+                  : false;
+                if (!on && remembered) setConfirmingOff(true);
+                else void setFlag({ memory: on });
+              }}
               testId="settings-memory-toggle"
               aria-label={tr("features.memory.toggle")}
             />
@@ -222,7 +231,7 @@ export function MemorySection(props: { tr: Tr; locale: Locale; workspace: string
           last
           control={
             <SettingsToggle
-              checked={flags?.autoMemory === true}
+              checked={enabled === true && flags?.autoMemory === true}
               disabled={!enabled}
               onChange={(on) => {
                 void setFlag({ autoMemory: on ? true : "off" });
@@ -362,6 +371,22 @@ export function MemorySection(props: { tr: Tr; locale: Locale; workspace: string
           if (api) void run(() => api.forgetAll());
         }}
         onCancel={() => setConfirming(false)}
+      />
+      <ConfirmDialog
+        open={confirmingOff}
+        title={tr("features.memory.offConfirmTitle")}
+        message={tr("features.memory.offConfirmMessage")}
+        confirmLabel={tr("features.memory.offConfirm")}
+        cancelLabel={tr("common.cancel")}
+        danger
+        testId="memory-off-confirm"
+        onConfirm={() => {
+          setConfirmingOff(false);
+          void setFlag({ memory: false }).then(() => {
+            if (api) void run(() => api.list(workspace));
+          });
+        }}
+        onCancel={() => setConfirmingOff(false)}
       />
     </SettingsPageShell>
   );

@@ -346,6 +346,12 @@
   min-width: 0;
   font-size: 13px;
 }
+.memory-auto-entry-inline .memory-auto-text {
+  font-size: inherit;
+}
+.memory-auto-icon {
+  color: var(--muted-foreground);
+}
 .memory-auto-done {
   font-size: 12px;
   color: var(--muted-foreground);

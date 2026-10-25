@@ -27,6 +27,9 @@ export const featuresZh = {
   "features.memory.empty": "暂无内容。",
   "features.memory.forget": "忘记",
   "features.memory.forgetAll": "全部忘记",
+  "features.memory.offConfirmTitle": "关闭记忆？",
+  "features.memory.offConfirmMessage": "代理记住的关于你和项目的一切都会被清除，无法撤销。",
+  "features.memory.offConfirm": "关闭并清除",
   "features.memory.confirmTitle": "全部忘记？",
   "features.memory.confirmMessage": "忘记 PRSLOY 记住的关于你和所有项目的一切？无法撤销。",
   "features.memory.forgotten": "最近忘记的",
@@ -53,7 +56,7 @@ export const featuresZh = {
   "features.proc.logEmpty": "暂无输出。",
   "features.proc.notOurs": "此进程不是从这个窗口启动的，无法在这里停止。",
   "features.proc.stillRunning": "无法停止：进程仍在运行。",
-  "features.recipes.title": "或者从配方开始",
+  "features.recipes.title": "从配方开始",
   "features.recipes.hint": "回答几个问题：PRSLOY 会创建带模板的项目文件夹并开始工作。",
   "features.recipes.start": "开始",
   "features.recipes.cancel": "取消",
@@ -102,6 +105,8 @@ export const featuresZh = {
   "features.secret.placeholder": "粘贴密钥",
   "features.secret.note": "密钥保存在项目文件夹的 .env 文件里，不会发给模型，也不会出现在对话里。",
   "features.secret.save": "保存",
+  "features.memory.hintAuto":
+    "助手会记住你让它记的，也会自己从你的话里注意到重要的事。不记密码和密钥。下面能看到它记了什么，也可以让它忘掉。",
   "features.memory.autoToggle": "自动注意重要内容",
   "features.memory.autoToggleHint":
     "代理会从你自己的话中记住重要内容：怎么回答、你喜欢什么、项目决定。绝不从文件或网站记忆。",
@@ -249,6 +254,6 @@ export const featuresZh = {
   "features.web.firstRun.skip": "以后再说",
   "features.web.firstRun.later": "之后可以在「设置 → 搜索网络」里更改，也可以添加别的搜索的密钥。",
   "features.web.limit.title": "{name}：{reason}",
-  "features.web.limit.hint": "助手已经改用别的搜索继续。添加密钥，或选择别的搜索。",
+  "features.web.limit.hint": "助手已经改用别的搜索继续。",
   "features.web.limit.choose": "选择别的搜索",
 } as const;

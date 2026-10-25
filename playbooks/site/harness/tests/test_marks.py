@@ -32,19 +32,21 @@ class Marks(unittest.TestCase):
     def test_vision_rung(self):
         ladder = ["a6p/deepseek-v4.1-flash-1017", "a6p/kimi-k3.1-pro", "a6p/qwen3.8-max", "a6p/claude-opus-5-5"]
         vm = self.g["vision_model"]
-        self.assertEqual(vm(ladder, 0), "a6p/kimi-k3.1-pro")
-        self.assertEqual(vm(ladder, 2), "a6p/claude-opus-5-5")          # qwen не видит картинки
+        # research/28 §4.4: a visual role is Opus-class at least — Kimi «sees» differences in 12.8 % of identical pairs
+        self.assertEqual(vm(ladder, 0), "a6p/claude-opus-5-5")
+        self.assertEqual(vm(ladder, 2), "a6p/claude-opus-5-5")
         self.assertEqual(vm(ladder, 3), "a6p/claude-opus-5-5")
-        self.assertEqual(vm(["a6p/qwen3.8-max", "a6p/kimi-k3.1-pro"], 1), "a6p/kimi-k3.1-pro")
-        self.assertEqual(vm(["a6p/qwen3.8-max"], 0), "a6p/qwen3.8-max")   # без зрения в лестнице — как было
+        self.assertEqual(vm(["a6p/qwen3.8-max", "a6p/gpt-6.1-sol"], 0), "a6p/gpt-6.1-sol")
+        self.assertEqual(vm(["a6p/qwen3.8-max", "a6p/kimi-k3.1-pro"], 1), "a6p/kimi-k3.1-pro")  # nothing better: as was
+        self.assertEqual(vm(["a6p/qwen3.8-max"], 0), "a6p/qwen3.8-max")
 
 
     def test_the_real_ladder_with_kimi_in_the_gateway(self):
-        # 2026-10-25 12:54: kimi-k3.1-pro is in the gateway's /v1/models again — marks go to Kimi, not Opus
+        # kimi-k3.1-pro is in the gateway's /v1/models: marks still go to Opus (research/28 §4.4)
         cfg = json.loads((HERE / "stages.json").read_text(encoding="utf-8"))
         cfg = self.g["fit_ladder"](cfg, ["deepseek-v4.1-flash-1017", "kimi-k3.1-pro", "qwen3.8-max", "claude-opus-5-5"])
         start = cfg["defaults"].get("start", 0)
-        self.assertEqual(self.g["vision_model"](cfg["ladder"], start), "a6p/kimi-k3.1-pro")
+        self.assertEqual(self.g["vision_model"](cfg["ladder"], start), "a6p/claude-opus-5-5")
         # without Kimi in the gateway: Opus
         cfg = json.loads((HERE / "stages.json").read_text(encoding="utf-8"))
         cfg = self.g["fit_ladder"](cfg, ["qwen3.8-max", "claude-opus-5-5"])

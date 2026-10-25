@@ -30,6 +30,10 @@ export const featuresRu: Record<keyof typeof featuresZh, string> = {
   "features.memory.empty": "Пока пусто.",
   "features.memory.forget": "Забыть",
   "features.memory.forgetAll": "Забыть всё",
+  "features.memory.offConfirmTitle": "Выключить память?",
+  "features.memory.offConfirmMessage":
+    "Всё, что агент запомнил о вас и проектах, сотрётся. Вернуть не получится.",
+  "features.memory.offConfirm": "Выключить и стереть",
   "features.memory.confirmTitle": "Забыть всё?",
   "features.memory.confirmMessage":
     "Забыть всё, что PRSLOY помнит о вас и проектах? Отменить нельзя.",
@@ -57,7 +61,7 @@ export const featuresRu: Record<keyof typeof featuresZh, string> = {
   "features.proc.logEmpty": "Пока ничего не написал.",
   "features.proc.notOurs": "Этот процесс запущен не из этого окна, остановить его здесь нельзя.",
   "features.proc.stillRunning": "Не получилось остановить: процесс ещё работает.",
-  "features.recipes.title": "Или начните с рецепта",
+  "features.recipes.title": "Начните с рецепта",
   "features.recipes.hint":
     "Ответьте на пару вопросов — PRSLOY создаст папку проекта с заготовкой и сам начнёт работу.",
   "features.recipes.start": "Начать",
@@ -109,6 +113,8 @@ export const featuresRu: Record<keyof typeof featuresZh, string> = {
   "features.secret.note":
     "Ключ сохранится в файле .env в папке проекта. Модели он не отправляется и в чате не появится.",
   "features.secret.save": "Сохранить",
+  "features.memory.hintAuto":
+    "Агент запоминает, когда вы просите, и сам замечает важное в ваших словах. Пароли и ключи не запоминает. Ниже видно, что он запомнил, — любое можно забыть.",
   "features.memory.autoToggle": "Замечать важное само",
   "features.memory.autoToggleHint":
     "Агент сам запоминает важное из ваших слов: как отвечать, что вам нравится, решения проекта. Из файлов и сайтов — никогда.",
@@ -262,7 +268,6 @@ export const featuresRu: Record<keyof typeof featuresZh, string> = {
   "features.web.firstRun.later":
     "Это можно поменять потом: Настройки → «Поиск в интернете». Там же — ключи других поисков.",
   "features.web.limit.title": "{name}: {reason}",
-  "features.web.limit.hint":
-    "Агент продолжил другим поиском. Добавьте ключ или выберите другой поиск.",
+  "features.web.limit.hint": "Агент продолжил другим поиском.",
   "features.web.limit.choose": "Выбрать другой поиск",
 };

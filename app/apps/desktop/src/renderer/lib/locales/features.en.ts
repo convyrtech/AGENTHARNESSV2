@@ -29,6 +29,10 @@ export const featuresEn: Record<keyof typeof featuresZh, string> = {
   "features.memory.empty": "Nothing yet.",
   "features.memory.forget": "Forget",
   "features.memory.forgetAll": "Forget everything",
+  "features.memory.offConfirmTitle": "Turn memory off?",
+  "features.memory.offConfirmMessage":
+    "Everything the agent remembered about you and your projects will be erased. This cannot be undone.",
+  "features.memory.offConfirm": "Turn off and erase",
   "features.memory.confirmTitle": "Forget everything?",
   "features.memory.confirmMessage":
     "Forget everything PRSLOY remembers about you and your projects? This can't be undone.",
@@ -57,7 +61,7 @@ export const featuresEn: Record<keyof typeof featuresZh, string> = {
   "features.proc.notOurs":
     "This process wasn't started from this window, so it can't be stopped here.",
   "features.proc.stillRunning": "Couldn't stop it: the process is still running.",
-  "features.recipes.title": "Or start from a recipe",
+  "features.recipes.title": "Start from a recipe",
   "features.recipes.hint":
     "Answer a couple of questions: PRSLOY makes a project folder with a starter and gets to work.",
   "features.recipes.start": "Start",
@@ -109,6 +113,8 @@ export const featuresEn: Record<keyof typeof featuresZh, string> = {
   "features.secret.note":
     "The key is saved in the .env file in the project folder. It is not sent to the model and does not appear in the chat.",
   "features.secret.save": "Save",
+  "features.memory.hintAuto":
+    "The agent remembers what you ask it to and notices what matters in your words by itself. It never remembers passwords or keys. Below you can see what it remembers and make it forget.",
   "features.memory.autoToggle": "Notice what matters by myself",
   "features.memory.autoToggleHint":
     "The agent remembers what matters from your own words: how to answer, what you like, project decisions. Never from files or sites.",
@@ -263,7 +269,6 @@ export const featuresEn: Record<keyof typeof featuresZh, string> = {
   "features.web.firstRun.later":
     "You can change this later in Settings → «Web search» and add keys for other searches there.",
   "features.web.limit.title": "{name}: {reason}",
-  "features.web.limit.hint":
-    "The agent went on with another search. Add a key or choose a different search.",
+  "features.web.limit.hint": "The agent went on with another search.",
   "features.web.limit.choose": "Choose another search",
 };

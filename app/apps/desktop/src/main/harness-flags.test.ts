@@ -10,7 +10,7 @@ const DEFAULTS = {
   honestExit: false,
   testGuard: false,
   claimCheck: false,
-  webTools: false,
+  webTools: true,
 } as const;
 
 vi.mock("electron", () => ({ app: { getPath: () => tmpdir() }, ipcMain: { handle: vi.fn() } }));
@@ -78,11 +78,12 @@ describe("harness flags (prsloy-harness.json)", () => {
     expect(() => writeHarnessFlags(path, { honestExit: "on" })).toThrow();
   });
 
-  it("webTools (issue #23): web_search and web_fetch in «Код», off until measured, a boolean", () => {
+  it("webTools (issue #23): web_search and web_fetch in «Код», on by default (alpha.2), a hand-set false stays", () => {
     const path = harnessFlagsPath(mkdtempSync(join(tmpdir(), "flags-")));
+    expect(readHarnessFlags(path).webTools).toBe(true);
+    expect(writeHarnessFlags(path, { webTools: false })).toEqual({ ...DEFAULTS, webTools: false });
+    expect(JSON.parse(readFileSync(path, "utf8"))).toEqual({ webTools: false });
     expect(readHarnessFlags(path).webTools).toBe(false);
-    expect(writeHarnessFlags(path, { webTools: true })).toEqual({ ...DEFAULTS, webTools: true });
-    expect(JSON.parse(readFileSync(path, "utf8"))).toEqual({ webTools: true });
     expect(() => writeHarnessFlags(path, { webTools: "on" })).toThrow();
   });
 

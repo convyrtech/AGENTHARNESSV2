@@ -62,9 +62,14 @@ test("a memory card in the chat and the «Память» settings", async () => 
     expect(after.entries).toEqual([]);
     expect(after.tombstones).toHaveLength(1);
 
-    // Turning it off by hand is written and stays (it also erases the memory, research/24 §3.6).
+    // Nothing remembered now: the switch turns memory off at once and writes false.
     await toggle.click();
+    await expect(page.getByTestId("memory-off-confirm")).toHaveCount(0);
     await expect(toggle).toHaveAttribute("aria-checked", "false");
+    await expect(page.getByTestId("settings-memory-auto-toggle")).toHaveAttribute(
+      "aria-checked",
+      "false",
+    );
     const flags = JSON.parse(await readFile(join(agentDir, "prsloy-harness.json"), "utf8"));
     expect(flags.memory).toBe(false);
     await shot(page, "memory-3-settings-after");

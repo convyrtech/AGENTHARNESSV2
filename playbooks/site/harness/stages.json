@@ -2,7 +2,7 @@
  "_doc": "Шаг пайплайна → модель, бюджет, правила. Читает run.py. Лестница: дешевле вверху; при провале шага харнесс поднимается на ступень и пишет причину в ledger. Модели вкуса — Kimi K3.1 Pro (E8p: лучшая типографика, своя работа), механика — DeepSeek (E8b/E8d), судья — Opus (judge.py).",
  "ladder": ["a6p/deepseek-v4.1-flash-1017", "a6p/kimi-k3.1-pro", "a6p/qwen3.8-max", "a6p/claude-opus-5-5"],
  "family": {"deepseek": "deepseek", "kimi": "moonshot", "qwen": "alibaba", "claude": "anthropic", "gpt": "openai"},
- "judge": {"model": "claude-opus-5-5", "max_rounds": 3},
+ "judge": {"model": "claude-opus-5-5", "max_rounds": 3, "max_images": 3},
  "checker_retries": 2,
  "max_stages_per_turn": 8,
  "defaults": {"start": 0, "max_attempts": 2, "max_calls": 70, "max_minutes": 30, "same_call_limit": 3, "edits_without_check": 15},

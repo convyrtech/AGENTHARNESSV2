@@ -118,6 +118,8 @@ export class DesignService {
   readonly #venv: string;
   readonly #runs = new Map<string, Run>();
   readonly #workspaces = new Map<string, string>();
+  /** The archive each workspace last saved through «Скачать архив» (for «Показать в папке»). */
+  readonly #exported = new Map<string, string>();
   readonly #previews = new Map<string, PreviewServer>();
   /** «Править»: the same `site/` with the inspector and source marks, only while editing. */
   readonly #editPreviews = new Map<string, PreviewServer>();
@@ -800,7 +802,14 @@ export class DesignService {
     const res = win ? await dialog.showSaveDialog(win, opts) : await dialog.showSaveDialog(opts);
     if (res.canceled || !res.filePath) return null;
     writeFileSync(res.filePath, zipDirectory(site, "site"));
+    this.#exported.set(ws, res.filePath);
     return { path: res.filePath };
+  }
+
+  /** «Показать в папке» after «Скачать архив»: only a path main itself saved, never one from the renderer. */
+  revealExport(projectPath: string | undefined): void {
+    const path = this.#exported.get(this.workspace(projectPath));
+    if (path && existsSync(path)) shell.showItemInFolder(path);
   }
 
   /** «Открыть в браузере»: only the address of our own loopback preview server, never one from the renderer. */
@@ -974,6 +983,10 @@ export function registerDesignIpc(deps: DesignServiceDeps): DesignService {
   ipcMain.handle(
     "prsloy:design:export-zip",
     guard((p: unknown) => svc.exportZip(projectArg(p))),
+  );
+  ipcMain.handle(
+    "prsloy:design:reveal-export",
+    guard((p: unknown) => svc.revealExport(projectArg(p))),
   );
   // index.ts quits through before-quit → app.exit(), which never emits will-quit.
   app.on("before-quit", () => svc.dispose());

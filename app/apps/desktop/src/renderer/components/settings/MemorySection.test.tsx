@@ -71,6 +71,22 @@ describe("Settings → Память", () => {
     await waitFor(() => expect(toggle.getAttribute("aria-checked")).toBe("true"));
   });
 
+  it("the intro says the agent also notices by itself when «Замечать важное само» is on", async () => {
+    flags.get.mockResolvedValue({ secondOpinion: true, memory: true, autoMemory: true });
+    render(<MemorySection tr={tr} locale="ru" workspace={undefined} />);
+    await waitFor(() =>
+      expect(screen.getByTestId("memory-hint").textContent).toContain("сам замечает важное"),
+    );
+    cleanup();
+    flags.get.mockResolvedValue({ secondOpinion: true, memory: true, autoMemory: "off" });
+    render(<MemorySection tr={tr} locale="ru" workspace={undefined} />);
+    await waitFor(() =>
+      expect(screen.getByTestId("memory-hint").textContent).toContain(
+        "только когда вы сами просите",
+      ),
+    );
+  });
+
   it("says so while main has no memory yet", () => {
     (window as unknown as { zeno: unknown }).zeno = { harnessFlags: flags };
     render(<MemorySection tr={tr} locale="ru" workspace={undefined} />);
@@ -165,6 +181,33 @@ describe("Settings → Память, v2 (research/24 §3.6)", () => {
       expect(
         (screen.getByTestId("settings-memory-auto-toggle") as HTMLButtonElement).disabled,
       ).toBe(true),
+    );
+  });
+
+  it("turning memory off asks first when something is remembered (main erases it)", async () => {
+    flags.get.mockResolvedValue({ secondOpinion: true, memory: true, autoMemory: true });
+    render(<MemorySection tr={tr} locale="ru" workspace="/home/u/site" />);
+    await screen.findByTestId("memory-user");
+    const toggle = screen.getByTestId("settings-memory-toggle");
+    await waitFor(() => expect(toggle.getAttribute("aria-checked")).toBe("true"));
+    fireEvent.click(toggle);
+    const ask = screen.getByTestId("memory-off-confirm");
+    expect(ask.textContent).toContain("сотрётся");
+    expect(flags.set).not.toHaveBeenCalled();
+    fireEvent.click(within(ask).getByText("Отмена"));
+    expect(flags.set).not.toHaveBeenCalled();
+    fireEvent.click(toggle);
+    fireEvent.click(
+      within(screen.getByTestId("memory-off-confirm")).getByText("Выключить и стереть"),
+    );
+    await waitFor(() => expect(flags.set).toHaveBeenCalledWith({ memory: false }));
+    // the list is read again: what main erased is gone from the page
+    await waitFor(() => expect(api.list).toHaveBeenCalledTimes(2));
+    // «само» does not look on while memory is off
+    await waitFor(() =>
+      expect(screen.getByTestId("settings-memory-auto-toggle").getAttribute("aria-checked")).toBe(
+        "false",
+      ),
     );
   });
 });

@@ -181,6 +181,8 @@ export interface DesignApi {
   importTools(): Promise<{ ok: true } | { ok: false; error: string } | null>;
   /** «Скачать архив»: zip of site/ through a save dialog; null when cancelled or nothing built. */
   exportZip(projectPath: string | undefined): Promise<{ path: string } | null>;
+  /** «Показать в папке»: the archive this project last saved, selected in the file manager. */
+  revealExport(projectPath: string | undefined): Promise<void>;
   onEvent(listener: (message: DesignEventMessage) => void): () => void;
   onSetup(listener: (progress: DesignSetupProgress) => void): () => void;
 }
