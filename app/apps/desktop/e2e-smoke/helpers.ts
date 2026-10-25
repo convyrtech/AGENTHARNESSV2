@@ -68,6 +68,13 @@ export interface LaunchOptions {
   args?: string[];
   /** Selector that means "launched" (default: app ready in test mode, key screen otherwise). */
   readySelector?: string;
+  /**
+   * Product mode: let the app check for updates and install one on quit. Off by default: a newer
+   * GitHub release (alpha.1 vs the alpha.0 under test) downloads in the background and its silent
+   * installer replaces the app when the test closes it — racing the next uninstall and leaving
+   * the later tests on the old release (#32). Only the update tests turn it on.
+   */
+  updates?: boolean;
   /** Extra env for the app, applied last (product mode strips ZENO_/PRSLOY_/PI_ before). */
   env?: Record<string, string>;
   /** Runs before launch with the userData dir (seed state files). */
@@ -206,6 +213,7 @@ export async function launch(label: string, options: LaunchOptions = {}): Promis
     });
   } else {
     for (const name of Object.keys(env)) if (/^(ZENO_|PRSLOY_|PI_)/i.test(name)) delete env[name];
+    if (!options.updates) env.PRSLOY_NO_UPDATE = "1";
   }
   if (options.hideGitBash) {
     const empty = join(root, "no-program-files");
