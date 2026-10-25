@@ -51,6 +51,7 @@ export const zh = {
   "turnStatus.checks-fail": "检查未通过",
   "turnStatus.stubs-left": "还留有占位代码",
   "turnStatus.tests-changed": "智能体改了原有的检查——请看一下",
+  "turnStatus.tests-weak": "新写的测试几乎什么都没检查——请看一下",
   "turnStatus.checks-pass": "检查通过",
   "turnStatus.page-ok": "页面打开无错误",
   "turnStatus.ran-ok": "运行过程序——能用",

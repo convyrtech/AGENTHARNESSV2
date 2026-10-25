@@ -51,6 +51,7 @@ export const en = {
   "turnStatus.checks-fail": "Checks failed",
   "turnStatus.stubs-left": "Stubs left in the code",
   "turnStatus.tests-changed": "The agent changed existing checks — take a look",
+  "turnStatus.tests-weak": "The new tests check almost nothing — take a look",
   "turnStatus.checks-pass": "Checks passed",
   "turnStatus.page-ok": "The page opened without errors",
   "turnStatus.ran-ok": "Ran the program — it works",

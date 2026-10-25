@@ -47,6 +47,7 @@ export const ru = {
   "turnStatus.checks-fail": "Проверки не прошли",
   "turnStatus.stubs-left": "Остались заглушки",
   "turnStatus.tests-changed": "Агент поменял старые проверки — посмотрите",
+  "turnStatus.tests-weak": "Новые тесты почти ничего не проверяют — посмотрите",
   "turnStatus.checks-pass": "Проверки прошли",
   "turnStatus.page-ok": "Страница открылась без ошибок",
   "turnStatus.ran-ok": "Программу запускал — работает",

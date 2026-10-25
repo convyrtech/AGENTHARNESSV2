@@ -16,6 +16,7 @@ export type TurnFact =
   | "checks-fail"
   | "stubs-left"
   | "tests-changed"
+  | "tests-weak"
   | "checks-pass"
   | "page-ok"
   | "ran-ok"
@@ -27,6 +28,7 @@ const ORDER: readonly TurnFact[] = [
   "checks-fail",
   "stubs-left",
   "tests-changed",
+  "tests-weak",
   "checks-pass",
   "page-ok",
   "ran-ok",
@@ -54,7 +56,8 @@ export function parseTurnStatus(details: unknown): TurnStatus | undefined {
 
 export function turnTone(facts: readonly TurnFact[]): TurnTone {
   if (facts.includes("checks-fail")) return "fail";
-  if (facts.includes("stubs-left") || facts.includes("tests-changed")) return "warn";
+  if (facts.some((f) => f === "stubs-left" || f === "tests-changed" || f === "tests-weak"))
+    return "warn";
   if (facts.some((f) => f === "checks-pass" || f === "page-ok" || f === "ran-ok")) return "ok";
   return "neutral";
 }
