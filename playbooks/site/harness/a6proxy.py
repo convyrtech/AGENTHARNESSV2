@@ -134,7 +134,7 @@ class H(http.server.BaseHTTPRequestHandler):
                 # Чтобы Pi не счёл тишину зависанием, шлём SSE-комментарии «: ping».
                 q = queue.Queue()
 
-                def reader(fp=r.fp, q=q):
+                def reader(fp=r, q=q):                 # сам ответ, не r.fp: он разбирает chunked (E9: Qwen рвал JSON)
                     try:
                         for ln in fp:
                             q.put(ln)

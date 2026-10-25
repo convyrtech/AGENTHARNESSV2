@@ -254,6 +254,7 @@ def run_stage(ws, gate, prompt, model, cfg, session):
         if e.get("type") != "message_end" or (e.get("message") or {}).get("role") != "assistant":
             continue
         m = e["message"]
+        st["error"] = (m.get("errorMessage") or "")[:200] if m.get("stopReason") == "error" else None
         u = m.get("usage") or {}
         st["in"] += u.get("input", 0) or 0
         st["out"] += u.get("output", 0) or 0
@@ -328,6 +329,7 @@ def say(a):
                 h.update(n=0, last=None, waiting_owner=False)
         ws.save()
     notes = list(ws.state.pop("carry_notes", []))
+    ws.state["transport_errors"] = 0
     for _ in range(CFG["max_stages_per_turn"]):
         if not judge_intact(ws):
             emit(ev="stuck", text="переписку судьи меняли не через харнесс: результат судьи не принимается")
@@ -375,6 +377,13 @@ def say(a):
         ws.ledger(kind="stage", gate=gate, model=model, attempt=hist["n"], **st,
                   end="owner" if TO_OWNER in final else ("ok" if ENDS_OK in final else "other"))
         notes = []
+        if st.get("error") and not final:
+            # обрыв у поставщика — не провал шага: та же ступень, попытка не считается (не больше 3 за ход)
+            ws.state["transport_errors"] = ws.state.get("transport_errors", 0) + 1
+            if ws.state["transport_errors"] <= 3:
+                hist["n"] -= 1
+                hist["last"] = None
+            emit(ev="note", text="связь с моделью оборвалась, повторяю шаг: " + st["error"][:120])
         if st["killed"]:
             notes.append(f"Прошлая сессия этого шага остановлена харнессом: {st['killed']}. Не повторяй то же; "
                          "сначала запусти flow.py и сделай то, что он называет.")
