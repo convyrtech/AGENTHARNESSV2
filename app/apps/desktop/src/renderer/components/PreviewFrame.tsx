@@ -3,7 +3,9 @@
  * and the «Код» side panel. The frame gets no preload and no IPC (main accepts IPC from the
  * main frame only), and main holds every subframe to loopback preview origins.
  */
+import { useEffect, useRef } from "react";
 import { t, type Locale } from "../lib/i18n.ts";
+import { type BridgeMessage, parseBridgeMessage, pickCommand } from "../lib/preview-bridge.ts";
 import { cn } from "../lib/utils.ts";
 
 export type PreviewDevice = "desktop" | "phone";
@@ -40,6 +42,25 @@ export function PreviewDeviceSwitch(props: {
   );
 }
 
+/**
+ * Talk with the script the «Код» preview server injects (`main/preview-bridge`). A message
+ * counts only when it comes from this frame's window and the preview's own origin; commands
+ * go to that origin only. Pages without the script (an agent's own server, «Дизайн») never
+ * say `ready`, so the caller shows no bridge controls for them.
+ */
+export type PreviewBridge = {
+  picking: boolean;
+  onMessage: (message: BridgeMessage) => void;
+};
+
+function originOf(url: string): string | undefined {
+  try {
+    return new URL(url).origin;
+  } catch {
+    return undefined;
+  }
+}
+
 export function PreviewStage(props: {
   locale: Locale;
   url: string;
@@ -52,10 +73,41 @@ export function PreviewStage(props: {
    */
   sandbox?: string;
   className?: string;
+  bridge?: PreviewBridge;
 }) {
+  const frameRef = useRef<HTMLIFrameElement>(null);
+  const hasBridge = props.bridge !== undefined;
+  const onMessage = useRef(props.bridge?.onMessage);
+  onMessage.current = props.bridge?.onMessage;
+  const picking = useRef(props.bridge?.picking ?? false);
+  picking.current = props.bridge?.picking ?? false;
+  const origin = originOf(props.url);
+
+  useEffect(() => {
+    if (!hasBridge || !origin) return;
+    const listener = (event: MessageEvent) => {
+      const frame = frameRef.current?.contentWindow;
+      if (!frame || event.source !== frame || event.origin !== origin) return;
+      const message = parseBridgeMessage(event.data);
+      if (!message) return;
+      // A page the frame moved to starts with picking off: repeat the owner's choice.
+      if (message.type === "ready" && picking.current) frame.postMessage(pickCommand(true), origin);
+      onMessage.current?.(message);
+    };
+    window.addEventListener("message", listener);
+    return () => window.removeEventListener("message", listener);
+  }, [hasBridge, origin]);
+
+  const pickingNow = props.bridge?.picking ?? false;
+  useEffect(() => {
+    if (!hasBridge || !origin) return;
+    frameRef.current?.contentWindow?.postMessage(pickCommand(pickingNow), origin);
+  }, [hasBridge, origin, pickingNow]);
+
   return (
     <div className={cn("design-preview-stage", props.className)} data-device={props.device}>
       <iframe
+        ref={frameRef}
         src={props.url}
         title={t(props.locale, "design.preview")}
         sandbox={props.sandbox ?? "allow-scripts"}

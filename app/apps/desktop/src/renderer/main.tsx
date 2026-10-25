@@ -3486,7 +3486,11 @@ function App() {
                 onOpenProject={(path) => void openWorkspacePath(path, { resumeRecent: true })}
               />
               {contentMode === "chat" ? (
-                <CodePreviewPanel locale={locale} sessionKey={sessionKey} />
+                <CodePreviewPanel
+                  locale={locale}
+                  sessionKey={sessionKey}
+                  composerRef={composerRef}
+                />
               ) : null}
             </div>
           </section>

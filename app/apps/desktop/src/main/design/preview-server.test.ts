@@ -4,7 +4,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 import {
+  BRIDGE_PATH,
   findEntry,
+  injectBridgeTag,
   type PreviewServer,
   previewServerPorts,
   startPreviewServer,
@@ -82,6 +84,39 @@ describe("project preview (hideDotfiles)", () => {
     await server.close();
     server = undefined;
     expect(previewServerPorts.has(port)).toBe(false);
+  });
+});
+
+describe("project preview (inject)", () => {
+  it("adds the bridge to HTML pages only and serves the bridge itself", async () => {
+    const { dir } = site();
+    server = await startPreviewServer(dir, { inject: "/*bridge*/" });
+    const page = await get(server.url, "/landing/");
+    expect(page.body).toBe(`<script src="${BRIDGE_PATH}"></script><h1>Зерно</h1>`);
+    expect((await get(server.url, "/landing/assets/a.css")).body).toBe("h1{}");
+    const bridge = await get(server.url, BRIDGE_PATH);
+    expect(bridge).toMatchObject({ status: 200, body: "/*bridge*/" });
+    expect(bridge.type).toMatch(/^text\/javascript/);
+  });
+
+  it("has no bridge without the option", async () => {
+    const { dir } = site();
+    server = await startPreviewServer(dir);
+    expect((await get(server.url, "/landing/")).body).toBe("<h1>Зерно</h1>");
+    expect((await get(server.url, BRIDGE_PATH)).status).toBe(404);
+  });
+
+  it("puts the tag first in <head>, so it hears the page's own first errors", () => {
+    expect(injectBridgeTag('<html lang="ru"><HEAD><script>x()</script></HEAD></html>')).toBe(
+      `<html lang="ru"><HEAD><script src="${BRIDGE_PATH}"></script><script>x()</script></HEAD></html>`,
+    );
+    expect(injectBridgeTag("<html><body>a</body></html>")).toBe(
+      `<html><script src="${BRIDGE_PATH}"></script><body>a</body></html>`,
+    );
+    // <header> is not <head>.
+    expect(injectBridgeTag("<header>a</header>")).toBe(
+      `<script src="${BRIDGE_PATH}"></script><header>a</header>`,
+    );
   });
 });
 

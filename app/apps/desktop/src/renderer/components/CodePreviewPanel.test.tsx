@@ -2,6 +2,7 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { closeCodePreview, openCodePreview } from "../lib/code-preview-store.ts";
+import { useShellStore } from "../store/shell-store.ts";
 import { CodePreviewPanel } from "./CodePreviewPanel.tsx";
 
 const open = vi.fn();
@@ -65,5 +66,71 @@ describe("CodePreviewPanel", () => {
     await screen.findByTestId("code-preview-frame");
     rerender(<CodePreviewPanel locale="ru" sessionKey="s2" />);
     expect(screen.queryByTestId("code-preview-panel")).toBeNull();
+  });
+});
+
+describe("CodePreviewPanel: «Выбрать на странице»", () => {
+  const URL_ = "http://127.0.0.1:41000/index.html";
+
+  async function openWithBridge() {
+    open.mockResolvedValue({ ok: true, url: URL_ });
+    const composerRef = { current: document.createElement("textarea") };
+    render(<CodePreviewPanel locale="ru" sessionKey="s1" composerRef={composerRef} />);
+    act(() => openCodePreview({ kind: "file", path: "index.html" }, "/p"));
+    const frame = (await screen.findByTestId("code-preview-frame")) as HTMLIFrameElement;
+    const posted: unknown[] = [];
+    vi.spyOn(frame.contentWindow!, "postMessage").mockImplementation((m: unknown) => {
+      posted.push(m);
+    });
+    const say = (data: unknown, origin = "http://127.0.0.1:41000", source = frame.contentWindow) =>
+      act(() => {
+        window.dispatchEvent(new MessageEvent("message", { data, origin, source }));
+      });
+    return { frame, posted, say };
+  }
+
+  it("shows no button until the page's script answers (an agent's server never does)", async () => {
+    const { say } = await openWithBridge();
+    expect(screen.queryByTestId("code-preview-pick")).toBeNull();
+    // Another origin or another window cannot switch it on.
+    say({ source: "prsloy-preview", type: "ready" }, "http://127.0.0.1:9");
+    say({ source: "prsloy-preview", type: "ready" }, "http://127.0.0.1:41000", window);
+    expect(screen.queryByTestId("code-preview-pick")).toBeNull();
+    say({ source: "prsloy-preview", type: "ready" });
+    expect(screen.getByTestId("code-preview-pick").textContent).toBe("Выбрать на странице");
+  });
+
+  it("turns picking on in the frame and puts the picked place into the composer", async () => {
+    const { posted, say } = await openWithBridge();
+    act(() => useShellStore.getState().setPrompt("сделай так"));
+    say({ source: "prsloy-preview", type: "ready" });
+    fireEvent.click(screen.getByTestId("code-preview-pick"));
+    expect(posted.at(-1)).toEqual({ source: "prsloy-host", type: "pick", active: true });
+    expect(screen.getByTestId("code-preview-pick").getAttribute("aria-pressed")).toBe("true");
+    say({
+      source: "prsloy-preview",
+      type: "picked",
+      tag: "button",
+      selector: "body > button",
+      path: "button.cta",
+      text: "Записаться",
+      html: "<button>Записаться</button>",
+      page: "/index.html",
+    });
+    const draft = useShellStore.getState().prompt;
+    expect(draft.startsWith("сделай так\n\n[Место на странице index.html]")).toBe(true);
+    expect(draft.endsWith("Что поменять здесь: ")).toBe(true);
+    expect(screen.getByTestId("code-preview-pick-note").textContent).toBe(
+      "Выбрано: «Записаться». Напишите внизу, что поменять.",
+    );
+    expect(posted.at(-1)).toEqual({ source: "prsloy-host", type: "pick", active: false });
+  });
+
+  it("Esc in the app cancels picking", async () => {
+    const { say } = await openWithBridge();
+    say({ source: "prsloy-preview", type: "ready" });
+    fireEvent.click(screen.getByTestId("code-preview-pick"));
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(screen.getByTestId("code-preview-pick").getAttribute("aria-pressed")).toBe("false");
   });
 });

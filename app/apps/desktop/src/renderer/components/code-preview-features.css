@@ -1,0 +1,36 @@
+/* «Код» preview tools from research 19 §1: «Выбрать на странице» and the like. */
+.code-preview-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+}
+.code-preview-tool {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  color: var(--foreground);
+  background: var(--canvas);
+  transition:
+    background 0.12s ease,
+    border-color 0.12s ease;
+}
+.code-preview-tool:hover {
+  background: var(--hover-fill);
+}
+.code-preview-tool[data-active="true"] {
+  border-color: var(--primary);
+  background: var(--hover-fill);
+}
+.code-preview-tools-note {
+  min-width: 0;
+  font-size: 12px;
+  color: var(--muted-foreground);
+}

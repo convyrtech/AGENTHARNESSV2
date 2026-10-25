@@ -3,12 +3,14 @@
  */
 
 import { designRu } from "./design.ru.ts";
+import { featuresRu } from "./features.ru.ts";
 
 export const ru = {
   "app.name": "PRSLOY",
   "timeline.thinking": "Размышления",
   "timeline.minimap": "Карта чата",
   ...designRu,
+  ...featuresRu,
   "timeline.minimapUser": "Ваше сообщение",
   "timeline.minimapAssistant": "Ответ агента",
   "timeline.toolRunning": "Выполняется",
