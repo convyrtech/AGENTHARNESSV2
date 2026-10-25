@@ -4,13 +4,14 @@
  * thinking and pictures stay behind and are only counted.
  */
 
-export const IMPORT_TOOLS = ["claude-code", "codex", "pi-cli"] as const;
+export const IMPORT_TOOLS = ["claude-code", "codex", "pi-cli", "opencode"] as const;
 export type ImportTool = (typeof IMPORT_TOOLS)[number];
 
 export const IMPORT_TOOL_LABELS: Record<ImportTool, string> = {
   "claude-code": "Claude Code",
   codex: "Codex",
   "pi-cli": "Pi",
+  opencode: "OpenCode",
 };
 
 export type ImportedTurn = {
@@ -60,6 +61,18 @@ export type ChatCandidate = {
   mtimeMs: number;
   /** Already brought over and unchanged since (by the import journal). */
   alreadyImported?: boolean;
+  /**
+   * For chats inside a shared database (OpenCode): what identifies this chat's version, used
+   * by the journal instead of the file's sha256 (the file changes with every other chat).
+   */
+  fingerprint?: string;
+};
+
+/** A source the scan could not read at all (an unknown database schema, a broken file). */
+export type SourceSkip = {
+  tool: ImportTool;
+  path: string;
+  reason: "unknown-schema" | "unreadable";
 };
 
 export type SkipReason = "continued" | "empty" | "no-project" | "busy" | "unreadable" | "already";

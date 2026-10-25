@@ -26,7 +26,14 @@ describe("paths", () => {
       claudeProjects: join("/c", "projects"),
       codexHome: "/x",
       piSessions: join("/h", ".pi", "agent", "sessions"),
+      opencodeData: join("/h", ".local", "share", "opencode"),
     });
+    expect(
+      sourceRoots({ USERPROFILE: "C:\\Users\\Пётр", XDG_DATA_HOME: "D:\\данные" }, "win32"),
+    ).toMatchObject({ opencodeData: join("D:\\данные", "opencode") });
+    expect(sourceRoots({ HOME: "/h", OPENCODE_DB: "/x/my.db" }, "linux").opencodeDb).toBe(
+      "/x/my.db",
+    );
     expect(sourceRoots({ HOME: "/h" }, "linux").claudeProjects).toBe(
       join("/h", ".claude", "projects"),
     );

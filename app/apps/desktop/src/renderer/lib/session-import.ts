@@ -11,6 +11,7 @@ export const IMPORT_TOOL_NAMES: Record<ImportToolId, string> = {
   "claude-code": "Claude Code",
   codex: "Codex",
   "pi-cli": "Pi",
+  opencode: "OpenCode",
 };
 /** At most this many chats in one go (Codex's limit). */
 export const IMPORT_MAX_CHATS = 50;

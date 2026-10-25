@@ -6,10 +6,15 @@
  */
 import { claudeCodeCandidate, claudeCodeFiles } from "./adapters/claude-code.ts";
 import { codexCandidate, codexFiles, codexTitles, richestPerChat } from "./adapters/codex.ts";
+import {
+  opencodeCandidates,
+  opencodeDatabases,
+  releaseOpenCodeSnapshots,
+} from "./adapters/opencode.ts";
 import { piCliCandidate, piCliFiles } from "./adapters/pi-cli.ts";
 import { isImported, type Ledger } from "./ledger.ts";
 import type { SourceRoots } from "./paths.ts";
-import { IMPORT_TOOLS, type ChatCandidate, type ImportTool } from "./types.ts";
+import { IMPORT_TOOLS, type ChatCandidate, type ImportTool, type SourceSkip } from "./types.ts";
 
 export const DEFAULT_DAYS = 30;
 export const DEFAULT_LIMIT = 50;
@@ -23,6 +28,8 @@ export type ScanResult = {
   counts: Record<ImportTool, ToolCount>;
   /** `candidateKey`s ticked by default. */
   selected: string[];
+  /** Sources that could not be read at all, with the reason; the rest of the scan went on. */
+  skipped: SourceSkip[];
 };
 
 export function candidateKey(candidate: Pick<ChatCandidate, "tool" | "sourceId">): string {
@@ -76,7 +83,18 @@ export async function scanSources(options: {
   const [claude, codexAll, pi] = found.map((list) =>
     list.filter((c): c is ChatCandidate => c !== undefined),
   ) as [ChatCandidate[], ChatCandidate[], ChatCandidate[]];
-  const candidates = [...claude, ...richestPerChat(codexAll), ...pi]
+  const opencode: ChatCandidate[] = [];
+  const skipped: SourceSkip[] = [];
+  try {
+    for (const db of opencodeDatabases(roots)) {
+      const result = opencodeCandidates(db);
+      opencode.push(...result.candidates);
+      if (result.skip) skipped.push(result.skip);
+    }
+  } finally {
+    releaseOpenCodeSnapshots();
+  }
+  const candidates = [...claude, ...richestPerChat(codexAll), ...pi, ...opencode]
     .map((c) => (isImported(ledger, c) ? { ...c, alreadyImported: true } : c))
     .sort((a, b) => b.updatedAt - a.updatedAt);
 
@@ -98,5 +116,5 @@ export async function scanSources(options: {
     .filter((c) => c.updatedAt >= since && !c.alreadyImported)
     .slice(0, limit)
     .map(candidateKey);
-  return { candidates, counts, selected };
+  return { candidates, counts, selected, skipped };
 }

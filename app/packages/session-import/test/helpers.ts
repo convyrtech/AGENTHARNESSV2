@@ -74,6 +74,7 @@ export async function fakeMachine(): Promise<{
     claudeProjects: join(home, ".claude", "projects"),
     codexHome: join(home, ".codex"),
     piSessions: join(home, ".pi", "agent", "sessions"),
+    opencodeData: join(home, ".local", "share", "opencode"),
   };
   await cp(join(FIXTURES, "claude-code", "projects"), roots.claudeProjects, { recursive: true });
   await cp(join(FIXTURES, "codex"), roots.codexHome, { recursive: true });

@@ -89,8 +89,8 @@
   (`crates/goose/src/recipe/mod.rs`, Apache License 2.0, Copyright (c) Block, Inc.). Код не копировался.
 - [yaml](https://github.com/eemeli/yaml) 2.9.0 — зависимость, собирается в main (frontmatter рецептов). ISC License,
   Copyright Eemeli Aro.
-- `packages/session-import/src/adapters/claude-code.ts`, `adapters/codex.ts`, `clean.ts` — перенос чатов Claude Code и
-  Codex по образцу TypeScript-адаптеров [cline/cline](https://github.com/cline/cline)
+- `packages/session-import/src/adapters/claude-code.ts`, `adapters/codex.ts`, `adapters/opencode.ts`, `sqlite-snapshot.ts`,
+  `clean.ts` — перенос чатов Claude Code, Codex и OpenCode (старая схема, снимок SQLite с WAL) по образцу TypeScript-адаптеров [cline/cline](https://github.com/cline/cline)
   (`sdk/packages/core/src/services/session-import/`, коммит `40c5d99`). Apache License 2.0, Copyright 2026 Cline Bot
   Inc.; текст лицензии — `licenses/cline-Apache-2.0.txt`. Взяты: восстановление активной ветки по `parentUuid`,
   пропуск `<synthetic>`-моделей, какие записи Codex — слова человека, а какие — подмешанный контекст, самый полный
@@ -103,3 +103,6 @@
   Copyright 2025 OpenAI.» Взяты: порядок названий (своё → от агента → первая строка, 120 знаков), список служебных
   обёрток, пропуск `continued-in`, журнал импорта с sha256, по умолчанию 30 дней и не больше 50 чатов. Изменено PRSLOY:
   перенесено с Rust на TypeScript, обёртки вырезаются в любом месте текста, журнал — свой JSON в папке данных PRSLOY.
+- `packages/session-import/src/adapters/opencode.ts` — текущая схема OpenCode (`session_v2`, `session_message`) прочитана
+  по определениям [sst/opencode](https://github.com/sst/opencode) (`packages/core/src/session/sql.ts`,
+  `packages/schema/src/session-message.ts`, коммит `450e7b9`). MIT License, Copyright (c) 2025 opencode. Код не копировался.

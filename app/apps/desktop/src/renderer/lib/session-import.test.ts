@@ -29,7 +29,11 @@ function chat(key: string, overrides: Partial<ImportChatSummary> = {}): ImportCh
 
 function scan(chats: ImportChatSummary[], selected: string[]): ImportScanResult {
   const zero = { chats: 0, projects: 0, recent: 0 };
-  return { counts: { "claude-code": zero, codex: zero, "pi-cli": zero }, chats, selected };
+  return {
+    counts: { "claude-code": zero, codex: zero, "pi-cli": zero, opencode: zero },
+    chats,
+    selected,
+  };
 }
 
 describe("session-import helpers", () => {

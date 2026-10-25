@@ -7,6 +7,7 @@
  */
 import { readClaudeCodeChat } from "./adapters/claude-code.ts";
 import { codexTitles, readCodexChat } from "./adapters/codex.ts";
+import { readOpenCodeChat, releaseOpenCodeSnapshots } from "./adapters/opencode.ts";
 import { readPiCliSession } from "./adapters/pi-cli.ts";
 import { candidateKey } from "./detect.ts";
 import { isImported, readLedger, writeLedger } from "./ledger.ts";
@@ -85,6 +86,8 @@ async function prepare(
   }
   let chat: ImportedChat | undefined;
   if (candidate.tool === "claude-code") chat = await readClaudeCodeChat(candidate.sourcePath);
+  else if (candidate.tool === "opencode")
+    chat = readOpenCodeChat(candidate.sourcePath, candidate.sourceId);
   else chat = await readCodexChat(candidate.sourcePath, await titles());
   if (!chat || chat.turns.length === 0) return "empty";
   const cwd = resolveProject(chat.cwd, { home: options.home });
@@ -106,12 +109,14 @@ export async function importChats(options: ImportOptions): Promise<ImportResult[
       const key = candidateKey(candidate);
       let result: ImportResult;
       try {
-        const before = await sha256File(candidate.sourcePath);
+        // a chat inside a shared database is versioned by its own fingerprint, read from a snapshot
+        const version = () => candidate.fingerprint ?? sha256File(candidate.sourcePath);
+        const before = await version();
         if (isImported(ledger, candidate, before)) {
           result = { key, status: "skipped", reason: "already" };
         } else {
           const prepared = await prepare(candidate, before, options, titles);
-          const after = await sha256File(candidate.sourcePath);
+          const after = await version();
           if (typeof prepared === "string") result = { key, status: "skipped", reason: prepared };
           else if (after !== before) result = { key, status: "skipped", reason: "busy" };
           else {
@@ -146,6 +151,7 @@ export async function importChats(options: ImportOptions): Promise<ImportResult[
     }
     return results;
   } finally {
+    releaseOpenCodeSnapshots();
     running = false;
   }
 }
