@@ -84,6 +84,8 @@ export interface LaunchOptions {
    * i.e. the app's own default profile (install → uninstall → reinstall).
    */
   userData?: string | null;
+  /** Tool call the fake model makes on a prompt containing «tool» (default: bash with BASH_COMMAND). */
+  toolCall?: { name: string; arguments: Record<string, unknown> };
 }
 
 export async function writeMetrics(patch: Record<string, unknown>): Promise<void> {
@@ -163,7 +165,7 @@ export async function launch(label: string, options: LaunchOptions = {}): Promis
 
   const fakeModel = new FakeOpenAiServer({
     toolPath,
-    toolCall: { name: "bash", arguments: { command: bashCommand } },
+    toolCall: options.toolCall ?? { name: "bash", arguments: { command: bashCommand } },
   });
   await fakeModel.start();
 
