@@ -2,6 +2,7 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vite-plus/test";
+import type { BudgetHandle } from "../src/budget.ts";
 import { resolveOptions } from "../src/options.ts";
 import {
   type CheckRun,
@@ -120,7 +121,12 @@ describe("runProjectCheck", () => {
 });
 
 describe("stop gate", () => {
-  function setup(results: Partial<CheckRun>[], cwd: string, profile: "code" | "design" = "code") {
+  function setup(
+    results: Partial<CheckRun>[],
+    cwd: string,
+    profile: "code" | "design" = "code",
+    budget?: { state: () => { exhausted: string } },
+  ) {
     const pi = new MockPi(cwd);
     const runs: string[] = [];
     let i = 0;
@@ -129,7 +135,10 @@ describe("stop gate", () => {
       const r = results[Math.min(i++, results.length - 1)] ?? {};
       return { code: r.code ?? 0, output: r.output ?? "", timedOut: r.timedOut ?? false };
     };
-    installStopGate(pi.api, resolveOptions({ profile }), runner);
+    installStopGate(pi.api, resolveOptions({ profile }), {
+      runner,
+      ...(budget ? { budget: budget as unknown as BudgetHandle } : {}),
+    });
     const edit = () => pi.toolResult({ toolName: "edit", input: { path: "a.js" }, text: "Edited" });
     const settle = (extra: Record<string, unknown> = {}) =>
       pi.boundary("agent_before_settle", { outcome: "completed", ...extra });
@@ -187,8 +196,8 @@ describe("stop gate", () => {
     expect([first.continue, second.continue]).toEqual([true, true]);
     expect((second.entries[0] as { content: string }).content).toContain("Это последняя попытка");
     const third = await settle();
-    expect(third.continue).toBe(false);
-    const note = third.entries[0] as { content: string; display: boolean };
+    expect(third).toEqual({ entries: [], continue: false });
+    const note = pi.sent[0] as { content: string; display: boolean };
     expect(note.display).toBe(true);
     expect(note.content).toContain(
       `Проверка проекта всё ещё не проходит (\`npm run test\`) — после ${MAX_PUSHBACKS} попыток`,
@@ -237,12 +246,11 @@ describe("stop gate", () => {
     await aborted.edit();
     expect((await aborted.settle({ outcome: "aborted" })).continue).toBe(false);
 
-    const budget = setup([red], await project({ "package.json": pkg({ test: "x" }) }));
-    await budget.edit();
-    const r = await budget.settle({
-      entries: [{ type: "custom", customType: "prsloy-harness.budget", data: {} }],
+    const budget = setup([red], await project({ "package.json": pkg({ test: "x" }) }), "code", {
+      state: () => ({ exhausted: "money" }),
     });
-    expect(r.continue).toBe(false);
+    await budget.edit();
+    expect((await budget.settle()).continue).toBe(false);
     expect(budget.runs).toEqual([]);
   });
 

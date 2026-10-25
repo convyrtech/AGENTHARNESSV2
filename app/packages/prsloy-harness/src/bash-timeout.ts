@@ -11,6 +11,7 @@ import {
   ProcessRegistry,
 } from "./process-registry.ts";
 import type { ResolvedOptions } from "./options.ts";
+import type { BackgroundProcess } from "./process-registry.ts";
 import { scrubSecrets } from "./secret-scrub.ts";
 import {
   cwdBefore,
@@ -35,6 +36,22 @@ export function timeoutNote(seconds: string | number, maxSec: number): string {
   );
 }
 
+/** Метка details: результат — серверная команда, ушедшая в реестр (обрезка вывода его не трогает). */
+export const HARNESS_SERVER_RESULT = "prsloyServer";
+
+/**
+ * details для превью вкладки «Код», как у bash_background: id и порты первого сервера, все порты, список.
+ * Текст результата для модели этим не меняется.
+ */
+export function serverDetails(servers: BackgroundProcess[]) {
+  const first = servers[0];
+  return {
+    ...(first ? { id: first.id, pid: first.pid, logPath: first.logPath } : {}),
+    ports: [...new Set(servers.flatMap((s) => s.ports))],
+    servers: servers.map((s) => ({ id: s.id, pid: s.pid, ports: s.ports, logPath: s.logPath })),
+  };
+}
+
 export function installBashTimeout(pi: ExtensionAPI, opts: ResolvedOptions): ProcessRegistry {
   const registry = new ProcessRegistry(
     join(opts.outputDir, `bg-${process.pid}-${Date.now().toString(36)}`),
@@ -49,7 +66,9 @@ export function installBashTimeout(pi: ExtensionAPI, opts: ResolvedOptions): Pro
     },
   );
 
-  const notesById = new Map<string, string[]>();
+  const notesById = new Map<string, { notes: string[]; servers: BackgroundProcess[] }>();
+  /** Серверная команда целиком ушла в реестр: результат тула — причина «блокировки» с details для превью. */
+  const blockedById = new Map<string, { reason: string; server: BackgroundProcess }>();
 
   pi.on("tool_call", async (event, ctx) => {
     if (!SHELL_TOOLS.has(event.toolName)) return undefined;
@@ -71,19 +90,23 @@ export function installBashTimeout(pi: ExtensionAPI, opts: ResolvedOptions): Pro
         started.exitCode === undefined
           ? "Команда похожа на сервер, поэтому запущена в фоне, чтобы bash не завис."
           : `Команда похожа на сервер; в фоне она сразу завершилась с кодом ${started.exitCode}.`;
-      return {
-        block: true,
-        // Причина блокировки не проходит через tool_result, поэтому чистим ключи здесь.
+      // Не block: у заблокированного вызова нет tool_result, а превью нужен порт в details. Команда становится
+      // пустой, а результат — тот же текст с ошибкой, что дал бы block, плюс details.
+      blockedById.set(event.toolCallId, {
         reason: scrubSecrets(
           `${state}\n${describeProcess(started)}${head}\nЛоги и остановка: тул process.`,
         ).text,
-      };
+        server: started,
+      });
+      input.command = ":";
+      return undefined;
     }
     if (event.toolName === "bash" && typeof input.command === "string") {
       const rewrite = await rewriteShell(input.command, ctx.cwd);
       if (rewrite.block) return { block: true, reason: rewrite.block };
       if (rewrite.command !== input.command) input.command = rewrite.command;
-      if (rewrite.notes.length) notesById.set(event.toolCallId, rewrite.notes);
+      if (rewrite.notes.length)
+        notesById.set(event.toolCallId, { notes: rewrite.notes, servers: rewrite.servers });
     }
     return undefined;
   });
@@ -96,8 +119,9 @@ export function installBashTimeout(pi: ExtensionAPI, opts: ResolvedOptions): Pro
   async function rewriteShell(
     command: string,
     cwd: string,
-  ): Promise<{ command: string; notes: string[]; block?: string }> {
+  ): Promise<{ command: string; notes: string[]; servers: BackgroundProcess[]; block?: string }> {
     const notes: string[] = [];
+    const servers: BackgroundProcess[] = [];
     const ranges: { start: number; end: number; text: string }[] = [];
     let needSafePkill = false;
 
@@ -115,6 +139,7 @@ export function installBashTimeout(pi: ExtensionAPI, opts: ResolvedOptions): Pro
         return {
           command,
           notes,
+          servers,
           block: `«${kill.raw}» не выполнено: так убивается сам bash тула или приложение. Останови нужный процесс через process action=stop (id или port) или kill <PID>.`,
         };
       }
@@ -123,6 +148,7 @@ export function installBashTimeout(pi: ExtensionAPI, opts: ResolvedOptions): Pro
           return {
             command,
             notes,
+            servers,
             block: `«${kill.raw}» не выполнено: pkill -f находит и сам bash этой команды и убивает его. Останови сервер через process action=stop port=<порт> или kill <PID>.`,
           };
         }
@@ -139,6 +165,7 @@ export function installBashTimeout(pi: ExtensionAPI, opts: ResolvedOptions): Pro
     );
     for (const job of jobs) {
       const started = await registry.start(job.command, cwdBefore(command, job.start, cwd) ?? cwd);
+      servers.push(started);
       ranges.push({ start: job.start, end: job.end + 1, text: ":;" });
       notes.push(
         started.exitCode === undefined
@@ -146,21 +173,39 @@ export function installBashTimeout(pi: ExtensionAPI, opts: ResolvedOptions): Pro
           : `Сервер «${job.raw} &» запущен через реестр харнесса, но сразу завершился (код ${started.exitCode}). Его вывод:\n${started.output.trim().slice(-2000) || "(пусто)"}\n${describeProcess(started)}`,
       );
     }
-    if (ranges.length === 0) return { command, notes };
+    if (ranges.length === 0) return { command, notes, servers };
     const rewritten = replaceRanges(command, ranges);
     return {
       command: needSafePkill ? `${SAFE_PKILL_FUNCTION}\n${rewritten}` : rewritten,
       notes: notes.map((n) => scrubSecrets(n).text),
+      servers,
     };
   }
 
   pi.on("tool_result", (event) => {
-    const notes = notesById.get(event.toolCallId);
-    if (!notes) return undefined;
+    const blocked = blockedById.get(event.toolCallId);
+    if (blocked) {
+      blockedById.delete(event.toolCallId);
+      return {
+        content: [{ type: "text", text: blocked.reason }],
+        isError: true,
+        details: { ...serverDetails([blocked.server]), [HARNESS_SERVER_RESULT]: true },
+      };
+    }
+    const entry = notesById.get(event.toolCallId);
+    if (!entry) return undefined;
     notesById.delete(event.toolCallId);
     return {
-      content: appendText(event.content, notes.map((n) => `[${n}]`).join("\n")),
+      content: appendText(event.content, entry.notes.map((n) => `[${n}]`).join("\n")),
       ...keepStructured(event),
+      ...(entry.servers.length > 0
+        ? {
+            details: {
+              ...(typeof event.details === "object" && event.details ? event.details : {}),
+              ...serverDetails(entry.servers),
+            },
+          }
+        : {}),
     };
   });
 

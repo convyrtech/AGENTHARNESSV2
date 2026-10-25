@@ -20,6 +20,7 @@ export interface ToolResultInput {
 
 export interface ToolResultOutput {
   text: string;
+  details: unknown;
   isError: boolean;
   structuredContent: unknown;
   modified: boolean;
@@ -128,10 +129,12 @@ export class MockPi {
       if (result.structuredContent !== undefined)
         event.structuredContent = result.structuredContent;
       if (result.isError !== undefined) event.isError = result.isError;
+      if (result.details !== undefined) event.details = result.details;
     }
     const content = event.content as { type: string; text?: string }[];
     return {
       text: content.map((part) => part.text ?? "").join("\n"),
+      details: event.details,
       isError: event.isError as boolean,
       structuredContent: event.structuredContent,
       modified,

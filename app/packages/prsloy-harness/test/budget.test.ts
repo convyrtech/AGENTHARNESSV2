@@ -41,16 +41,17 @@ describe("budget", () => {
     expect(budget.state().exhausted).toBe("calls");
 
     const settle = await pi.boundary("agent_before_settle");
-    const message = settle.entries.find((e: any) => e.type === "custom_message") as {
-      content: string;
-      display: boolean;
-    };
+    // Итог — карточкой (sendMessage), не записью границы: её приложение не показывает.
+    expect(settle.entries).toEqual([]);
+    const message = pi.sent[0] as { content: string; display: boolean; details: unknown };
     expect(message.display).toBe(true);
+    expect(message.details).toMatchObject({ exhausted: "calls", toolCalls: 3 });
     expect(message.content).toContain("исчерпан лимит вызовов тулов (3)");
     expect(message.content).toContain("изменены файлы: src/app.ts");
     expect(message.content).toContain("команд запущено: 1");
     // Итог пишется один раз.
-    expect((await pi.boundary("agent_before_settle")).entries).toEqual([]);
+    await pi.boundary("agent_before_settle");
+    expect(pi.sent).toHaveLength(1);
   });
 
   it("counts money from usage.cost and stops at the limit", async () => {
@@ -62,8 +63,8 @@ describe("budget", () => {
     expect(budget.state().exhausted).toBe("money");
     const blocked = await pi.toolCall("read", { path: "b" });
     expect(blocked?.block).toBe(true);
-    const settle = await pi.boundary("agent_before_settle");
-    expect(JSON.stringify(settle.entries)).toContain("лимит денег на задачу ($0.050)");
+    await pi.boundary("agent_before_settle");
+    expect(JSON.stringify(pi.sent)).toContain("лимит денег на задачу ($0.050)");
   });
 
   it("falls back to the model cost table when the gateway reports no cost", async () => {

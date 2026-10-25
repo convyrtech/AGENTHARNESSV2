@@ -2,7 +2,7 @@
 // Источник: ADR-3 (research/00-synthesis.md), E8 (research/REPORT-2026-10-22*.md).
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import type { ResolvedOptions } from "./options.ts";
-import { appendText, keepStructured } from "./text.ts";
+import { appendText, keepStructured, showCard } from "./text.ts";
 
 interface UsageLike {
   input?: number;
@@ -79,10 +79,16 @@ export function budgetSummary(state: BudgetState, opts: ResolvedOptions): string
 const STOP_REASON =
   "Бюджет задачи исчерпан, тулы больше не выполняются. Не вызывай тулы. Напиши пользователю по-русски 2–4 строки: что уже сделано и что осталось сделать.";
 
-export function installBudget(
-  pi: ExtensionAPI,
-  opts: ResolvedOptions,
-): { state: () => BudgetState; installWarning: () => void } {
+export interface BudgetHandle {
+  state: () => BudgetState;
+  installWarning: () => void;
+  /** Доля бюджета, уже потраченная (наибольшая из «вызовы» и «деньги»). */
+  ratio: () => number;
+  /** Расход вне ответов модели агента (ревью второй моделью) — в стоимость хода. */
+  spend: (usd: number) => void;
+}
+
+export function installBudget(pi: ExtensionAPI, opts: ResolvedOptions): BudgetHandle {
   let state = freshState();
 
   const ratio = () =>
@@ -119,24 +125,13 @@ export function installBudget(
     return undefined;
   });
 
-  pi.on("agent_before_settle", (event) => {
+  pi.on("agent_before_settle", async () => {
     if (!state.exhausted || state.blockedAfterStop === 0) return undefined;
     const summary = budgetSummary(state, opts);
     state.blockedAfterStop = 0;
     const data = { ...state, filesChanged: [...state.filesChanged] };
-    return {
-      // Pi заменяет список записей тем, что вернул обработчик: чужие записи сохраняем.
-      entries: [
-        ...event.entries,
-        { type: "custom", customType: "prsloy-harness.budget", data },
-        {
-          type: "custom_message",
-          customType: "prsloy-harness.budget",
-          content: summary,
-          display: true,
-        },
-      ],
-    };
+    await showCard(pi, "prsloy-harness.budget", summary, data);
+    return undefined;
   });
 
   /**
@@ -155,5 +150,10 @@ export function installBudget(
     });
   };
 
-  return { state: () => state, installWarning };
+  const spend = (usd: number) => {
+    state.costUsd += usd;
+    if (!state.exhausted && state.costUsd >= opts.maxCostUsd) state.exhausted = "money";
+  };
+
+  return { state: () => state, installWarning, ratio, spend };
 }

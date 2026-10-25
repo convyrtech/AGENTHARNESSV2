@@ -43,6 +43,12 @@ export interface HarnessOptions {
   findReady?: FindReadyOptions;
   /** Стоп-гейт «до зелёного»: таймаут проверки проекта, мс. По умолчанию 120 с (env PRSLOY_STOP_GATE_TIMEOUT_SEC). */
   stopGateTimeoutMs?: number;
+  /** Ревью диффа моделью другой семьи: `провайдер/модель` вместо пары (env PRSLOY_REVIEW_MODEL), таймаут. */
+  review?: { model?: string; timeoutMs?: number };
+  /** Файл флагов приложения (`{"secondOpinion": false}`). По умолчанию `$PI_CODING_AGENT_DIR/prsloy-harness.json`. */
+  settingsPath?: string;
+  /** git для снимков хода. По умолчанию PRSLOY_GIT, git рядом с Git Bash, иначе `git` с PATH. */
+  gitPath?: string;
   /** Выключить отдельные практики. */
   disable?: Partial<Record<PracticeName, boolean>>;
 }
@@ -59,7 +65,9 @@ export type PracticeName =
   | "reliabilityProxy"
   | "findReady"
   | "stopGate"
-  | "toolLeak";
+  | "toolLeak"
+  | "secondOpinion"
+  | "turnChanges";
 
 export interface ResolvedOptions {
   profile: HarnessProfile;
@@ -80,6 +88,9 @@ export interface ResolvedOptions {
   reliability: ReliabilityOptions;
   findReady: FindReadyOptions;
   stopGateTimeoutMs: number;
+  review: { model?: string; timeoutMs: number };
+  settingsPath: string | undefined;
+  gitPath: string | undefined;
   disable: Partial<Record<PracticeName, boolean>>;
 }
 
@@ -132,6 +143,18 @@ function reliabilityOptions(given: ReliabilityOptions | undefined): ReliabilityO
   return ttftMs === undefined ? { ...given } : { ttftMs, ...given };
 }
 
+function reviewOptions(given: HarnessOptions["review"]): ResolvedOptions["review"] {
+  const model = given?.model ?? process.env.PRSLOY_REVIEW_MODEL;
+  const timeoutMs =
+    given?.timeoutMs ?? (Number(process.env.PRSLOY_REVIEW_TIMEOUT_SEC) * 1000 || 120_000);
+  return model ? { model, timeoutMs } : { timeoutMs };
+}
+
+function defaultSettingsPath(): string | undefined {
+  const dir = process.env.PI_CODING_AGENT_DIR;
+  return dir ? join(dir, "prsloy-harness.json") : undefined;
+}
+
 export function resolveOptions(options: HarnessOptions = {}): ResolvedOptions {
   return {
     profile: options.profile ?? envProfile() ?? "code",
@@ -154,6 +177,9 @@ export function resolveOptions(options: HarnessOptions = {}): ResolvedOptions {
     stopGateTimeoutMs:
       options.stopGateTimeoutMs ??
       (Number(process.env.PRSLOY_STOP_GATE_TIMEOUT_SEC) * 1000 || 120_000),
+    review: reviewOptions(options.review),
+    settingsPath: options.settingsPath ?? defaultSettingsPath(),
+    gitPath: options.gitPath ?? process.env.PRSLOY_GIT,
     disable: options.disable ?? {},
   };
 }

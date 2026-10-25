@@ -14,6 +14,9 @@ import { installSecretScrub } from "./secret-scrub.ts";
 import { installStopGate } from "./stop-gate.ts";
 import { installToolLeak } from "./tool-leak.ts";
 import { installToolOutput } from "./tool-output.ts";
+import { modelReviewer, secondOpinionFlag } from "./reviewer.ts";
+import { gitResolver, installTurnChanges, TurnChanges } from "./turn-changes.ts";
+import { join } from "node:path";
 
 export type { HarnessOptions, HarnessProfile, PracticeName } from "./options.ts";
 export { sanitizedEnv } from "./options.ts";
@@ -22,6 +25,15 @@ export { FindReady, formatResult as formatFindReady } from "./find-ready.ts";
 export { detectPseudoToolCall } from "./loop-detector.ts";
 export { scrubSecrets } from "./secret-scrub.ts";
 export { detectToolLeak, stripToolMarkup } from "./tool-leak.ts";
+export {
+  evidenceInDiff,
+  parseVerdict,
+  reviewerFor,
+  reviewPrompt,
+  clipDiff,
+  REVIEW_PASS_CARD,
+  reviewFailCard,
+} from "./second-opinion.ts";
 export { looksLikeServer, detectPorts } from "./process-registry.ts";
 export { resolveToolPath } from "./paths.ts";
 export {
@@ -40,6 +52,13 @@ export function createPrsloyHarness(options: HarnessOptions = {}): (pi: Extensio
   return (pi: ExtensionAPI) => {
     const opts = resolveOptions(options);
     const on = (name: keyof typeof opts.disable) => !opts.disable[name];
+    const codeGate = opts.profile === "code" && on("stopGate");
+    // Первым: снимок начала хода ложится до того, как bash или фоновый процесс что-то поменяют.
+    const changes =
+      codeGate && on("turnChanges")
+        ? new TurnChanges(join(opts.outputDir, "turns"), gitResolver(pi, opts.gitPath))
+        : undefined;
+    if (changes) installTurnChanges(pi, changes);
     const budget = on("budget") ? installBudget(pi, opts) : undefined;
     if (on("loopDetector")) installLoopDetector(pi, opts);
     if (on("bashTimeout")) installBashTimeout(pi, opts);
@@ -51,7 +70,17 @@ export function createPrsloyHarness(options: HarnessOptions = {}): (pi: Extensio
     if (on("findReady")) installFindReady(pi, opts, opts.findReady);
     // Раньше стоп-гейта: сорванный вызов инструмента — сначала повтор, проверки проекта потом.
     if (on("toolLeak")) installToolLeak(pi);
-    if (on("stopGate")) installStopGate(pi, opts);
+    if (codeGate)
+      installStopGate(pi, opts, {
+        ...(changes ? { changes } : {}),
+        ...(budget ? { budget } : {}),
+        ...(on("secondOpinion")
+          ? {
+              reviewer: modelReviewer(opts.review),
+              reviewEnabled: secondOpinionFlag(opts.settingsPath),
+            }
+          : {}),
+      });
     if (on("secretScrub")) installSecretScrub(pi);
     if (on("reliabilityProxy")) installReliability(pi, opts);
   };

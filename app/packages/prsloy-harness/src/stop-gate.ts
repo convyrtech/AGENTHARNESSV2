@@ -5,9 +5,22 @@
 import { spawn, spawnSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import type { BudgetHandle } from "./budget.ts";
 import { sanitizedEnv, type ResolvedOptions } from "./options.ts";
-import { headTail } from "./text.ts";
+import {
+  changedLines,
+  clipDiff,
+  parseVerdict,
+  REVIEW_PASS_CARD,
+  reviewFailCard,
+  reviewPrompt,
+  reviewPushback,
+  type ReviewVerdict,
+} from "./second-opinion.ts";
+import type { Reviewer } from "./reviewer.ts";
+import { headTail, showCard } from "./text.ts";
+import type { TurnChanges } from "./turn-changes.ts";
 
 export interface ProjectCheck {
   /** Команда оболочки, из каталога проекта. */
@@ -190,66 +203,138 @@ export function stillRedNote(check: ProjectCheck, run: CheckRun): string {
   return `Проверка проекта всё ещё не проходит (\`${check.label}\`) — после ${MAX_PUSHBACKS} попыток исправить я остановился.\n${output}`;
 }
 
+export interface StopGateDeps {
+  runner?: CheckRunner;
+  /** Изменения хода по теневому git (видит и `sed -i`, и генераторы). Без него — только edit/write. */
+  changes?: TurnChanges;
+  /** Второе мнение модели другой семьи; без него ревью нет. */
+  reviewer?: Reviewer;
+  /** Бюджет хода: ревью пропускаем, когда он почти исчерпан, и добавляем к нему цену ревью. */
+  budget?: BudgetHandle;
+  /** Включено ли ревью прямо сейчас (флаг «Проверка второй моделью» читается на каждом ходе). */
+  reviewEnabled?: () => boolean;
+}
+
+/** Ревью не нужно, если поменялось меньше строк. */
+export const MIN_REVIEW_LINES = 5;
+
+function checksSummary(check: ProjectCheck | undefined, run: CheckRun | undefined): string {
+  if (!check || !run)
+    return "своей проверки у проекта нет; синтаксис правленых файлов проверен после каждой правки";
+  if (run.timedOut) return `\`${check.label}\`: не успела закончиться`;
+  return `\`${check.label}\`: прошла (код ${run.code ?? "?"})\n${headTail(run.output.trim(), 1_500)}`;
+}
+
 export function installStopGate(
   pi: ExtensionAPI,
   opts: ResolvedOptions,
-  runner: CheckRunner = runProjectCheck,
+  deps: StopGateDeps | CheckRunner = {},
 ): void {
   if (opts.profile !== "code") return;
-  let changed = false;
+  const {
+    runner = runProjectCheck,
+    changes,
+    reviewer,
+    budget,
+    reviewEnabled = () => true,
+  } = typeof deps === "function" ? { runner: deps } : deps;
+  let edited = false;
   let pushbacks = 0;
   let gaveUp = false;
+  let reviewed = false;
+  let task = "";
 
   pi.on("before_agent_start", (event) => {
     if (event.messageType !== "user") return;
-    changed = false;
+    edited = false;
     pushbacks = 0;
     gaveUp = false;
+    reviewed = false;
+    task = event.prompt;
   });
 
   pi.on("tool_result", (event) => {
-    if ((event.toolName === "edit" || event.toolName === "write") && !event.isError) changed = true;
+    if ((event.toolName === "edit" || event.toolName === "write") && !event.isError) edited = true;
     return undefined;
   });
+
+  async function review(
+    patch: string,
+    checks: string,
+    ctx: ExtensionContext,
+  ): Promise<{ verdict: ReviewVerdict; model: string; costUsd: number } | undefined> {
+    if (!reviewer || reviewed || pushbacks >= MAX_PUSHBACKS || !reviewEnabled()) return undefined;
+    if (changedLines(patch) < MIN_REVIEW_LINES) return undefined;
+    if (budget && budget.ratio() >= opts.budgetWarnRatio) return undefined;
+    if (ctx.signal?.aborted) return undefined;
+    reviewed = true;
+    const diff = clipDiff(patch);
+    const reply = await reviewer(reviewPrompt({ task, diff, checks }), ctx);
+    if (!reply) return undefined;
+    budget?.spend(reply.costUsd);
+    // Пользователь нажал «стоп», пока ждали проверяющего, или ответа нет: молчим.
+    if (ctx.signal?.aborted || reply.error) return undefined;
+    return { verdict: parseVerdict(reply.text, diff), model: reply.model, costUsd: reply.costUsd };
+  }
 
   pi.on("agent_before_settle", async (event, ctx) => {
     if (event.outcome !== "completed" || gaveUp) return undefined;
     // Ход уже продолжается (например, вызов инструмента пришёл текстом и модель повторяет его) — гейт подождёт.
     if (event.continue) return undefined;
-    // Бюджет задачи исчерпан (его итог уже в записях) — тулы запрещены, возвращать к работе нельзя.
-    if (event.entries.some((e) => "customType" in e && e.customType === "prsloy-harness.budget"))
-      return undefined;
+    // Бюджет задачи исчерпан — тулы запрещены, возвращать к работе нельзя.
+    if (budget?.state().exhausted) return undefined;
+    const diff = await changes?.current();
+    const touched = edited || (diff?.files.length ?? 0) > 0;
     // После возврата проверяем снова, даже если модель ничего не правила: «готово» на словах — не зелёный.
-    if (!changed && pushbacks === 0) return undefined;
+    if (!touched && pushbacks === 0) return undefined;
+    edited = false;
     const check = detectProjectCheck(ctx.cwd);
-    if (!check) return undefined;
-    changed = false;
-    const run = await runner(check, ctx.cwd, opts.stopGateTimeoutMs);
-    // Зелёное, таймаут или нечем проверять — молчим: не пилим казуала за отсутствие тестов.
-    if (run.timedOut || run.code === 0) return undefined;
-    if (check.missingTool?.test(run.output)) return undefined;
-    if (pushbacks >= MAX_PUSHBACKS) {
-      gaveUp = true;
+    const run = check ? await runner(check, ctx.cwd, opts.stopGateTimeoutMs) : undefined;
+    // Зелёное, таймаут или нечем проверять — не красное: не пилим казуала за отсутствие тестов.
+    const red =
+      check && run && !run.timedOut && run.code !== 0 && !check.missingTool?.test(run.output);
+    if (check && run && red) {
+      if (pushbacks >= MAX_PUSHBACKS) {
+        gaveUp = true;
+        await showCard(pi, "prsloy-harness.stop-gate", stillRedNote(check, run));
+        return undefined;
+      }
+      pushbacks += 1;
       return {
         entries: [
           ...event.entries,
           {
             type: "custom_message",
             customType: "prsloy-harness.stop-gate",
-            content: stillRedNote(check, run),
-            display: true,
+            content: pushbackMessage(check, run, pushbacks),
+            display: false,
           },
         ],
+        continue: true,
       };
     }
+
+    if (!diff?.patch) return undefined;
+    const result = await review(diff.patch, checksSummary(check, run), ctx);
+    if (!result) return undefined;
+    const { verdict, model, costUsd } = result;
+    const data = { model, costUsd, ...verdict };
+    // Ответ не разобран — карточку «замечаний нет» не показываем: проверки по сути не было.
+    // Данные ревью — в details карточки: отдельная запись custom показалась бы в чате сырым JSON.
+    if (verdict.invalid) return undefined;
+    if (verdict.verdict === "PASS") {
+      await showCard(pi, "prsloy-harness.second-opinion", REVIEW_PASS_CARD, data);
+      return undefined;
+    }
     pushbacks += 1;
+    await showCard(pi, "prsloy-harness.second-opinion", reviewFailCard(verdict.items.length), data);
     return {
       entries: [
         ...event.entries,
         {
           type: "custom_message",
-          customType: "prsloy-harness.stop-gate",
-          content: pushbackMessage(check, run, pushbacks),
+          customType: "prsloy-harness.second-opinion",
+          content: reviewPushback(verdict.items),
           display: false,
         },
       ],

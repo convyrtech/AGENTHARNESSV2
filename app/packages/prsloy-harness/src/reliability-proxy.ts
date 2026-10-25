@@ -139,7 +139,11 @@ function parses(text: string): boolean {
 class SseWriter {
   headersSent = false;
   ended = false;
-  constructor(private readonly res: ServerResponse) {}
+  // Без parameter property: файл грузится и через `node` со снятием типов (scripts/review-live.mts).
+  private readonly res: ServerResponse;
+  constructor(res: ServerResponse) {
+    this.res = res;
+  }
 
   #headers(): void {
     if (this.headersSent) return;
