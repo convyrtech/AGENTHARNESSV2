@@ -56,12 +56,16 @@ export function venvPython(venv: string, platform: NodeJS.Platform = process.pla
   return join(venvBinDir(venv, platform), platform === "win32" ? "python.exe" : "python");
 }
 
-/** `python3` for the agent's shell commands: AGENTS.md says `python3 -I …`; Windows venvs have no python3. */
+/**
+ * `python3` for the agent's shell commands: AGENTS.md says `python3 -I …`; Windows venvs have no python3.
+ * `-X utf8`: run.py hands pi an env without PYTHONUTF8 (and `-I` would ignore it), so on Windows the agent's
+ * python printed into a cp1252 pipe and died on the first Cyrillic path («Иван Петров») it printed.
+ */
 export function python3Shims(pythonExe: string): { name: string; body: string; mode?: number }[] {
   const posix = pythonExe.replaceAll("\\", "/");
   return [
-    { name: "python3", body: `#!/bin/sh\nexec "${posix}" "$@"\n`, mode: 0o755 },
-    { name: "python3.cmd", body: `@"${pythonExe}" %*\r\n` },
+    { name: "python3", body: `#!/bin/sh\nexec "${posix}" -X utf8 "$@"\n`, mode: 0o755 },
+    { name: "python3.cmd", body: `@"${pythonExe}" -X utf8 %*\r\n` },
   ];
 }
 

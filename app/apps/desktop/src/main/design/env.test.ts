@@ -120,7 +120,7 @@ describe("venv layout", () => {
   it("gives the agent a python3 for both shells", () => {
     const shims = python3Shims("C:\\ud\\venv\\Scripts\\python.exe");
     expect(shims.map((s) => s.name)).toEqual(["python3", "python3.cmd"]);
-    expect(shims[0]!.body).toContain('exec "C:/ud/venv/Scripts/python.exe" "$@"');
-    expect(shims[1]!.body).toBe('@"C:\\ud\\venv\\Scripts\\python.exe" %*\r\n');
+    expect(shims[0]!.body).toContain('exec "C:/ud/venv/Scripts/python.exe" -X utf8 "$@"');
+    expect(shims[1]!.body).toBe('@"C:\\ud\\venv\\Scripts\\python.exe" -X utf8 %*\r\n');
   });
 });

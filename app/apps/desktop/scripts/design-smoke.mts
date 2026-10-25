@@ -368,6 +368,7 @@ mkdirSync(shimDir, { recursive: true });
 for (const shim of python3Shims(py)) {
   writeFileSync(join(shimDir, shim.name), shim.body, shim.mode ? { mode: shim.mode } : {});
 }
+// as run.py hands it to pi: no PYTHONUTF8 / PYTHONIOENCODING, so the shim alone must make output UTF-8
 const agentEnv = buildHarnessEnv({
   base: env,
   platform: process.platform,
@@ -377,6 +378,7 @@ const agentEnv = buildHarnessEnv({
   proxyUrl: "",
   chromiumOnly: true,
 });
+for (const k of Object.keys(agentEnv)) if (/^PYTHON(UTF8|IOENCODING)$/i.test(k)) delete agentEnv[k];
 const gitBash = join(process.env.ProgramFiles ?? "C:\\Program Files", "Git", "bin", "bash.exe");
 const shell = process.platform === "win32" ? gitBash : "bash";
 rmSync(join(site, "landing", "shot.png"), { force: true });
@@ -385,6 +387,8 @@ const probe = run(
   [
     "-c",
     'command -v python3; python3 -c "import threading, sqlite3, ssl, sys; print(1, sys.executable)"; ' +
+      // a Cyrillic path printed by the agent's python (the owner's profile is «Иван Петров»)
+      `python3 -c "print('ok', '${work.replaceAll("\\", "/")}')"; ` +
       `python3 -I "${join(HARNESS, "check.py").replaceAll("\\", "/")}" "${site.replaceAll("\\", "/")}" "${page.replaceAll("\\", "/")}"`,
   ],
   { env: agentEnv },
@@ -398,8 +402,9 @@ check(
     whichPy.endsWith("PRSLOY/design/bin/python3") &&
     stdlib.startsWith("1 ") &&
     !/WindowsApps/i.test(stdlib) &&
-    probe.out.includes("харнесс: PASS"),
-  `agent shell: python3 → app shim, full stdlib, check.py PASS (${probe.out.trim().replace(/\s+/g, " ").slice(0, 300)})`,
+    probe.out.includes("харнесс: PASS") &&
+    probe.out.includes(`ok ${work.replaceAll("\\", "/")}`),
+  `agent shell: python3 → app shim, full stdlib, Cyrillic output, check.py PASS (${probe.out.trim().replace(/\s+/g, " ").slice(0, 300)})`,
 );
 report.agentShell = {
   shell,
