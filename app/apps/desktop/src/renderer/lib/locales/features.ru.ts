@@ -4,6 +4,11 @@
 import type { featuresZh } from "./features.zh.ts";
 
 export const featuresRu: Record<keyof typeof featuresZh, string> = {
+  "features.capture.start": "Снять часть страницы",
+  "features.capture.cancel": "Отменить снимок",
+  "features.capture.hint": "Обведите рамкой нужное место. Esc — отмена.",
+  "features.capture.done": "Снимок добавлен к сообщению.",
+  "features.capture.failed": "Не получилось снять страницу.",
   "features.next.title": "Что дальше:",
   "features.next.site.phone": "Сделай, чтобы на телефоне тоже было красиво",
   "features.next.site.form": "Добавь форму заявки",

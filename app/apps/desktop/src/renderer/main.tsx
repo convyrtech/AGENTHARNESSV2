@@ -3493,6 +3493,7 @@ function App() {
                   onSend={(text) =>
                     void sendPrompt(undefined, undefined, { text, attachments: [] })
                   }
+                  onAttach={(paths) => setAttachments((current) => addAttachments(current, paths))}
                 />
               ) : null}
             </div>

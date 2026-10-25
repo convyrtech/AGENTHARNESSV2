@@ -4,6 +4,11 @@
 import type { featuresZh } from "./features.zh.ts";
 
 export const featuresEn: Record<keyof typeof featuresZh, string> = {
+  "features.capture.start": "Snap part of the page",
+  "features.capture.cancel": "Cancel snapshot",
+  "features.capture.hint": "Draw a frame around the place you need. Esc cancels.",
+  "features.capture.done": "The snapshot is attached to your message.",
+  "features.capture.failed": "Couldn't take the snapshot.",
   "features.next.title": "What next:",
   "features.next.site.phone": "Make the page look good on a phone",
   "features.next.site.form": "Add a sign-up form",

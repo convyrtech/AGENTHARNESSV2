@@ -3,6 +3,11 @@
  * into the locale table; `zh` is the key source.
  */
 export const featuresZh = {
+  "features.capture.start": "截取页面一部分",
+  "features.capture.cancel": "取消截图",
+  "features.capture.hint": "用框圈出需要的位置。Esc 取消。",
+  "features.capture.done": "截图已添加到消息中。",
+  "features.capture.failed": "无法截取页面。",
   "features.next.title": "接下来可以：",
   "features.next.site.phone": "让页面在手机上也好看",
   "features.next.site.form": "添加报名表单",

@@ -118,6 +118,7 @@ const api: ZenoDesktopApi = {
   features: {
     exportProjectZip: (workspacePath) =>
       ipcRenderer.invoke("prsloy:features:export-project-zip", workspacePath),
+    capturePreview: (rect) => ipcRenderer.invoke("prsloy:features:capture-preview", rect),
   },
   codePreview: {
     open: (target, workspacePath) =>

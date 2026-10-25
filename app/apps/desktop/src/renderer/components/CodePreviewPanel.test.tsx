@@ -199,3 +199,46 @@ describe("CodePreviewPanel: «На странице ошибка → Почин�
     expect(screen.queryByTestId("code-preview-errors")).toBeNull();
   });
 });
+
+describe("CodePreviewPanel: «Снять часть страницы»", () => {
+  it("draws a frame over the page and attaches the snapshot", async () => {
+    const capturePreview = vi.fn().mockResolvedValue({ ok: true, path: "/tmp/preview-1.png" });
+    (window as unknown as { zeno: { features: unknown } }).zeno.features = { capturePreview };
+    open.mockResolvedValue({ ok: true, url: "http://127.0.0.1:41000/index.html" });
+    const onAttach = vi.fn();
+    render(<CodePreviewPanel locale="ru" sessionKey="s1" onAttach={onAttach} />);
+    act(() => openCodePreview({ kind: "file", path: "index.html" }, "/p"));
+    await screen.findByTestId("code-preview-frame");
+    fireEvent.click(screen.getByTestId("code-preview-capture"));
+    const layer = screen.getByTestId("code-preview-capture-layer");
+    expect(layer.textContent).toBe("Обведите рамкой нужное место. Esc — отмена.");
+    // A click is not a selection: nothing is taken.
+    fireEvent.pointerDown(layer, { clientX: 10, clientY: 10 });
+    fireEvent.pointerUp(layer, { clientX: 12, clientY: 11 });
+    expect(capturePreview).not.toHaveBeenCalled();
+    fireEvent.pointerDown(layer, { clientX: 120, clientY: 90 });
+    fireEvent.pointerMove(layer, { clientX: 40, clientY: 30 });
+    fireEvent.pointerUp(layer, { clientX: 20, clientY: 10 });
+    expect(screen.queryByTestId("code-preview-capture-layer")).toBeNull();
+    await waitFor(() =>
+      expect(capturePreview).toHaveBeenCalledWith({ x: 20, y: 10, width: 100, height: 80 }),
+    );
+    await waitFor(() => expect(onAttach).toHaveBeenCalledWith(["/tmp/preview-1.png"]));
+    expect(screen.getByTestId("code-preview-zip-note").textContent).toBe(
+      "Снимок добавлен к сообщению.",
+    );
+  });
+
+  it("Esc cancels the frame", async () => {
+    (window as unknown as { zeno: { features: unknown } }).zeno.features = {
+      capturePreview: vi.fn(),
+    };
+    open.mockResolvedValue({ ok: true, url: "http://127.0.0.1:41000/index.html" });
+    render(<CodePreviewPanel locale="ru" sessionKey="s1" onAttach={vi.fn()} />);
+    act(() => openCodePreview({ kind: "file", path: "index.html" }, "/p"));
+    await screen.findByTestId("code-preview-frame");
+    fireEvent.click(screen.getByTestId("code-preview-capture"));
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(screen.queryByTestId("code-preview-capture-layer")).toBeNull();
+  });
+});
