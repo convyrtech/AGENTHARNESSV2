@@ -1,5 +1,5 @@
 /**
- * PRSLOY monogram — matches apps/desktop/build/icon.svg (paper plate, ink «P», rust dot).
+ * PRSLOY monogram — matches apps/desktop/build/icon.svg (paper plate, graphite «P», blueprint dot).
  * The «P» is the Piazzolla outline, so the mark renders the same before fonts load.
  * Keep geometry in sync with icon.svg; regenerate the app icons with scripts/render-icons.cjs.
  */
@@ -19,7 +19,7 @@ export function PixLogo(props: { className?: string; title?: string }) {
       aria-label={props.title ?? "PRSLOY"}
     >
       <title>{props.title ?? "PRSLOY"}</title>
-      <rect width="1024" height="1024" rx="229" fill="#f3eee3" />
+      <rect width="1024" height="1024" rx="229" fill="#ede6d5" />
       <rect
         x="6"
         y="6"
@@ -27,11 +27,11 @@ export function PixLogo(props: { className?: string; title?: string }) {
         height="1012"
         rx="223"
         fill="none"
-        stroke="#ddd2c1"
+        stroke="#cbc1aa"
         strokeWidth="12"
       />
-      <path transform="translate(171.89 792.5) scale(0.86)" fill="#3b2a1e" d={P_PATH} />
-      <circle cx="780" cy="744.5" r="48" fill="#a4472c" />
+      <path transform="translate(171.89 792.5) scale(0.86)" fill="#1e2126" d={P_PATH} />
+      <circle cx="780" cy="744.5" r="48" fill="#1b3ed2" />
     </svg>
   );
 }

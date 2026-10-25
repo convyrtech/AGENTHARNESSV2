@@ -4403,9 +4403,9 @@ const TITLEBAR_HEIGHT_PX = 46;
 /** Match renderer `styles.css` shell backgrounds for titleBarOverlay / frame fill. */
 function titleBarChromeColors(): { color: string; symbolColor: string } {
   if (nativeTheme.shouldUseDarkColors) {
-    return { color: "#1c1612", symbolColor: "#efe6d8" };
+    return { color: "#07080a", symbolColor: "#e6f2ef" };
   }
-  return { color: "#f3eee3", symbolColor: "#3b2a1e" };
+  return { color: "#ede6d5", symbolColor: "#1e2126" };
 }
 
 /** Windows: native caption buttons sit in the custom titlebar via titleBarOverlay. */
