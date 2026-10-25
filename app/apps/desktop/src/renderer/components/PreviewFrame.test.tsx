@@ -10,6 +10,7 @@ const ready = { source: "prsloy-preview", type: "ready" };
 
 async function stage(sandbox?: string) {
   const onMessage = vi.fn();
+  const onOther = vi.fn();
   render(
     <PreviewStage
       locale="ru"
@@ -17,7 +18,7 @@ async function stage(sandbox?: string) {
       device="desktop"
       testId="frame"
       {...(sandbox ? { sandbox } : {})}
-      bridge={{ picking: true, onMessage }}
+      bridge={{ picking: true, onMessage, onOther }}
     />,
   );
   const frame = screen.getByTestId("frame") as HTMLIFrameElement;
@@ -26,13 +27,11 @@ async function stage(sandbox?: string) {
     posted.push([m, o]);
   }) as never);
   await act(async () => {});
-  const say = (origin: string, source: unknown = frame.contentWindow) =>
+  const say = (origin: string, source: unknown = frame.contentWindow, data: unknown = ready) =>
     act(() => {
-      window.dispatchEvent(
-        new MessageEvent("message", { data: ready, origin, source: source as Window }),
-      );
+      window.dispatchEvent(new MessageEvent("message", { data, origin, source: source as Window }));
     });
-  return { onMessage, posted, say };
+  return { onMessage, onOther, posted, say };
 }
 
 describe("PreviewStage bridge", () => {
@@ -57,5 +56,16 @@ describe("PreviewStage bridge", () => {
     say("null");
     expect(onMessage).toHaveBeenCalledWith({ type: "ready" });
     expect(posted.at(-1)?.[1]).toBe("*");
+  });
+
+  it("passes other messages of this frame on, untouched, and nothing from elsewhere", async () => {
+    const { onMessage, onOther, say } = await stage();
+    const edited = { source: "prsloy-design", type: "text-edited", path: "h1", text: "Привет" };
+    say("null", undefined, edited);
+    say("null", window, edited);
+    say("http://127.0.0.1:41000", undefined, edited);
+    expect(onOther).toHaveBeenCalledTimes(1);
+    expect(onOther).toHaveBeenCalledWith(edited);
+    expect(onMessage).not.toHaveBeenCalled();
   });
 });

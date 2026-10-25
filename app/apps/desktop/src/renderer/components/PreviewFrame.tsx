@@ -53,6 +53,11 @@ export function PreviewDeviceSwitch(props: {
 export type PreviewBridge = {
   picking: boolean;
   onMessage: (message: BridgeMessage) => void;
+  /**
+   * A message from this frame and origin that is not the bridge's own (a script another tab
+   * chains after it, e.g. «Дизайн» `{source: "prsloy-design", …}`). Page data: check its shape.
+   */
+  onOther?: (data: unknown) => void;
 };
 
 function originOf(url: string): string | undefined {
@@ -81,6 +86,8 @@ export function PreviewStage(props: {
   const hasBridge = props.bridge !== undefined;
   const onMessage = useRef(props.bridge?.onMessage);
   onMessage.current = props.bridge?.onMessage;
+  const onOther = useRef(props.bridge?.onOther);
+  onOther.current = props.bridge?.onOther;
   const picking = useRef(props.bridge?.picking ?? false);
   picking.current = props.bridge?.picking ?? false;
   const sameOrigin = (props.sandbox ?? "allow-scripts").split(/\s+/u).includes("allow-same-origin");
@@ -96,7 +103,10 @@ export function PreviewStage(props: {
       const frame = frameRef.current?.contentWindow;
       if (!frame || event.source !== frame || event.origin !== origin) return;
       const message = parseBridgeMessage(event.data);
-      if (!message) return;
+      if (!message) {
+        onOther.current?.(event.data);
+        return;
+      }
       // A page the frame moved to starts with picking off: repeat the owner's choice.
       if (message.type === "ready" && picking.current) {
         frame.postMessage(pickCommand(true), target ?? "*");
