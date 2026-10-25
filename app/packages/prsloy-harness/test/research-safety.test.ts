@@ -534,3 +534,15 @@ describe("the tool's abort signal is respected (review #23, nits)", () => {
     ).rejects.toThrow("Поиск остановлен");
   });
 });
+
+describe("follow-ups after the merge (review #23, round 2)", () => {
+  it("«İ» before a <script> does not shift the scanner: the script stays out of the text", () => {
+    const html = `<p>İstanbul İzmir</p><SCRIPT>leak("secret")</ScRiPt><p>after</p>`;
+    const { text } = htmlToText(html);
+    expect(text).not.toContain("secret");
+    expect(text).toContain("İstanbul İzmir");
+    expect(text).toContain("after");
+    // </scripts is not </script
+    expect(htmlToText("<script>a</scripts>b</script><p>ok</p>").text).toBe("ok");
+  });
+});
