@@ -24,6 +24,8 @@ export interface PageIssue {
   rule?: string;
   where: string;
   detail: string;
+  /** Коробка элемента (у правил раскладки), CSS px от левого верхнего угла окна. */
+  box?: { x: number; y: number; w: number; h: number };
 }
 
 export interface PageCheckResult {
@@ -186,7 +188,7 @@ with sync_playwright() as p:
                     page.wait_for_timeout(job["settleMs"])
                     page.evaluate(job["freeze"])
                     for v in page.evaluate(job["lint"], job["lintArg"]):
-                        found.append({"kind": "layout", "rule": v["rule"], "where": v["selector"] + (" «" + v["text"] + "»" if v.get("text") else ""), "detail": v["detail"]})
+                        found.append({"kind": "layout", "rule": v["rule"], "where": v["selector"] + (" «" + v["text"] + "»" if v.get("text") else ""), "detail": v["detail"], **({"box": v["box"]} if v.get("box") else {})})
                 except Exception as e:
                     found.append({"kind": "pageerror", "detail": "страница не открылась: " + str(e).splitlines()[0]})
                 for f in found:
@@ -261,6 +263,7 @@ async function runNode(pw: NodePlaywright, job: Job, executablePath?: string): P
             selector: string;
             text?: string;
             detail: string;
+            box?: PageIssue["box"];
           }[];
           for (const v of lint)
             found.push({
@@ -268,6 +271,7 @@ async function runNode(pw: NodePlaywright, job: Job, executablePath?: string): P
               rule: v.rule,
               where: v.selector + (v.text ? ` «${v.text}»` : ""),
               detail: v.detail,
+              ...(v.box ? { box: v.box } : {}),
             });
         } catch (e) {
           found.push({
@@ -287,6 +291,14 @@ async function runNode(pw: NodePlaywright, job: Job, executablePath?: string): P
 
 /** Анимации и переходы в ноль перед правилами: элемент посреди анимации даёт ложные срабатывания (так же у ci). */
 const FREEZE = `() => { const s = document.createElement("style"); s.textContent = "*, *::before, *::after { transition: none !important; animation: none !important; }"; document.head.appendChild(s); }`;
+
+/**
+ * `off-window` ci писался для окна приложения, которое не прокручивается. Страница пользователя прокручивается
+ * вниз: блок ниже первого экрана — норма. Считаем только то, что вылезло вбок.
+ */
+export function belowTheFold(i: Pick<PageIssue, "rule" | "box" | "width">): boolean {
+  return i.rule === "off-window" && !!i.box && i.box.x >= -1 && i.box.x + i.box.w <= i.width + 1;
+}
 
 /** Правила-подсказки: сами по себе к работе не возвращают, идут в конце списка. */
 export const HINT_RULES = new Set(["target-size", "small-text"]);
@@ -425,6 +437,7 @@ export async function checkPage(
       // «Failed to load resource» в консоли дублирует незагрузившийся запрос (там виден файл).
       .filter((i) => !(i.kind === "console" && /^Failed to load resource\b/.test(i.detail)))
       .filter((i) => !(i.kind === "layout" && i.rule && IGNORED_RULES.has(i.rule)))
+      .filter((i) => !belowTheFold(i))
       .map((i) => ({ ...i, where: i.where ?? "", detail: local(i.detail) }));
     return { entry: rel, issues, ...(job.targets.length === 1 ? { fileSkipped: true } : {}) };
   } finally {

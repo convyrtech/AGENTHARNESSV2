@@ -42,6 +42,8 @@ export type LearningKind =
   | "ask"
   | "secret.saved"
   | "secret.declined"
+  | "skill.loaded"
+  | "skill.used"
   | "turn.end";
 
 export type TurnOutcome = "green" | "red" | "budget" | "aborted" | "error";

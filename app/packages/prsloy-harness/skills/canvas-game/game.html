@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Змейка</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: #111;
+        color: #eee;
+        font-family: system-ui, sans-serif;
+      }
+      body {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+      #hud {
+        padding: 8px 12px;
+        font-size: 18px;
+      }
+      canvas {
+        display: block;
+        touch-action: none;
+        background: #1b1b1b;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="hud">Счёт: <span id="score">0</span> · Рекорд: <span id="best">0</span></div>
+    <canvas id="game"></canvas>
+    <script>
+      // Каркас: состояние в одном объекте, update(шаг) меняет его, draw() только рисует.
+      const CELLS = 20;
+      const STEP_MS = 120; // фиксированный шаг логики — скорость не зависит от частоты кадров
+      const canvas = document.getElementById("game");
+      const ctx = canvas.getContext("2d");
+      const scoreEl = document.getElementById("score");
+      const bestEl = document.getElementById("best");
+      let cell = 16;
+      let best = 0;
+      try {
+        best = Number(localStorage.getItem("best") || 0);
+      } catch {}
+      bestEl.textContent = best;
+
+      function newState() {
+        return {
+          snake: [{ x: 10, y: 10 }],
+          dir: { x: 1, y: 0 },
+          next: { x: 1, y: 0 },
+          food: randomFood([{ x: 10, y: 10 }]),
+          score: 0,
+          over: false,
+        };
+      }
+      function randomFood(snake) {
+        for (;;) {
+          const f = { x: Math.floor(Math.random() * CELLS), y: Math.floor(Math.random() * CELLS) };
+          if (!snake.some((s) => s.x === f.x && s.y === f.y)) return f;
+        }
+      }
+      let state = newState();
+
+      function resize() {
+        const size = Math.min(window.innerWidth - 16, window.innerHeight - 60, 600);
+        cell = Math.floor(size / CELLS);
+        const css = cell * CELLS;
+        const dpr = window.devicePixelRatio || 1;
+        canvas.style.width = css + "px";
+        canvas.style.height = css + "px";
+        canvas.width = css * dpr;
+        canvas.height = css * dpr;
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0); // чёткая картинка на HiDPI
+        draw();
+      }
+
+      function turn(x, y) {
+        if (state.over) {
+          state = newState();
+          scoreEl.textContent = 0;
+          return;
+        }
+        if (x === -state.dir.x && y === -state.dir.y) return; // нельзя развернуться в себя
+        state.next = { x, y };
+      }
+
+      function update() {
+        if (state.over) return;
+        state.dir = state.next;
+        const head = { x: state.snake[0].x + state.dir.x, y: state.snake[0].y + state.dir.y };
+        const hit =
+          head.x < 0 ||
+          head.y < 0 ||
+          head.x >= CELLS ||
+          head.y >= CELLS ||
+          state.snake.some((s) => s.x === head.x && s.y === head.y);
+        if (hit) {
+          state.over = true;
+          if (state.score > best) {
+            best = state.score;
+            bestEl.textContent = best;
+            try {
+              localStorage.setItem("best", best);
+            } catch {}
+          }
+          return;
+        }
+        state.snake.unshift(head);
+        if (head.x === state.food.x && head.y === state.food.y) {
+          state.score += 1;
+          scoreEl.textContent = state.score;
+          state.food = randomFood(state.snake);
+        } else state.snake.pop();
+      }
+
+      function draw() {
+        ctx.fillStyle = "#1b1b1b";
+        ctx.fillRect(0, 0, cell * CELLS, cell * CELLS);
+        ctx.fillStyle = "#e5484d";
+        ctx.fillRect(state.food.x * cell, state.food.y * cell, cell - 1, cell - 1);
+        ctx.fillStyle = "#46a758";
+        for (const s of state.snake) ctx.fillRect(s.x * cell, s.y * cell, cell - 1, cell - 1);
+        if (state.over) {
+          ctx.fillStyle = "rgba(0,0,0,.6)";
+          ctx.fillRect(0, 0, cell * CELLS, cell * CELLS);
+          ctx.fillStyle = "#fff";
+          ctx.textAlign = "center";
+          ctx.font = `${Math.max(14, cell)}px system-ui, sans-serif`;
+          ctx.fillText("Игра окончена", (cell * CELLS) / 2, (cell * CELLS) / 2 - cell);
+          ctx.font = `${Math.max(12, cell * 0.7)}px system-ui, sans-serif`;
+          ctx.fillText(
+            "Нажмите пробел или коснитесь экрана",
+            (cell * CELLS) / 2,
+            (cell * CELLS) / 2 + cell,
+          );
+        }
+      }
+
+      // Игровой цикл: requestAnimationFrame + накопитель времени для фиксированного шага.
+      let last = performance.now();
+      let acc = 0;
+      let paused = false;
+      function frame(now) {
+        if (!paused) {
+          acc += Math.min(now - last, 250);
+          while (acc >= STEP_MS) {
+            update();
+            acc -= STEP_MS;
+          }
+          draw();
+        }
+        last = now;
+        requestAnimationFrame(frame);
+      }
+
+      const KEYS = {
+        ArrowUp: [0, -1],
+        KeyW: [0, -1],
+        ArrowDown: [0, 1],
+        KeyS: [0, 1],
+        ArrowLeft: [-1, 0],
+        KeyA: [-1, 0],
+        ArrowRight: [1, 0],
+        KeyD: [1, 0],
+      };
+      window.addEventListener("keydown", (e) => {
+        if (KEYS[e.code]) {
+          e.preventDefault();
+          turn(...KEYS[e.code]);
+        } else if (e.code === "Space" && state.over) {
+          e.preventDefault();
+          turn(0, 0);
+        }
+      });
+      // Свайп пальцем или мышью (Pointer Events), тап — рестарт после проигрыша.
+      let start = null;
+      canvas.addEventListener("pointerdown", (e) => {
+        start = { x: e.clientX, y: e.clientY };
+      });
+      canvas.addEventListener("pointerup", (e) => {
+        if (!start) return;
+        const dx = e.clientX - start.x;
+        const dy = e.clientY - start.y;
+        start = null;
+        if (Math.max(Math.abs(dx), Math.abs(dy)) < 20) {
+          if (state.over) turn(0, 0);
+          return;
+        }
+        if (Math.abs(dx) > Math.abs(dy)) turn(Math.sign(dx), 0);
+        else turn(0, Math.sign(dy));
+      });
+      document.addEventListener("visibilitychange", () => {
+        paused = document.hidden;
+        last = performance.now();
+      });
+      window.addEventListener("resize", resize);
+      resize();
+      requestAnimationFrame(frame);
+    </script>
+  </body>
+</html>

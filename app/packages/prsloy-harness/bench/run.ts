@@ -54,6 +54,8 @@ export interface BenchOptions {
   lessons?: boolean;
   /** Второе мнение (флаг "secondOpinion"). По умолчанию вкл. */
   review?: boolean;
+  /** Курированные навыки (флаг "skills", S9). По умолчанию выкл., как в приложении. */
+  skills?: boolean;
   /** Память (флаг "memory"). По умолчанию вкл. */
   memory?: boolean;
   /** Системный промпт «Кода»: pi (база Pi + разделы) или prsloy (research/17 §9). По умолчанию pi. */
@@ -77,6 +79,8 @@ export interface TaskResult {
   reply: AnswerMetrics;
   /** Доля закэшированных токенов промпта по метрикам прокси (null — нет данных: харнесс выкл). */
   cacheShare: number | null;
+  /** Навыки, чьи файлы модель прочитала (S9: «загружен»). */
+  skills: string[];
   answer: string;
   error?: string;
 }
@@ -203,6 +207,7 @@ async function runTask(task: TaskDef, opts: BenchOptions): Promise<TaskResult> {
     JSON.stringify({
       lessons: opts.lessons !== false,
       secondOpinion: opts.review !== false,
+      skills: opts.skills === true,
       memory: opts.memory !== false,
       prompt: opts.prompt ?? "pi",
       promptDelta: opts.delta === true,
@@ -238,6 +243,7 @@ async function runTask(task: TaskDef, opts: BenchOptions): Promise<TaskResult> {
             learningDir: join(opts.outDir, "learning"),
             memoryDir,
             settingsPath,
+            skillsDir: join(opts.outDir, "skills"),
           })
         : (pi: ExtensionAPI) =>
             installReusePrompt(pi, resolveOptions({ profile: "code", settingsPath })),
@@ -363,6 +369,7 @@ async function runTask(task: TaskDef, opts: BenchOptions): Promise<TaskResult> {
     interventions,
     reply: answerMetrics(answer, finalOk),
     cacheShare: cacheShareOf(join(opts.outDir, "sessions", task.id, "prsloy-proxy.jsonl")),
+    skills: skillsRead(messages),
     answer: answer.slice(0, 600),
     ...(error ? { error } : {}),
   };
@@ -374,6 +381,7 @@ export interface BenchReport {
     harness: boolean;
     lessons: boolean;
     review: boolean;
+    skills: boolean;
     memory: boolean;
     prompt: "pi" | "prsloy";
     delta: boolean;
@@ -415,6 +423,7 @@ export async function runBench(opts: BenchOptions): Promise<BenchReport> {
       model: opts.model,
       harness: opts.harness,
       review: opts.review !== false,
+      skills: opts.skills === true,
       lessons: opts.lessons !== false,
       memory: opts.memory !== false,
       prompt: opts.prompt ?? "pi",
@@ -434,6 +443,31 @@ export async function runBench(opts: BenchOptions): Promise<BenchReport> {
       costUsd: sum((r) => r.costUsd),
     },
   };
+}
+
+/** Какие навыки модель прочитала: вызовы read с путём в папку комплекта (prsloy-skills или skills замера). */
+export function skillsRead(messages: { role: string; content?: unknown }[]): string[] {
+  const names = new Set<string>();
+  for (const m of messages) {
+    if (m.role !== "assistant" || !Array.isArray(m.content)) continue;
+    for (const part of m.content as {
+      type: string;
+      name?: string;
+      arguments?: { path?: unknown };
+    }[]) {
+      if (
+        part.type !== "toolCall" ||
+        part.name !== "read" ||
+        typeof part.arguments?.path !== "string"
+      )
+        continue;
+      const hit = /[\\/](?:prsloy-skills|skills)[\\/][0-9a-f]{12}[\\/]([a-z0-9-]+)[\\/]/.exec(
+        part.arguments.path,
+      );
+      if (hit) names.add(hit[1]!);
+    }
+  }
+  return [...names].sort();
 }
 
 function sumOf(results: TaskResult[], f: (r: TaskResult) => number): number {
@@ -470,7 +504,7 @@ export function reportMarkdown(report: BenchReport): string {
     return `| ${r.id} | ${mark} ${r.note.replace(/\|/g, "/")}${r.error ? ` (${r.error})` : ""} | ${r.seconds} | ${r.toolCalls} | ${r.costUsd.toFixed(4)} | ${cache} | ${reply} | ${iv || "—"} |`;
   });
   return [
-    `# Замер: ${meta.model}, харнесс ${meta.harness ? "вкл" : "выкл"}, промпт ${meta.prompt}${meta.delta ? "+дельта" : ""}, уроки ${meta.lessons ? "вкл" : "выкл"}, ревью ${meta.review ? "вкл" : "выкл"}, память ${meta.memory ? "вкл" : "выкл"}${meta.fake ? " (фейковая модель)" : ""}`,
+    `# Замер: ${meta.model}, харнесс ${meta.harness ? "вкл" : "выкл"}, промпт ${meta.prompt}${meta.delta ? "+дельта" : ""}, уроки ${meta.lessons ? "вкл" : "выкл"}, ревью ${meta.review ? "вкл" : "выкл"}, навыки ${meta.skills ? "вкл" : "выкл"}, память ${meta.memory ? "вкл" : "выкл"}${meta.fake ? " (фейковая модель)" : ""}`,
     "",
     `${meta.date} · шлюз ${meta.gateway} · таймаут задачи ${meta.timeoutSec} с`,
     "",
@@ -480,6 +514,16 @@ export function reportMarkdown(report: BenchReport): string {
     "",
     `Итого: прошло ${totals.passed} из ${results.length}${totals.skipped ? `, не проверено ${totals.skipped}` : ""}; ${totals.seconds} с; вызовов ${totals.toolCalls}; $${totals.costUsd.toFixed(4)}.`,
     `Ответы: по-русски ${results.filter((r) => r.reply.russian).length} из ${results.length}; команд пользователю ${sumOf(results, (r) => r.reply.commandsToUser)}; ложных «готово» ${results.filter((r) => r.reply.falseDone).length}; длинных (>8 строк или >800 симв.) ${results.filter((r) => !r.reply.short).length}; жаргон ${sumOf(results, (r) => r.reply.jargon)}.`,
+    ...(meta.skills
+      ? [
+          `Навыки: загружены в ${results.filter((r) => r.skills.length).length} задачах из ${results.length}; из них прошло ${results.filter((r) => r.skills.length && r.ok === true).length} (${
+            results
+              .filter((r) => r.skills.length)
+              .map((r) => `${r.id}: ${r.skills.join(", ")}`)
+              .join("; ") || "—"
+          }).`,
+        ]
+      : []),
     "",
   ].join("\n");
 }

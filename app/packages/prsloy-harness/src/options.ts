@@ -42,6 +42,8 @@ export interface HarnessOptions {
   reliability?: ReliabilityOptions;
   /** Тул find_ready: таймаут, кэш, свой fetch (тесты). */
   findReady?: FindReadyOptions;
+  /** Куда раскладывать навыки (по умолчанию `$PI_CODING_AGENT_DIR/prsloy-skills`). */
+  skillsDir?: string;
   /** Проверка страницы в браузере: Python «Дизайна» (по умолчанию PRSLOY_DESIGN_PYTHON) или Node-Playwright. */
   pageCheck?: PageCheckOptions;
   /** Стоп-гейт «до зелёного»: таймаут проверки проекта, мс. По умолчанию 120 с (env PRSLOY_STOP_GATE_TIMEOUT_SEC). */
@@ -85,7 +87,8 @@ export type PracticeName =
   | "askUser"
   | "requestSecret"
   | "pagePaths"
-  | "pageCheck";
+  | "pageCheck"
+  | "skills";
 
 export interface ResolvedOptions {
   profile: HarnessProfile;
@@ -106,6 +109,7 @@ export interface ResolvedOptions {
   reliability: ReliabilityOptions;
   findReady: FindReadyOptions;
   pageCheck: PageCheckOptions;
+  skillsDir: string | undefined;
   stopGateTimeoutMs: number;
   review: { model?: string; timeoutMs: number };
   settingsPath: string | undefined;
@@ -197,6 +201,7 @@ export function resolveOptions(options: HarnessOptions = {}): ResolvedOptions {
     reliability: reliabilityOptions(options.reliability),
     findReady: options.findReady ?? {},
     pageCheck: options.pageCheck ?? {},
+    skillsDir: options.skillsDir,
     stopGateTimeoutMs:
       options.stopGateTimeoutMs ??
       (Number(process.env.PRSLOY_STOP_GATE_TIMEOUT_SEC) * 1000 || 120_000),
