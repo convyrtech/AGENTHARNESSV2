@@ -128,12 +128,18 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $run = gh run list --repo "${{ github.repository }}" --workflow desktop-windows.yml --branch main `
-            --status success --limit 1 --json databaseId,headSha | ConvertFrom-Json
-          if (-not $run) { throw "no successful desktop-windows run on main" }
-          "run=$($run[0].databaseId)" >> $env:GITHUB_OUTPUT
-          "sha=$($run[0].headSha)" >> $env:GITHUB_OUTPUT
-          "installer: desktop-windows run $($run[0].databaseId) at $($run[0].headSha)"
+          # newest main run whose package job left the installer: the run itself may be red on ci's own smoke
+          $repo = "${{ github.repository }}"
+          $runs = (gh api "repos/$repo/actions/workflows/desktop-windows.yml/runs?branch=main&status=completed&per_page=20" | ConvertFrom-Json).workflow_runs
+          $pick = $null
+          foreach ($r in $runs) {
+            $arts = (gh api "repos/$repo/actions/runs/$($r.id)/artifacts" | ConvertFrom-Json).artifacts
+            if ($arts | Where-Object { $_.name -eq 'prsloy-win-x64' -and -not $_.expired }) { $pick = $r; break }
+          }
+          if (-not $pick) { throw "no desktop-windows installer on main" }
+          "run=$($pick.id)" >> $env:GITHUB_OUTPUT
+          "sha=$($pick.head_sha)" >> $env:GITHUB_OUTPUT
+          "installer: desktop-windows run $($pick.id) at $($pick.head_sha) ($($pick.conclusion))"
       - uses: actions/download-artifact@v4
         with:
           name: prsloy-win-x64
