@@ -75,5 +75,5 @@ describe("P06/U06 extension load failure", () => {
       ]),
     );
     expect(JSON.stringify(snapshot.diagnostics)).not.toContain(home);
-  });
+  }, 30_000); // a real pi runtime with an extension takes >5 s on a loaded CI runner
 });
