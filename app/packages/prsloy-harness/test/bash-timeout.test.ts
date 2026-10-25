@@ -1,7 +1,9 @@
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { spawn } from "node:child_process";
+import { builtinModules } from "node:module";
 import { join, resolve as resolvePath } from "node:path";
+import { build } from "vite-plus";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 import { installBashTimeout } from "../src/bash-timeout.ts";
 import { contentText } from "../src/text.ts";
@@ -214,19 +216,43 @@ describe.skipIf(process.platform === "win32")("host killed by a signal", () => {
   it("background servers die with the host even without session_shutdown", async () => {
     const dir = await mkdtemp(join(tmpdir(), "prsloy-sig-"));
     dirs.push(dir);
-    const registryPath = resolvePath(import.meta.dirname, "../src/process-registry.ts");
-    const script = join(dir, "host.ts");
+    // Собираем реестр как хост (ESM, внешние — Pi и модули Node) и запускаем в чистом Node:
+    // без jiti и других бинарников, которых в чужом окружении может не быть. Бандл кладём внутрь
+    // пакета, чтобы node нашёл @earendil-works/pi-coding-agent в его node_modules.
+    const bundleDir = resolvePath(import.meta.dirname, ".sig-bundle");
+    dirs.push(bundleDir);
+    await build({
+      configFile: false,
+      logLevel: "silent",
+      build: {
+        target: "node22",
+        outDir: bundleDir,
+        emptyOutDir: true,
+        lib: {
+          entry: resolvePath(import.meta.dirname, "../src/process-registry.ts"),
+          formats: ["es"],
+          fileName: () => "registry.mjs",
+        },
+        rollupOptions: {
+          external: [
+            "@earendil-works/pi-coding-agent",
+            ...builtinModules,
+            ...builtinModules.map((name) => `node:${name}`),
+          ],
+        },
+      },
+    });
+    const script = join(bundleDir, "host.mjs");
     await writeFile(
       script,
-      `import { ProcessRegistry } from ${JSON.stringify(registryPath)};
+      `import { ProcessRegistry } from "./registry.mjs";
 const r = new ProcessRegistry(${JSON.stringify(join(dir, "logs"))}, () => process.env);
 const p = await r.start("node -e \\"require('http').createServer(()=>{}).listen(0, () => console.log('port ok'))\\"", ${JSON.stringify(dir)}, 3000);
 console.log("PID " + p.pid);
 setInterval(() => {}, 1000);
 `,
     );
-    const jiti = resolvePath(import.meta.dirname, "../node_modules/.bin/jiti");
-    const host = spawn(jiti, [script], { stdio: ["ignore", "pipe", "inherit"] });
+    const host = spawn(process.execPath, [script], { stdio: ["ignore", "pipe", "inherit"] });
     let out = "";
     host.stdout.on("data", (d: Buffer) => (out += d.toString()));
     for (let i = 0; i < 100 && !/PID \d+/.test(out); i++)
