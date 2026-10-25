@@ -1,8 +1,8 @@
 /**
  * A harness card in the chat (second-model review, budget stop, failing project check,
- * confused model): a short line and an icon, no technical title. The review opens its
- * remarks; the others keep the harness's own text folded away under «Подробности», and the
- * confused model offers the «Повторить» its text asks for.
+ * confused model): the harness's own plain line and an icon, no technical title. The review
+ * opens its remarks, the failing check its output under «Подробности», and the confused model
+ * offers the «Повторить» its text asks for.
  */
 import { useState } from "react";
 import { ChevronRight, Info, ListChecks, RotateCcw, ShieldCheck } from "lucide-react";
@@ -12,6 +12,7 @@ import {
   harnessTitleKey,
   harnessUsesOwnText,
   reviewRemarks,
+  stopGateOutput,
   type HarnessCardKind,
 } from "../lib/harness-card.ts";
 import { t, type Locale } from "../lib/i18n.ts";
@@ -26,15 +27,18 @@ export function HarnessCard(props: {
   disabled?: boolean | undefined;
 }) {
   const [open, setOpen] = useState(false);
-  const bodyKey = harnessBodyKey(props.kind);
+  const ownText = harnessUsesOwnText(props.kind) ? props.text.trim() : "";
+  // The generic title and line only stand in for a card that came without its text.
+  const title = ownText || t(props.locale, harnessTitleKey(props.kind));
+  const bodyKey = ownText ? undefined : harnessBodyKey(props.kind);
   const retry = harnessOffersRetry(props.kind) ? props.onRetry : undefined;
   const remarks = props.kind === "review" ? reviewRemarks(props.details) : [];
-  const title =
-    harnessUsesOwnText(props.kind) && props.text.trim()
-      ? props.text.trim()
-      : t(props.locale, harnessTitleKey(props.kind));
-  // «Модель сбилась» and the review's line are the whole message already.
-  const raw = props.kind === "toolLeak" || props.kind === "review" ? "" : props.text.trim();
+  const raw =
+    props.kind === "stopGate"
+      ? (stopGateOutput(props.details) ?? "")
+      : props.kind === "note"
+        ? props.text.trim()
+        : "";
   const Icon = props.kind === "review" ? (remarks.length ? ListChecks : ShieldCheck) : Info;
   const toggleLabel = remarks.length
     ? t(props.locale, "harness.review.remarks", { count: String(remarks.length) })

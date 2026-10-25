@@ -228,14 +228,17 @@ export function historyToTimeline(history: SessionHistoryMessage[]): TimelineIte
       });
       continue;
     }
-    // History flattens a custom message to «[customType] text»: give it back its type, as live.
-    const custom = item.title ? undefined : /^\[([\w.-]+)\] ?([\s\S]*)$/u.exec(item.text);
+    // A custom message (harness card, extension note): the same row as live `custom.message`.
+    // Older history flattened it to «[customType] text»; read that too.
+    const legacy =
+      item.customType || item.title ? undefined : /^\[([\w.-]+)\] ?([\s\S]*)$/u.exec(item.text);
+    const customType = item.customType ?? legacy?.[1];
     items.push({
       id: `history-system-${index}`,
       kind: "system",
-      text: custom ? (custom[2] ?? "") : item.text,
-      ...(custom
-        ? { title: custom[1] ?? "", extension: true }
+      text: legacy ? (legacy[2] ?? "") : item.text,
+      ...(customType
+        ? { title: customType, extension: true }
         : item.title
           ? { title: item.title }
           : {}),

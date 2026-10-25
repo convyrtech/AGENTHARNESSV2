@@ -6,27 +6,44 @@ import { HarnessCard } from "./HarnessCard.tsx";
 afterEach(cleanup);
 
 const BUDGET =
-  "Задача остановлена: исчерпан лимит вызовов тулов (25). Вызовов: 31, потрачено $0.12. Сделано: изменены файлы: index.html; команд запущено: 4.";
+  "Я остановился: на одну задачу у меня 25 шагов, и они закончились. Что успел: изменил index.html. Если нужно доделать, напишите «продолжай».";
 
 describe("HarnessCard", () => {
-  it("budget stop: a plain title and line, the harness's record folded away", () => {
-    render(<HarnessCard locale="ru" kind="budget" text={BUDGET} />);
+  it("budget stop: the harness's own plain message, nothing raw", () => {
+    render(<HarnessCard locale="ru" kind="budget" text={BUDGET} details={{ toolCalls: 25 }} />);
+    expect(screen.getByText(BUDGET)).toBeTruthy();
+    expect(screen.queryByText("Подробности")).toBeNull();
+    expect(screen.queryByTestId("harness-card-retry")).toBeNull();
+  });
+
+  it("a card without text falls back to the short title and line", () => {
+    render(<HarnessCard locale="ru" kind="budget" text="" />);
     expect(screen.getByText("Остановился: задача вышла за лимит")).toBeTruthy();
     expect(
       screen.getByText("Сделанное сохранено. Напишите «продолжай», чтобы доделать."),
     ).toBeTruthy();
-    expect(screen.queryByText(BUDGET)).toBeNull();
-    expect(screen.queryByTestId("harness-card-retry")).toBeNull();
+  });
+
+  it("failing check: the check's output folded under «Подробности»", () => {
+    render(
+      <HarnessCard
+        locale="ru"
+        kind="stopGate"
+        text="Проверка проекта всё ещё не проходит. Я дважды пытался исправить и остановился."
+        details={{ command: "npm test", code: 1, output: "1 failing" }}
+      />,
+    );
+    expect(screen.queryByText(/1 failing/)).toBeNull();
     fireEvent.click(screen.getByText("Подробности"));
-    expect(screen.getByText(BUDGET)).toBeTruthy();
+    expect(screen.getByText(/\$ npm test\s+1 failing/)).toBeTruthy();
   });
 
   it("confused model: offers the «Повторить» its text asks for", () => {
     const onRetry = vi.fn();
-    render(<HarnessCard locale="ru" kind="toolLeak" text="Модель сбилась" onRetry={onRetry} />);
-    expect(
-      screen.getByText("Нажмите «Повторить» или переключитесь на «Качественнее»."),
-    ).toBeTruthy();
+    const text = "Модель сбилась, нажмите «Повторить» или переключитесь на «Качественнее».";
+    render(<HarnessCard locale="ru" kind="toolLeak" text={text} onRetry={onRetry} />);
+    expect(screen.getByText(text)).toBeTruthy();
+    expect(screen.queryByText("Подробности")).toBeNull();
     fireEvent.click(screen.getByTestId("harness-card-retry"));
     expect(onRetry).toHaveBeenCalledTimes(1);
   });

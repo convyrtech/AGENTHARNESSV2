@@ -40,7 +40,24 @@ describe("runtime timeline", () => {
     expect(item?.kind === "system" && isHostCrash(item)).toBe(true);
   });
 
-  it("a custom message from history gets its type back, as live", () => {
+  it("a custom message from history is the same row as live", () => {
+    const [card] = historyToTimeline([
+      {
+        role: "system",
+        text: "Проверила вторая модель: замечаний нет",
+        customType: "prsloy-harness.second-opinion",
+        title: "prsloy-harness.second-opinion",
+      },
+    ]);
+    expect(card).toMatchObject({
+      kind: "system",
+      title: "prsloy-harness.second-opinion",
+      text: "Проверила вторая модель: замечаний нет",
+      extension: true,
+    });
+  });
+
+  it("an older history's «[type] text» custom row gets its type back", () => {
     const items = historyToTimeline([
       { role: "system", text: "[prsloy-harness.budget] Задача остановлена: исчерпан лимит" },
       { role: "system", text: "Обычная заметка" },

@@ -1,7 +1,8 @@
 /**
  * The harness's visible cards (pi custom messages `prsloy-harness*`): the budget stop, a
- * project check that still fails, a model that leaked its tool call as text. Their raw text is
- * written for the record (limits, check output); the owner gets a plain title and one line.
+ * project check that still fails, a model that leaked its tool call as text, the second-model
+ * review. The harness writes their text for the owner (plain Russian), so the card shows it as
+ * is; the short title and line here are only for a card that arrives without text.
  */
 import type { MessageKey } from "./i18n.ts";
 
@@ -30,9 +31,19 @@ export function harnessBodyKey(kind: HarnessCardKind): MessageKey | undefined {
   return kind === "note" || kind === "review" ? undefined : `harness.${kind}.body`;
 }
 
-/** The review card's own line is already plain («Проверила вторая модель: замечаний нет»). */
+/** Every known card's own text is the message; a generic note keeps a title of its own. */
 export function harnessUsesOwnText(kind: HarnessCardKind): boolean {
-  return kind === "review";
+  return kind !== "note";
+}
+
+/** The failing check's command and output (`details` of the stop-gate card), for «Подробности». */
+export function stopGateOutput(details: unknown): string | undefined {
+  const value = details as { command?: unknown; output?: unknown } | null | undefined;
+  const output = typeof value?.output === "string" ? value.output.trim() : "";
+  if (!output) return undefined;
+  return typeof value?.command === "string" && value.command
+    ? `$ ${value.command}\n${output}`
+    : output;
 }
 
 export type ReviewRemark = { where?: string; problem: string };

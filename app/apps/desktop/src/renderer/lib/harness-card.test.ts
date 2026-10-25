@@ -7,6 +7,7 @@ import {
   harnessUsesOwnText,
   isHarnessData,
   reviewRemarks,
+  stopGateOutput,
 } from "./harness-card.ts";
 
 describe("harness cards", () => {
@@ -36,6 +37,8 @@ describe("harness cards", () => {
 
   it("the review keeps its own plain line and reads its remarks from details", () => {
     expect(harnessUsesOwnText("review")).toBe(true);
+    expect(harnessUsesOwnText("budget")).toBe(true);
+    expect(harnessUsesOwnText("note")).toBe(false);
     expect(harnessBodyKey("review")).toBeUndefined();
     expect(
       reviewRemarks({
@@ -52,5 +55,14 @@ describe("harness cards", () => {
     ]);
     expect(reviewRemarks(undefined)).toEqual([]);
     expect(reviewRemarks({ items: "nope" })).toEqual([]);
+  });
+
+  it("the failing check's output comes from the card's details", () => {
+    expect(stopGateOutput({ command: "npm test", code: 1, output: " 1 failing \n" })).toBe(
+      "$ npm test\n1 failing",
+    );
+    expect(stopGateOutput({ output: "boom" })).toBe("boom");
+    expect(stopGateOutput({ command: "npm test", output: "" })).toBeUndefined();
+    expect(stopGateOutput(undefined)).toBeUndefined();
   });
 });
