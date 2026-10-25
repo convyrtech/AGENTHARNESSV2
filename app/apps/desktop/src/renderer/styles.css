@@ -1367,6 +1367,21 @@ html[data-custom-window-controls="true"] .page-header {
   -webkit-app-region: no-drag;
 }
 
+/*
+ * The rail needs a gutter beside the centred column (max 760px + 24px padding). Narrower
+ * (a small window, 175 % scale, the preview panel open) the column fills the width and the
+ * rail would sit on the turn's actions («Откатить»): no rail then (layout-lint «overlap»).
+ */
+.timeline-scroller {
+  container-type: inline-size;
+  container-name: timeline;
+}
+@container timeline (max-width: 820px) {
+  .minimap-rail {
+    display: none;
+  }
+}
+
 .minimap-marker {
   display: flex;
   align-items: center;

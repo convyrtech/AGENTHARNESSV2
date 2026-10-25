@@ -122,6 +122,13 @@
     },
     {
       "rule": "target-size",
+      "selector": "[data-testid=\"settings-memory-toggle\"]",
+      "screen": "*",
+      "reason": "как у остальных переключателей настроек (общий Switch 32×18 < 24×24, правит дорожка ui): settings-memory, «Запоминать, когда я прошу»",
+      "until": "2026-11-01"
+    },
+    {
+      "rule": "target-size",
       "selector": "[data-testid=\"settings-default-access\"]",
       "screen": "*",
       "reason": "первый прогон (2026-10-25): settings-general, «Обычный доступ» — 32×18 < 24×24",

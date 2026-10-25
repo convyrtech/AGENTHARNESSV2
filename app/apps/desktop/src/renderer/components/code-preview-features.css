@@ -174,3 +174,52 @@
   justify-content: flex-end;
   margin-top: 4px;
 }
+/* «Бот работает · Остановить · Журнал» */
+.agent-procs {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 4px 0 16px;
+}
+.agent-proc {
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--card);
+}
+.agent-proc-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+.agent-proc-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 9999px;
+  background: var(--muted-foreground);
+}
+.agent-proc-dot[data-alive="true"] {
+  background: var(--success, #16a34a);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--success, #16a34a) 20%, transparent);
+}
+.agent-proc-name {
+  font-weight: 500;
+}
+.agent-proc-time {
+  flex: 1;
+  color: var(--muted-foreground);
+}
+.agent-proc-log {
+  max-height: 240px;
+  margin: 8px 0 0;
+  padding: 8px 10px;
+  overflow: auto;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  background: var(--canvas);
+}
