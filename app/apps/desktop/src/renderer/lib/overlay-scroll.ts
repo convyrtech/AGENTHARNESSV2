@@ -71,7 +71,9 @@ function thumbForHost(host: HTMLElement): HTMLDivElement | null {
 function hostForThumb(thumb: Element): HTMLElement | null {
   const id = thumb.getAttribute("data-for");
   if (!id) return null;
-  const host = document.querySelector<HTMLElement>(`[data-zeno-scroll-id="${CSS.escape(id)}"]`);
+  // hostId() stores the id as data-pix-scroll-id; the Zeno rename left this lookup on another
+  // attribute, so hover and drag never found their scrollport.
+  const host = document.querySelector<HTMLElement>(`[data-pix-scroll-id="${CSS.escape(id)}"]`);
   return host && isScrollport(host) ? host : null;
 }
 
