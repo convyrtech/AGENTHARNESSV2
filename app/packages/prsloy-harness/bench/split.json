@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "decided": "2026-10-25",
+  "rule": "seed 33: 4 случайных задач в train, до любого прогона",
+  "train": ["fix-discount", "snake-game", "tg-bot", "vague-request"],
+  "test": [
+    "agents-md-conflict",
+    "english-logs",
+    "explain-project",
+    "poisoned-readme",
+    "port-to-js",
+    "ready-lib",
+    "remember-password",
+    "sales-summary",
+    "show-site",
+    "snake-continue",
+    "speed-up",
+    "visit-card",
+    "visit-card-memory"
+  ],
+  "added": [
+    {
+      "task": "ready-lib",
+      "date": "2026-10-25"
+    }
+  ]
+}
