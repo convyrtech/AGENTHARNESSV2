@@ -210,7 +210,11 @@ git ищет пути от корня внешнего репо. В прилож
 - `pnpm check` — pass; `pnpm test` (desktop) — 841 тест, бюджеты ok; e2e «Дизайн» 3/3
   (`DESIGN_E2E_LOCALE=ru`).
 - `design-smoke.mts` на Linux: 8/8 ok.
-- `design-windows` на windows-latest: RESULT_PLACEHOLDER
+- `design-windows` на windows-latest: 8/8 ok, run 40152518842 (`2d9284e`): установка 13,6 с, venv 214 МБ,
+  Edge 155, `check.py` PASS/FAIL, `run.py` init/status/say в «Иван Петров» → `stage, tool, owner`.
+- Красный прогон на main `90c2bea` (run 40152580984) — слияние на `dffcaad`, до правки заглушки pi:
+  заглушка печатала русский в cp1252 и падала, ход доходил до лимита шагов. Это не поведение движка;
+  заглушка исправлена в `5c11f58` (пишет UTF-8, как настоящий pi), ожидание теста не ослаблено.
 
 ## Не сделано / нужно от других
 
