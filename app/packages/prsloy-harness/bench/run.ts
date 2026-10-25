@@ -8,6 +8,7 @@ import {
   mkdtempSync,
   readdirSync,
   readFileSync,
+  rmSync,
   writeFileSync,
 } from "node:fs";
 import { dirname, join } from "node:path";
@@ -93,6 +94,11 @@ export interface BenchOptions {
   testGuard?: boolean;
   /** Разборщик сессий после прогона (research/24 §6, A-4; ci). Пока только помечается в отчёте. */
   audit?: boolean;
+  /**
+   * Продолжить прерванный прогон в той же `outDir`: задачи с готовым `results/<задача>.json` не гоняются, отчёт —
+   * по всем. Настройки должны совпасть с прошлыми (`results/run.json`), иначе ошибка: смешивать замеры нельзя.
+   */
+  resume?: boolean;
   log?: (line: string) => void;
 }
 
@@ -622,13 +628,54 @@ export interface BenchReport {
     outcomes: Record<Outcome, number>;
     /** Невозможных задач (ждут честный отказ): знаменатель доли подгонки (research/22 §6.5). */
     impossible: number;
+    /** --resume: сколько результатов взято из прерванного прогона и сколько задач прогнано сейчас. */
+    resumed: number;
+    ranNow: number;
   };
+}
+
+/** Настройки прогона, от которых зависят результаты: при --resume должны совпасть. */
+function runKey(meta: BenchReport["meta"]): string {
+  const { date: _date, ...rest } = meta;
+  return JSON.stringify(rest);
 }
 
 export async function runBench(opts: BenchOptions): Promise<BenchReport> {
   process.env.PRSLOY_PROFILE = "code";
   mkdirSync(opts.outDir, { recursive: true });
+  const meta: BenchReport["meta"] = {
+    model: opts.model,
+    harness: opts.harness,
+    review: opts.review !== false,
+    skills: opts.skills === true,
+    lessons: opts.lessons !== false,
+    memory: opts.memory !== false,
+    prompt: opts.prompt ?? "prsloy",
+    delta: opts.delta === true,
+    webTools: opts.webTools === true,
+    honestExit: opts.honestExit === true,
+    testGuard: opts.testGuard === true,
+    fake: opts.fake === true,
+    date: new Date().toISOString(),
+    gateway: opts.fake ? "fake" : new URL(opts.baseUrl ?? "http://unknown").host,
+    timeoutSec: opts.timeoutSec,
+    audit: opts.audit === true,
+    suite: opts.suite ?? "casual",
+  };
+  // Результат каждой задачи — в файл сразу, как она закончилась: перезапуск контейнера не съедает часы замера.
+  const resultsDir = join(opts.outDir, "results");
+  const runFile = join(resultsDir, "run.json");
+  if (opts.resume && existsSync(runFile)) {
+    const before = readFileSync(runFile, "utf8").trim();
+    if (before !== runKey(meta))
+      throw new Error(
+        `--resume: у прогона в ${opts.outDir} другие настройки (${before}), а сейчас ${runKey(meta)}`,
+      );
+  }
+  mkdirSync(resultsDir, { recursive: true });
+  writeFileSync(runFile, `${runKey(meta)}\n`);
   const results: TaskResult[] = [];
+  let resumed = 0;
   try {
     const cache = opts.fake ? false : (opts.honestyCache ?? HONESTY_CACHE);
     if (opts.suite && opts.suite !== "casual" && cache && !existsSync(cache))
@@ -639,9 +686,21 @@ export async function runBench(opts: BenchOptions): Promise<BenchReport> {
     for (const task of listTasks(opts.tasks, opts.suite, cache).filter(
       (t) => !opts.fake || t.fake,
     )) {
+      const slug = task.id.replace(/\//g, "-");
+      const saved = join(resultsDir, `${slug}.json`);
+      if (opts.resume && existsSync(saved)) {
+        results.push(JSON.parse(readFileSync(saved, "utf8")) as TaskResult);
+        resumed += 1;
+        opts.log?.(`= ${task.id}: из прошлого прогона`);
+        continue;
+      }
+      // Задачу оборвали посередине — её недописанная сессия не должна попасть в долю кэша.
+      if (opts.resume)
+        rmSync(join(opts.outDir, "sessions", slug), { recursive: true, force: true });
       opts.log?.(`… ${task.id}`);
       const result = await runTask(task, opts);
       results.push(result);
+      writeFileSync(saved, `${JSON.stringify(result, null, 2)}\n`);
       opts.log?.(
         `${result.ok === true ? "✓" : result.ok === null ? "–" : "✗"} ${task.id}: ${result.note}${result.error ? ` (${result.error})` : ""}`,
       );
@@ -651,25 +710,7 @@ export async function runBench(opts: BenchOptions): Promise<BenchReport> {
   }
   const sum = (f: (r: TaskResult) => number) => results.reduce((n, r) => n + f(r), 0);
   return {
-    meta: {
-      model: opts.model,
-      harness: opts.harness,
-      review: opts.review !== false,
-      skills: opts.skills === true,
-      lessons: opts.lessons !== false,
-      memory: opts.memory !== false,
-      prompt: opts.prompt ?? "prsloy",
-      delta: opts.delta === true,
-      webTools: opts.webTools === true,
-      honestExit: opts.honestExit === true,
-      testGuard: opts.testGuard === true,
-      fake: opts.fake === true,
-      date: new Date().toISOString(),
-      gateway: opts.fake ? "fake" : new URL(opts.baseUrl ?? "http://unknown").host,
-      timeoutSec: opts.timeoutSec,
-      audit: opts.audit === true,
-      suite: opts.suite ?? "casual",
-    },
+    meta,
     results,
     totals: {
       passed: results.filter((r) => r.ok === true).length,
@@ -683,6 +724,8 @@ export async function runBench(opts: BenchOptions): Promise<BenchReport> {
         OUTCOMES.map((o) => [o, results.filter((r) => r.outcome === o).length]),
       ) as Record<Outcome, number>,
       impossible: results.filter((r) => r.impossible).length,
+      resumed,
+      ranNow: results.length - resumed,
     },
   };
 }
@@ -759,6 +802,11 @@ export function reportMarkdown(report: BenchReport): string {
     ...rows,
     "",
     `Итого: прошло ${totals.passed} из ${results.length}${totals.skipped ? `, не проверено ${totals.skipped}` : ""}; ${totals.seconds} с; вызовов ${totals.toolCalls}; $${totals.costUsd.toFixed(4)}.`,
+    ...(totals.resumed
+      ? [
+          `Продолжение прерванного прогона: результатов из прошлого раза ${totals.resumed}, прогнано сейчас ${totals.ranNow}.`,
+        ]
+      : []),
     ...(results.some((r) => r.expectedOutcome !== "solved")
       ? [
           `Исходы: совпали с ожидаемыми ${results.filter((r) => r.matched === true).length} из ${results.length}${totals.unexpected ? `, не совпали ${totals.unexpected}` : ""}.`,
