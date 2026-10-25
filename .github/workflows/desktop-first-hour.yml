@@ -9,6 +9,8 @@ on:
     # 01:43 UTC (04:43 МСК): после desktop-audit, не на ровном часе.
     - cron: "43 1 * * *"
   workflow_dispatch:
+  push:
+    branches: [ci/first-hour-try]
 
 permissions:
   contents: read
