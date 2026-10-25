@@ -1,5 +1,5 @@
 # Разборщик сессий (research/24 §6, A-0s): каждую ночь — стенд «Кода» на фейковой модели (без ключа, 0 токенов)
-# и детекторы-код по его сессиям. REPORT-audit.md и SUMMARY.md (без цитат) — в summary прогона, всё остальное —
+# и сессии Electron-e2e последнего зелёного desktop-ci на main (#29), детекторы-код по ним. REPORT-audit.md и SUMMARY.md (без цитат) — в summary прогона, всё остальное —
 # артефактом на 14 дней. Еженедельный разбор сессий дирижёра и владельца идёт на их машине:
 #   node packages/prsloy-harness/scripts/audit-sessions.mts --sessions ~/.pi/agent/sessions --since <неделю назад>
 name: desktop-audit
@@ -12,6 +12,8 @@ on:
 
 permissions:
   contents: read
+  # artifacts of the latest green desktop-ci run on main (e2e sessions)
+  actions: read
 
 concurrency:
   group: desktop-audit
@@ -41,17 +43,37 @@ jobs:
         id: bench
         continue-on-error: true
         run: node packages/prsloy-harness/scripts/bench.mts --fake --out "$RUNNER_TEMP/bench-out"
+      # Pi sessions of the Electron e2e (fake gateway, real host and harness) from the latest green
+      # desktop-ci on main (#29). None yet — the audit runs on the bench alone.
+      - name: Latest e2e sessions from desktop-ci on main
+        id: e2e
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          id=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/desktop-ci.yml/runs?branch=main&status=success&per_page=1" --jq '.workflow_runs[0].id // empty')
+          echo "run=$id" >> "$GITHUB_OUTPUT"
+          echo "desktop-ci run: ${id:-none}"
+      - uses: actions/download-artifact@v4
+        if: steps.e2e.outputs.run != ''
+        continue-on-error: true
+        with:
+          pattern: e2e-sessions-*
+          path: ${{ runner.temp }}/e2e-sessions
+          run-id: ${{ steps.e2e.outputs.run }}
+          github-token: ${{ github.token }}
       - name: Audit sessions (code detectors, 0 tokens)
         run: |
-          node packages/prsloy-harness/scripts/audit-sessions.mts \
-            --sessions "$RUNNER_TEMP/bench-out" --out "$RUNNER_TEMP/audit-out" > /dev/null
+          args=(--sessions "$RUNNER_TEMP/bench-out")
+          [ -d "$RUNNER_TEMP/e2e-sessions" ] && args+=(--sessions "$RUNNER_TEMP/e2e-sessions")
+          node packages/prsloy-harness/scripts/audit-sessions.mts "${args[@]}" --out "$RUNNER_TEMP/audit-out" > /dev/null
       - name: Report
         if: always()
         env:
           BENCH: ${{ steps.bench.outcome }}
+          E2E_RUN: ${{ steps.e2e.outputs.run }}
         run: |
           {
-            echo "Стенд на фейковой модели: $BENCH."
+            echo "Стенд на фейковой модели: $BENCH. Сессии e2e: run ${E2E_RUN:-нет}."
             echo
             [ -f "$RUNNER_TEMP/audit-out/REPORT-audit.md" ] && cat "$RUNNER_TEMP/audit-out/REPORT-audit.md"
             echo

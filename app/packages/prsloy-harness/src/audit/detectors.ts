@@ -1021,12 +1021,17 @@ export function detectOutboxReask(sessions: readonly Session[]): Finding[] {
   return out;
 }
 
+/** Фейковая модель e2e с заготовленными ответами. */
+const SCRIPTED_MODEL = /(?:^|[/_-])zeno-fake$/i;
+
 // --- D9: не по-русски, жаргон, «запустите сами» (К9, К4) ---
 
 /** Слишком короткий текст («OK», «Done.») по доле кириллицы не судим. */
 const LANG_MIN_LETTERS = 40;
 
 export function detectLanguage(s: Session): Finding[] {
+  // Ответы заскриптованной фейковой модели e2e (`zeno-fake`) — заготовки, а не поведение модели (#29).
+  if (SCRIPTED_MODEL.test(s.model ?? "")) return [];
   const out: Finding[] = [];
   const texts: { step: Step | { id: string; role: string; text: string }; turn?: number }[] = [];
   for (const turn of turnsOf(s)) {

@@ -62,6 +62,9 @@ jobs:
         run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
       - name: Electron e2e (shard ${{ matrix.shard }}/2)
         working-directory: app/apps/desktop
+        env:
+          # Pi sessions of every launch, for the nightly session auditor (desktop-audit.yml, #29)
+          PRSLOY_E2E_SESSIONS: ${{ runner.temp }}/e2e-sessions
         run: xvfb-run -a npx playwright test --shard=${{ matrix.shard }}/2 --reporter=list --trace=retain-on-failure
       - uses: actions/upload-artifact@v4
         if: failure()
@@ -70,6 +73,14 @@ jobs:
           path: app/apps/desktop/test-results/
           if-no-files-found: ignore
           retention-days: 14
+      # Synthetic sessions of the fake gateway (no user data); the nightly audit takes the latest from main.
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e2e-sessions-${{ matrix.shard }}
+          path: ${{ runner.temp }}/e2e-sessions
+          if-no-files-found: ignore
+          retention-days: 7
 
   # Layout lint (e2e-audit/layout-lint.spec.ts): key screens × window sizes × scales, one theme per
   # job. Red on any violation that layout-baseline.json does not excuse; the table is in the summary.

@@ -524,6 +524,16 @@ describe("D9 language, jargon, «запустите сами»", () => {
     expect(sigs(f)).toEqual(["lazy:ask-user-run"]);
     expectValid(run, f);
   });
+  it("no: canned replies of the e2e fake model (zeno-fake) are not the model's language", () => {
+    const s = new Pi("zeno-fake")
+      .user("x")
+      .say(
+        "## Rich content\n\n- [x] Completed task\n- [ ] Pending task and a long English line here",
+      )
+      .session();
+    expect(detectLanguage(s)).toEqual([]);
+  });
+
   it("no: Russian answer with file names and a short «OK»", () => {
     expect(
       detectLanguage(
