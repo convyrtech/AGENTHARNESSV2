@@ -726,6 +726,7 @@ describe("outputs", () => {
     const text = auditReport(sessions, auditSessions(sessions, ctx), "26.10", 0.4);
     expect(text.trimEnd().split("\n").length).toBeLessThanOrEqual(15);
     expect(text).toContain("ставит программы без спроса");
+    expect(text).toContain("(не подтверждено — проверить)");
   });
 });
 

@@ -1750,7 +1750,8 @@ export function auditReport(
     const text = sig.startsWith("rule:")
       ? `нарушил правило ${sig.slice(5)}`
       : (SIG_TEXT[sig] ?? sig);
-    lines.push(`${i + 1}. ${text} — ${sessionsN} сесс. (${who}).`);
+    const shadow = list.every((f) => f.status === "shadow") ? " (не подтверждено — проверить)" : "";
+    lines.push(`${i + 1}. ${text} — ${sessionsN} сесс. (${who})${shadow}.`);
   });
   if (ranked.length === 0) lines.push("Ничего.");
   if (ranked.length > room)
@@ -1797,7 +1798,7 @@ export function acceptanceSummary(
   const steps = sessions.reduce((n, s) => n + s.steps.length, 0);
   const design = sessions.filter((s) => s.surface === "design").length;
   lines.push(
-    "# Разборщик A-0: приёмка",
+    "# Разборщик сессий: сводка",
     "",
     `Сессий ${sessions.length} (код ${sessions.length - design}, дизайн ${design}), шагов ${steps}, находок ${findings.length}, ${seconds.toFixed(1)} с, 0 токенов.`,
     "",
