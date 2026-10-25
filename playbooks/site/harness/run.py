@@ -43,17 +43,25 @@ def fit_ladder(cfg, available):
         if "start" in st:
             st["start"] = remap(st["start"])
     if cfg.get("judge", {}).get("model") not in available:
-        cfg.setdefault("judge", {})["model"] = keep[-1].split("/", 1)[-1]
+        # зрительная роль — не ниже класса Opus (research/28 §4.4: Kimi K2.5 «видит» различие в 12,8 % одинаковых
+        # пар, Opus — в 0,4 %): самая сильная ступень этого класса, иначе любая модель класса из шлюза, иначе никто
+        strong = [m.split("/", 1)[-1] for m in reversed(keep) if VISUAL_CLASS.search(m)]
+        strong += sorted(m for m in available if VISUAL_CLASS.search(m))
+        cfg.setdefault("judge", {})["model"] = strong[0] if strong else None
     return cfg
 
 
+# Модели для зрительных ролей (судья, пометки владельца на картинке): класс Opus и сопоставимые по замерам DiffSpot /
+# PerceptUI (research/28 §2.2, §4.4). Kimi и qwen сюда не входят, пока калибровка (§4.2) не покажет обратное.
+VISUAL_CLASS = re.compile(r"opus|gpt-6|gpt-5\.[4-9]|gemini-[3-9][\w.-]*-pro", re.I)
 CFG = fit_ladder(CFG, AVAILABLE)
 # A/B шага 5 без правки stages.json: HARNESS_PARALLEL5=1 включает параллельные прототипы, 0 — выключает
 if os.environ.get("HARNESS_PARALLEL5") in ("0", "1"):
     CFG["stages"].setdefault("5", {})["parallel"] = os.environ["HARNESS_PARALLEL5"] == "1"
 # пометки владельца кистью на картинке («Дизайн», research/20 §10): файл marks-*.png; такой ход — модели со зрением
 MARKS = re.compile(r"^marks-.+\.png$", re.I)
-VISION = re.compile(r"kimi|claude|opus", re.I)
+# ход с пометками — зрительная роль: та же планка, что у судьи
+VISION = VISUAL_CLASS
 
 
 def marks_note(files):
@@ -288,8 +296,12 @@ def snapshots_fp(ws):
 
 
 def run_judge(ws):
+    if not CFG["judge"].get("model"):
+        ws.ledger(kind="judge", exit=5, out="no visual-class model")
+        return 5, "нет модели уровня Opus для проверки картинки"
     r = subprocess.run([PY, "-I", str(HERE / "judge.py"), "--page", str(ws.page), "--transcripts", str(ws.h / "tx"),
                         "--pipeline", str(ws.pipe), "--model", CFG["judge"]["model"],
+                        "--max-images", str(CFG["judge"].get("max_images", 3)),
                         "--max-rounds", str(CFG["judge"]["max_rounds"] + ws.state.get("judge_bonus", 0)), *PROXY],
                        cwd=ws.root, capture_output=True, text=True, encoding="utf-8")
     # вердикт полями, а не только хвостом вывода: хвост в 400 знаков режет JSON со списком снимков, а A/B (#21)
@@ -1015,6 +1027,10 @@ def say(a):
                 return
             elif code == 4:
                 notes = ["Судья не смотрит старые снимки: перезапусти гейт (команда выше), потом «ЭТАП ГОТОВ»."]
+            elif code == 5:
+                emit(ev="stuck", text="Проверить страницу некому: шлюз не отдаёт модель уровня Opus, а проверку картинки "
+                                      "слабой модели не доверяем. Когда она появится, нажмите «Попробовать ещё раз».")
+                return
             else:
                 emit(ev="stuck", text="судья не ответил: " + out[-200:])
                 return

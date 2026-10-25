@@ -33,7 +33,7 @@ ap.add_argument("--pipeline", help="копия design-pipeline (по умолч�
 ap.add_argument("--proxy", default="http://127.0.0.1:8787")
 ap.add_argument("--model", default="claude-opus-5-5")
 ap.add_argument("--max-rounds", type=int, default=3)
-ap.add_argument("--max-images", type=int, default=6)
+ap.add_argument("--max-images", type=int, default=3)
 ap.add_argument("--questions", choices=["on", "off"], default="on", help="вопросы «да/нет» и вердикт кодом")
 a = ap.parse_args()
 sys.path.insert(0, str(Path(__file__).resolve().parent))
