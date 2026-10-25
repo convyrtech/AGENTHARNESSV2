@@ -7,6 +7,8 @@
  *
  * DESIGN_LIVE_VENV — venv with the design tools (scripts/design-smoke.mts makes one; locally any venv with pillow,
  * numpy, playwright + chromium, imageio-ffmpeg). Without it the file is skipped.
+ * DESIGN_LIVE_EXE — an installed PRSLOY.exe (the owner's NSIS package) instead of the dev build: its own design
+ * bundle, the tools set up through the tab's first-use setup, the profile «Иван Петров» through USERPROFILE/APPDATA.
  * DESIGN_LIVE_SHOTS — folder for screenshots (CI uploads it; default: the test's output folder).
  */
 import { expect, test, type Page } from "@playwright/test";
@@ -31,12 +33,14 @@ import { fileURLToPath } from "node:url";
 import { zipDirectory } from "../src/main/design/zip.ts";
 
 const require = createRequire(import.meta.url);
-const electronBinary = require("electron") as string;
+// only the dev build needs the electron package's binary; the installed-app job does not download it
+const electronBinary = () => require("electron") as string;
 const HERE = dirname(fileURLToPath(import.meta.url));
 const APP = join(HERE, "..");
 const FIXTURE = join(HERE, "design");
 const REPO = join(APP, "..", "..", "..");
 const VENV = process.env.DESIGN_LIVE_VENV ?? "";
+const EXE = process.env.DESIGN_LIVE_EXE ?? "";
 const WIN = process.platform === "win32";
 const VENV_PY = WIN ? join(VENV, "Scripts", "python.exe") : join(VENV, "bin", "python");
 const SHA = "39fcac42db4bd344c7d9747a5903cc18c9d87718";
@@ -55,7 +59,7 @@ const CHECKS = [
 ];
 
 test.describe.configure({ mode: "serial" });
-test.skip(!VENV, "DESIGN_LIVE_VENV: a venv with the design tools");
+test.skip(!VENV && !EXE, "DESIGN_LIVE_VENV (dev build) or DESIGN_LIVE_EXE (installed app)");
 test.setTimeout(600_000);
 
 /** Fake gateway behind the app's a6proxy: every second-opinion check passes. */
@@ -118,10 +122,13 @@ function lab(): Lab {
   const root = mkdtempSync(join(tmpdir(), "design-live-"));
   const made = (l: Lab) => (current = l);
   const bundle = join(root, "bundle");
-  for (const dir of [
-    ["playbooks", "site", "harness"],
-    ["playbooks", "site", "motion"],
-  ]) {
+  // the dev build gets a public-build bundle (harness, motion; no pipeline); the installed app ships its own
+  for (const dir of EXE
+    ? []
+    : [
+        ["playbooks", "site", "harness"],
+        ["playbooks", "site", "motion"],
+      ]) {
     cpSync(join(REPO, ...dir), join(bundle, ...dir), {
       recursive: true,
       filter: (p) => !p.includes("__pycache__") && !p.endsWith(".mp4"),
@@ -134,7 +141,12 @@ function lab(): Lab {
     join(downloads, `design-pipeline-${SHA}.zip`),
     zipDirectory(join(FIXTURE, "stub-pipeline"), `design-pipeline-${SHA}`),
   );
-  return made({ root, profile, userData: join(profile, "AppData", "PRSLOY"), downloads });
+  return made({
+    root,
+    profile,
+    userData: join(profile, "AppData", "Roaming", "PRSLOY"),
+    downloads,
+  });
 }
 
 async function launch(l: Lab): Promise<{ app: ElectronApplication; page: Page }> {
@@ -142,25 +154,67 @@ async function launch(l: Lab): Promise<{ app: ElectronApplication; page: Page }>
   mkdirSync(join(home, ".pi", "agent"), { recursive: true });
   mkdirSync(l.userData, { recursive: true });
   const env: Record<string, string> = {};
-  for (const [k, v] of Object.entries(process.env)) if (v !== undefined) env[k] = v;
+  for (const [k, v] of Object.entries(process.env)) {
+    // runner credentials never reach the app under test
+    if (v === undefined || /TOKEN|SECRET|PASSWORD|^AWS_|^CSC_|^ACTIONS_/i.test(k)) continue;
+    env[k] = v;
+  }
   delete env.ELECTRON_RUN_AS_NODE;
+  // the venv the app makes on first use (installed) or the one given (dev)
+  const python = VENV
+    ? VENV_PY
+    : WIN
+      ? join(l.userData, "design", "venv", "Scripts", "python.exe")
+      : join(l.userData, "design", "venv", "bin", "python");
   Object.assign(env, {
     HOME: home,
     XDG_CONFIG_HOME: join(home, ".config"),
     PI_CODING_AGENT_DIR: join(home, ".pi", "agent"),
     ZENO_NO_AUTO_RESUME: "1",
     ZENO_ENABLE_TEST_COMMANDS: "1",
-    DESIGN_BUNDLE_DIR: join(l.root, "bundle"),
-    PRSLOY_DESIGN_HOME: join(l.profile, "Documents", "PRSLOY"),
-    PRSLOY_DESIGN_VENV: VENV,
-    PRSLOY_DESIGN_PI_BIN: JSON.stringify([VENV_PY, join(FIXTURE, "live_pi.py")]),
+    PRSLOY_DESIGN_PI_BIN: JSON.stringify([python, join(FIXTURE, "live_pi.py")]),
     PRSLOY_API_KEY: "e2e-key-not-secret",
     PRSLOY_BASE_URL: gatewayUrl,
   });
+  if (EXE) {
+    // the installed app: its own bundle and first-use setup; a user «Иван Петров» on Windows
+    for (const k of Object.keys(env))
+      if (/^(DESIGN_BUNDLE_DIR|PRSLOY_DESIGN_(VENV|HOME))$/i.test(k)) delete env[k];
+    if (WIN) {
+      const local = join(l.profile, "AppData", "Local");
+      for (const dir of [
+        "Documents",
+        "Desktop",
+        join("AppData", "Roaming"),
+        join("AppData", "Local", "Temp"),
+      ]) {
+        mkdirSync(join(l.profile, dir), { recursive: true });
+      }
+      for (const k of Object.keys(env)) {
+        if (/^(USERPROFILE|HOMEDRIVE|HOMEPATH|APPDATA|LOCALAPPDATA|TEMP|TMP)$/i.test(k))
+          delete env[k];
+      }
+      Object.assign(env, {
+        USERPROFILE: l.profile,
+        HOMEDRIVE: l.profile.slice(0, 2),
+        HOMEPATH: l.profile.slice(2),
+        APPDATA: join(l.profile, "AppData", "Roaming"),
+        LOCALAPPDATA: local,
+        TEMP: join(local, "Temp"),
+        TMP: join(local, "Temp"),
+      });
+    }
+  } else {
+    Object.assign(env, {
+      DESIGN_BUNDLE_DIR: join(l.root, "bundle"),
+      PRSLOY_DESIGN_HOME: join(l.profile, "Documents", "PRSLOY"),
+      PRSLOY_DESIGN_VENV: VENV,
+    });
+  }
   const app = await electron.launch({
-    executablePath: electronBinary,
-    args: [APP, `--user-data-dir=${l.userData}`],
-    cwd: APP,
+    executablePath: EXE || electronBinary(),
+    args: [...(EXE ? [] : [APP]), `--user-data-dir=${l.userData}`],
+    cwd: EXE ? l.profile : APP,
     env,
     timeout: 60_000,
   });
@@ -176,7 +230,8 @@ async function shot(page: Page, name: string) {
   const dir = process.env.DESIGN_LIVE_SHOTS || test.info().outputDir;
   mkdirSync(dir, { recursive: true });
   await page.waitForTimeout(300);
-  await page.screenshot({ path: join(dir, `design-${WIN ? "windows" : "live"}-${name}.png`) });
+  const tag = EXE ? "windows-installed" : WIN ? "windows" : "live";
+  await page.screenshot({ path: join(dir, `design-${tag}-${name}.png`) });
 }
 
 /** The owner adds the pinned-commit zip; the tab becomes the empty design page. */
@@ -189,7 +244,16 @@ async function importTools(app: ElectronApplication, page: Page, l: Lab) {
     });
   }, zip);
   await page.getByTestId("nav-design").click();
+  // a public build: harness shipped, pipeline not — the owner adds his zip
   await page.getByTestId("design-import-tools").click();
+  if (!VENV) {
+    // first use: the tab sets up its Python tools (bundled Python → venv → wheels → browser)
+    await expect(page.getByTestId("design-setup")).toBeVisible();
+    if ((await page.getByTestId("design-setup-start").count()) > 0) {
+      await page.getByTestId("design-setup-start").click();
+    }
+    await expect(page.getByTestId("design-setup")).toHaveCount(0, { timeout: 600_000 });
+  }
   await expect(page.getByTestId("design-empty")).toBeVisible();
 }
 
