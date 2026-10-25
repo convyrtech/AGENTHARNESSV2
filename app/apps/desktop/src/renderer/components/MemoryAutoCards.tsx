@@ -33,11 +33,13 @@ function CardShell(props: {
       data-memory={props.kind}
       data-testid="memory-card"
     >
-      <div className="model-failure-head">
-        <Brain className="size-4 shrink-0" strokeWidth={1.75} />
-        <span className="model-failure-title">{props.title}</span>
-        {props.actions}
-      </div>
+      {props.title === null ? null : (
+        <div className="model-failure-head">
+          <Brain className="size-4 shrink-0" strokeWidth={1.75} />
+          <span className="model-failure-title">{props.title}</span>
+          {props.actions}
+        </div>
+      )}
       {props.children}
     </div>
   );
@@ -114,8 +116,15 @@ function AutoEntry(props: {
       </span>
     ) : null;
   return (
-    <div className="memory-auto-entry" data-testid="memory-auto-entry">
+    <div
+      className={props.inline ? "memory-auto-entry memory-auto-entry-inline" : "memory-auto-entry"}
+      data-testid="memory-auto-entry"
+    >
       <div className="memory-auto-entry-head">
+        {/* one entry stands in for the card's head: the icon and the text line up as in the others */}
+        {props.inline ? (
+          <Brain className="size-4 shrink-0 memory-auto-icon" strokeWidth={1.75} />
+        ) : null}
         <span className="memory-auto-text">{text}</span>
         {actions}
       </div>

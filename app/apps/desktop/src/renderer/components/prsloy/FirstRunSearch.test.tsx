@@ -21,12 +21,12 @@ describe("first run: «Разрешить агенту искать в инте�
     expect(flags.set).toHaveBeenCalledWith({ webTools: true });
   });
 
-  it("«Не сейчас» leaves it off", () => {
+  it("«Не сейчас» writes it off (the default may be on), then goes on", async () => {
     const onDone = vi.fn();
     render(<FirstRunSearch locale="ru" onDone={onDone} />);
     fireEvent.click(screen.getByTestId("first-run-search-skip"));
-    expect(onDone).toHaveBeenCalled();
-    expect(flags.set).not.toHaveBeenCalled();
+    await waitFor(() => expect(onDone).toHaveBeenCalled());
+    expect(flags.set).toHaveBeenCalledWith({ webTools: false });
   });
 
   it("a failed switch is shown and the step stays", async () => {

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * #23 with SEARCH_READY on: the first run asks about web search between the import and the folder.
+ * #23 with FIRST_RUN_SEARCH_STEP on (off for alpha.2): the first run asks about web search between the import and the folder.
  * (FirstRunGate.test.tsx covers the default, where the step is not shown.)
  */
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
@@ -8,7 +8,10 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import type { PrsloyState } from "@zeno/contracts";
 import { FirstRunGate } from "./FirstRunGate.tsx";
 
-vi.mock("../../../shared/search-ready.ts", () => ({ SEARCH_READY: true }));
+vi.mock("../../../shared/search-ready.ts", () => ({
+  SEARCH_READY: true,
+  FIRST_RUN_SEARCH_STEP: true,
+}));
 
 afterEach(cleanup);
 

@@ -1,7 +1,8 @@
 /**
  * First-run step «search» between the chats from other agents and the folder (#23): one question —
  * may the agent look things up on the web? «Включить поиск» turns the harness flag `webTools` on (the
- * free search, no key); «Не сейчас» leaves it off. Keys and other searches stay in Settings → «Поиск в
+ * free search, no key); «Не сейчас» writes it off — the default may be on (RC check), so the answer is
+ * always saved. Keys and other searches stay in Settings → «Поиск в
  * интернете». The Gate draws the card and remembers that the step was seen.
  */
 import { useState } from "react";
@@ -14,11 +15,11 @@ export function FirstRunSearch({ locale, onDone }: FirstRunStepProps) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
 
-  async function enable() {
+  async function choose(webTools: boolean) {
     setBusy(true);
     setError(undefined);
     try {
-      await window.zeno.harnessFlags.set({ webTools: true });
+      await window.zeno.harnessFlags.set({ webTools });
       onDone();
     } catch (e) {
       setError(errorText(e));
@@ -39,7 +40,7 @@ export function FirstRunSearch({ locale, onDone }: FirstRunStepProps) {
         className="h-10"
         data-testid="first-run-search-on"
         disabled={busy}
-        onClick={() => void enable()}
+        onClick={() => void choose(true)}
       >
         {t(locale, "features.web.firstRun.on")}
       </Button>
@@ -48,7 +49,7 @@ export function FirstRunSearch({ locale, onDone }: FirstRunStepProps) {
         className="prsloy-first-run-link prsloy-first-run-link-quiet"
         data-testid="first-run-search-skip"
         disabled={busy}
-        onClick={onDone}
+        onClick={() => void choose(false)}
       >
         {t(locale, "features.web.firstRun.skip")}
       </button>
