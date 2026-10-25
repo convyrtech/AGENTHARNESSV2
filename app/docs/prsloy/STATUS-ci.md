@@ -24,23 +24,24 @@
      `bash-*.json`, копия userData без рантаймов — в артефакте `prsloy-win-smoke`. Сводка цифр — в Summary job;
    - падение, вылет или таймаут (10 мин на тест, 30 мин на job) красят job.
 
-## Цифры (windows-latest, 4 прогона)
+## Цифры (windows-latest, 5 прогонов)
 
-| Что | Значение |
-|---|---|
-| Установщик `PRSLOY-0.1.6-win-x64.exe` | 200,8 МБ |
-| После установки (папка программы) | 704,4 МБ |
-| Тихая установка | 23,6–30,6 с |
-| Запуск → первое окно | 14,8–19,2 с |
-| Запуск → интерфейс готов (вкл. первую распаковку Node + Python) | 17,1–21,7 с |
-| «Новый разговор» → Agent Host ready | ~2,0 с |
-| Сборка `package` | ~4–7 мин; `smoke` ~4–5 мин |
+| Что                                                             | Значение                   |
+| --------------------------------------------------------------- | -------------------------- |
+| Установщик `PRSLOY-0.1.6-win-x64.exe`                           | 200,8 МБ                   |
+| После установки (папка программы)                               | 704,4 МБ                   |
+| Тихая установка                                                 | 23,6–30,6 с                |
+| Запуск → первое окно                                            | 14,8–23,8 с                |
+| Запуск → интерфейс готов (вкл. первую распаковку Node + Python) | 17,1–26,3 с                |
+| «Новый разговор» → Agent Host ready                             | ~2,0 с                     |
+| Сборка `package`                                                | ~4–7 мин; `smoke` ~4–5 мин |
 
 Архивы рантаймов в установщике: node.tar.gz 34,1 МБ, python.tar.gz 16,7 МБ.
 
 ## Bash-тул Pi на Windows
 
 **Какой shell берёт Pi** (`pi-coding-agent/dist/utils/shell.js`, `getShellConfig`):
+
 1. `shellPath` из `settings.json`;
 2. `%ProgramFiles%\Git\bin\bash.exe`, затем `%ProgramFiles(x86)%\Git\bin\bash.exe`;
 3. `where bash.exe` по PATH. Вызов: `bash -c <command>`; для `System32\bash.exe` (WSL) — `-s` через stdin.
@@ -71,14 +72,29 @@ Searched Git Bash in:
 **Кандидаты на исправление** (проверены в smoke при спрятанном системном Git, Pi направлен на shell через
 `settings.json` → `shellPath`; только отчёт, на зелёный цвет не влияют):
 
-| Кандидат | Размер (zip / распак.) | Результат |
-|---|---|---|
-| MinGit 2.56.0.3 | 38,0 / 91,8 МБ | `bash.exe` нет, есть `usr\bin\sh.exe` = bash 5.3.15. Как `shellPath` работает: `$((…))`, `[[ ]]`, массивы, `git`. **Но нет coreutils:** `ls`, `head`, `tr`, `uname` → `command not found` |
-| MinGit-busybox 2.56.0.3 | 33,7 / 82,5 МБ | нет ни `bash.exe`, ни `sh.exe`, только `ucrt64\bin\busybox.exe`; с `-c` напрямую не вызвать |
-| PortableGit 2.56.0.3 | PORTABLEGIT_SIZE | PORTABLEGIT_RESULT |
-| PowerShell-тул | 0 | не проверялся: модели и промпты Pi рассчитаны на bash; нужен свой тул в core |
+| Кандидат                | Размер (zip / распак.)                | Результат                                                                                                                                                                                 |
+| ----------------------- | ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| MinGit 2.56.0.3         | 38,0 / 91,8 МБ                        | `bash.exe` нет, есть `usr\bin\sh.exe` = bash 5.3.15. Как `shellPath` работает: `$((…))`, `[[ ]]`, массивы, `git`. **Но нет coreutils:** `ls`, `head`, `tr`, `uname` → `command not found` |
+| MinGit-busybox 2.56.0.3 | 33,7 / 82,5 МБ                        | нет ни `bash.exe`, ни `sh.exe`, только `ucrt64\bin\busybox.exe`; с `-c` напрямую не вызвать                                                                                               |
+| PortableGit 2.56.0.3    | 57,3 (7z.exe) / 392,3 МБ, 9616 файлов | **Работает всё:** `bin\bash.exe` 5.3.15, `$((…))`, `[[ ]]`, массивы, `git`, `ls/head/tr/grep/sed/awk/find/which/uname`. `which python` → бандловый Python из userData                     |
+| PowerShell-тул          | 0                                     | не проверялся: модели и промпты Pi рассчитаны на bash; нужен свой тул в core                                                                                                              |
 
-**Предложение (решает дирижёр, делает core):** PORTABLEGIT_PROPOSAL
+**Предложение (решает дирижёр, делает core):** взять PortableGit.
+
+- Положить урезанный PortableGit третьим архивом в `runtimes/archives` (как Node и Python) и распаковывать при
+  первом запуске в `userData/runtimes/git`. Урезать: `mingw64/share/doc`, `locale`, perl/tcl/tk, `gitk`,
+  `git-gui`. Это оценка, не замер: точную прибавку к установщику покажет сборка; без урезания ~+57 МБ.
+- В Pi **явно** задать `shellPath = <userData>/runtimes/git/bin/bash.exe` (на Windows, если пользователь не задал
+  свой). На PATH не полагаться: так обходим ловушку WSL и `FIND.EXE` вместо `find` (MinGit-прогон показал
+  `FIND: Parameter format not correct`).
+- MinGit отпадает: нет coreutils, агент сломается на первом `ls`/`grep`. MinGit-busybox без обёртки не
+  запускается. PowerShell-тул — свой тул и другой промпт, модели хуже пишут PowerShell; оставить на потом.
+- Когда core это сделает: в smoke поставить `SMOKE_STRICT_CLEAN_BASH=1`, и сценарий «чистая Windows» станет
+  обязательным. Сейчас он только пишет отчёт.
+
+Наблюдение для core: на раннере `which node` в bash-туле нашёл системный `C:\Program Files\nodejs`, а не
+бандловый Node (у Python — бандловый). На чистой машине системного Node нет, но порядок PATH для bash стоит
+проверить.
 
 ## Замечания
 
@@ -93,4 +109,6 @@ Searched Git Bash in:
 - Локально: `pnpm check` ✓, `pnpm test` ✓ (92 файла, 669 тестов + скриптовые тесты), `pnpm build` ✓.
 - Локально на Linux: упакованная сборка `electron-builder --linux dir` + тот же smoke под `xvfb-run` ✓
   (bash: `PRSLOY_SMOKE_42`, `/bin/bash`).
-- CI: прогоны `desktop-windows` на `desktop/ci` — RUN_LIST.
+- CI, `desktop-windows` на `desktop/ci`, все зелёные: 40144577288, 40145410772, 40146190949, 40146870805,
+  40147775976 (последний: MinGit vs PortableGit). Артефакты `prsloy-win-x64` (установщик) и
+  `prsloy-win-smoke` (скриншоты, логи, json) — 14 дней.
