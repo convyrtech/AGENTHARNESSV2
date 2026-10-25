@@ -68,29 +68,49 @@ export const RULE_TEXT: Record<LayoutRule, string> = {
 
 const pct = (scale: number) => `${Math.round(scale * 100)}%`;
 
-/** Markdown table: one row per rule × screen × selector, with every matrix point it shows up at. */
-export function reportTable(findings: readonly Finding[]): string {
+const cell = (s: string) => s.replace(/\|/g, "\\|").replace(/\n/g, " ");
+const short = (items: string[], n: number) =>
+  items.length > n ? `${items.slice(0, n).join(", ")} … ещё ${items.length - n}` : items.join(", ");
+
+function byElement(findings: readonly Finding[]): Finding[][] {
   const groups = new Map<string, Finding[]>();
   for (const f of findings) {
-    const key = `${f.rule}\u0000${f.screen}\u0000${f.selector}`;
+    const key = `${f.rule}\u0000${f.selector}`;
     groups.set(key, [...(groups.get(key) ?? []), f]);
   }
-  const rows = [...groups.values()].sort(
-    (a, b) =>
-      a[0]!.rule.localeCompare(b[0]!.rule) ||
-      a[0]!.screen.localeCompare(b[0]!.screen) ||
-      b.length - a.length,
+  return [...groups.values()].sort(
+    (a, b) => a[0]!.rule.localeCompare(b[0]!.rule) || b.length - a.length,
   );
-  const cell = (s: string) => s.replace(/\|/g, "\\|").replace(/\n/g, " ");
+}
+
+/** Per rule: how many distinct elements, on how many screens, at how many matrix points. */
+export function summaryTable(findings: readonly Finding[]): string {
   const lines = [
-    "| # | Правило | Экран | Элемент | Текст | Где (окно@масштаб, тема) | Подробно | Скриншот |",
+    "| Правило | Элементов (уникальных селекторов) | Экранов | Нарушений по матрице |",
+    "|---|---|---|---|",
+  ];
+  for (const [rule, text] of Object.entries(RULE_TEXT)) {
+    const of = findings.filter((f) => f.rule === rule);
+    if (of.length === 0) continue;
+    const selectors = new Set(of.map((f) => f.selector)).size;
+    const screens = new Set(of.map((f) => f.screen)).size;
+    lines.push(`| ${text} | ${selectors} | ${screens} | ${of.length} |`);
+  }
+  return `${lines.join("\n")}\n`;
+}
+
+/** Markdown table: one row per rule × element, with its screens and matrix points. */
+export function reportTable(findings: readonly Finding[]): string {
+  const lines = [
+    "| # | Правило | Элемент | Текст | Экраны | Где (окно@масштаб, тема) | Подробно | Скриншот |",
     "|---|---|---|---|---|---|---|---|",
   ];
-  rows.forEach((group, i) => {
+  byElement(findings).forEach((group, i) => {
     const first = group[0]!;
+    const screens = [...new Set(group.map((f) => f.screen))];
     const where = [...new Set(group.map((f) => `${f.size}@${pct(f.scale)} ${f.theme}`))];
     lines.push(
-      `| ${i + 1} | ${RULE_TEXT[first.rule]} | ${cell(first.screen)} | \`${cell(first.selector)}\` | ${cell(first.text)} | ${cell(where.length > 6 ? `${where.slice(0, 6).join(", ")} … ещё ${where.length - 6}` : where.join(", "))} | ${cell(first.detail)} | ${first.shot} №${first.n} |`,
+      `| ${i + 1} | ${RULE_TEXT[first.rule]} | \`${cell(first.selector)}\` | ${cell(first.text)} | ${cell(short(screens, 5))} | ${cell(short(where, 6))} | ${cell(first.detail)} | ${first.shot} №${first.n} |`,
     );
   });
   return `${lines.join("\n")}\n`;
