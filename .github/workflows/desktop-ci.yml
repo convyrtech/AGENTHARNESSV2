@@ -33,6 +33,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm check
       - run: pnpm test
+      - run: pnpm test:release-assets
       - run: pnpm build
 
   # Electron e2e на Linux под xvfb: весь набор e2e/*.spec.ts (кроме дымовых Windows), два шарда по ~4 мин.

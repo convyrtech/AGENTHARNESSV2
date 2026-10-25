@@ -5,8 +5,10 @@
 import { mkdtempSync, writeFileSync, mkdirSync, rmSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { createHash } from "node:crypto";
 import {
   isUsefulReleaseAsset,
+  checkWindowsFeed,
   collectReleaseAssets,
   validatePublishAssets,
 } from "./release-assets.mjs";
@@ -145,6 +147,73 @@ assert(!isUsefulReleaseAsset("builder-debug.yml"), "drop builder-debug");
     result.errors.some((e) => e.includes(".zip")),
     "error must mention zip reference",
   );
+  rmSync(root, { recursive: true, force: true });
+}
+
+// --- check-feed: latest.yml as electron-builder writes it ---------------------------
+
+function windowsRelease(name, { version = "0.1.0-alpha.2", body = "installer", sha } = {}) {
+  const root = mkdtempSync(join(tmpdir(), "zeno-feed-"));
+  writeFileSync(join(root, name), body);
+  writeFileSync(join(root, `${name}.blockmap`), "map");
+  const sha512 = sha ?? createHash("sha512").update(body).digest("base64");
+  writeFileSync(
+    join(root, "latest.yml"),
+    [
+      `version: ${version}`,
+      "files:",
+      `  - url: ${name}`,
+      `    sha512: ${sha512}`,
+      `    size: ${Buffer.byteLength(body)}`,
+      `path: ${name}`,
+      `sha512: ${sha512}`,
+      "releaseDate: '2026-10-25T10:17:33.058Z'",
+      "",
+    ].join("\n"),
+  );
+  return root;
+}
+
+{
+  const root = windowsRelease("PRSLOY-0.1.0-alpha.2-win-x64.exe");
+  const r = checkWindowsFeed(root, { version: "0.1.0-alpha.2" });
+  assert(r.ok, `good feed must pass: ${r.errors.join("; ")}`);
+  assert(r.files[0] === "PRSLOY-0.1.0-alpha.2-win-x64.exe", "file url read");
+  assert(!checkWindowsFeed(root, { version: "0.1.0-alpha.3" }).ok, "other version must fail");
+  rmSync(join(root, "PRSLOY-0.1.0-alpha.2-win-x64.exe.blockmap"));
+  assert(
+    checkWindowsFeed(root).errors.some((e) => e.includes("blockmap missing")),
+    "missing blockmap must fail",
+  );
+  writeFileSync(join(root, "builder-debug.yml"), "x");
+  assert(
+    checkWindowsFeed(root).errors.some((e) => e.includes("not referenced")),
+    "stray file must fail",
+  );
+  rmSync(root, { recursive: true, force: true });
+}
+
+{
+  const root = windowsRelease("PRSLOY-0.1.0-alpha.2-win-x64.exe", { sha: "AAAA" });
+  assert(
+    checkWindowsFeed(root).errors.some((e) => e.includes("sha512")),
+    "sha512 mismatch must fail",
+  );
+  rmSync(root, { recursive: true, force: true });
+}
+
+{
+  const root = windowsRelease("PRSLOY Setup 0.1.0-alpha.2.exe");
+  assert(
+    checkWindowsFeed(root).errors.some((e) => e.includes("GitHub would rename")),
+    "a space in the asset name must fail (GitHub renames it, the updater would 404)",
+  );
+  rmSync(root, { recursive: true, force: true });
+}
+
+{
+  const root = mkdtempSync(join(tmpdir(), "zeno-feed-empty-"));
+  assert(!checkWindowsFeed(root).ok, "no latest.yml must fail");
   rmSync(root, { recursive: true, force: true });
 }
 
