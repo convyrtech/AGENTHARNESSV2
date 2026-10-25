@@ -25,6 +25,7 @@ import {
 } from "../../../apps/desktop/src/shared/prsloy-config.ts";
 import { createPrsloyHarness, harnessStats, installReusePrompt } from "../src/index.ts";
 import { resolveOptions } from "../src/options.ts";
+import type { SearchConfig } from "../src/research/search.ts";
 import { type AnswerMetrics, answerMetrics } from "./lib/answer-metrics.ts";
 import type { ExtractorFn } from "../src/memory-auto.ts";
 import { closeSharedProxy } from "../src/reliability.ts";
@@ -44,7 +45,10 @@ export const HONESTY_CACHE = join(dirname(fileURLToPath(import.meta.url)), ".cac
 export interface BenchOptions {
   /** id задач (`conflicting-test` — все варианты, `conflicting-test/v2` — один); по умолчанию весь набор `suite`. */
   tasks?: string[];
-  /** Набор задач: casual (16 казуальных, по умолчанию), honesty (задачи честности H-0) или all. */
+  /**
+   * Набор задач: casual (16 казуальных, по умолчанию), honesty (задачи честности H-0), web (кодовые задачи, где без
+   * поиска модель ошибается: версии, поддержка, свежие API — issue #23) или all.
+   */
   suite?: Suite;
   /** Кэш взятых задач (по умолчанию HONESTY_CACHE); false — только то, что в git. В --fake кэш не берётся. */
   honestyCache?: string | false;
@@ -72,6 +76,11 @@ export interface BenchOptions {
   prompt?: "pi" | "prsloy";
   /** Дельта промпта под модель (qwen, opus). По умолчанию выкл. */
   delta?: boolean;
+  /**
+   * web_search и web_fetch (флаг "webTools", issue #23). По умолчанию выкл., как в приложении. Поиск — бесплатный;
+   * свой поставщик — файл JSON в BENCH_SEARCH_CONFIG ({"provider": "brave", "key": "…"}).
+   */
+  webTools?: boolean;
   /** Разборщик сессий после прогона (research/24 §6, A-4; ci). Пока только помечается в отчёте. */
   audit?: boolean;
   log?: (line: string) => void;
@@ -81,7 +90,7 @@ export interface BenchOptions {
  * Исход задачи честности (research/24 §4.1 H-0, research/22 §6.5). Задача ждёт свой исход (`expectedOutcome` в
  * task.json, по умолчанию solved): CI проверяет, что «жулик пойман», а не что «все прошли».
  */
-export type Suite = "casual" | "honesty" | "all";
+export type Suite = "casual" | "honesty" | "web" | "all";
 
 export type Outcome = "solved" | "honest_fail" | "disclosed_test_edit" | "cheat" | "false_done";
 export const OUTCOMES: readonly Outcome[] = [
@@ -144,7 +153,7 @@ interface TaskDef {
   /** Заготовка фейковой модели (fake.json варианта или задачи); нет — вариант в --fake не гоняется. */
   fake: string | undefined;
   title: string;
-  suite: "casual" | "honesty";
+  suite: "casual" | "honesty" | "web";
   /** Сессии задачи по порядку: одна или несколько (двухсессионные задачи памяти). */
   prompts: string[];
   /** Ожидаемый исход (task.json `expectedOutcome`), по умолчанию solved. */
@@ -185,7 +194,7 @@ export function listTasks(
     const dir = join(TASKS_DIR, id);
     if (!existsSync(join(dir, "task.json"))) continue;
     const def = readJson(join(dir, "task.json"));
-    const own = def.suite === "honesty" ? "honesty" : "casual";
+    const own = def.suite === "honesty" || def.suite === "web" ? def.suite : "casual";
     if (suite !== "all" && own !== suite && !only?.some((o) => o.split("/")[0] === id)) continue;
     const roots = [join(dir, "variants"), ...(cache ? [join(cache, id, "variants")] : [])].filter(
       (r) => existsSync(r),
@@ -329,6 +338,12 @@ interface SessionRun {
   error?: string;
 }
 
+/** Свой поставщик поиска для замера: файл JSON в BENCH_SEARCH_CONFIG; нет — бесплатный, как в приложении. */
+function benchSearch(): { search?: SearchConfig } {
+  const path = process.env.BENCH_SEARCH_CONFIG;
+  return path ? { search: JSON.parse(readFileSync(path, "utf8")) as SearchConfig } : {};
+}
+
 async function runTask(task: TaskDef, opts: BenchOptions): Promise<TaskResult> {
   const work = join(opts.outDir, "work");
   mkdirSync(work, { recursive: true });
@@ -350,6 +365,7 @@ async function runTask(task: TaskDef, opts: BenchOptions): Promise<TaskResult> {
       memory: opts.memory !== false,
       prompt: opts.prompt ?? "prsloy",
       promptDelta: opts.delta === true,
+      webTools: opts.webTools === true,
     }),
   );
   const slash = opts.model.indexOf("/");
@@ -383,6 +399,10 @@ async function runTask(task: TaskDef, opts: BenchOptions): Promise<TaskResult> {
             memoryDir,
             settingsPath,
             skillsDir: join(opts.outDir, "skills"),
+            research: {
+              ...(opts.baseUrl ? { gatewayUrl: opts.baseUrl } : {}),
+              ...benchSearch(),
+            },
             ...(opts.fake && fakeExtractor(task)
               ? { autoMemory: { extract: fakeExtractor(task)! } }
               : {}),
@@ -550,6 +570,7 @@ export interface BenchReport {
     memory: boolean;
     prompt: "pi" | "prsloy";
     delta: boolean;
+    webTools: boolean;
     fake: boolean;
     date: string;
     gateway: string;
@@ -609,6 +630,7 @@ export async function runBench(opts: BenchOptions): Promise<BenchReport> {
       memory: opts.memory !== false,
       prompt: opts.prompt ?? "prsloy",
       delta: opts.delta === true,
+      webTools: opts.webTools === true,
       fake: opts.fake === true,
       date: new Date().toISOString(),
       gateway: opts.fake ? "fake" : new URL(opts.baseUrl ?? "http://unknown").host,
@@ -696,7 +718,7 @@ export function reportMarkdown(report: BenchReport): string {
     return `| ${r.id} | ${mark} ${r.note.replace(/\|/g, "/")}${outcome}${r.error ? ` (${r.error})` : ""} | ${r.seconds} | ${r.toolCalls} | ${r.costUsd.toFixed(4)} | ${cache} | ${reply} | ${iv || "—"} |`;
   });
   return [
-    `# Замер: ${meta.model}, харнесс ${meta.harness ? "вкл" : "выкл"}, промпт ${meta.prompt}${meta.delta ? "+дельта" : ""}, уроки ${meta.lessons ? "вкл" : "выкл"}, ревью ${meta.review ? "вкл" : "выкл"}, навыки ${meta.skills ? "вкл" : "выкл"}, память ${meta.memory ? "вкл" : "выкл"}${meta.audit ? ", разбор вкл" : ""}${meta.fake ? " (фейковая модель)" : ""}`,
+    `# Замер: ${meta.model}, харнесс ${meta.harness ? "вкл" : "выкл"}, промпт ${meta.prompt}${meta.delta ? "+дельта" : ""}, уроки ${meta.lessons ? "вкл" : "выкл"}, ревью ${meta.review ? "вкл" : "выкл"}, навыки ${meta.skills ? "вкл" : "выкл"}, память ${meta.memory ? "вкл" : "выкл"}${meta.webTools ? ", поиск вкл" : ""}${meta.audit ? ", разбор вкл" : ""}${meta.fake ? " (фейковая модель)" : ""}`,
     "",
     `${meta.date} · шлюз ${meta.gateway} · таймаут задачи ${meta.timeoutSec} с`,
     "",
