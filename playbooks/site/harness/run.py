@@ -412,6 +412,7 @@ def say(a):
         fix = re.match(r"\s*[бb6]\b", a.text.lower()) or "исправ" in a.text.lower()
         if fix:
             ws.state["judge_bonus"] = ws.state.get("judge_bonus", 0) + 1
+            ws.state["judge_capped"] = False
             notes.append(f"Владелец после лимита судьи ответил «{a.text}»: исправь находки Blocker и Critical, "
                          "подтверждённые кадром, перезапусти гейт и закончи «ЭТАП ГОТОВ». Харнесс даст судье ещё раунд.")
         else:
@@ -440,7 +441,11 @@ def say(a):
             fp = snapshots_fp(ws)
             last = ws.state.get("judge_last") or {}
             judge_now = last.get("fp") != fp or (last.get("verdict") == "PASS" and last.get("round", 0) < 2)
-            if not judge_now:
+            if ws.state.get("judge_capped"):                 # лимит исчерпан и владелец ответил: решает он, не судья
+                judge_now = False
+            if not judge_now and ws.state.get("judge_capped"):
+                pass                                       # указание по ответу владельца уже в notes
+            elif not judge_now:
                 notes = [f"Судья (раунд {last.get('round')}, {last.get('verdict')}) смотрел эти снимки: его находки в "
                          "artifacts/judge/JUDGE.md. Исправь в коде находки, подтверждённые кадром (Blocker и Critical — "
                          "обязательно), отметь их в колонке «Статус», перезапусти гейт и закончи «ЭТАП ГОТОВ». "
@@ -462,6 +467,7 @@ def say(a):
                 h7 = ws.state.setdefault("attempts", {}).setdefault("g7", {"n": 0, "rung": 0, "last": None})
                 h7["waiting_owner"] = True
                 ws.state["judge_cap_asked"] = True
+                ws.state["judge_capped"] = True
                 ws.state["outbox"] = ws.state.get("outbox", 0) + 1
                 sent = ws.h / "sent"
                 sent.mkdir(exist_ok=True)
