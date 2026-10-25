@@ -124,10 +124,10 @@ describe("theme-packs", () => {
     const draft = createThemeSkinDraft("Aurora");
 
     expect(draft.description).toBeUndefined();
-    expect(draft.light?.background).toBe("#f3eee3");
-    expect(draft.dark?.background).toBe("#1c1612");
-    expect(draft.light?.colors?.accent).toBe("#a4472c");
-    expect(draft.dark?.colors?.accent).toBe("#d0714f");
+    expect(draft.light?.background).toBe("#ede6d5");
+    expect(draft.dark?.background).toBe("#07080a");
+    expect(draft.light?.colors?.accent).toBe("#1b3ed2");
+    expect(draft.dark?.colors?.accent).toBe("#45f0dd");
     expect(draft.materials).toMatchObject({
       sidebarOpacity: 0.64,
       pageOpacity: 0.35,
@@ -166,12 +166,12 @@ describe("theme-packs", () => {
     expect(draft.name).toBe("PRSLOY");
     expect(draft.appearance).toBe("auto");
     expect(draft.light?.colors).toMatchObject({
-      background: "#f3eee3",
-      panel: "#faf7f0",
-      text: "#3b2a1e",
-      muted: "#7a6352",
-      line: "#ddd2c1",
-      accent: "#a4472c",
+      background: "#ede6d5",
+      panel: "#f4efe3",
+      text: "#1e2126",
+      muted: "#4a4f57",
+      line: "#cbc1aa",
+      accent: "#1b3ed2",
     });
     expect(draft.dark?.colors?.text).toBeTruthy();
     expect(draft.art).toMatchObject(ART_DEFAULTS);
@@ -378,7 +378,7 @@ describe("theme-packs", () => {
     expect(mikuLight.glass).toBe(true);
     expect(mikuLight.sidebarTranslucent).toBe(false);
     expect(mikuLight.sidebarGlass).toBe(true);
-    expect(mikuLight.surface).toBe("#faf7f0");
+    expect(mikuLight.surface).toBe("#f4efe3");
     const nativeMikuLight = themeEditorPreview(createThemeSkinDraft("Glass"), "light", {
       hasWallpaper: true,
       sidebarTranslucent: true,
@@ -388,8 +388,8 @@ describe("theme-packs", () => {
     const mikuDark = themeEditorPreview(createThemeSkinDraft("Glass"), "dark", {
       hasWallpaper: true,
     });
-    expect(mikuDark.surface).toBe("#262019");
-    expect(mikuDark.text).toBe("#efe6d8");
+    expect(mikuDark.surface).toBe("#0d0f12");
+    expect(mikuDark.text).toBe("#e6f2ef");
   });
 
   it("allows an explicit empty backgroundUrl to clear the wallpaper in studio", () => {
