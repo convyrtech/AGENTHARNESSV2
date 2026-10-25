@@ -14,12 +14,12 @@ import { homedir } from "node:os";
 import { isAbsolute, join } from "node:path";
 import { MemoryStore, memoryDirFor } from "@prsloy/harness";
 import type {
-  HarnessFlags,
   MemoryForgottenItem,
   MemoryHistoryItem,
   MemoryItem,
   MemorySnapshot,
 } from "@zeno/contracts";
+import { onHarnessFlagsChanged } from "./flags-events.ts";
 import type { IpcMainLike } from "./ipc.ts";
 import { workspaceKey } from "./turn-snapshots.ts";
 
@@ -202,17 +202,6 @@ export function eraseMemory(agentDir: string): void {
   new MemoryStore(memoryDirFor(agentDir)).eraseAll();
 }
 
-let flagsListener: ((before: HarnessFlags, after: HarnessFlags) => Promise<void>) | undefined;
-
-/** Called by the settings handler (harness-flags.ts) after every write of the flags. */
-export async function memoryFlagsChanged(before: HarnessFlags, after: HarnessFlags): Promise<void> {
-  try {
-    await flagsListener?.(before, after);
-  } catch (error) {
-    console.warn("[prsloy] erasing memory after it was turned off failed:", error);
-  }
-}
-
 /** Project folders the memory knows, from `projects/<key>/project.json` (`path`). */
 function knownProjects(dir: string): string[] {
   const root = join(dir, "projects");
@@ -250,11 +239,11 @@ export function registerPrsloyMemoryIpc(ipcMain: IpcMainLike, deps: PrsloyMemory
   };
 
   // Turned off in the settings: erase, and tell the open session to stop using its section.
-  flagsListener = async (before, after) => {
+  onHarnessFlagsChanged("memory", async (before, after) => {
     if (!before.memory || after.memory) return;
     eraseMemory(deps.agentDir);
     await noteAll();
-  };
+  });
 
   ipcMain.handle(PRSLOY_MEMORY_IPC.list, (_event, rawWorkspace) =>
     list(store(), workspaceOf(rawWorkspace, deps)),

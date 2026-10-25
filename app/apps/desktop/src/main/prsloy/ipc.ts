@@ -16,6 +16,7 @@ import { checkPrsloyKey, type FetchLike } from "./gateway-check.ts";
 import { maskKey } from "./key-store.ts";
 import { recordTurnUndo } from "./learning-undo.ts";
 import { extractorMode, installMemoryExtractor, testProviderEndpoint } from "./memory-extractor.ts";
+import { onHarnessFlagsChanged } from "./flags-events.ts";
 import { registerPrsloyMemoryIpc } from "./memory-ipc.ts";
 import { registerPrsloySearchIpc } from "./search-ipc.ts";
 import { startPrsloyModelRefresh } from "./model-list.ts";
@@ -140,6 +141,13 @@ export function registerPrsloyIpc(rawIpcMain: IpcMainLike, deps: PrsloyIpcDeps):
     isAgentBusy: () => deps.isAgentBusy(),
     restartHost: () => deps.restartHost(),
     fetch: deps.fetch as typeof fetch,
+  });
+
+  // Web tools switched in the settings: the search keys go to the host only at its start
+  // (shared/host-handoff.ts), so an idle host restarts; a running turn gets them next start.
+  onHarnessFlagsChanged("web-tools", async (before, after) => {
+    if (before.webTools === after.webTools || deps.isAgentBusy()) return;
+    await deps.restartHost();
   });
 
   registerPrsloyMemoryIpc(ipcMain, {

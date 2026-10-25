@@ -11,11 +11,11 @@ import type { MemorySnapshot } from "@zeno/contracts";
 import { bootstrapPrsloy } from "./context.ts";
 import { registerPrsloyIpc } from "./ipc.ts";
 import { MemoryStore } from "@prsloy/harness";
+import { harnessFlagsChanged } from "./flags-events.ts";
 import {
   MEMORY_FORGOT_ALL_NOTE,
   MEMORY_FORGOT_NOTE_TYPE,
   MEMORY_REVERTED_NOTE_TYPE,
-  memoryFlagsChanged,
   memoryForgotNote,
   memoryRevertedNote,
   PRSLOY_MEMORY_IPC,
@@ -245,9 +245,9 @@ describe("memory IPC (S5)", () => {
       webTools: false,
     } as const;
     // Other switches: nothing happens.
-    await memoryFlagsChanged(flags, { ...flags, secondOpinion: false });
+    await harnessFlagsChanged(flags, { ...flags, secondOpinion: false });
     expect((await t.invoke<MemorySnapshot>(PRSLOY_MEMORY_IPC.list)).project).toHaveLength(1);
-    await memoryFlagsChanged(flags, { ...flags, memory: false });
+    await harnessFlagsChanged(flags, { ...flags, memory: false });
     for (const path of [t.projectA, t.projectB]) {
       const s = await t.invoke<MemorySnapshot>(PRSLOY_MEMORY_IPC.list, path);
       expect(s).toEqual({ user: [], project: [], forgotten: [], history: [] });
