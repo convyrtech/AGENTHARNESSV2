@@ -103,8 +103,17 @@ describe("buildHarnessEnv", () => {
       ...input,
       platform: "win32",
       pathDirs: ["C:\\shims"],
-      base: { Path: "C:\\Windows", SystemRoot: "C:\\Windows", SYSTEMROOT: "C:\\Windows" },
+      base: {
+        Path: "C:\\Windows",
+        SystemRoot: "C:\\Windows",
+        SYSTEMROOT: "C:\\Windows",
+        // Playwright finds Edge through these
+        ProgramFiles: "C:\\Program Files",
+        "ProgramFiles(x86)": "C:\\Program Files (x86)",
+      },
     });
+    expect(env["ProgramFiles(x86)"]).toBe("C:\\Program Files (x86)");
+    expect(env.ProgramFiles).toBe("C:\\Program Files");
     expect(env.PATH).toBe("C:\\shims;C:\\Windows");
     expect(Object.keys(env).filter((k) => k.toUpperCase() === "SYSTEMROOT")).toHaveLength(1);
     expect(Object.keys(env).filter((k) => k.toUpperCase() === "PATH")).toEqual(["PATH"]);

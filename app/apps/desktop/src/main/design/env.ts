@@ -74,6 +74,10 @@ const PASS_THROUGH = [
   "USERPROFILE",
   "APPDATA",
   "LOCALAPPDATA",
+  // Playwright finds Edge (channel msedge) under Program Files; without these every browser tool failed on Windows
+  "PROGRAMFILES",
+  "PROGRAMFILES(X86)",
+  "PROGRAMW6432",
   "SYSTEMROOT",
   "WINDIR",
   "COMSPEC",
