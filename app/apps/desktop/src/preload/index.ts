@@ -39,6 +39,13 @@ const api: ZenoDesktopApi = {
     pin: (id, pinned, workspace) => ipcRenderer.invoke("prsloy:memory-pin", id, pinned, workspace),
     revert: (opId, workspace) => ipcRenderer.invoke("prsloy:memory-revert", opId, workspace),
   },
+  search: {
+    getState: () => ipcRenderer.invoke("prsloy:search:get-state"),
+    setKey: (id, key, fields) => ipcRenderer.invoke("prsloy:search:set-key", id, key, fields),
+    clearKey: (id) => ipcRenderer.invoke("prsloy:search:clear-key", id),
+    setActive: (id) => ipcRenderer.invoke("prsloy:search:set-active", id),
+    check: (id) => ipcRenderer.invoke("prsloy:search:check", id),
+  },
   prsloy: {
     getState: () => ipcRenderer.invoke("prsloy:get-state"),
     setKey: (key, baseUrl) => ipcRenderer.invoke("prsloy:set-key", key, baseUrl),

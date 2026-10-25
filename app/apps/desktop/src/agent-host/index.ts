@@ -1,7 +1,7 @@
 import "./proxy-bootstrap.ts";
 import { assistantFinalContent } from "./assistant-final.ts";
 import { prsloyHandoff } from "./prsloy-handoff.ts";
-import { createPrsloyHarness } from "@prsloy/harness";
+import { createPrsloyHarness, type HarnessOptions } from "@prsloy/harness";
 import { createWriteBoundary } from "./write-boundary.ts";
 import {
   classifyModelError,
@@ -433,7 +433,24 @@ async function handleCommand(command: HostCommand): Promise<void> {
         ];
         if (prsloyHandoff.harnessEnabled) {
           // Bundled into the host (survives asar); profile from PRSLOY_PROFILE (main sets "code").
-          options.extensionFactories.push(createPrsloyHarness());
+          // Web search (issue #23): the provider and key main handed over, if the user turned search on.
+          const search = prsloyHandoff.search;
+          options.extensionFactories.push(
+            createPrsloyHarness(
+              search
+                ? {
+                    research: {
+                      enabled: true,
+                      // main wrote it from its own list of providers (search-settings.ts)
+                      search: search.search as NonNullable<
+                        NonNullable<HarnessOptions["research"]>["search"]
+                      >,
+                      ...(search.gatewayUrl ? { gatewayUrl: search.gatewayUrl } : {}),
+                    },
+                  }
+                : {},
+            ),
+          );
         }
         options.contextFilesRequireTrust = true;
         handle = await createPixRuntime(options);

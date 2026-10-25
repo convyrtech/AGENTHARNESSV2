@@ -6,6 +6,8 @@ import type { FeaturesApi } from "./features.ts";
 export type * from "./features.ts";
 import type { MemoryApi } from "./memory.ts";
 export type * from "./memory.ts";
+import type { SearchApi } from "./search.ts";
+export type * from "./search.ts";
 export type * from "./honesty.ts";
 import type { PrsloyDesktopApi } from "./prsloy.ts";
 export type * from "./prsloy.ts";
@@ -1819,6 +1821,8 @@ export interface ZenoDesktopApi {
   features: FeaturesApi;
   /** «Память» (see ./memory.ts). Optional until main serves `prsloy:memory-*`. */
   memory?: MemoryApi;
+  /** Settings → «Поиск в интернете» (see ./search.ts). */
+  search: SearchApi;
   /**
    * Always-on-top desktop pet (bloub) — a living SVG companion driven by
    * per-session focus + task bubbles. Enabled from Settings → 宠物.
