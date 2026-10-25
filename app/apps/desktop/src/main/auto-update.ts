@@ -16,6 +16,7 @@ import { existsSync } from "node:fs";
 import { createRequire } from "node:module";
 import { join } from "node:path";
 import { installMacUpdateFromZip, resolveMacAppBundlePath } from "./mac-install-update.ts";
+import { skippingGitHubProvider } from "./update-provider.ts";
 
 export type AutoUpdateBroadcast = (status: AppUpdateStatus) => void;
 
@@ -88,7 +89,7 @@ type UpdaterLike = {
   on(event: string, listener: (...args: unknown[]) => void): void;
   removeAllListeners(event?: string): void;
   /** Override / supply feed when app-update.yml is missing or wrong. */
-  setFeedURL?(options: UpdateFeed): void;
+  setFeedURL?(options: UpdateFeed | (Record<string, unknown> & { provider: "custom" })): void;
 };
 
 type StatusFields = {
@@ -100,6 +101,19 @@ type StatusFields = {
 };
 
 const nodeRequire = createRequire(import.meta.url);
+
+/** electron-updater's GitHubProvider wrapped to skip empty releases; undefined if unavailable. */
+function loadSkippingGitHubProvider(): unknown {
+  try {
+    const mod = nodeRequire("electron-updater/out/providers/GitHubProvider") as {
+      GitHubProvider?: Parameters<typeof skippingGitHubProvider>[0];
+    };
+    return mod.GitHubProvider ? skippingGitHubProvider(mod.GitHubProvider) : undefined;
+  } catch (error) {
+    console.warn("[zeno] GitHubProvider wrapper unavailable:", error);
+    return undefined;
+  }
+}
 
 function snapshotStatus(
   fields: StatusFields,
@@ -204,7 +218,7 @@ export function createAutoUpdateController(options: {
         default?: { autoUpdater?: UpdaterLike };
       };
       updater = mod.autoUpdater ?? mod.default?.autoUpdater ?? null;
-      configureFeed(updater);
+      configureFeed(updater, loadSkippingGitHubProvider());
       return updater;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -213,12 +227,17 @@ export function createAutoUpdateController(options: {
     }
   }
 
-  function configureFeed(instance: UpdaterLike | null): void {
+  function configureFeed(instance: UpdaterLike | null, provider?: unknown): void {
     if (!instance?.setFeedURL) return;
     try {
       // Prefer explicit feed so check works even if app-update.yml is incomplete.
       // Download still requires the on-disk yml (see missingUpdateConfigError).
-      instance.setFeedURL(resolveUpdateFeed());
+      const feed = resolveUpdateFeed();
+      // Same GitHub options through a GitHubProvider subclass that skips a release published
+      // without its update files (update-provider.ts).
+      instance.setFeedURL(
+        provider ? { ...feed, provider: "custom", updateProvider: provider } : feed,
+      );
     } catch (error) {
       console.warn("[zeno] setFeedURL failed:", error);
     }
