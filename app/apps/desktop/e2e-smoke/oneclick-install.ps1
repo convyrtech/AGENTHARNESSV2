@@ -137,7 +137,7 @@ function Watch([string]$phase, [scriptblock]$start, [int]$timeoutSec) {
     # (product name and version aside) are leftovers.
     englishTexts = @($texts.Keys | Where-Object {
         $f = $_ -split '\|', 4
-        $t = ($f[3] -replace 'PRSLOY', '' -replace 'Nullsoft Install System v[\d.]+', '')
+        $t = ($f[3] -replace 'PRSLOY', '' -replace '\b\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?', '' -replace 'Nullsoft Install System v[\d.]+', '')
         $f[1] -ne 'msgbtn' -and $t -match '[A-Za-z]{4,}' -and $t -notmatch '[А-Яа-яЁё]' })
     screenshots = $i
     confirmationsAnswered = $confirmed
