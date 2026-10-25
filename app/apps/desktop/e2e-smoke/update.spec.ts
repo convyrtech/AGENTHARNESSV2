@@ -72,6 +72,18 @@ function runningInstalled(): Array<{ Id: number; Path: string; StartTime: string
  * Installed version from the per-user uninstall entry NSIS writes (`DisplayVersion` keeps the
  * prerelease part; the exe's file version is just 0.1.0.0).
  */
+/** Every PRSLOY* process (app and installer) with its window title, for diagnostics. */
+function prsloyProcesses(): string {
+  try {
+    return powershell(
+      "Get-Process | Where-Object Name -like 'PRSLOY*' | Select-Object Id, Name, MainWindowTitle, " +
+        "@{n='StartTime';e={$_.StartTime.ToString('o')}} | ConvertTo-Json -Compress; exit 0",
+    );
+  } catch (error) {
+    return String(error);
+  }
+}
+
 function installedVersion(): string {
   return powershell(
     "Get-ItemProperty 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*' " +
@@ -222,17 +234,22 @@ test("good update: detect, download, «Обновление готово — п�
     await Promise.race([closed, new Promise((r) => setTimeout(r, 60_000))]);
     const quitMs = Date.now() - clickedAt;
 
+    // Watch the installer and the relaunch; keep a timeline whatever happens.
     let fresh: Array<{ Id: number; Path: string; StartTime: string }> = [];
-    await expect
-      .poll(
-        () => {
-          fresh = runningInstalled().filter((p) => !before.has(p.Id));
-          return fresh.length;
-        },
-        { timeout: 240_000, intervals: [2_000] },
-      )
-      .toBeGreaterThan(0);
-    const relaunchMs = Date.now() - clickedAt;
+    const timeline: Array<{ ms: number; installed: string; processes: string }> = [];
+    let relaunchMs: number | undefined;
+    let installedMs: number | undefined;
+    for (let i = 0; i < 60 && relaunchMs === undefined; i++) {
+      const installed = installedVersion();
+      if (installedMs === undefined && installed.includes(versionB)) {
+        installedMs = Date.now() - clickedAt;
+      }
+      timeline.push({ ms: Date.now() - clickedAt, installed, processes: prsloyProcesses() });
+      if (i === 5) desktopScreenshot("32a-update-installing-desktop");
+      fresh = runningInstalled().filter((p) => !before.has(p.Id));
+      if (fresh.length > 0) relaunchMs = Date.now() - clickedAt;
+      else await new Promise((r) => setTimeout(r, 4_000));
+    }
     await new Promise((r) => setTimeout(r, 8_000));
     desktopScreenshot("32-update-relaunched-desktop");
     const product = installedVersion();
@@ -241,12 +258,15 @@ test("good update: detect, download, «Обновление готово — п�
         readyMs,
         feed: summarize(feed.hits),
         quitMs,
-        relaunchMs,
+        installedMs: installedMs ?? null,
+        relaunchMs: relaunchMs ?? null,
         relaunchedProcesses: fresh,
         installedVersion: product,
       },
     });
-    expect(product).toContain(versionB);
+    await writeFile(join(outDir, "update-timeline.json"), JSON.stringify(timeline, null, 2));
+    expect(product, "installed version after the click").toContain(versionB);
+    expect(relaunchMs, "updater relaunched the app (--force-run)").toBeDefined();
 
     // The relaunched app is not under Playwright: stop it and start the installed exe again
     // on the same profile to ask it which version it is.
