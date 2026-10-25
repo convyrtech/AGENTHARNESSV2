@@ -36,7 +36,7 @@ export function classifyModelError(
   if (/rate.?limit|too many requests/iu.test(text)) return "rate_limit";
   if (/timed? ?out|timeout|ETIMEDOUT/iu.test(text)) return "timeout";
   if (
-    /^connection error|^terminated$|ECONNREFUSED|ECONNRESET|ENOTFOUND|EAI_AGAIN|socket hang up|fetch failed|network|getaddrinfo|other side closed/iu.test(
+    /^connection error|^terminated$|связь с моделью оборвалась|prsloy_stream_interrupted|ECONNREFUSED|ECONNRESET|ENOTFOUND|EAI_AGAIN|socket hang up|fetch failed|network|getaddrinfo|other side closed/iu.test(
       text,
     )
   ) {

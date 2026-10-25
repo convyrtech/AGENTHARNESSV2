@@ -112,6 +112,8 @@ describe("classifyModelError on pi's real failures", () => {
     expect(classifyModelError("whatever", "aborted")).toBe("aborted");
     expect(classifyModelError("Request timed out.", "error")).toBe("timeout");
     expect(classifyModelError("something odd", "error")).toBe("unknown");
+    // the harness reliability proxy reports a mid-stream drop with this text (code prsloy_stream_interrupted)
+    expect(classifyModelError("Связь с моделью оборвалась", "error")).toBe("network");
     expect(classifyModelError(undefined)).toBe("unknown");
   });
 });
