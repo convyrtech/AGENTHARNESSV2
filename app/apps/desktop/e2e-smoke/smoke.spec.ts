@@ -95,7 +95,9 @@ test("installed app: window, runtimes, host, reply, bash tool", async () => {
 
     const bash = await runBashTurn(launched, "runner");
     await writeMetrics({
-      gitSetupStatus: launched.gitSetup.status ?? null,
+      gitSetupStatus:
+        launched.gitSetup.status ??
+        (await page.evaluate(() => window.zeno.prsloy.getState())).gitSetup.status,
       gitSetupMs: launched.gitSetup.ms ?? null,
     });
     await expect

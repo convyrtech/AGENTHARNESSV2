@@ -130,11 +130,13 @@ test("Cyrillic profile + project: runtimes, Git, bash cd, python3 привет, 
       `${notePath}: ${JSON.stringify(note)}`,
     );
     if (isWindows) {
-      ru.check(
-        "PortableGit unpacked",
-        launched.gitSetup.status === "ready",
-        String(launched.gitSetup.status),
-      );
+      // Ask the app: with Git unpacked by the installer the «ready» log line is printed at
+      // startup, before this test reads stdout.
+      const gitStatus = await page
+        .evaluate(() => window.zeno.prsloy.getState())
+        .then((state) => state.gitSetup.status)
+        .catch((error: unknown) => `getState failed: ${String(error)}`);
+      ru.check("PortableGit unpacked", gitStatus === "ready", String(gitStatus));
     }
     ru.check(
       "no renderer errors",
