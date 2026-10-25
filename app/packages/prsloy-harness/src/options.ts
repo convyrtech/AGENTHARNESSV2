@@ -1,3 +1,4 @@
+import type { AutoMemoryOptions } from "./memory-auto.ts";
 import type { PageCheckOptions } from "./page-check.ts";
 import { tmpdir } from "node:os";
 import type { FindReadyOptions } from "./find-ready.ts";
@@ -44,6 +45,8 @@ export interface HarnessOptions {
   findReady?: FindReadyOptions;
   /** Куда раскладывать навыки (по умолчанию `$PI_CODING_AGENT_DIR/prsloy-skills`). */
   skillsDir?: string;
+  /** Память сама (research/24 §3, core): подмена экстрактора для тестов и бенча --fake. */
+  autoMemory?: AutoMemoryOptions;
   /** Проверка страницы в браузере: Python «Дизайна» (по умолчанию PRSLOY_DESIGN_PYTHON) или Node-Playwright. */
   pageCheck?: PageCheckOptions;
   /** Стоп-гейт «до зелёного»: таймаут проверки проекта, мс. По умолчанию 120 с (env PRSLOY_STOP_GATE_TIMEOUT_SEC). */
@@ -89,7 +92,12 @@ export type PracticeName =
   | "pagePaths"
   | "pageCheck"
   | "skills"
-  | "vagueRequest";
+  | "vagueRequest"
+  // Трубы research/24 §2 (реализации — по этапам H-1, H-2, M-3; до них — пустые):
+  | "autoMemory"
+  | "honestExit"
+  | "testGuard"
+  | "claimCheck";
 
 export interface ResolvedOptions {
   profile: HarnessProfile;
@@ -111,6 +119,7 @@ export interface ResolvedOptions {
   findReady: FindReadyOptions;
   pageCheck: PageCheckOptions;
   skillsDir: string | undefined;
+  autoMemory: AutoMemoryOptions;
   stopGateTimeoutMs: number;
   review: { model?: string; timeoutMs: number };
   settingsPath: string | undefined;
@@ -203,6 +212,7 @@ export function resolveOptions(options: HarnessOptions = {}): ResolvedOptions {
     findReady: options.findReady ?? {},
     pageCheck: options.pageCheck ?? {},
     skillsDir: options.skillsDir,
+    autoMemory: options.autoMemory ?? {},
     stopGateTimeoutMs:
       options.stopGateTimeoutMs ??
       (Number(process.env.PRSLOY_STOP_GATE_TIMEOUT_SEC) * 1000 || 120_000),

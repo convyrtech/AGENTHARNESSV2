@@ -45,6 +45,34 @@ export type LearningKind =
   | "vague.nudge"
   | "skill.loaded"
   | "skill.used"
+  // Трубы research/24 §2: виды заведены заранее, чтобы core (память), harness (честность) и ci (разборщик) не
+  // правили общий файл. Подпись `sig` — без текста пользователя, как у остальных.
+  // Память сама (core, §3): кандидат экстрактора, запись, отказ проверки кодом, усиление, замена, откат, забывание.
+  | "memory.auto.candidate"
+  | "memory.auto.saved"
+  | "memory.auto.refused"
+  | "memory.auto.reinforced"
+  | "memory.auto.superseded"
+  | "memory.auto.reverted"
+  | "memory.auto.expired"
+  // Страж старых тестов (harness, §4.1 H1–H3): тронуты старые тесты, команда проверки изменилась, прогнана
+  // исходная команда, сигнатура подмены (process.env.CI и т. п.), правка по просьбе пользователя (§4.3).
+  | "test_guard.touched"
+  | "test_guard.command_changed"
+  | "test_guard.original_rerun"
+  | "test_guard.signature"
+  | "test_guard.allowed"
+  // Слова и факты (harness, §4.1 H-2): «проверил» без прогона харнесса, заглушки, «готово» при красном.
+  | "claim.unverified"
+  | "claim.stub"
+  | "claim.false_done"
+  // Честный выход (harness, §4.2): блокер заявлен, принят кодом, отклонён.
+  | "blocker.reported"
+  | "blocker.accepted"
+  | "blocker.rejected"
+  // Разборщик сессий (ci, §6): находка детектора, прогон разбора.
+  | "audit.finding"
+  | "audit.run"
   | "turn.end";
 
 export type TurnOutcome = "green" | "red" | "budget" | "aborted" | "error";

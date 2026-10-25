@@ -12,6 +12,10 @@ import { installFindReady } from "./find-ready.ts";
 import { installReliability } from "./reliability.ts";
 import { installRequestSecret } from "./request-secret.ts";
 import { installSkills } from "./skills.ts";
+import { installAutoMemory } from "./memory-auto.ts";
+import { installClaimCheck } from "./claim-check.ts";
+import { installHonestExit } from "./honest-exit.ts";
+import { installTestGuard } from "./test-guard.ts";
 import { installVagueRequest } from "./vague-request.ts";
 import { installReusePrompt } from "./reuse-prompt.ts";
 import { installLessons } from "./lessons.ts";
@@ -137,6 +141,15 @@ export function createPrsloyHarness(options: HarnessOptions = {}): (pi: Extensio
         servers: registry ? () => registry.list() : undefined,
         settingsPath: opts.settingsPath,
       });
+    // Трубы research/24 §2: точки подключения памяти «сама» (core), честного выхода, стража тестов и сверки слов
+    // (harness). Пока пустые; поведение — за флагами autoMemory / honestExit / testGuard / claimCheck.
+    // Страж и сверка — рядом со стоп-гейтом (им нужен снимок хода), до чистки секретов.
+    if (opts.profile === "code") {
+      if (on("autoMemory")) installAutoMemory(pi, opts);
+      if (on("honestExit")) installHonestExit(pi, opts);
+      if (on("testGuard")) installTestGuard(pi, opts);
+      if (on("claimCheck")) installClaimCheck(pi, opts);
+    }
     if (on("secretScrub")) installSecretScrub(pi);
     if (on("reliabilityProxy")) installReliability(pi, opts);
   };

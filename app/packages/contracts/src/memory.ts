@@ -31,4 +31,14 @@ export interface MemoryApi {
   restore(id: string, workspace?: string): Promise<MemorySnapshot>;
   /** «Обо мне» and every project. */
   forgetAll(): Promise<MemorySnapshot>;
+  /**
+   * «Закрепить» / «Открепить» (research/24 §3.5–3.6): a pinned entry never expires by itself and changes only
+   * through a card. Contract from the plumbing PR (§2); main's handler — core.
+   */
+  pin(id: string, pinned: boolean, workspace?: string): Promise<MemorySnapshot>;
+  /**
+   * «Вернуть» for an automatic change (replaced / expired / forgotten, research/24 §3.6): undoes the operation
+   * with this journal `opId` byte for byte. Contract from the plumbing PR (§2); main's handler — core.
+   */
+  revert(opId: string, workspace?: string): Promise<MemorySnapshot>;
 }

@@ -27,25 +27,42 @@ function readRaw(path: string): Record<string, unknown> {
 }
 
 /**
- * Missing file or flag: the second opinion is on (a default, not an opt-in); memory is off
- * until the owner turns it on (research/18 §6.7, STATUS-harness S4).
+ * Missing file or flag: the second opinion is on (a default, not an opt-in); memory, auto
+ * memory and the honesty checks are off until the owner turns them on (research/18 §6.7,
+ * research/24 §2).
  */
 export function readHarnessFlags(path: string): HarnessFlags {
   const raw = readRaw(path);
-  return { secondOpinion: raw.secondOpinion !== false, memory: raw.memory === true };
+  const auto = raw.autoMemory;
+  return {
+    secondOpinion: raw.secondOpinion !== false,
+    memory: raw.memory === true,
+    // research/24 §2 «трубы»: the harness reads the same keys (packages/prsloy-harness/src/flags.ts)
+    autoMemory: auto === true || auto === "shadow" ? auto : "off",
+    honestExit: raw.honestExit === true,
+    testGuard: raw.testGuard === true,
+    claimCheck: raw.claimCheck === true,
+  };
 }
 
-const FLAG_KEYS = ["secondOpinion", "memory"] as const;
+const FLAG_KEYS = ["secondOpinion", "memory", "honestExit", "testGuard", "claimCheck"] as const;
+/** Not a boolean: `autoMemory` is "off" | "shadow" | true. */
+const AUTO_MEMORY_VALUES: readonly unknown[] = ["off", "shadow", true];
 
-/** Only known flags, only booleans, at least one; other keys in the file are kept. */
+/** Only known flags with the right type, at least one; other keys in the file are kept. */
 export function writeHarnessFlags(path: string, patch: unknown): HarnessFlags {
   if (!patch || typeof patch !== "object") throw new Error("flags must be an object");
   const raw = patch as Record<string, unknown>;
-  const next: Record<string, boolean> = {};
+  const next: Record<string, unknown> = {};
   for (const key of FLAG_KEYS) {
     if (raw[key] === undefined) continue;
     if (typeof raw[key] !== "boolean") throw new Error(`${key} must be a boolean`);
     next[key] = raw[key];
+  }
+  if (raw.autoMemory !== undefined) {
+    if (!AUTO_MEMORY_VALUES.includes(raw.autoMemory))
+      throw new Error('autoMemory must be "off", "shadow" or true');
+    next.autoMemory = raw.autoMemory;
   }
   if (Object.keys(next).length === 0) throw new Error("no known flag to set");
   const file = { ...readRaw(path), ...next };

@@ -12,10 +12,12 @@
 //   … --review off             без второго мнения (флаг "secondOpinion"): честный A/B цены ревью
 //   … --skills on              с курированными навыками (флаг "skills", S9; по умолчанию выкл.)
 //   … --memory off             без памяти (флаг "memory")
+//   … --audit                  разборщик сессий после прогона (research/24 §6, ci; пока только метка в отчёте)
 //   … --allow-outside          отвечать «Да» на «менять файлы вне проекта?» (по умолчанию «Нет»)
 //   … --out bench-out          куда писать отчёт, сессии и папки задач
 // Итог: <out>/bench-<модель>-<on|off>-<время>.md и .json. Ключ берётся только из окружения и никуда не пишется.
-// Выход 0 — все проверенные задачи прошли (нужно для --fake в CI); 1 — нет; 2 — не запустилось.
+// Выход 0 — у всех проверенных задач исход тот, что ждали (обычно «решено»; у задач честности — например «жулик
+// пойман», research/24 §4.1); 1 — нет; 2 — не запустилось.
 import { writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { parseArgs } from "node:util";
@@ -34,6 +36,7 @@ const { values } = parseArgs({
     lessons: { type: "string", default: "on" },
     review: { type: "string", default: "on" },
     skills: { type: "string", default: "off" },
+    audit: { type: "boolean", default: false },
     prompt: { type: "string", default: "prsloy" },
     delta: { type: "string", default: "off" },
     memory: { type: "string", default: "on" },
@@ -61,6 +64,7 @@ async function main(): Promise<number> {
     lessons: values.lessons !== "off",
     review: values.review !== "off",
     skills: values.skills === "on",
+    audit: values.audit === true,
     prompt: values.prompt === "pi" ? "pi" : "prsloy",
     delta: values.delta === "on",
     memory: values.memory !== "off",
@@ -80,7 +84,7 @@ async function main(): Promise<number> {
   writeFileSync(`${base}.md`, md);
   writeFileSync(`${base}.json`, `${JSON.stringify(report, null, 2)}\n`);
   console.log(`\n${md}\nОтчёт: ${base}.md, ${base}.json`);
-  return report.totals.failed === 0 ? 0 : 1;
+  return report.totals.unexpected === 0 ? 0 : 1;
 }
 
 process.exitCode = await main().catch((error: unknown) => {
