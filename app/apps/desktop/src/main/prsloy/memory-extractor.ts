@@ -420,7 +420,7 @@ export async function runExtractorShadow(options: {
       } else applied.set(c, result.reason === "duplicate" ? "reinforced" : result.reason);
     }
     // One card per run (≤3 changes): a lone replacement — «Обновил» with «Вернуть»; anything else — one
-    // «Заметил и запомнил» / «Запомнил N» (a replaced entry's «Вернуть» is in «Было»).
+    // «Заметил и запомнил «…»» / «Запомнил несколько вещей (N)» (a replaced entry's «Вернуть» is in «Было»).
     if (updated && noticed.length === 1)
       await options.note?.(
         MEMORY_CARD.updated,

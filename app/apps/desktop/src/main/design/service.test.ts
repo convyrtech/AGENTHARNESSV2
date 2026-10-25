@@ -31,6 +31,7 @@ let pickedPaths: string[] = [];
 let savePath: string | undefined;
 const quitHooks: (() => void)[] = [];
 const opened: string[] = [];
+const revealed: string[] = [];
 
 vi.mock("electron", () => ({
   app: { on: (name: string, fn: () => void) => name === "before-quit" && quitHooks.push(fn) },
@@ -45,6 +46,7 @@ vi.mock("electron", () => ({
   shell: {
     openPath: async () => "",
     openExternal: async (url: string) => void opened.push(url),
+    showItemInFolder: (path: string) => void revealed.push(path),
   },
 }));
 
@@ -150,6 +152,7 @@ describe.skipIf(!python3 || process.platform === "win32")("design IPC", () => {
         "pick-files",
         "preview",
         "preview-tokens",
+        "reveal-export",
         "save-tokens",
         "say",
         "setup",
@@ -259,6 +262,9 @@ describe.skipIf(!python3 || process.platform === "win32")("design IPC", () => {
     expect(opened).toEqual([preview.url]);
 
     savePath = undefined;
+    // «Показать в папке» before anything was saved: nothing to show
+    await call("prsloy:design:reveal-export", project);
+    expect(revealed).toEqual([]);
     expect(await call("prsloy:design:export-zip", project)).toBeNull();
     savePath = join(root, "Загрузки", "сайт.zip");
     mkdirSync(join(root, "Загрузки"));
@@ -266,6 +272,9 @@ describe.skipIf(!python3 || process.platform === "win32")("design IPC", () => {
     const zip = readFileSync(savePath);
     expect(zip.readUInt32LE(0)).toBe(0x04034b50);
     expect(zip.includes(Buffer.from("site/landing/index.html"))).toBe(true);
+    // «Показать в папке»: the file main saved, selected in the file manager
+    await call("prsloy:design:reveal-export", project);
+    expect(revealed).toEqual([savePath]);
   });
 
   it("«Править»: the inspector only on the edit preview, pins through a file, keep/revert", async () => {

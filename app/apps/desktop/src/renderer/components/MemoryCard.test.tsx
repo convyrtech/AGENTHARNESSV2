@@ -75,6 +75,14 @@ describe("MemoryCard", () => {
     await waitFor(() => expect(api.forget).toHaveBeenCalledWith("p-7", undefined));
   });
 
+  it("the «Запомнил «…»» format finds its entry the same way", async () => {
+    api.list.mockResolvedValue({ ...empty, project: [{ id: "p-8", text: "Без npm" }] });
+    render(<MemoryCard locale="ru" kind="saved" text="Запомнил для этого проекта «Без npm»" />);
+    expect(screen.queryByTestId("memory-card-edit")).toBeNull();
+    fireEvent.click(screen.getByTestId("memory-card-forget"));
+    await waitFor(() => expect(api.forget).toHaveBeenCalledWith("p-8", undefined));
+  });
+
   it("«Изменить» asks in the composer; «Открыть память» opens the panel", () => {
     render(
       <MemoryCard

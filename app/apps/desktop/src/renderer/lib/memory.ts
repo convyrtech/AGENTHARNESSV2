@@ -43,9 +43,19 @@ export function memoryCardId(details: unknown): string | undefined {
   return typeof id === "string" && id ? id : undefined;
 }
 
-/** The remembered text in a «Запомнил: …» card (the harness writes it in Russian). */
+/**
+ * The remembered text in a «Запомнил «…»» card (the harness writes it in Russian). The older «Запомнил: …»
+ * is still parsed: alpha.1 chats keep those cards.
+ */
 export function savedCardText(text: string): string {
+  const quoted = /^Запомнил(?: для этого проекта)? «([\s\S]*)»$/u.exec(text.trim());
+  if (quoted) return quoted[1]!.trim();
   return text.replace(/^Запомнил(?: для этого проекта)?:\s*/u, "").trim();
+}
+
+/** A project card, in either format. */
+export function isProjectCardText(text: string): boolean {
+  return /^Запомнил для этого проекта[:\s]/u.test(text);
 }
 
 /**

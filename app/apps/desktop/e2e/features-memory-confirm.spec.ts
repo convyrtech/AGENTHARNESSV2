@@ -70,7 +70,7 @@ test("chat ⋯ → «Забыть всё, что выучено из этого 
     await startHost(page);
     await sendPrompt(page, "Use the tool: отвечай коротко");
     await waitSettled(page);
-    await expect(page.getByTestId("memory-card")).toContainText("Запомнил: Отвечать коротко");
+    await expect(page.getByTestId("memory-card")).toContainText("Запомнил «Отвечать коротко");
     expect(await texts()).toEqual(["Отвечать коротко"]);
 
     await page.getByTestId("thread-header-menu").click();

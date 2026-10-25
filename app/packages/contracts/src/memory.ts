@@ -53,7 +53,7 @@ export type MemorySnapshot = {
 
 /**
  * Cards the harness shows in the chat for automatic memory (research/24 §3.6), `details` of the custom
- * message. `prsloy-memory.auto` — «Заметил и запомнил: …» (one) or «Запомнил N» (several);
+ * message. `prsloy-memory.auto` — «Заметил и запомнил «…»» (one) or «Запомнил несколько вещей (N)» (several);
  * `prsloy-memory.updated` — «Обновил: было «…», стало «…»» with «Вернуть»; when the replaced entry was
  * pinned, the card asks instead: «Раньше вы просили «…». Теперь — «…»?».
  */
