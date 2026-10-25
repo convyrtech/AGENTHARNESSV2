@@ -1,6 +1,12 @@
-# PRSLOY Desktop (app/, форк Zeno): установщик Windows на каждый push в app/ и релиз по тегу v*.
+# PRSLOY Desktop (app/, форк Zeno): установщик Windows на каждый push в app/ и релиз.
 # Push в main → артефакт prsloy-win-x64 (exe + latest.yml) на 14 дней.
-# Тег v0.1.0-alpha.1 → GitHub Release с exe + latest.yml (фид автообновления electron-updater: тег должен быть semver с «v»).
+# Выпуск (app/docs/prsloy/RELEASE-HOWTO.md): Run workflow на main с version=0.1.0-alpha.2 →
+# сборка → smoke (обе Windows) → update-e2e → тег v<version> и сразу опубликованный пре-релиз
+# со всеми файлами. Упало что-то — не публикуется ничего. С другой ветки — та же проверка без выпуска.
+# Старые пути: push тега v* (релиз создаёт этот прогон) и release: published из UI (файлы
+# прикрепляет этот прогон; если он упал, релиз уходит в draft, чтобы не блокировать обновления).
+# Тег и релиз, созданные здесь от GITHUB_TOKEN, новых прогонов не запускают (GitHub: события
+# GITHUB_TOKEN, кроме workflow_dispatch и repository_dispatch, не создают workflow run).
 name: desktop-windows
 
 on:
@@ -11,9 +17,16 @@ on:
   release:
     types: [published]
   workflow_dispatch:
+    inputs:
+      version:
+        description: "Версия выпуска, например 0.1.0-alpha.2 (пусто — только сборка и проверки)"
+        required: false
+        type: string
 
 concurrency:
-  group: desktop-windows-${{ github.ref }}
+  # event_name: a UI release fires both «push tag» and «release published» on one ref; neither may
+  # cancel the other.
+  group: desktop-windows-${{ github.event_name }}-${{ github.ref }}
   # main: never cancel — a cancelled e2e on main hid the agent-host crash (d6308b4); branches: newest wins
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
@@ -25,7 +38,67 @@ defaults:
     working-directory: app
 
 jobs:
+  # What this run is: ci (build + tests), dispatch-dry, dispatch-release, tag-release, ui-release
+  # or skip (a tag pushed by a UI release: the release:published run handles it).
+  plan:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: .
+    outputs:
+      mode: ${{ steps.plan.outputs.mode }}
+      version: ${{ steps.plan.outputs.version }}
+      tag: ${{ steps.plan.outputs.tag }}
+      publish: ${{ steps.plan.outputs.publish }}
+    steps:
+      - id: plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          semver='^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$'
+          exists() { gh api "repos/$GITHUB_REPOSITORY/$1" --silent 2>/dev/null; }
+          mode=ci version= tag=
+          if [[ "$GITHUB_EVENT_NAME" == workflow_dispatch && -n "$INPUT_VERSION" ]]; then
+            version="${INPUT_VERSION#v}"
+            if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+-(alpha|beta)\.[0-9]+$ ]]; then
+              echo "::error::version «$INPUT_VERSION»: нужен semver-prerelease вида 0.1.0-alpha.2"
+              exit 1
+            fi
+            tag="v$version"
+            if exists "git/ref/tags/$tag" || exists "releases/tags/$tag"; then
+              echo "::error::тег или релиз $tag уже есть — возьмите следующую версию"
+              exit 1
+            fi
+            if [[ "$GITHUB_REF" == refs/heads/main ]]; then mode=dispatch-release; else mode=dispatch-dry; fi
+          elif [[ "$GITHUB_REF_TYPE" == tag ]]; then
+            tag="$GITHUB_REF_NAME"
+            version="${tag#v}"
+            if [[ "$tag" != v* || ! "$version" =~ $semver ]]; then
+              echo "::error::тег $tag не semver с «v» — electron-updater его не увидит"
+              exit 1
+            fi
+            if [[ "$GITHUB_EVENT_NAME" == release ]]; then
+              mode=ui-release
+              msg="Релиз $tag создан без файлов. Обновления у пользователей не работают, пока этот прогон не прикрепит файлы. Если прогон упадёт, релиз уйдёт в draft. Дальше — только кнопкой (RELEASE-HOWTO.md)."
+              echo "::warning::$msg"
+              printf '> [!WARNING]\n> %s\n\n' "$msg" >> "$GITHUB_STEP_SUMMARY"
+            elif exists "releases/tags/$tag"; then
+              mode=skip
+              echo "Релиз $tag уже есть (создан в UI) — файлы прикрепляет прогон release: published." >> "$GITHUB_STEP_SUMMARY"
+            else
+              mode=tag-release
+            fi
+          fi
+          publish=false
+          [[ "$mode" == dispatch-release || "$mode" == tag-release || "$mode" == ui-release ]] && publish=true
+          echo "**mode** $mode · **version** ${version:-(package.json)} · **tag** ${tag:--} · **publish** $publish" >> "$GITHUB_STEP_SUMMARY"
+          { echo "mode=$mode"; echo "version=$version"; echo "tag=$tag"; echo "publish=$publish"; } >> "$GITHUB_OUTPUT"
+
   package:
+    needs: plan
+    if: needs.plan.outputs.mode != 'skip'
     runs-on: windows-latest
     timeout-minutes: 60
     env:
@@ -41,12 +114,13 @@ jobs:
           node-version: 22
           cache: pnpm
           cache-dependency-path: app/pnpm-lock.yaml
-      - name: Version from tag
-        if: github.ref_type == 'tag'
+      - name: Version
+        if: needs.plan.outputs.version != ''
         shell: bash
+        env:
+          VERSION: ${{ needs.plan.outputs.version }}
         run: |
-          VERSION="${GITHUB_REF_NAME#v}"
-          node -e "const f='./apps/desktop/package.json';const p=require(f);p.version='${VERSION}';require('fs').writeFileSync(f,JSON.stringify(p,null,2)+'\n')"
+          node -e "const f='./apps/desktop/package.json';const p=require(f);p.version=process.env.VERSION;require('fs').writeFileSync(f,JSON.stringify(p,null,2)+'\n')"
       - name: Install
         run: pnpm install --frozen-lockfile
       - name: Build
@@ -249,6 +323,8 @@ jobs:
   # Tampered B is refused, a good B installs and relaunches, a newer tag without assets fails
   # quietly, a non-semver tag is skipped.
   update-e2e:
+    needs: plan
+    if: needs.plan.outputs.mode != 'skip'
     runs-on: windows-latest
     timeout-minutes: 60
     env:
@@ -338,9 +414,10 @@ jobs:
           path: app/smoke-out
           retention-days: 14
 
+  # Only after package, both smokes and update-e2e passed (implicit success()).
   release:
-    needs: [package, smoke, update-e2e]
-    if: github.ref_type == 'tag'
+    needs: [plan, package, smoke, update-e2e]
+    if: needs.plan.outputs.publish == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -352,10 +429,55 @@ jobs:
         with:
           name: prsloy-win-x64
           path: release-assets
+      - name: Assets complete
+        env:
+          VERSION: ${{ needs.plan.outputs.version }}
+        run: |
+          set -euo pipefail
+          ls -la release-assets
+          test -f release-assets/latest.yml
+          grep -q "^version: ${VERSION}$" release-assets/latest.yml
+          ls release-assets/*.exe release-assets/*.exe.blockmap
+      # Creates the tag at this commit (dispatch) and a published prerelease with all files at once,
+      # or attaches the files to the existing release (tag push, UI release).
       - uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref_name }}
-          name: PRSLOY ${{ github.ref_name }}
+          tag_name: ${{ needs.plan.outputs.tag }}
+          target_commitish: ${{ github.sha }}
+          name: PRSLOY ${{ needs.plan.outputs.tag }}
           prerelease: true
+          draft: false
           fail_on_unmatched_files: true
           files: release-assets/*
+      - name: Summary
+        env:
+          TAG: ${{ needs.plan.outputs.tag }}
+        run: echo "Выпущен [$TAG]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/tag/$TAG)." >> "$GITHUB_STEP_SUMMARY"
+
+  # A UI release whose run failed: back to draft, so it leaves releases.atom and does not hold
+  # everyone's updates (GITHUB_TOKEN with contents: write may edit releases).
+  unpublish:
+    needs: [plan, package, smoke, update-e2e, release]
+    if: always() && github.event_name == 'release' && needs.release.result != 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    defaults:
+      run:
+        working-directory: .
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_ID: ${{ github.event.release.id }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          set -euo pipefail
+          names=$(gh api "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID/assets" --jq '.[].name')
+          if grep -qx latest.yml <<<"$names"; then
+            echo "Релиз $TAG уже с latest.yml — не трогаю." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          gh api -X PATCH "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID" -F draft=true --jq '"draft=\(.draft)"'
+          msg="Сборка для $TAG упала: релиз переведён в draft, чтобы не блокировать обновления. Исправьте и выпустите следующую версию кнопкой (RELEASE-HOWTO.md)."
+          echo "::error::$msg"
+          echo "$msg" >> "$GITHUB_STEP_SUMMARY"
