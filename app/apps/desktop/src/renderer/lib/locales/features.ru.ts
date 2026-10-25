@@ -115,6 +115,8 @@ export const featuresRu: Record<keyof typeof featuresZh, string> = {
   "features.secret.save": "Сохранить",
   "features.memory.hintAuto":
     "Агент запоминает, когда вы просите, и сам замечает важное в ваших словах. Пароли и ключи не запоминает. Ниже видно, что он запомнил, — любое можно забыть.",
+  "features.next.failed.fix": "Почини ошибку и запусти снова",
+  "features.next.failed.explain": "Объясни простыми словами, что сломалось",
   "features.memory.autoToggle": "Замечать важное само",
   "features.memory.autoToggleHint":
     "Агент сам запоминает важное из ваших слов: как отвечать, что вам нравится, решения проекта. Из файлов и сайтов — никогда.",

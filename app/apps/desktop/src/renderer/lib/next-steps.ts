@@ -91,9 +91,22 @@ const BOT: MessageKey[] = [
   "features.next.bot.run",
 ];
 const CODE: MessageKey[] = ["features.next.code.check", "features.next.code.explain"];
+/** The turn's last run (a script, npm, a server) failed: fixing it comes first. */
+const FAILED: MessageKey[] = ["features.next.failed.fix", "features.next.failed.explain"];
 
-/** Steps from what the turn wrote: a page, a Telegram bot, other code; nothing if no files. */
+/** The last command the turn ran ended with an error (bash and bash_background, not file tools). */
+function lastRunFailed(tools: readonly Tool[]): boolean {
+  const runs = tools.filter((tool) => /^bash/iu.test(tool.toolName));
+  return runs.at(-1)?.status === "error";
+}
+
+/**
+ * Steps from what the turn did: a failed run — fix it; otherwise from what it wrote: a page, a Telegram
+ * bot, other code; nothing if no files.
+ */
 export function fallbackNextSteps(locale: Locale, tools: readonly Tool[]): string[] {
+  // After a crash «Проверь, что всё работает» would be wrong (the first-hour walkthrough).
+  if (lastRunFailed(tools)) return FAILED.map((key) => t(locale, key));
   const files = writtenFiles(tools);
   if (files.length === 0) return [];
   const bot = files.some(

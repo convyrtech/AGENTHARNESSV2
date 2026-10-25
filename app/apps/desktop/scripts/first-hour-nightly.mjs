@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 /**
- * The novice's first hour, every night (research/28 §5): the five scripted journeys of
- * e2e/features-first-hour.spec.ts on the fake gateway (no key, no tokens), their screenshots and a short
+ * The novice's first hour, every night (research/28 §5): the scripted journeys of
+ * e2e/features-first-hour.spec.ts (all goes well) and e2e/features-first-hour-bad.spec.ts (the balance, the
+ * internet, a slow model, a taken port, a crash, npm offline) on the fake gateway (no key, no tokens), their screenshots and a short
  * «что видит новичок» list — NOVICE.md — in one folder for the run's artifact. A regression in the first
  * hour shows up there without anyone asking.
  *
@@ -34,7 +35,13 @@ if (!flag("--no-build")) {
 const results = join(out, "results.json");
 const run = spawnSync(
   "npx",
-  ["playwright", "test", "e2e/features-first-hour.spec.ts", "--reporter=list,json"],
+  [
+    "playwright",
+    "test",
+    "e2e/features-first-hour.spec.ts",
+    "e2e/features-first-hour-bad.spec.ts",
+    "--reporter=list,json",
+  ],
   {
     cwd: APP,
     stdio: "inherit",

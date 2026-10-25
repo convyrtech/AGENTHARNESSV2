@@ -115,6 +115,8 @@ export const featuresEn: Record<keyof typeof featuresZh, string> = {
   "features.secret.save": "Save",
   "features.memory.hintAuto":
     "The agent remembers what you ask it to and notices what matters in your words by itself. It never remembers passwords or keys. Below you can see what it remembers and make it forget.",
+  "features.next.failed.fix": "Fix the error and run it again",
+  "features.next.failed.explain": "Explain in plain words what broke",
   "features.memory.autoToggle": "Notice what matters by myself",
   "features.memory.autoToggleHint":
     "The agent remembers what matters from your own words: how to answer, what you like, project decisions. Never from files or sites.",
