@@ -86,6 +86,8 @@ export interface SearchDeps {
   timeoutMs?: number;
   /** Сегодня (для фильтров свежести тех, кто принимает дату). */
   now?: () => Date;
+  /** Сбой источника внутри поиска, который не сорвал выдачу (лимит GitHub, неверный токен): показать человеку. */
+  onIssue?: (provider: SearchProviderId, error: SearchError) => void;
 }
 
 const NAME: Record<SearchProviderId, string> = {

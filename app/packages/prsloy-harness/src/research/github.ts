@@ -53,18 +53,33 @@ async function gh(
   }
   const remaining = res.headers.get("x-ratelimit-remaining");
   const reset = Number(res.headers.get("x-ratelimit-reset")) * 1000;
-  // лимит: осталось 0, 429 или «вторичный» лимит (403 с retry-after); иной 403 — запрет, не лимит
+  // лимит: осталось 0, 429 или «вторичный» лимит (403 с retry-after или с этими словами в ответе — заголовка у
+  // него бывает нет); иной 403 — запрет, не лимит
   const retryAfter = Number(res.headers.get("retry-after"));
   const spent = remaining !== null && Number(remaining) === 0;
+  const secondary =
+    res.status === 403 &&
+    !spent &&
+    !(retryAfter > 0) &&
+    /secondary rate limit|abuse detection/i.test(
+      await res
+        .clone()
+        .text()
+        .catch(() => ""),
+    );
   const limited =
-    res.status === 429 || (res.status === 403 && (spent || retryAfter > 0)) || (res.ok && spent);
+    res.status === 429 ||
+    (res.status === 403 && (spent || retryAfter > 0 || secondary)) ||
+    (res.ok && spent);
   if (limited) {
     pausedUntil[resource] =
       retryAfter > 0
         ? now + retryAfter * 1000
-        : reset > now
-          ? reset
-          : now + (resource === "core" ? 3_600_000 : 60_000);
+        : secondary
+          ? now + 60_000
+          : reset > now
+            ? reset
+            : now + (resource === "core" ? 3_600_000 : 60_000);
   }
   if (res.status === 401) throw new SearchError("auth", "GitHub: токен не принят (HTTP 401)");
   if (limited && !res.ok) throw limitError(resource);

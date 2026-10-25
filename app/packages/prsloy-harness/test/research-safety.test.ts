@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { beforeEach, describe, expect, it } from "vite-plus/test";
 import { guardQuery } from "../src/research/query-guard.ts";
+import { githubSearch } from "../src/research/github.ts";
 import {
   freeSearch,
   githubRepo,
@@ -409,5 +410,73 @@ describe("the year guard strips only a year that stands alone as a date (review 
       removed: [2024],
     });
     expect(guardQuery("лучшие ноутбуки (2023)", TODAY).removed).toEqual([2023]);
+  });
+});
+
+describe("GitHub limits are shown, npm versions come from the registry (review #23, nits)", () => {
+  beforeEach(() => resetFreeCache());
+
+  it("a secondary limit (403, no retry-after) pauses GitHub", async () => {
+    const f = fakeFetch([
+      [
+        "https://api.github.com/",
+        () =>
+          new Response(JSON.stringify({ message: "You have exceeded a secondary rate limit." }), {
+            status: 403,
+            headers: { "x-ratelimit-remaining": "40" },
+          }),
+      ],
+    ]);
+    await expect(githubSearch("q", ["repos"], { fetchImpl: f.impl })).rejects.toThrow(
+      "лимит GitHub",
+    );
+    await expect(githubSearch("q2", ["repos"], { fetchImpl: f.impl })).rejects.toThrow(
+      "лимит GitHub",
+    );
+    expect(f.calls).toHaveLength(1);
+  });
+
+  it("a GitHub limit or a bad token inside the free search becomes a card, the search goes on", async () => {
+    const f = fakeFetch([
+      [
+        "https://api.github.com/",
+        () =>
+          new Response("{}", {
+            status: 403,
+            headers: { "x-ratelimit-remaining": "0", "x-ratelimit-reset": "0" },
+          }),
+      ],
+      [
+        "https://html.duckduckgo.com/",
+        () => new Response('<div class="no-results">No results.</div>'),
+      ],
+      ["https://en.wikipedia.org/", () => json({ query: { search: [] } })],
+    ]);
+    const issues: [string, string][] = [];
+    await freeSearch(
+      { query: "latest release vitejs/vite" },
+      { fetchImpl: f.impl, onIssue: (p, e) => issues.push([p, e.code]) },
+    );
+    expect(issues).toEqual([["github", "limit"]]);
+  });
+
+  it("npm: the version from /<name>/latest even when the search index lags", async () => {
+    const f = fakeFetch([
+      ["https://registry.npmjs.org/zod/latest", () => json({ version: "4.6.7" })],
+      [
+        "https://registry.npmjs.org/-/v1/search",
+        () =>
+          json({ objects: [{ package: { name: "zod", version: "4.6.5", date: "2026-09-01" } }] }),
+      ],
+      [
+        "https://html.duckduckgo.com/",
+        () => new Response('<div class="no-results">No results.</div>'),
+      ],
+      ["https://en.wikipedia.org/", () => json({ query: { search: [] } })],
+    ]);
+    const [hit] = await freeSearch({ query: "zod npm" }, { fetchImpl: f.impl });
+    expect(hit).toMatchObject({ title: "zod 4.6.7 — npm (последняя версия)" });
+    // the index's date belongs to another version: not shown
+    expect(hit!.date).toBeUndefined();
   });
 });

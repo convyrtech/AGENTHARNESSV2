@@ -117,6 +117,8 @@ export function installResearch(
   const searchDeps: SearchDeps = {
     ...(research.fetchImpl ? { fetchImpl: research.fetchImpl } : {}),
     now,
+    // limitCard объявлена ниже; вызывается только во время поиска, когда она уже есть
+    onIssue: (provider, e) => void limitCard(provider, e.code, e.message),
   };
   const readDeps = async (ctx: ExtensionContext): Promise<ReadDeps> => {
     const gw = await gateway(ctx);

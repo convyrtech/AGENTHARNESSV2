@@ -191,22 +191,28 @@ const EOL_ALIAS: Record<string, string> = {
 async function npm(query: string, deps: SearchDeps): Promise<SearchHit[]> {
   const name = npmPackage(query);
   if (!name) return [];
-  const data = (await getJson(
+  // Версия — из самого реестра (/<имя>/latest): поисковый индекс npm отстаёт. Дата — из индекса, только если
+  // он знает ту же версию.
+  const latest = (await getJson(
+    `https://registry.npmjs.org/${name.replace("/", "%2F")}/latest`,
+    deps,
+  )) as { version?: string; description?: string } | null;
+  if (!latest?.version) return [];
+  const index = (await getJson(
     `https://registry.npmjs.org/-/v1/search?text=${encodeURIComponent(name)}&size=3`,
     deps,
-  )) as {
-    objects?: {
-      package?: { name?: string; version?: string; description?: string; date?: string };
-    }[];
+  ).catch(() => null)) as {
+    objects?: { package?: { name?: string; version?: string; date?: string } }[];
   } | null;
-  const p = data?.objects?.map((o) => o.package).find((x) => x?.name === name);
-  if (!p?.version) return [];
+  const same = index?.objects
+    ?.map((o) => o.package)
+    .find((x) => x?.name === name && x.version === latest.version);
   return [
     {
       url: `https://www.npmjs.com/package/${name}`,
-      title: `${name} ${p.version} — npm (последняя версия)`,
-      snippet: clean(p.description, 400),
-      ...dated(p.date),
+      title: `${name} ${latest.version} — npm (последняя версия)`,
+      snippet: clean(latest.description, 400),
+      ...dated(same?.date),
       provider: "free",
     },
   ];
@@ -389,6 +395,13 @@ export async function freeSearch(q: SearchQuery, deps: FreeDeps = {}): Promise<S
   const now = deps.now?.() ?? new Date();
   const count = Math.min(10, Math.max(1, Math.round(q.count ?? 8)));
   const quiet = (p: Promise<SearchHit[]>) => p.catch(() => [] as SearchHit[]);
+  // лимит GitHub и неверный токен — не молча: о них скажет карточка (onIssue), поиск идёт дальше
+  const noticed = (p: Promise<SearchHit[]>) =>
+    p.catch((e: unknown) => {
+      if (e instanceof SearchError && (e.code === "limit" || e.code === "auth"))
+        deps.onIssue?.("github", e);
+      return [] as SearchHit[];
+    });
   const site = q.site?.toLowerCase();
   const onGithub = site?.includes("github.com") === true;
   const repo = githubRepo(q.query);
@@ -405,11 +418,13 @@ export async function freeSearch(q: SearchQuery, deps: FreeDeps = {}): Promise<S
     ? githubSearch(q.query, kinds, deps, onGithub ? count : 3).catch((e: unknown) => {
         githubError =
           e instanceof SearchError ? e : new SearchError("network", "GitHub: сбой поиска");
+        if (githubError.code === "limit" || githubError.code === "auth")
+          deps.onIssue?.("github", githubError);
         return [] as SearchHit[];
       })
     : Promise.resolve([] as SearchHit[]);
   const official = [
-    ...(repo ? [quiet(githubLatest(repo.owner, repo.repo, deps))] : []),
+    ...(repo ? [noticed(githubLatest(repo.owner, repo.repo, deps))] : []),
     ...(site
       ? []
       : [

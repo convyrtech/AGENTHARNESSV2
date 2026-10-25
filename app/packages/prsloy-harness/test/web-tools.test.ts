@@ -235,6 +235,10 @@ describe("free search: official sources, then the web, Wikipedia when the web is
           ]),
       ],
       [
+        "https://registry.npmjs.org/react/latest",
+        () => json({ name: "react", version: "19.3.1", description: "React" }),
+      ],
+      [
         "https://registry.npmjs.org/-/v1/search",
         () =>
           json({
