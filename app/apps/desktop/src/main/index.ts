@@ -2843,7 +2843,7 @@ class HostSupervisor {
       protocolVersion: IPC_PROTOCOL_VERSION,
       type: "host.start",
       requestId: randomUUID(),
-      ...prsloy.hostStartFields(cwd),
+      cwd,
     };
     // Share CLI config: only override agentDir/model/tools when explicitly set
     // (isolated/e2e). Product omits them → pi getAgentDir() + default tools/models.

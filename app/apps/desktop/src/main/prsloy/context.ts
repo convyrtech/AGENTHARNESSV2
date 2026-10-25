@@ -114,12 +114,10 @@ export type PrsloyContext = {
   /** Agent Host env: scrubbed, shims first, pinned home, key handoff. */
   hostEnv(base: Record<string, string | undefined>): Record<string, string>;
   /**
-   * Web search config and keys for `host.start` (issue #23): only while the harness flag `webTools` is on —
-   * otherwise no search key leaves main at all.
+   * Web search config and keys for the host (issue #23): only while the harness flag `webTools` is on —
+   * otherwise no search key leaves main at all. They travel in the prsloy.handoff message (shared/host-handoff.ts).
    */
   searchForHost(): PrsloySearchHandoff | undefined;
-  /** `cwd` and, while `webTools` is on, `search` for `host.start` (keys over the message channel, never env). */
-  hostStartFields(cwd: string): { cwd: string; search?: PrsloySearchHandoff };
   /**
    * The «Дизайн» venv's python once its tools are installed (design/wire.ts sets this):
    * the harness opens the user's pages in a browser with it (PRSLOY_DESIGN_PYTHON).
@@ -311,16 +309,14 @@ export function bootstrapPrsloy(options: {
         ? search.handoff(state.baseUrl)
         : undefined;
     },
-    hostStartFields(cwd) {
-      const search = this.searchForHost();
-      return search ? { cwd, search } : { cwd };
-    },
     hostEnv(base) {
+      const search = this.searchForHost();
       const env = buildPrsloyHostEnv(base, {
         agentDir,
         sessionDir,
         shimsDir: paths.shimsDir,
         gatewayKey: keyStore.read(),
+        searchHandoff: search ? JSON.stringify(search) : undefined,
         platform,
       });
       // No venv yet (or never set up): no variable, the harness skips the page check.

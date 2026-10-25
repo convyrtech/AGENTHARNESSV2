@@ -6,8 +6,7 @@ import { execFileSync } from "node:child_process";
 import { writeFileSync } from "node:fs";
 import { bootstrapPrsloy } from "./context.ts";
 import { resolvePrsloyAgentDir } from "./agent-home.ts";
-import { IPC_PROTOCOL_VERSION, isHostCommand } from "@zeno/contracts";
-import { buildPrsloyHostEnv, SEARCH_HANDOFF_ENV } from "./agent-env.ts";
+import { buildPrsloyHostEnv, SEARCH_HANDOFF_ENV, splitHostHandoff } from "./agent-env.ts";
 import type { SecretCipher } from "./key-store.ts";
 import { registerPrsloySearchIpc, SEARCH_IPC } from "./search-ipc.ts";
 import { SearchSettings } from "./search-settings.ts";
@@ -210,17 +209,26 @@ describe("0 keys in the agent's env (issue #23, review item 5)", () => {
     const { s } = settings();
     s.setKey("brave", SECRET);
     s.setActive("brave");
-    const hostEnv = buildPrsloyHostEnv(
-      { PATH: "/usr/bin", BRAVE_API_KEY: "user-own", [SEARCH_HANDOFF_ENV]: "stale" },
-      { agentDir: "/a", sessionDir: "/s", shimsDir: "/sh", platform: "linux" },
+    // as main does: the env with the handoff, then splitHostHandoff before the fork (prsloy/electron.ts)
+    const { env: hostEnv, handoff } = splitHostHandoff(
+      buildPrsloyHostEnv(
+        { PATH: "/usr/bin", BRAVE_API_KEY: "user-own" },
+        {
+          agentDir: "/a",
+          sessionDir: "/s",
+          shimsDir: "/sh",
+          searchHandoff: JSON.stringify(s.handoff("https://gw/v1")),
+          platform: "linux",
+        },
+      ),
     );
     expect(hostEnv.BRAVE_API_KEY).toBeUndefined();
     expect(hostEnv[SEARCH_HANDOFF_ENV]).toBeUndefined();
     const seen = childView(hostEnv);
     expect(seen).not.toContain(SECRET);
     expect(seen).not.toContain(SEARCH_HANDOFF_ENV);
-    // the key goes in host.start over the message channel instead
-    expect(s.handoff("https://gw/v1").search).toEqual({ provider: "brave", key: SECRET });
+    // the key goes in the prsloy.handoff message instead
+    expect(handoff.search?.search).toEqual({ provider: "brave", key: SECRET });
   });
 
   it("main hands search to the host only while webTools is on", () => {
@@ -233,32 +241,13 @@ describe("0 keys in the agent's env (issue #23, review item 5)", () => {
     const flags = join(resolvePrsloyAgentDir(userData, {}), "prsloy-harness.json");
     writeFileSync(flags, JSON.stringify({ webTools: true }));
     expect(ctx.searchForHost()?.search).toEqual({ provider: "brave", key: SECRET });
-    expect(ctx.hostStartFields("/w")).toMatchObject({
-      cwd: "/w",
-      search: { search: { provider: "brave" } },
-    });
+    // the real path: hostEnv → splitHostHandoff → the prsloy.handoff message; the spawn env has no key
+    const { env, handoff } = splitHostHandoff(ctx.hostEnv({ PATH: "/usr/bin" }));
+    expect(handoff.search?.search).toEqual({ provider: "brave", key: SECRET });
+    expect(JSON.stringify(env)).not.toContain(SECRET);
     writeFileSync(flags, JSON.stringify({ webTools: false }));
     expect(ctx.searchForHost()).toBeUndefined();
-    expect(ctx.hostStartFields("/w")).toEqual({ cwd: "/w" });
-  });
-
-  it("host.start carries search only in a valid shape", () => {
-    const base = {
-      protocolVersion: IPC_PROTOCOL_VERSION,
-      type: "host.start",
-      requestId: "r",
-      cwd: "/w",
-    };
-    expect(
-      isHostCommand({
-        ...base,
-        search: { search: { provider: "free" }, modelSearch: ["gpt-6.1-sol"] },
-      }),
-    ).toBe(true);
-    expect(isHostCommand({ ...base, search: { search: { provider: 1 } } })).toBe(false);
-    expect(isHostCommand({ ...base, search: { search: { provider: "brave", key: 5 } } })).toBe(
-      false,
-    );
+    expect(splitHostHandoff(ctx.hostEnv({ PATH: "/usr/bin" })).handoff.search).toBeUndefined();
   });
 });
 

@@ -102,9 +102,8 @@ export interface SearchApi {
 }
 
 /**
- * What the Agent Host gets for web search, inside `host.start` (review #23, item 5): over the host's message
- * channel, not its env, and only while the harness flag `webTools` is on. Keys never sit in an environment a child
- * process (or /proc/<pid>/environ) could read.
+ * What the Agent Host gets for web search (review #23, item 5): in the prsloy.handoff message over its parentPort
+ * (apps/desktop/src/shared/host-handoff.ts), never its env, and only while the harness flag `webTools` is on.
  */
 export type PrsloySearchHandoff = {
   search: {
