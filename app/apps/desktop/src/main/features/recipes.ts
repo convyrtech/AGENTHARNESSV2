@@ -10,6 +10,7 @@ import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import type { RecipeInfo, RecipeParam } from "@zeno/contracts";
 import { parse } from "yaml";
+import { safeName, withSuffix } from "./safe-name.ts";
 
 type Recipe = RecipeInfo & {
   order: number;
@@ -147,11 +148,14 @@ export function fillPrompt(recipe: Recipe, raw: unknown): FilledPrompt {
   };
 }
 
-/** `Визитка`, `Визитка 2`, …: a new folder under `root`, never an existing one. */
+/**
+ * `Визитка`, `Визитка 2`, …: a new folder under `root`, never an existing one; the name is
+ * one Windows accepts (`safe-name.ts`).
+ */
 export function uniqueFolder(root: string, name: string): string {
-  const safe = name.replace(/[\\/:*?"<>|]+/gu, " ").trim() || "Проект";
+  const safe = safeName(name, { fallback: "Проект" });
   let path = join(root, safe);
-  for (let n = 2; existsSync(path); n++) path = join(root, `${safe} ${n}`);
+  for (let n = 2; existsSync(path); n++) path = join(root, withSuffix(safe, n));
   return path;
 }
 

@@ -6,6 +6,7 @@
 import { lstatSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { zipFiles } from "../design/zip.ts";
+import { MAX_NAME, safeName } from "./safe-name.ts";
 
 /** Folders the archive never takes (dot folders are skipped as dotfiles). */
 const SKIP_DIRS = new Set(["node_modules", "venv", "__pycache__", "dist"]);
@@ -63,6 +64,5 @@ export function zipProject(files: { rel: string; abs: string; mtime: Date }[], p
 
 /** A file name Windows accepts, from the project folder's name. */
 export function zipName(folder: string): string {
-  const base = folder.replace(/[\\/:*?"<>|]+/gu, "-").replace(/^[.\s]+|[.\s]+$/gu, "");
-  return `${base || "project"}.zip`;
+  return `${safeName(folder, { fallback: "project", replacement: "-", max: MAX_NAME - 4 })}.zip`;
 }
