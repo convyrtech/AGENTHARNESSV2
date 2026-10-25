@@ -12,13 +12,15 @@ import { venvPython } from "./env.ts";
 /**
  * Pinned to the versions the pipeline was verified with; bump together with design-lock.json.
  * fonttools: flow.py's brand gate runs font_check.py, which imports it (the pipeline's
- * requirements.txt lists it as test-only).
+ * requirements.txt lists it as test-only). imageio-ffmpeg: ffmpeg for the step-1 pack videos
+ * (harness/moves.py); the owner's machine has none.
  */
 export const DESIGN_PACKAGES = [
   "pillow==13.0.0",
   "numpy==2.5.4",
   "playwright==1.63.0",
   "fonttools==4.67.0",
+  "imageio-ffmpeg==0.6.0",
 ] as const;
 /**
  * Measured on windows-latest (design-windows.yml): win_amd64 cp312 wheels download 59 MB

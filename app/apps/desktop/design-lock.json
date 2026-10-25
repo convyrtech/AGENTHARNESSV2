@@ -3,5 +3,11 @@
     "repo": "convyrtech/design-pipeline",
     "commit": "39fcac42db4bd344c7d9747a5903cc18c9d87718"
   },
-  "packages": ["pillow==13.0.0", "numpy==2.5.4", "playwright==1.63.0", "fonttools==4.67.0"]
+  "packages": [
+    "pillow==13.0.0",
+    "numpy==2.5.4",
+    "playwright==1.63.0",
+    "fonttools==4.67.0",
+    "imageio-ffmpeg==0.6.0"
+  ]
 }

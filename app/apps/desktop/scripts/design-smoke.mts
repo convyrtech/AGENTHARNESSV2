@@ -317,6 +317,64 @@ report.runPy = {
   saySeconds: say.seconds,
 };
 
+// ---------- 6: step 1 — moves.py packs on the owner's machine (Edge + imageio-ffmpeg) ----------
+const cands = join(ws, "design", "landing", "01-cands");
+mkdirSync(cands, { recursive: true });
+writeFileSync(
+  join(cands, "words.json"),
+  JSON.stringify({
+    num: "180 ₽",
+    step1: "Закажите",
+    limit: "1 240",
+    stamp: "ГОТОВО",
+    sloganRise: "с утра",
+  }),
+);
+const movesPy = join(ws, "harness", "moves.py");
+const movesEnv = { ...harnessEnv, ...(channel ? { DP_BROWSER_CHANNEL: channel } : {}) };
+const cand = run(py, ["-I", movesPy, "candidates", "--page", "design/landing"], {
+  cwd: ws,
+  env: movesEnv,
+});
+const videos = ["A", "B", "C"].map((k) => join(cands, `${k}.mp4`));
+const videoKB = videos.map((v) => (existsSync(v) ? Math.round(statSync(v).size / 1024) : 0));
+check(
+  cand.code === 0 &&
+    existsSync(join(ws, "design", "landing", "01-candidates.png")) &&
+    videoKB.every((kb) => kb > 2),
+  `moves.py candidates: 3 sheets + 3 mp4 (${cand.code !== 0 ? cand.out.slice(-400) : videoKB.join(", ") + " KB"})`,
+);
+const pickRes = run(py, ["-I", movesPy, "pick", "--page", "design/landing", "--pack", "A"], {
+  cwd: ws,
+  env: movesEnv,
+});
+const frames = join(ws, "design", "landing", "01-frames");
+const nFrames = existsSync(frames)
+  ? readdirSync(frames).filter((f) => f.endsWith(".png")).length
+  : 0;
+check(
+  pickRes.code === 0 && nFrames >= 12 && existsSync(join(ws, "design", "landing", "01-pack.json")),
+  `moves.py pick A: ${nFrames} frames, 01-teardown.md, 01-pack.json (${pickRes.code !== 0 ? pickRes.out.slice(-300) : "ok"})`,
+);
+if (existsSync(join(ws, "design", "landing", "01-candidates.png"))) {
+  copyFileSync(
+    join(ws, "design", "landing", "01-candidates.png"),
+    join(out, "moves-candidates.png"),
+  );
+}
+report.moves = {
+  candidatesSeconds: cand.seconds,
+  pickSeconds: pickRes.seconds,
+  videoKB,
+  frames: nFrames,
+};
+
+// ---------- 7: harness unit tests ----------
+const unit = run(py, ["-m", "unittest", "discover", "-s", join(HARNESS, "tests")], {
+  env: harnessEnv,
+});
+check(unit.code === 0, `harness unit tests (${unit.out.trim().split("\n").slice(-3).join(" ")})`);
+
 report.failures = failures;
 writeFileSync(join(out, "design-smoke.json"), `${JSON.stringify(report, null, 2)}\n`);
 console.log(JSON.stringify(report, null, 2));

@@ -64,5 +64,6 @@ jobs:
           path: |
             ${{ runner.temp }}/design-smoke/design-smoke.json
             ${{ runner.temp }}/design-smoke/demo-prsloy.png
+            ${{ runner.temp }}/design-smoke/moves-candidates.png
           if-no-files-found: warn
           retention-days: 14
