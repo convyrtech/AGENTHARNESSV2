@@ -42,7 +42,7 @@ async function session(script: (i: number) => Behaviour) {
   await gateway.start();
   cleanup.push(async () => {
     await gateway.stop();
-    await rm(root, { recursive: true, force: true });
+    await rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   });
   const modelsPath = join(agentDir, "models.json");
   // Как buildPrsloyModelsJsonProvider: ключа в models.json нет, он — ключ рантайма.

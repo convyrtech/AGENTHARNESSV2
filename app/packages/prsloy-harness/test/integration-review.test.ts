@@ -61,7 +61,7 @@ async function startSession(writer: Writer, review: (prompt: string) => string) 
   await server.start();
   cleanup.push(async () => {
     await server.stop();
-    await rm(root, { recursive: true, force: true });
+    await rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   });
   const modelsPath = join(agentDir, "models.json");
   await writeFile(
