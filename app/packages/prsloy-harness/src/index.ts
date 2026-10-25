@@ -11,6 +11,7 @@ import { installFindReady } from "./find-ready.ts";
 import { installReliability } from "./reliability.ts";
 import { installReusePrompt } from "./reuse-prompt.ts";
 import { installSecretScrub } from "./secret-scrub.ts";
+import { installStopGate } from "./stop-gate.ts";
 import { installToolOutput } from "./tool-output.ts";
 
 export type { HarnessOptions, HarnessProfile, PracticeName } from "./options.ts";
@@ -45,6 +46,7 @@ export function createPrsloyHarness(options: HarnessOptions = {}): (pi: Extensio
     budget?.installWarning();
     if (on("reusePrompt")) installReusePrompt(pi, opts);
     if (on("findReady")) installFindReady(pi, opts, opts.findReady);
+    if (on("stopGate")) installStopGate(pi, opts);
     if (on("secretScrub")) installSecretScrub(pi);
     if (on("reliabilityProxy")) installReliability(pi, opts);
   };

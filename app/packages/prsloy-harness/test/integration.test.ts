@@ -349,6 +349,73 @@ describe("integration: real createAgentSession + mock gateway", () => {
   );
 });
 
+describe("integration: stop gate «до зелёного» in a real session", () => {
+  async function npmProject(cwd: string) {
+    await writeFile(
+      join(cwd, "package.json"),
+      JSON.stringify({ name: "calc", scripts: { test: "node test.js" } }),
+    );
+    await writeFile(
+      join(cwd, "test.js"),
+      `const { sum } = require("./sum.js");
+const got = sum(2, 2);
+if (got !== 4) { console.error("FAIL sum: expected 4, got " + got); process.exit(1); }
+console.log("ok");
+`,
+    );
+  }
+  const buggy = "exports.sum = (a, b) => a + b + 1;\n";
+  const fixed = "exports.sum = (a, b) => a + b;\n";
+  const write = (content: string) => ({
+    toolCalls: [{ name: "write", arguments: { path: "sum.js", content } }],
+  });
+
+  it("the model leaves a failing test, is pushed back once, fixes it, and the gate passes", async () => {
+    const { session, server, cwd } = await startSession(
+      (_req, index) =>
+        [write(buggy), { text: "Готово." }, write(fixed), { text: "Исправил, тесты зелёные." }][
+          index
+        ] ?? { text: "?" },
+      { factory: {} },
+    );
+    await npmProject(cwd);
+    await session.prompt("сделай функцию sum");
+    expect(server.requests).toHaveLength(4);
+    const pushback = JSON.stringify(server.requests[2]!.messages);
+    expect(pushback).toContain("Проверка проекта не прошла (`npm run test`, код 1)");
+    expect(pushback).toContain("FAIL sum: expected 4, got 5");
+    expect(JSON.stringify(server.requests[3]!.messages)).not.toContain("Это последняя попытка");
+    const notes = (
+      session.messages as unknown as { role: string; customType?: string; display?: boolean }[]
+    ).filter((m) => m.role === "custom" && m.customType === "prsloy-harness.stop-gate");
+    expect(notes).toHaveLength(1);
+  }, 60_000);
+
+  it("cap: a model that never fixes it is pushed back twice, then the user sees the check is still red", async () => {
+    const { session, server, cwd } = await startSession(
+      (_req, index) => (index === 0 ? write(buggy) : { text: "Готово." }),
+      { factory: {} },
+    );
+    await npmProject(cwd);
+    await session.prompt("сделай функцию sum");
+    // write → «Готово» (возврат 1) → «Готово» (возврат 2) → «Готово» (заметка, без продолжения). Третьего возврата нет.
+    expect(server.requests).toHaveLength(4);
+    expect(JSON.stringify(server.requests[3]!.messages)).toContain("Это последняя попытка");
+    const visible = (
+      session.messages as unknown as {
+        role: string;
+        customType?: string;
+        display?: boolean;
+        content?: unknown;
+      }[]
+    ).filter(
+      (m) => m.role === "custom" && m.customType === "prsloy-harness.stop-gate" && m.display,
+    );
+    expect(visible).toHaveLength(1);
+    expect(String(visible[0]?.content)).toContain("Проверка проекта всё ещё не проходит");
+  }, 60_000);
+});
+
 async function freePort(): Promise<number> {
   const server = createNetServer();
   server.listen(0, "127.0.0.1");

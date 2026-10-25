@@ -41,6 +41,8 @@ export interface HarnessOptions {
   reliability?: ReliabilityOptions;
   /** Тул find_ready: таймаут, кэш, свой fetch (тесты). */
   findReady?: FindReadyOptions;
+  /** Стоп-гейт «до зелёного»: таймаут проверки проекта, мс. По умолчанию 120 с (env PRSLOY_STOP_GATE_TIMEOUT_SEC). */
+  stopGateTimeoutMs?: number;
   /** Выключить отдельные практики. */
   disable?: Partial<Record<PracticeName, boolean>>;
 }
@@ -55,7 +57,8 @@ export type PracticeName =
   | "secretScrub"
   | "reusePrompt"
   | "reliabilityProxy"
-  | "findReady";
+  | "findReady"
+  | "stopGate";
 
 export interface ResolvedOptions {
   profile: HarnessProfile;
@@ -75,6 +78,7 @@ export interface ResolvedOptions {
   reliabilityProviders: string[];
   reliability: ReliabilityOptions;
   findReady: FindReadyOptions;
+  stopGateTimeoutMs: number;
   disable: Partial<Record<PracticeName, boolean>>;
 }
 
@@ -146,6 +150,9 @@ export function resolveOptions(options: HarnessOptions = {}): ResolvedOptions {
     reliabilityProviders: options.reliabilityProviders ?? envProviders() ?? ["prsloy"],
     reliability: reliabilityOptions(options.reliability),
     findReady: options.findReady ?? {},
+    stopGateTimeoutMs:
+      options.stopGateTimeoutMs ??
+      (Number(process.env.PRSLOY_STOP_GATE_TIMEOUT_SEC) * 1000 || 120_000),
     disable: options.disable ?? {},
   };
 }
