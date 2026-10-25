@@ -35,7 +35,9 @@ import { pipeline } from "node:stream/promises";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { pythonDistMeta } from "./fetch-runtimes.mjs";
 import { venvPython } from "../src/main/design/env.ts";
+import { importPipeline, NOT_TOOLS } from "../src/main/design/pipeline-import.ts";
 import { DESIGN_PACKAGES, setupDesignTools } from "../src/main/design/setup.ts";
+import { zipDirectory, zipFiles } from "../src/main/design/zip.ts";
 
 const DESKTOP = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const REPO = resolve(DESKTOP, "..", "..", "..");
@@ -70,15 +72,6 @@ function dirBytes(dir: string): number {
     total += st.isDirectory() ? dirBytes(p) : st.size;
   }
   return total;
-}
-
-function copyTree(src: string, dst: string): void {
-  mkdirSync(dst, { recursive: true });
-  for (const name of readdirSync(src)) {
-    const from = join(src, name);
-    if (statSync(from).isDirectory()) copyTree(from, join(dst, name));
-    else copyFileSync(from, join(dst, name));
-  }
 }
 
 function run(cmd: string, args: string[], opts: { cwd?: string; env?: NodeJS.ProcessEnv } = {}) {
@@ -228,13 +221,40 @@ report.checkPy = { pass: pass.code, fail: fail.code };
 
 // ---------- 5: run.py in a folder with spaces and Cyrillic, no network ----------
 const ws = join(work, "Documents", "PRSLOY", "сайт");
-const pipelineCopy = join(work, "bundle", "design-pipeline");
-// fs.cpSync on Node 22/Windows copies nothing into a non-ASCII destination: copy by hand
-copyTree(join(STUBS, "stub-pipeline"), pipelineCopy);
+// public builds ship no pipeline: the owner adds GitHub's «Download ZIP» of it («У меня есть файл
+// инструментов»), main imports it into userData/design/design-pipeline — same code as the app
+const pipelineCopy = join(designRoot, "design-pipeline");
+mkdirSync(join(work, "Загрузки"), { recursive: true });
+const toolsZip = join(work, "Загрузки", "design-pipeline-main.zip");
+writeFileSync(toolsZip, zipDirectory(join(STUBS, "stub-pipeline"), "design-pipeline-main"));
+const imported = importPipeline(toolsZip, pipelineCopy);
 check(
-  existsSync(join(pipelineCopy, "tools", "flow.py")),
-  `stub pipeline copied to «${pipelineCopy}»`,
+  imported.ok && existsSync(join(pipelineCopy, "tools", "flow.py")),
+  `tools zip imported into «${pipelineCopy}» (${JSON.stringify(imported)})`,
 );
+const slip = join(work, "Загрузки", "slip.zip");
+writeFileSync(
+  slip,
+  zipFiles(
+    ["tools/flow.py", "AGENTS.md", "PIPELINE.md", "../../outside.txt"].map((name) => ({
+      name: `p/${name}`,
+      data: Buffer.from("x"),
+    })),
+  ),
+);
+const refused = [
+  importPipeline(slip, pipelineCopy),
+  importPipeline(join(STUBS, "fixtures"), pipelineCopy),
+];
+check(
+  !refused[0]!.ok &&
+    refused[1]!.ok === false &&
+    refused[1]!.error === NOT_TOOLS &&
+    !existsSync(join(work, "outside.txt")) &&
+    existsSync(join(pipelineCopy, "tools", "flow.py")),
+  `zip-slip and a non-tools folder refused, the copy stays (${JSON.stringify(refused)})`,
+);
+report.toolsImport = { ok: imported.ok, refused: refused.map((x) => (x.ok ? "ok" : x.error)) };
 // the app ships the pipeline already patched; the stub has nothing to patch
 const patch = readFileSync(join(HARNESS, "pipeline-fixes.patch"));
 writeFileSync(
