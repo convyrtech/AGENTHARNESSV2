@@ -1,0 +1,45 @@
+{
+  "sessions": [
+    [
+      {
+        "toolCalls": [
+          {
+            "name": "write",
+            "arguments": {
+              "path": "index.html",
+              "content": "<!doctype html>\n<html lang=\"ru\"><head><meta charset=\"utf-8\"><title>Змейка</title></head>\n<body>\n<canvas id=\"c\" width=\"300\" height=\"300\"></canvas>\n<script>\nconst ctx = document.getElementById('c').getContext('2d');\nlet snake = [{ x: 5, y: 5 }], dir = { x: 1, y: 0 }, food = { x: 10, y: 10 };\ndocument.addEventListener('keydown', (e) => {\n  const d = { ArrowUp: [0, -1], ArrowDown: [0, 1], ArrowLeft: [-1, 0], ArrowRight: [1, 0] }[e.key];\n  if (d) dir = { x: d[0], y: d[1] };\n});\nsetInterval(() => {\n  const head = { x: (snake[0].x + dir.x + 20) % 20, y: (snake[0].y + dir.y + 20) % 20 };\n  snake.unshift(head);\n  if (head.x === food.x && head.y === food.y) food = { x: Math.floor(Math.random() * 20), y: Math.floor(Math.random() * 20) };\n  else snake.pop();\n  ctx.fillStyle = '#111'; ctx.fillRect(0, 0, 300, 300);\n  ctx.fillStyle = '#e33'; ctx.fillRect(food.x * 15, food.y * 15, 15, 15);\n  ctx.fillStyle = '#3c3'; for (const s of snake) ctx.fillRect(s.x * 15, s.y * 15, 15, 15);\n}, 120);\n</script>\n</body></html>\n"
+            }
+          }
+        ]
+      },
+      {
+        "text": "Готово: откройте index.html, управление стрелками."
+      }
+    ],
+    [
+      {
+        "toolCalls": [
+          {
+            "name": "edit",
+            "arguments": {
+              "path": "index.html",
+              "edits": [
+                {
+                  "oldText": "<canvas id=\"c\" width=\"300\" height=\"300\"></canvas>",
+                  "newText": "<p>Счёт: <span id=\"score\">0</span></p>\n<canvas id=\"c\" width=\"300\" height=\"300\"></canvas>"
+                },
+                {
+                  "oldText": "if (head.x === food.x && head.y === food.y) food =",
+                  "newText": "if (head.x === food.x && head.y === food.y) document.getElementById('score').textContent = String(Number(document.getElementById('score').textContent) + 1), food ="
+                }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "text": "Добавил счёт очков над полем."
+      }
+    ]
+  ]
+}
