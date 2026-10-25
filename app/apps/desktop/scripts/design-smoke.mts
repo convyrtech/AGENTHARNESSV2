@@ -221,7 +221,9 @@ report.checkPy = { pass: pass.code, fail: fail.code };
 // ---------- 5: run.py in a folder with spaces and Cyrillic, no network ----------
 const ws = join(work, "Documents", "PRSLOY", "сайт");
 const pipelineCopy = join(work, "bundle", "design-pipeline");
-cpSync(join(STUBS, "stub-pipeline"), pipelineCopy, { recursive: true });
+mkdirSync(pipelineCopy, { recursive: true });
+cpSync(join(STUBS, "stub-pipeline"), pipelineCopy, { recursive: true, force: true });
+check(existsSync(join(pipelineCopy, "tools", "flow.py")), `stub pipeline copied to «${pipelineCopy}»`);
 // the app ships the pipeline already patched; the stub has nothing to patch
 const patch = readFileSync(join(HARNESS, "pipeline-fixes.patch"));
 writeFileSync(
