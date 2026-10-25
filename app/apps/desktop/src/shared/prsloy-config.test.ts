@@ -75,15 +75,20 @@ describe("prsloy config", () => {
     expect(byId["claude-opus-5-5"]!.compat.supportsReasoningEffort).toBe(false);
   });
 
-  it("prices every catalog model; cache read is 10% of input where measured", () => {
-    for (const model of PRSLOY_MODELS) expect(PRSLOY_PRICES_USD_PER_M[model.id]).toBeDefined();
+  it("prices every catalog model; cache read is 10% of input", () => {
+    for (const model of PRSLOY_MODELS) {
+      const price = PRSLOY_PRICES_USD_PER_M[model.id]!;
+      expect(price, model.id).toBeDefined();
+      // A missing cacheRead bills cache hits as full input (DIARY E9: $1.73 shown vs $0.41).
+      expect(price.cacheRead, model.id).toBeCloseTo(price.input / 10, 10);
+    }
     expect(prsloyModelCost("deepseek-v4.1-flash-1017")).toEqual({
       input: 0.0012,
       output: 0.0048,
       cacheRead: 0.00012,
       cacheWrite: 0.0012,
     });
-    expect(prsloyModelCost("claude-opus-5-5").cacheRead).toBe(0.096);
+    expect(prsloyModelCost("claude-opus-5-5").cacheRead).toBeCloseTo(0.0096, 10);
     expect(prsloyModelCost("kimi-k3.1-pro", 3).output).toBeCloseTo(0.612, 10);
     expect(prsloyModelCost("unknown")).toEqual({
       input: 0,

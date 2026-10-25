@@ -117,16 +117,18 @@ export const PRSLOY_MODELS: readonly PrsloyModelDef[] = [
 ];
 
 /**
- * Gateway prices, USD per 1M tokens (measured gateway cost for now). `cacheRead` omitted →
- * cached input is billed like input; where measured it is 10% of input. Retail = cost × PRSLOY_PRICE_MULTIPLIER.
+ * Gateway prices, USD per 1M tokens (measured gateway cost for now). `cacheRead` is 10% of
+ * input (measured for deepseek/kimi, assumed for qwen/claude until measured): without it
+ * cache reads were billed as full input and tripped the task budget early.
+ * Retail = cost × PRSLOY_PRICE_MULTIPLIER.
  */
 export const PRSLOY_PRICES_USD_PER_M: Readonly<
   Record<string, { input: number; output: number; cacheRead?: number }>
 > = {
   "deepseek-v4.1-flash-1017": { input: 0.0012, output: 0.0048, cacheRead: 0.00012 },
   "kimi-k3.1-pro": { input: 0.041, output: 0.204, cacheRead: 0.0041 },
-  "qwen3.8-max": { input: 0.036, output: 0.108 },
-  "claude-opus-5-5": { input: 0.096, output: 0.48 },
+  "qwen3.8-max": { input: 0.036, output: 0.108, cacheRead: 0.0036 },
+  "claude-opus-5-5": { input: 0.096, output: 0.48, cacheRead: 0.0096 },
 };
 
 /** One knob for the owner to move from cost to retail pricing. */
