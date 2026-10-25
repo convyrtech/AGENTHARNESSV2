@@ -7,7 +7,6 @@ import type {
   SessionThreadSummary,
 } from "@zeno/contracts";
 import {
-  StrictMode,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -17,7 +16,7 @@ import {
   type FormEvent,
   type KeyboardEvent,
 } from "react";
-import { createRoot } from "react-dom/client";
+import { renderAppRoot } from "./components/prsloy/render-root.tsx";
 import { flushSync } from "react-dom";
 import { ResourcesPage } from "./components/ResourcesPage.tsx";
 import { loadCasualPrefs } from "./lib/casual-prefs.ts";
@@ -4467,10 +4466,4 @@ function PackagesPage(props: {
   );
 }
 
-const root = document.querySelector("#root");
-if (!root) throw new Error("Renderer root element is missing");
-createRoot(root).render(
-  <StrictMode>
-    <App />
-  </StrictMode>,
-);
+renderAppRoot(App);

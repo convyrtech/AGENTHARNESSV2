@@ -26,6 +26,11 @@ export interface PrsloyState {
   shellSource?: "bundled" | "system" | "missing";
   /** prsloy-harness extensions loaded for every session. */
   harnessLoaded: boolean;
+  /**
+   * Skip the first-run screens (test harness with its own fake model). Main sets it for
+   * `ZENO_ENABLE_TEST_COMMANDS=1` unless `PRSLOY_FORCE_FIRST_RUN=1`.
+   */
+  firstRunBypass: boolean;
 }
 
 export type PrsloyKeyResult =

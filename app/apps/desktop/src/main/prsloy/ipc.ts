@@ -51,6 +51,8 @@ export function buildPrsloyState(ctx: PrsloyContext, needsWorkspace: boolean): P
     needsWorkspace,
     ...(ctx.shellSource ? { shellSource: ctx.shellSource } : {}),
     harnessLoaded: ctx.harnessExtensions.length > 0,
+    firstRunBypass:
+      process.env.ZENO_ENABLE_TEST_COMMANDS === "1" && process.env.PRSLOY_FORCE_FIRST_RUN !== "1",
   };
 }
 
