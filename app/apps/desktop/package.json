@@ -71,6 +71,7 @@
     "typescript": "catalog:",
     "vite": "catalog:",
     "vite-plus": "catalog:",
+    "yaml": "catalog:",
     "zustand": "catalog:"
   },
   "engines": {

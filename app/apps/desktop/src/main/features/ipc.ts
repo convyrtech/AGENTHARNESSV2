@@ -11,6 +11,7 @@ import { previewWorkspace } from "../code-preview-guard.ts";
 import { captureRect } from "./capture-rect.ts";
 import { listProjectFiles, zipName, zipProject } from "./project-zip.ts";
 import { isAlive, mayStop, parentPid, readLogTail, stopTree } from "./processes.ts";
+import { createRecipeProject, loadRecipes, recipeInfos } from "./recipes.ts";
 import { searchChats } from "./session-search.ts";
 
 /** Main exports `PI_CODING_AGENT_DIR` before app ready (prsloy/agent-home.ts). */
@@ -104,6 +105,18 @@ export function installFeatures(assertTrustedSender: (event: IpcMainInvokeEvent)
     });
     if (!check.ok) return check;
     return (await stopTree(pid as number)) ? { ok: true } : { ok: false, reason: "still_running" };
+  });
+  ipcMain.handle("prsloy:features:recipes", (event) => {
+    assertTrustedSender(event);
+    return recipeInfos();
+  });
+  ipcMain.handle("prsloy:features:create-recipe", (event, id: unknown, values: unknown) => {
+    assertTrustedSender(event);
+    const recipe = loadRecipes().find((r) => r.id === id);
+    if (!recipe) return { ok: false, reason: "unknown" };
+    // New projects sit next to the others: Documents/PRSLOY/<Визитка>.
+    const created = createRecipeProject(recipe, values, join(app.getPath("documents"), "PRSLOY"));
+    return created.ok ? created : { ok: false, reason: "missing", missing: created.missing };
   });
   ipcMain.handle("prsloy:features:search-chats", (event, query: unknown) => {
     assertTrustedSender(event);
