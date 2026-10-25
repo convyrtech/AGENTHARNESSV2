@@ -20,6 +20,8 @@ interface LaunchedZeno {
   workspace: string;
   attachmentPaths: string[];
   fakeModel: FakeOpenAiServer;
+  /** Electron main + Agent Host stdout/stderr since launch (security greps). */
+  output: string[];
 }
 
 export interface ZenoE2EFixtures {
@@ -32,6 +34,10 @@ export interface LaunchOptions {
   tools?: string;
   /** Tool the fake model calls for prompts containing "tool". */
   toolCall?: { name: string; arguments: Record<string, unknown> };
+  /** Model the host starts with (default: the fake model). */
+  model?: { provider: string; id: string };
+  /** Extra env for the app process (e.g. a planted secret the agent must not see). */
+  env?: Record<string, string>;
 }
 
 /**
@@ -148,8 +154,8 @@ export async function launchZenoApp(options: LaunchOptions = {}): Promise<Launch
     XDG_CONFIG_HOME: join(home, ".config"),
     PI_CODING_AGENT_DIR: agentDir,
     ZENO_WORKSPACE: workspace,
-    ZENO_MODEL_PROVIDER: "zeno-fake",
-    ZENO_MODEL_ID: "zeno-fake",
+    ZENO_MODEL_PROVIDER: options.model?.provider ?? "zeno-fake",
+    ZENO_MODEL_ID: options.model?.id ?? "zeno-fake",
     ZENO_TOOLS: options.tools ?? "read",
     ZENO_ENABLE_TEST_COMMANDS: "1",
     ZENO_TEST_PROVIDER_OAUTH: "openai-codex",
@@ -183,6 +189,7 @@ export async function launchZenoApp(options: LaunchOptions = {}): Promise<Launch
   });
   // Interactive E2E: product cold-start auto-resume is already off via ZENO_NO_AUTO_RESUME.
   delete env.ELECTRON_RUN_AS_NODE;
+  Object.assign(env, options.env ?? {});
 
   // Isolate Electron userData so recent workspaces / prefs do not leak across runs.
   const userData = join(root, "electron-userData");
@@ -201,6 +208,9 @@ export async function launchZenoApp(options: LaunchOptions = {}): Promise<Launch
     timeout: 60_000,
   });
 
+  const output: string[] = [];
+  app.process().stdout?.on("data", (chunk: Buffer) => output.push(chunk.toString("utf8")));
+  app.process().stderr?.on("data", (chunk: Buffer) => output.push(chunk.toString("utf8")));
   const page = await app.firstWindow({ timeout: 60_000 });
   await page.waitForSelector('[data-testid="zeno-app"]', { timeout: 30_000 });
   // The suite drives developer surfaces (terminal, packages, model picker) that casual mode hides.
@@ -217,7 +227,7 @@ export async function launchZenoApp(options: LaunchOptions = {}): Promise<Launch
     timeout: 120_000,
   });
 
-  return { app, page, root, agentDir, workspace, attachmentPaths, fakeModel };
+  return { app, page, root, agentDir, workspace, attachmentPaths, fakeModel, output };
 }
 
 export const test = base.extend<ZenoE2EFixtures>({
