@@ -192,7 +192,7 @@ def interact(page, t, ia, found):
                 f["where"] = target["selector"]
                 f["detail"] = "после нажатия «" + target["label"] + "»: " + f["detail"]
         if page.url.split("#")[0] != t["url"].split("#")[0]:
-            page.goto(t["url"], wait_until="load", timeout=job["navTimeoutMs"])
+            page.goto(t["url"], wait_until="load", timeout=ia["backTimeoutMs"])
             page.wait_for_timeout(job["settleMs"])
 
 with sync_playwright() as p:
@@ -276,6 +276,8 @@ export interface Interact {
   max: number;
   budgetMs: number;
   afterMs: number;
+  /** Возврат на страницу после ухода с неё: короче обычного открытия, чтобы бюджет не перерасходовался. */
+  backTimeoutMs: number;
   tabs: number;
   list: string;
   act: string;
@@ -346,7 +348,7 @@ async function interactNode(
         f.detail = `после нажатия «${target.label}»: ${f.detail}`;
       }
     if (page.url().split("#")[0] !== url.split("#")[0]) {
-      await page.goto(url, { waitUntil: "load", timeout: job.navTimeoutMs });
+      await page.goto(url, { waitUntil: "load", timeout: ia.backTimeoutMs });
       await page.waitForTimeout(job.settleMs);
     }
   }
@@ -439,12 +441,17 @@ export interface PageCheckOptions {
   timeoutMs?: number;
 }
 
-/** Сколько нажимать и сколько ждать: ≤15 действий и ≤10 с на всё (бюджет — на ходу, не обрезаем посередине). */
+/**
+ * Сколько нажимать и сколько ждать: ≤15 действий и ≤10 с на всё (бюджет — на ходу, не обрезаем посередине).
+ * Замер (STATUS): +0,3–1,3 с на страницах бенча, +10 с на тяжёлой (20 уходящих кнопок, 30 ссылок, 5 форм). Худший
+ * случай — бюджет плюс одно действие с возвратом ≤3 с, около 14 с.
+ */
 export const INTERACT_LIMITS = {
   width: 1440,
   max: 15,
   budgetMs: 10_000,
   afterMs: 300,
+  backTimeoutMs: 3_000,
   tabs: 30,
 } as const;
 
