@@ -42,7 +42,7 @@ def ask(base, key, model, question, today):
             "messages": [{"role": "system", "content": SYSTEM.format(today=today)}, {"role": "user", "content": question}]}
     status, data, raw, secs = post(base, key, "/v1/chat/completions", body)
     if status != 200 or not data or not data.get("choices"):
-        return {"answer": "", "sources": [], "seconds": secs, "error": f"HTTP {status}: {raw[:160]}"}
+        return {"answer": "", "sources": [], "seconds": secs, "annotations": 0, "error": f"HTTP {status}: {raw[:160]}"}
     msg = data["choices"][0].get("message") or {}
     text = msg.get("content") or ""
     sources, seen = [], set()
