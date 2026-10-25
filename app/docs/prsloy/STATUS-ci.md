@@ -2,12 +2,16 @@
 
 ## Этап 8: подготовка к живому релизу
 
-Сухой прогон кнопки (на `desktop/ci` @ 2603338, version=0.1.0-alpha.8, dry_run=true):
-https://github.com/convyrtech/AGENTHARNESSV2/actions/runs/40185341286.
+**Сухой прогон на main** (b17db1b, version=0.1.0-alpha.1, dry_run=true):
+https://github.com/convyrtech/AGENTHARNESSV2/actions/runs/40186700631.
 
-- Всё зелёное: plan → package → smoke windows-latest и windows-2022 → update-e2e 3/3 → **release**.
-- release скачал файлы и сверил их с latest.yml, а перед softprops остановился.
-- Тега `v0.1.0-alpha.8` нет (404), релизов в репозитории 0.
+- Всё зелёное: plan → package → smoke windows-latest и windows-2022 → update-e2e 3/3 → release. В release:
+  `latest.yml ok: 0.1.0-alpha.1 → PRSLOY-0.1.0-alpha.1-win-x64.exe (+ blockmap)`, softprops пропущен.
+- Тега `v0.1.0-alpha.1` нет (404), релизов 0.
+- 20 мин от нажатия (10:54:48 → 11:14:42), из них ~2 мин release-job ждал раннер.
+
+Раньше на desktop/ci (0.1.0-alpha.8, dry_run): https://github.com/convyrtech/AGENTHARNESSV2/actions/runs/40185341286 —
+так же зелёный, 16,5 мин.
 
 ### 1. Сухой прогон на main
 
@@ -59,23 +63,17 @@ https://github.com/convyrtech/AGENTHARNESSV2/actions/runs/40185341286.
   `PRSLOY-0.1.6-win-x64.exe` 221 497 138 байт, sha512 и blockmap совпадают.
 - Сухой прогон с версией тоже проходит: `latest.yml ok: 0.1.0-alpha.8 → PRSLOY-0.1.0-alpha.8-win-x64.exe (+ blockmap)`.
 
-### 4. Найдено: версия в package.json выше версий релизов
+### 4. Версия: package.json и релизы
 
-- `apps/desktop/package.json` — `0.1.6`, а выпуски пойдут как `0.1.0-alpha.N`. По semver `0.1.6 > 0.1.0-alpha.N`.
-- `AppUpdater` без `allowDowngrade` не предложит «обновление» на меньшую версию. У стабильной текущей версии
-  `GitHubProvider` берёт первый релиз в ленте, но потом сравнение версий его отбросит.
-- Значит, у всех, кто ставил установщик из артефактов CI с main (0.1.6), автообновление на alpha-релизы **не придёт
-  никогда**.
-- Пользователей пока нет (релизов 0), так что это решение до первого выпуска. Два варианта:
-  - (а) выпускать с версией выше 0.1.6, например `0.2.0-alpha.1`;
-  - (б) опустить package.json до `0.1.0-alpha.0`, и тогда CI-сборки main — «нулевая альфа».
-    Тестерам с 0.1.6 в обоих случаях сначала нужна ручная переустановка. Решает дирижёр или владелец; я ничего не
-    менял.
+- Было: `apps/desktop/package.json` = `0.1.6`, а выпуски `0.1.0-alpha.N`. По semver `0.1.6 > 0.1.0-alpha.N`, и
+  electron-updater без `allowDowngrade` на такие релизы не обновил бы никогда.
+- Решение дирижёра (б): на main `0.1.0-alpha.0` (b17db1b). Первый выпуск — `0.1.0-alpha.1`. Установленных копий у
+  владельца нет, переустанавливать никому не нужно.
 
 ### Для владельца
 
-Actions → desktop-windows → Run workflow → Branch: main → version: следующая версия (например `0.2.0-alpha.1`) →
-галочку «Сухой прогон» не ставить → Run; через ~18 мин релиз готов.
+Actions → desktop-windows → Run workflow → Branch: main → version `0.1.0-alpha.1` → галочку «Сухой прогон» не
+ставить → Run; через ~18–20 мин релиз готов.
 
 ## Этап 7: проверщик адаптивности (layout lint)
 
