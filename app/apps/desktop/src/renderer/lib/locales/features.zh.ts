@@ -107,6 +107,8 @@ export const featuresZh = {
   "features.secret.save": "保存",
   "features.memory.hintAuto":
     "助手会记住你让它记的，也会自己从你的话里注意到重要的事。不记密码和密钥。下面能看到它记了什么，也可以让它忘掉。",
+  "features.next.failed.fix": "修好错误，再运行一次",
+  "features.next.failed.explain": "用简单的话说说哪里坏了",
   "features.memory.autoToggle": "自动注意重要内容",
   "features.memory.autoToggleHint":
     "代理会从你自己的话中记住重要内容：怎么回答、你喜欢什么、项目决定。绝不从文件或网站记忆。",
