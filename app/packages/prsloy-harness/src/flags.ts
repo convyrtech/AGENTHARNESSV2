@@ -27,6 +27,8 @@ export interface HarnessFlags {
   testGuard: boolean;
   /** Сверка слов агента с вызовами (research/24 §4.1, H-2: «проверил», заглушки). По умолчанию выкл. */
   claimCheck: boolean;
+  /** web_search и web_fetch в обычных ходах «Кода» (issue #23, research/26 §4). По умолчанию выкл. до замера. */
+  webTools: boolean;
 }
 
 export type AutoMemoryMode = "off" | "shadow" | true;
@@ -44,6 +46,7 @@ export function readFlags(settingsPath: string | undefined): HarnessFlags {
     honestExit: false,
     testGuard: false,
     claimCheck: false,
+    webTools: false,
   };
   if (settingsPath && existsSync(settingsPath)) {
     try {
@@ -59,6 +62,7 @@ export function readFlags(settingsPath: string | undefined): HarnessFlags {
       if (raw.honestExit === true) flags.honestExit = true;
       if (raw.testGuard === true) flags.testGuard = true;
       if (raw.claimCheck === true) flags.claimCheck = true;
+      if (raw.webTools === true) flags.webTools = true;
       if (Array.isArray(raw.disabledLessons))
         flags.disabledLessons = raw.disabledLessons.filter(
           (x): x is string => typeof x === "string",
@@ -83,6 +87,7 @@ export function readFlags(settingsPath: string | undefined): HarnessFlags {
     ["PRSLOY_HONEST_EXIT", "honestExit"],
     ["PRSLOY_TEST_GUARD", "testGuard"],
     ["PRSLOY_CLAIM_CHECK", "claimCheck"],
+    ["PRSLOY_WEB_TOOLS", "webTools"],
   ] as const) {
     if (process.env[env] === "1") flags[key] = true;
     if (process.env[env] === "0") flags[key] = false;

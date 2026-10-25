@@ -33,6 +33,12 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm check
       - run: pnpm test
+      # issue #23: live free web search without a key (GitHub, npm, PyPI, endoflife.date, DuckDuckGo, jsDelivr) —
+      # informational, the network of CI runners is not ours
+      - name: Web search smoke (live, non-blocking)
+        continue-on-error: true
+        timeout-minutes: 3
+        run: node --experimental-strip-types --no-warnings packages/prsloy-harness/scripts/web-smoke.mts
       - run: pnpm test:release-assets
       - run: pnpm build
 

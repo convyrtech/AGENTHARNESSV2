@@ -3,6 +3,7 @@ import type { PageCheckOptions } from "./page-check.ts";
 import { tmpdir } from "node:os";
 import type { FindReadyOptions } from "./find-ready.ts";
 import type { ReliabilityOptions } from "./reliability-proxy.ts";
+import type { ResearchOptions } from "./research/tools.ts";
 import { join } from "node:path";
 
 /** Профиль агента. Раздел «поиск готового» добавляется только в «Код». */
@@ -43,6 +44,8 @@ export interface HarnessOptions {
   reliability?: ReliabilityOptions;
   /** Тул find_ready: таймаут, кэш, свой fetch (тесты). */
   findReady?: FindReadyOptions;
+  /** «Исследовать» (research/26, #23): поставщик поиска и адрес шлюза из настроек приложения; флаг webTools. */
+  research?: ResearchOptions;
   /** Куда раскладывать навыки (по умолчанию `$PI_CODING_AGENT_DIR/prsloy-skills`). */
   skillsDir?: string;
   /** Память сама (research/24 §3, core): подмена экстрактора для тестов и бенча --fake. */
@@ -78,6 +81,7 @@ export type PracticeName =
   | "reusePrompt"
   | "reliabilityProxy"
   | "findReady"
+  | "research"
   | "stopGate"
   | "toolLeak"
   | "argRepair"

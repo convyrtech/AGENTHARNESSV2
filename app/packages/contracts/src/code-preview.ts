@@ -33,6 +33,8 @@ export type HarnessFlags = {
   testGuard: boolean;
   /** The agent's words checked against its calls (research/24 §4.1 H-2, default off). */
   claimCheck: boolean;
+  /** `web_search` and `web_fetch` in ordinary «Код» turns (issue #23, default off until measured). */
+  webTools: boolean;
 };
 
 export interface HarnessFlagsApi {

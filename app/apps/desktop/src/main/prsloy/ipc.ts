@@ -16,6 +16,7 @@ import { maskKey } from "./key-store.ts";
 import { recordTurnUndo } from "./learning-undo.ts";
 import { installMemoryExtractor, testProviderEndpoint } from "./memory-extractor.ts";
 import { registerPrsloyMemoryIpc } from "./memory-ipc.ts";
+import { registerPrsloySearchIpc } from "./search-ipc.ts";
 import { startPrsloyModelRefresh } from "./model-list.ts";
 import type { TurnRecord } from "./turn-snapshots.ts";
 
@@ -126,6 +127,15 @@ export function registerPrsloyIpc(rawIpcMain: IpcMainLike, deps: PrsloyIpcDeps):
   const state = () => buildPrsloyState(ctx, deps.needsWorkspace());
 
   ipcMain.handle(PRSLOY_IPC.getState, () => state());
+
+  registerPrsloySearchIpc(ipcMain, {
+    settings: ctx.search,
+    gatewayKey: () => ctx.keyStore.read(),
+    gatewayUrl: () => ctx.getState().baseUrl,
+    isAgentBusy: () => deps.isAgentBusy(),
+    restartHost: () => deps.restartHost(),
+    fetch: deps.fetch as typeof fetch,
+  });
 
   registerPrsloyMemoryIpc(ipcMain, {
     agentDir: ctx.agentDir,

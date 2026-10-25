@@ -1,0 +1,5 @@
+{
+  "title": "pydantic последней версии",
+  "suite": "web",
+  "prompt": "Добавь в requirements.txt pydantic последней версии, закрепи точно (==). Ставить не нужно."
+}
