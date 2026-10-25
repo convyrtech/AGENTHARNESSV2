@@ -1,0 +1,23 @@
+{
+  "$comment": "Правила для D11 разборщика сессий (research/23 §5.1). Только то, что проверяется кодом; правило без проверки кодом сюда не попадает — оно для судьи (A-2). Агент этот файл не видит: он вне папки проекта и промпта.",
+  "rules": [
+    {
+      "id": "judge-rounds",
+      "title": "судья — не больше 3 раундов на шаг",
+      "surface": "design",
+      "class": "K6",
+      "type": "command-max",
+      "pattern": "second_opinion|(?:^|[\\s/])judge(?:\\.py)?\\b|review-live",
+      "max": 3
+    },
+    {
+      "id": "materials-raster",
+      "title": "скриншот из материалов владельца вставлен в страницу вместо своей вёрстки",
+      "surface": "design",
+      "class": "K3",
+      "type": "write-forbid",
+      "path": "\\.html?$",
+      "pattern": "materials/[^\"')\\s]+\\.(?:png|jpe?g|webp)"
+    }
+  ]
+}
