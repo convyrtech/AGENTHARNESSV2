@@ -272,7 +272,7 @@ $ pnpm check
 pass: All 529 files are correctly formatted
 pass: Found no warnings, lint errors, or type errors in 486 files
 $ pnpm test
- desktop: Test Files 132 passed, Tests 892 passed; harness 104; agent-runtime 118
+ desktop: Test Files 134 passed, Tests 896 passed; harness 104; agent-runtime 118
 file budgets ok (4 frozen, 2000-line ceiling for the rest)
 $ pnpm --filter @zeno/desktop run build
 $ xvfb-run -a npx playwright test -c playwright.screens.config.ts   # в apps/desktop
