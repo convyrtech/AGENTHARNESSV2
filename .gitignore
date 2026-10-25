@@ -1,5 +1,6 @@
 # secrets — never commit
 .a6key
+.prsloykey
 *.key
 .env
 # raw API logs and bulky artifacts
