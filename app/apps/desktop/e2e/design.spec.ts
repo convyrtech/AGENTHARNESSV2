@@ -125,7 +125,8 @@ test("first use offers the one-time tools setup", async () => {
     await page.getByTestId("nav-design").click();
     const setup = page.getByTestId("design-setup");
     await expect(setup).toBeVisible();
-    await expect(setup).toContainText("62");
+    await expect(setup).toContainText("60");
+    await expect(setup).toContainText("215");
     await expect(page.getByTestId("design-setup-start")).toBeEnabled();
     await expect(page.getByTestId("design-input")).toHaveCount(0);
     await shot(page, "setup");

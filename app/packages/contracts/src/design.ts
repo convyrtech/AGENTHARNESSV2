@@ -56,6 +56,8 @@ export type DesignStatus = {
   toolsReady: boolean;
   /** Approximate one-time download, MB (shown before setup). */
   setupMb: number;
+  /** Space the tools take once installed, MB. */
+  setupDiskMb: number;
   /** Workspace folder for this project (may not exist yet). */
   workspace: string;
   /** A `say` process is running for this project. */

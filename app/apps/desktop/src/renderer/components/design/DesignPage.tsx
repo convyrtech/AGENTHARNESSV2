@@ -55,6 +55,7 @@ export function DesignPage({ locale, projectPath }: Props) {
       (): DesignStatus => ({
         toolsReady: false,
         setupMb: 0,
+        setupDiskMb: 0,
         workspace: "",
         running: false,
         history: [],
@@ -156,7 +157,13 @@ export function DesignPage({ locale, projectPath }: Props) {
             </p>
           ) : null}
           {!status.toolsReady ? (
-            <SetupCard mb={status.setupMb} progress={setup} tr={tr} onStart={runSetup} />
+            <SetupCard
+              mb={status.setupMb}
+              diskMb={status.setupDiskMb}
+              progress={setup}
+              tr={tr}
+              onStart={runSetup}
+            />
           ) : view.items.length === 0 ? (
             <h1 className="pt-[18vh] text-center text-2xl font-medium" data-testid="design-empty">
               {tr("design.empty")}
@@ -277,11 +284,13 @@ type Tr = (key: MessageKey, vars?: Record<string, string>) => string;
 
 function SetupCard({
   mb,
+  diskMb,
   progress,
   tr,
   onStart,
 }: {
   mb: number;
+  diskMb: number;
   progress: DesignSetupProgress | undefined;
   tr: Tr;
   onStart: () => void;
@@ -313,7 +322,9 @@ function SetupCard({
       data-testid="design-setup"
       data-phase={progress?.phase ?? "idle"}
     >
-      <p className="text-lg">{tr("design.setup.title", { mb: String(mb) })}</p>
+      <p className="text-lg">
+        {tr("design.setup.title", { mb: String(mb), disk: String(diskMb) })}
+      </p>
       {busy ? (
         <div className="flex w-72 flex-col gap-2">
           <div className="h-1.5 overflow-hidden rounded-full bg-muted">

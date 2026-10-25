@@ -20,8 +20,13 @@ export const DESIGN_PACKAGES = [
   "playwright==1.63.0",
   "fonttools==4.67.0",
 ] as const;
-/** win_amd64 cp312 wheels: playwright ≈ 39 MB (ships its driver), numpy ≈ 13, pillow ≈ 7, fonttools ≈ 2, deps ≈ 1. */
-export const DESIGN_SETUP_MB = 62;
+/**
+ * Measured on windows-latest (design-windows.yml): win_amd64 cp312 wheels download 59 MB
+ * (playwright ≈ 39 with its driver, numpy ≈ 13, pillow ≈ 7, fonttools + deps ≈ 3); the venv
+ * takes 214 MB on disk; the whole setup ran in 18 s on the runner's network.
+ */
+export const DESIGN_SETUP_MB = 60;
+export const DESIGN_DISK_MB = 215;
 const STAMP = "tools.json";
 
 export type ToolsStamp = { packages: string[]; python: string };

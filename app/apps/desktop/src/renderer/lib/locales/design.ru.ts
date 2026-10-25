@@ -16,7 +16,8 @@ export const designRu: Record<keyof typeof designZh, string> = {
   "design.progress": "Шаг {n} из {total}: {title}",
   "design.progress.minutes": "{n} мин",
   "design.progress.working": "Работаю",
-  "design.setup.title": "Готовлю инструменты дизайна, один раз, ~{mb} МБ",
+  "design.setup.title":
+    "Готовлю инструменты дизайна, один раз: скачаю ~{mb} МБ, на диске ~{disk} МБ",
   "design.setup.start": "Подготовить",
   "design.setup.venv": "Готовлю Python",
   "design.setup.download": "Скачиваю: {done} из {total} МБ",

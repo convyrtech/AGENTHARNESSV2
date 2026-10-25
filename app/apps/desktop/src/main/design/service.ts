@@ -56,7 +56,7 @@ import {
 } from "./paths.ts";
 import { findEntry, type PreviewServer, startPreviewServer } from "./preview-server.ts";
 import { killTree, killTreeNow, treeSpawnOptions } from "./proc.ts";
-import { DESIGN_SETUP_MB, setupDesignTools, toolsReady } from "./setup.ts";
+import { DESIGN_DISK_MB, DESIGN_SETUP_MB, setupDesignTools, toolsReady } from "./setup.ts";
 
 export type DesignGateway = { baseUrl: string; apiKey: string };
 
@@ -177,6 +177,7 @@ export class DesignService {
     return {
       toolsReady: this.#toolsReady(),
       setupMb: DESIGN_SETUP_MB,
+      setupDiskMb: DESIGN_DISK_MB,
       workspace: ws,
       running: this.#runs.has(ws),
       history: this.#history(ws),

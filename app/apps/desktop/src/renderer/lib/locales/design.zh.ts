@@ -14,7 +14,7 @@ export const designZh = {
   "design.progress": "第 {n} 步，共 {total} 步：{title}",
   "design.progress.minutes": "{n} 分钟",
   "design.progress.working": "正在处理",
-  "design.setup.title": "准备设计工具，仅需一次，约 {mb} MB",
+  "design.setup.title": "准备设计工具，仅需一次：下载约 {mb} MB，占用约 {disk} MB",
   "design.setup.start": "准备",
   "design.setup.venv": "准备 Python",
   "design.setup.download": "下载中：{done} / {total} MB",
