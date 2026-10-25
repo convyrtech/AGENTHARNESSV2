@@ -14,7 +14,7 @@
 // пользователя — среди принятых их быть не может по построению, отказы видны по вердиктам.
 import { readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { messageSignals } from "@prsloy/harness";
+import { messageSignals, quoteSource } from "@prsloy/harness";
 import { extractOnce } from "../src/main/prsloy/memory-extractor.ts";
 
 const args = process.argv.slice(2);
@@ -84,6 +84,15 @@ async function phrases(): Promise<number> {
       json: ops !== undefined,
       error: call.error,
       verdicts: candidates.map((c) => c.verdict),
+      // Only here, never in the app's journal: why a candidate was not linked or not the user's words.
+      rejected: candidates
+        .filter((c) => c.verdict === "not-linked" || c.verdict === "not-user-words")
+        .map((c) => ({
+          verdict: c.verdict,
+          text: c.text,
+          quote: c.quote,
+          message: quoteSource(c.quote, [p.text]) ?? null,
+        })),
       accepted: candidates.filter((c) => c.verdict === "ok").map((c) => c.text),
     });
     console.error(`${i + 1}/${fixture.phrases.length} ${call.error ? "ошибка" : "ok"}`);
@@ -112,6 +121,19 @@ async function phrases(): Promise<number> {
       `Ложные (принят кандидат на разовой фразе): ${report.falseAccepted}`,
       `Ответ не JSON: ${report.notJson}`,
       `Вердикты: ${JSON.stringify(report.verdicts)}`,
+      ...rows.flatMap((r) =>
+        (
+          (r.rejected as {
+            verdict: string;
+            text: string;
+            quote: string;
+            message: string | null;
+          }[]) ?? []
+        ).map(
+          (x) =>
+            `  ${x.verdict}: text «${x.text}» ← quote «${x.quote}» ← message ${x.message === null ? "(цитаты в сообщении нет)" : `«${x.message}»`}`,
+        ),
+      ),
       `JSON: ${out}`,
     ].join("\n"),
   );

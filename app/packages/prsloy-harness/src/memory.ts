@@ -100,11 +100,28 @@ export function autoDetails(
 const normalize = (text: string) => text.replace(/\s+/g, " ").trim().toLowerCase();
 const significant = (text: string) => text.replace(/[^\p{L}\p{N}]/gu, "").length;
 
-/** Цитата — подстрока одного из сообщений пользователя (пробелы и регистр не важны), ≥8 значащих символов. */
+/**
+ * Для сравнения цитаты: регистр, ё/е, кавычки, тире, знаки препинания и пробелы не важны — остаются слова через
+ * один пробел. Слова не дробятся: цитата совпадает только целыми словами.
+ */
+export function quoteWords(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/ё/g, "е")
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .trim();
+}
+
+/** Сообщение пользователя, в котором стоит цитата (дословно, целыми словами), ≥8 значащих символов. */
+export function quoteSource(quote: string, userMessages: readonly string[]): string | undefined {
+  const q = quoteWords(quote);
+  if (significant(q) < 8) return undefined;
+  return userMessages.find((m) => ` ${quoteWords(m)} `.includes(` ${q} `));
+}
+
+/** Цитата — подряд идущие слова одного из сообщений пользователя (см. `quoteWords`). */
 export function quoteFromUser(quote: string, userMessages: readonly string[]): boolean {
-  const q = normalize(quote.replace(/^[«"„“']+|[»"“”']+$/g, ""));
-  if (significant(q) < 8) return false;
-  return userMessages.some((m) => normalize(m).includes(q));
+  return quoteSource(quote, userMessages) !== undefined;
 }
 
 interface SessionMemory {

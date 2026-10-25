@@ -57,7 +57,7 @@ export {
   type ExtractorOp,
 } from "./memory-extract.ts";
 export { readFlags } from "./flags.ts";
-export { autoDetails, MEMORY_CARD, MEMORY_TEXT, updatedDetails } from "./memory.ts";
+export { autoDetails, MEMORY_CARD, MEMORY_TEXT, quoteSource, updatedDetails } from "./memory.ts";
 export { detectToolLeak, stripToolMarkup } from "./tool-leak.ts";
 export {
   evidenceInDiff,
