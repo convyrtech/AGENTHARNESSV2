@@ -640,14 +640,19 @@ export const PYTHON_PRUNE_REV = 2;
 /** Stdlib modules the agent's python must import after pruning (build fails otherwise). */
 export const PYTHON_REQUIRED_MODULES = [
   "threading",
+  "socketserver",
+  "http.server",
   "logging",
   "venv",
   "ensurepip",
   "sqlite3",
   "ssl",
+  "ctypes",
+  "zlib",
   "json",
   "urllib.request",
   "concurrent.futures",
+  "multiprocessing",
   "asyncio",
 ];
 
