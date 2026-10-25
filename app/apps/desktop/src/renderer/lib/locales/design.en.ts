@@ -45,6 +45,8 @@ export const designEn: Record<keyof typeof designZh, string> = {
   "design.device.desktop": "Desktop",
   "design.device.phone": "Phone",
   "design.unavailable": "Design tools will arrive in the next version",
+  "design.importTools": "I have the tools file",
+  "design.openInBrowser": "Open in browser",
   "design.downloadZip": "Download archive",
   "design.zipSaved": "Archive saved",
 };

@@ -28,6 +28,8 @@ def state_dir(ws):
 
 def init(a):
     ws = Path(a.ws)
+    if not (Path(a.pipeline or "") / "tools" / "flow.py").exists():   # like run.py: no copy, no workspace
+        sys.exit("run.py init: нужна копия design-pipeline")
     for d in ("harness", "materials", "owner", f"design/{a.page}", "site"):
         (ws / d).mkdir(parents=True, exist_ok=True)
     src = FIXTURES / "design"
@@ -35,7 +37,8 @@ def init(a):
         shutil.copytree(src, ws / "design", dirs_exist_ok=True)
     h = state_dir(ws.resolve())
     h.mkdir(parents=True, exist_ok=True)
-    (h / "state.json").write_text(json.dumps({"page": a.page, "turn": 0}), encoding="utf-8")
+    (h / "state.json").write_text(json.dumps({"page": a.page, "turn": 0, "pipeline": str(Path(a.pipeline).resolve())},
+                                             ensure_ascii=False), encoding="utf-8")
     print(json.dumps({"ws": str(ws.resolve()), "page": a.page}, ensure_ascii=False))
 
 

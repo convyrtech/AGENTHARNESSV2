@@ -62,5 +62,6 @@ export function installDesign(
       return process.platform === "win32" ? "python" : "python3";
     },
     nodeExecutable: () => getActiveBundledNodeExecutable() ?? "node",
+    gitBinary: () => prsloy.gitBinary(),
   });
 }
