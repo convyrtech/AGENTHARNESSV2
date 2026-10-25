@@ -16,6 +16,7 @@ import { ResourcesPage } from "./components/ResourcesPage.tsx";
 import { PackagesPage } from "./components/PackagesPage.tsx";
 import { TurnProgressLine } from "./components/TurnProgressLine.tsx";
 import { ExampleTaskChips } from "./components/ExampleTaskChips.tsx";
+import { FigCaption } from "./components/FigCaption.tsx";
 import { loadCasualPrefs } from "./lib/casual-prefs.ts";
 import { ArrowDown } from "lucide-react";
 import { AppSidebar } from "./components/AppSidebar.tsx";
@@ -146,6 +147,7 @@ import { createPetFocusSource } from "./lib/pet/pixFocusSource.ts";
 import { petPushFocus, petPushTasks, petToggle } from "./lib/api/pet.ts";
 import { isDesktopHost } from "./lib/api/host.ts";
 import "./styles.css";
+import "./blueprint.css";
 import "./pet.css";
 
 const initialThemeState = useShellStore.getState();
@@ -3110,13 +3112,12 @@ function App() {
       <div className="skin-wallpaper" aria-hidden data-testid="skin-wallpaper" />
       {/* Linux only (customWindowControls); Windows uses native titleBarOverlay. */}
       <WindowCaptionButtons />
-      {!bootstrap.ready ? (
-        <BootstrapOverlay
-          status={bootstrap.status}
-          {...(bootstrap.detail ? { detail: bootstrap.detail } : {})}
-          {...(bootstrap.error ? { error: bootstrap.error } : {})}
-        />
-      ) : null}
+      <BootstrapOverlay
+        ready={bootstrap.ready}
+        status={bootstrap.status}
+        {...(bootstrap.detail ? { detail: bootstrap.detail } : {})}
+        {...(bootstrap.error ? { error: bootstrap.error } : {})}
+      />
       <AppSidebar
         colorMode={activeSkinMode}
         themePreference={themePreference}
@@ -3309,6 +3310,7 @@ function App() {
                         data-testid="empty-hero"
                       >
                         <PixLogo className="mb-5 size-12" title={t(locale, "app.name")} />
+                        <FigCaption locale={locale} n={1} label={t(locale, "fig.code")} />
                         <h1 className="font-display m-0 max-w-lg text-[28px] leading-snug font-semibold tracking-[-0.01em] text-[var(--text)]">
                           {workspacePath
                             ? t(locale, "empty.title", { name: workspace.name })

@@ -4,11 +4,13 @@
  * after a long silence, «Остановить», and the raw tool calls only under «Подробности».
  */
 import { useState } from "react";
-import { ChevronRight, Loader2 } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import { type DesignView, elapsedMinutes, harnessNow, stepOf } from "../../lib/design-state.ts";
 import { doingKey, isSilent, remaining, remainingKey } from "../../lib/design-progress.ts";
 import type { MessageKey } from "../../lib/i18n.ts";
 import { cn } from "../../lib/utils.ts";
+import { LineLoader } from "../motion/LineLoader.tsx";
+import { RollText } from "../motion/RollText.tsx";
 
 type Tr = (key: MessageKey, vars?: Record<string, string>) => string;
 
@@ -42,14 +44,16 @@ export function DesignProgress(props: {
   return (
     <div className="mx-auto w-full max-w-3xl px-6 pb-2" data-testid="design-progress">
       <div className="flex items-center gap-2 text-sm">
-        <Loader2 className="size-4 shrink-0 animate-spin opacity-70" />
+        <LineLoader className="design-progress-loader" />
         <span className="min-w-0 truncate" data-testid="design-progress-step">
           {doing}
         </span>
         {minutes > 0 ? (
-          <span className="shrink-0 text-muted-foreground" data-testid="design-progress-time">
-            · {tr("design.progress.minutes", { n: String(minutes) })}
-          </span>
+          <RollText
+            className="shrink-0 text-muted-foreground"
+            testId="design-progress-time"
+            text={`· ${tr("design.progress.minutes", { n: String(minutes) })}`}
+          />
         ) : null}
         <span className="flex-1" />
         <button
@@ -62,8 +66,8 @@ export function DesignProgress(props: {
           {tr("design.stop.button")}
         </button>
       </div>
-      <div className="mt-0.5 flex items-center gap-2 pl-6 text-xs text-muted-foreground">
-        <span data-testid="design-progress-meta">{meta.join(" · ")}</span>
+      <div className="mt-0.5 flex items-center gap-2 pl-9 text-xs text-muted-foreground">
+        <RollText testId="design-progress-meta" text={meta.join(" · ")} />
         {view.ticker.length ? (
           <button
             type="button"
@@ -82,7 +86,7 @@ export function DesignProgress(props: {
       </div>
       {open ? (
         <ol
-          className="mt-1 ml-6 flex flex-col gap-0.5 font-mono text-xs text-muted-foreground/80"
+          className="mt-1 ml-9 flex flex-col gap-0.5 font-mono text-xs text-muted-foreground/80"
           data-testid="design-ticker"
         >
           {view.ticker.map((line, index) => (

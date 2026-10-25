@@ -1010,7 +1010,7 @@ export function ThemeSkinStudio(props: ThemeSkinStudioProps) {
             <div
               ref={themeTrack}
               className="theme-skin-grid"
-              role="list"
+              role="group"
               onScroll={updateTrackControls}
               onWheel={onThemeTrackWheel}
             >

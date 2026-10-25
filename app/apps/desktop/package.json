@@ -30,6 +30,7 @@
     "node-pty": "catalog:"
   },
   "devDependencies": {
+    "@axe-core/playwright": "catalog:",
     "@playwright/test": "catalog:",
     "@prsloy/harness": "workspace:*",
     "@shadcn/react": "catalog:",

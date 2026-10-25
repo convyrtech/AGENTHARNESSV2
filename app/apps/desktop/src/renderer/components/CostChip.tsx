@@ -7,6 +7,7 @@ import { t, type Locale } from "../lib/i18n.ts";
 import { formatRub, INITIAL_TURN_COST, nextTurnCost, usdToRub } from "../lib/rub-cost.ts";
 import { useCasualPrefs } from "../hooks/useCasualPrefs.ts";
 import { useShellStore } from "../store/shell-store.ts";
+import { RollText } from "./motion/RollText.tsx";
 
 /**
  * The turn tracker outlives the chip: the composer unmounts on a trip to Settings, and a
@@ -47,13 +48,13 @@ export function CostChip(props: { locale: Locale }) {
     >
       {turnLabel ? (
         <>
-          <span data-testid="cost-turn">{turnLabel}</span>
+          <RollText testId="cost-turn" text={turnLabel} />
           <span aria-hidden className="cost-chip-sep">
             ·
           </span>
         </>
       ) : null}
-      <span data-testid="cost-session">{sessionLabel}</span>
+      <RollText testId="cost-session" text={sessionLabel} />
     </span>
   );
 }

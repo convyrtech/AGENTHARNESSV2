@@ -1,5 +1,6 @@
 /**
- * Body text keeps WCAG AA contrast (4.5:1) on every surface it sits on, in both themes.
+ * Body text and accent text (blueprint on cream, cyan on black — small link and caption text
+ * included) keep WCAG AA contrast (4.5:1) on every surface they sit on, in both themes.
  * Reads the tokens straight from styles.css so a palette tweak cannot quietly regress it.
  */
 import { readFileSync } from "node:fs";
@@ -29,7 +30,7 @@ function contrast(a: string, b: string): number {
   return (hi! + 0.05) / (lo! + 0.05);
 }
 
-const TEXT = ["--foreground", "--muted-foreground", "--group-label-color"];
+const TEXT = ["--foreground", "--muted-foreground", "--group-label-color", "--primary", "--link"];
 const SURFACES = [
   "--background",
   "--surface-panel",

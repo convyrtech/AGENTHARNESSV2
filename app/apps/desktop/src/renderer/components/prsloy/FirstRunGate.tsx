@@ -16,6 +16,7 @@ import {
 } from "@/lib/prsloy-first-run";
 import { isNonProjectWorkspacePath } from "@/lib/workspace";
 import { useShellStore } from "@/store/shell-store";
+import { LineLoader } from "@/components/motion/LineLoader";
 
 /** Where people buy and copy their key. */
 export const PRSLOY_KEY_URL = "https://prsloy.online";
@@ -252,9 +253,10 @@ export function FirstRunGate({ children }: { children: ReactNode }) {
           </div>
         )}
         {setupPercent !== undefined ? (
-          <p className="prsloy-first-run-note" data-testid="prsloy-app-setup">
+          <div className="prsloy-first-run-note" data-testid="prsloy-app-setup">
+            <LineLoader className="mb-2" value={Number(setupPercent) / 100} />
             {t(locale, "prsloy.setup.app", { percent: setupPercent })}
-          </p>
+          </div>
         ) : null}
       </div>
     </div>

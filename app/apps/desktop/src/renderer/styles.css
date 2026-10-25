@@ -2,13 +2,17 @@
 @import "tw-animate-css";
 
 /*
- * PRSLOY palette: paper #f3eee3, card #faf7f0, ink #3b2a1e, mid #7a6352 (muted text uses
- * #725b4a, one step deeper, to keep 4.5:1 on the sidebar and hover fills), line #ddd2c1,
- * accent (rust) #a4472c; the dark theme is the same palette at night (warm ink canvas,
- * lightened rust). Structure: shadcn-style semantic colors + product chrome.
+ * PRSLOY palette, after the owner's reference (a blueprint motion reel):
+ *  light — a drafting sheet: paper cream #ede6d5 with a pale graph grid, graphite #1e2126
+ *          lines and text, blueprint blue #1b3ed2 for what acts (primary buttons, focus,
+ *          progress, selection) and blueprint hatching for progress and selected fills;
+ *  dark  — the reel's second half: black #07080a with a pale grid, hologram cyan #45f0dd
+ *          lines and accents with a soft glow, near-white #e6f2ef text.
+ * Every text/surface pair is AA (theme-contrast.test.ts, axe in e2e/theme-a11y.spec.ts).
+ * Structure: shadcn-style semantic colors + product chrome.
  *
- * Type: Piazzolla for headings and the PRSLOY wordmark, Geologica for body, IBM Plex Mono
- * for code. All three are OFL and bundled (assets/fonts, Latin + Cyrillic subsets).
+ * Type: Geist for the UI and headings, Piazzolla only for the PRSLOY wordmark, IBM Plex Mono
+ * for code. All three are OFL and bundled (assets/fonts, Latin + Cyrillic).
  */
 
 @font-face {
@@ -19,8 +23,8 @@
   font-display: swap;
 }
 @font-face {
-  font-family: "Geologica";
-  src: url("./assets/fonts/Geologica-VF.woff2") format("woff2");
+  font-family: "Geist";
+  src: url("./assets/fonts/Geist-VF.woff2") format("woff2");
   font-weight: 100 900;
   font-style: normal;
   font-display: swap;
@@ -36,9 +40,10 @@
 @custom-variant dark (&:is([data-theme="dark"], [data-theme="dark"] *));
 
 @theme {
-  --font-sans: "Geologica", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --font-sans: "Geist", "Segoe UI", system-ui, -apple-system, sans-serif;
   --font-mono: "IBM Plex Mono", "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
-  --font-display: "Piazzolla", Georgia, "Times New Roman", serif;
+  --font-display: "Geist", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --font-brand: "Piazzolla", Georgia, "Times New Roman", serif;
   /* Shared radius scale — use these everywhere (rows / controls / panels). */
   --radius-sm: 0.375rem; /* 6px — list rows, icon buttons */
   --radius-md: 0.625rem; /* 10px — inputs, bubbles, menu items */
@@ -139,30 +144,30 @@
 [data-theme="dark"] {
   color-scheme: dark;
   /* Canvas */
-  --background: #1c1612;
+  --background: #07080a;
   --theme-background: var(--background);
-  --foreground: #efe6d8;
+  --foreground: #e6f2ef;
   /*
    * Unified surfaces (keep these in sync):
-   *  panel  #2d2d2d — input, env panel, menus, dialogs
-   *  muted  #383838 — session/hover highlight, composer protrusion
-   *  soft   #272727 — user message bubble
+   *  panel  — input, env panel, menus, dialogs
+   *  muted  — session/hover highlight, composer protrusion
+   *  soft   — user message bubble
    */
-  --surface-panel: #262019;
-  --surface-muted: #302820;
-  --surface-soft: #2a231c;
+  --surface-panel: #0d0f12;
+  --surface-muted: #151a1d;
+  --surface-soft: #101316;
   --card: var(--surface-panel);
-  --card-foreground: #efe6d8;
+  --card-foreground: #e6f2ef;
   --popover: var(--surface-panel);
-  --popover-foreground: #efe6d8;
-  --primary: #d0714f;
-  --primary-foreground: #1c1612;
+  --popover-foreground: #e6f2ef;
+  --primary: #45f0dd;
+  --primary-foreground: #07080a;
   --secondary: var(--surface-muted);
-  --secondary-foreground: #efe6d8;
-  --muted: #221b16;
-  --muted-foreground: #b3a08c;
+  --secondary-foreground: #e6f2ef;
+  --muted: #0b0d10;
+  --muted-foreground: #8fa3a3;
   --hover-fill: var(--surface-muted);
-  --hover-fill-foreground: #efe6d8;
+  --hover-fill-foreground: #e6f2ef;
   --accent: var(--hover-fill);
   --accent-foreground: var(--hover-fill-foreground);
   /*
@@ -172,22 +177,22 @@
   --destructive: oklch(0.72 0.17 25);
   --destructive-foreground: oklch(0.18 0.02 25);
   /* Chrome borders / row dividers (cards, composer, env, settings). */
-  --border: #3d3329;
-  --border-subtle: color-mix(in srgb, #efe6d8 11%, transparent);
-  --divider: color-mix(in srgb, #efe6d8 9%, transparent);
-  --input: #3d3329;
-  --ring: #d0714f;
+  --border: #1f2a2c;
+  --border-subtle: color-mix(in srgb, #45f0dd 12%, transparent);
+  --divider: color-mix(in srgb, #45f0dd 9%, transparent);
+  --input: #1f2a2c;
+  --ring: #45f0dd;
   /* Interactive accent: switches (on) + hyperlinks */
-  --link: #e08a6a;
-  --switch-on: #d0714f;
-  --sidebar: #17120f;
-  --sidebar-foreground: #efe6d8;
-  --sidebar-primary: #d0714f;
-  --sidebar-primary-foreground: #1c1612;
+  --link: #45f0dd;
+  --switch-on: #45f0dd;
+  --sidebar: #050607;
+  --sidebar-foreground: #e6f2ef;
+  --sidebar-primary: #45f0dd;
+  --sidebar-primary-foreground: #07080a;
   --sidebar-accent: var(--hover-fill);
   --sidebar-accent-foreground: var(--hover-fill-foreground);
-  --sidebar-border: #302820;
-  --sidebar-ring: #d0714f;
+  --sidebar-border: #151d1f;
+  --sidebar-ring: #45f0dd;
 
   --canvas: var(--background);
   --surface: var(--surface-panel);
@@ -198,15 +203,15 @@
   --text-muted: var(--muted-foreground);
   --text-subtle: var(--muted-foreground);
   /* Composer input card + project protrusion (dark). */
-  --bg-composer: #262019;
-  --composer-border: color-mix(in srgb, #efe6d8 11%, #262019);
-  --composer-protrusion: #201a15;
+  --bg-composer: #0d0f12;
+  --composer-border: color-mix(in srgb, #45f0dd 18%, #0d0f12);
+  --composer-protrusion: #0b0d10;
   --success: #3ecf8e;
   --warning: #f0a500;
   --danger: #e05555;
   --running: #4c8dff;
-  --code-bg: #14100d;
-  --code-fg: #efe6d8;
+  --code-bg: #0b0d10;
+  --code-fg: #e6f2ef;
   --bg-app: var(--canvas);
   --bg-sidebar: var(--sidebar);
   --bg-panel: var(--canvas);
@@ -214,10 +219,10 @@
   --bg-code: var(--code-bg);
   --bg-hover: var(--hover-fill);
   --bg-active: var(--hover-fill);
-  --border-strong: #4d4135;
+  --border-strong: #2c3b3d;
   --text-on-dark: var(--code-fg);
   --user-bubble: var(--surface-soft);
-  --user-bubble-fg: #efe6d8;
+  --user-bubble-fg: #e6f2ef;
   --sidebar-width: 272px;
   --thread-max: 760px;
   --review-width: 480px;
@@ -237,53 +242,58 @@
   --font-weight-medium: 500;
   --font-weight-semibold: 600;
   /* Dark theme group names */
-  --group-label-color: #a5907c;
+  --group-label-color: #8fa3a3;
+  /* The drafting sheet: grid lines, hatching, the accent's glow (none in light). */
+  --grid-line: color-mix(in srgb, #45f0dd 6%, transparent);
+  --grid-size: 24px;
+  --hatch-ink: color-mix(in srgb, #45f0dd 55%, transparent);
+  --accent-glow: 0 0 14px color-mix(in srgb, #45f0dd 35%, transparent);
 }
 
 [data-theme="light"] {
   color-scheme: light;
-  --background: #f3eee3;
-  --foreground: #3b2a1e;
+  --background: #ede6d5;
+  --foreground: #1e2126;
   /*
    * Unified surfaces:
-   *  panel  #ffffff — input, env panel, menus, dialogs
-   *  muted  #f6f6f6 — session/hover highlight, composer protrusion
-   *  soft   #f5f5f5 — user message bubble
+   *  panel  — input, env panel, menus, dialogs
+   *  muted  — session/hover highlight, composer protrusion
+   *  soft   — user message bubble
    */
-  --surface-panel: #faf7f0;
-  --surface-muted: #ebe4d6;
-  --surface-soft: #ece5d8;
+  --surface-panel: #f4efe3;
+  --surface-muted: #e2d9c5;
+  --surface-soft: #e6decb;
   --card: var(--surface-panel);
-  --card-foreground: #3b2a1e;
+  --card-foreground: #1e2126;
   --popover: var(--surface-panel);
-  --popover-foreground: #3b2a1e;
-  --primary: #a4472c;
-  --primary-foreground: #faf7f0;
+  --popover-foreground: #1e2126;
+  --primary: #1b3ed2;
+  --primary-foreground: #f4efe3;
   --secondary: var(--surface-muted);
-  --secondary-foreground: #3b2a1e;
-  --muted: #ece5d8;
-  --muted-foreground: #725b4a;
+  --secondary-foreground: #1e2126;
+  --muted: #e6decb;
+  --muted-foreground: #4a4f57;
   --hover-fill: var(--surface-muted);
-  --hover-fill-foreground: #3b2a1e;
+  --hover-fill-foreground: #1e2126;
   --accent: var(--hover-fill);
   --accent-foreground: var(--hover-fill-foreground);
   --destructive: #b42318;
-  --border: #ddd2c1;
-  --border-subtle: color-mix(in srgb, #3b2a1e 12%, #f3eee3);
-  --divider: color-mix(in srgb, #3b2a1e 10%, #f3eee3);
-  --input: #ddd2c1;
-  --ring: #a4472c;
+  --border: #cbc1aa;
+  --border-subtle: color-mix(in srgb, #1e2126 12%, #ede6d5);
+  --divider: color-mix(in srgb, #1e2126 10%, #ede6d5);
+  --input: #cbc1aa;
+  --ring: #1b3ed2;
   /* Interactive accent: switches (on) + hyperlinks */
-  --link: #a4472c;
-  --switch-on: #a4472c;
-  --sidebar: #ece5d8;
-  --sidebar-foreground: #3b2a1e;
-  --sidebar-primary: #a4472c;
-  --sidebar-primary-foreground: #faf7f0;
+  --link: #1b3ed2;
+  --switch-on: #1b3ed2;
+  --sidebar: #e6dfcd;
+  --sidebar-foreground: #1e2126;
+  --sidebar-primary: #1b3ed2;
+  --sidebar-primary-foreground: #f4efe3;
   --sidebar-accent: var(--hover-fill);
   --sidebar-accent-foreground: var(--hover-fill-foreground);
-  --sidebar-border: #ddd2c1;
-  --sidebar-ring: #a4472c;
+  --sidebar-border: #cbc1aa;
+  --sidebar-ring: #1b3ed2;
   --canvas: var(--background);
   --surface: var(--surface-panel);
   --surface-elevated: var(--surface-panel);
@@ -293,21 +303,21 @@
   --text-muted: var(--muted-foreground);
   --text-subtle: var(--muted-foreground);
   /* Composer input card + project protrusion (light). */
-  --bg-composer: #faf7f0;
-  --composer-border: #ddd2c1;
-  --composer-protrusion: #ece5d8;
+  --bg-composer: #f4efe3;
+  --composer-border: #cbc1aa;
+  --composer-protrusion: #e6decb;
   --bg-app: var(--canvas);
   --bg-sidebar: var(--sidebar);
   --bg-panel: var(--canvas);
   --bg-elevated: var(--surface-elevated);
   --bg-hover: var(--hover-fill);
   --bg-active: var(--hover-fill);
-  --border-strong: #c9bba5;
-  --code-bg: #ece5d8;
-  --code-fg: #3b2a1e;
+  --border-strong: #a99f88;
+  --code-bg: #e6decb;
+  --code-fg: #1e2126;
   --user-bubble: var(--surface-soft);
-  --user-bubble-fg: #3b2a1e;
-  --shadow-soft: 0 12px 32px rgb(59 42 30 / 0.1);
+  --user-bubble-fg: #1e2126;
+  --shadow-soft: 0 12px 32px rgb(30 33 38 / 0.1);
   --radius-control: var(--radius-sm);
   --radius-field: var(--radius-md);
   --radius-panel: var(--radius-lg);
@@ -315,12 +325,16 @@
   --font-weight-medium: 500;
   --font-weight-semibold: 600;
   /* Light theme group names */
-  --group-label-color: #725b4a;
+  --group-label-color: #4a4f57;
+  --grid-line: color-mix(in srgb, #1e2126 6%, transparent);
+  --grid-size: 24px;
+  --hatch-ink: color-mix(in srgb, #1b3ed2 45%, transparent);
+  --accent-glow: none;
 }
 
-/* The PRSLOY wordmark and display headings (empty hero, page titles). */
+/* The PRSLOY wordmark stays in Piazzolla; display headings (empty hero, page titles) are Geist. */
 .brand-wordmark {
-  font-family: var(--font-display);
+  font-family: var(--font-brand);
   font-weight: 600;
   letter-spacing: 0.04em;
 }
@@ -402,38 +416,9 @@ body {
   text-align: center;
   -webkit-app-region: no-drag;
 }
-.bootstrap-logo-wrap {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 0.25rem;
-  filter: drop-shadow(0 10px 28px color-mix(in srgb, var(--foreground) 12%, transparent));
-}
-.bootstrap-logo {
-  width: 4.5rem !important;
-  height: 4.5rem !important;
-  border-radius: 1.15rem;
-  will-change: transform;
-  animation: zeno-breathe 2.6s ease-in-out infinite;
-}
-/* Cold-start logo breathes (subtle scale) while the host bootstraps. */
-@keyframes zeno-breathe {
-  0%,
-  100% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(1.05);
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .bootstrap-logo {
-    animation: none;
-  }
-}
 .bootstrap-brand {
-  font-family: var(--font-display);
-  font-size: 1.375rem;
+  font-family: var(--font-brand);
+  font-size: 2rem;
   font-weight: 600;
   letter-spacing: 0.04em;
   color: var(--foreground);
@@ -6953,7 +6938,7 @@ textarea.models-scoped-patterns-input[data-slot="textarea"] {
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   background: var(--card);
-  box-shadow: 0 1px 2px rgb(59 42 30 / 0.04);
+  box-shadow: 0 1px 2px rgb(30 33 38 / 0.04);
 }
 .design-media-button {
   display: block;

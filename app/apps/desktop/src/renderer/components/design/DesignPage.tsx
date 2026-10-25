@@ -45,6 +45,8 @@ import { Button } from "../ui/button.tsx";
 import { Textarea } from "../ui/textarea.tsx";
 import { ConfirmDialog } from "../ConfirmDialog.tsx";
 import { CONFIRM_STOP_AFTER_MS } from "../../lib/design-progress.ts";
+import { FigCaption } from "../FigCaption.tsx";
+import { LineLoader } from "../motion/LineLoader.tsx";
 import { DesignProgress } from "./DesignProgress.tsx";
 
 type Props = { locale: Locale; projectPath: string | undefined };
@@ -198,9 +200,12 @@ export function DesignPage({ locale, projectPath }: Props) {
               onStart={runSetup}
             />
           ) : view.items.length === 0 ? (
-            <h1 className="design-hero pt-[18vh] text-center" data-testid="design-empty">
-              {tr("design.empty")}
-            </h1>
+            <div className="flex flex-col items-center gap-3 pt-[18vh]">
+              <FigCaption locale={locale} n={2} label={tr("fig.design")} />
+              <h1 className="design-hero text-center" data-testid="design-empty">
+                {tr("design.empty")}
+              </h1>
+            </div>
           ) : null}
           {view.items.map((item) => (
             <StreamItem
@@ -377,15 +382,11 @@ function SetupCard({
       </p>
       {busy ? (
         <div className="flex w-72 flex-col gap-2">
-          <div className="h-1.5 overflow-hidden rounded-full bg-muted">
-            <div
-              className={cn(
-                "h-full rounded-full bg-primary transition-[width] duration-300",
-                pct === undefined && "w-1/3 animate-pulse",
-              )}
-              style={pct === undefined ? undefined : { width: `${Math.max(4, pct)}%` }}
-            />
-          </div>
+          <LineLoader
+            testId="design-setup-loader"
+            label={phaseText}
+            {...(pct === undefined ? {} : { value: Math.max(4, pct) / 100 })}
+          />
           <p className="text-sm text-muted-foreground">{phaseText}</p>
         </div>
       ) : (

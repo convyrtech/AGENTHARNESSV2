@@ -46,6 +46,7 @@ catalog:
   parse5: ^8.0.1
   "@testing-library/react": ^16.3.3
   "@testing-library/jest-dom": ^7.0.1
+  "@axe-core/playwright": 4.13.0
 
 overrides:
   vite: "catalog:"

@@ -2207,7 +2207,6 @@ function AppearanceSection(
               checked={props.sidebarTranslucent}
               onChange={props.onTranslucent}
               testId="appearance-translucent"
-              aria-label={tr("appearance.sidebarTranslucent")}
             />
           }
         />
@@ -2221,6 +2220,7 @@ function AppearanceSection(
                 max={360}
                 step={4}
                 data-testid="appearance-sidebar-width"
+                aria-label={tr("appearance.sidebarWidth")}
                 className="min-w-0 flex-1"
                 value={props.sidebarWidthPx}
                 onChange={(e) => props.onSidebarWidth(Number(e.target.value))}

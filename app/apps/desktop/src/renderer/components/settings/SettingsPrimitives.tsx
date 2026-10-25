@@ -18,6 +18,8 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import { useShellStore } from "../../store/shell-store.ts";
+import { FigCaption } from "../FigCaption.tsx";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "../../lib/utils.ts";
 
@@ -121,6 +123,12 @@ export function SettingsSearchField(props: {
   );
 }
 
+/** Every settings page is figure 03 of the sheet (01 «Код», 02 «Дизайн»). */
+function SettingsFigCaption(props: { title: string }) {
+  const locale = useShellStore((state) => state.locale);
+  return <FigCaption locale={locale} n={3} label={props.title} />;
+}
+
 export function SettingsPageShell(props: {
   title: string;
   testId?: string;
@@ -129,6 +137,7 @@ export function SettingsPageShell(props: {
 }) {
   return (
     <div className="settings-page-shell" data-testid={props.testId}>
+      <SettingsFigCaption title={props.title} />
       <div className="settings-page-title-row">
         <h1 className="settings-page-title">{props.title}</h1>
         {props.titleAction ? (
@@ -192,6 +201,9 @@ function hasSettingsDescription(description: ReactNode | undefined): boolean {
   return true;
 }
 
+/** A row's title, so its select or switch has an accessible name without its own label. */
+const SettingsRowTitle = React.createContext<string | undefined>(undefined);
+
 export function SettingsRow(props: {
   title: string;
   description?: ReactNode;
@@ -229,7 +241,7 @@ export function SettingsRow(props: {
           withDescription && "settings-row-control-multiline",
         )}
       >
-        {props.control}
+        <SettingsRowTitle.Provider value={props.title}>{props.control}</SettingsRowTitle.Provider>
       </div>
     </Field>
   );
@@ -242,12 +254,13 @@ export function SettingsToggle(props: {
   disabled?: boolean;
   "aria-label"?: string;
 }) {
+  const rowTitle = React.useContext(SettingsRowTitle);
   return (
     <Switch
       checked={props.checked}
       onCheckedChange={props.onChange}
       disabled={props.disabled}
-      aria-label={props["aria-label"]}
+      aria-label={props["aria-label"] ?? rowTitle}
       data-testid={props.testId}
       data-on={props.checked ? "true" : "false"}
     />
@@ -264,7 +277,9 @@ export function SettingsSelect(props: {
   size?: "sm" | "md" | "lg" | "default";
   className?: string;
   fullWidth?: boolean;
+  "aria-label"?: string;
 }) {
+  const rowTitle = React.useContext(SettingsRowTitle);
   // Radix Select disallows empty string item values.
   const EMPTY = "__pix_settings_empty__";
   const value = props.value === "" ? EMPTY : props.value;
@@ -301,6 +316,7 @@ export function SettingsSelect(props: {
     >
       <SelectTrigger
         size="default"
+        aria-label={props["aria-label"] ?? rowTitle}
         data-testid={props.testId}
         className={cn(widthClass, props.className)}
       >
