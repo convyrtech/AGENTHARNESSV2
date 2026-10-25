@@ -9,6 +9,8 @@
  *   4. `taskkill /IM bash.exe /F` → blocked with the hint
  *   5. write of a broken .js → post-edit syntax line (node --check via Electron as node)
  *   7. `python -m http.server R &` → recorded as a finding (bundled Windows Python lacked `threading`)
+ *   8. the fake gateway sends an a6 error inside the stream once → the reliability proxy retries,
+ *      the user sees a normal answer (PRSLOY_RELIABILITY_PROVIDERS=zeno-fake)
  *   6. `node server.js Q &` left running → port Q free after the app quits
  * Step 0 only records python in the agent's bash. Content checks are soft: every step runs and
  * reports. Artifacts: smoke-out/harness-requests.jsonl (every request the model got), session
@@ -59,6 +61,8 @@ type Step = { name: string; arguments: Record<string, unknown> };
 /** OpenAI-compatible stream: «harness step N» → tool call N; after its result → short text. */
 class ScriptedModel {
   readonly requests: { messages?: ChatMessage[] }[] = [];
+  /** Запросы «harness flaky gateway»: первый получает ошибку a6 внутри потока. */
+  flakyRequests = 0;
   #server: Server;
   baseUrl = "";
 
@@ -123,6 +127,20 @@ class ScriptedModel {
         })}\n\n`,
       );
     chunk({ role: "assistant", content: "" });
+    if (!answered && messageText(messages[lastUser]).includes("harness flaky gateway")) {
+      this.flakyRequests += 1;
+      if (this.flakyRequests === 1) {
+        // Как a6 в E8q: ошибка внутри уже начатого потока (200, первое событие — ошибка).
+        res.end(
+          `data: ${JSON.stringify({ error: { message: "等待响应超时，请稍后重试 上游服务" } })}\n\n`,
+        );
+        return;
+      }
+      chunk({ content: "Ответ после сбоя шлюза." });
+      chunk({}, "stop");
+      res.end("data: [DONE]\n\n");
+      return;
+    }
     if (step) {
       chunk({
         tool_calls: [
@@ -251,6 +269,8 @@ http.createServer((q, r) => r.end("ok")).listen(port, "127.0.0.1", () =>
     ZENO_ENABLE_TEST_COMMANDS: "1",
     ZENO_NO_AUTO_RESUME: "1",
     PRSLOY_BASH_TIMEOUT_SEC: String(BASH_TIMEOUT_SEC),
+    // Прокси надёжности на фейковом провайдере (в продукте — провайдер prsloy).
+    PRSLOY_RELIABILITY_PROVIDERS: "zeno-fake",
   });
 
   const devApp = process.env.SMOKE_DEV_APP;
@@ -404,6 +424,17 @@ test("harness on the installed app: steps 0–6", async () => {
     const f = findings("harness-python-http", process.env.SMOKE_STRICT_PYTHON_HTTP === "1");
     f.check("python -m http.server serves the preview", up, result.slice(0, 1500));
     await f.finish();
+  });
+
+  await test.step("8: an in-stream gateway error is retried by the proxy, the user sees an answer", async () => {
+    const { page, model } = state;
+    await send(page!, "harness flaky gateway");
+    await expect(page!.getByText("Ответ после сбоя шлюза.").first()).toBeVisible({
+      timeout: 30_000,
+    });
+    expect.soft(model!.flakyRequests).toBe(2);
+    expect.soft(await page!.getByText("等待响应超时").count()).toBe(0);
+    await shot(page!, "harness-flaky-gateway");
   });
 
   await test.step("6: a background server left running dies with the app", async () => {
