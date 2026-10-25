@@ -2,6 +2,9 @@
   "name": "@prsloy/harness",
   "version": "0.0.0",
   "private": true,
+  "keywords": [
+    "pi-package"
+  ],
   "type": "module",
   "exports": {
     ".": "./src/index.ts"
@@ -20,5 +23,10 @@
     "typescript": "catalog:",
     "vite-plus": "catalog:",
     "vitest": "catalog:"
+  },
+  "pi": {
+    "extensions": [
+      "./src/index.ts"
+    ]
   }
 }

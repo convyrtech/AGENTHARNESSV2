@@ -74,9 +74,17 @@ export function sanitizedEnv(env: NodeJS.ProcessEnv = process.env): NodeJS.Proce
   return out;
 }
 
+const PROFILES: readonly HarnessProfile[] = ["code", "design", "text", "other"];
+
+/** При загрузке по пути (extensionPaths) настроек нет — профиль можно передать через PRSLOY_PROFILE. */
+function envProfile(): HarnessProfile | undefined {
+  const value = process.env.PRSLOY_PROFILE;
+  return PROFILES.find((profile) => profile === value);
+}
+
 export function resolveOptions(options: HarnessOptions = {}): ResolvedOptions {
   return {
-    profile: options.profile ?? "code",
+    profile: options.profile ?? envProfile() ?? "code",
     bashTimeoutSec: options.bashTimeoutSec ?? 120,
     bashMaxTimeoutSec: options.bashMaxTimeoutSec ?? 600,
     loopWarnAt: options.loopWarnAt ?? 3,
