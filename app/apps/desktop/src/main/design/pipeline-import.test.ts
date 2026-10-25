@@ -91,6 +91,17 @@ describe("importPipeline", () => {
     expect(readdirSync(join(dest, ".."))).toEqual(["design-pipeline"]);
   });
 
+  it("takes the pinned-commit archive (top folder design-pipeline-<sha>/)", () => {
+    // what the owner gets: github.com/convyrtech/design-pipeline/archive/<sha>.zip
+    const sha = "39fcac42db4bd344c7d9747a5903cc18c9d87718";
+    const { root, dest } = scratch();
+    const zip = join(root, `${sha}.zip`);
+    writeFileSync(zip, zipDirectory(STUB, `design-pipeline-${sha}`));
+    expect(importPipeline(zip, dest)).toEqual({ ok: true, files: expect.any(Number) });
+    for (const f of PIPELINE_REQUIRED) expect(existsSync(join(dest, ...f.split("/")))).toBe(true);
+    expect(existsSync(join(dest, `design-pipeline-${sha}`))).toBe(false);
+  });
+
   it("takes the unpacked folder, or any file picked inside it", () => {
     const { root, dest } = scratch();
     const folder = join(root, "Загрузки", "design-pipeline-main");
