@@ -12,29 +12,49 @@ describe("appendMonotonicText", () => {
   it("appends incremental chunks", () => {
     expect(appendMonotonicText("", "Hel")).toBe("Hel");
     expect(appendMonotonicText("Hel", "lo")).toBe("Hello");
-    expect(appendMonotonicText("Hello", "!")).toBe("Hello!");
   });
 
-  it("accepts cumulative full-text snapshots without shrinking", () => {
-    expect(appendMonotonicText("Hel", "Hello")).toBe("Hello");
-    expect(appendMonotonicText("Hello", "Hello")).toBe("Hello");
+  it("keeps a delta that repeats the tail (live acceptance: «800» + «0» showed «800»)", () => {
+    expect(appendMonotonicText("800", "0")).toBe("8000");
+    expect(appendMonotonicText("Hello", "lo")).toBe("Hellolo");
+    expect(appendMonotonicText("ab", "bc")).toBe("abbc");
+    expect(appendMonotonicText("а", "а")).toBe("аа");
+  });
+});
+
+describe("streamed text never loses characters", () => {
+  function stream(deltas: string[], type: "message.delta" | "thinking.delta" = "message.delta") {
+    let state = emptyLiveStream();
+    deltas.forEach((delta, i) => {
+      state = applyRuntimeEventToLiveStream(state, { type, delta }, [], { sequence: i + 1 });
+    });
+    return state.items[0]?.text;
+  }
+
+  it.each([
+    [["800", "0"], "8000"],
+    [["Итого: 1", "0", "0", "0 ₽"], "Итого: 1000 ₽"],
+    [["100", "0 ₽"], "1000 ₽"],
+    [["а", "а", "а", "а"], "аааа"],
+    [["ha", "ha", "ha"], "hahaha"],
+    [["Hello wor", "world"], "Hello worworld"],
+  ])("%j → %s", (deltas, expected) => {
+    expect(stream(deltas)).toBe(expected);
+    expect(stream(deltas, "thinking.delta")).toBe(expected);
   });
 
-  it("ignores exact chunk redelivery", () => {
-    expect(appendMonotonicText("Hello", "lo")).toBe("Hello");
-    expect(appendMonotonicText("Hello world", "world")).toBe("Hello world");
-  });
-
-  it("repairs partial overlap without losing prefix", () => {
-    expect(appendMonotonicText("Hello wor", "world!")).toBe("Hello world!");
-  });
-
-  it("never returns a shorter string than prev when delta is non-empty prefix-lossy", () => {
-    const prev = "The quick brown fox";
-    // A totally new delta still appends (we never replace with shorter).
-    const next = appendMonotonicText(prev, " jumps");
-    expect(next.length).toBeGreaterThanOrEqual(prev.length);
-    expect(next.startsWith(prev) || next === prev).toBe(true);
+  it("still drops a redelivered event by its host sequence", () => {
+    let state = emptyLiveStream();
+    state = applyRuntimeEventToLiveStream(state, { type: "message.delta", delta: "10" }, [], {
+      sequence: 1,
+    });
+    state = applyRuntimeEventToLiveStream(state, { type: "message.delta", delta: "0" }, [], {
+      sequence: 2,
+    });
+    state = applyRuntimeEventToLiveStream(state, { type: "message.delta", delta: "0" }, [], {
+      sequence: 2,
+    });
+    expect(state.items[0]?.text).toBe("100");
   });
 });
 
@@ -137,24 +157,6 @@ describe("live stream (append-only)", () => {
     const assistant = state.items.find((item) => item.kind === "assistant");
     expect(assistant?.kind === "assistant" && assistant.text.startsWith("x0")).toBe(true);
     expect(assistant?.kind === "assistant" && assistant.text.includes("x199")).toBe(true);
-  });
-
-  it("handles cumulative provider snapshots without eating the head", () => {
-    let state = emptyLiveStream();
-    state = applyRuntimeEventToLiveStream(state, { type: "message.delta", delta: "The" }, [], {
-      sequence: 1,
-    });
-    state = applyRuntimeEventToLiveStream(state, { type: "message.delta", delta: "The cat" }, [], {
-      sequence: 2,
-    });
-    state = applyRuntimeEventToLiveStream(
-      state,
-      { type: "message.delta", delta: "The cat sat" },
-      [],
-      { sequence: 3 },
-    );
-    const assistant = state.items.find((item) => item.kind === "assistant");
-    expect(assistant?.kind === "assistant" && assistant.text).toBe("The cat sat");
   });
 
   it("keeps attachment chips on optimistic user rows and merges host echo paths", () => {
