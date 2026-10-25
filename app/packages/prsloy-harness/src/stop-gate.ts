@@ -307,6 +307,8 @@ export interface StopGateDeps {
   turnStatus?: TurnStatusState;
   /** Полезность новых тестов (H-3, флаг testQuality, читается на каждом ходе): только сигналы. */
   testQuality?: () => boolean;
+  /** Ревьюер ищет подгонку (H-4, флаг reviewerCheats, читается на каждом ходе). */
+  reviewerCheats?: () => boolean;
 }
 
 /** Правки, после которых стоит открыть страницу в браузере. */
@@ -340,6 +342,7 @@ export function installStopGate(
     testGuard = () => false,
     turnStatus,
     testQuality = () => false,
+    reviewerCheats = () => false,
   } = typeof deps === "function" ? { runner: deps } : deps;
   /** Блокер принят кодом (research/24 §4.2): возвратов «почини» больше нет, отчёты остаются. */
   const blocked = () => !!honesty?.accepted;
@@ -396,8 +399,9 @@ export function installStopGate(
     if (budget && budget.ratio() >= opts.budgetWarnRatio) return undefined;
     if (ctx.signal?.aborted) return undefined;
     reviewed = true;
-    const diff = clipDiff(patch);
-    const reply = await reviewer(reviewPrompt({ task, diff, checks, signals }), ctx);
+    const cheats = reviewerCheats();
+    const diff = clipDiff(patch, undefined, cheats);
+    const reply = await reviewer(reviewPrompt({ task, diff, checks, signals, cheats }), ctx);
     if (!reply) return undefined;
     budget?.spend(reply.costUsd);
     // Пользователь нажал «стоп», пока ждали проверяющего, или ответа нет: молчим.

@@ -109,7 +109,9 @@ export type PracticeName =
   // Строка статуса хода по фактам (H9, research/24 §4.4–4.5): одна карточка в конце хода.
   | "turnStatus"
   // Полезность новых тестов (H-3): за флагом "testQuality".
-  | "testQuality";
+  | "testQuality"
+  // Ревьюер ищет подгонку (H-4): за флагом "reviewerCheats".
+  | "reviewerCheats";
 
 export interface ResolvedOptions {
   profile: HarnessProfile;

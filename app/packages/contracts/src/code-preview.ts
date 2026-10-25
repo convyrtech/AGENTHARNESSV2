@@ -37,6 +37,8 @@ export type HarnessFlags = {
   webTools: boolean;
   /** Usefulness of the tests the agent adds (H-3, #8): signals to the reviewer and the turn status, default off. */
   testQuality: boolean;
+  /** The reviewer looks for test-fitting (H-4, #9): kinds in its prompt, code-computed facts, tests kept whole. Default off. */
+  reviewerCheats: boolean;
 };
 
 export interface HarnessFlagsApi {
