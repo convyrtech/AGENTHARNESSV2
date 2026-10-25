@@ -26,12 +26,12 @@ test("memory: forget mid-session → hidden note for the model, nothing in the c
   );
   await startHost(page);
   await sendPrompt(page, "Привет.");
-  const listed = await page.evaluate(() => window.zeno.prsloy.memoryList());
+  const listed = await page.evaluate(() => window.zeno.memory!.list());
   expect(listed.user.map((e) => e.id)).toEqual(["u-e2e1"]);
 
-  const forgot = await page.evaluate(() => window.zeno.prsloy.memoryForget("u-e2e1"));
-  expect(forgot.ok).toBe(true);
-  expect(forgot.list.user).toEqual([]);
+  const forgot = await page.evaluate(() => window.zeno.memory!.forget("u-e2e1"));
+  expect(forgot.user).toEqual([]);
+  expect(forgot.forgotten.map((e) => e.id)).toEqual(["u-e2e1"]);
 
   const note = `Пользователь попросил забыть: «${text}». Больше не учитывай.`;
   await sendPrompt(page, "Что дальше?");

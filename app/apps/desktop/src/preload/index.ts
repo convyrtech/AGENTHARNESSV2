@@ -29,6 +29,13 @@ if (petBootArg) {
 }
 
 const api: ZenoDesktopApi = {
+  // «Память» panel (contracts/memory.ts): every call returns the fresh snapshot.
+  memory: {
+    list: (workspace) => ipcRenderer.invoke("prsloy:memory-list", workspace),
+    forget: (id, workspace) => ipcRenderer.invoke("prsloy:memory-forget", id, workspace),
+    restore: (id, workspace) => ipcRenderer.invoke("prsloy:memory-restore", id, workspace),
+    forgetAll: () => ipcRenderer.invoke("prsloy:memory-forget-all"),
+  },
   prsloy: {
     getState: () => ipcRenderer.invoke("prsloy:get-state"),
     setKey: (key, baseUrl) => ipcRenderer.invoke("prsloy:set-key", key, baseUrl),
@@ -37,10 +44,6 @@ const api: ZenoDesktopApi = {
     listTurns: (options) => ipcRenderer.invoke("prsloy:list-turns", options),
     undoTurn: (snapshotId) => ipcRenderer.invoke("prsloy:undo-turn", snapshotId),
     saveSupportReport: () => ipcRenderer.invoke("prsloy:support-report"),
-    memoryList: (workspace) => ipcRenderer.invoke("prsloy:memory-list", workspace),
-    memoryForget: (id, workspace) => ipcRenderer.invoke("prsloy:memory-forget", id, workspace),
-    memoryRestore: (id, workspace) => ipcRenderer.invoke("prsloy:memory-restore", id, workspace),
-    memoryForgetAll: () => ipcRenderer.invoke("prsloy:memory-forget-all"),
   },
   app: {
     getRuntime: () => ipcRenderer.invoke("zeno:app:get-runtime"),
