@@ -60,9 +60,9 @@ describe("FirstRunGate", () => {
     fireEvent.submit(input.closest("form")!);
     await screen.findByTestId("prsloy-first-run-folder");
     expect(screen.queryByText("APP")).toBeNull();
-    // the optional steps (placeholders for now) were passed on the way and are remembered
+    // import passed by itself on the way and is remembered; search waits for SEARCH_READY (#23)
     expect(localStorage.getItem("prsloy.firstRun.importSeen")).toBe("1");
-    expect(localStorage.getItem("prsloy.firstRun.searchSeen")).toBe("1");
+    expect(screen.queryByTestId("first-run-search")).toBeNull();
 
     api.prsloy.getState.mockResolvedValue({ ...fresh, hasKey: true, needsWorkspace: false });
     fireEvent.click(screen.getByTestId("prsloy-folder-pick"));

@@ -8,6 +8,7 @@
  */
 
 import type { SettingsSection } from "../store/shell-store.ts";
+import { SEARCH_READY } from "../../shared/search-ready.ts";
 
 export type CasualPrefs = {
   /** Show developer surfaces. Off by default. */
@@ -57,7 +58,10 @@ export function isShortcutVisible(id: string, developerMode: boolean): boolean {
 export function isSettingsSectionVisible(
   section: SettingsSection,
   developerMode: boolean,
+  searchReady: boolean = SEARCH_READY,
 ): boolean {
+  // #23: «Поиск в интернете» is a developer's page until SEARCH_READY.
+  if (section === "webSearch" && !searchReady) return developerMode;
   return developerMode || !DEVELOPER_SETTINGS_SECTIONS.has(section);
 }
 
