@@ -7,6 +7,7 @@ import {
   harnessUsesOwnText,
   isHarnessData,
   reviewRemarks,
+  reviewVerdict,
   stopGateOutput,
 } from "./harness-card.ts";
 
@@ -64,5 +65,13 @@ describe("harness cards", () => {
     expect(stopGateOutput({ output: "boom" })).toBe("boom");
     expect(stopGateOutput({ command: "npm test", output: "" })).toBeUndefined();
     expect(stopGateOutput(undefined)).toBeUndefined();
+  });
+
+  it("reads the review's verdict for the card's data-verdict", () => {
+    expect(reviewVerdict({ verdict: "PASS", items: [] })).toBe("pass");
+    expect(reviewVerdict({ verdict: "FAIL", items: [{ problem: "x" }] })).toBe("fail");
+    expect(reviewVerdict({ items: [{ problem: "x" }] })).toBe("fail");
+    expect(reviewVerdict({ items: [] })).toBe("pass");
+    expect(reviewVerdict(undefined)).toBeUndefined();
   });
 });

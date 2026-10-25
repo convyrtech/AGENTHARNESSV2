@@ -64,6 +64,9 @@ describe("HarnessCard", () => {
       />,
     );
     expect(screen.getByText("Вторая модель нашла 2 замечания — исправляю")).toBeTruthy();
+    const card = screen.getByTestId("harness-card");
+    expect(card.getAttribute("data-verdict")).toBe("fail");
+    expect(card.getAttribute("data-count")).toBe("2");
     expect(screen.queryByText("Расширение")).toBeNull();
     fireEvent.click(screen.getByText("Замечания (2)"));
     const list = screen.getByTestId("harness-card-remarks");
