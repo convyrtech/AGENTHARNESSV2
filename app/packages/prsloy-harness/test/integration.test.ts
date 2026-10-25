@@ -759,7 +759,7 @@ describe("integration: memory (S4) in a real session", () => {
     await first.session.prompt("Сделай страницу. И пиши проще, без умных слов");
     await first.session.prompt("А теперь добавь заголовок");
     const results = first.toolResults();
-    expect(first.textOf(results[0]!)).toContain("Запомнил: Писать проще, без умных слов");
+    expect(first.textOf(results[0]!)).toContain("Запомнил «Писать проще, без умных слов»");
     const system = (i: number) => JSON.stringify(first.server.requests[i]!.messages[0]);
     // Запрос до записи, после записи и во втором сообщении — один и тот же системный промпт (кэш цел).
     expect(system(1)).toBe(system(0));

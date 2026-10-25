@@ -5,6 +5,7 @@ import {
   memoryCardId,
   memoryCardKind,
   restoreLeftMs,
+  isProjectCardText,
   savedCardText,
   forgottenBetween,
   parseConfirmDetails,
@@ -32,6 +33,12 @@ describe("memory cards", () => {
     expect(memoryCardId({ id: "u-1", scope: "user" })).toBe("u-1");
     expect(memoryCardId({ id: 3 })).toBeUndefined();
     expect(memoryCardId(undefined)).toBeUndefined();
+    expect(savedCardText("Запомнил «Отвечать коротко»")).toBe("Отвечать коротко");
+    expect(savedCardText("Запомнил для этого проекта «Без «npm»»")).toBe("Без «npm»");
+    expect(isProjectCardText("Запомнил для этого проекта «Без npm»")).toBe(true);
+    expect(isProjectCardText("Запомнил «Без npm»")).toBe(false);
+    // Cards in alpha.1 chats keep the old format.
+    expect(isProjectCardText("Запомнил для этого проекта: Без npm")).toBe(true);
     expect(savedCardText("Запомнил: Отвечать коротко")).toBe("Отвечать коротко");
     expect(savedCardText("Запомнил для этого проекта: Сайт без сборщиков")).toBe(
       "Сайт без сборщиков",
