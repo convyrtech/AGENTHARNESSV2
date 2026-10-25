@@ -15,8 +15,7 @@ import { flushSync } from "react-dom";
 import { ResourcesPage } from "./components/ResourcesPage.tsx";
 import { PackagesPage } from "./components/PackagesPage.tsx";
 import { TurnProgressLine } from "./components/TurnProgressLine.tsx";
-import { ExampleTaskChips } from "./components/ExampleTaskChips.tsx";
-import { FigCaption } from "./components/FigCaption.tsx";
+import { EmptyHero } from "./components/EmptyHero.tsx";
 import { loadCasualPrefs } from "./lib/casual-prefs.ts";
 import { ArrowDown } from "lucide-react";
 import { AppSidebar } from "./components/AppSidebar.tsx";
@@ -41,7 +40,6 @@ import {
 } from "./components/EnvPanel.tsx";
 import { BootstrapOverlay } from "./components/BootstrapOverlay.tsx";
 
-import { PixLogo } from "./components/PixLogo.tsx";
 import { ThreadHeader } from "./components/ThreadHeader.tsx";
 import { PiTuiTerminal, preloadPiTuiTerminal } from "./components/PiTuiTerminal.tsx";
 import { WindowCaptionButtons } from "./components/WindowCaptionButtons.tsx";
@@ -3305,34 +3303,32 @@ function App() {
                       void sendPrompt(undefined, undefined, { text, attachments: [] })
                     }
                     emptyState={
-                      <div
-                        className="thread-messages empty flex min-h-full flex-1 flex-col items-center justify-center px-4 text-center"
-                        data-testid="empty-hero"
-                      >
-                        <PixLogo className="mb-5 size-12" title={t(locale, "app.name")} />
-                        <FigCaption locale={locale} n={1} label={t(locale, "fig.code")} />
-                        <h1 className="font-display m-0 max-w-lg text-[28px] leading-snug font-semibold tracking-[-0.01em] text-[var(--text)]">
-                          {workspacePath
+                      <EmptyHero
+                        locale={locale}
+                        title={
+                          workspacePath
                             ? t(locale, "empty.title", { name: workspace.name })
                             : isPureConversation || snapshot || pendingPureConversation
                               ? t(locale, "empty.titleConversation")
-                              : t(locale, "empty.titleNoWorkspace")}
-                        </h1>
-                        {!workspacePath ? (
-                          <p className="mt-3 max-w-md text-[13px] text-[var(--muted-foreground)]">
-                            {isPureConversation || snapshot || pendingPureConversation
+                              : t(locale, "empty.titleNoWorkspace")
+                        }
+                        subtitle={
+                          workspacePath
+                            ? undefined
+                            : isPureConversation || snapshot || pendingPureConversation
                               ? t(locale, "empty.subtitleConversation")
-                              : t(locale, "empty.subtitleNoWorkspace")}
-                          </p>
-                        ) : null}
-                        <ExampleTaskChips
-                          locale={locale}
-                          onPick={(text) => {
-                            setPrompt(text);
-                            composerRef.current?.focus();
-                          }}
-                        />
-                      </div>
+                              : t(locale, "empty.subtitleNoWorkspace")
+                        }
+                        onPickExample={(text) => {
+                          setPrompt(text);
+                          composerRef.current?.focus();
+                        }}
+                        onStartRecipe={(path, text) =>
+                          void openWorkspacePath(path).then(() =>
+                            sendPrompt(undefined, undefined, { text, attachments: [] }),
+                          )
+                        }
+                      />
                     }
                     footer={
                       <>

@@ -223,3 +223,122 @@
   white-space: pre-wrap;
   background: var(--canvas);
 }
+/* «Рецепты» on the empty «Код» screen and their form */
+.recipes {
+  width: 100%;
+  max-width: 640px;
+  margin-top: 28px;
+  text-align: left;
+}
+.recipes-title {
+  margin: 0 0 10px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--muted-foreground);
+  text-align: center;
+}
+.recipes-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 8px;
+}
+.recipe-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--card);
+  color: var(--foreground);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background-color 0.15s,
+    border-color 0.15s;
+}
+.recipe-card:hover {
+  border-color: var(--border-strong);
+  background: var(--hover-fill);
+}
+.recipe-card:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+.recipe-card svg {
+  margin-top: 2px;
+}
+.recipe-card-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.recipe-card-title {
+  font-size: 13px;
+  font-weight: 500;
+}
+.recipe-card-desc {
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--muted-foreground);
+}
+.recipe-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.recipe-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.recipe-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--foreground);
+}
+.recipe-required {
+  font-weight: 400;
+  color: var(--muted-foreground);
+}
+.recipe-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.recipe-choice {
+  min-height: 32px;
+  padding: 4px 12px;
+  border: 1px solid var(--border);
+  border-radius: 9999px;
+  background: var(--card);
+  font-size: 13px;
+  color: var(--foreground);
+  cursor: pointer;
+}
+.recipe-choice[aria-checked="true"] {
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 12%, var(--card));
+}
+.recipe-choice:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+.recipe-switch {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.recipe-error {
+  font-size: 12px;
+  color: var(--destructive);
+}
+.recipe-hint {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--muted-foreground);
+}

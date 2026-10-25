@@ -127,6 +127,8 @@ const api: ZenoDesktopApi = {
       ipcRenderer.invoke("prsloy:features:export-project-zip", workspacePath),
     capturePreview: (rect) => ipcRenderer.invoke("prsloy:features:capture-preview", rect),
     searchChats: (query) => ipcRenderer.invoke("prsloy:features:search-chats", query),
+    recipes: () => ipcRenderer.invoke("prsloy:features:recipes"),
+    createRecipe: (id, values) => ipcRenderer.invoke("prsloy:features:create-recipe", id, values),
     procStatus: (pids) => ipcRenderer.invoke("prsloy:features:proc-status", pids),
     procLog: (logPath) => ipcRenderer.invoke("prsloy:features:proc-log", logPath),
     procStop: (pid, logPath) => ipcRenderer.invoke("prsloy:features:proc-stop", pid, logPath),

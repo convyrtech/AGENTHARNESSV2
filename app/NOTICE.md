@@ -47,3 +47,8 @@
 - `../playbooks/site/harness/brand_probe.py` — бренд по адресу сайта: по мотивам
   [dembrandt](https://github.com/dembrandt/dembrandt) (MIT, v0.39.2, вычисленные стили живой страницы) и методики
   `skills/brand-extract/SKILL.md` OpenDesign (Apache-2.0: «каждое значение — замер»). Код не копировался.
+- Формат рецептов `apps/desktop/src/main/features/recipes/*/recipe.md` (ключ `params:` с `key`, `input_type`,
+  `requirement`, `default`, `options`) — по образцу рецептов [block/goose](https://github.com/block/goose)
+  (`crates/goose/src/recipe/mod.rs`, Apache License 2.0, Copyright (c) Block, Inc.). Код не копировался.
+- [yaml](https://github.com/eemeli/yaml) 2.9.0 — зависимость, собирается в main (frontmatter рецептов). ISC License,
+  Copyright Eemeli Aro.

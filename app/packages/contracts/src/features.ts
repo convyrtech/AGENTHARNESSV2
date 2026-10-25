@@ -57,6 +57,30 @@ export type BackgroundProcStop =
   | { ok: true }
   | { ok: false; reason: "not_ours" | "gone" | "still_running" };
 
+/** One field of a recipe's form (`params:` in recipe.md, by the idea of goose recipes). */
+export type RecipeParam = {
+  key: string;
+  label: string;
+  inputType: "string" | "select" | "boolean";
+  required: boolean;
+  default?: string | boolean;
+  options?: string[];
+  placeholder?: string;
+};
+
+/** «Рецепты»: an offline starter with a small form (research/19 §2.1 + §2.3). */
+export type RecipeInfo = {
+  id: string;
+  title: string;
+  description: string;
+  icon: string;
+  params: RecipeParam[];
+};
+
+export type RecipeCreateResult =
+  | { ok: true; path: string; prompt: string }
+  | { ok: false; reason: "unknown" | "missing"; missing?: string[] };
+
 export interface FeaturesApi {
   /** «Скачать архив»: the project as a zip wherever the owner saves it; shown in its folder. */
   exportProjectZip(workspacePath: string | undefined): Promise<ProjectZipResult>;
@@ -70,6 +94,10 @@ export interface FeaturesApi {
   procLog(logPath: string): Promise<string | undefined>;
   /** «Остановить»: the process tree, as the harness's `process stop`; only what our host started. */
   procStop(pid: number, logPath: string): Promise<BackgroundProcStop>;
+  /** The bundled recipes, in their order. */
+  recipes(): Promise<RecipeInfo[]>;
+  /** A new project folder with the recipe's starter files, and the request filled from the form. */
+  createRecipe(id: string, values: Record<string, string | boolean>): Promise<RecipeCreateResult>;
   /** Old chats where every word of the query occurs («ё» = «е»), newest first. */
   searchChats(query: string): Promise<ChatSearchResult[]>;
   capturePreview(rect: {

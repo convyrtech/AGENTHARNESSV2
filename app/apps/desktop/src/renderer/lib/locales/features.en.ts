@@ -57,6 +57,17 @@ export const featuresEn: Record<keyof typeof featuresZh, string> = {
   "features.proc.notOurs":
     "This process wasn't started from this window, so it can't be stopped here.",
   "features.proc.stillRunning": "Couldn't stop it: the process is still running.",
+  "features.recipes.title": "Or start from a recipe",
+  "features.recipes.hint":
+    "Answer a couple of questions: PRSLOY makes a project folder with a starter and gets to work.",
+  "features.recipes.start": "Start",
+  "features.recipes.cancel": "Cancel",
+  "features.recipes.required": "Fill in this field",
+  "features.recipes.busy": "Preparing the project…",
+  "features.recipes.failed": "Couldn't create the project: {error}",
+  "features.recipes.yes": "Yes",
+  "features.recipes.no": "No",
+  "features.recipes.requiredMark": "required",
   "features.search.group": "Chats",
   "features.search.untitled": "Untitled chat",
   "features.search.matches": "{count} matches",

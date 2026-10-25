@@ -44,6 +44,7 @@ catalog:
   electron-updater: 6.8.9
   jsdom: ^30.0.1
   parse5: ^8.0.1
+  yaml: ^2.9.0
   "@testing-library/react": ^16.3.3
   "@testing-library/jest-dom": ^7.0.1
   "@axe-core/playwright": 4.13.0
