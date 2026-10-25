@@ -31,7 +31,7 @@ import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { zipDirectory } from "../src/main/design/zip.ts";
+import { readZip, zipDirectory } from "../src/main/design/zip.ts";
 
 const require = createRequire(import.meta.url);
 // only the dev build needs the electron package's binary; the installed-app job does not download it
@@ -328,6 +328,36 @@ function leftovers(l: Lab): string[] {
     .map((r) => `${r.pid} ${r.cmd}`);
 }
 
+/**
+ * Relative references of the site's pages and styles that point at nothing in the archive (the page would break
+ * once unzipped): src/href attributes and CSS url(); links out, anchors, data:, mailto: and tel: are fine.
+ */
+function brokenRefs(entries: { name: string; data: Buffer }[], names: Set<string>): string[] {
+  const bad: string[] = [];
+  for (const e of entries) {
+    if (!/\.(html?|css)$/i.test(e.name)) continue;
+    const text = e.data.toString("utf8");
+    const refs = [
+      ...text.matchAll(/\s(?:src|href)\s*=\s*["']([^"']+)["']/gi),
+      ...text.matchAll(/url\(\s*["']?([^"')]+)["']?\s*\)/gi),
+    ].map((m) => m[1]!.trim());
+    for (const ref of refs) {
+      if (!ref || /^(?:[a-z][\w+.-]*:|\/\/|#)/i.test(ref)) continue;
+      const clean = ref.split(/[?#]/)[0]!;
+      if (!clean) continue;
+      const base = ref.startsWith("/") ? "site" : e.name.split("/").slice(0, -1).join("/");
+      const parts: string[] = [];
+      for (const seg of `${base}/${clean.replace(/^\/+/, "")}`.split("/")) {
+        if (seg === "..") parts.pop();
+        else if (seg && seg !== ".") parts.push(seg);
+      }
+      const target = decodeURIComponent(parts.join("/"));
+      if (!names.has(target) && !names.has(`${target}/index.html`)) bad.push(`${e.name}: ${ref}`);
+    }
+  }
+  return bad;
+}
+
 /** Size of a folder on disk, MB (the venv after first use). */
 function folderMb(dir: string): number {
   let bytes = 0;
@@ -600,18 +630,87 @@ test("a full turn on the real tools: sheet and videos, choice «A», the page", 
     expect(learn.split("\n").filter(Boolean).length).toBeGreaterThan(2);
     expect(learn).not.toMatch(/Зерно|кофейн|Сделай/);
     await shot(page, "done");
+    const finish: Record<string, unknown> = {};
 
-    // «Править» (dev build only until it is on main): a mark on the page, the real run.py edit turn — shots before
-    // and after in this machine's browser, the sheet, «Оставить» recommended when only the marked place changed
+    // (1) the owner takes the page away: «Скачать архив» is the main button; the zip opens on its own (every
+    // relative reference of the page is inside it); «Показать в папке» selects it; «Открыть папку» opens site/
+    const zipPath = join(l.downloads, "Зерно-сайт.zip");
+    await app.evaluate(({ dialog, shell }, p) => {
+      Object.defineProperty(dialog, "showSaveDialog", {
+        configurable: true,
+        value: async () => ({ canceled: false, filePath: p }),
+      });
+      const g = globalThis as unknown as { __shown: string[]; __opened: string[] };
+      g.__shown = [];
+      g.__opened = [];
+      Object.defineProperty(shell, "showItemInFolder", {
+        configurable: true,
+        value: (x: string) => void g.__shown.push(x),
+      });
+      Object.defineProperty(shell, "openPath", {
+        configurable: true,
+        value: async (x: string) => (g.__opened.push(x), ""),
+      });
+    }, zipPath);
+    await page.getByTestId("design-download-zip").click();
+    await expect(page.getByTestId("design-download-zip")).toContainText("Архив сохранён");
+    const entries = readZip(readFileSync(zipPath), {
+      files: 4000,
+      bytes: 64 << 20,
+      fileBytes: 32 << 20,
+    });
+    const names = new Set(entries.map((e) => e.name));
+    expect(names.has("site/landing/index.html")).toBe(true);
+    const missing = brokenRefs(entries, names);
+    expect(missing, "the archive must open without the app").toEqual([]);
+    finish.zip = { files: entries.length, kb: Math.round(statSync(zipPath).size / 1024) };
     if (!EXE) {
+      // «Показать в папке» (dev build until it is on main)
+      await page.getByTestId("design-zip-reveal").click();
+      await expect
+        .poll(() => app.evaluate(() => (globalThis as unknown as { __shown: string[] }).__shown))
+        .toEqual([zipPath]);
+    }
+    await page.getByTestId("design-open-folder").click();
+    await expect
+      .poll(() => app.evaluate(() => (globalThis as unknown as { __opened: string[] }).__opened))
+      .toEqual([join(ws(l), "site")]);
+
+    // (2) the page at phone width inside the app: a 390 px frame, nothing wider than it
+    await page.getByTestId("design-device-phone").click();
+    // the frame animates its width (0.2 s): wait for it to settle
+    await expect
+      .poll(async () =>
+        Math.round((await page.getByTestId("design-preview").boundingBox())?.width ?? 0),
+      )
+      .toBe(390);
+    const fit = await page
+      .frameLocator('[data-testid="design-preview"]')
+      .locator("html")
+      .evaluate((el) => ({ scroll: el.scrollWidth, width: el.clientWidth }));
+    expect(fit.scroll, "no horizontal scroll at 390").toBeLessThanOrEqual(fit.width);
+    finish.phone = fit;
+    await shot(page, "done-phone");
+    await page.getByTestId("design-device-desktop").click();
+
+    // (3) «Править» → a short request → the result card; the judge does not run for an edit. Shots before and
+    // after in this machine's browser, the sheet, «Оставить» recommended when only the marked place changed
+    const judged = () =>
+      readFileSync(join(state, "ledger.jsonl"), "utf8")
+        .split("\n")
+        .filter((x) => x.includes('"kind": "judge"') || x.includes('"kind":"judge"')).length;
+    const judgedBefore = judged();
+    {
       const preview = page.frameLocator('[data-testid="design-preview"]');
       await page.getByTestId("design-edit-open").click();
       await preview.locator("h1").click();
       await expect(page.getByTestId("design-edit-place-1")).toHaveText("«Зерно»");
       await page.getByTestId("design-edit-request-1").fill("заголовок цветом акцента");
+      const t0 = Date.now();
       await page.getByTestId("design-edit-apply").click();
       const result = page.getByTestId("design-owner").last();
       await expect(result).toContainText("Заголовок теперь в цвете акцента", { timeout: 300_000 });
+      finish.editSeconds = Math.round((Date.now() - t0) / 1000);
       await expect(result.getByTestId("design-image")).toHaveCount(1);
       await expect(result.getByTestId("design-option-edit:keep:1")).toContainText("рекомендую");
       await expect(result).not.toContainText("кроме выбранного");
@@ -632,7 +731,13 @@ test("a full turn on the real tools: sheet and videos, choice «A», the page", 
       await expect(page.getByTestId("design-done")).toBeVisible({ timeout: 60_000 });
       const html = readFileSync(join(ws(l), "site", "landing", "index.html"), "utf8");
       expect(html).toContain("<h1 style='color:#a4472c;");
+      finish.keepSeconds = Math.round((Date.now() - t0) / 1000) - (finish.editSeconds as number);
+      finish.judgeRunsDuringEdit = judged() - judgedBefore;
+      expect(finish.judgeRunsDuringEdit, "an edit does not re-run the judge").toBe(0);
     }
+    const dir = process.env.DESIGN_LIVE_SHOTS || test.info().outputDir;
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, "finish.json"), JSON.stringify(finish, null, 2));
   } finally {
     await app.close();
   }

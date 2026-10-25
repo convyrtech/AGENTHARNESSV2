@@ -95,10 +95,37 @@ class FitLadder(unittest.TestCase):
         self.assertEqual(c["stages"]["1"]["start"], 0)     # kimi → ближайшая выше: qwen
         self.assertEqual(c["judge"]["model"], "claude-opus-5-5")
 
-    def test_judge_falls_back_to_strongest(self):
+    def test_judge_falls_back_only_to_a_visual_class_model(self):
         g = load_run()
+        # research/28 §4.4: no Opus-class model — no judge (the owner is told), never Kimi
         c = g["fit_ladder"](self.cfg(), {"deepseek-v4.1-flash-1017", "kimi-k3.1-pro"})
-        self.assertEqual(c["judge"]["model"], "kimi-k3.1-pro")
+        self.assertIsNone(c["judge"]["model"])
+        # outside the ladder but served: gpt-6.1-sol judges
+        c = g["fit_ladder"](self.cfg(), {"qwen3.8-max", "gpt-6.1-sol"})
+        self.assertEqual(c["judge"]["model"], "gpt-6.1-sol")
+
+    def test_no_visual_model_stops_with_plain_words(self):
+        import types
+        g = load_run()
+        g["CFG"]["judge"]["model"] = None
+        rows = []
+        ws = types.SimpleNamespace(ledger=lambda **r: rows.append(r))
+        code, out = g["run_judge"](ws)
+        self.assertEqual((code, rows[0]["exit"]), (5, 5))
+        self.assertIn("Opus", out)
+
+    def test_judge_gets_three_images(self):
+        import types
+        g = load_run()
+        g["CFG"]["judge"]["model"] = "claude-opus-5-5"
+        seen = {}
+        g["subprocess"] = types.SimpleNamespace(
+            run=lambda args, **k: seen.setdefault("args", args) and types.SimpleNamespace(returncode=1, stdout=""))
+        ws = types.SimpleNamespace(page=Path("p"), h=Path("h"), pipe=Path("pipe"), root=Path("."), state={},
+                                   ledger=lambda **r: None)
+        g["run_judge"](ws)
+        a = seen["args"]
+        self.assertEqual(a[a.index("--max-images") + 1], "3")
 
     def test_nothing_known_keeps_config(self):
         g = load_run()

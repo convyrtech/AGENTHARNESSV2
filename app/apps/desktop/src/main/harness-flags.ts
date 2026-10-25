@@ -28,10 +28,10 @@ function readRaw(path: string): Record<string, unknown> {
 }
 
 /**
- * Missing file or flag: the second opinion, memory and auto memory are on (memory on is the
- * MVP default since 25.10, owner's call; research/24 §3); the honesty checks and web tools
- * are off until turned on. A value the user wrote (memory: false, autoMemory: "off") stays:
- * users of alpha.1 have no memory keys, so they get the new defaults.
+ * Missing file or flag: the second opinion, memory, auto memory and web tools are on (MVP
+ * defaults since 25.10, owner's call; research/24 §3, #23); the honesty checks are off until
+ * turned on. A value the user wrote (memory: false, autoMemory: "off", webTools: false) stays:
+ * users of alpha.1 have no such keys, so they get the new defaults.
  */
 export function readHarnessFlags(path: string): HarnessFlags {
   const raw = readRaw(path);
@@ -44,7 +44,7 @@ export function readHarnessFlags(path: string): HarnessFlags {
     honestExit: raw.honestExit === true,
     testGuard: raw.testGuard === true,
     claimCheck: raw.claimCheck === true,
-    webTools: raw.webTools === true,
+    webTools: raw.webTools !== false,
     testQuality: raw.testQuality === true,
   };
 }

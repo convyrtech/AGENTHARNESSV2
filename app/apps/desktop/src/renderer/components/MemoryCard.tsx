@@ -1,6 +1,6 @@
 /**
  * The harness's memory cards in the chat (research/18 §6.7, STATUS-harness S4):
- * «Запомнил: …» · [Забыть] [Изменить]; «Забыл.» · [Вернуть] for 10 s; «Память заполнена.
+ * «Запомнил «…»» · [Забыть] [Изменить]; «Забыл.» · [Вернуть] for 10 s; «Память заполнена.
  * Что забыть?» · [Открыть память]; a refusal (password or key) without buttons. Forgetting
  * and restoring go through main (`window.zeno.memory`); without it only «Изменить» and
  * «Открыть память» are offered.
@@ -16,6 +16,7 @@ import {
   type MemoryCardKind,
   restoreLeftMs,
   RESTORE_WINDOW_MS,
+  isProjectCardText,
   savedCardText,
 } from "../lib/memory.ts";
 import { useShellStore } from "../store/shell-store.ts";
@@ -86,7 +87,7 @@ function MemoryRequestCard(props: {
   }, [state]);
 
   const savedText = savedCardText(props.text);
-  const project = props.text.startsWith("Запомнил для этого проекта:");
+  const project = isProjectCardText(props.text);
 
   async function forget() {
     if (!api) return;

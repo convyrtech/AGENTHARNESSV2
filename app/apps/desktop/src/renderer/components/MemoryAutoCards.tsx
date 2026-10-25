@@ -1,6 +1,6 @@
 /**
  * Memory v2 cards (research/24 §3.6): what the harness noticed in the owner's words by itself.
- * «Заметил и запомнил: …» · [Забыть] [Закрепить] (several: «Запомнил N» · [Показать]);
+ * «Заметил и запомнил «…»» · [Забыть] [Закрепить] (several: «Запомнил несколько вещей (N)» · [Показать]);
  * «Обновил: было «…», стало «…»» · [Вернуть]; when the replaced entry was pinned, a question:
  * «Раньше вы просили «…». Теперь — «…»?» · [Да, теперь так] [Нет, как раньше]. And the agent's own
  * proposals to forget or replace, which wait for [Да] / [Нет] (research/27 §2).
@@ -33,11 +33,13 @@ function CardShell(props: {
       data-memory={props.kind}
       data-testid="memory-card"
     >
-      <div className="model-failure-head">
-        <Brain className="size-4 shrink-0" strokeWidth={1.75} />
-        <span className="model-failure-title">{props.title}</span>
-        {props.actions}
-      </div>
+      {props.title === null ? null : (
+        <div className="model-failure-head">
+          <Brain className="size-4 shrink-0" strokeWidth={1.75} />
+          <span className="model-failure-title">{props.title}</span>
+          {props.actions}
+        </div>
+      )}
       {props.children}
     </div>
   );
@@ -114,8 +116,15 @@ function AutoEntry(props: {
       </span>
     ) : null;
   return (
-    <div className="memory-auto-entry" data-testid="memory-auto-entry">
+    <div
+      className={props.inline ? "memory-auto-entry memory-auto-entry-inline" : "memory-auto-entry"}
+      data-testid="memory-auto-entry"
+    >
       <div className="memory-auto-entry-head">
+        {/* one entry stands in for the card's head: the icon and the text line up as in the others */}
+        {props.inline ? (
+          <Brain className="size-4 shrink-0 memory-auto-icon" strokeWidth={1.75} />
+        ) : null}
         <span className="memory-auto-text">{text}</span>
         {actions}
       </div>
@@ -238,7 +247,7 @@ export function MemoryUpdatedCard(props: { locale: Locale; details: unknown; tex
 
 /**
  * research/27 §2: the agent's tool no longer forgets or replaces by itself — it asks. «Забыть «…»?» or
- * «Раньше: «…». Теперь: «…»?» · [Да] [Нет] → `memory.confirm`. Main ignores a second answer and drops a
+ * «Раньше вы просили «…». Теперь — «…»?» · [Да] [Нет] → `memory.confirm`. Main ignores a second answer and drops a
  * proposal after a day; its refusal shows under the card.
  */
 export function MemoryConfirmCard(props: { locale: Locale; details: unknown; text: string }) {

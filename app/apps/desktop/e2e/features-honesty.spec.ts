@@ -41,10 +41,10 @@ test("«Не получилось»: three lines, a ready answer goes to the age
   }
 });
 
-test("memory v2 card: «Запомнил 2» · [Показать] lists both with the user's words", async () => {
+test("memory v2 card: «Запомнил несколько вещей (2)» · [Показать] lists both with the user's words", async () => {
   const launched = await launchWithCard({
     customType: "prsloy-memory.auto",
-    content: "Запомнил 2",
+    content: "Запомнил несколько вещей (2)",
     details: {
       items: [
         { id: "a-1", scope: "user", text: "Отвечать без терминов", quote: "пиши проще" },
@@ -58,7 +58,7 @@ test("memory v2 card: «Запомнил 2» · [Показать] lists both wi
     await sendPrompt(page, "Use the tool please");
     await waitSettled(page);
     const card = page.getByTestId("memory-card");
-    await expect(card).toContainText("Запомнил 2");
+    await expect(card).toContainText("Запомнил несколько вещей (2)");
     await card.getByTestId("memory-auto-show").click();
     await expect(card.getByTestId("memory-auto-entry")).toHaveCount(2);
     await expect(card).toContainText("Ваши слова: «пиши проще»");

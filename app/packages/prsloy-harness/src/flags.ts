@@ -44,7 +44,8 @@ export function readFlags(settingsPath: string | undefined): HarnessFlags {
     lessons: true,
     skills: false,
     disabledLessons: [],
-    // MVP (25.10, owner): memory and auto memory on by default; an explicit false / "off" in the file stays.
+    // MVP (25.10, owner): memory, auto memory and web tools on by default; an explicit false / "off" in the
+    // file stays.
     memory: true,
     prompt: "prsloy",
     promptDelta: false,
@@ -52,7 +53,7 @@ export function readFlags(settingsPath: string | undefined): HarnessFlags {
     honestExit: false,
     testGuard: false,
     claimCheck: false,
-    webTools: false,
+    webTools: true,
     testQuality: false,
   };
   if (settingsPath && existsSync(settingsPath)) {
@@ -70,7 +71,7 @@ export function readFlags(settingsPath: string | undefined): HarnessFlags {
       if (raw.honestExit === true) flags.honestExit = true;
       if (raw.testGuard === true) flags.testGuard = true;
       if (raw.claimCheck === true) flags.claimCheck = true;
-      if (raw.webTools === true) flags.webTools = true;
+      if (typeof raw.webTools === "boolean") flags.webTools = raw.webTools;
       if (raw.testQuality === true) flags.testQuality = true;
       if (Array.isArray(raw.disabledLessons))
         flags.disabledLessons = raw.disabledLessons.filter(

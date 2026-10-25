@@ -237,8 +237,9 @@ describe("0 keys in the agent's env (issue #23, review item 5)", () => {
     const ctx = bootstrapPrsloy({ userDataPath: userData, cipher, env: {}, platform: "linux" });
     ctx.search.setKey("brave", SECRET);
     ctx.search.setActive("brave");
-    expect(ctx.searchForHost()).toBeUndefined();
     const flags = join(resolvePrsloyAgentDir(userData, {}), "prsloy-harness.json");
+    // RC check (desktop/ui-rc): webTools is on without the file
+    expect(ctx.searchForHost()?.search).toEqual({ provider: "brave", key: SECRET });
     writeFileSync(flags, JSON.stringify({ webTools: true }));
     expect(ctx.searchForHost()?.search).toEqual({ provider: "brave", key: SECRET });
     // the real path: hostEnv → splitHostHandoff → the prsloy.handoff message; the spawn env has no key

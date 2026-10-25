@@ -1,6 +1,6 @@
 --- a/tools/_common.py
 +++ b/tools/_common.py
-@@ -40,10 +40,23 @@
+@@ -40,10 +40,23 @@ def verdict_from_exit(code):
      return {0: PASS, 1: FAIL, 2: CONCERNS}.get(code, FAIL)
  
  
@@ -25,7 +25,7 @@
      out = [e.strip() for e in value.split(",") if e.strip()]
      for e in out:
          if e not in ("chromium", "webkit"):
-@@ -134,6 +147,32 @@
+@@ -134,6 +147,32 @@ def norm_words(s):
      return re.sub(r"\s+", " ", re.sub(r"[^\w]+", " ", s)).strip()
  
  
@@ -60,7 +60,7 @@
      import re
 --- a/tools/compare_sheet.py
 +++ b/tools/compare_sheet.py
-@@ -86,7 +86,7 @@
+@@ -86,7 +86,7 @@ def main():
      blocks, meta = [], []
      try:
          with sync_playwright() as p:
@@ -71,7 +71,7 @@
                      extra = {}
 --- a/tools/flow.py
 +++ b/tools/flow.py
-@@ -476,10 +476,26 @@
+@@ -476,10 +476,26 @@ def channel_messages(path, voice_dir=None):
  
  def born(path):
      """When the artifact first appeared on disk: creation time where the OS keeps it, else mtime."""
@@ -100,7 +100,7 @@
      return dt.datetime.fromtimestamp(t, dt.timezone.utc)
  
  
-@@ -550,7 +566,8 @@
+@@ -550,7 +566,8 @@ class Owner:
  ANSWERS_TO = {"в1": "00-intake.md", "в2": "00-intake.md", "в3": "00-intake.md", "0s": "00-intake.md",
                "1": "01-candidates.png",
                "2": "02-directions.png", "2a": "MESSAGE.md", "3": "03-references.md", "5s": "05-storyboard.png",
@@ -110,7 +110,7 @@
  
  
  def gate_key(gid):
-@@ -588,6 +605,11 @@
+@@ -588,6 +605,11 @@ class Page:
                             voice_dir=self.root / voice if meaningful(voice) and not is_none(voice) else None)
          self.unverified = []
          update_baseline(self)
@@ -122,7 +122,7 @@
  
      def f(self, name):
          return self.fields.get(name, "")
-@@ -769,16 +791,25 @@
+@@ -769,16 +791,25 @@ def g1(p):
          if sheet_ok(p, p.path("01-candidates.png"), 3, "три кандидата в эталоны", pr):
              p.choice("1", pr, "какой эталон берём")
          if pr:
@@ -152,7 +152,7 @@
      rows = [r for rows in wow for r in rows if any(re.search(r"берём|берем|нет", c, re.I) for c in r)]
      if len(rows) < 3:
          pr.append(f"в таблице «что даёт вау» строк с решением «берём/нет» {len(rows)}, нужно ≥ 3")
-@@ -1047,7 +1078,8 @@
+@@ -1047,7 +1078,8 @@ def g7(p):
          miss = {360, 390, 1440} - set(v.get("viewports", []))
          if miss:
              pr.append(f"гейт без ширин {sorted(miss)}")
@@ -162,7 +162,7 @@
              pr.append("гейт не в обоих движках (Chromium и WebKit)")
      else:
          pr.append("нет artifacts/visual-gate/report.json")
-@@ -1068,19 +1100,31 @@
+@@ -1068,19 +1100,31 @@ def g7(p):
      if not j.exists():
          return ["нет отчёта судьи artifacts/judge/JUDGE.md"], hint
      jt = read(j)
@@ -197,7 +197,7 @@
          pr.append(f"у судьи открыто Blocker/Critical: {len(open_bad)}")
      no_where = [r for r, where in rows if not WHERE.search(where or "")]
      if no_where:
-@@ -1116,7 +1160,7 @@
+@@ -1116,7 +1160,7 @@ def g7(p):
              pr.append(f"нет ни в одном ответе судьи-подагента: засчитывается только вызов Agent, в промпте которого "
                        f"есть строка «{JUDGE_MARK}» и пути снимков, и его собственный ответ. Свой текст, Write, вывод "
                        "команды не годятся")
@@ -206,7 +206,7 @@
          pr.append("ответ судьи-подагента старше последней правки кода (или без времени): новый раунд по свежим снимкам")
      return pr, hint
  
-@@ -1201,7 +1245,7 @@
+@@ -1201,7 +1245,7 @@ def init_page(page_dir):
      return made
  
  
@@ -217,7 +217,7 @@
  MATERIALS = re.compile(r"^\s*[-*]?\s*(пришлите|пришлёте|пришлете|скиньте|отправьте|если есть)\b", re.I)
 --- a/tools/motion_probe.py
 +++ b/tools/motion_probe.py
-@@ -96,7 +96,8 @@
+@@ -96,7 +96,8 @@ def run(url, trigger, selector, out, viewport):
      report = {"url": url, "trigger": trigger, "selector": selector, "viewport": viewport,
                "thresholds": THRESHOLDS, "checks": [], "shots": []}
      with sync_playwright() as p:
@@ -229,7 +229,7 @@
          ctx = b.new_context(viewport=viewport, device_scale_factor=1)
 --- a/tools/page_judge.py
 +++ b/tools/page_judge.py
-@@ -138,7 +138,7 @@
+@@ -138,7 +138,7 @@ class Api:
  
  class Browser:
      def __init__(self, p, url):
@@ -249,7 +249,7 @@
  Источник: --url (рендер в браузере, видимый текст + alt/aria-label/placeholder/title)
  или --file (.html открывается в браузере; другие файлы — построчно).
  Выход: 1 есть FAIL, 2 только CONCERNS, 0 чисто.
-@@ -100,6 +102,7 @@
+@@ -100,6 +102,7 @@ UNIT_STEMS = ("руб", "мин", "час", "сек", "мес", "лет", "го
                "мил", "кил", "лит", "мет", "сан", "про", "шту", "раз", "гра", "пор", "сут")
  FAIL_RULES = {"DASH", "PLACEHOLDER", "NOT_BUT", "TRIAD", "HYPE", "EXCLAIM", "REPEAT", "JARGON", "FACT_PLAN"}
  STYLE_RULES = {"NOT_BUT", "TRIAD", "HYPE", "EXCLAIM"}          # owner's own words are exempt from these
@@ -257,7 +257,7 @@
  RU_NAMES = {"DASH": "длинное тире", "PLACEHOLDER": "заглушка/TODO", "COUNTER": "счётчик-украшение",
              "REPEAT": "повтор подписи", "ENGLISH": "английская заглушка", "MORE_SPAM": "спам «Подробнее»",
              "EMOJI": "эмодзи-иконка", "NOT_BUT": "«не X, а Y» больше одного раза", "TRIAD": "тройка через запятую",
-@@ -149,6 +152,16 @@
+@@ -149,6 +152,16 @@ def _stems(s):
      return {w[:6] for w in C.norm_words(s).split() if len(w) >= 4}
  
  
@@ -274,7 +274,7 @@
  def match_promise(text, promises):
      """The «план» promise this text repeats, or None. Substring or ≥ 70 % of the promise's word stems."""
      nt = C.norm_words(text)
-@@ -184,15 +197,16 @@
+@@ -184,15 +197,16 @@ def number_clashes(items):
      return out
  
  
@@ -293,7 +293,7 @@
      seen = defaultdict(list)
      more, not_but = [], []
  
-@@ -203,6 +217,13 @@
+@@ -203,6 +217,13 @@ def lint(items, lang="", beginner=False, plan_promises=(), source_text="", block
              f.update(extra)
          findings.append(f)
  
@@ -307,7 +307,7 @@
      for it in items:
          t = it["text"]
          if it["kind"] == "comment":          # only TODO-like markers matter in comments
-@@ -210,20 +231,20 @@
+@@ -210,20 +231,20 @@ def lint(items, lang="", beginner=False, plan_promises=(), source_text="", block
              if m:
                  add("PLACEHOLDER", it, m, {"where": "HTML-комментарий"})
              continue
@@ -332,7 +332,7 @@
              if m and not PLACEHOLDER.search(t):
                  add("ENGLISH", it, m)
          if MORE_RE.match(t):
-@@ -236,22 +257,25 @@
+@@ -236,22 +257,25 @@ def lint(items, lang="", beginner=False, plan_promises=(), source_text="", block
          t = it["text"]
          owner_words = bool(src_norm) and C.norm_words(t) in src_norm and len(C.norm_words(t)) > 0
          if beginner:
@@ -365,7 +365,7 @@
              if tr:
                  add("TRIAD", it, None, {"triad": tr})
      if len(not_but) > 1:
-@@ -274,7 +298,7 @@
+@@ -274,7 +298,7 @@ def lint(items, lang="", beginner=False, plan_promises=(), source_text="", block
  def collect_url(url, engine, timeout):
      from playwright.sync_api import sync_playwright
      with sync_playwright() as p:
@@ -374,7 +374,7 @@
          pg = b.new_page(viewport={"width": 1440, "height": 900})
          try:
              C.goto(pg, url, timeout, 600)
-@@ -326,12 +350,16 @@
+@@ -326,12 +350,16 @@ def main():
      except Exception as e:
          print(f"slop_lint: не удалось прочитать {target}: {str(e)[:300]}\n{C.VPN_HINT}")
          return 1
@@ -395,7 +395,7 @@
          extra = f" (план: «{f['promise'][:50]}»)" if "promise" in f else ""
 --- a/tools/storyboard.py
 +++ b/tools/storyboard.py
-@@ -93,7 +93,7 @@
+@@ -93,7 +93,7 @@ def main():
                "action": args.action, "mode": "realtime" if args.realtime else "deterministic",
                "at": ts, "generatedAt": C.now_iso(), "frames": []}
      with sync_playwright() as p:
@@ -417,7 +417,7 @@
  Выход: 1 — пропало хотя бы одно предложение; 2 — есть лишние слова сверх
  допуска (--allow, --max-extra); 0 — совпало.
  """
-@@ -56,13 +60,46 @@
+@@ -56,13 +60,46 @@ def find_run(hay, needle):
      return [i for i in range(len(hay) - n + 1) if hay[i] == first and hay[i:i + n] == needle]
  
  
@@ -468,7 +468,7 @@
          hits = find_run(page, sw)
          if hits:
              found += 1
-@@ -85,6 +122,11 @@
+@@ -85,6 +122,11 @@ def compare(page_text, source_text, allow=(), max_extra=0):
                      covered[i] = True
          missing.append({"sentence": s, "coverage": round(present / max(1, len(sw)), 2),
                          "missingWords": lost[:40]})
@@ -480,7 +480,7 @@
      allow_set = {w for a in allow for w in words(a)}
      extra_runs, cur = [], []
      for i, wd in enumerate(page):
-@@ -115,7 +157,7 @@
+@@ -115,7 +157,7 @@ def compare(page_text, source_text, allow=(), max_extra=0):
  def page_text(url, selector, engine, timeout):
      from playwright.sync_api import sync_playwright
      with sync_playwright() as p:
@@ -489,7 +489,7 @@
          pg = b.new_page(viewport={"width": 1440, "height": 900})
          try:
              C.goto(pg, url, timeout, 600)
-@@ -159,13 +201,16 @@
+@@ -159,13 +201,16 @@ def main():
          except Exception as e:
              print(f"text_diff: страница не открылась: {str(e)[:300]}\n{C.VPN_HINT}")
              return 1
@@ -510,7 +510,19 @@
      for m in res["missing"]:
 --- a/tools/visual_gate.py
 +++ b/tools/visual_gate.py
-@@ -608,7 +608,7 @@
+@@ -429,7 +429,10 @@ def check_one(browser, engine, url, vw, args, axe_src, outdir):
+             ry = page.evaluate("() => Math.round(scrollY)")
+             measured.append(ry)
+             if idx in in_sheet:
+-                frames.append((ry, Image.open(io.BytesIO(page.screenshot(type="png"))).convert("RGB")))
++                # settled frames only (research/28 §4.4): CSS/Web animations jumped to their end state for the
++                # shot, so the judge never reads "pale text" off a mid-fade frame; the probes below still see motion
++                shot = page.screenshot(type="png", animations="disabled", caret="hide")
++                frames.append((ry, Image.open(io.BytesIO(shot)).convert("RGB")))
+             phase[0] = f"замер y={ry}"
+             t0 = page.evaluate("() => performance.now()")
+             if not page.evaluate("() => typeof window.__dpPath === 'function'"):   # SPA re-render safety
+@@ -608,7 +611,7 @@ def main():
      with sync_playwright() as p:
          for eng in engines:
              try:

@@ -4,7 +4,7 @@
  */
 import type { PrsloyGatewayErrorCode, PrsloyState } from "@zeno/contracts";
 import type { Locale, MessageKey } from "./i18n.ts";
-import { SEARCH_READY } from "../../shared/search-ready.ts";
+import { FIRST_RUN_SEARCH_STEP } from "../../shared/search-ready.ts";
 
 export type FirstRunStep = "loading" | "key" | "import" | "search" | "folder" | "done";
 
@@ -27,15 +27,14 @@ export const FIRST_RUN_SEEN_KEYS = {
 export function firstRunStep(
   state: PrsloyState | undefined,
   seen: FirstRunSeen = {},
-  searchReady: boolean = SEARCH_READY,
+  searchStep: boolean = FIRST_RUN_SEARCH_STEP,
 ): FirstRunStep {
   if (!state) return "loading";
   if (state.firstRunBypass) return "done";
   if (!state.hasKey) return "key";
   if (!state.needsWorkspace) return "done";
   if (!seen.import) return "import";
-  // #23: the search step waits for SEARCH_READY (review fixes and the bench measurement).
-  if (searchReady && !seen.search) return "search";
+  if (searchStep && !seen.search) return "search";
   return "folder";
 }
 
