@@ -67,6 +67,12 @@ export const designRu: Record<keyof typeof designZh, string> = {
   "design.edit.cancel": "Отменить",
   "design.edit.keep": "Оставить",
   "design.edit.revert": "Вернуть как было",
+  "design.edit.textHint":
+    "Текст можно поправить прямо на странице: двойной щелчок, набрать, Enter.",
+  "design.edit.textSaved": "Текст поменян.",
+  "design.edit.refused.nested": "Здесь не просто текст — опишите правку словами.",
+  "design.edit.refused.move": "Этот текст двигает анимация — опишите правку словами.",
+  "design.edit.refused.unmarked": "Этот текст создаёт скрипт страницы — опишите правку словами.",
   "design.tweak": "Настроить",
   "design.tweak.save": "Сохранить",
   "design.tweak.cancel": "Отменить",

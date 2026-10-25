@@ -34,6 +34,13 @@
   [OpenCoworkAI/open-codesign](https://github.com/OpenCoworkAI/open-codesign) (коммит `4cf3393`,
   `packages/runtime/src/tweaks-bridge.ts`, `apps/desktop/src/renderer/src/preview/tweak-persistence.ts`). MIT License,
   Copyright (c) OpenCoworkAI. Код не копировался: у нас статический HTML, значения подставляет сервер превью.
+- `apps/desktop/src/main/design/text-overlay.js` — «Править», текст двойным щелчком: по идее
+  [dyad-sh/dyad](https://github.com/dyad-sh/dyad) `worker/dyad-visual-editor-client.js` (contentEditable, текст уходит
+  в приложение при выходе из поля). Apache License 2.0, авторы dyad-sh/dyad. Код не копировался; запись в
+  исходник у Dyad (`src/pro/`, FSL) не смотрели и не брали.
+- `apps/desktop/src/main/design/text-edit.ts` — запись этого текста в файл страницы по правилам `SOURCE_EDITING.md`
+  из [OpenCoworkAI/open-codesign](https://github.com/OpenCoworkAI/open-codesign) (MIT, Copyright (c) OpenCoworkAI):
+  место — только точное (позиции parse5), иначе отказ с причиной. Код не копировался.
 - `../playbooks/site/harness/brand_probe.py` — бренд по адресу сайта: по мотивам
   [dembrandt](https://github.com/dembrandt/dembrandt) (MIT, v0.39.2, вычисленные стили живой страницы) и методики
   `skills/brand-extract/SKILL.md` OpenDesign (Apache-2.0: «каждое значение — замер»). Код не копировался.

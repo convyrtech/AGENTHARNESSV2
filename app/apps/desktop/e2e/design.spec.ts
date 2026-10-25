@@ -484,6 +484,34 @@ test("owner leads a landing page from request to preview", async () => {
     expect(readFileSync(pageFile, "utf8")).toContain("font-size:64px");
     await expect(preview.locator("[data-pl]")).toHaveCount(0);
 
+    // text without a model: a double click, type, Enter — written where the page says it is
+    await page.getByTestId("design-edit-open").click();
+    await expect(preview.locator("h1[data-pl]")).toHaveCount(1);
+    // while picking, a double click is a pick (its first click), not a text edit
+    await preview.locator("h1").dblclick();
+    await expect(page.getByTestId("design-edit-place-1")).toHaveText("«Зерно»");
+    await expect(preview.locator("[contenteditable]")).toHaveCount(0);
+    const line = preview.locator("p", { hasText: "Обжариваем" });
+    await line.dblclick();
+    await expect(line).toHaveAttribute("contenteditable", "plaintext-only");
+    await page.keyboard.type("Обжариваем сами, с рассветом.");
+    await page.keyboard.press("Enter");
+    await expect(page.getByTestId("design-edit-note")).toHaveText("Текст поменян.");
+    expect(readFileSync(pageFile, "utf8")).toContain("<p>Обжариваем сами, с рассветом.</p>");
+    expect(
+      readFileSync(join(documents, "PRSLOY", "prsloy-design", "owner", "text-edits.jsonl"), "utf8"),
+    ).toContain('"after":"Обжариваем сами, с рассветом."');
+    await expect(preview.locator("p", { hasText: "с рассветом" })).toHaveCount(1);
+    // a number the animation redraws: refused, the file stays
+    await preview.locator("p.c").dblclick();
+    await expect(page.getByTestId("design-edit-note")).toHaveText(
+      "Этот текст двигает анимация — опишите правку словами.",
+    );
+    await shot(page, "edit-text");
+    await page.getByTestId("design-edit-cancel").click();
+    await expect(page.getByTestId("design-edit")).toHaveCount(0);
+    expect(readFileSync(pageFile, "utf8")).toContain("data-move=count>180 ₽</p>");
+
     // the stream survives leaving and reopening the tab
     await page.getByTestId("nav-settings").click();
     await page.getByTestId("settings-back").click();

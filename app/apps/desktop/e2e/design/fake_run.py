@@ -108,7 +108,7 @@ def say(a):
             "padding:12px 20px;display:inline-block}</style></head>"
             "<body><main style='padding:64px 48px'><p class=k>КОФЕЙНЯ</p>"
             "<h1 style='font-size:64px;margin:.2em 0'>Зерно</h1><p>Обжариваем сами, каждое утро.</p>"
-            "<p class=c>180 ₽</p></main>",
+            "<p class=c data-move=count>180 ₽</p></main>",
             encoding="utf-8")
         for ev in ({"ev": "stage", "gate": "5", "title": "Страница", "model": "a6p/kimi-k3.1-pro", "attempt": 1},
                    {"ev": "tool", "name": "write", "brief": f"site/{st['page']}/index.html"},

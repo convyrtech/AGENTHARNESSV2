@@ -1,6 +1,6 @@
 import type { PreviewPick } from "@zeno/contracts";
 import { describe, expect, it } from "vite-plus/test";
-import { addPin, MAX_EDIT_PINS, pinsToSend } from "./design-edit.ts";
+import { addPin, MAX_EDIT_PINS, parseTextMessage, pinsToSend } from "./design-edit.ts";
 
 const pick = (selector: string, extra: Partial<PreviewPick> = {}): PreviewPick => ({
   selector,
@@ -60,5 +60,52 @@ describe("pinsToSend", () => {
         width: 390,
       },
     ]);
+  });
+});
+
+describe("parseTextMessage", () => {
+  const msg = (extra: object) => ({ source: "prsloy-design-text", ...extra });
+  it("takes the text script's two messages, clamped", () => {
+    expect(
+      parseTextMessage(
+        msg({
+          type: "text-edit",
+          file: "landing/index.html",
+          line: 3,
+          col: 5,
+          before: "a",
+          after: "b",
+        }),
+      ),
+    ).toEqual({
+      type: "text-edit",
+      file: "landing/index.html",
+      line: 3,
+      col: 5,
+      before: "a",
+      after: "b",
+    });
+    expect(
+      (
+        parseTextMessage(
+          msg({ type: "text-edit", file: "x", line: 1, col: 1, after: "y".repeat(9000) }),
+        ) as {
+          after: string;
+        }
+      ).after,
+    ).toHaveLength(2001);
+    expect(parseTextMessage(msg({ type: "text-refused", reason: "move" }))).toEqual({
+      type: "text-refused",
+      reason: "move",
+    });
+  });
+
+  it("drops anything else", () => {
+    expect(parseTextMessage(msg({ type: "text-refused", reason: "other" }))).toBeUndefined();
+    expect(
+      parseTextMessage(msg({ type: "text-edit", file: "x", line: 0, col: 1 })),
+    ).toBeUndefined();
+    expect(parseTextMessage({ source: "prsloy-preview", type: "text-edit" })).toBeUndefined();
+    expect(parseTextMessage("x")).toBeUndefined();
   });
 });

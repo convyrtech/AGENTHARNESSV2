@@ -14,6 +14,7 @@ import { Textarea } from "../ui/textarea.tsx";
 export function EditPanel({
   pins,
   picking,
+  note,
   tr,
   onPick,
   onChange,
@@ -22,6 +23,8 @@ export function EditPanel({
 }: {
   pins: EditPin[];
   picking: boolean;
+  /** What became of the last text retyped on the page. */
+  note?: { ok: boolean; text: string };
   tr: (key: MessageKey) => string;
   onPick: () => void;
   onChange: (pins: EditPin[]) => void;
@@ -85,6 +88,16 @@ export function EditPanel({
           ))}
         </ol>
       )}
+      <p className="text-xs text-muted-foreground">{tr("design.edit.textHint")}</p>
+      {note ? (
+        <p
+          className={note.ok ? "text-sm text-muted-foreground" : "text-sm text-destructive"}
+          role={note.ok ? "status" : "alert"}
+          data-testid="design-edit-note"
+        >
+          {note.text}
+        </p>
+      ) : null}
       {error ? (
         <p className="text-sm text-destructive" role="alert" data-testid="design-edit-error">
           {error}

@@ -116,6 +116,17 @@ export type DesignEditPin = {
   width: number;
 };
 
+/** «Править», text retyped on the page (no model): the element's place as the preview marked it. */
+export type DesignTextEdit = {
+  /** Served file relative to `site/`, 1-based line and column of the element's start tag. */
+  file: string;
+  line: number;
+  col: number;
+  /** The text the owner saw, and the new one. */
+  before: string;
+  after: string;
+};
+
 export interface DesignApi {
   status(projectPath: string | undefined): Promise<DesignStatus>;
   /** Install Python tools once; progress arrives through onSetup. */
@@ -140,6 +151,8 @@ export interface DesignApi {
   preview(projectPath: string | undefined, edit?: boolean): Promise<{ url: string } | null>;
   /** «Применить»: the pinned places and the owner's words → one harness edit turn (onEvent). */
   edit(projectPath: string | undefined, pins: DesignEditPin[]): Promise<void>;
+  /** Text retyped in place: written into the page's file when the place is certain, else a one-line refusal. */
+  editText(projectPath: string | undefined, edit: DesignTextEdit): Promise<DesignTokenResult>;
   openFolder(projectPath: string | undefined): Promise<void>;
   /** The built page in the system browser (main opens only its own loopback preview address). */
   openInBrowser(projectPath: string | undefined): Promise<void>;

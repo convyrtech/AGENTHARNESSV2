@@ -64,6 +64,8 @@ import {
 } from "./paths.ts";
 import { PREVIEW_BRIDGE_SCRIPT } from "../preview-bridge/index.ts";
 import { editPayload, editPins, editSummary } from "./edit-pins.ts";
+import { applyTextEdit, type TextEdit, textEditArg } from "./text-edit.ts";
+import textOverlay from "./text-overlay.js?raw";
 import { findEntry, type PreviewServer, startPreviewServer } from "./preview-server.ts";
 import { importPipeline } from "./pipeline-import.ts";
 import { killTree, killTreeNow, treeSpawnOptions } from "./proc.ts";
@@ -660,6 +662,23 @@ export class DesignService {
     await this.say(projectPath, editSummary(pins), [], false, pins);
   }
 
+  /** Text retyped on the page («Править», no model); a note for the harness's text checks. */
+  editText(projectPath: string | undefined, edit: TextEdit | undefined): TokenCheck {
+    const ws = this.workspace(projectPath);
+    if (!edit) return { ok: false, error: "Не понял, какой это текст" };
+    if (this.#runs.has(ws)) return { ok: false, error: "Уже работаю над прошлым сообщением" };
+    const result = applyTextEdit(join(ws, "site"), edit);
+    if (result.ok) {
+      // the owner's own words now: run.py's text checks read them from here
+      mkdirSync(join(ws, "owner"), { recursive: true });
+      appendFileSync(
+        join(ws, "owner", "text-edits.jsonl"),
+        `${JSON.stringify({ t: Date.now() / 1000, file: `site/${edit.file}`, before: edit.before.trim(), after: edit.after.trim() })}\n`,
+      );
+    }
+    return result;
+  }
+
   cancel(projectPath: string | undefined): void {
     const run = this.#runs.get(this.workspace(projectPath));
     if (!run) return;
@@ -690,7 +709,9 @@ export class DesignService {
     let server = servers.get(ws);
     if (!server) {
       server = await startPreviewServer(site, {
-        extraHead: () => overrideStyle(this.#tweaks.get(ws) ?? {}),
+        extraHead: () =>
+          overrideStyle(this.#tweaks.get(ws) ?? {}) +
+          (edit ? `<script>${textOverlay}</script>` : ""),
         // the inspector only while the owner edits: the plain preview stays the page as built
         ...(edit ? { inject: PREVIEW_BRIDGE_SCRIPT, tagSource: true } : {}),
       });
@@ -873,6 +894,10 @@ export function registerDesignIpc(deps: DesignServiceDeps): DesignService {
   ipcMain.handle(
     "prsloy:design:preview",
     guard((p: unknown, edit: unknown) => svc.preview(projectArg(p), edit === true)),
+  );
+  ipcMain.handle(
+    "prsloy:design:edit-text",
+    guard((p: unknown, edit: unknown) => svc.editText(projectArg(p), textEditArg(edit))),
   );
   ipcMain.handle(
     "prsloy:design:edit",

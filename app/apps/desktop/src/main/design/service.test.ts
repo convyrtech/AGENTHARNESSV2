@@ -141,6 +141,7 @@ describe.skipIf(!python3 || process.platform === "win32")("design IPC", () => {
       [
         "cancel",
         "edit",
+        "edit-text",
         "export-zip",
         "import-tools",
         "open-folder",

@@ -25,7 +25,13 @@ import {
   X,
 } from "lucide-react";
 import { ImagePreviewDialog } from "../ContentPreviewDialog.tsx";
-import { addPin, type EditPin, pinsToSend } from "../../lib/design-edit.ts";
+import {
+  addPin,
+  type EditPin,
+  parseTextMessage,
+  pinsToSend,
+  type TextRefusal,
+} from "../../lib/design-edit.ts";
 import { EditPanel } from "./EditPanel.tsx";
 import { TokenPanel } from "./TokenPanel.tsx";
 import { type PreviewDevice, PreviewDeviceSwitch, PreviewStage } from "../PreviewFrame.tsx";
@@ -758,7 +764,47 @@ function DoneCard({
       alive = false;
     };
   }, [api, projectPath, editing, editUrl]);
+  // text retyped on the page: main writes it only where the place is certain; the page reloads either way
+  const stageRef = useRef<HTMLDivElement>(null);
+  const [textNote, setTextNote] = useState<{ ok: boolean; text: string }>();
+  useEffect(() => {
+    if (!editing) return;
+    const refused: Record<TextRefusal, MessageKey> = {
+      nested: "design.edit.refused.nested",
+      move: "design.edit.refused.move",
+      unmarked: "design.edit.refused.unmarked",
+    };
+    const listener = (event: MessageEvent) => {
+      const frame = stageRef.current?.querySelector("iframe")?.contentWindow;
+      // the design preview is a scripts-only sandbox: its messages come from the opaque "null" origin
+      if (!frame || event.source !== frame || event.origin !== "null") return;
+      const message = parseTextMessage(event.data);
+      if (!message) return;
+      if (message.type === "text-refused") {
+        setTextNote({ ok: false, text: tr(refused[message.reason]) });
+        return;
+      }
+      const { type: _type, ...edit } = message;
+      void api
+        .editText(projectPath, edit)
+        .then((r) =>
+          setTextNote(
+            r.ok ? { ok: true, text: tr("design.edit.textSaved") } : { ok: false, text: r.error },
+          ),
+        )
+        .catch((e: unknown) =>
+          setTextNote({
+            ok: false,
+            text: unwrapRemoteIpcError(e instanceof Error ? e.message : String(e)),
+          }),
+        )
+        .finally(() => setShown((n) => n + 1));
+    };
+    window.addEventListener("message", listener);
+    return () => window.removeEventListener("message", listener);
+  }, [api, projectPath, editing, tr]);
   const startEdit = (on: boolean) => {
+    setTextNote(undefined);
     setEditing(on);
     setPicking(on);
     setPins([]);
@@ -880,6 +926,7 @@ function DoneCard({
         <EditPanel
           pins={pins}
           picking={picking}
+          {...(textNote ? { note: textNote } : {})}
           tr={tr}
           onPick={() => setPicking(true)}
           onChange={setPins}
@@ -890,7 +937,7 @@ function DoneCard({
           onCancel={() => startEdit(false)}
         />
       ) : null}
-      {frame}
+      <div ref={stageRef}>{frame}</div>
     </div>
   );
 }
