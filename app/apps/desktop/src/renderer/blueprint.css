@@ -353,3 +353,36 @@ input[type="range"]:active::-webkit-slider-thumb {
   flex-shrink: 0;
   width: 28px;
 }
+
+/* ── Every control at least 24×24 CSS px (WCAG 2.5.8; layout-lint target-size) ── */
+
+.settings-search-input,
+.settings-section-label-help,
+.prsloy-first-run-link,
+.model-failure-toggle,
+[data-testid="brand-menu"] {
+  min-height: 24px;
+}
+.settings-section-label-help {
+  min-width: 24px;
+  justify-content: center;
+}
+.prsloy-first-run-link {
+  display: inline-flex;
+  align-items: center;
+}
+/* the section title fills its 32 px row instead of hugging its text */
+.sidebar-section-toggle {
+  align-self: stretch;
+}
+/* in a narrow composer the attach button kept shrinking to 16 px, the access chip too */
+[data-testid="composer-attach"] {
+  flex-shrink: 0;
+}
+[data-testid="composer-access"] {
+  min-width: 2rem;
+}
+.settings-page input[type="range"],
+.theme-skin-slider input[type="range"] {
+  height: 24px;
+}
