@@ -29,3 +29,6 @@
   название чата — первая просьба, чаты без проекта прямо в `sessions/`.
 - [parse5](https://github.com/inikulin/parse5) 8.0.1 — зависимость, собирается в main (разметка `data-pl` в превью
   «Кода»). MIT License, Copyright (c) 2013-2019 Ivan Nikulin and other parse5 contributors.
+- `../playbooks/site/harness/judge_questions.py` — приём «фиксированные вопросы да/нет с причиной, неотвеченный =
+  нет, статус из числа да» по [Open CoDesign](https://github.com/OpenCoworkAI/open-codesign)
+  `packages/core/src/tools/verify-ui-kit-visual-parity.ts`, MIT, © 2026 OpenCoworkAI Contributors. Вопросы и код свои.

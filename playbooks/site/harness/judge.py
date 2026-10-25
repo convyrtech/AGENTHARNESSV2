@@ -12,10 +12,13 @@
     «Где» у каждой находки, раздел «не проверила») и один раз просит поправить формат;
   - пишет ответ дословно в artifacts/judge/JUDGE.md и запись в формате переписки Claude Code (вызов Agent с меткой
     и путями снимков + его результат) в папку харнесса; её flow.py читает через FLOW_TRANSCRIPTS;
-  - считает раунды в той же папке; после --max-rounds отказывает (выход 3): дальше решает владелец.
+  - считает раунды в той же папке; после --max-rounds отказывает (выход 3): дальше решает владелец;
+  - после свободного разбора судья отвечает на 12 вопросов «да/нет» (judge_questions.py, research/20 §9); вердикт
+    считает код: PASS, если все «да» или одно «нет» уровня Minor и нет открытых Blocker/Critical. Раунд 2+
+    перепроверяет только прошлые «нет» и новых находок не ищет, кроме Blocker. --questions off — прежний судья (A/B).
 
   judge.py --page <ws>/design/<page> --transcripts <папка харнесса> [--pipeline <ws>/design-pipeline]
-           [--proxy http://127.0.0.1:8787] [--model claude-opus-5-5] [--max-rounds 3]
+           [--proxy http://127.0.0.1:8787] [--model claude-opus-5-5] [--max-rounds 3] [--questions on|off]
 Выход: 0 отчёт записан; 1 ошибка модели; 3 лимит раундов; 4 снимки старше кода (сначала gate.py).
 """
 import argparse, base64, datetime as dt, hashlib, io, json, re, sys, time, urllib.request, uuid
@@ -31,7 +34,10 @@ ap.add_argument("--proxy", default="http://127.0.0.1:8787")
 ap.add_argument("--model", default="claude-opus-5-5")
 ap.add_argument("--max-rounds", type=int, default=3)
 ap.add_argument("--max-images", type=int, default=6)
+ap.add_argument("--questions", choices=["on", "off"], default="on", help="вопросы «да/нет» и вердикт кодом")
 a = ap.parse_args()
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import judge_questions as Q  # noqa: E402
 
 page = Path(a.page).resolve()
 root = page.parent.parent if page.parent.name == "design" else page.parent
@@ -44,6 +50,10 @@ tdir.mkdir(parents=True, exist_ok=True)
 rounds_f = tdir / "judge-rounds.json"
 rounds = json.loads(rounds_f.read_text(encoding="utf-8")) if rounds_f.exists() else {}
 n = rounds.get(str(page), 0) + 1
+qa_f = tdir / "judge-questions.json"
+qa_all = json.loads(qa_f.read_text(encoding="utf-8")) if qa_f.exists() else {}
+qa_prev = qa_all.get(str(page)) if n > 1 else None
+asked = [q for q in Q.IDS if not (qa_prev or {}).get(q, {}).get("yes")] if a.questions == "on" else []
 if n > a.max_rounds:
     print(f"judge: лимит {a.max_rounds} раунда исчерпан. Покажи владельцу страницу и открытые находки одним "
           f"сообщением, решает он.")
@@ -94,7 +104,11 @@ prompt = (body + f"\n\nЭто раунд {n}. В ответе строка «Р�
           doc("02-brand.md") + doc("04-motion.md") + doc("MESSAGE.md"))
 if n > 1 and prev.exists():
     prompt += ("\n\n### Твой прошлый отчёт (колонку «Статус» правил исполнитель)\n" + prev.read_text(encoding="utf-8")[:12000] +
-               "\n\nПроверь по новым снимкам, что из прошлых находок исправлено на самом деле, и ищи новое.")
+               ("\n\nПроверь по новым снимкам, что из прошлых находок исправлено на самом деле. Новых находок не ищи, "
+                "кроме Blocker." if a.questions == "on" else
+                "\n\nПроверь по новым снимкам, что из прошлых находок исправлено на самом деле, и ищи новое."))
+if a.questions == "on":
+    prompt += Q.block_prompt(n, qa_prev)
 
 
 def img_part(path):
@@ -157,6 +171,10 @@ def problems(text):
         pr.append(f"в колонке «Где» у каждой находки селектор или регион (`main > h2`, «390, y=1200»); без него: «{bad[0][:60]}»")
     if not F.meaningful(F.section(text, r"не провер") or ""):
         pr.append("раздел «## Что я НЕ проверила» со строками «- …»")
+    if asked:
+        miss = Q.missing(Q.parse(text), asked)
+        if miss:
+            pr.append(f"раздел «{Q.HEADING}»: строка «Qn ДА|НЕТ — причина» внутри ``` для {', '.join(miss)}")
     return pr
 
 
@@ -182,6 +200,16 @@ for attempt in range(3):
 if not answer:
     print(f"judge: модель не ответила ({err})")
     sys.exit(1)
+model_verdict = re.search(r"(?m)^\s*JUDGE-VERDICT\s*:\s*(\w+)", answer)
+model_verdict = model_verdict.group(1) if model_verdict else None
+qa, no = None, []
+if a.questions == "on":
+    # вердикт — кодом: прошлые «да» остаются, неотвеченное — «нет», открытые Blocker/Critical держат FAIL
+    qa = Q.merge(qa_prev, Q.parse(answer), n)
+    rows, _ = F.judge_lines(answer)
+    blockers = sum(1 for r, _w in rows if re.match(r"\s*\**\s*(blocker|critical)", r, re.I))
+    final, no = Q.verdict(qa, blockers)
+    answer = Q.apply(answer, qa, final)
 
 now = dt.datetime.now(dt.timezone.utc)
 iso = now.strftime("%Y-%m-%dT%H:%M:%S.") + f"{now.microsecond // 1000:03d}Z"
@@ -204,6 +232,9 @@ with open(tf, "a", encoding="utf-8") as f:
         f.write(json.dumps(r, ensure_ascii=False) + "\n")
 rounds[str(page)] = n
 rounds_f.write_text(json.dumps(rounds, ensure_ascii=False, indent=1), encoding="utf-8")
+if qa is not None:
+    qa_all[str(page)] = qa
+    qa_f.write_text(json.dumps(qa_all, ensure_ascii=False, indent=1), encoding="utf-8")
 # отпечаток переписки: харнесс сверяет его перед каждым запуском flow, правку руками видно
 (tdir / "judge.sha256").write_text(hashlib.sha256(tf.read_bytes()).hexdigest(), encoding="utf-8")
 verdict = re.search(r"(?m)^\s*JUDGE-VERDICT\s*:\s*(\w+)", answer)
@@ -212,7 +243,10 @@ sev = {}
 for r, _w in rows:
     k = (r.split() or ["?"])[0].strip("*").capitalize()
     sev[k] = sev.get(k, 0) + 1
-print(json.dumps({"round": n, "verdict": verdict.group(1) if verdict else None, "findings": sev,
+print(json.dumps({"round": n, "verdict": verdict.group(1) if verdict else None, "model_verdict": model_verdict,
+                  "yes": None if qa is None else sum(1 for q in Q.IDS if qa[q]["yes"]), "no": no,
+                  "asked": asked, "cost": (usage.get("cost") or {}).get("total") if isinstance(usage.get("cost"), dict)
+                  else usage.get("cost"), "findings": sev,
                   "images": [s.name for s in shots], "seconds": round(time.time() - t0),
                   "prompt_tokens": usage.get("prompt_tokens"), "completion_tokens": usage.get("completion_tokens"),
                   "format_problems": problems(answer)}, ensure_ascii=False))
