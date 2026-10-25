@@ -9,10 +9,19 @@ import { join } from "node:path";
 import type { DesignSetupProgress } from "@zeno/contracts";
 import { venvPython } from "./env.ts";
 
-/** Pinned to the versions the pipeline was verified with; bump together. */
-export const DESIGN_PACKAGES = ["pillow==13.0.0", "numpy==2.5.4", "playwright==1.63.0"] as const;
-/** win_amd64 cp312 wheels: playwright ≈ 39 MB (ships its driver), numpy ≈ 13, pillow ≈ 7, deps ≈ 1. */
-export const DESIGN_SETUP_MB = 60;
+/**
+ * Pinned to the versions the pipeline was verified with; bump together with design-lock.json.
+ * fonttools: flow.py's brand gate runs font_check.py, which imports it (the pipeline's
+ * requirements.txt lists it as test-only).
+ */
+export const DESIGN_PACKAGES = [
+  "pillow==13.0.0",
+  "numpy==2.5.4",
+  "playwright==1.63.0",
+  "fonttools==4.67.0",
+] as const;
+/** win_amd64 cp312 wheels: playwright ≈ 39 MB (ships its driver), numpy ≈ 13, pillow ≈ 7, fonttools ≈ 2, deps ≈ 1. */
+export const DESIGN_SETUP_MB = 62;
 const STAMP = "tools.json";
 
 export type ToolsStamp = { packages: string[]; python: string };
