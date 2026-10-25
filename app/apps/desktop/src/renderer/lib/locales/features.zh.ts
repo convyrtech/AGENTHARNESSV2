@@ -223,6 +223,12 @@ export const featuresZh = {
   "features.web.modelsUp": "把 {name} 上移",
   "features.web.modelsRemove": "移除 {name}",
   "features.web.modelsHint": "按顺序尝试。不是每个模型都有内置搜索——「检查」会告诉你。",
+  "features.web.firstRun.title": "让助手上网搜索吗？",
+  "features.web.firstRun.note":
+    "需要最新信息时（新版本、文档、新闻），助手会在网上查找。默认用免费搜索，不需要密钥。",
+  "features.web.firstRun.on": "打开搜索",
+  "features.web.firstRun.skip": "以后再说",
+  "features.web.firstRun.later": "之后可以在「设置 → 搜索网络」里更改，也可以添加别的搜索的密钥。",
   "features.web.limit.title": "{name}：{reason}",
   "features.web.limit.hint": "助手已经改用别的搜索继续。添加密钥，或选择别的搜索。",
   "features.web.limit.choose": "选择别的搜索",

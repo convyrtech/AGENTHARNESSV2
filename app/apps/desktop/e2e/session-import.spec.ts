@@ -9,6 +9,7 @@
  * IMPORT_SHOTS=1 saves docs/prsloy/screens/first-run-import-<mode>.png.
  */
 import { AxeBuilder } from "@axe-core/playwright";
+import { shot } from "./features-helpers.ts";
 import { expect, test, type Page } from "@playwright/test";
 import { _electron as electron } from "playwright";
 import { createServer, type Server } from "node:http";
@@ -180,6 +181,8 @@ test("first run brings Claude Code and Codex chats over and continues one", asyn
       timeout: 60_000,
     });
     await page.getByTestId("prsloy-import-next").click();
+    // the search step (#23) comes next; «Не сейчас»
+    await page.getByTestId("first-run-search-skip").click();
 
     // the imported project is offered first on the folder step
     await expect(page.getByTestId("prsloy-first-run-folder")).toBeVisible({ timeout: 60_000 });
@@ -221,11 +224,16 @@ test("first run brings Claude Code and Codex chats over and continues one", asyn
   }
 });
 
-test("no other agents: the first run goes straight from the key to the folder", async () => {
+test("no other agents: the first run skips the import step, asks about search, then the folder", async () => {
   test.setTimeout(180_000);
   const launched = await launch(false);
   try {
     await passKey(launched.page);
+    // #23: «Разрешить агенту искать в интернете?» — «Включить поиск»
+    const search = launched.page.getByTestId("prsloy-first-run-search");
+    await expect(search).toContainText("Разрешить агенту искать в интернете?", { timeout: 60_000 });
+    await shot(launched.page, "web-search-7-first-run");
+    await search.getByTestId("first-run-search-on").click();
     await expect(launched.page.getByTestId("prsloy-first-run-folder")).toBeVisible({
       timeout: 60_000,
     });

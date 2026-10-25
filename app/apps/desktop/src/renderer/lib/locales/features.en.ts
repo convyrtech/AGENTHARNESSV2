@@ -234,6 +234,13 @@ export const featuresEn: Record<keyof typeof featuresZh, string> = {
   "features.web.modelsRemove": "Remove {name}",
   "features.web.modelsHint":
     "Tried in order. Not every model has built-in search — «Check» will tell.",
+  "features.web.firstRun.title": "Let the agent search the web?",
+  "features.web.firstRun.note":
+    "When it needs fresh facts — new versions, docs, news — the agent looks them up. The free search is used by default; no key needed.",
+  "features.web.firstRun.on": "Turn search on",
+  "features.web.firstRun.skip": "Not now",
+  "features.web.firstRun.later":
+    "You can change this later in Settings → «Web search» and add keys for other searches there.",
   "features.web.limit.title": "{name}: {reason}",
   "features.web.limit.hint":
     "The agent went on with another search. Add a key or choose a different search.",

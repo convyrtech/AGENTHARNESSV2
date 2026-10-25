@@ -258,6 +258,9 @@ for (const scale of [1, 1.25, 1.5]) {
         await shot(page, "02-first-run-wrong-key");
         await input.fill(GOOD_KEY);
         await page.getByRole("button", { name: "Продолжить" }).click();
+        // #23: «Разрешить агенту искать в интернете?» — «Не сейчас» (import has nothing to bring here)
+        await expect(page.getByTestId("prsloy-first-run-search")).toBeVisible({ timeout: 60_000 });
+        await page.getByTestId("first-run-search-skip").click();
         await expect(page.getByTestId("prsloy-first-run-folder")).toBeVisible({ timeout: 60_000 });
         await shot(page, "03-first-run-folder");
         await app.evaluate(({ dialog }, folder) => {

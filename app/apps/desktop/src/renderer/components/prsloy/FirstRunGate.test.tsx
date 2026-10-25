@@ -58,9 +58,11 @@ describe("FirstRunGate", () => {
 
     fireEvent.change(input, { target: { value: "sk-good" } });
     fireEvent.submit(input.closest("form")!);
+    // import passes by itself (nothing to import here); search asks — «Не сейчас»
+    fireEvent.click(await screen.findByTestId("first-run-search-skip"));
     await screen.findByTestId("prsloy-first-run-folder");
     expect(screen.queryByText("APP")).toBeNull();
-    // the optional steps (placeholders for now) were passed on the way and are remembered
+    // the optional steps were passed on the way and are remembered
     expect(localStorage.getItem("prsloy.firstRun.importSeen")).toBe("1");
     expect(localStorage.getItem("prsloy.firstRun.searchSeen")).toBe("1");
 
@@ -89,6 +91,7 @@ describe("FirstRunGate", () => {
   });
 
   it("links to where keys are sold and offers recent folders", async () => {
+    localStorage.setItem("prsloy.firstRun.searchSeen", "1");
     const api = mockZeno();
     render(
       <FirstRunGate>
@@ -115,6 +118,7 @@ describe("FirstRunGate", () => {
   });
 
   it("accepts a folder under tmp and explains a refused scratch folder in words", async () => {
+    localStorage.setItem("prsloy.firstRun.searchSeen", "1");
     const api = mockZeno({
       getState: vi.fn().mockResolvedValue({ ...fresh, hasKey: true }),
     });

@@ -233,6 +233,13 @@ export const featuresRu: Record<keyof typeof featuresZh, string> = {
   "features.web.modelsRemove": "Убрать {name}",
   "features.web.modelsHint":
     "Пробуются по порядку. Встроенный поиск есть не у всех моделей — «Проверить» покажет.",
+  "features.web.firstRun.title": "Разрешить агенту искать в интернете?",
+  "features.web.firstRun.note":
+    "Когда нужны свежие сведения — новые версии, документация, новости, — агент сам их найдёт. По умолчанию бесплатный поиск, ключ не нужен.",
+  "features.web.firstRun.on": "Включить поиск",
+  "features.web.firstRun.skip": "Не сейчас",
+  "features.web.firstRun.later":
+    "Это можно поменять потом: Настройки → «Поиск в интернете». Там же — ключи других поисков.",
   "features.web.limit.title": "{name}: {reason}",
   "features.web.limit.hint":
     "Агент продолжил другим поиском. Добавьте ключ или выберите другой поиск.",
