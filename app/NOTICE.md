@@ -58,6 +58,10 @@
   (коммит `4cf3393`, MIT License, Copyright (c) OpenCoworkAI): типы вопросов и чистая функция проверки, общая для
   инструмента и тестов. Код не копировался: у нас два типа (text-options, freeform) и правила сообщения владельцу
   из пайплайна.
+- `../playbooks/site/harness/run.py` (параллельные прототипы шага 5, `parallel_protos`) — по идее
+  [abi/screenshot-to-code](https://github.com/abi/screenshot-to-code) (MIT): несколько вариантов одним вызовом на разных
+  моделях параллельно, блок дизайн-системы в задании с правилом «при конфликте побеждает дизайн-система»
+  (`backend/prompts/design_system.py`, `backend/routes/generate_code.py`). Ни кода, ни текста промптов не брали.
 - `../playbooks/site/harness/brand_probe.py` — бренд по адресу сайта: по мотивам
   [dembrandt](https://github.com/dembrandt/dembrandt) (MIT, v0.39.2, вычисленные стили живой страницы) и методики
   `skills/brand-extract/SKILL.md` OpenDesign (Apache-2.0: «каждое значение — замер»). Код не копировался.
