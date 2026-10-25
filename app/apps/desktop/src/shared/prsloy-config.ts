@@ -43,7 +43,13 @@ export type PrsloyModelDef = {
   contextWindow: number;
   maxTokens: number;
   compat: PrsloyCompat;
+  /** pi thinking level → value sent; `null` hides the level (models.json `thinkingLevelMap`). */
+  thinkingLevelMap?: Partial<Record<PrsloyThinkingLevel, string | null>>;
+  /** Extra request fields on every call (models.json `samplingParams`). */
+  samplingParams?: Record<string, unknown>;
 };
+
+export type PrsloyThinkingLevel = "off" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max";
 
 /**
  * Provider-level compat. Pi detects compat by URL, so behind our gateway every model
@@ -88,6 +94,9 @@ export const PRSLOY_MODELS: readonly PrsloyModelDef[] = [
       supportsReasoningEffort: true,
       requiresReasoningContentOnAssistantMessages: true,
     },
+    // Thinking can't be turned off, and changing effort mid-session drops the KV cache:
+    // one level, `high` (the vendor default `max` costs ×3 tokens through the relay).
+    thinkingLevelMap: { off: null, minimal: null, low: null, medium: null, high: "high" },
   },
   {
     id: "qwen3.8-max",
@@ -100,6 +109,9 @@ export const PRSLOY_MODELS: readonly PrsloyModelDef[] = [
       thinkingFormat: "qwen",
       supportsReasoningEffort: true,
     },
+    // Alibaba defaults it to true, but relays drop the default: Qwen then calls one tool
+    // per message.
+    samplingParams: { parallel_tool_calls: true },
   },
   {
     // No reasoning effort parameter: through the gateway `effort` routes Opus to a bad
@@ -223,6 +235,8 @@ export function buildPrsloyModelsJsonProvider(baseUrl: string): Record<string, u
       maxTokens: model.maxTokens,
       cost: prsloyModelCost(model.id),
       compat: { ...model.compat },
+      ...(model.thinkingLevelMap ? { thinkingLevelMap: { ...model.thinkingLevelMap } } : {}),
+      ...(model.samplingParams ? { samplingParams: { ...model.samplingParams } } : {}),
     })),
   };
 }

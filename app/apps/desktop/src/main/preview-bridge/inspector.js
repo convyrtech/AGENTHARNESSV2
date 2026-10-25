@@ -4,8 +4,14 @@
  *
  * Adapted from bolt.diy `public/inspector-script.js` (commit 353b44c).
  * MIT License, Copyright (c) 2024 StackBlitz, Inc. and bolt.diy contributors.
- * Changed by PRSLOY: style and text editing removed; a stable CSS path, an outerHTML excerpt
- * and the page path added; messages carry our `source` tag and Esc cancels.
+ * Changed by PRSLOY: style and text editing removed; a stable CSS path, a short fragment of
+ * the element (by the idea of react-grab `html-preview.ts`), «номер N из M» (by the idea of
+ * screenshot-to-code `select-and-edit/utils.ts`), the element's box and its place in the
+ * source from `data-pl` (see `source-tags.ts`) added; messages carry our `source` tag; Esc
+ * cancels.
+ *
+ * The pick event is the one shape both tabs read (`PreviewPick` in @zeno/contracts):
+ * {selector, path, tag, text, outerHTMLShort, nth, of, rect, file?, line?, col?, exact?, page}.
  */
 (function () {
   if (window.parent === window || window.__prsloyInspector) return;
@@ -90,27 +96,107 @@
     return steps.join(" > ");
   }
 
-  function excerpt(element) {
-    var clone = element.cloneNode(true);
-    clone.classList.remove("prsloy-pick-highlight");
-    if (!clone.getAttribute("class")) clone.removeAttribute("class");
-    var html = clone.outerHTML.replace(/\s+/g, " ");
-    return html.length > 300 ? html.slice(0, 300) + "…" : html;
+  var SOURCE_ATTR = "data-pl";
+  var OWN_CLASS = /^prsloy-pick/;
+
+  function cut(text, max) {
+    return text.length > max ? text.slice(0, max) + "…" : text;
+  }
+
+  function ownText(element) {
+    return (element.innerText || element.textContent || "").replace(/\s+/g, " ").trim();
+  }
+
+  /** `<tag a="…">text…</tag>`: attributes shortened, our own marks left out, ~200 chars. */
+  function shortHtml(element) {
+    var tag = element.tagName.toLowerCase();
+    var attrs = [];
+    for (var i = 0; i < element.attributes.length && attrs.length < 6; i++) {
+      var attr = element.attributes[i];
+      if (attr.name === SOURCE_ATTR) continue;
+      var value = attr.value;
+      if (attr.name === "class") {
+        value = value
+          .split(/\s+/)
+          .filter(function (c) {
+            return c && !OWN_CLASS.test(c);
+          })
+          .join(" ");
+        if (!value) continue;
+      }
+      attrs.push(
+        value ? attr.name + '="' + cut(value, 40).replace(/"/g, "&quot;") + '"' : attr.name,
+      );
+    }
+    var open = "<" + tag + (attrs.length ? " " + attrs.join(" ") : "") + ">";
+    if (/^(img|input|br|hr|meta|link|source|area|wbr)$/.test(tag)) return open;
+    var inner = element.children.length > 0 ? "…" : cut(ownText(element), 60);
+    return cut(open, 160) + inner + "</" + tag + ">";
+  }
+
+  /** Same tag, classes and text elsewhere on the page: «номер N из M» to anchor on. */
+  function sameAs(element) {
+    var key = function (el) {
+      return (
+        classNameOf(el)
+          .replace(/\bprsloy-pick\S*/g, "")
+          .trim() +
+        "|" +
+        ownText(el).slice(0, 60)
+      );
+    };
+    var mine = key(element);
+    var all = Array.prototype.filter.call(
+      document.getElementsByTagName(element.tagName),
+      function (el) {
+        return key(el) === mine;
+      },
+    );
+    return { nth: all.indexOf(element) + 1, of: all.length };
+  }
+
+  /** `file:line:col` of the element, or of its nearest marked parent if a script made it. */
+  function sourceOf(element) {
+    var marked = element.closest("[" + SOURCE_ATTR + "]");
+    if (!marked) return {};
+    var parts = /^(.*):(\d+):(\d+)$/.exec(marked.getAttribute(SOURCE_ATTR) || "");
+    if (!parts) return {};
+    return {
+      file: parts[1],
+      line: Number(parts[2]),
+      col: Number(parts[3]),
+      exact: marked === element,
+    };
   }
 
   function info(element) {
-    return {
+    var box = element.getBoundingClientRect();
+    var same = sameAs(element);
+    var source = sourceOf(element);
+    var message = {
       type: "picked",
       tag: element.tagName.toLowerCase(),
       selector: cssPath(element),
       path: elementPath(element),
-      text: (element.innerText || element.textContent || "")
-        .replace(/\s+/g, " ")
-        .trim()
-        .slice(0, 120),
-      html: excerpt(element),
+      text: ownText(element).slice(0, 120),
+      outerHTMLShort: shortHtml(element),
+      nth: same.nth,
+      of: same.of,
+      rect: {
+        x: Math.round(box.x),
+        y: Math.round(box.y),
+        width: Math.round(box.width),
+        height: Math.round(box.height),
+      },
       page: location.pathname,
     };
+    if (source.file) {
+      message.file = source.file;
+      message.line = source.line;
+      message.col = source.col;
+      message.exact = source.exact;
+    }
+    return message;
   }
 
   function unhighlight() {

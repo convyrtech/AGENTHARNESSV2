@@ -2,7 +2,8 @@
 # Push в main → артефакт prsloy-win-x64 (exe + latest.yml) на 14 дней.
 # Выпуск (app/docs/prsloy/RELEASE-HOWTO.md): Run workflow на main с version=0.1.0-alpha.2 →
 # сборка → smoke (обе Windows) → update-e2e → тег v<version> и сразу опубликованный пре-релиз
-# со всеми файлами. Упало что-то — не публикуется ничего. С другой ветки — та же проверка без выпуска.
+# со всеми файлами. Упало что-то — не публикуется ничего. С другой ветки или с dry_run — тот же путь
+# до release-job включительно (файлы скачаны и сверены с latest.yml), без тега и релиза.
 # Старые пути: push тега v* (релиз создаёт этот прогон) и release: published из UI (файлы
 # прикрепляет этот прогон; если он упал, релиз уходит в draft, чтобы не блокировать обновления).
 # Тег и релиз, созданные здесь от GITHUB_TOKEN, новых прогонов не запускают (GitHub: события
@@ -22,6 +23,11 @@ on:
         description: "Версия выпуска, например 0.1.0-alpha.2 (пусто — только сборка и проверки)"
         required: false
         type: string
+      dry_run:
+        description: "Сухой прогон: весь путь до выпуска, без тега и релиза"
+        required: false
+        type: boolean
+        default: false
 
 concurrency:
   # event_name: a UI release fires both «push tag» and «release published» on one ref; neither may
@@ -55,6 +61,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           INPUT_VERSION: ${{ inputs.version }}
+          INPUT_DRY_RUN: ${{ inputs.dry_run }}
         run: |
           set -euo pipefail
           semver='^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$'
@@ -71,7 +78,11 @@ jobs:
               echo "::error::тег или релиз $tag уже есть — возьмите следующую версию"
               exit 1
             fi
-            if [[ "$GITHUB_REF" == refs/heads/main ]]; then mode=dispatch-release; else mode=dispatch-dry; fi
+            if [[ "$GITHUB_REF" == refs/heads/main && "$INPUT_DRY_RUN" != true ]]; then
+              mode=dispatch-release
+            else
+              mode=dispatch-dry
+            fi
           elif [[ "$GITHUB_REF_TYPE" == tag ]]; then
             tag="$GITHUB_REF_NAME"
             version="${tag#v}"
@@ -142,6 +153,12 @@ jobs:
       - name: Collect
         shell: bash
         run: node scripts/release-assets.mjs collect apps/desktop/release/app artifacts --platform win --arch "${{ runner.arch }}"
+      # latest.yml as GitHubProvider reads it: url = asset name GitHub keeps, size, sha512, blockmap.
+      - name: Check latest.yml
+        shell: bash
+        env:
+          VERSION: ${{ needs.plan.outputs.version }}
+        run: node scripts/release-assets.mjs check-feed artifacts ${VERSION:+--version "$VERSION"}
       # What the installer is made of and what could go (measure only, never blocks packaging).
       - name: Installer composition
         continue-on-error: true
@@ -414,17 +431,23 @@ jobs:
           path: app/smoke-out
           retention-days: 14
 
-  # Only after package, both smokes and update-e2e passed (implicit success()).
+  # Only after package, both smokes and update-e2e passed (implicit success()). A dry run comes
+  # this far too and stops before softprops.
   release:
     needs: [plan, package, smoke, update-e2e]
-    if: needs.plan.outputs.publish == 'true'
+    if: needs.plan.outputs.publish == 'true' || needs.plan.outputs.mode == 'dispatch-dry'
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      # run_started_at for «N мин от нажатия»
+      actions: read
     defaults:
       run:
         working-directory: .
     steps:
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: app/scripts
       - uses: actions/download-artifact@v4
         with:
           name: prsloy-win-x64
@@ -433,14 +456,12 @@ jobs:
         env:
           VERSION: ${{ needs.plan.outputs.version }}
         run: |
-          set -euo pipefail
           ls -la release-assets
-          test -f release-assets/latest.yml
-          grep -q "^version: ${VERSION}$" release-assets/latest.yml
-          ls release-assets/*.exe release-assets/*.exe.blockmap
+          node app/scripts/release-assets.mjs check-feed release-assets --version "$VERSION"
       # Creates the tag at this commit (dispatch) and a published prerelease with all files at once,
       # or attaches the files to the existing release (tag push, UI release).
       - uses: softprops/action-gh-release@v2
+        if: needs.plan.outputs.publish == 'true'
         with:
           tag_name: ${{ needs.plan.outputs.tag }}
           target_commitish: ${{ github.sha }}
@@ -451,8 +472,17 @@ jobs:
           files: release-assets/*
       - name: Summary
         env:
+          GH_TOKEN: ${{ github.token }}
           TAG: ${{ needs.plan.outputs.tag }}
-        run: echo "Выпущен [$TAG]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/tag/$TAG)." >> "$GITHUB_STEP_SUMMARY"
+          PUBLISH: ${{ needs.plan.outputs.publish }}
+        run: |
+          started=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" --jq .run_started_at)
+          minutes=$(( ($(date +%s) - $(date -d "$started" +%s) + 59) / 60 ))
+          if [[ "$PUBLISH" == true ]]; then
+            echo "Выпущен [$TAG]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/tag/$TAG) за $minutes мин от нажатия." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Сухой прогон $TAG: всё прошло, выпуск остановлен перед публикацией; $minutes мин от нажатия." >> "$GITHUB_STEP_SUMMARY"
+          fi
 
   # A UI release whose run failed: back to draft, so it leaves releases.atom and does not hold
   # everyone's updates (GITHUB_TOKEN with contents: write may edit releases).

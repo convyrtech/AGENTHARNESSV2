@@ -18,7 +18,10 @@ const picked = {
   selector: "main > section:nth-of-type(2) > button",
   path: "main > section.hero > button.cta",
   text: "Записаться",
-  html: '<button class="cta">Записаться</button>',
+  outerHTMLShort: '<button class="cta">Записаться</button>',
+  nth: 1,
+  of: 1,
+  rect: { x: 10.4, y: 20, width: 100, height: 40 },
   page: "/index.html",
 };
 
@@ -36,9 +39,37 @@ describe("parseBridgeMessage", () => {
   });
 
   it("clamps what a page sends", () => {
-    const long = parseBridgeMessage({ ...picked, text: "я".repeat(5000), html: "<".repeat(5000) });
-    expect(long?.type === "picked" && long.text.length).toBe(120);
-    expect(long?.type === "picked" && long.html.length).toBe(310);
+    const long = parseBridgeMessage({
+      ...picked,
+      text: "я".repeat(5000),
+      outerHTMLShort: "<".repeat(5000),
+      nth: 9,
+      of: 3,
+      rect: { x: "1", y: Infinity },
+      file: "index.html",
+      line: -4,
+    });
+    if (long?.type !== "picked") throw new Error("parse");
+    expect(long.text.length).toBe(120);
+    expect(long.outerHTMLShort.length).toBe(260);
+    expect([long.nth, long.of]).toEqual([3, 3]);
+    expect(long.rect).toEqual({ x: 0, y: 0, width: 0, height: 0 });
+    // A file without a line is no place.
+    expect(long.file).toBeUndefined();
+  });
+
+  it("keeps the place in the source and the box", () => {
+    const at = parseBridgeMessage({ ...picked, file: "site/index.html", line: 12, col: 5 });
+    expect(at).toMatchObject({
+      file: "site/index.html",
+      line: 12,
+      col: 5,
+      exact: true,
+      rect: { x: 10, y: 20, width: 100, height: 40 },
+    });
+    expect(parseBridgeMessage({ ...picked, file: "a.html", line: 3, exact: false })).toMatchObject({
+      exact: false,
+    });
   });
 });
 
@@ -59,10 +90,34 @@ describe("picked element in the composer", () => {
   });
 
   it("drops an empty text line, keeps code spans whole, names the root page", () => {
-    const out = pickedPrompt("ru", { ...element, text: "", html: "<i>`x`</i>", page: "/" });
+    const out = pickedPrompt("ru", {
+      ...element,
+      text: "",
+      outerHTMLShort: "<i>`x`</i>",
+      page: "/",
+    });
     expect(out).not.toContain("Текст:");
     expect(out).toContain("Код: `<i>'x'</i>`");
     expect(out).toContain("[Место на странице index.html]");
+  });
+
+  it("names the file and line, and which of the same ones", () => {
+    expect(
+      pickedPrompt("ru", { ...element, file: "site/index.html", line: 12, col: 5, nth: 2, of: 3 }),
+    ).toBe(
+      [
+        "[Место на странице index.html]",
+        "Файл: site/index.html, строка 12",
+        "Элемент: `main > section:nth-of-type(2) > button`",
+        "Текст: Записаться",
+        'Код: `<button class="cta">Записаться</button>`',
+        "Таких на странице 3, выбран 2-й",
+        "Что поменять здесь: ",
+      ].join("\n"),
+    );
+    expect(pickedPrompt("ru", { ...element, file: "a.html", line: 4, exact: false })).toContain(
+      "Файл: a.html, строка 4 (элемент создал скрипт, это ближайший родитель)",
+    );
   });
 
   it("labels by text, else by tag", () => {

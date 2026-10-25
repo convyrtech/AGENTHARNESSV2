@@ -12,8 +12,10 @@
  * Usage:
  *   node scripts/release-assets.mjs collect <outDir> <artifactsDir> --platform win|mac|linux [--arch <arch>]
  *   node scripts/release-assets.mjs validate-publish <releaseAssetsDir>
+ *   node scripts/release-assets.mjs check-feed <dir> [--version <semver>]   (Windows: latest.yml)
  *   node scripts/release-assets.mjs list <dir>
  */
+import { createHash } from "node:crypto";
 import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { basename, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -271,6 +273,72 @@ function formatListing(dir, files) {
     .join("\n");
 }
 
+// --- check-feed: latest.yml against the files next to it --------------------------
+
+/** GitHub keeps asset names made of these; anything else (a space, Cyrillic) is renamed on upload. */
+const GITHUB_SAFE_NAME = /^[A-Za-z0-9._-]+$/;
+
+/**
+ * What electron-updater's GitHubProvider does with a release: reads latest.yml, then downloads
+ * `releases/download/<tag>/<files[].url>` (and `<url>.blockmap` for differential downloads) and
+ * checks size and sha512. So every url must be an asset of the same release, by that exact name.
+ *
+ * @param {string} dir  folder with latest.yml, the installer and its blockmap (one release)
+ * @param {{ version?: string }} [options]
+ */
+export function checkWindowsFeed(dir, options = {}) {
+  /** @type {string[]} */
+  const errors = [];
+  const feedPath = join(dir, "latest.yml");
+  if (!existsSync(feedPath)) return { ok: false, errors: ["latest.yml missing"], files: [] };
+  const yml = readFileSync(feedPath, "utf8");
+  const top = (key) => yml.match(new RegExp(`^${key}: *'?([^'\\n]*)'?$`, "m"))?.[1]?.trim();
+  /** @type {{ url: string, sha512?: string, size?: number }[]} */
+  const files = [];
+  for (const block of yml.split(/^ {2}- /m).slice(1)) {
+    const field = (key) => block.match(new RegExp(`^\\s*${key}: *(\\S+)`, "m"))?.[1];
+    const url = block.match(/^url: *'?(.+?)'?\s*$/m)?.[1];
+    if (url) files.push({ url, sha512: field("sha512"), size: Number(field("size")) });
+  }
+
+  const version = top("version");
+  if (!version) errors.push("latest.yml: no version");
+  if (options.version && version !== options.version) {
+    errors.push(`latest.yml: version ${version}, expected ${options.version}`);
+  }
+  if (files.length === 0) errors.push("latest.yml: no files");
+  const path = top("path");
+  if (path && !files.some((f) => f.url === path)) {
+    errors.push(`latest.yml: path ${path} is not among files`);
+  }
+  for (const f of files) {
+    if (!GITHUB_SAFE_NAME.test(f.url)) {
+      errors.push(`${f.url}: GitHub would rename this asset (only A-Z a-z 0-9 . _ -)`);
+    }
+    if (!f.url.toLowerCase().endsWith(".exe")) errors.push(`${f.url}: not a Windows installer`);
+    if (version && !f.url.includes(version)) {
+      errors.push(`${f.url}: name does not carry version ${version}`);
+    }
+    const file = join(dir, f.url);
+    if (!existsSync(file)) {
+      errors.push(`${f.url}: listed in latest.yml but not in the folder`);
+      continue;
+    }
+    const body = readFileSync(file);
+    if (f.size !== body.length)
+      errors.push(`${f.url}: size ${body.length}, latest.yml says ${f.size}`);
+    const sha512 = createHash("sha512").update(body).digest("base64");
+    if (f.sha512 !== sha512) errors.push(`${f.url}: sha512 differs from latest.yml`);
+    if (!existsSync(`${file}.blockmap`)) errors.push(`${f.url}.blockmap missing`);
+  }
+  const listed = new Set(files.flatMap((f) => [f.url, `${f.url}.blockmap`]).concat("latest.yml"));
+  const extra = listFiles(dir)
+    .map((p) => basename(p))
+    .filter((name) => !listed.has(name));
+  if (extra.length) errors.push(`not referenced by latest.yml: ${extra.join(", ")}`);
+  return { ok: errors.length === 0, errors, files: files.map((f) => f.url), version };
+}
+
 // --- CLI -----------------------------------------------------------------------
 
 function parseArgs(argv) {
@@ -336,6 +404,21 @@ function main() {
       process.exit(1);
     }
     console.log("\nPublish asset validation: ok");
+    return;
+  }
+
+  if (command === "check-feed") {
+    if (!a) {
+      console.error("Usage: node scripts/release-assets.mjs check-feed <dir> [--version <semver>]");
+      process.exit(2);
+    }
+    const result = checkWindowsFeed(a, { version: flags.version });
+    if (!result.ok) {
+      console.error(`latest.yml check failed in ${a}:`);
+      for (const err of result.errors) console.error(`  - ${err}`);
+      process.exit(1);
+    }
+    console.log(`latest.yml ok: ${result.version} → ${result.files.join(", ")} (+ blockmap)`);
     return;
   }
 

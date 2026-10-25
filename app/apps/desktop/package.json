@@ -1,6 +1,6 @@
 {
   "name": "@zeno/desktop",
-  "version": "0.1.6",
+  "version": "0.1.0-alpha.0",
   "private": true,
   "description": "Desktop shell for the pi coding agent",
   "homepage": "https://github.com/aletheics/zeno",
@@ -41,6 +41,7 @@
     "@types/react-dom": "catalog:",
     "@zeno/agent-runtime": "workspace:*",
     "@zeno/contracts": "workspace:*",
+    "@zeno/layout-rules": "workspace:*",
     "@zeno/test-utils": "workspace:*",
     "class-variance-authority": "catalog:",
     "clsx": "catalog:",
@@ -53,6 +54,7 @@
     "katex": "catalog:",
     "lucide-react": "catalog:",
     "mermaid": "catalog:",
+    "parse5": "catalog:",
     "playwright": "catalog:",
     "radix-ui": "catalog:",
     "react": "catalog:",

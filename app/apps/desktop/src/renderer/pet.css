@@ -184,9 +184,19 @@ html[data-pet-shell] .boot-gate {
   padding: 0;
 }
 
+/* Chosen: a filled frame inside the tile. Keyboard focus: a separate ring outside it, so
+   the place you stand and the thing you chose never look the same. */
 .pet-settings-grid__btn.is-on {
-  outline: 2px solid var(--accent, #00c972);
-  outline-offset: 1px;
+  border-color: var(--primary, #d0714f);
+  box-shadow: inset 0 0 0 1px var(--primary, #d0714f);
+  background: color-mix(in srgb, var(--primary, #d0714f) 10%, var(--bg-elevated, #fff));
+}
+.pet-settings-grid__btn:focus {
+  outline: none;
+}
+.pet-settings-grid__btn:focus-visible {
+  outline: 2px dashed var(--ring, #d0714f);
+  outline-offset: 3px;
 }
 
 .pet-settings-swatch {

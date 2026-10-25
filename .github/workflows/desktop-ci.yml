@@ -33,6 +33,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm check
       - run: pnpm test
+      - run: pnpm test:release-assets
       - run: pnpm build
 
   # Electron e2e на Linux под xvfb: весь набор e2e/*.spec.ts (кроме дымовых Windows), два шарда по ~4 мин.
@@ -67,5 +68,53 @@ jobs:
         with:
           name: e2e-results-${{ matrix.shard }}
           path: app/apps/desktop/test-results/
+          if-no-files-found: ignore
+          retention-days: 14
+
+  # Layout lint (e2e-audit/layout-lint.spec.ts): key screens × window sizes × scales, one theme per
+  # job. Red on any violation that layout-baseline.json does not excuse; the table is in the summary.
+  layout:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        theme: [light, dark]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11.15.1
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: app/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm electron:install
+      - run: pnpm build:desktop
+      - name: Allow Electron's sandbox
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+      - name: Layout rules on fixture pages
+        working-directory: app/apps/desktop
+        run: xvfb-run -a npx playwright test -c playwright.audit.config.ts layout-rules --reporter=list
+      - name: Layout lint (${{ matrix.theme }})
+        working-directory: app/apps/desktop
+        env:
+          LAYOUT_OUT: ${{ github.workspace }}/app/layout-out
+          LAYOUT_THEMES: ${{ matrix.theme }}
+        # 2560×1440 windows need a screen at least that big
+        run: xvfb-run -a -s "-screen 0 2600x1500x24" npx playwright test -c playwright.audit.config.ts layout-lint --reporter=list
+      - name: Report
+        if: always()
+        run: |
+          [ -d layout-out ] || exit 0
+          node --experimental-strip-types --no-warnings apps/desktop/e2e-audit/layout-report.ts layout-out > /dev/null
+          cat layout-out/layout-report.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: layout-lint-${{ matrix.theme }}
+          path: app/layout-out
           if-no-files-found: ignore
           retention-days: 14

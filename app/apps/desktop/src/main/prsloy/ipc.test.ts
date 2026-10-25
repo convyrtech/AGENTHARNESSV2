@@ -195,6 +195,18 @@ describe("undo turn over IPC", () => {
     expect(t.notes[0]!.text).toContain("Файлы хода 1 откачены");
     expect(t.notes[0]!.text).toContain("Удалены: extra.css.");
     expect(t.notes[0]!.text).toContain("Возвращены к прежнему виду: page.html.");
+    // The harness's learning log gets the strongest "bad turn" signal, without paths.
+    const log = readFileSync(join(t.ctx.agentDir, "prsloy-learning", "events.jsonl"), "utf8");
+    const lines = log
+      .trim()
+      .split("\n")
+      .map((l) => JSON.parse(l));
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toMatchObject({ kind: "turn.undo", session: "s1" });
+    expect(lines[0].project).toMatch(/^[0-9a-f]{16}$/u);
+    expect(Object.keys(lines[0]).sort()).toEqual(["kind", "project", "session", "ts"]);
+    expect(log).not.toContain(t.workspace);
+    expect(log).not.toContain("поправь");
   });
 });
 

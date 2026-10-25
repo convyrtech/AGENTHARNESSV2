@@ -25,6 +25,47 @@ function setup(body: string) {
 }
 
 describe("preview inspector", () => {
+  it("names the place in the source, of itself or of the nearest written parent", async () => {
+    const { win, got, send, flush } = setup(
+      `<ul data-pl="site/index.html:7:3"><li data-pl="site/index.html:8:5">Капучино</li></ul>`,
+    );
+    const made = win.document.createElement("li");
+    made.textContent = "Латте";
+    win.document.querySelector("ul")!.append(made);
+    const click = (el: Element) => {
+      send({ source: "prsloy-host", type: "pick", active: true });
+      el.dispatchEvent(new win.MouseEvent("click", { bubbles: true, cancelable: true }));
+    };
+    click(win.document.querySelector("li")!);
+    click(made);
+    await flush();
+    const picks = got.filter((m) => m.type === "picked");
+    expect(picks[0]).toMatchObject({ file: "site/index.html", line: 8, col: 5, exact: true });
+    expect(picks[0]?.outerHTMLShort).toBe("<li>Капучино</li>");
+    expect(picks[1]).toMatchObject({ file: "site/index.html", line: 7, col: 3, exact: false });
+  });
+
+  it("counts the same ones and shortens long fragments", async () => {
+    const long = "очень длинный текст ".repeat(10);
+    const { win, got, send, flush } = setup(
+      `<p class="x">Цена</p><p class="x">Цена</p><p class="y">Цена</p><a href="${"h".repeat(80)}"><b>${long}</b></a>`,
+    );
+    send({ source: "prsloy-host", type: "pick", active: true });
+    win.document
+      .querySelectorAll("p")[1]!
+      .dispatchEvent(new win.MouseEvent("click", { bubbles: true, cancelable: true }));
+    send({ source: "prsloy-host", type: "pick", active: true });
+    win.document
+      .querySelector("a")!
+      .dispatchEvent(new win.MouseEvent("click", { bubbles: true, cancelable: true }));
+    await flush();
+    const picks = got.filter((m) => m.type === "picked");
+    expect(picks[0]).toMatchObject({ nth: 2, of: 2 });
+    expect(picks[0]).not.toHaveProperty("file");
+    expect(picks[1]?.outerHTMLShort).toBe(`<a href="${"h".repeat(40)}…">…</a>`);
+    expect(picks[1]?.rect).toEqual({ x: 0, y: 0, width: 0, height: 0 });
+  });
+
   it("says it is ready, then reports the clicked element with an exact path", async () => {
     const { win, got, send, flush } = setup(
       `<main><section class="hero big"><p>Раз</p><button class="cta">Записаться</button><button>Два</button></section></main>`,
@@ -41,7 +82,9 @@ describe("preview inspector", () => {
     expect(picked).toMatchObject({
       tag: "button",
       text: "Записаться",
-      html: '<button class="cta">Записаться</button>',
+      outerHTMLShort: '<button class="cta">Записаться</button>',
+      nth: 1,
+      of: 1,
       path: "main > section.hero > button.cta",
     });
     expect(win.document.querySelector(picked.selector as string)).toBe(button);

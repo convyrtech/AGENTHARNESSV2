@@ -1,0 +1,278 @@
+{
+  "$comment": "Temporary exceptions for layout-lint.spec.ts. Each: rule, selector (as in the report), screen (or \"*\"), reason, until (YYYY-MM-DD; expired entries fail). Goal: empty.",
+  "exceptions": [
+    {
+      "rule": "target-size",
+      "selector": "[data-testid=\"prsloy-key-link\"]",
+      "screen": "*",
+      "reason": "первый прогон (2026-10-25): first-run-wrong-key, «Где взять ключ» — 97×19 < 24×24",
+      "until": "2026-11-01"
+    },
+    {
+      "rule": "target-size",
+      "selector": "[data-testid=\"prsloy-server-link\"]",
+      "screen": "*",
+      "reason": "первый прогон (2026-10-25): first-run-wrong-key, «Другой сервер» — 96×19 < 24×24",
+      "until": "2026-11-01"
+    },
+    {
+      "rule": "target-size",
+      "selector": "[data-testid=\"brand-menu\"]",
+      "screen": "*",
+      "reason": "первый прогон (2026-10-25): design-turn-videos, «PRSLOY» — 243×23 < 24×24",
+      "until": "2026-11-01"
+    },
+    {
+      "rule": "target-size",
+      "selector": "[data-testid=\"projects-section-toggle\"]",
+      "screen": "*",
+      "reason": "первый прогон (2026-10-25): design-turn-videos, «Проекты» — 259×19 < 24×24",
+      "until": "2026-11-01"
+    },
+    {
+      "rule": "target-size",
+      "selector": "[data-testid=\"threads-section-toggle\"]",
+      "screen": "*",
+      "reason": "первый прогон (2026-10-25): design-turn-videos, «Чаты» — 259×19 < 24×24",
+      "until": "2026-11-01"
+    },
+    {
+      "rule": "target-size",
+      "selector": "[data-testid=\"composer-attach\"]",
+      "screen": "*",
+      "reason": "первый прогон (2026-10-25): code-harness-card, «Добавить» — 16×32 < 24×24",
+      "until": "2026-11-01"
+    },
+    {
+      "rule": "target-size",
+      "selector": "[data-testid=\"model-failure\"] > button",
+      "screen": "*",
+      "reason": "первый прогон (2026-10-25): code-harness-card, «Подробности» — 99×17 < 24×24",
+      "until": "2026-11-01"
+    },
+    {
+      "rule": "target-size",
+      "selector": "section > div > div > div > nav > button:nth-of-type(1)",
+      "screen": "*",
+      "reason": "первый прогон (2026-10-25): code-harness-card, «Ваше сообщение» — 26×8 < 24×24",
+      "until": "2026-11-01"
+    },
+    {
+      "rule": "target-size",
+      "selector": "section > div > div > div > nav > button:nth-of-type(2)",
+      "screen": "*",
+      "reason": "первый прогон (2026-10-25): code-harness-card, «Ответ агента» — 26×8 < 24×24",
+      "until": "2026-11-01"
+    },
+    {
+      "rule": "target-size",
+      "selector": "section > div > div > div > nav > button:nth-of-type(3)",
+      "screen": "*",
+      "reason": "первый прогон (2026-10-25): code-harness-card, «Ваше сообщение» — 26×8 < 24×24",
+      "until": "2026-11-01"
+    },
+    {
+      "rule": "target-size",
+      "selector": "section > div > div > div > nav > button:nth-of-type(4)",
+      "screen": "*",
+      "reason": "первый прогон (2026-10-25): code-harness-card, «Ваше сообщение» — 26×8 < 24×24",
+      "until": "2026-11-01"
+    },
+    {
+      "rule": "target-size",
+      "selector": "section > div > div > div > nav > button:nth-of-type(5)",
+      "screen": "*",
+      "reason": "первый прогон (2026-10-25): code-harness-card, «Ваше сообщение» — 26×8 < 24×24",
+      "until": "2026-11-01"
+    },
+    {
+      "rule": "target-size",
+      "selector": "section > div > div > div > nav > button:nth-of-type(6)",
+      "screen": "*",
+      "reason": "первый прогон (2026-10-25): code-harness-card, «Ваше сообщение» — 26×8 < 24×24",
+      "until": "2026-11-01"
+    },
+    {
+      "rule": "target-size",
+      "selector": "section > div > div > div > nav > button:nth-of-type(7)",
+      "screen": "*",
+      "reason": "первый прогон (2026-10-25): code-harness-card, «Ваше сообщение» — 26×8 < 24×24",
+      "until": "2026-11-01"
+    },
+    {
+      "rule": "target-size",
+      "selector": "[data-testid=\"settings-search\"]",
+      "screen": "*",
+      "reason": "первый прогон (2026-10-25): settings-archived, «Поиск настроек…» — 224×18 < 24×24",
+      "until": "2026-11-01"
+    },
+    {
+      "rule": "target-size",
+      "selector": "[data-testid=\"settings-developer-mode\"]",
+      "screen": "*",
+      "reason": "первый прогон (2026-10-25): settings-general, «Для разработчиков» — 32×18 < 24×24",
+      "until": "2026-11-01"
+    },
+    {
+      "rule": "target-size",
+      "selector": "[data-testid=\"settings-second-opinion\"]",
+      "screen": "*",
+      "reason": "первый прогон (2026-10-25): settings-general, «Проверка второй моделью» — 32×18 < 24×24",
+      "until": "2026-11-01"
+    },
+    {
+      "rule": "target-size",
+      "selector": "[data-testid=\"settings-default-access\"]",
+      "screen": "*",
+      "reason": "первый прогон (2026-10-25): settings-general, «Обычный доступ» — 32×18 < 24×24",
+      "until": "2026-11-01"
+    },
+    {
+      "rule": "target-size",
+      "selector": "[data-testid=\"settings-auto-review\"]",
+      "screen": "*",
+      "reason": "первый прогон (2026-10-25): settings-general, «Автопроверка» — 32×18 < 24×24",
+      "until": "2026-11-01"
+    },
+    {
+      "rule": "target-size",
+      "selector": "[data-testid=\"settings-full-access\"]",
+      "screen": "*",
+      "reason": "первый прогон (2026-10-25): settings-general, «Полный доступ» — 32×18 < 24×24",
+      "until": "2026-11-01"
+    },
+    {
+      "rule": "target-size",
+      "selector": "[data-testid=\"settings-project-trust\"]",
+      "screen": "*",
+      "reason": "первый прогон (2026-10-25): settings-general, «Проект доверенный» — 32×18 < 24×24",
+      "until": "2026-11-01"
+    },
+    {
+      "rule": "target-size",
+      "selector": "[data-testid=\"settings-prevent-sleep\"]",
+      "screen": "*",
+      "reason": "первый прогон (2026-10-25): settings-general, «Не засыпать во время работы» — 32×18 < 24×24",
+      "until": "2026-11-01"
+    },
+    {
+      "rule": "target-size",
+      "selector": "[data-testid=\"settings-suggestions\"]",
+      "screen": "*",
+      "reason": "первый прогон (2026-10-25): settings-general, «Подсказки» — 32×18 < 24×24",
+      "until": "2026-11-01"
+    },
+    {
+      "rule": "target-size",
+      "selector": "[data-testid=\"settings-show-context-usage\"]",
+      "screen": "*",
+      "reason": "первый прогон (2026-10-25): settings-general, «Показывать заполнение контекста» — 32×18 < 24×24",
+      "until": "2026-11-01"
+    },
+    {
+      "rule": "target-size",
+      "selector": "[data-testid=\"appearance-translucent\"]",
+      "screen": "*",
+      "reason": "первый прогон (2026-10-25): settings-appearance, «Полупрозрачная боковая панель» — 32×18 < 24×24",
+      "until": "2026-11-01"
+    },
+    {
+      "rule": "target-size",
+      "selector": "[data-testid=\"appearance-sidebar-width\"]",
+      "screen": "*",
+      "reason": "первый прогон (2026-10-25): settings-appearance, «» — 649×14 < 24×24",
+      "until": "2026-11-01"
+    },
+    {
+      "rule": "target-size",
+      "selector": "[data-testid=\"settings-confirm-delete\"]",
+      "screen": "*",
+      "reason": "первый прогон (2026-10-25): settings-behavior, «Подтверждать удаление» — 32×18 < 24×24",
+      "until": "2026-11-01"
+    },
+    {
+      "rule": "target-size",
+      "selector": "[data-testid=\"settings-confirm-archive\"]",
+      "screen": "*",
+      "reason": "первый прогон (2026-10-25): settings-behavior, «Подтверждать архивацию» — 32×18 < 24×24",
+      "until": "2026-11-01"
+    },
+    {
+      "rule": "target-size",
+      "selector": "[data-testid=\"settings-help-tip\"]",
+      "screen": "*",
+      "reason": "первый прогон (2026-10-25): settings-pet, «Когда агент работает или закончил, мимика всё равно меняется» — 14×14 < 24×24",
+      "until": "2026-11-01"
+    },
+    {
+      "rule": "target-size",
+      "selector": "div > div:nth-of-type(2) > div > div:nth-of-type(1) > div:nth-of-type(1) > button",
+      "screen": "*",
+      "reason": "первый прогон (2026-10-25): settings-pet, «Показывать питомца» — 32×18 < 24×24",
+      "until": "2026-11-01"
+    },
+    {
+      "rule": "target-size",
+      "selector": "[data-testid=\"settings-notify-enabled\"]",
+      "screen": "*",
+      "reason": "первый прогон (2026-10-25): settings-notifications, «Уведомления на рабочем столе» — 32×18 < 24×24",
+      "until": "2026-11-01"
+    },
+    {
+      "rule": "target-size",
+      "selector": "[data-testid=\"settings-notify-complete\"]",
+      "screen": "*",
+      "reason": "первый прогон (2026-10-25): settings-notifications, «Когда готово» — 32×18 < 24×24",
+      "until": "2026-11-01"
+    },
+    {
+      "rule": "target-size",
+      "selector": "[data-testid=\"settings-notify-error\"]",
+      "screen": "*",
+      "reason": "первый прогон (2026-10-25): settings-notifications, «При ошибке» — 32×18 < 24×24",
+      "until": "2026-11-01"
+    },
+    {
+      "rule": "target-size",
+      "selector": "[data-testid=\"settings-notify-crash\"]",
+      "screen": "*",
+      "reason": "первый прогон (2026-10-25): settings-notifications, «При сбое агента» — 32×18 < 24×24",
+      "until": "2026-11-01"
+    },
+    {
+      "rule": "target-size",
+      "selector": "[data-testid=\"settings-notify-unfocused\"]",
+      "screen": "*",
+      "reason": "первый прогон (2026-10-25): settings-notifications, «Только в фоне» — 32×18 < 24×24",
+      "until": "2026-11-01"
+    },
+    {
+      "rule": "target-size",
+      "selector": "[data-testid=\"settings-notify-sound\"]",
+      "screen": "*",
+      "reason": "первый прогон (2026-10-25): settings-notifications, «Звук уведомлений» — 32×18 < 24×24",
+      "until": "2026-11-01"
+    },
+    {
+      "rule": "target-size",
+      "selector": "[data-testid=\"shortcuts-search\"]",
+      "screen": "*",
+      "reason": "первый прогон (2026-10-25): settings-shortcuts, «Поиск сочетаний…» — 371×18 < 24×24",
+      "until": "2026-11-01"
+    },
+    {
+      "rule": "target-size",
+      "selector": "[data-testid=\"archived-search\"]",
+      "screen": "*",
+      "reason": "первый прогон (2026-10-25): settings-archived, «Поиск в архиве» — 110×18 < 24×24",
+      "until": "2026-11-01"
+    },
+    {
+      "rule": "target-size",
+      "selector": "[data-testid=\"composer-access\"]",
+      "screen": "*",
+      "reason": "первый прогон (2026-10-25): code-harness-card, «Обычный доступ» — 16×32 < 24×24",
+      "until": "2026-11-01"
+    }
+  ]
+}
