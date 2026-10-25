@@ -21,6 +21,9 @@ for _s in (sys.stdout, sys.stderr):  # Windows: под -I PYTHONUTF8 не дей
 HERE = Path(__file__).resolve().parent
 PLAYBOOK = HERE.parent                                  # playbooks/site
 CFG = json.loads((HERE / "stages.json").read_text(encoding="utf-8"))
+# уроки шагов по моделям (research/18 §8): в задание идут только active/trial; HARNESS_LESSONS=0 выключает
+LESSONS = (json.loads((HERE / "lessons.json").read_text(encoding="utf-8"))["lessons"]
+           if (HERE / "lessons.json").exists() else [])
 PY = sys.executable
 # PI_BIN: "pi" или JSON-список, например ["C:\\PRSLOY\\node.exe", "C:\\PRSLOY\\pi\\cli.js"] в приложении
 PI = json.loads(os.environ["PI_BIN"]) if os.environ.get("PI_BIN", "").startswith("[") else [os.environ.get("PI_BIN", "pi")]
@@ -87,6 +90,7 @@ class WS:
         rec["ts"] = round(time.time(), 1)
         with open(self.h / "ledger.jsonl", "a", encoding="utf-8") as f:
             f.write(json.dumps(rec, ensure_ascii=False) + "\n")
+        learn_event(rec)
 
     def env(self):
         env = {k: v for k, v in os.environ.items() if k in SAFE}
@@ -257,6 +261,48 @@ def second_opinion(ws, text, model, gate=""):
     return op
 
 
+def lessons_for(gate, model):
+    """До 5 уроков шага для модели, не больше 900 символов (research/18 §6.1)."""
+    if os.environ.get("HARNESS_LESSONS") == "0" or not model:
+        return []
+    m, out, size = model.lower(), [], 0
+    for ls in LESSONS:
+        if ls.get("status") not in ("active", "trial") or ls.get("gate") not in (gate, "*"):
+            continue
+        if not any(x == "*" or x in m for x in ls.get("models", [])):
+            continue
+        if len(out) >= 5 or size + len(ls["text"]) > 900:
+            break
+        out.append(ls)
+        size += len(ls["text"])
+    return out
+
+
+def learn_event(rec):
+    """Событие для самообучения без текстов (research/18 §7.2): только виды, числа, модель, шаг. Пишет, только если
+    приложение задало HARNESS_LEARN_DIR; A/B и разработка ничего не копят."""
+    d = os.environ.get("HARNESS_LEARN_DIR")
+    if not d:
+        return
+    keep = ("kind", "gate", "model", "attempt", "calls", "seconds", "end", "leaks", "verdict", "to", "exit", "ts",
+            "lessons")
+    ev = {k: rec[k] for k in keep if k in rec}
+    if rec.get("killed"):
+        k = rec["killed"]
+        ev["killed"] = "loop" if k.startswith("петля") else "calls" if "вызовов" in k else "time" if "время" in k else "other"
+    if rec.get("error"):
+        ev["error"] = True
+    try:
+        Path(d).mkdir(parents=True, exist_ok=True)
+        f = Path(d) / "design-events.jsonl"
+        if f.exists() and f.stat().st_size > 5 * 1024 * 1024:
+            f.replace(f.with_suffix(".jsonl.1"))
+        with open(f, "a", encoding="utf-8") as fh:
+            fh.write(json.dumps(ev, ensure_ascii=False) + "\n")
+    except OSError:
+        pass                                            # журнал обучения не должен ронять шаг
+
+
 def family(model):
     m = model.lower()
     return next((f for k, f in CFG["family"].items() if k in m), m)
@@ -279,7 +325,7 @@ def owner_messages(ws, since=0.0, limit=6):
     return out[-limit:]
 
 
-def brief(ws, gate, fl, cfg, notes):
+def brief(ws, gate, fl, cfg, notes, model=None):
     nx = fl.get("next") or {}
     pipe_md = (ws.pipe / "PIPELINE.md").read_text(encoding="utf-8")
     st = (ws.page / "STATUS.md").read_text(encoding="utf-8") if (ws.page / "STATUS.md").exists() else ""
@@ -296,6 +342,9 @@ def brief(ws, gate, fl, cfg, notes):
     ]
     if cfg.get("note"):
         lines += ["", "## Правило харнесса для этого шага", cfg["note"]]
+    les = lessons_for(gate, model)
+    if les:
+        lines += ["", "## Уроки прошлых прогонов (для этой модели)", *[f"- {x['text']}" for x in les]]
     if notes:
         lines += ["", "## Проверки харнесса (не владелец): исправь до показа владельцу", *notes]
     said = [f"- {o.get('date')}: «{o.get('text')}»" + (f" [файлы: {', '.join(o['files'])}]" if o.get("files") else "")
@@ -543,8 +592,9 @@ def say(a):
         ws.save()
         sess = ws.h / "sessions" / f"{gate}-{int(time.time())}.jsonl"
         emit(ev="stage", gate=gate, title=nx.get("title"), model=model, attempt=hist["n"])
-        final, st = run_stage(ws, gate, brief(ws, gate, fl, cfg, notes), model, cfg, sess)
+        final, st = run_stage(ws, gate, brief(ws, gate, fl, cfg, notes, model), model, cfg, sess)
         ws.ledger(kind="stage", gate=gate, model=model, attempt=hist["n"], **st,
+                  lessons=[x["id"] for x in lessons_for(gate, model)],
                   end="owner" if TO_OWNER in final else ("ok" if ENDS_OK in final else "other"))
         notes = []
         if st.get("error") and not final:

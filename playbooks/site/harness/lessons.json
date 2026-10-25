@@ -1,0 +1,21 @@
+{
+ "_doc": "Уроки шагов дизайна по моделям (research/18 §6.3, §8). В задание шага идут только status active/trial, не больше 5 на шаг и не больше 900 символов. Включить урок — только через A/B (abreport.py) и PR; выключить можно сразу (status retired). Сначала код, урок последним: что ловится проверкой, уходит в run.py/flow.py, а урок получает codeFix и уходит на пенсию. Ключ models — подстроки id модели (как family в stages.json); \"*\" — все.",
+ "version": 1,
+ "lessons": [
+  {"id": "L-d3-qwen-refs-catalog", "gate": "3", "models": ["qwen"], "status": "trial",
+   "text": "Референсы бери только из каталога etalons/skillry-index.json. Известные сайты из памяти не предлагай.",
+   "cause": "E8q: Qwen предлагал референсы из памяти, Kimi правило AGENTS.md соблюдал (DIARY.md, E8q)", "codeFix": null},
+  {"id": "L-d7-ds-fix-not-delete", "gate": "7", "models": ["deepseek"], "status": "candidate",
+   "text": "Находку судьи исправляй, а не удаляй элемент. Удалить можно только то, чего владелец не просил.",
+   "cause": "E8d: элемент убран вместо починки (DIARY.md, E8d)", "codeFix": null},
+  {"id": "L-dall-kimi-stop-on-repeat", "gate": "*", "models": ["kimi"], "status": "candidate",
+   "text": "Если flow.py дважды подряд падает на той же проверке, не отлаживай пайплайн: закончи шаг сообщением о стопоре.",
+   "cause": "E8k: 20 + 50 минут по кругу на шаге 1 (DIARY.md, E8k)", "codeFix": "run.py: те же probs без прогресса → подъём по лестнице"},
+  {"id": "L-d8-no-server", "gate": "8", "models": ["*"], "status": "retired",
+   "text": "Доступа к серверу нет, пока владелец не дал адрес: шаг 8 — одно сообщение «Выложить?».",
+   "cause": "A/B ход 8: 94 вызова на план nginx для недоступного сервера", "codeFix": "stages.json note шага 8"},
+  {"id": "L-dall-ds-tool-leak", "gate": "*", "models": ["deepseek"], "status": "retired",
+   "text": "Вызов инструмента делай вызовом, не текстом.",
+   "cause": "A/B ход 7: 3 сессии из 22 кончились разметкой DSML в тексте", "codeFix": "run.py leaked() + LEAK_NUDGE"}
+ ]
+}
