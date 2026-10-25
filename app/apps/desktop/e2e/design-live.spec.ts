@@ -239,11 +239,14 @@ test("a full turn on the real tools: sheet and videos, choice «A», the page", 
     await expect(card).toBeVisible({ timeout: 300_000 });
     const videos = card.getByTestId("design-video");
     await expect(videos).toHaveCount(3);
+    // all three load on this machine's browser (Edge on Windows) and stop seeking to the poster frame
     await expect
       .poll(() =>
-        videos.first().evaluate((el: HTMLVideoElement) => el.readyState >= 2 && el.duration > 1),
+        videos.evaluateAll((els: HTMLVideoElement[]) =>
+          els.map((el) => el.readyState >= 2 && el.duration > 1 && !el.seeking && !el.error),
+        ),
       )
-      .toBe(true);
+      .toEqual([true, true, true]);
     await expect(card.getByTestId("design-image")).toHaveCount(1);
     await shot(page, "videos");
 
