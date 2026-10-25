@@ -4,9 +4,9 @@
 // расширения файла, семейство модели, хэш папки проекта. Вся строка ещё раз проходит scrubSecrets.
 // Поведение агента журнал не меняет: ошибка записи молча пропускается.
 import { createHash } from "node:crypto";
-import { appendFileSync, mkdirSync, realpathSync, renameSync, statSync } from "node:fs";
+import { appendFileSync, mkdirSync, renameSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { scrubSecrets } from "./secret-scrub.ts";
 
@@ -33,6 +33,10 @@ export type LearningKind =
   | "repair"
   | "validation.error"
   | "lessons.active"
+  | "memory.used"
+  | "memory.saved"
+  | "memory.forget"
+  | "memory.refused"
   | "turn.end";
 
 export type TurnOutcome = "green" | "red" | "budget" | "aborted" | "error";
@@ -94,15 +98,13 @@ export function modelFamily(id: string | undefined): string | undefined {
   return id.replace(/^[^/]*\//, "").replace(/-\d{3,}$/, "");
 }
 
-/** Хэш папки проекта, как у теневых снимков ядра: sha256(realpath)[:16], на Windows без учёта регистра. */
-export function projectKey(cwd: string): string {
-  let path = cwd;
-  try {
-    path = realpathSync(cwd);
-  } catch {
-    // нет папки — хэш по строке
-  }
-  const keyed = process.platform === "win32" ? path.toLowerCase() : path;
+/**
+ * Хэш папки проекта — тот же, что у теневых снимков ядра (`workspaceKey` в main/prsloy/turn-snapshots.ts):
+ * sha256(resolve(путь) без хвостового слэша)[:16], на Windows без учёта регистра. Main находит ту же папку памяти.
+ */
+export function projectKey(cwd: string, platform: NodeJS.Platform = process.platform): string {
+  const normalized = resolve(cwd).replace(/[\\/]+$/u, "");
+  const keyed = platform === "win32" ? normalized.toLowerCase() : normalized;
   return createHash("sha256").update(keyed).digest("hex").slice(0, 16);
 }
 

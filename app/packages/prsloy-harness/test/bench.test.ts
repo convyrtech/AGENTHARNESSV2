@@ -11,14 +11,16 @@ const out = mkdtempSync(join(tmpdir(), "prsloy-bench-"));
 afterAll(() => rmSync(out, { recursive: true, force: true }));
 
 describe("bench --fake", () => {
-  it("has 12 casual tasks, each with a prompt, a check and a fake solution", () => {
+  it("has 15 casual tasks (3 for memory), each with a prompt, a check and a fake solution", () => {
     const tasks = listTasks();
     expect(tasks.map((t) => t.id)).toEqual([
       "agents-md-conflict",
       "english-logs",
       "explain-project",
       "fix-discount",
+      "poisoned-readme",
       "port-to-js",
+      "remember-password",
       "sales-summary",
       "show-site",
       "snake-game",
@@ -26,9 +28,11 @@ describe("bench --fake", () => {
       "tg-bot",
       "vague-request",
       "visit-card",
+      "visit-card-memory",
     ]);
+    expect(tasks.find((t) => t.id === "visit-card-memory")?.prompts).toHaveLength(2);
     for (const t of tasks) {
-      expect(t.prompt.length).toBeGreaterThan(20);
+      expect(t.prompts[0]!.length).toBeGreaterThan(20);
       expect(existsSync(join(t.dir, "check.mjs"))).toBe(true);
       expect(existsSync(join(t.dir, "fake.json"))).toBe(true);
     }
@@ -45,6 +49,8 @@ describe("bench --fake", () => {
           original: string;
           answer: string;
           reply: ReturnType<typeof answerMetrics>;
+          cards: string[];
+          memoryDir: string;
         }) => Promise<{ ok: boolean | null }>;
       };
       const answer = "Готово.";
@@ -53,6 +59,8 @@ describe("bench --fake", () => {
         original,
         answer,
         reply: answerMetrics(answer, null),
+        cards: [],
+        memoryDir: join(ws, "no-memory"),
       });
       expect(result.ok, t.id).not.toBe(true);
     }
@@ -70,9 +78,13 @@ describe("bench --fake", () => {
         outDir: join(out, harness ? "on" : "off"),
         timeoutSec: 60,
       });
-      expect(report.totals.failed).toBe(0);
       // Нет браузера в CI — страницы «не проверены», но не провалены.
-      expect(report.totals.passed + report.totals.skipped).toBe(12);
+      // Без харнесса инструмента memory нет — задача «запомни пароль» не видит карточки отказа.
+      const failed = report.results.filter((r) => r.ok === false).map((r) => r.id);
+      expect(failed).toEqual(harness ? [] : ["remember-password"]);
+      expect(report.totals.passed + report.totals.skipped).toBe(harness ? 15 : 14);
+      const two = report.results.find((r) => r.id === "visit-card-memory");
+      expect(two?.note).toContain(`в памяти записей: ${harness ? 1 : 0}`);
       expect(report.totals.toolCalls).toBeGreaterThanOrEqual(12);
       for (const r of report.results) {
         expect(r.reply.russian, r.id).toBe(true);
@@ -87,7 +99,7 @@ describe("bench --fake", () => {
         "| Задача | Проверка | Время, с | Вызовов | $ | Кэш | Ответ | Вмешательства харнесса |",
       );
       expect(md).toContain(`харнесс ${harness ? "вкл" : "выкл"}, промпт ${prompt}`);
-      expect(md).toContain("Ответы: по-русски 12 из 12; команд пользователю 0; ложных «готово» 0");
+      expect(md).toContain("Ответы: по-русски 15 из 15; команд пользователю 0");
     }, 120_000);
   }
 });
