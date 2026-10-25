@@ -355,6 +355,9 @@ export class DesignService {
     const child = spawn(
       venvPython(this.#venv),
       [
+        // -X utf8: its start line has «→»; under -I PYTHONUTF8 is ignored and a Windows pipe is cp1252
+        "-X",
+        "utf8",
         "-I",
         join(this.#harness, "a6proxy.py"),
         "--port",
