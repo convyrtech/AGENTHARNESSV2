@@ -906,11 +906,14 @@ i18n во все локали (дорожка ui).
   и наезжающие кнопки ловятся. Подключение по умолчанию — когда пакет будет в main.
 - Промпт: в «Before you end your turn» добавлено «If you chose for the user (what to build, prices, names, texts),
   say so in one line.» — Opus на «сделай что-нибудь для кофейни» выдумал меню, цены и адрес и не сказал об этом.
-  Промпт 7 376 символов.
 - Нужно от core: `PRSLOY_DESIGN_PYTHON=<venv>/Scripts/python.exe` в окружение агент-хоста, когда инструменты
   «Дизайна» готовы (`toolsReady`).
-- Находка: Chromium под `file://` не грузит `type="module"` (CORS, origin null) — Vite-сборка двойным кликом не
-  откроется и с `base: './'`. Проверка это видит и подсказывает обычный `<script>`; политика для Vite — за дирижёром.
+- Chromium под `file://` не грузит `type="module"` (CORS, origin null): Vite-сборка двойным кликом не откроется
+  и с `base: './'`. Решение дирижёра (вариант «а»): для Vite и страниц с `type="module"` — только через сервер,
+  режим «файлом» пропускается, совета про двойной клик нет (`fileOpens`, `fileSkipped`). Поэтому из проверки путей
+  (`page-paths.ts`) убрано требование `base: './'` у Vite, Vite-проекты и страницы с `type="module"` она не
+  смотрит; в промпте осталось «Use relative paths … so the page also works when opened as a file» без Vite.
+  Правило «простая страница — один HTML без сборщика» в §9 уже есть. Промпт 7 349 символов.
 
 Как проверено: `test/page-check.test.ts` (6) — выбор страницы; статика без `.env` и `../`; нет Python — пропуск;
 склейка строк и ≤6; подсказка «только файлом» и последняя попытка; настоящий Chromium (Node-Playwright, нет

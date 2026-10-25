@@ -349,7 +349,7 @@ export function installStopGate(
       recordEvent(ctx, { kind: "gate.green", ...(gateSig ? { sig: gateSig } : {}) });
     // Проект зелёный (или проверять нечем) — смотрим, откроется ли страница двойным кликом.
     const paths = pagePaths ? pagePaths(ctx.cwd) : undefined;
-    if (paths && (paths.issues.length > 0 || paths.viteBase) && pushbacks < MAX_PUSHBACKS) {
+    if (paths && paths.issues.length > 0 && pushbacks < MAX_PUSHBACKS) {
       pushbacks += 1;
       const tip = intervene(ctx, { kind: "gate.paths", sig: "gate:paths", n: pushbacks });
       return {

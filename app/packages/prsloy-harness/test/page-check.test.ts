@@ -122,7 +122,6 @@ describe("page check: the message", () => {
       2,
     );
     expect(text).toContain("двойной клик открывает страницу как file://");
-    expect(text).toContain('type="module"');
     expect(text).toContain("Это последняя попытка");
   });
 });
@@ -152,15 +151,17 @@ describe("page check in a real Chromium", async () => {
       expect(text).toContain("(файлом, 390 и 1440 px) не загрузился файл: /missing.js");
       expect(text).not.toContain("127.0.0.1");
 
+      // type="module" файлом не открыть вовсе — только сервер, без совета про двойной клик (вариант «а»).
       const module = project({
         "index.html":
           '<!doctype html><meta charset="utf-8"><script type="module" src="./main.js"></script><p>ok</p>',
         "main.js": "document.querySelector('p').textContent = 'да';",
       });
-      const m = await checkPage(module, { playwright: pw!, executablePath });
-      expect(m!.issues.length).toBeGreaterThan(0);
-      expect(m!.issues.every((i) => i.target === "file")).toBe(true);
-      expect(pageCheckMessage(m!, 1, 2)).toContain("двойной клик");
+      expect(await checkPage(module, { playwright: pw!, executablePath })).toEqual({
+        entry: "index.html",
+        issues: [],
+        fileSkipped: true,
+      });
 
       // Функция правил получает опции (как lintLayout ci); window-min и focus-hidden для страницы не смотрим.
       const custom = await checkPage(project({ "index.html": "<p>Привет</p>" }), {

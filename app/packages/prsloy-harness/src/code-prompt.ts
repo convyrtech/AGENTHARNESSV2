@@ -76,7 +76,7 @@ export const PROMPT_ADDITIONS: readonly (readonly [string, string])[] = [
   [
     "- Prefer the simplest thing that works:",
     // Стенд a6: `file:///fonts/…`, `file:///assets/index-*.js` — страница не открывается двойным кликом.
-    "- Use relative paths in pages (`./style.css`, `./assets/…`, never `/assets/…`) so the page also works when opened as a file; for Vite set `base: './'`.",
+    "- Use relative paths in pages (`./style.css`, `./assets/…`, never `/assets/…`) so the page also works when opened as a file.",
   ],
   [
     "- Do the work yourself.",

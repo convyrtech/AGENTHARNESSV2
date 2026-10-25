@@ -33,7 +33,9 @@ describe("PRSLOY code prompt (research/17 §9)", () => {
   });
 
   it("additions: relative paths for pages, request_secret and ask_user, the final reminder", () => {
-    expect(PRSLOY_CODE_PROMPT).toContain("for Vite set `base: './'`");
+    expect(PRSLOY_CODE_PROMPT).toContain(
+      "never `/assets/…`) so the page also works when opened as a file.",
+    );
     expect(PRSLOY_CODE_PROMPT).toContain(
       "use the request_secret tool, never ask for it in the chat",
     );

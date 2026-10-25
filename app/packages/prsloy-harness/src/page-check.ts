@@ -3,11 +3,12 @@
 // незагрузившиеся файлы, правила раскладки (горизонтальная прокрутка и т. п.). Браузер — Python-Playwright из venv
 // «Дизайна» (Edge на Windows): `PRSLOY_DESIGN_PYTHON`. Нет его — проверка молча пропускается, ничего не ставим.
 import { spawn } from "node:child_process";
-import { createReadStream, existsSync, readdirSync, statSync } from "node:fs";
+import { createReadStream, existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { createServer, type Server } from "node:http";
 import { extname, join, normalize, relative, resolve, sep } from "node:path";
 import { pathToFileURL } from "node:url";
 import { sanitizedEnv } from "./options.ts";
+import { MODULE_SCRIPT } from "./page-paths.ts";
 
 export const PAGE_VIEWPORTS = [
   { width: 390, height: 844 },
@@ -30,6 +31,8 @@ export interface PageCheckResult {
   issues: PageIssue[];
   /** Браузер не запустился / таймаут: проверки не было (не красное). */
   skipped?: string;
+  /** Файлом не открывали (Vite, type="module"). */
+  fileSkipped?: boolean;
 }
 
 /**
@@ -348,6 +351,19 @@ function runPython(
   });
 }
 
+/**
+ * Открывается ли страница двойным кликом в принципе. Vite и любые `type="module"` — нет (CORS у file://):
+ * для них только сервер, совета про двойной клик не даём (решение дирижёра, вариант «а»).
+ */
+export function fileOpens(cwd: string, entry: string): boolean {
+  if (VITE_CONFIGS.some((f) => existsSync(join(cwd, f)))) return false;
+  try {
+    return !MODULE_SCRIPT.test(readFileSync(entry, "utf8"));
+  } catch {
+    return false;
+  }
+}
+
 /** Открыть страницу файлом и через сервер на двух ширинах. undefined — проверять нечем (нет браузера или страницы). */
 export async function checkPage(
   cwd: string,
@@ -363,7 +379,7 @@ export async function checkPage(
     const job: Job = {
       channel: options.channel ?? (process.platform === "win32" ? "msedge" : undefined),
       targets: [
-        { name: "file", url: pathToFileURL(entry).href },
+        ...(fileOpens(cwd, entry) ? [{ name: "file", url: pathToFileURL(entry).href }] : []),
         { name: "http", url: `${server.origin}/${relative(root, entry).replace(/\\/g, "/")}` },
       ],
       viewports: PAGE_VIEWPORTS,
@@ -410,7 +426,7 @@ export async function checkPage(
       .filter((i) => !(i.kind === "console" && /^Failed to load resource\b/.test(i.detail)))
       .filter((i) => !(i.kind === "layout" && i.rule && IGNORED_RULES.has(i.rule)))
       .map((i) => ({ ...i, where: i.where ?? "", detail: local(i.detail) }));
-    return { entry: rel, issues };
+    return { entry: rel, issues, ...(job.targets.length === 1 ? { fileSkipped: true } : {}) };
   } finally {
     await server.close();
   }
@@ -455,11 +471,12 @@ export function pageCheckMessage(result: PageCheckResult, attempt: number, max: 
   if (lines.length > 6) shown.push(`- … и ещё ${lines.length - 6}`);
   const fileOnly = result.issues.length > 0 && result.issues.every((i) => i.target === "file");
   const fileHint = fileOnly
-    ? '\nЧерез сервер всё хорошо, а файлом — нет: двойной клик открывает страницу как file://. Пути — относительные (./…); скрипты с type="module" при открытии файлом не грузятся — для простой страницы используй обычный <script src="./app.js">.'
+    ? "\nЧерез сервер всё хорошо, а файлом — нет: двойной клик открывает страницу как file://. Пути к файлам — относительные (./style.css, ./app.js)."
     : "";
   const last =
     attempt >= max
       ? " Это последняя попытка: если не выйдет — честно скажи пользователю, что не так со страницей."
       : "";
-  return `Открыл ${result.entry} в браузере (файлом и через сервер, ширина 390 и 1440 px) — есть проблемы:\n${shown.join("\n")}${fileHint}\nПочини и проверь снова.${last}`;
+  const how = result.fileSkipped ? "через сервер" : "файлом и через сервер";
+  return `Открыл ${result.entry} в браузере (${how}, ширина 390 и 1440 px) — есть проблемы:\n${shown.join("\n")}${fileHint}\nПочини и проверь снова.${last}`;
 }
