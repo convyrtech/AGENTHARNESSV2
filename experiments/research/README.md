@@ -11,6 +11,8 @@
 | `check_refs.py` | Перед прогоном: живые эталоны открываются, цитаты застывших ещё лежат на своих страницах |
 | `score.py` | Метрики по `results.jsonl` любого исполнителя (формат — в начале файла) |
 | `run_builtin.py` | База B: встроенный поиск моделей через шлюз (`web_search_options`) и проверка каналов `/v1/tools/search|fetch` |
+| `run_pi.py`, `bench_ext.ts` | База A: модель в Pi только с `web_search`/`web_fetch` харнесса (R1) |
+| `read_urls.mts` | Приёмка чтения R1: 50 адресов (20 российских), доля прочитанных |
 | `test_score.py` | Тесты оценки без сети |
 
 ## Метрики (`score.py`)
@@ -35,4 +37,15 @@ python3 score.py runs/builtin-opus.jsonl --out runs/builtin-opus
 Ключ — `experiments/.a6key` (или `--key-file`), адрес — `--base` (по умолчанию `https://a6api.com`). `run` дописывает
 файл и пропускает готовые вопросы, его можно перезапускать.
 
-База A (opus с простыми `web_search`/`web_fetch`) появится вместе с инструментами R1.
+База A — Pi с инструментами R1 (`web_search`, `web_fetch`); поставщик поиска — файл JSON с полями, как в настройках
+приложения:
+
+```
+echo '{"provider": "deepseek", "key": "<ключ DeepSeek>"}' > search.json     # или searxng/brave/exa/…; prsloy: url + key шлюза
+python3 run_pi.py --model a6/claude-opus-5-5 --search search.json --out runs/a-opus.jsonl
+python3 score.py runs/a-opus.jsonl --out runs/a-opus
+node --experimental-strip-types read_urls.mts [--jina]     # чтение: ≥85% из 50, ≥15 российских
+```
+
+`run_pi.py` ищет Pi в `app/node_modules` (нужен `pnpm install` в `app/`), ключ модели кладёт во временную папку агента
+и удаляет её после прогона.
