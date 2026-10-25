@@ -87,10 +87,14 @@ def init(a):
         mark = ws.pipe / ".pipeline-fixes.sha256"
         applied = patch.exists() and mark.exists() and mark.read_text().strip() == hashlib.sha256(patch.read_bytes()).hexdigest()
         if patch.exists() and not applied:
-            r = subprocess.run(["git", "apply", "--directory=design-pipeline", str(patch)], cwd=ws.root,
-                               capture_output=True, text=True)
+            # git apply внутри чужого репозитория молча пропускает файлы вне его индекса: потолок поиска репозитория
+            # на папке проекта, патч ложится на файлы копии как обычный diff
+            env = {**os.environ, "GIT_CEILING_DIRECTORIES": str(ws.root)}
+            r = subprocess.run(["git", "apply", "-p1", str(patch)], cwd=ws.pipe, env=env, capture_output=True, text=True)
             if r.returncode:
                 emit(ev="note", text="патч пайплайна не лёг: " + r.stderr[:200])
+            else:
+                mark.write_text(hashlib.sha256(patch.read_bytes()).hexdigest())
         shutil.copytree(PLAYBOOK / "motion", ws.pipe / "motion", ignore=shutil.ignore_patterns("sheets", "__pycache__"))
     cat = PLAYBOOK.parents[1] / "experiments" / "e8b" / "etalons"
     if cat.exists() and not (ws.root / "etalons").exists():
