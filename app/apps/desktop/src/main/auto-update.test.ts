@@ -3,6 +3,7 @@ import {
   buildAppUpdateStatus,
   createAutoUpdateController,
   DEFAULT_UPDATE_FEED,
+  resolveUpdateFeed,
   updatesDisabledByEnv,
 } from "./auto-update.ts";
 
@@ -314,6 +315,37 @@ describe("createAutoUpdateController", () => {
       controller.dispose();
     } finally {
       vi.useRealTimers();
+    }
+  });
+});
+
+describe("resolveUpdateFeed", () => {
+  it("is GitHub by default", () => {
+    expect(resolveUpdateFeed({})).toBe(DEFAULT_UPDATE_FEED);
+    expect(resolveUpdateFeed({ PRSLOY_UPDATE_FEED_URL: "http://127.0.0.1:9/" })).toBe(
+      DEFAULT_UPDATE_FEED,
+    );
+  });
+
+  it("serves a loopback feed only in the update e2e", () => {
+    expect(
+      resolveUpdateFeed({ PRSLOY_E2E: "1", PRSLOY_UPDATE_FEED_URL: "http://127.0.0.1:4567/feed" }),
+    ).toEqual({ provider: "generic", url: "http://127.0.0.1:4567/feed" });
+    expect(
+      resolveUpdateFeed({ PRSLOY_E2E: "1", PRSLOY_UPDATE_FEED_URL: "http://localhost:4567/" }),
+    ).toEqual({ provider: "generic", url: "http://localhost:4567/" });
+  });
+
+  it("never points at a remote or malformed feed", () => {
+    for (const url of [
+      "https://evil.example/feed",
+      "http://127.0.0.1.evil.example/",
+      "file:///C:/feed",
+      "not a url",
+    ]) {
+      expect(resolveUpdateFeed({ PRSLOY_E2E: "1", PRSLOY_UPDATE_FEED_URL: url })).toBe(
+        DEFAULT_UPDATE_FEED,
+      );
     }
   });
 });

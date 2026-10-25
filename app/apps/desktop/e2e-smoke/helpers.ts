@@ -65,6 +65,10 @@ export interface LaunchOptions {
   workspace?: string;
   /** Extra Chromium/Electron switches (e.g. `--proxy-server=…`). */
   args?: string[];
+  /** Selector that means "launched" (default: app ready in test mode, key screen otherwise). */
+  readySelector?: string;
+  /** Extra env for the app, applied last (product mode strips ZENO_/PRSLOY_/PI_ before). */
+  env?: Record<string, string>;
   /** Runs before launch with the userData dir (seed state files). */
   prepare?: (userData: string) => Promise<void>;
   /**
@@ -213,6 +217,8 @@ export async function launch(label: string, options: LaunchOptions = {}): Promis
     env.Path = cleanWindowsPath(takeEnv(env, "Path") ?? "");
   }
 
+  Object.assign(env, options.env ?? {});
+
   const mainLog = join(outDir, `${label}-main.log`);
   const rendererLog = join(outDir, `${label}-renderer.log`);
   const t0 = Date.now();
@@ -271,7 +277,9 @@ export async function launch(label: string, options: LaunchOptions = {}): Promis
   });
   page.on("crash", () => void appendFile(rendererLog, `[crash] renderer crashed\n`));
 
-  await page.waitForSelector(testMode ? APP_READY : FIRST_RUN_KEY, { timeout: 180_000 });
+  await page.waitForSelector(options.readySelector ?? (testMode ? APP_READY : FIRST_RUN_KEY), {
+    timeout: 180_000,
+  });
   const readyMs = Date.now() - t0;
   if (defaultProfile) userData = await app.evaluate(({ app: a }) => a.getPath("userData"));
   return {
@@ -296,14 +304,20 @@ export async function launch(label: string, options: LaunchOptions = {}): Promis
 /** Close the app; resolves with how long the quit took (ms). */
 export async function close(launched: Launched | undefined): Promise<number | undefined> {
   if (!launched) return undefined;
-  const proc = launched.app.process();
+  // Undefined once the app has already quit (e.g. it restarted itself for an update).
+  let proc: ReturnType<ElectronApplication["process"]> | undefined;
+  try {
+    proc = launched.app.process();
+  } catch {
+    proc = undefined;
+  }
   const started = Date.now();
   await Promise.race([
     launched.app.close().catch(() => undefined),
     new Promise((resolveTimer) => setTimeout(resolveTimer, 30_000)),
   ]);
   const ms = Date.now() - started;
-  if (proc.exitCode === null) proc.kill();
+  if (proc && proc.exitCode === null) proc.kill();
   await launched.fakeModel.stop().catch(() => undefined);
   return ms;
 }

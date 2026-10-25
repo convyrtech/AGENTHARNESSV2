@@ -42,6 +42,29 @@ export const DEFAULT_UPDATE_FEED = {
   releaseType: "prerelease" as const,
 };
 
+export type UpdateFeed = typeof DEFAULT_UPDATE_FEED | { provider: "generic"; url: string };
+
+/**
+ * Feed for this launch: GitHub, except in the Windows update e2e (CI), which serves a newer
+ * build from a local HTTP server. The override needs PRSLOY_E2E=1 *and* a loopback URL, so
+ * an env var can never point a real install at a remote feed.
+ */
+export function resolveUpdateFeed(env: NodeJS.ProcessEnv = process.env): UpdateFeed {
+  const raw = env.PRSLOY_UPDATE_FEED_URL?.trim();
+  if (env.PRSLOY_E2E !== "1" || !raw) return DEFAULT_UPDATE_FEED;
+  let url: URL;
+  try {
+    url = new URL(raw);
+  } catch {
+    return DEFAULT_UPDATE_FEED;
+  }
+  const loopback = url.hostname === "127.0.0.1" || url.hostname === "localhost";
+  if (!loopback || (url.protocol !== "http:" && url.protocol !== "https:")) {
+    return DEFAULT_UPDATE_FEED;
+  }
+  return { provider: "generic", url: url.toString() };
+}
+
 /** No update traffic in test harnesses / CI launches. */
 export function updatesDisabledByEnv(env: NodeJS.ProcessEnv = process.env): boolean {
   return env.ZENO_ENABLE_TEST_COMMANDS === "1" || env.PRSLOY_NO_UPDATE === "1";
@@ -58,7 +81,7 @@ type UpdaterLike = {
   on(event: string, listener: (...args: unknown[]) => void): void;
   removeAllListeners(event?: string): void;
   /** Override / supply feed when app-update.yml is missing or wrong. */
-  setFeedURL?(options: typeof DEFAULT_UPDATE_FEED): void;
+  setFeedURL?(options: UpdateFeed): void;
 };
 
 type StatusFields = {
@@ -188,7 +211,7 @@ export function createAutoUpdateController(options: {
     try {
       // Prefer explicit feed so check works even if app-update.yml is incomplete.
       // Download still requires the on-disk yml (see missingUpdateConfigError).
-      instance.setFeedURL(DEFAULT_UPDATE_FEED);
+      instance.setFeedURL(resolveUpdateFeed());
     } catch (error) {
       console.warn("[zeno] setFeedURL failed:", error);
     }

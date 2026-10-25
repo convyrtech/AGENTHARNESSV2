@@ -1,0 +1,341 @@
+/**
+ * Auto-update end to end on Windows (CI: desktop-windows.yml → update-e2e job).
+ *
+ * The job builds version A and a newer B the way the tag build does, installs A, and serves
+ * B's `latest.yml` + installer + blockmaps from a local feed (`update-feed.ts`). A is pointed
+ * at it with the test-only override (PRSLOY_E2E=1 + loopback PRSLOY_UPDATE_FEED_URL; production
+ * stays on GitHub — see auto-update.ts resolveUpdateFeed).
+ *
+ * 1. Bad feed (B's installer bytes changed, latest.yml unchanged → sha512 mismatch): A must
+ *    refuse quietly, show nothing and keep running as A.
+ * 2. Good feed: A detects and downloads B, shows «Обновление готово — перезапустить»; the click
+ *    installs B and the updater relaunches it; the installed app then reports version B.
+ *
+ * Env: PRSLOY_EXE (installed A), UPDATE_INSTALLER_A (A's setup, to reinstall A), UPDATE_VERSION_A,
+ * UPDATE_VERSION_B, UPDATE_FEED_GOOD, UPDATE_FEED_BAD (directories).
+ *
+ * electron-updater downloads B differentially (changed blocks only, the rest from A's cached
+ * installer) and installs a verified download on quit even without the click
+ * (autoInstallOnAppQuit), so each test starts by reinstalling A.
+ */
+import { expect, test } from "@playwright/test";
+import { execFileSync, spawn } from "node:child_process";
+import { readFile, writeFile } from "node:fs/promises";
+import { join } from "node:path";
+import { passFirstRun, seedGateway, startGateway } from "./gateway.ts";
+import {
+  beforeAllSmoke,
+  close,
+  findings,
+  launch,
+  outDir,
+  shot,
+  writeMetrics,
+  type Launched,
+} from "./helpers.ts";
+import { startFeedServer, type FeedHit } from "./update-feed.ts";
+
+const versionA = process.env.UPDATE_VERSION_A ?? "";
+const versionB = process.env.UPDATE_VERSION_B ?? "";
+const feedGood = process.env.UPDATE_FEED_GOOD ?? "";
+const feedBad = process.env.UPDATE_FEED_BAD ?? "";
+const installerA = process.env.UPDATE_INSTALLER_A ?? "";
+const READY = '[data-testid="prsloy-update-ready"]';
+
+function powershell(command: string): string {
+  return execFileSync("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", command], {
+    encoding: "utf8",
+    windowsHide: true,
+  }).trim();
+}
+
+/** PRSLOY.exe processes running from the install dir. */
+function runningInstalled(): Array<{ Id: number; Path: string; StartTime: string }> {
+  let json = "";
+  try {
+    json = powershell(
+      "Get-Process PRSLOY -ErrorAction SilentlyContinue | Select-Object Id, Path, " +
+        "@{n='StartTime';e={$_.StartTime.ToString('o')}} | ConvertTo-Json -Compress; exit 0",
+    );
+  } catch {
+    return [];
+  }
+  if (!json) return [];
+  const parsed = JSON.parse(json) as unknown;
+  return (Array.isArray(parsed) ? parsed : [parsed]) as Array<{
+    Id: number;
+    Path: string;
+    StartTime: string;
+  }>;
+}
+
+/**
+ * Installed version from the per-user uninstall entry NSIS writes (`DisplayVersion` keeps the
+ * prerelease part; the exe's file version is just 0.1.0.0).
+ */
+/** Every PRSLOY* process (app and installer) with its window title, for diagnostics. */
+function prsloyProcesses(): string {
+  try {
+    return powershell(
+      "Get-Process | Where-Object Name -like 'PRSLOY*' | Select-Object Id, Name, MainWindowTitle, " +
+        "@{n='StartTime';e={$_.StartTime.ToString('o')}} | ConvertTo-Json -Compress; exit 0",
+    );
+  } catch (error) {
+    return String(error);
+  }
+}
+
+function installedVersion(): string {
+  return powershell(
+    "Get-ItemProperty 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*' " +
+      "-ErrorAction SilentlyContinue | Where-Object DisplayName -like 'PRSLOY*' | " +
+      "Select-Object -First 1 -ExpandProperty DisplayVersion",
+  );
+}
+
+/** Silent per-user install of A (undoes an update a previous test installed on quit). */
+function reinstallA(): string {
+  powershell("Get-Process PRSLOY -ErrorAction SilentlyContinue | Stop-Process -Force; exit 0");
+  execFileSync(installerA, ["/S", "/currentuser"], { windowsHide: true });
+  return installedVersion();
+}
+
+function desktopScreenshot(name: string): void {
+  // Best effort: the relaunched app is not under Playwright, so capture the whole screen.
+  const path = join(outDir, `${name}.png`).replaceAll("'", "''");
+  try {
+    powershell(
+      "Add-Type -AssemblyName System.Windows.Forms,System.Drawing; " +
+        "$b=[System.Windows.Forms.Screen]::PrimaryScreen.Bounds; " +
+        "$bmp=New-Object System.Drawing.Bitmap $b.Width,$b.Height; " +
+        "$g=[System.Drawing.Graphics]::FromImage($bmp); $g.CopyFromScreen($b.Location,[System.Drawing.Point]::Empty,$b.Size); " +
+        `$bmp.Save('${path}')`,
+    );
+  } catch {
+    // no interactive desktop
+  }
+}
+
+function summarize(hits: FeedHit[]) {
+  const yml = hits.find((h) => h.path.endsWith(".yml"));
+  const exeHits = hits.filter((h) => h.path.endsWith(".exe"));
+  const blockmaps = hits.filter((h) => h.path.endsWith(".blockmap")).map((h) => h.path);
+  return {
+    firstYmlMs: yml?.t ?? null,
+    firstExeMs: exeHits[0]?.t ?? null,
+    lastExeMs: exeHits.at(-1)?.t ?? null,
+    exeRequests: exeHits.length,
+    rangedExeRequests: exeHits.filter((h) => h.range).length,
+    blockmaps,
+  };
+}
+
+async function launchA(label: string, feedUrl: string, gatewayBase: string): Promise<Launched> {
+  return launch(label, {
+    testMode: false,
+    prepare: seedGateway(gatewayBase),
+    env: { PRSLOY_E2E: "1", PRSLOY_UPDATE_FEED_URL: feedUrl },
+  });
+}
+
+test.beforeAll(async () => {
+  await beforeAllSmoke();
+  expect(versionA && versionB && feedGood && feedBad && installerA, "UPDATE_* env").toBeTruthy();
+});
+
+test.beforeEach(() => {
+  if (process.platform !== "win32") return;
+  expect(reinstallA()).toContain(versionA);
+});
+
+test("tampered update (sha512 mismatch): A refuses quietly and keeps running", async () => {
+  test.skip(process.platform !== "win32", "Windows only");
+  const feed = await startFeedServer(feedBad);
+  const gateway = await startGateway();
+  let launched: Launched | undefined;
+  try {
+    launched = await launchA("upd-bad", feed.url, gateway.baseUrl);
+    gateway.setUpstream(launched.fakeModel.baseUrl);
+    await passFirstRun(launched);
+    const { page } = launched;
+
+    // The download is attempted, then rejected: wait for the installer requests to stop.
+    await expect
+      .poll(() => feed.hits.some((h) => h.path.endsWith(".exe")), {
+        timeout: 180_000,
+      })
+      .toBe(true);
+    let last = feed.hits.length;
+    for (;;) {
+      await page.waitForTimeout(10_000);
+      if (feed.hits.length === last) break;
+      last = feed.hits.length;
+    }
+    const mainLog = await readFile(launched.mainLog, "utf8").catch(() => "");
+    const rejection = mainLog
+      .split("\n")
+      .filter((line) => /sha512|checksum|mismatch|Cannot download|ERR_UPDATER/i.test(line))
+      .slice(0, 8);
+    await shot(page, "30-update-bad-after-download");
+
+    const version = await launched.app.evaluate(({ app }) => app.getVersion());
+    const ready = await page.locator(READY).isVisible();
+    await page.getByTestId("prompt-input").fill("всё ещё работает");
+    await expect(page.getByTestId("prompt-input")).toHaveValue("всё ещё работает");
+    await writeMetrics({
+      updateBad: {
+        feed: summarize(feed.hits),
+        rejection,
+        versionAfter: version,
+        readyShown: ready,
+      },
+    });
+    expect(ready, "no «Обновление готово» for a tampered update").toBe(false);
+    expect(version).toBe(versionA);
+    expect(rejection.join("\n"), "updater logged the checksum rejection").toMatch(
+      /sha512|checksum/i,
+    );
+    expect(launched.pageErrors, launched.pageErrors.join("\n\n")).toEqual([]);
+  } finally {
+    await close(launched);
+    await gateway.stop();
+    await feed.stop();
+    await writeFile(join(outDir, "update-feed-hits-bad.json"), JSON.stringify(feed.hits, null, 2));
+  }
+  // Quit must not install anything (autoInstallOnAppQuit only installs a verified download).
+  await new Promise((r) => setTimeout(r, 5_000));
+  const product = installedVersion();
+  await writeMetrics({ updateBadInstalledAfterQuit: product });
+  expect(product).toContain(versionA);
+});
+
+test("good update: detect, download, «Обновление готово — перезапустить», relaunch as B", async () => {
+  test.skip(process.platform !== "win32", "Windows only");
+  const feed = await startFeedServer(feedGood);
+  const gateway = await startGateway();
+  let launched: Launched | undefined;
+  let relaunched: Launched | undefined;
+  try {
+    launched = await launchA("upd-good", feed.url, gateway.baseUrl);
+    gateway.setUpstream(launched.fakeModel.baseUrl);
+    await passFirstRun(launched);
+    const { page, t0, userData } = launched;
+
+    await expect(page.locator(READY)).toBeVisible({ timeout: 300_000 });
+    const readyMs = Date.now() - t0;
+    await expect(page.locator(READY)).toContainText("Обновление готово — перезапустить");
+    await shot(page, "31-update-ready");
+    await writeMetrics({ updateGood: { readyMs, feed: summarize(feed.hits) } });
+
+    // Click: quit → NSIS installs B (update mode, no wizard) → --force-run relaunches B.
+    const before = new Set(runningInstalled().map((p) => p.Id));
+    const clickedAt = Date.now();
+    const closed = new Promise<void>((resolve) => launched!.app.once("close", () => resolve()));
+    await page.locator(`${READY} button`).first().click();
+    await Promise.race([closed, new Promise((r) => setTimeout(r, 60_000))]);
+    const quitMs = Date.now() - clickedAt;
+
+    // Watch the installer and the relaunch; keep a timeline whatever happens.
+    let fresh: Array<{ Id: number; Path: string; StartTime: string }> = [];
+    const timeline: Array<{ phase: string; ms: number; installed: string; processes: string }> = [];
+    let relaunchMs: number | undefined;
+    let installedMs: number | undefined;
+    const watch = async (phase: string, maxMs: number) => {
+      const deadline = Date.now() + maxMs;
+      while (relaunchMs === undefined && Date.now() < deadline) {
+        const installed = installedVersion();
+        if (installedMs === undefined && installed.includes(versionB)) {
+          installedMs = Date.now() - clickedAt;
+        }
+        timeline.push({
+          phase,
+          ms: Date.now() - clickedAt,
+          installed,
+          processes: prsloyProcesses(),
+        });
+        fresh = runningInstalled().filter((p) => !before.has(p.Id));
+        if (fresh.length > 0) relaunchMs = Date.now() - clickedAt;
+        else await new Promise((r) => setTimeout(r, 3_000));
+      }
+    };
+    await watch("click", 45_000);
+    desktopScreenshot("32a-update-after-click-desktop");
+
+    // The click must update without questions. quitAndInstall(false, true) runs the assisted
+    // NSIS installer without /S, which stops on «Choose Installation Options» (English, all
+    // users / only me) while the app is already gone.
+    const installers = prsloyProcesses();
+    const wizard =
+      relaunchMs === undefined &&
+      !installedVersion().includes(versionB) &&
+      /"MainWindowTitle":"PRSLOY Setup/.test(installers);
+    const silent = findings("update-silent", process.env.SMOKE_STRICT_UPDATE_SILENT === "1");
+    silent.check(
+      "click installs B without an installer wizard",
+      !wizard,
+      `installer window after 45 s: ${installers}`,
+    );
+    await silent.finish();
+    let viaSilentInstaller = false;
+    if (wizard) {
+      // Proposed fix, proven here: run the verified pending installer the way
+      // quitAndInstall(true, true) does (--updated /S --force-run).
+      const pending = powershell(
+        "Get-Process | Where-Object Name -like 'PRSLOY-*-win-x64' | Select-Object -First 1 " +
+          "-ExpandProperty Path; exit 0",
+      );
+      powershell(
+        "Get-Process | Where-Object Name -like 'PRSLOY-*-win-x64' | Stop-Process -Force; exit 0",
+      );
+      await new Promise((r) => setTimeout(r, 2_000));
+      expect(pending, "pending installer path").toMatch(/pending.*\.exe$/i);
+      spawn(pending, ["--updated", "/S", "--force-run"], {
+        detached: true,
+        stdio: "ignore",
+      }).unref();
+      viaSilentInstaller = true;
+      await watch("silent", 240_000);
+    }
+    await new Promise((r) => setTimeout(r, 8_000));
+    desktopScreenshot("32-update-relaunched-desktop");
+    const product = installedVersion();
+    await writeMetrics({
+      updateGood: {
+        readyMs,
+        feed: summarize(feed.hits),
+        quitMs,
+        installedMs: installedMs ?? null,
+        clickShowedWizard: wizard,
+        viaSilentInstaller,
+        relaunchMs: relaunchMs ?? null,
+        relaunchedProcesses: fresh,
+        installedVersion: product,
+      },
+    });
+    await writeFile(join(outDir, "update-timeline.json"), JSON.stringify(timeline, null, 2));
+    expect(product, "installed version after the click").toContain(versionB);
+    expect(relaunchMs, "updater relaunched the app (--force-run)").toBeDefined();
+
+    // The relaunched app is not under Playwright: stop it and start the installed exe again
+    // on the same profile to ask it which version it is.
+    powershell("Get-Process PRSLOY -ErrorAction SilentlyContinue | Stop-Process -Force; exit 0");
+    await new Promise((r) => setTimeout(r, 3_000));
+    relaunched = await launch("upd-after", {
+      testMode: false,
+      userData,
+      readySelector: '[data-testid="zeno-app"]',
+      env: { PRSLOY_NO_UPDATE: "1" },
+    });
+    const version = await relaunched.app.evaluate(({ app }) => app.getVersion());
+    await shot(relaunched.page, "33-update-after-relaunch");
+    await writeMetrics({ updateGoodVersionAfter: version });
+    expect(version).toBe(versionB);
+    expect(relaunched.pageErrors, relaunched.pageErrors.join("\n\n")).toEqual([]);
+  } finally {
+    await close(relaunched);
+    await close(launched);
+    await gateway.stop();
+    await feed.stop();
+    await writeFile(join(outDir, "update-feed-hits-good.json"), JSON.stringify(feed.hits, null, 2));
+  }
+});
