@@ -10,7 +10,13 @@ import { FIRST_RUN_KEY, type Launched } from "./helpers.ts";
 
 export const GOOD_KEY = "sk-prsloy-smoke-good-0001";
 
-export type GatewayHit = { method: string; url: string; auth: "good" | "wrong" | "none" };
+export type GatewayHit = {
+  method: string;
+  url: string;
+  auth: "good" | "wrong" | "none";
+  /** Date.now() when the request arrived. */
+  at: number;
+};
 
 /**
  * OpenAI-compatible PRSLOY gateway: /v1/models checks the key, chat is proxied to `upstream`
@@ -22,7 +28,7 @@ export async function startGateway() {
   const server: Server = createServer((req: IncomingMessage, res) => {
     const header = req.headers.authorization ?? "";
     const auth = header === `Bearer ${GOOD_KEY}` ? "good" : header ? "wrong" : "none";
-    hits.push({ method: req.method ?? "", url: req.url ?? "", auth });
+    hits.push({ method: req.method ?? "", url: req.url ?? "", auth, at: Date.now() });
     if (auth !== "good") {
       res.writeHead(401, { "content-type": "application/json" });
       res.end(JSON.stringify({ error: { message: "invalid api key", type: "auth" } }));
