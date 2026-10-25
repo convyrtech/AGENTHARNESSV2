@@ -27,6 +27,9 @@ export const featuresZh = {
   "features.memory.empty": "暂无内容。",
   "features.memory.forget": "忘记",
   "features.memory.forgetAll": "全部忘记",
+  "features.memory.offConfirmTitle": "关闭记忆？",
+  "features.memory.offConfirmMessage": "代理记住的关于你和项目的一切都会被清除，无法撤销。",
+  "features.memory.offConfirm": "关闭并清除",
   "features.memory.confirmTitle": "全部忘记？",
   "features.memory.confirmMessage": "忘记 PRSLOY 记住的关于你和所有项目的一切？无法撤销。",
   "features.memory.forgotten": "最近忘记的",
@@ -249,6 +252,6 @@ export const featuresZh = {
   "features.web.firstRun.skip": "以后再说",
   "features.web.firstRun.later": "之后可以在「设置 → 搜索网络」里更改，也可以添加别的搜索的密钥。",
   "features.web.limit.title": "{name}：{reason}",
-  "features.web.limit.hint": "助手已经改用别的搜索继续。添加密钥，或选择别的搜索。",
+  "features.web.limit.hint": "助手已经改用别的搜索继续。",
   "features.web.limit.choose": "选择别的搜索",
 } as const;

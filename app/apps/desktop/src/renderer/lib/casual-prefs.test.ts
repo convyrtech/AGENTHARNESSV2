@@ -73,8 +73,10 @@ describe("casual-prefs", () => {
   });
 
   it("shows «Поиск в интернете» to everyone only once SEARCH_READY (#23)", () => {
-    expect(isSettingsSectionVisible("webSearch", false)).toBe(false);
-    expect(isSettingsSectionVisible("webSearch", true)).toBe(true);
+    // alpha.2: SEARCH_READY is true, so the default shows it
+    expect(isSettingsSectionVisible("webSearch", false)).toBe(true);
+    expect(isSettingsSectionVisible("webSearch", false, false)).toBe(false);
+    expect(isSettingsSectionVisible("webSearch", true, false)).toBe(true);
     expect(isSettingsSectionVisible("webSearch", false, true)).toBe(true);
     expect(isSettingsSectionVisible("memory", false, false)).toBe(true);
   });

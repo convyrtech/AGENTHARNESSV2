@@ -29,6 +29,10 @@ export const featuresEn: Record<keyof typeof featuresZh, string> = {
   "features.memory.empty": "Nothing yet.",
   "features.memory.forget": "Forget",
   "features.memory.forgetAll": "Forget everything",
+  "features.memory.offConfirmTitle": "Turn memory off?",
+  "features.memory.offConfirmMessage":
+    "Everything the agent remembered about you and your projects will be erased. This cannot be undone.",
+  "features.memory.offConfirm": "Turn off and erase",
   "features.memory.confirmTitle": "Forget everything?",
   "features.memory.confirmMessage":
     "Forget everything PRSLOY remembers about you and your projects? This can't be undone.",
@@ -263,7 +267,6 @@ export const featuresEn: Record<keyof typeof featuresZh, string> = {
   "features.web.firstRun.later":
     "You can change this later in Settings → «Web search» and add keys for other searches there.",
   "features.web.limit.title": "{name}: {reason}",
-  "features.web.limit.hint":
-    "The agent went on with another search. Add a key or choose a different search.",
+  "features.web.limit.hint": "The agent went on with another search.",
   "features.web.limit.choose": "Choose another search",
 };

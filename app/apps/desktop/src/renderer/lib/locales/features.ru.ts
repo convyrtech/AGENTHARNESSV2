@@ -30,6 +30,10 @@ export const featuresRu: Record<keyof typeof featuresZh, string> = {
   "features.memory.empty": "Пока пусто.",
   "features.memory.forget": "Забыть",
   "features.memory.forgetAll": "Забыть всё",
+  "features.memory.offConfirmTitle": "Выключить память?",
+  "features.memory.offConfirmMessage":
+    "Всё, что агент запомнил о вас и проектах, сотрётся. Вернуть не получится.",
+  "features.memory.offConfirm": "Выключить и стереть",
   "features.memory.confirmTitle": "Забыть всё?",
   "features.memory.confirmMessage":
     "Забыть всё, что PRSLOY помнит о вас и проектах? Отменить нельзя.",
@@ -262,7 +266,6 @@ export const featuresRu: Record<keyof typeof featuresZh, string> = {
   "features.web.firstRun.later":
     "Это можно поменять потом: Настройки → «Поиск в интернете». Там же — ключи других поисков.",
   "features.web.limit.title": "{name}: {reason}",
-  "features.web.limit.hint":
-    "Агент продолжил другим поиском. Добавьте ключ или выберите другой поиск.",
+  "features.web.limit.hint": "Агент продолжил другим поиском.",
   "features.web.limit.choose": "Выбрать другой поиск",
 };
