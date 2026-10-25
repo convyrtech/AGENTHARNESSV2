@@ -173,10 +173,10 @@ describe("page check in a real Chromium", async () => {
         ]),
       });
       expect(custom!.issues.map((i) => [i.rule, i.detail])).toEqual([
-        ["small-text", '{"minWidth":0,"minHeight":0,"checkFocus":false}'],
-        ["small-text", '{"minWidth":0,"minHeight":0,"checkFocus":false}'],
-        ["small-text", '{"minWidth":0,"minHeight":0,"checkFocus":false}'],
-        ["small-text", '{"minWidth":0,"minHeight":0,"checkFocus":false}'],
+        ["small-text", '{"minWidth":0,"minHeight":0,"checkFocus":false,"scrollsY":true}'],
+        ["small-text", '{"minWidth":0,"minHeight":0,"checkFocus":false,"scrollsY":true}'],
+        ["small-text", '{"minWidth":0,"minHeight":0,"checkFocus":false,"scrollsY":true}'],
+        ["small-text", '{"minWidth":0,"minHeight":0,"checkFocus":false,"scrollsY":true}'],
       ]);
       expect(hasBlocking(custom!)).toBe(false);
 

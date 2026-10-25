@@ -294,7 +294,8 @@ const FREEZE = `() => { const s = document.createElement("style"); s.textContent
 
 /**
  * `off-window` ci писался для окна приложения, которое не прокручивается. Страница пользователя прокручивается
- * вниз: блок ниже первого экрана — норма. Считаем только то, что вылезло вбок.
+ * вниз: блок ниже первого экрана — норма. Считаем только то, что вылезло вбок. С `scrollsY: true` (ci @ 2b1c5ad)
+ * так считает сам `lintLayout`; фильтр — для версии пакета без опции, убрать вместе с подключением пакета.
  */
 export function belowTheFold(i: Pick<PageIssue, "rule" | "box" | "width">): boolean {
   return i.rule === "off-window" && !!i.box && i.box.x >= -1 && i.box.x + i.box.w <= i.width + 1;
@@ -397,7 +398,7 @@ export async function checkPage(
       viewports: PAGE_VIEWPORTS,
       lint: options.lint ?? basicLint.toString(),
       // Для lintLayout ci: окно чужой страницы без минимума, фокус не трогаем (он меняет состояние страницы).
-      lintArg: { minWidth: 0, minHeight: 0, checkFocus: false },
+      lintArg: { minWidth: 0, minHeight: 0, checkFocus: false, scrollsY: true },
       freeze: FREEZE,
       navTimeoutMs: 8_000,
       settleMs: 300,
