@@ -220,6 +220,90 @@ test("update check with a dead (hanging) network: startup not delayed, no error,
   }
 });
 
+// ── First command after the first launch, timed (the «ждёт 30–40 секунд» of the alpha notes) ──
+
+/** `[prsloy-timing] <phase> <ms>` lines of a main log: phase → ms (since main started, or a duration). */
+function mainTimings(log: string): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const m of log.matchAll(/\[prsloy-timing\] (\S+) (\d+)/g)) out[m[1]!] ??= Number(m[2]);
+  return out;
+}
+
+test("first command after the first launch: key → folder → command → reply, timed", async () => {
+  // A fresh profile on the installed app: the runtimes unpack now, in the background. The key and
+  // the folder go in at machine speed — the worst case; a person takes longer on both screens.
+  const gateway = await startGateway();
+  let launched: Launched | undefined;
+  const m: Record<string, unknown> = {};
+  try {
+    launched = await launch("first-command", {
+      testMode: false,
+      prepare: seedGateway(gateway.baseUrl),
+    });
+    gateway.setUpstream(launched.fakeModel.baseUrl);
+    const { page, t0 } = launched;
+    const since = (at = Date.now()) => at - t0;
+    m.keyScreenMs = since();
+    m.setupShownOnKeyScreen = await page.getByTestId("prsloy-app-setup").isVisible();
+    await page.locator(`${FIRST_RUN_KEY} input`).fill(GOOD_KEY);
+    const keyAt = Date.now();
+    m.keyEnteredMs = since(keyAt);
+    await page.locator(`${FIRST_RUN_KEY} button[type="submit"]`).click();
+    await expect(page.getByTestId("prsloy-first-run-folder")).toBeVisible({ timeout: 60_000 });
+    m.folderScreenMs = since();
+    const folder = join(launched.root, "Первый проект");
+    await mkdir(folder, { recursive: true });
+    await launched.app.evaluate(({ dialog }, picked) => {
+      dialog.showOpenDialog = (async () => ({
+        canceled: false,
+        filePaths: [picked],
+      })) as unknown as typeof dialog.showOpenDialog;
+    }, folder);
+    await page.getByTestId("prsloy-folder-pick").click();
+    await expect(page.getByTestId("zeno-app")).toBeVisible({ timeout: 60_000 });
+    m.appMs = since();
+    const input = page.getByTestId("prompt-input");
+    await expect(input).toBeEditable({ timeout: 60_000 });
+    // «tool» makes the fake model call bash: the first command of the agent.
+    await input.fill("Запусти команду и скажи, что вышло. tool");
+    await page.getByTestId("send-prompt").click();
+    const sentAt = Date.now();
+    m.sentMs = since(sentAt);
+    // While the turn waits for the unpack the person must see progress, not silence.
+    const waitShown = page
+      .getByTestId("prsloy-turn-setup")
+      .waitFor({ state: "visible", timeout: 30_000 })
+      .then(() => since())
+      .catch(() => null);
+    await expect
+      .poll(async () => page.locator("body").innerText(), { timeout: 300_000 })
+      .toContain("Tool result received.");
+    const replyAt = Date.now();
+    m.replyMs = since(replyAt);
+    m.keyToReplyMs = replyAt - keyAt;
+    m.sendToReplyMs = replyAt - sentAt;
+    const chats = gateway.hits.filter((h) => h.url === "/v1/chat/completions");
+    m.sendToFirstModelRequestMs = chats[0] ? chats[0].at - sentAt : null;
+    m.turnProgressShownMs = await waitShown;
+    await shot(page, "15-first-command-reply");
+    const timings = mainTimings(await readFile(launched.mainLog, "utf8").catch(() => ""));
+    m.main = timings;
+    // The unpack finished this long after the person pressed «send» (≤ 0: before it).
+    m.runtimesAfterSendMs =
+      timings.runtimes !== undefined ? timings.runtimes - since(sentAt) : null;
+    expect(chats.length, "the command's result went back to the model").toBeGreaterThanOrEqual(2);
+    // A turn that sat behind the unpack must have said so on screen.
+    if ((timings["turn-wait"] ?? 0) > 2_000) {
+      expect(m.turnProgressShownMs, "«Готовлю инструменты» while the turn waited").not.toBeNull();
+    }
+    expect(launched.pageErrors, launched.pageErrors.join("\n\n")).toEqual([]);
+  } finally {
+    await writeMetrics({ firstCommand: m });
+    await close(launched);
+    await gateway.stop();
+  }
+});
+
 // ── Uninstall → reinstall keeps the key and the chats (the gate is not shown again) ──
 
 function findInstaller(): string | undefined {

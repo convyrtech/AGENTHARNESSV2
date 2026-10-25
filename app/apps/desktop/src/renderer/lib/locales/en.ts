@@ -1555,6 +1555,8 @@ export const en = {
   "empty.example.bot": "A Telegram bot that answers questions",
   "empty.example.explore": "Make sense of someone else's code",
   "prsloy.setup.app": "Preparing the app… {percent}%",
+  "prsloy.setup.tools":
+    "Preparing the agent's tools… {percent}%. The first reply starts by itself when this is done.",
   "timeline.showEarlier": "Show earlier messages ({count})",
   "prsloy.support.group": "Support",
   "prsloy.support.title": "Support report",
