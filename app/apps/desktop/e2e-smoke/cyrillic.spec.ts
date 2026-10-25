@@ -35,6 +35,7 @@ import {
 
 const isWindows = process.platform === "win32";
 const NOTE = "заметка о сайте.txt";
+const GIT_DIR = "новый проект";
 
 async function cyrillicPaths(): Promise<{ profile: string; workspace: string }> {
   if (isWindows) {
@@ -67,6 +68,9 @@ test("Cyrillic profile + project: runtimes, Git, bash cd, python3 привет, 
     "ls",
     `cat '${NOTE}'`,
     "echo HOME=$HOME",
+    // A new project folder with a Cyrillic name: git works there (PortableGit unpacked by
+    // the installer, post-install run by the app).
+    `mkdir -p '${GIT_DIR}' && cd '${GIT_DIR}' && git init -q && git status --porcelain -b && echo GIT_INIT_OK`,
   ].join("; ");
   let launched: Launched | undefined;
   try {
@@ -125,6 +129,13 @@ test("Cyrillic profile + project: runtimes, Git, bash cd, python3 привет, 
     ru.check("python3 prints привет", /^привет$/m.test(bash.result), report);
     ru.check("Cyrillic file name in ls", bash.result.includes(NOTE), report);
     ru.check("cat reads тест", /^тест$/m.test(bash.result), report);
+    ru.check(
+      "git init && git status in a new Cyrillic folder",
+      bash.result.includes("GIT_INIT_OK") &&
+        /^## (No commits yet on|Initial commit on) /m.test(bash.result) &&
+        existsSync(join(workspace, GIT_DIR, ".git", "HEAD")),
+      report,
+    );
     ru.check(
       "file on disk with Cyrillic name",
       note === "тест\n",
