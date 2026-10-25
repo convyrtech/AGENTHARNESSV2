@@ -3,7 +3,7 @@
  *
  * The host sends a stable `code` with `message.failed` (agent-runtime `classifyModelError`).
  * A chat reopened from disk has only pi's raw error text, so the same few cases are read
- * from that text as a fallback. A missing model has no code yet and is read from the text.
+ * from that text as a fallback.
  */
 import type { MessageKey } from "./i18n.ts";
 import { RESPONSE_FAILED_TITLE } from "./system-notices.ts";
@@ -21,9 +21,10 @@ const PROXY_DROPS =
   /attempts failed[\s\S]*(fetch failed|ECONNRESET|socket hang up|terminated|other side closed)/iu;
 
 export function failureKind(code: string | undefined, text: string): FailureKind {
-  if (MODEL_MISSING.test(text)) return "model";
   if (PROXY_DROPS.test(text)) return "network";
   switch (code) {
+    case "model_unavailable":
+      return "model";
     case "no_balance":
       return "balance";
     case "auth":
@@ -39,6 +40,8 @@ export function failureKind(code: string | undefined, text: string): FailureKind
     default:
       break;
   }
+  // No code (a chat reopened from disk keeps only pi's text) or `unknown`: read the text.
+  if (MODEL_MISSING.test(text)) return "model";
   const raw = text.trim();
   if (/^402\b|insufficient (balance|funds|quota)|out of credits/iu.test(raw)) return "balance";
   if (/^40[13]\b|invalid api key|unauthori[sz]ed/iu.test(raw)) return "key";

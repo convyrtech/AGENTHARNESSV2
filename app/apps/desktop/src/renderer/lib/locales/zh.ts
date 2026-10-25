@@ -1515,6 +1515,7 @@ export const zh = {
   "failure.key.title": "密钥不正确",
   "failure.model.title": "这个模型暂时不可用",
   "failure.model.hint": "切换「更快 / 更好」后重试",
+  "failure.model.server": "或检查服务器地址",
   "failure.busy.title": "模型现在太忙了",
   "failure.busy.hint": "等一分钟再试",
   "failure.slow.title": "模型太久没有回应",

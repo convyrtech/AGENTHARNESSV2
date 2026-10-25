@@ -1546,6 +1546,7 @@ export const en = {
   "failure.key.title": "The key doesn't work",
   "failure.model.title": "This model isn't available right now",
   "failure.model.hint": "Switch «Faster / Better» and try again",
+  "failure.model.server": "or check the server address",
   "failure.busy.title": "The model is overloaded right now",
   "failure.busy.hint": "Wait a minute and try again",
   "failure.slow.title": "The model took too long to answer",

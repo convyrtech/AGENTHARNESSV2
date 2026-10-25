@@ -1527,6 +1527,7 @@ export const ru = {
   "failure.key.title": "Ключ не подходит",
   "failure.model.title": "Эта модель сейчас недоступна",
   "failure.model.hint": "Переключите «Быстрее / Качественнее» и повторите",
+  "failure.model.server": "или проверьте адрес сервера",
   "failure.busy.title": "Модель сейчас перегружена",
   "failure.busy.hint": "Подождите минуту и повторите",
   "failure.slow.title": "Модель слишком долго не отвечала",

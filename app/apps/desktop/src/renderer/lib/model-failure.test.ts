@@ -18,7 +18,8 @@ describe("failureKind", () => {
     expect(failureKind("server", "502 Bad Gateway")).toBe("server");
   });
 
-  it("reads a missing model from the text (no code for it yet)", () => {
+  it("a missing model: the host's code, or the text of a reopened chat", () => {
+    expect(failureKind("model_unavailable", "404 Not Found")).toBe("model");
     expect(failureKind("unknown", "404 The model `kimi-k9` does not exist")).toBe("model");
     expect(failureKind(undefined, '{"error":{"code":"model_not_found"}}')).toBe("model");
   });

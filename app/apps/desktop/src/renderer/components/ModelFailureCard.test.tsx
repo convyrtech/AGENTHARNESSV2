@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { useShellStore } from "../store/shell-store.ts";
 import { ModelFailureCard } from "./ModelFailureCard.tsx";
@@ -52,12 +52,16 @@ describe("ModelFailureCard", () => {
     expect(useShellStore.getState().settingsSection).toBe("account");
   });
 
-  it("missing model: says which and how to go on", () => {
+  it("missing model: says which and how to go on", async () => {
+    const getState = vi
+      .fn()
+      .mockResolvedValue({ baseUrl: "https://x/v1", defaultBaseUrl: "https://x/v1" });
+    (window as unknown as { zeno: unknown }).zeno = { prsloy: { getState } };
     const onRetry = vi.fn();
     render(
       <ModelFailureCard
         locale="ru"
-        code="unknown"
+        code="model_unavailable"
         detail="404 The model `kimi` does not exist"
         onRetry={onRetry}
       />,
@@ -66,5 +70,19 @@ describe("ModelFailureCard", () => {
     expect(screen.getByText("Переключите «Быстрее / Качественнее» и повторите")).toBeTruthy();
     fireEvent.click(screen.getByTestId("model-failure-retry"));
     expect(onRetry).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(getState).toHaveBeenCalled());
+    expect(screen.queryByTestId("model-failure-server")).toBeNull();
+  });
+
+  it("missing model with another server set: also suggests checking the address", async () => {
+    const getState = vi.fn().mockResolvedValue({
+      baseUrl: "https://my.proxy/v1",
+      defaultBaseUrl: "https://api.prsloy.online/v1",
+    });
+    (window as unknown as { zeno: unknown }).zeno = { prsloy: { getState } };
+    render(<ModelFailureCard locale="ru" code="model_unavailable" detail="404 Not Found" />);
+    expect((await screen.findByTestId("model-failure-server")).textContent).toBe(
+      "или проверьте адрес сервера",
+    );
   });
 });

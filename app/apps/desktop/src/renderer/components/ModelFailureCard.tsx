@@ -3,7 +3,7 @@
  * prompt), «Пополнить» (the PRSLOY cabinet) or «Изменить ключ» (Settings → Аккаунт). The raw
  * error stays folded away under «Подробности».
  */
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ChevronRight, CircleAlert, KeyRound, RotateCcw, Wallet } from "lucide-react";
 import { t, type Locale } from "../lib/i18n.ts";
 import {
@@ -31,6 +31,20 @@ export function ModelFailureCard(props: {
   const action = failureAction(kind);
   const title = t(props.locale, failureTitleKey(kind));
   const hintKey = failureHintKey(kind);
+  // A bare 404 from a wrong address also reads as a missing model: with «Другой сервер» set,
+  // the address is the other suspect.
+  const [customServer, setCustomServer] = useState(false);
+  useEffect(() => {
+    if (kind !== "model") return;
+    let alive = true;
+    void window.zeno.prsloy
+      .getState()
+      .then((state) => alive && setCustomServer(state.baseUrl !== state.defaultBaseUrl))
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, [kind]);
   // The gateway's own drop already says «Связь с моделью оборвалась»; nothing more to unfold.
   const detail = props.detail.trim() === title ? "" : props.detail;
   const run =
@@ -69,6 +83,11 @@ export function ModelFailureCard(props: {
         ) : null}
       </div>
       {hintKey ? <p className="model-failure-hint">{t(props.locale, hintKey)}</p> : null}
+      {customServer ? (
+        <p className="model-failure-hint" data-testid="model-failure-server">
+          {t(props.locale, "failure.model.server")}
+        </p>
+      ) : null}
       {detail ? (
         <>
           <button

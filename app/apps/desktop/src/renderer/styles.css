@@ -6875,6 +6875,9 @@ textarea.models-scoped-patterns-input[data-slot="textarea"] {
   font-size: 13px;
   color: var(--muted-foreground);
 }
+.model-failure-hint + .model-failure-hint {
+  margin-top: 0;
+}
 .model-retry-note {
   margin: 0 0 12px;
   font-size: 13px;
