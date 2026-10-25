@@ -84,8 +84,15 @@ async function launch(opts: { toolsReady: boolean; noBundle?: boolean }): Promis
     timeout: 120_000,
   });
   const locale = process.env.DESIGN_E2E_LOCALE;
-  if (locale) {
-    await page.evaluate((l) => localStorage.setItem("zeno.locale", l), locale);
+  const theme = process.env.DESIGN_E2E_THEME;
+  if (locale || theme) {
+    await page.evaluate(
+      ([l, th]) => {
+        if (l) localStorage.setItem("zeno.locale", l);
+        if (th) localStorage.setItem("zeno.colorMode", th);
+      },
+      [locale, theme] as const,
+    );
     await page.reload();
     await page.waitForSelector('[data-testid="zeno-app"][data-bootstrap-ready="true"]');
   }
@@ -94,7 +101,10 @@ async function launch(opts: { toolsReady: boolean; noBundle?: boolean }): Promis
 
 async function shot(page: Page, name: string, settleMs = 250) {
   await page.waitForTimeout(settleMs);
-  await page.screenshot({ path: join(SCREENS, `design-${name}.png`) });
+  // DESIGN_E2E_THEME=dark → design-dark-<name>.png next to the light set.
+  const theme = process.env.DESIGN_E2E_THEME;
+  const suffix = theme && theme !== "light" ? `${theme}-` : "";
+  await page.screenshot({ path: join(SCREENS, `design-${suffix}${name}.png`) });
 }
 
 async function say(page: Page, text: string) {
@@ -193,6 +203,12 @@ test("owner leads a landing page from request to preview", async () => {
     await expect(card).not.toContainText("00-moods.png");
     await expect(first.getByTestId("design-options")).toHaveCount(0);
     await shot(page, "choice");
+    // a picture opens full size and closes again
+    await img.click();
+    await expect(page.getByTestId("image-preview-dialog")).toBeVisible();
+    await shot(page, "image-full");
+    await page.keyboard.press("Escape");
+    await expect(page.getByTestId("image-preview-dialog")).toHaveCount(0);
 
     // turn 3: progress line while the harness works; the turn's stage budget runs out
     await card.getByTestId("design-recommend").click();
@@ -220,6 +236,14 @@ test("owner leads a landing page from request to preview", async () => {
       "Зерно",
     );
     await shot(page, "done");
+    // phone / desktop preview
+    await page.getByTestId("design-device-phone").click();
+    await expect(page.getByTestId("design-device-phone")).toHaveAttribute("aria-checked", "true");
+    await expect
+      .poll(() => frame.evaluate((el) => Math.round(el.getBoundingClientRect().width)))
+      .toBeLessThanOrEqual(390);
+    await shot(page, "done-phone", 400);
+    await page.getByTestId("design-device-desktop").click();
     // no project is open in this run (auto-resume is off): the workspace is Documents/PRSLOY
     const documents = await app.evaluate(({ app: a }) => a.getPath("documents"));
     await page.getByTestId("design-open-folder").click();
