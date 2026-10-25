@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { describe, expect, it } from "vite-plus/test";
 import type { PrsloyState } from "@zeno/contracts";
 import {
@@ -5,6 +6,9 @@ import {
   firstRunStep,
   gatewayErrorKey,
   appSetupPercent,
+  FIRST_RUN_SEEN_KEYS,
+  markFirstRunSeen,
+  readFirstRunSeen,
 } from "./prsloy-first-run.ts";
 import { t } from "./i18n.ts";
 
@@ -21,12 +25,30 @@ const base: PrsloyState = {
 };
 
 describe("prsloy first run", () => {
-  it("asks for the key, then the folder, then gets out of the way", () => {
+  it("asks for the key, then import and search, then the folder, then gets out of the way", () => {
+    const seen = { import: true, search: true };
     expect(firstRunStep(undefined)).toBe("loading");
     expect(firstRunStep(base)).toBe("key");
-    expect(firstRunStep({ ...base, hasKey: true })).toBe("folder");
-    expect(firstRunStep({ ...base, hasKey: true, needsWorkspace: false })).toBe("done");
+    expect(firstRunStep({ ...base, hasKey: true })).toBe("import");
+    expect(firstRunStep({ ...base, hasKey: true }, { import: true })).toBe("search");
+    expect(firstRunStep({ ...base, hasKey: true }, seen)).toBe("folder");
+    expect(firstRunStep({ ...base, hasKey: true, needsWorkspace: false }, seen)).toBe("done");
     expect(firstRunStep({ ...base, firstRunBypass: true })).toBe("done");
+  });
+
+  it("does not stop people who already have a project with the optional steps", () => {
+    expect(firstRunStep({ ...base, hasKey: true, needsWorkspace: false })).toBe("done");
+  });
+
+  it("remembers passed optional steps", () => {
+    localStorage.removeItem(FIRST_RUN_SEEN_KEYS.import);
+    localStorage.removeItem(FIRST_RUN_SEEN_KEYS.search);
+    expect(readFirstRunSeen()).toEqual({});
+    markFirstRunSeen("import");
+    expect(readFirstRunSeen()).toEqual({ import: true });
+    expect(localStorage.getItem("prsloy.firstRun.importSeen")).toBe("1");
+    markFirstRunSeen("search");
+    expect(readFirstRunSeen()).toEqual({ import: true, search: true });
   });
 
   it("maps every gateway error to a translated message", () => {
