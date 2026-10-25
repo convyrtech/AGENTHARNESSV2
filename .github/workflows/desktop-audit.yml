@@ -1,0 +1,71 @@
+# Разборщик сессий (research/24 §6, A-0s): каждую ночь — стенд «Кода» на фейковой модели (без ключа, 0 токенов)
+# и детекторы-код по его сессиям. REPORT-audit.md и SUMMARY.md (без цитат) — в summary прогона, всё остальное —
+# артефактом на 14 дней. Еженедельный разбор сессий дирижёра и владельца идёт на их машине:
+#   node packages/prsloy-harness/scripts/audit-sessions.mts --sessions ~/.pi/agent/sessions --since <неделю назад>
+name: desktop-audit
+
+on:
+  schedule:
+    # 01:17 UTC (04:17 МСК): не на ровном часе, чтобы не ждать очереди раннеров.
+    - cron: "17 1 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: desktop-audit
+  cancel-in-progress: false
+
+defaults:
+  run:
+    working-directory: app
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11.15.1
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: app/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      # Красный стенд — тоже материал для разбора: шаг не роняет прогон, итог виден в отчёте стенда.
+      - name: Bench (fake model, no key)
+        id: bench
+        continue-on-error: true
+        run: node packages/prsloy-harness/scripts/bench.mts --fake --out "$RUNNER_TEMP/bench-out"
+      - name: Audit sessions (code detectors, 0 tokens)
+        run: |
+          node packages/prsloy-harness/scripts/audit-sessions.mts \
+            --sessions "$RUNNER_TEMP/bench-out" --out "$RUNNER_TEMP/audit-out" > /dev/null
+      - name: Report
+        if: always()
+        env:
+          BENCH: ${{ steps.bench.outcome }}
+        run: |
+          {
+            echo "Стенд на фейковой модели: $BENCH."
+            echo
+            [ -f "$RUNNER_TEMP/audit-out/REPORT-audit.md" ] && cat "$RUNNER_TEMP/audit-out/REPORT-audit.md"
+            echo
+            [ -f "$RUNNER_TEMP/audit-out/SUMMARY.md" ] && cat "$RUNNER_TEMP/audit-out/SUMMARY.md"
+          } >> "$GITHUB_STEP_SUMMARY"
+      # Сессии стенда — синтетика фейковой модели, без текста пользователей; с ними разбор можно повторить.
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: audit-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/audit-out
+            ${{ runner.temp }}/bench-out/*.json
+            ${{ runner.temp }}/bench-out/*.md
+            ${{ runner.temp }}/bench-out/sessions/**/*.jsonl
+          if-no-files-found: warn
+          retention-days: 14
