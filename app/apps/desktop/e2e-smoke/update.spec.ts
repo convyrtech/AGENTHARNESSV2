@@ -150,6 +150,7 @@ function summarize(hits: FeedHit[]) {
 async function launchA(label: string, feedUrl: string, gatewayBase: string): Promise<Launched> {
   return launch(label, {
     testMode: false,
+    updates: true,
     prepare: seedGateway(gatewayBase),
     env: { PRSLOY_E2E: "1", PRSLOY_UPDATE_FEED_URL: feedUrl },
   });
@@ -379,6 +380,7 @@ test("good update: detect, download, «Обновление готово — п�
     await new Promise((r) => setTimeout(r, 3_000));
     relaunched = await launch("upd-after", {
       testMode: false,
+      updates: true,
       userData,
       readySelector: '[data-testid="zeno-app"]',
       env: { PRSLOY_NO_UPDATE: "1" },

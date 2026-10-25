@@ -57,7 +57,6 @@ import {
   screen,
   session,
   shell,
-  utilityProcess,
   type UtilityProcess,
 } from "electron";
 import { randomUUID } from "node:crypto";
@@ -143,7 +142,7 @@ import {
   normalizeBundledRuntimePrefs,
   type BundledRuntimePrefs,
 } from "./bundled-runtimes.ts";
-import { electronFetch, initPrsloy, logStartupTiming } from "./prsloy/electron.ts";
+import { electronFetch, forkAgentHost, initPrsloy, logStartupTiming } from "./prsloy/electron.ts";
 import { saveSupportReport, SUPPORT_REPORT_IPC } from "./prsloy/support/electron.ts";
 import {
   guardIpcMain,
@@ -2587,7 +2586,7 @@ class HostSupervisor {
   }
 
   /** PRSLOY: a note the model reads on its next turn (pi custom message). */
-  async appendSessionNote(customType: string, text: string): Promise<void> {
+  async appendSessionNote(customType: string, text: string, details?: Record<string, unknown>) {
     if (!this.#host) return;
     const event = await this.#request({
       protocolVersion: IPC_PROTOCOL_VERSION,
@@ -2595,6 +2594,7 @@ class HostSupervisor {
       requestId: randomUUID(),
       customType,
       text,
+      ...(details ? { details } : {}),
     });
     if (event.type === "runtime.snapshot") this.#acceptSnapshot(event.snapshot);
   }
@@ -3971,7 +3971,7 @@ class HostSupervisor {
     ensurePiSubagentsSpawnPatch(defaultAgentDir());
 
     const hostEntry = resolveAgentHostEntry(currentDirectory);
-    const child = utilityProcess.fork(hostEntry, [], {
+    const child = forkAgentHost(hostEntry, {
       env: sanitizeUtilityProcessEnv(env),
       serviceName: "PRSLOY Agent Host",
       stdio: "pipe",
@@ -4856,8 +4856,8 @@ void app
       getWorkspace: () => supervisor?.getWorkspaceCwd(),
       needsWorkspace: () => !durableWorkspacePath(loadDesktopPrefs().lastWorkspace),
       isAgentBusy: () => supervisor?.getSdkSwitchActivity().agentBusy ?? false,
-      appendSessionNote: async (customType, text) => {
-        await supervisor?.appendSessionNote(customType, text);
+      appendSessionNote: async (customType, text, details) => {
+        await supervisor?.appendSessionNote(customType, text, details);
       },
       onModelsChanged: async () => void (await supervisor?.refreshModelCatalog()),
       isTrustedSender: (event) => isTrustedIpcEvent(event as Electron.IpcMainInvokeEvent),

@@ -191,6 +191,7 @@ describe("M-1 store", () => {
       saved: "prsloy-memory.saved",
       updated: "prsloy-memory.updated",
       auto: "prsloy-memory.auto",
+      confirm: "prsloy-memory.confirm",
     });
     const before = {
       id: "u-1",

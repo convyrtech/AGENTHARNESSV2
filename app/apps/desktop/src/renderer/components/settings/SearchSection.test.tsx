@@ -59,7 +59,9 @@ afterEach(cleanup);
 describe("Settings → Поиск в интернете", () => {
   it("lists free first and the model's own last; free is in use by default", async () => {
     render(<SearchSection tr={tr} locale="ru" />);
-    const list = await screen.findByTestId("web-search-providers");
+    // the block renders before main's state arrives: wait for a row, not for the block
+    await screen.findByTestId("web-search-free");
+    const list = screen.getByTestId("web-search-providers");
     const rows = [...list.querySelectorAll<HTMLElement>(".settings-row")].map(
       (row) => row.dataset.testid,
     );
@@ -153,7 +155,9 @@ describe("Settings → Поиск в интернете", () => {
 
   it("GitHub takes an optional token, last among the own keys", async () => {
     render(<SearchSection tr={tr} locale="ru" />);
-    const list = await screen.findByTestId("web-search-providers");
+    // the block renders before main's state arrives: wait for a row, not for the block
+    await screen.findByTestId("web-search-free");
+    const list = screen.getByTestId("web-search-providers");
     const rows = [...list.querySelectorAll<HTMLElement>(".settings-row")].map(
       (row) => row.dataset.testid,
     );

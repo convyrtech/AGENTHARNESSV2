@@ -312,6 +312,52 @@ describe("memory extractor in the shadow (M-3)", () => {
     expect(JSON.stringify(server.requests[0]!.body)).toContain("Шапка зелёная");
   });
 
+  it("M-3b write: accepted candidates go into the memory as auto, with a card in the open chat", async () => {
+    const server = await gateway({ text: OPS });
+    const agentDir = tempDir();
+    const file = writeSession(agentDir, "w.jsonl", [
+      userLine("m1", "Я не программист, пиши проще"),
+    ]);
+    const notes: { type: string; text: string; details: Record<string, unknown> }[] = [];
+    const run = await runExtractorShadow({
+      baseUrl: server.baseUrl,
+      apiKey: "sk-x",
+      model: "qwen3.8-max",
+      sessionFile: file,
+      agentDir,
+      learningDir: agentDir,
+      fetch,
+      write: true,
+      note: async (type, text, details) => void notes.push({ type, text, details }),
+    });
+    expect(run).toMatchObject({ accepted: 1, written: 1 });
+    const user = JSON.parse(readFileSync(join(agentDir, "prsloy-memory", "user.json"), "utf8"));
+    expect(user.entries).toMatchObject([
+      {
+        text: "Пользователь не программист",
+        origin: "auto",
+        kind: "profile",
+        evidence: [{ quote: "Я не программист", session: "sid-w.jsonl", message: "m1" }],
+      },
+    ]);
+    expect(notes).toEqual([
+      {
+        type: "prsloy-memory.auto",
+        text: "Заметил и запомнил: Пользователь не программист",
+        details: {
+          items: [
+            {
+              id: user.entries[0].id,
+              scope: "user",
+              text: "Пользователь не программист",
+              quote: "Я не программист",
+            },
+          ],
+        },
+      },
+    ]);
+  });
+
   it("mode: the env wins; otherwise memory on with autoMemory shadow or true", () => {
     const flags = (memory: boolean, autoMemory: "off" | "shadow" | true) => ({
       memory,
@@ -320,7 +366,8 @@ describe("memory extractor in the shadow (M-3)", () => {
     expect(extractorMode("probe", flags(false, "off"))).toBe("probe");
     expect(extractorMode("off", flags(true, "shadow"))).toBe("off");
     expect(extractorMode(undefined, flags(true, "shadow"))).toBe("shadow");
-    expect(extractorMode(undefined, flags(true, true))).toBe("shadow");
+    expect(extractorMode(undefined, flags(true, true))).toBe("write");
+    expect(extractorMode("write", flags(false, "off"))).toBe("write");
     expect(extractorMode(undefined, flags(false, "shadow"))).toBe("off");
     expect(extractorMode(undefined, flags(true, "off"))).toBe("off");
   });

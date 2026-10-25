@@ -1,5 +1,6 @@
-// ADR-6 (research/00-synthesis.md): стоп-гейт «до зелёного» с капом продолжений — шаблон Stop-хука Claude Code;
-// Harness² (research/06-harness2.md): verify-скрипт 43 → 78. Когда ход в профиле «Код» заканчивается после
+// ADR-6 (research/00-synthesis.md): стоп-гейт «до зелёного» с капом продолжений — шаблон Stop-хука Claude Code.
+// Harness² (research/06-harness2.md): их 43,1 → 77,8 — один разбор случая с четырьмя правками сразу (§4, рис. 9),
+// а не эффект verify-скрипта; своей цифры у гейта нет, её даёт наш бенч. Когда ход в профиле «Код» заканчивается после
 // правок, харнесс дёшево проверяет проект его же проверкой и, если красно, возвращает модель к работе — не больше
 // двух раз за сообщение пользователя. Хук Pi 1.4: agent_before_settle (записи + одно продолжение).
 import { spawn, spawnSync } from "node:child_process";
@@ -25,7 +26,24 @@ import type { TurnChanges } from "./turn-changes.ts";
 import { modelFamily, recordEvent } from "./learning-log.ts";
 import { checkPagePaths, type PagePathReport, pagePathsMessage } from "./page-paths.ts";
 import { checkPage, hasBlocking, type PageCheckResult, pageCheckMessage } from "./page-check.ts";
-import { type CheckSnapshot, checkChange, gateSignals, packageScripts } from "./gate-signals.ts";
+import {
+  type CheckSnapshot,
+  checkChange,
+  gateSignals,
+  packageScripts,
+  parsePatch,
+} from "./gate-signals.ts";
+import type { HonestyState } from "./honest-exit.ts";
+import {
+  guardPushback,
+  oldTestChanges,
+  rerunOldTests,
+  signaturePushback,
+  signatures,
+  signatureSignals,
+  signaturesWarrantPushback,
+  userAskedToChange,
+} from "./test-guard.ts";
 import { intervene } from "./lessons.ts";
 
 export interface ProjectCheck {
@@ -273,6 +291,10 @@ export interface StopGateDeps {
   pagePaths?: ((cwd: string) => PagePathReport) | false;
   /** Страница в браузере (файлом и через сервер, 390 и 1440); false — не проверять. undefined от функции — нечем. */
   pageCheck?: ((cwd: string) => Promise<PageCheckResult | undefined>) | false;
+  /** Честный выход (флаг honestExit): общее с report_blocker состояние сообщения. */
+  honesty?: HonestyState;
+  /** Страж старых тестов (флаг testGuard, читается на каждом ходе). */
+  testGuard?: () => boolean;
 }
 
 /** Правки, после которых стоит открыть страницу в браузере. */
@@ -302,12 +324,19 @@ export function installStopGate(
     reviewEnabled = () => true,
     pagePaths = checkPagePaths,
     pageCheck = (cwd: string) => checkPage(cwd),
+    honesty,
+    testGuard = () => false,
   } = typeof deps === "function" ? { runner: deps } : deps;
+  /** Блокер принят кодом (research/24 §4.2): возвратов «почини» больше нет, отчёты остаются. */
+  const blocked = () => !!honesty?.accepted;
+  const capped = () => pushbacks >= MAX_PUSHBACKS || blocked();
   let edited = false;
   let webEdited = false;
   let pushbacks = 0;
   let gaveUp = false;
   let reviewed = false;
+  /** Страж вернул ход в этом сообщении: T2 — один раз, дальше только сигналы ревьюеру. */
+  let guarded = false;
   let task = "";
   /** H1: проверка проекта на начало хода (сообщения пользователя). */
   let start: (CheckSnapshot & { check?: ProjectCheck }) | undefined;
@@ -319,6 +348,7 @@ export function installStopGate(
     pushbacks = 0;
     gaveUp = false;
     reviewed = false;
+    guarded = false;
     task = event.prompt;
     const check = detectProjectCheck(ctx.cwd);
     start = {
@@ -346,7 +376,7 @@ export function installStopGate(
   ): Promise<{ verdict: ReviewVerdict; model: string; costUsd: number } | undefined> {
     if (!reviewer || reviewed || !reviewEnabled()) return undefined;
     // После капа возвратов ревьюер зовётся только «отчётом» (research/24 §1): возвращать к работе уже нельзя.
-    if (pushbacks >= MAX_PUSHBACKS && !reportOnly) return undefined;
+    if (capped() && !reportOnly) return undefined;
     // Особый случай под тест — часто одна строка: при сигналах подгонки мелкий дифф тоже смотрим.
     if (changedLines(patch) < MIN_REVIEW_LINES && !signals.length) return undefined;
     if (budget && budget.ratio() >= opts.budgetWarnRatio) return undefined;
@@ -386,6 +416,70 @@ export function installStopGate(
     );
   }
 
+  /**
+   * Страж (флаг testGuard): старые тесты на новом коде (H2), затем сигнатуры (H3). Возврат T2 — запись для
+   * продолжения хода; undefined — возвращать не за что (или уже нельзя).
+   */
+  async function guardTurn(
+    patch: string,
+    check: ProjectCheck | undefined,
+    ctx: ExtensionContext,
+  ): Promise<
+    { type: "custom_message"; customType: string; content: string; display: false } | undefined
+  > {
+    const entry = (content: string) => ({
+      type: "custom_message" as const,
+      customType: "prsloy-harness.test-guard",
+      content,
+      display: false as const,
+    });
+    const touched = oldTestChanges(patch);
+    if (touched.length) {
+      recordEvent(ctx, { kind: "test_guard.touched", n: touched.length });
+      if (userAskedToChange(task)) {
+        // Пользователь сам просил поменять поведение или проверки (research/24 §4.3): не возврат.
+        recordEvent(ctx, { kind: "test_guard.allowed", n: touched.length });
+      } else if (check && changes && !capped() && !guarded) {
+        const startCheck = start;
+        const rerun = await rerunOldTests({
+          cwd: ctx.cwd,
+          patch,
+          check: (dir) => (startCheck?.check ? originalCheck(startCheck, dir) : undefined) ?? check,
+          fileAtStart: (path) => changes.fileAtStart(path),
+          runner,
+          outputDir: opts.outputDir,
+          timeoutMs: opts.stopGateTimeoutMs,
+        });
+        if (rerun) {
+          recordEvent(ctx, {
+            kind: "test_guard.original_rerun",
+            sig: rerun.red ? "guard:red" : "guard:green",
+          });
+          if (rerun.red) {
+            pushbacks += 1;
+            guarded = true;
+            const tip = intervene(ctx, { kind: "gate.red", sig: "gate:guard", n: pushbacks });
+            return entry(`${guardPushback(rerun, check.label)}${tip}`);
+          }
+        }
+      }
+    }
+    const found = signatures(parsePatch(patch));
+    if (found.length) {
+      recordEvent(ctx, {
+        kind: "test_guard.signature",
+        sig: `guard:${[...new Set(found.map((f) => f.kind))].sort().join("+")}`,
+        n: found.length,
+      });
+      if (signaturesWarrantPushback(found) && !capped() && !guarded) {
+        pushbacks += 1;
+        guarded = true;
+        return entry(signaturePushback(found));
+      }
+    }
+    return undefined;
+  }
+
   pi.on("agent_before_settle", async (event, ctx) => {
     if (event.outcome !== "completed" || gaveUp) return undefined;
     // Ход уже продолжается (например, вызов инструмента пришёл текстом и модель повторяет его) — гейт подождёт.
@@ -402,14 +496,19 @@ export function installStopGate(
     const changed = start ? checkChange(start, now?.command, packageScripts(ctx.cwd)) : undefined;
     const check = (changed && start ? originalCheck(start, ctx.cwd) : undefined) ?? now;
     if (changed) recordEvent(ctx, { kind: "test_guard.command_changed" });
+    const guardOn = testGuard();
+    const found = guardOn ? signatures(parsePatch(diff?.patch ?? "")) : [];
     let signalsCache: string[] | undefined;
     const signals = () =>
-      (signalsCache ??= gateSignals({
-        checkChanged: changed,
-        patch: diff?.patch ?? "",
-        cwd: ctx.cwd,
-        task,
-      }));
+      (signalsCache ??= [
+        ...gateSignals({
+          checkChanged: changed,
+          patch: diff?.patch ?? "",
+          cwd: ctx.cwd,
+          task,
+        }),
+        ...signatureSignals(found),
+      ].slice(0, 8));
     const run = check ? await runner(check, ctx.cwd, opts.stopGateTimeoutMs) : undefined;
     // Зелёное, таймаут или нечем проверять — не красное: не пилим казуала за отсутствие тестов.
     const red =
@@ -418,10 +517,21 @@ export function installStopGate(
       ? `gate:${check.label.split(/\s+/)[0]?.replace(/[^a-z0-9._-]/gi, "") ?? "?"}`
       : undefined;
     if (check && run && red) {
-      if (pushbacks >= MAX_PUSHBACKS) {
+      if (honesty) honesty.redSeen = true;
+      if (capped()) {
         gaveUp = true;
-        recordEvent(ctx, { kind: "gate.gaveup", ...(gateSig ? { sig: gateSig } : {}) });
-        await showCard(pi, "prsloy-harness.stop-gate", STILL_RED_NOTE, stillRedDetails(check, run));
+        recordEvent(ctx, {
+          kind: "gate.gaveup",
+          ...(blocked() ? { sig: "gate:blocker" } : gateSig ? { sig: gateSig } : {}),
+        });
+        // Блокер принят — его карточка уже говорит, что не вышло; «всё ещё не проходит» не дублируем.
+        if (!blocked())
+          await showCard(
+            pi,
+            "prsloy-harness.stop-gate",
+            STILL_RED_NOTE,
+            stillRedDetails(check, run),
+          );
         // Сдался, а признаки подгонки есть — ревьюер «только отчёт»: человек узнаёт, что тест могли подогнать.
         if (diff?.patch && signals().length)
           await reportOnlyReview(diff.patch, check, run, signals(), ctx);
@@ -452,9 +562,14 @@ export function installStopGate(
 
     if (check && run && !run.timedOut && !check.missingTool?.test(run.output))
       recordEvent(ctx, { kind: "gate.green", ...(gateSig ? { sig: gateSig } : {}) });
+    // Страж старых тестов (H2, H3): проверка зелёная — а не потому ли, что тесты поменяли?
+    if (guardOn && diff?.patch) {
+      const guard = await guardTurn(diff.patch, check, ctx);
+      if (guard) return { entries: [...event.entries, guard], continue: true };
+    }
     // Проект зелёный (или проверять нечем) — смотрим, откроется ли страница двойным кликом.
     const paths = pagePaths ? pagePaths(ctx.cwd) : undefined;
-    if (paths && paths.issues.length > 0 && pushbacks < MAX_PUSHBACKS) {
+    if (paths && paths.issues.length > 0 && !capped()) {
       pushbacks += 1;
       const tip = intervene(ctx, { kind: "gate.paths", sig: "gate:paths", n: pushbacks });
       return {
@@ -473,7 +588,7 @@ export function installStopGate(
     // Страница в браузере — только если ход трогал файлы страницы (по edit/write или по теневому git).
     const web = webEdited || (diff?.files ?? []).some((f) => WEB_FILE.test(f));
     webEdited = false;
-    if (pageCheck && web && pushbacks < MAX_PUSHBACKS && !ctx.signal?.aborted) {
+    if (pageCheck && web && !capped() && !ctx.signal?.aborted) {
       const page = await pageCheck(ctx.cwd);
       if (page && !page.skipped && hasBlocking(page)) {
         pushbacks += 1;
@@ -494,7 +609,8 @@ export function installStopGate(
     }
     if (!diff?.patch) return undefined;
     // Кап исчерпан, а проверка позеленела (красно, красно, «особый случай») — только отчёт ревьюера, без возврата.
-    if (pushbacks >= MAX_PUSHBACKS) {
+    // Так же после принятого блокера.
+    if (capped()) {
       if (signals().length) await reportOnlyReview(diff.patch, check, run, signals(), ctx);
       return undefined;
     }

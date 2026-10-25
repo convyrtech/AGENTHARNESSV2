@@ -16,6 +16,7 @@ import { checkPrsloyKey, type FetchLike } from "./gateway-check.ts";
 import { maskKey } from "./key-store.ts";
 import { recordTurnUndo } from "./learning-undo.ts";
 import { extractorMode, installMemoryExtractor, testProviderEndpoint } from "./memory-extractor.ts";
+import { onHarnessFlagsChanged } from "./flags-events.ts";
 import { registerPrsloyMemoryIpc } from "./memory-ipc.ts";
 import { registerPrsloySearchIpc } from "./search-ipc.ts";
 import { startPrsloyModelRefresh } from "./model-list.ts";
@@ -46,7 +47,11 @@ export type PrsloyIpcDeps = {
   needsWorkspace(): boolean;
   isAgentBusy(): boolean;
   /** Tell the model (next turn) what an undo changed; best effort. */
-  appendSessionNote?(customType: string, text: string): Promise<void>;
+  appendSessionNote?(
+    customType: string,
+    text: string,
+    details?: Record<string, unknown>,
+  ): Promise<void>;
   /** models.json changed (the gateway's model list): the host reloads its catalog. */
   onModelsChanged?(): Promise<void>;
   /** Startup + hourly `/v1/models` refresh; off in unit tests that don't want it. */
@@ -138,10 +143,18 @@ export function registerPrsloyIpc(rawIpcMain: IpcMainLike, deps: PrsloyIpcDeps):
     fetch: deps.fetch as typeof fetch,
   });
 
+  // Web tools switched in the settings: the search keys go to the host only at its start
+  // (shared/host-handoff.ts), so an idle host restarts; a running turn gets them next start.
+  onHarnessFlagsChanged("web-tools", async (before, after) => {
+    if (before.webTools === after.webTools || deps.isAgentBusy()) return;
+    await deps.restartHost();
+  });
+
   registerPrsloyMemoryIpc(ipcMain, {
     agentDir: ctx.agentDir,
     getWorkspace: () => deps.getWorkspace(),
-    appendSessionNote: async (customType, text) => deps.appendSessionNote?.(customType, text),
+    appendSessionNote: async (customType, text, details) =>
+      deps.appendSessionNote?.(customType, text, details),
   });
 
   // M-sp: memory extractor outside the turn, after the user leaves a chat (off by default).
@@ -159,6 +172,7 @@ export function registerPrsloyIpc(rawIpcMain: IpcMainLike, deps: PrsloyIpcDeps):
     availableModels: () => ctx.availableModels(),
     fetch: deps.fetch,
     model: process.env.PRSLOY_MEMORY_EXTRACTOR_MODEL,
+    note: async (customType, text, details) => deps.appendSessionNote?.(customType, text, details),
   });
 
   if (deps.refreshModels !== false) {

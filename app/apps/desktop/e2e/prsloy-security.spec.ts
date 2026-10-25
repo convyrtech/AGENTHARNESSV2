@@ -22,7 +22,11 @@ async function allFiles(root: string, out: string[] = []): Promise<string[]> {
  * PRSLOY security pass, end to end on the real app:
  * - the gateway key goes setKey → encrypted at rest → host handoff → pi runtime key, and is
  *   never written in plain text anywhere (userData, agent home, sessions, logs, stdout);
- * - the agent's bash sees neither the key nor a machine secret from the app's env.
+ * - the agent's bash sees neither the key nor a machine secret from the app's env, nor in the
+ *   host's environment block (/proc/$PPID/environ on Linux). Note: Chromium reuses that block
+ *   for the utility process title, so it hides an env key here even without the fix; the key
+ *   stays out of the spawn env (parentPort handoff, shared/host-handoff.ts) so nothing depends
+ *   on that, and agent-env.test.ts checks the spawn env itself.
  */
 test("gateway key never leaks; agent env is scrubbed", async () => {
   const key = `sk-prsloy-leakcheck-${randomUUID()}`;
@@ -30,7 +34,18 @@ test("gateway key never leaks; agent env is scrubbed", async () => {
   const gateway = new MockGatewayServer({
     apiKey: key,
     modelIds: ["deepseek-v4.1-flash-1017"],
-    turns: [{ toolCall: { name: "bash", arguments: { command: "env" } } }, { text: "done" }],
+    turns: [
+      {
+        toolCall: {
+          name: "bash",
+          arguments: {
+            command:
+              "env; echo '--- parent environ'; [ -r /proc/$PPID/environ ] && tr '\\0' '\\n' < /proc/$PPID/environ",
+          },
+        },
+      },
+      { text: "done" },
+    ],
   });
   await gateway.start();
   const launched = await launchZenoApp({
@@ -58,6 +73,7 @@ test("gateway key never leaks; agent env is scrubbed", async () => {
     // …and the bash tool's env output (sent back to the model) has neither secret.
     const toolOutput = JSON.stringify(gateway.requests[1]?.body.messages ?? []);
     expect(toolOutput).toContain("PI_CODING_AGENT_DIR");
+    if (process.platform === "linux") expect(toolOutput).toContain("--- parent environ");
     expect(toolOutput).not.toContain(key);
     expect(toolOutput).not.toContain(planted);
 

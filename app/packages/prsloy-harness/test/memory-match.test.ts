@@ -77,6 +77,29 @@ describe("memory-match: records against records", () => {
     expect(matchesForgotten("Не хочу платить за сервисы", forgotten)).toBe(true);
   });
 
+  it("retellings in the third person (live kimi run): names, «у него», «никакого … в», «на ты»", () => {
+    const yes: [string, string][] = [
+      ["Звать пользователя Аней", "Зови меня Аня"],
+      ["Пользователь на Mac, у него нет PowerShell", "Я на Mac, у меня нет PowerShell"],
+      [
+        "Интерфейс только на русском, без английского",
+        "Только на русском, никакого английского в интерфейсе",
+      ],
+      ["Общаться на ты", "Давай на ты"],
+      ["Тексты на сайте без восклицательных знаков", "без восклицательных знаков в текстах"],
+      ["Бухгалтер, не разбирается в коде", "Я бухгалтер, в коде не разбираюсь"],
+    ];
+    for (const [text, quote] of yes) expect(textMatchesQuote(text, quote), text).toBe(true);
+    const no: [string, string][] = [
+      ["Интерфейс на английском", "никакого английского в интерфейсе"],
+      ["Обращаться на вы", "давай на ты"],
+      ["Зовут Аня", "зови меня Олей"],
+      ["Пользователь на Windows", "у меня нет Windows"],
+      ["Бухгалтер, разбирается в коде", "Я бухгалтер, в коде не разбираюсь"],
+    ];
+    for (const [text, quote] of no) expect(textMatchesQuote(text, quote), text).toBe(false);
+  });
+
   it("forgotten by stem hashes: a paraphrase is caught, a negation is not", () => {
     const forgotten = hashedSignature("Пользователь любит тёмные сайты");
     expect(matchesForgotten("Нравятся тёмные сайты, любит", forgotten)).toBe(true);
