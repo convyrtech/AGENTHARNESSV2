@@ -2,7 +2,7 @@
 // Источник: ADR-3 (research/00-synthesis.md), E8 (research/REPORT-2026-10-22*.md).
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import type { ResolvedOptions } from "./options.ts";
-import { appendText, keepStructured } from "./text.ts";
+import { appendText, keepStructured, showCard } from "./text.ts";
 
 interface UsageLike {
   input?: number;
@@ -125,24 +125,13 @@ export function installBudget(pi: ExtensionAPI, opts: ResolvedOptions): BudgetHa
     return undefined;
   });
 
-  pi.on("agent_before_settle", (event) => {
+  pi.on("agent_before_settle", async () => {
     if (!state.exhausted || state.blockedAfterStop === 0) return undefined;
     const summary = budgetSummary(state, opts);
     state.blockedAfterStop = 0;
     const data = { ...state, filesChanged: [...state.filesChanged] };
-    return {
-      // Pi заменяет список записей тем, что вернул обработчик: чужие записи сохраняем.
-      entries: [
-        ...event.entries,
-        { type: "custom", customType: "prsloy-harness.budget", data },
-        {
-          type: "custom_message",
-          customType: "prsloy-harness.budget",
-          content: summary,
-          display: true,
-        },
-      ],
-    };
+    await showCard(pi, "prsloy-harness.budget", summary, data);
+    return undefined;
   });
 
   /**

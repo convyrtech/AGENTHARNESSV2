@@ -13,6 +13,10 @@
  *      the user sees a normal answer (PRSLOY_RELIABILITY_PROVIDERS=zeno-fake)
  *   8a. the model leaks its tool call as text (DeepSeek: answer == reasoning + `</｜DSML｜ invoke>`) → the
  *      harness sends it back once, the next answer is a real write, the turn completes; no markup on screen
+ *   9–12. second opinion (PRSLOY_REVIEW_MODEL=zeno-fake/zeno-fake): the fake reviewer answers FAIL with a
+ *      real diff quote (card «нашла 1 замечание — исправляю» + one push back), FAIL with a made-up quote
+ *      and PASS (card «замечаний нет»); step 12 edits only through bash (`sed -i`) — the turn diff comes
+ *      from the harness shadow git (git next to Git Bash on Windows)
  *   6. `node server.js Q &` left running → port Q free after the app quits
  * Step 0 only records python in the agent's bash. Content checks are soft: every step runs and
  * reports. Artifacts: smoke-out/harness-requests.jsonl (every request the model got), session
@@ -67,6 +71,8 @@ class ScriptedModel {
   flakyRequests = 0;
   /** Ответы «harness tool leak»: вызов инструмента текстом (как DeepSeek в A/B дирижёра). */
   leakRequests = 0;
+  /** Промпты проверяющего (второе мнение харнесса). */
+  readonly reviews: string[] = [];
   #server: Server;
   baseUrl = "";
 
@@ -131,6 +137,23 @@ class ScriptedModel {
         })}\n\n`,
       );
     chunk({ role: "assistant", content: "" });
+    // Проверяющий харнесса: его промпт несёт задачу пользователя — отвечаем ему раньше разбора шагов.
+    const prompt = messageText(messages[lastUser]);
+    if (prompt.startsWith("Ты проверяющий")) {
+      this.reviews.push(prompt);
+      const evidence = prompt.includes("(review real)")
+        ? "return a - b;"
+        : prompt.includes("(review fake)")
+          ? "return a * b * 2;"
+          : undefined;
+      const verdict = evidence
+        ? { verdict: "FAIL", items: [{ file: "calc.js", line: 2, problem: "ошибка", evidence }] }
+        : { verdict: "PASS", items: [] };
+      chunk({ content: JSON.stringify(verdict) });
+      chunk({}, "stop");
+      res.end("data: [DONE]\n\n");
+      return;
+    }
     const lastText = messageText(messages[lastUser]);
     if (!answered && lastText.includes("harness tool leak")) {
       this.leakRequests += 1;
@@ -303,6 +326,8 @@ http.createServer((q, r) => r.end("ok")).listen(port, "127.0.0.1", () =>
     PRSLOY_BASH_TIMEOUT_SEC: String(BASH_TIMEOUT_SEC),
     // Прокси надёжности на фейковом провайдере (в продукте — провайдер prsloy).
     PRSLOY_RELIABILITY_PROVIDERS: "zeno-fake",
+    // Второе мнение: в продукте пара по семье модели, здесь — та же фейковая модель.
+    PRSLOY_REVIEW_MODEL: "zeno-fake/zeno-fake",
   });
 
   const devApp = process.env.SMOKE_DEV_APP;
@@ -330,10 +355,13 @@ http.createServer((q, r) => r.end("ok")).listen(port, "127.0.0.1", () =>
   Object.assign(state, { app, page, model, root, userData, workspace });
 }
 
-async function step(n: number): Promise<string> {
+const CALC =
+  "function sum(a, b) {\n  return a + b;\n}\nfunction mul(a, b) {\n  return a * b;\n}\nmodule.exports = { sum, mul };\n";
+
+async function step(n: number, suffix = ""): Promise<string> {
   const { page, model } = state;
   if (!page || !model) throw new Error("app not launched");
-  await send(page, `harness step ${n}`);
+  await send(page, `harness step ${n}${suffix}`);
   await expect.poll(() => model.resultOf(n), { timeout: 60_000 }).not.toBeUndefined();
   const result = model.resultOf(n) ?? "";
   state.results[`step${n}`] = result;
@@ -369,6 +397,16 @@ test.beforeAll(async () => {
     5: { name: "write", arguments: { path: "broken.js", content: "const a = ;\n" } },
     6: { name: "bash", arguments: { command: `node server.js ${state.leftPort} &` } },
     7: { name: "bash", arguments: { command: `${PY} -m http.server ${state.pyPort} &` } },
+    9: { name: "write", arguments: { path: "calc.js", content: CALC.replace("a + b", "a - b") } },
+    10: { name: "write", arguments: { path: "calc2.js", content: CALC } },
+    11: { name: "write", arguments: { path: "calc3.js", content: CALC } },
+    12: {
+      name: "bash",
+      arguments: {
+        command:
+          "printf 'const a = 1;\\nconst b = 2;\\nconst c = 3;\\nconst d = 4;\\nconst e = 5;\\nconst f = 6;\\n' > nums.js && sed -i 's/= 6/= 66/' nums.js && echo edited",
+      },
+    },
   });
   await startHost(state.page!);
 });
@@ -406,7 +444,7 @@ test.afterAll(async () => {
   });
 });
 
-test("harness on the installed app: steps 0–6", async () => {
+test("harness on the installed app: steps 0–12", async () => {
   await test.step("0: python in the agent's bash (diagnostics only)", async () => {
     const result = await step(0);
     test.info().annotations.push({ type: "python", description: result.slice(0, 2000) });
@@ -497,6 +535,43 @@ test("harness on the installed app: steps 0–6", async () => {
       )
       .toBe(0);
     await shot(page!, "harness-tool-leak");
+  });
+
+  await test.step("9–12: second opinion of another model on the turn diff", async () => {
+    const { page, model } = state;
+    // Считаем абзацы карточек: getByText на одну карточку находит здесь два элемента.
+    const cards = (text: string) => page!.locator("p", { hasText: text }).count();
+    const pass = "Проверила вторая модель: замечаний нет";
+    const fail = "Вторая модель нашла 1 замечание — исправляю";
+
+    await step(9, " (review real)");
+    await expect.poll(() => cards(fail), { timeout: 30_000 }).toBe(1);
+    // Один возврат: писатель получил замечание с цитатой, второго ревью в ходе нет.
+    await expect
+      .poll(
+        () =>
+          model!.requests.some((r) =>
+            JSON.stringify(r.messages ?? []).includes("Вторая модель другого семейства"),
+          ),
+        { timeout: 30_000 },
+      )
+      .toBe(true);
+    expect.soft(model!.reviews.filter((p) => p.includes("(review real)"))).toHaveLength(1);
+    expect.soft(model!.reviews.at(-1)).toContain("+  return a - b;");
+    await shot(page!, "harness-review-fail");
+
+    await step(10, " (review fake)");
+    await expect.poll(() => cards(pass), { timeout: 30_000 }).toBe(1);
+    await step(11, " (review pass)");
+    await expect.poll(() => cards(pass), { timeout: 30_000 }).toBe(2);
+    expect.soft(await cards(fail)).toBe(1);
+
+    const bashOnly = await step(12, " (review pass)");
+    expect.soft(bashOnly).toContain("edited");
+    await expect.poll(() => cards(pass), { timeout: 30_000 }).toBe(3);
+    expect.soft(model!.reviews.at(-1)).toContain("+const f = 66;");
+    state.results.reviews = String(model!.reviews.length);
+    await shot(page!, "harness-review-pass");
   });
 
   await test.step("6: a background server left running dies with the app", async () => {

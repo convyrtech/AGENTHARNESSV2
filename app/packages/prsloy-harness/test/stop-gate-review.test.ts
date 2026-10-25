@@ -68,6 +68,7 @@ async function setup(o: {
     current: async () => diff,
   } as unknown as TurnChanges;
   const budget = {
+    state: () => ({ exhausted: undefined }),
     ratio: () => o.ratio ?? 0,
     spend: (usd: number) => {
       spent += usd;
@@ -92,15 +93,14 @@ async function setup(o: {
   return { pi, prompts, settle, spent: () => spent };
 }
 
-const cards = (entries: Entry[]) =>
-  entries.filter((e) => e.type === "custom_message" && e.display).map((e) => e.content);
+const cards = (pi: MockPi) => pi.sent.filter((m) => m.display).map((m) => String(m.content));
 
 describe("second opinion in the stop gate", () => {
   it("PASS: one short card, no continuation; review cost goes to the turn budget", async () => {
     const t = await setup({});
     const out = await t.settle();
     expect(out.continue).toBe(false);
-    expect(cards(out.entries)).toEqual([REVIEW_PASS_CARD]);
+    expect(cards(t.pi)).toEqual([REVIEW_PASS_CARD]);
     expect(t.prompts).toHaveLength(1);
     expect(t.prompts[0]).toContain("сделай функцию sum");
     expect(t.prompts[0]).toContain("своей проверки у проекта нет");
@@ -111,7 +111,7 @@ describe("second opinion in the stop gate", () => {
     const t = await setup({ replies: [failWith("return a - b;")] });
     const out = await t.settle();
     expect(out.continue).toBe(true);
-    expect(cards(out.entries)).toEqual(["Вторая модель нашла 1 замечание — исправляю"]);
+    expect(cards(t.pi)).toEqual(["Вторая модель нашла 1 замечание — исправляю"]);
     const hidden = out.entries.find((e) => e.type === "custom_message" && !e.display);
     expect(hidden?.content).toContain("sum.js:2 — sum вычитает вместо сложения");
     // Второго ревью в том же ходе нет: агент поправил — гейт молчит.
@@ -124,9 +124,8 @@ describe("second opinion in the stop gate", () => {
     const t = await setup({ replies: [failWith("return a + b + 1;")] });
     const out = await t.settle();
     expect(out.continue).toBe(false);
-    expect(cards(out.entries)).toEqual([REVIEW_PASS_CARD]);
-    const record = out.entries.find((e) => e.type === "custom");
-    expect(record?.data).toMatchObject({ verdict: "PASS", rejected: 1 });
+    expect(cards(t.pi)).toEqual([REVIEW_PASS_CARD]);
+    expect(t.pi.sent[0]?.details).toMatchObject({ verdict: "PASS", rejected: 1 });
   });
 
   it("review runs only after the gate is green and sees the check output", async () => {
@@ -141,8 +140,8 @@ describe("second opinion in the stop gate", () => {
     const red = await t.settle();
     expect(red.continue).toBe(true);
     expect(t.prompts).toHaveLength(0);
-    const green = await t.settle();
-    expect(cards(green.entries)).toEqual([REVIEW_PASS_CARD]);
+    expect((await t.settle()).continue).toBe(false);
+    expect(cards(t.pi)).toEqual([REVIEW_PASS_CARD]);
     expect(t.prompts[0]).toContain("`npm run test`: прошла (код 0)\n1 passed");
   });
 
@@ -156,7 +155,7 @@ describe("second opinion in the stop gate", () => {
     expect((await t.settle()).continue).toBe(true); // ревью: 2
     const last = await t.settle(); // снова красно — возвратов больше нет
     expect(last.continue).toBe(false);
-    expect(cards(last.entries)[0]).toContain(`после ${MAX_PUSHBACKS} попыток`);
+    expect(cards(t.pi).at(-1)).toContain(`после ${MAX_PUSHBACKS} попыток`);
   });
 
   it("gate used both push backs: no review at all", async () => {
@@ -182,6 +181,7 @@ describe("second opinion in the stop gate", () => {
     expect(await poor.settle()).toEqual({ entries: [], continue: false });
     const stopped = await setup({});
     expect((await stopped.settle({ outcome: "aborted" })).entries).toEqual([]);
+    expect(stopped.pi.sent).toEqual([]);
     const nopair = await setup({ noPair: true });
     expect(await nopair.settle()).toEqual({ entries: [], continue: false });
     const nosnap = await setup({ diff: undefined });
@@ -193,7 +193,7 @@ describe("second opinion in the stop gate", () => {
   it("an unparseable reply shows no card", async () => {
     const t = await setup({ replies: ["Выглядит неплохо"] });
     const out = await t.settle();
-    expect(cards(out.entries)).toEqual([]);
+    expect(cards(t.pi)).toEqual([]);
     expect(out.continue).toBe(false);
   });
 

@@ -19,7 +19,7 @@ import {
   type ReviewVerdict,
 } from "./second-opinion.ts";
 import type { Reviewer } from "./reviewer.ts";
-import { headTail } from "./text.ts";
+import { headTail, showCard } from "./text.ts";
 import type { TurnChanges } from "./turn-changes.ts";
 
 export interface ProjectCheck {
@@ -281,9 +281,8 @@ export function installStopGate(
     if (event.outcome !== "completed" || gaveUp) return undefined;
     // Ход уже продолжается (например, вызов инструмента пришёл текстом и модель повторяет его) — гейт подождёт.
     if (event.continue) return undefined;
-    // Бюджет задачи исчерпан (его итог уже в записях) — тулы запрещены, возвращать к работе нельзя.
-    if (event.entries.some((e) => "customType" in e && e.customType === "prsloy-harness.budget"))
-      return undefined;
+    // Бюджет задачи исчерпан — тулы запрещены, возвращать к работе нельзя.
+    if (budget?.state().exhausted) return undefined;
     const diff = await changes?.current();
     const touched = edited || (diff?.files.length ?? 0) > 0;
     // После возврата проверяем снова, даже если модель ничего не правила: «готово» на словах — не зелёный.
@@ -297,17 +296,8 @@ export function installStopGate(
     if (check && run && red) {
       if (pushbacks >= MAX_PUSHBACKS) {
         gaveUp = true;
-        return {
-          entries: [
-            ...event.entries,
-            {
-              type: "custom_message",
-              customType: "prsloy-harness.stop-gate",
-              content: stillRedNote(check, run),
-              display: true,
-            },
-          ],
-        };
+        await showCard(pi, "prsloy-harness.stop-gate", stillRedNote(check, run));
+        return undefined;
       }
       pushbacks += 1;
       return {
@@ -329,36 +319,18 @@ export function installStopGate(
     if (!result) return undefined;
     const { verdict, model, costUsd } = result;
     const data = { model, costUsd, ...verdict };
-    const record = { type: "custom", customType: "prsloy-harness.second-opinion", data } as const;
     // Ответ не разобран — карточку «замечаний нет» не показываем: проверки по сути не было.
-    if (verdict.invalid) return { entries: [...event.entries, record] };
+    // Данные ревью — в details карточки: отдельная запись custom показалась бы в чате сырым JSON.
+    if (verdict.invalid) return undefined;
     if (verdict.verdict === "PASS") {
-      return {
-        entries: [
-          ...event.entries,
-          record,
-          {
-            type: "custom_message",
-            customType: "prsloy-harness.second-opinion",
-            content: REVIEW_PASS_CARD,
-            display: true,
-            details: data,
-          },
-        ],
-      };
+      await showCard(pi, "prsloy-harness.second-opinion", REVIEW_PASS_CARD, data);
+      return undefined;
     }
     pushbacks += 1;
+    await showCard(pi, "prsloy-harness.second-opinion", reviewFailCard(verdict.items.length), data);
     return {
       entries: [
         ...event.entries,
-        record,
-        {
-          type: "custom_message",
-          customType: "prsloy-harness.second-opinion",
-          content: reviewFailCard(verdict.items.length),
-          display: true,
-          details: data,
-        },
         {
           type: "custom_message",
           customType: "prsloy-harness.second-opinion",
