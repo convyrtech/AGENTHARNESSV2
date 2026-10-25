@@ -1,0 +1,68 @@
+# «Дизайн» на Windows без приватного design-pipeline (дорожка design):
+# Python из комплекта приложения → venv и колёса так же, как при первом заходе во вкладку → Edge через
+# Playwright channel=msedge рисует демо движения → check.py на маленьком сайте → run.py init/status/say в папке
+# с пробелом и кириллицей на заглушке пайплайна и заглушке pi, без сети. Скрипт: app/apps/desktop/scripts/design-smoke.mts.
+name: design-windows
+
+on:
+  push:
+    branches: [main, desktop/design]
+    paths:
+      - "playbooks/site/**"
+      - "app/apps/desktop/src/main/design/**"
+      - "app/apps/desktop/scripts/design-smoke.mts"
+      - "app/apps/desktop/e2e/design/**"
+      - "app/apps/desktop/runtimes/versions.json"
+      - ".github/workflows/design-windows.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: design-windows-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  toolchain:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Edge
+        shell: pwsh
+        run: |
+          $edge = Get-ChildItem "${env:ProgramFiles(x86)}\Microsoft\Edge\Application\msedge.exe", "$env:ProgramFiles\Microsoft\Edge\Application\msedge.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $edge) { throw "Microsoft Edge not found" }
+          (Get-Item $edge.FullName).VersionInfo.ProductVersion
+      - name: Design smoke (Python from the app, venv + wheels, Edge, check.py, run.py in «Иван Петров»)
+        shell: pwsh
+        working-directory: app/apps/desktop
+        env:
+          WORK: ${{ runner.temp }}\Иван Петров
+          OUT: ${{ runner.temp }}\design-smoke
+          PIP_NO_CACHE_DIR: "1"
+          PYTHONUTF8: "1"
+        run: node --experimental-strip-types scripts/design-smoke.mts --out "$env:OUT" --work "$env:WORK"
+      - name: Summary
+        if: always()
+        shell: pwsh
+        run: |
+          $f = "${{ runner.temp }}\design-smoke\design-smoke.json"
+          if (Test-Path $f) {
+            "### design smoke`n``````json" | Out-File -Append -Encoding utf8 $env:GITHUB_STEP_SUMMARY
+            Get-Content $f -Encoding utf8 | Out-File -Append -Encoding utf8 $env:GITHUB_STEP_SUMMARY
+            "``````" | Out-File -Append -Encoding utf8 $env:GITHUB_STEP_SUMMARY
+          }
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: design-smoke-windows
+          path: |
+            ${{ runner.temp }}/design-smoke/design-smoke.json
+            ${{ runner.temp }}/design-smoke/demo-prsloy.png
+          if-no-files-found: warn
+          retention-days: 14
