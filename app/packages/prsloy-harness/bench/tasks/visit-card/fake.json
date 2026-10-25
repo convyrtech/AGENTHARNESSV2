@@ -1,0 +1,14 @@
+[
+  {
+    "toolCalls": [
+      {
+        "name": "write",
+        "arguments": {
+          "path": "index.html",
+          "content": "<!doctype html>\n<html lang=\"ru\">\n<head><meta charset=\"utf-8\"><title>Анна — свадебный фотограф</title></head>\n<body>\n<h1>Анна — свадебный фотограф</h1>\n<form id=\"order\">\n<label>Имя <input name=\"name\" required></label>\n<label>Телефон <input name=\"phone\" type=\"tel\"></label>\n<button type=\"submit\">Оставить заявку</button>\n</form>\n<script>document.getElementById('order').addEventListener('submit', (e) => { e.preventDefault(); alert('Спасибо!'); });</script>\n</body>\n</html>\n"
+        }
+      }
+    ]
+  },
+  { "text": "Готово: страница index.html с формой заявки." }
+]

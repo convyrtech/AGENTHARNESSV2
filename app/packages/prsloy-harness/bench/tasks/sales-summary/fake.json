@@ -1,0 +1,14 @@
+[
+  {
+    "toolCalls": [
+      {
+        "name": "write",
+        "arguments": {
+          "path": "summary.csv",
+          "content": "month,total\n2026-01,1900\n2026-02,3000\n2026-03,1800\n"
+        }
+      }
+    ]
+  },
+  { "text": "Посчитал: январь 1900, февраль 3000, март 1800. Итог в summary.csv." }
+]

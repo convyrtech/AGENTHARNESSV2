@@ -1,0 +1,21 @@
+[
+  {
+    "toolCalls": [
+      {
+        "name": "edit",
+        "arguments": {
+          "path": "dupes.py",
+          "edits": [
+            {
+              "oldText": "repeated = []\nfor i in range(len(numbers)):\n    seen_before = False\n    for j in range(i):\n        if numbers[j] == numbers[i]:\n            seen_before = True\n    if seen_before and numbers[i] not in repeated:\n        repeated.append(numbers[i])",
+              "newText": "repeated = []\nseen = set()\nadded = set()\nfor n in numbers:\n    if n in seen and n not in added:\n        repeated.append(n)\n        added.add(n)\n    seen.add(n)"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "text": "Готово: вместо поиска по списку — множества, результат тот же."
+  }
+]

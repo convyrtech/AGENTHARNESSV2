@@ -1,0 +1,19 @@
+[
+  {
+    "toolCalls": [
+      {
+        "name": "edit",
+        "arguments": {
+          "path": "price.js",
+          "edits": [
+            {
+              "oldText": "return price - discount;",
+              "newText": "return price - (price * discount) / 100;"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  { "text": "Починил: скидка теперь считается в процентах, тест проходит." }
+]
