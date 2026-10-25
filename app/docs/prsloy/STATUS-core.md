@@ -732,6 +732,75 @@ e2e `long-chat-compaction`, 150 ходов. Fake-модели дана цена,
     пути и промпта;
   - ротация.
 
+## Этап 8 — параметры запроса под модель
+
+Цель — привести тела запросов в соответствие с таблицей `research/17-system-prompts.md` §4.3.
+Изменения только в каталоге `shared/prsloy-config.ts`, через поля `models.json` модели
+`thinkingLevelMap` и `samplingParams`. Текст промпта не менялся.
+
+`ensurePrsloyModelsJson` перезаписывает каталог, когда он отличается, поэтому старые установки
+получат новые параметры при следующем запуске. Каталог берёт и «Дизайн» (`design/env.ts`).
+
+### 32. Что уходит на шлюз: было → стало
+
+Тело снято с mock-шлюза через настоящую сессию pi: ход с вызовом `read`, ответ, второй промпт.
+В таблице поля кроме `model`, `messages`, `tools`, `stream`, `stream_options`.
+
+| модель                     | было                                                                                                                                                                         | стало                                                          |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| `deepseek-v4.1-flash-1017` | `max_tokens: 64000`, `thinking: {type: enabled}`, `reasoning_effort: high`; temperature нет; `reasoning_content` всех ходов возвращается; уровни low / high / max, `off` нет | без изменений — уже по таблице                                 |
+| `kimi-k3.1-pro`            | `max_tokens: 32000`, `reasoning_effort: high`; уровень меняется посреди сессии, есть даже `off`                                                                              | уровень один — `high`, сменить нельзя; temperature и top_p нет |
+| `qwen3.8-max`              | `max_tokens: 32000`, `enable_thinking: true`, `reasoning_effort: xhigh`; `parallel_tool_calls` нет                                                                           | плюс `parallel_tool_calls: true`                               |
+| `claude-opus-5-5`          | `max_tokens: 32000`; effort и thinking нет; уровень только `off`                                                                                                             | без изменений — уже по таблице                                 |
+
+Что действует для всех четырёх:
+
+- `tool_choice` не уходит никогда (= auto), значит `required` в режиме thinking не случится;
+- temperature и top_p не уходят никогда;
+- `reasoning_content` прошлых ходов возвращается у всех. pi хранит его как подпись блока
+  рассуждения.
+
+### 33. Проверка по докам вендоров
+
+- **Kimi K3.1 Pro** ([quickstart](https://platform.kimi.ai/docs/guide/kimi-k3-1-pro-quickstart),
+  [параметры моделей](https://platform.kimi.ai/docs/api/models-overview)). Пометка [U] в досье
+  («специфика K3.1 не проверена») снята:
+  - temperature 1.0 и top_p 0.95 фиксированы, их не передавать;
+  - thinking не выключается;
+  - `reasoning_effort` принимает low / high / max, по умолчанию max.
+
+  Выбрали `high`: max через ретранслятор даёт ×3 токенов (досье 07). Kimi Code для k3.1-pro по
+  умолчанию тоже ставит high
+  ([Kimi Code](https://www.kimi.com/code/docs/en/kimi-code/models.html)).
+
+- **Qwen 3.8 Max** ([function calling](https://www.alibabacloud.com/help/en/model-studio/qwen-function-calling),
+  [deep thinking](https://www.alibabacloud.com/help/en/model-studio/deep-thinking)):
+  - `parallel_tool_calls` у Alibaba по умолчанию `true`. Явное `true` ничего не ломает, но
+    защищает от ретранслятора, который теряет значение по умолчанию. Это та причина, ради
+    которой досье просит передавать его явно;
+  - `tool_choice: required` в режиме thinking не поддерживается — мы его не шлём;
+  - `preserve_thinking` у qwen3.8-max есть. Если в истории нет `reasoning_content`, ошибки не
+    будет.
+
+  **Не подтвердилось:** потолок `max_tokens` ≤ 32 768 в режиме thinking ([U]). В доке есть только
+  `thinking_budget` 1…32 768 — это бюджет рассуждения, а не всего ответа. Ничего не менял: мы и
+  так шлём 32 000, это ниже возможного потолка.
+
+- DeepSeek и Opus: пункты в досье помечены [V], и тело им уже соответствует. Не менял.
+
+### 34. Тест
+
+`main/prsloy/prsloy-request-params.test.ts` — на каждую модель два хода через настоящий pi.
+Проверяется, что набор полей тела совпадает с разрешённым **точно**: лишнее поле или
+пропавшее — ошибка.
+
+| модель   | что ещё проверяется                                                                                                |
+| -------- | ------------------------------------------------------------------------------------------------------------------ |
+| DeepSeek | `thinking: enabled`, `max_tokens` ≥ 64K, `reasoning_content` R1 и R2 в третьем запросе, `off` недоступен           |
+| Kimi     | `reasoning_effort` всегда `high`, `setThinkingLevel("low")` отклоняется, рассуждения возвращаются                  |
+| Qwen     | `parallel_tool_calls: true`, `tool_choice` пустой или auto, temperature пустая или ≥ 0,6, рассуждения возвращаются |
+| Opus     | только общие поля, `max_tokens` ≤ 128K, уровень только `off`                                                       |
+
 ## Как проверено (Linux, без ключа шлюза)
 
 - `pnpm check` чистый. `pnpm test` (корень) зелёный:
