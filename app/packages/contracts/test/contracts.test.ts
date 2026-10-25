@@ -78,6 +78,21 @@ describe("host contract validation", () => {
     ).toBe(true);
   });
 
+  it("message.completed may carry the final text and thinking", () => {
+    const completed = (event: Record<string, unknown>) =>
+      isHostEvent({
+        protocolVersion: IPC_PROTOCOL_VERSION,
+        type: "runtime.event",
+        runtimeId: "runtime-1",
+        sequence: 9,
+        event: { type: "message.completed", reason: "stop", ...event },
+      });
+    expect(completed({})).toBe(true);
+    expect(completed({ text: "Привет", thinking: "план" })).toBe(true);
+    expect(completed({ text: 42 })).toBe(false);
+    expect(completed({ thinking: ["x"] })).toBe(false);
+  });
+
   it("accepts persistent starts and crash lifecycle diagnostics", () => {
     expect(
       isHostCommand({

@@ -315,7 +315,14 @@ export type RuntimeEvent =
   | { type: "queue.updated"; steering: string[]; followUp: string[] }
   | { type: "message.delta"; delta: string }
   | { type: "thinking.delta"; delta: string }
-  | { type: "message.completed"; reason: "stop" | "length" | "toolUse" }
+  | {
+      type: "message.completed";
+      reason: "stop" | "length" | "toolUse";
+      /** Final assistant text as stored by pi (reconcile against the streamed deltas). */
+      text?: string;
+      /** Final thinking text, when the model produced any. */
+      thinking?: string;
+    }
   /**
    * Non-success assistant stop reasons from pi (`StopReason` minus completed ones).
    * Preserve the upstream reason — do not collapse pending/deferred into "error".
@@ -2723,7 +2730,11 @@ function isRuntimeEvent(value: unknown): value is RuntimeEvent {
     case "thinking.delta":
       return typeof value.delta === "string";
     case "message.completed":
-      return value.reason === "stop" || value.reason === "length" || value.reason === "toolUse";
+      return (
+        (value.reason === "stop" || value.reason === "length" || value.reason === "toolUse") &&
+        (value.text === undefined || typeof value.text === "string") &&
+        (value.thinking === undefined || typeof value.thinking === "string")
+      );
     case "message.failed":
       return (
         (value.reason === "aborted" ||

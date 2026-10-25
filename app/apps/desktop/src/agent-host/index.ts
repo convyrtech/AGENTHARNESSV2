@@ -1,4 +1,5 @@
 import "./proxy-bootstrap.ts";
+import { assistantFinalContent } from "./assistant-final.ts";
 import { prsloyHandoff } from "./prsloy-handoff.ts";
 import { createPrsloyHarness } from "@prsloy/harness";
 import {
@@ -279,7 +280,11 @@ function projectRuntimeEvent(event: AgentSessionEvent): RuntimeEvent | undefined
       if (event.message.role !== "assistant") return undefined;
       const { stopReason } = event.message;
       if (stopReason === "stop" || stopReason === "length" || stopReason === "toolUse") {
-        return { type: "message.completed", reason: stopReason };
+        return {
+          type: "message.completed",
+          reason: stopReason,
+          ...assistantFinalContent(event.message.content),
+        };
       }
       // Pass through pi StopReason as-is (pending/deferred/aborted/error).
       if (
