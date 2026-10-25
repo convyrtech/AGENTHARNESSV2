@@ -75,6 +75,10 @@ for (const mode of ["light", "dark"] as const) {
       }, mode);
       await page.reload();
       await startHost(page);
+      // a cold host may start before the mock is picked up: reload it, as features-honesty does
+      await page.evaluate(async () => {
+        await window.zeno.runtime.reload();
+      });
 
       await send(page, "use the tool please [факты: checks-pass page-ok]");
       const green = page.getByTestId("turn-status").last();

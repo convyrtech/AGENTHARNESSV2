@@ -169,7 +169,7 @@ import { ThemeLibrary } from "./theme-library.ts";
 import { APP_SCHEMES } from "./app-schemes.ts";
 import { installDesign } from "./design/wire.ts";
 import { installCodePreview } from "./code-preview.ts";
-import { installHarnessFlags } from "./harness-flags.ts";
+import { installUiIpc } from "./ui-ipc.ts";
 import { installFeatures } from "./features/ipc.ts";
 
 protocol.registerSchemesAsPrivileged(APP_SCHEMES);
@@ -4755,7 +4755,7 @@ void app
     const designPiCli = () => ensurePiCliExtracted().then(() => resolveBuiltinSdkCached().cliPath);
     installDesign(currentDirectory, () => mainWindow, assertTrustedSender, designPiCli, prsloy);
     installCodePreview(assertTrustedSender);
-    installHarnessFlags(assertTrustedSender);
+    installUiIpc(assertTrustedSender, () => mainWindow);
     installFeatures(assertTrustedSender);
     // App-channel proxy before any network from Chromium / main.
     await applyAppSessionProxy();

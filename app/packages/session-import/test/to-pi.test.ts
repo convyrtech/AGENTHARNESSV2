@@ -60,9 +60,9 @@ describe("to-pi", () => {
       cwd: "/проект",
     });
     expect(file.entries.map((e) => e.type)).toEqual([
+      "message",
+      "message",
       "custom",
-      "message",
-      "message",
       "compaction",
       "model_change",
       "session_info",
@@ -71,7 +71,8 @@ describe("to-pi", () => {
       expect(entry.id).toMatch(/^[0-9a-f]{8}$/);
       expect(entry.parentId).toBe(i === 0 ? null : file.entries[i - 1]!.id);
     });
-    expect(file.entries[0]).toMatchObject({
+    // the import record closes the other agent's history (core's memory reads it that way)
+    expect(file.entries[2]).toMatchObject({
       customType: IMPORT_CUSTOM_TYPE,
       data: {
         tool: "codex",
@@ -81,15 +82,15 @@ describe("to-pi", () => {
         secrets: 2,
       },
     });
-    expect(file.entries[1]).toMatchObject({
+    expect(file.entries[0]).toMatchObject({
       timestamp: "2026-10-01T10:00:00.000Z",
       message: { role: "user", content: "Сделай бота", timestamp: Date.UTC(2026, 9, 1, 10) },
     });
-    expect(file.entries[2]).toMatchObject({
+    expect(file.entries[1]).toMatchObject({
       message: { role: "assistant", api: "imported", provider: "imported", stopReason: "stop" },
     });
     expect(file.entries[3]).toMatchObject({
-      firstKeptEntryId: file.entries[1]!.id,
+      firstKeptEntryId: file.entries[0]!.id,
       fromHook: true,
     });
     expect(file.entries[4]).toMatchObject({ provider: "prsloy", modelId: "prsloy/auto" });

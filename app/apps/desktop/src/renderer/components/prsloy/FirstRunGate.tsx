@@ -1,5 +1,6 @@
 /**
- * PRSLOY first run: «Вставьте ключ PRSLOY» → «Выберите папку проекта» → the app.
+ * PRSLOY first run: «Вставьте ключ PRSLOY» → chats from other agents → search → «Выберите папку
+ * проекта» → the app. The two middle steps live in their own files and are optional.
  * Paper page, the PRSLOY wordmark, one field and one button per step.
  */
 import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from "react";
@@ -13,10 +14,16 @@ import {
   firstRunStep,
   gatewayErrorKey,
   appSetupPercent,
+  markFirstRunSeen,
+  readFirstRunSeen,
+  type FirstRunSeen,
 } from "@/lib/prsloy-first-run";
 import { isNonProjectWorkspacePath } from "@/lib/workspace";
+import { mergeRecentFolders, readImportedProjects } from "@/lib/session-import";
 import { useShellStore } from "@/store/shell-store";
 import { LineLoader } from "@/components/motion/LineLoader";
+import { FirstRunImport } from "./FirstRunImport";
+import { FirstRunSearch } from "./FirstRunSearch";
 
 /** Where people buy and copy their key. */
 export const PRSLOY_KEY_URL = "https://prsloy.online";
@@ -39,6 +46,15 @@ export function FirstRunGate({ children }: { children: ReactNode }) {
   /** «Другой сервер»: the gateway address, checked together with the key. */
   const [serverOpen, setServerOpen] = useState(false);
   const [server, setServer] = useState("");
+  const [seen, setSeen] = useState<FirstRunSeen>(readFirstRunSeen);
+  const passImport = useCallback(() => {
+    markFirstRunSeen("import");
+    setSeen((current) => ({ ...current, import: true }));
+  }, []);
+  const passSearch = useCallback(() => {
+    markFirstRunSeen("search");
+    setSeen((current) => ({ ...current, search: true }));
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -56,7 +72,7 @@ export function FirstRunGate({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  const step = bypass ? "done" : firstRunStep(state);
+  const step = bypass ? "done" : firstRunStep(state, seen);
 
   useEffect(() => {
     if (step !== "folder") return;
@@ -64,9 +80,12 @@ export function FirstRunGate({ children }: { children: ReactNode }) {
     Promise.resolve()
       .then(() => window.zeno.workspace.listRecent())
       .then((paths) => {
-        if (!cancelled) setRecent(paths.slice(0, MAX_RECENT));
+        // folders of chats just brought over come first (#22)
+        if (!cancelled) setRecent(mergeRecentFolders(readImportedProjects(), paths, MAX_RECENT));
       })
-      .catch(() => undefined);
+      .catch(() => {
+        if (!cancelled) setRecent(readImportedProjects().slice(0, MAX_RECENT));
+      });
     return () => {
       cancelled = true;
     };
@@ -148,7 +167,11 @@ export function FirstRunGate({ children }: { children: ReactNode }) {
       <div className="drag-region prsloy-first-run-drag" aria-hidden />
       <div className="prsloy-first-run-card" data-testid={`prsloy-first-run-${step}`}>
         <div className="brand-wordmark prsloy-first-run-wordmark">PRSLOY</div>
-        {step === "key" ? (
+        {step === "import" ? (
+          <FirstRunImport locale={locale} onDone={passImport} />
+        ) : step === "search" ? (
+          <FirstRunSearch locale={locale} onDone={passSearch} />
+        ) : step === "key" ? (
           <form className="prsloy-first-run-form" onSubmit={(event) => void submitKey(event)}>
             <h1 className="prsloy-first-run-title">{t(locale, "prsloy.firstRun.keyTitle")}</h1>
             <Input

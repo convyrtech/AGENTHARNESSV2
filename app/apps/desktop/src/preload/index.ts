@@ -4,6 +4,7 @@ import type {
   DesignEventMessage,
   DesignSetupProgress,
   HostEvent,
+  ImportProgress,
   PiCliProgressEvent,
   ZenoDesktopApi,
   PetCommand,
@@ -124,6 +125,16 @@ const api: ZenoDesktopApi = {
   harnessFlags: {
     get: () => ipcRenderer.invoke("prsloy:harness-flags:get"),
     set: (patch) => ipcRenderer.invoke("prsloy:harness-flags:set", patch),
+  },
+  sessionImport: {
+    scan: () => ipcRenderer.invoke("prsloy:import:scan"),
+    run: (keys) => ipcRenderer.invoke("prsloy:import:run", keys),
+    onProgress(listener) {
+      const handler = (_event: Electron.IpcRendererEvent, progress: ImportProgress) =>
+        listener(progress);
+      ipcRenderer.on("prsloy:import:progress", handler);
+      return () => ipcRenderer.removeListener("prsloy:import:progress", handler);
+    },
   },
   features: {
     exportProjectZip: (workspacePath) =>
