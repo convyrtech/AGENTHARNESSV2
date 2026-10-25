@@ -442,7 +442,7 @@ test("4 · the agent hits a wall: «Не получилось: …» with ready 
   }
 });
 
-test("5 · defaults on (memory, «замечать само», turn status): a liking said in passing is remembered after «Новый чат»", async () => {
+test("5 · defaults on (memory, «замечать само», turn status): a liking said in passing: «Заметил и запомнил» in the new chat, «заметил сам» in «Память»", async () => {
   test.setTimeout(300_000);
   const said = "без анимаций — терпеть не могу, когда всё прыгает";
   const n = await launchNovice(
@@ -462,9 +462,7 @@ test("5 · defaults on (memory, «замечать само», turn status): a l
           op: "add",
           scope: "user",
           kind: "preference",
-          // Core's quote check (#13) refuses «Сайты делать без анимаций» / «Не любит анимации»:
-          // reported. This wording passes it.
-          text: "Сайты без анимаций: терпеть не может, когда всё прыгает",
+          text: "Сайты делать без анимаций",
           quote: said,
         },
       ],
@@ -476,20 +474,15 @@ test("5 · defaults on (memory, «замечать само», turn status): a l
     await ask(page, `Сделай сайт для пекарни, только ${said}`, "без анимаций.");
     await shot(page, "first-hour-15-defaults-turn");
     await page.getByText("Новый чат").first().click();
-    // Leaving the chat runs the extractor (core's M-3b): the liking is written to the memory, and since
-    // core 9a1d084 its «Заметил и запомнил» card reaches the new chat. Before that fix it reached no chat;
-    // either way the person finds it in Settings → «Память».
+    // Leaving the chat runs the extractor (core's M-3b): the liking is written to the memory and its
+    // «Заметил и запомнил» card comes into the new chat.
     const card = page.getByTestId("memory-card");
-    await expect
-      .poll(async () => (await card.count()) > 0, { timeout: 15_000 })
-      .toBe(true)
-      .catch(() => undefined);
-    if ((await card.count()) > 0) await expect(card.first()).toContainText("Сайты без анимаций");
+    await expect(card.first()).toContainText("Сайты делать без анимаций", { timeout: 30_000 });
     await shot(page, "first-hour-16-new-chat");
     await page.getByTestId("nav-settings").click();
     await page.getByTestId("settings-nav-memory").click();
     const user = page.getByTestId("memory-user");
-    await expect(user).toContainText("Сайты без анимаций", { timeout: 60_000 });
+    await expect(user).toContainText("Сайты делать без анимаций", { timeout: 60_000 });
     await expect(user).toContainText("заметил сам");
     await expect(page.getByTestId("memory-hint")).toContainText("сам замечает важное");
     await shot(page, "first-hour-17-noticed-in-settings");
