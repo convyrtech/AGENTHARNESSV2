@@ -394,11 +394,129 @@ test("owner leads a landing page from request to preview", async () => {
       .poll(() => app.evaluate(() => (globalThis as { __opened?: string }).__opened))
       .toBe(join(documents, "PRSLOY", "prsloy-design", "site"));
 
+    // «Настроить»: brand variables as handles, shown in the preview, saved only on «Сохранить»
+    const pageFile = join(documents, "PRSLOY", "prsloy-design", "site", "landing", "index.html");
+    const rootVar = (name: string) =>
+      page
+        .frameLocator('[data-testid="design-preview"]')
+        .locator("html")
+        .evaluate((el, n) => getComputedStyle(el).getPropertyValue(n).trim(), name);
+    await page.getByTestId("design-tweak-open").click();
+    const tweak = page.getByTestId("design-tweak");
+    await expect(tweak).toBeVisible();
+    await expect(tweak.getByTestId("design-tweak-radius")).toBeVisible();
+    await tweak.getByTestId("design-tweak-radius-range").fill("20");
+    await expect.poll(() => rootVar("--radius")).toBe("20px");
+    expect(readFileSync(pageFile, "utf8")).toContain("--radius:12px");
+    // the accent the colour of the background: refused, nothing to save
+    await tweak.getByTestId("design-tweak-accent-f4ede1").click();
+    await expect(tweak.getByTestId("design-tweak-error")).toHaveText(
+      "Акцент потеряется на этом фоне",
+    );
+    await expect(tweak.getByTestId("design-tweak-save")).toBeDisabled();
+    await tweak.getByTestId("design-tweak-accent-2b211b").click();
+    await expect(tweak.getByTestId("design-tweak-error")).toHaveCount(0);
+    await expect.poll(() => rootVar("--accent")).toBe("#2b211b");
+    await shot(page, "tweak");
+    await tweak.getByTestId("design-tweak-save").click();
+    await expect(tweak).toHaveCount(0);
+    expect(readFileSync(pageFile, "utf8")).toContain("--radius:20px");
+    expect(readFileSync(pageFile, "utf8")).toContain("--accent:#2b211b");
+    await expect.poll(() => rootVar("--radius")).toBe("20px");
+
+    // «Править»: mark a place on the page, say what to change, the harness answers with before/after
+    const preview = page.frameLocator('[data-testid="design-preview"]');
+    await expect(preview.locator("[data-pl]")).toHaveCount(0);
+    await page.getByTestId("design-edit-open").click();
+    const edit = page.getByTestId("design-edit");
+    await expect(edit.getByTestId("design-edit-hint")).toBeVisible();
+    await expect(preview.locator("h1[data-pl]")).toHaveCount(1);
+    await preview.locator("h1").click();
+    await expect(edit.getByTestId("design-edit-place-1")).toHaveText("«Зерно»");
+    await expect(edit.getByTestId("design-edit-apply")).toBeDisabled();
+    // a second mark, then taken back
+    await edit.getByTestId("design-edit-pick").click();
+    await preview.locator("p.k").click();
+    await expect(edit.getByTestId("design-edit-place-2")).toHaveText("«КОФЕЙНЯ»");
+    await edit.getByTestId("design-edit-remove-2").click();
+    await expect(edit.getByTestId("design-edit-place-2")).toHaveCount(0);
+    await edit.getByTestId("design-edit-request-1").fill("крупнее, как вывеска");
+    await shot(page, "edit");
+    await edit.getByTestId("design-edit-apply").click();
+    await expect(edit).toHaveCount(0);
+    await expect(page.getByTestId("design-user").last()).toHaveText(
+      "«Зерно» — крупнее, как вывеска",
+    );
+    const result = page.getByTestId("design-owner").last();
+    await expect(result).toContainText("Сделал заголовок крупнее.");
+    await expect(result.getByTestId("design-image")).toHaveCount(1);
+    await expect(result.getByTestId("design-recommend")).toHaveCount(0);
+    expect(readFileSync(pageFile, "utf8")).toContain("font-size:96px");
+    const pins = JSON.parse(
+      readFileSync(
+        join(
+          documents,
+          "PRSLOY",
+          "prsloy-design",
+          "design",
+          "landing",
+          "artifacts",
+          "edit",
+          "01",
+          "pins.json",
+        ),
+        "utf8",
+      ),
+    ) as { selector: string; file: string; line: number; request: string; width: number }[];
+    expect(pins).toHaveLength(1);
+    expect(pins[0]).toMatchObject({
+      file: "site/landing/index.html",
+      line: 1,
+      request: "крупнее, как вывеска",
+      width: 1440,
+    });
+    await shot(page, "edit-result");
+    // «Вернуть как было»: the page from the copy before the edit; the owner sees the button's words
+    await result.getByTestId("design-option-edit:revert:1").click();
+    await expect(page.getByTestId("design-user").last()).toHaveText("Вернуть как было");
+    await expect(page.getByTestId("design-done")).toBeVisible();
+    await expect(page.getByTestId("design-done-past")).toHaveCount(1);
+    expect(readFileSync(pageFile, "utf8")).toContain("font-size:64px");
+    await expect(preview.locator("[data-pl]")).toHaveCount(0);
+
+    // text without a model: a double click, type, Enter — written where the page says it is
+    await page.getByTestId("design-edit-open").click();
+    await expect(preview.locator("h1[data-pl]")).toHaveCount(1);
+    // while picking, a double click is a pick (its first click), not a text edit
+    await preview.locator("h1").dblclick();
+    await expect(page.getByTestId("design-edit-place-1")).toHaveText("«Зерно»");
+    await expect(preview.locator("[contenteditable]")).toHaveCount(0);
+    const line = preview.locator("p", { hasText: "Обжариваем" });
+    await line.dblclick();
+    await expect(line).toHaveAttribute("contenteditable", "plaintext-only");
+    await page.keyboard.type("Обжариваем сами, с рассветом.");
+    await page.keyboard.press("Enter");
+    await expect(page.getByTestId("design-edit-note")).toHaveText("Текст поменян.");
+    expect(readFileSync(pageFile, "utf8")).toContain("<p>Обжариваем сами, с рассветом.</p>");
+    expect(
+      readFileSync(join(documents, "PRSLOY", "prsloy-design", "owner", "text-edits.jsonl"), "utf8"),
+    ).toContain('"after":"Обжариваем сами, с рассветом."');
+    await expect(preview.locator("p", { hasText: "с рассветом" })).toHaveCount(1);
+    // a number the animation redraws: refused, the file stays
+    await preview.locator("p.c").dblclick();
+    await expect(page.getByTestId("design-edit-note")).toHaveText(
+      "Этот текст двигает анимация — опишите правку словами.",
+    );
+    await shot(page, "edit-text");
+    await page.getByTestId("design-edit-cancel").click();
+    await expect(page.getByTestId("design-edit")).toHaveCount(0);
+    expect(readFileSync(pageFile, "utf8")).toContain("data-move=count>180 ₽</p>");
+
     // the stream survives leaving and reopening the tab
     await page.getByTestId("nav-settings").click();
     await page.getByTestId("settings-back").click();
     await page.getByTestId("nav-design").click();
-    await expect(page.getByTestId("design-owner")).toHaveCount(2);
+    await expect(page.getByTestId("design-owner")).toHaveCount(3);
     await expect(page.getByTestId("design-done")).toBeVisible();
 
     // stop a long turn

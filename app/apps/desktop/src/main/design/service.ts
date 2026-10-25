@@ -39,7 +39,9 @@ import {
   shell,
 } from "electron";
 import type {
+  DesignEditPin,
   DesignEvent,
+  DesignToken,
   DesignSetupProgress,
   DesignStatus,
   DesignEventMessage,
@@ -60,9 +62,15 @@ import {
   workspaceFor,
   workspaceId,
 } from "./paths.ts";
+import { PREVIEW_BRIDGE_SCRIPT } from "../preview-bridge/index.ts";
+import { editPayload, editPins, editSummary } from "./edit-pins.ts";
+import { applyTextEdit, type TextEdit, textEditArg } from "./text-edit.ts";
+import textOverlay from "./text-overlay.js?raw";
 import { findEntry, type PreviewServer, startPreviewServer } from "./preview-server.ts";
 import { importPipeline } from "./pipeline-import.ts";
 import { killTree, killTreeNow, treeSpawnOptions } from "./proc.ts";
+import { siteUrl } from "./site-url.ts";
+import { checkTokens, overrideStyle, readTokens, saveTokens, type TokenCheck } from "./tokens.ts";
 import { listFiles, zipDirectory } from "./zip.ts";
 import { DESIGN_DISK_MB, DESIGN_SETUP_MB, setupDesignTools, toolsReady } from "./setup.ts";
 
@@ -109,11 +117,15 @@ export class DesignService {
   readonly #runs = new Map<string, Run>();
   readonly #workspaces = new Map<string, string>();
   readonly #previews = new Map<string, PreviewServer>();
+  /** «Править»: the same `site/` with the inspector and source marks, only while editing. */
+  readonly #editPreviews = new Map<string, PreviewServer>();
   readonly #picked = new Map<string, string>();
   #proxy: { child: ChildProcess; url: string; upstream: string } | undefined;
   #proxyStarting: Promise<string> | undefined;
   #setup: Promise<DesignSetupProgress> | undefined;
   #models: { key: string; at: number; ids: string[] | undefined } | undefined;
+  /** «Настроить»: values shown in the preview, not yet saved, per workspace. */
+  readonly #tweaks = new Map<string, Record<string, string>>();
 
   constructor(deps: DesignServiceDeps) {
     this.#deps = deps;
@@ -512,11 +524,53 @@ export class DesignService {
       throw new Error(`Не получилось завести папку дизайна: ${err.trim().slice(-300)}`);
   }
 
+  /** brand_probe.py → materials/brand.json; false when the owner stopped it (the turn ends there). */
+  async #probeBrand(ws: string, url: string, env: Record<string, string>): Promise<boolean> {
+    this.#emit(ws, { ev: "note", text: "Смотрю ваш сайт: цвета и шрифты" });
+    const child = this.#python(
+      [
+        "-I",
+        join(this.#harness, "brand_probe.py"),
+        "--url",
+        url,
+        "--out",
+        join(ws, "materials", "brand.json"),
+        "--shot",
+        join(ws, "materials", "brand-site.png"),
+      ],
+      ws,
+      env,
+    );
+    const run: Run = { child, cancelled: false };
+    this.#runs.set(ws, run);
+    const timer = setTimeout(() => killTree(child), 90_000);
+    const code = await new Promise<number | null>((done) => {
+      child.on("error", () => done(null));
+      child.on("close", done);
+    });
+    clearTimeout(timer);
+    this.#runs.delete(ws);
+    if (run.quitting) return false;
+    if (run.cancelled) {
+      this.#emit(ws, { ev: "exit", code, cancelled: true });
+      return false;
+    }
+    this.#emit(ws, {
+      ev: "note",
+      text:
+        code === 0
+          ? "Взял цвета и шрифты с сайта"
+          : "Сайт не открылся — цвета возьму из ваших материалов",
+    });
+    return true;
+  }
+
   async say(
     projectPath: string | undefined,
     text: string,
     fileTokens: string[],
     retry = false,
+    edit?: DesignEditPin[],
   ): Promise<void> {
     const ws = this.workspace(projectPath);
     if (!this.available()) throw new Error(UNAVAILABLE);
@@ -546,7 +600,23 @@ export class DesignService {
         files: files.map((f) => basename(f)),
       });
     }
-    const args = [join(this.#harness, "run.py"), "say", ws, text];
+    // «бренд по адресу сайта»: the owner named his site and its brand is not measured yet (no model)
+    const site = text && !edit ? siteUrl(text) : undefined;
+    if (
+      site &&
+      !existsSync(join(ws, "materials", "brand.json")) &&
+      existsSync(join(this.#harness, "brand_probe.py"))
+    ) {
+      const go = await this.#probeBrand(ws, site, env);
+      if (!go) return;
+    }
+    const args = [join(this.#harness, "run.py"), "say", ws];
+    if (edit) {
+      // a file, not argv: the owner's words with quotes survive Windows command lines as they are
+      const pinsFile = join(state.dir, "edit-pins.json");
+      writeFileSync(pinsFile, JSON.stringify(editPayload(edit)), { mode: 0o600 });
+      args.push("--edit", pinsFile);
+    } else args.push(text);
     if (retry) args.push("--retry");
     if (files.length) args.push("--files", ...files);
     const child = this.#python(args, ws, env);
@@ -585,6 +655,30 @@ export class DesignService {
     });
   }
 
+  /** «Применить» in «Править»: the pinned places → one edit turn of the harness. */
+  async edit(projectPath: string | undefined, raw: unknown): Promise<void> {
+    const pins = editPins(raw);
+    if (pins.length === 0) throw new Error("Отметьте место на странице и напишите, что поменять");
+    await this.say(projectPath, editSummary(pins), [], false, pins);
+  }
+
+  /** Text retyped on the page («Править», no model); a note for the harness's text checks. */
+  editText(projectPath: string | undefined, edit: TextEdit | undefined): TokenCheck {
+    const ws = this.workspace(projectPath);
+    if (!edit) return { ok: false, error: "Не понял, какой это текст" };
+    if (this.#runs.has(ws)) return { ok: false, error: "Уже работаю над прошлым сообщением" };
+    const result = applyTextEdit(join(ws, "site"), edit);
+    if (result.ok) {
+      // the owner's own words now: run.py's text checks read them from here
+      mkdirSync(join(ws, "owner"), { recursive: true });
+      appendFileSync(
+        join(ws, "owner", "text-edits.jsonl"),
+        `${JSON.stringify({ t: Date.now() / 1000, file: `site/${edit.file}`, before: edit.before.trim(), after: edit.after.trim() })}\n`,
+      );
+    }
+    return result;
+  }
+
   cancel(projectPath: string | undefined): void {
     const run = this.#runs.get(this.workspace(projectPath));
     if (!run) return;
@@ -606,17 +700,50 @@ export class DesignService {
     });
   }
 
-  async preview(projectPath: string | undefined): Promise<{ url: string } | null> {
+  async preview(projectPath: string | undefined, edit = false): Promise<{ url: string } | null> {
     const ws = this.workspace(projectPath);
     const site = join(ws, "site");
     const entry = existsSync(site) ? findEntry(site, DESIGN_PAGE) : undefined;
     if (entry === undefined) return null;
-    let server = this.#previews.get(ws);
+    const servers = edit ? this.#editPreviews : this.#previews;
+    let server = servers.get(ws);
     if (!server) {
-      server = await startPreviewServer(site);
-      this.#previews.set(ws, server);
+      server = await startPreviewServer(site, {
+        extraHead: () =>
+          overrideStyle(this.#tweaks.get(ws) ?? {}) +
+          (edit ? `<script>${textOverlay}</script>` : ""),
+        // the inspector only while the owner edits: the plain preview stays the page as built
+        ...(edit ? { inject: PREVIEW_BRIDGE_SCRIPT, tagSource: true } : {}),
+      });
+      servers.set(ws, server);
     }
     return { url: server.url + entry };
+  }
+
+  // ---------- «Настроить»: brand variables without a model ----------
+  tokens(projectPath: string | undefined): { tokens: DesignToken[]; swatches: string[] } {
+    return readTokens(join(this.workspace(projectPath), "site"), DESIGN_PAGE);
+  }
+
+  previewTokens(
+    projectPath: string | undefined,
+    changes: Record<string, string> | null,
+  ): TokenCheck {
+    const ws = this.workspace(projectPath);
+    if (!changes || Object.keys(changes).length === 0) {
+      this.#tweaks.delete(ws);
+      return { ok: true };
+    }
+    const check = checkTokens(join(ws, "site"), DESIGN_PAGE, changes);
+    if (check.ok) this.#tweaks.set(ws, { ...changes });
+    return check;
+  }
+
+  saveTokens(projectPath: string | undefined, changes: Record<string, string>): TokenCheck {
+    const ws = this.workspace(projectPath);
+    const result = saveTokens(join(ws, "site"), DESIGN_PAGE, changes);
+    if (result.ok) this.#tweaks.delete(ws);
+    return result;
   }
 
   /** «Скачать архив»: site/ as a zip wherever the owner saves it (Downloads by default). */
@@ -704,7 +831,7 @@ export class DesignService {
       killTreeNow(run.child);
     }
     if (this.#proxy) killTreeNow(this.#proxy.child);
-    for (const s of this.#previews.values()) void s.close();
+    for (const s of [...this.#previews.values(), ...this.#editPreviews.values()]) void s.close();
   }
 }
 
@@ -712,6 +839,15 @@ export class DesignService {
 function restrictToUser(path: string, isDir = false): void {
   const result = restrictToCurrentUser(path, { isDir });
   if (!result.ok) console.warn("[design] could not restrict", path, result.detail);
+}
+
+/** `{ "--name": "value" }` from the renderer, strings only; anything else → null. */
+function tokenChanges(raw: unknown): Record<string, string> | null {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(raw).slice(0, 20))
+    if (typeof v === "string") out[k] = v.slice(0, 40);
+  return out;
 }
 
 function projectArg(raw: unknown): string | undefined {
@@ -757,7 +893,15 @@ export function registerDesignIpc(deps: DesignServiceDeps): DesignService {
   );
   ipcMain.handle(
     "prsloy:design:preview",
-    guard((p: unknown) => svc.preview(projectArg(p))),
+    guard((p: unknown, edit: unknown) => svc.preview(projectArg(p), edit === true)),
+  );
+  ipcMain.handle(
+    "prsloy:design:edit-text",
+    guard((p: unknown, edit: unknown) => svc.editText(projectArg(p), textEditArg(edit))),
+  );
+  ipcMain.handle(
+    "prsloy:design:edit",
+    guard((p: unknown, pins: unknown) => svc.edit(projectArg(p), pins)),
   );
   ipcMain.handle(
     "prsloy:design:open-folder",
@@ -770,6 +914,22 @@ export function registerDesignIpc(deps: DesignServiceDeps): DesignService {
   ipcMain.handle(
     "prsloy:design:import-tools",
     guard(() => svc.importTools()),
+  );
+  ipcMain.handle(
+    "prsloy:design:tokens",
+    guard((p: unknown) => svc.tokens(projectArg(p))),
+  );
+  ipcMain.handle(
+    "prsloy:design:preview-tokens",
+    guard((p: unknown, changes: unknown) =>
+      svc.previewTokens(projectArg(p), tokenChanges(changes)),
+    ),
+  );
+  ipcMain.handle(
+    "prsloy:design:save-tokens",
+    guard((p: unknown, changes: unknown) =>
+      svc.saveTokens(projectArg(p), tokenChanges(changes) ?? {}),
+    ),
   );
   ipcMain.handle(
     "prsloy:design:export-zip",

@@ -87,6 +87,46 @@ export type DesignStatus = {
 
 export type DesignEventMessage = { workspace: string; event: DesignEvent };
 
+export type DesignTokenKind = "color" | "length";
+export type DesignTokenLabel = "background" | "text" | "accent" | "radius" | "size" | "spacing";
+/** One handle of «Настроить»: a brand variable on the page's `:root`; `label` is translated by the renderer. */
+export type DesignToken = {
+  name: string;
+  value: string;
+  kind: DesignTokenKind;
+  label: DesignTokenLabel;
+};
+export type DesignTokenResult = { ok: true } | { ok: false; error: string };
+
+/**
+ * «Править»: one place the owner pinned on the built page and what to change there. The place is
+ * what the preview inspector reported (`PreviewPick`); `width` is the preview width it was seen at.
+ */
+export type DesignEditPin = {
+  selector: string;
+  nth: number;
+  of: number;
+  tag: string;
+  text: string;
+  outerHTMLShort: string;
+  /** Served file relative to `site/` and its 1-based line, when the inspector knows them. */
+  file?: string;
+  line?: number;
+  request: string;
+  width: number;
+};
+
+/** «Править», text retyped on the page (no model): the element's place as the preview marked it. */
+export type DesignTextEdit = {
+  /** Served file relative to `site/`, 1-based line and column of the element's start tag. */
+  file: string;
+  line: number;
+  col: number;
+  /** The text the owner saw, and the new one. */
+  before: string;
+  after: string;
+};
+
 export interface DesignApi {
   status(projectPath: string | undefined): Promise<DesignStatus>;
   /** Install Python tools once; progress arrives through onSetup. */
@@ -104,11 +144,30 @@ export interface DesignApi {
   cancel(projectPath: string | undefined): Promise<void>;
   /** Native file picker; returns opaque tokens main accepts in `say`, plus display names. */
   pickFiles(): Promise<{ token: string; name: string }[]>;
-  /** Start (or reuse) the static server over `site/`; resolves to the page URL. */
-  preview(projectPath: string | undefined): Promise<{ url: string } | null>;
+  /**
+   * Start (or reuse) the static server over `site/`; resolves to the page URL. `edit` serves it
+   * with the inspector («Править»: pick places on the page), a separate server.
+   */
+  preview(projectPath: string | undefined, edit?: boolean): Promise<{ url: string } | null>;
+  /** «Применить»: the pinned places and the owner's words → one harness edit turn (onEvent). */
+  edit(projectPath: string | undefined, pins: DesignEditPin[]): Promise<void>;
+  /** Text retyped in place: written into the page's file when the place is certain, else a one-line refusal. */
+  editText(projectPath: string | undefined, edit: DesignTextEdit): Promise<DesignTokenResult>;
   openFolder(projectPath: string | undefined): Promise<void>;
   /** The built page in the system browser (main opens only its own loopback preview address). */
   openInBrowser(projectPath: string | undefined): Promise<void>;
+  /** «Настроить»: the page's brand variables (background, text, accent, radius, size, spacing) and swatches. */
+  tokens(projectPath: string | undefined): Promise<{ tokens: DesignToken[]; swatches: string[] }>;
+  /** Show these values in the preview without saving; null drops the preview values. */
+  previewTokens(
+    projectPath: string | undefined,
+    changes: Record<string, string> | null,
+  ): Promise<DesignTokenResult>;
+  /** Write the values into the page's files (checked: brand swatches, 0.5–2×, contrast). */
+  saveTokens(
+    projectPath: string | undefined,
+    changes: Record<string, string>,
+  ): Promise<DesignTokenResult>;
   /** Pick the owner's design-pipeline zip or folder; null when cancelled, else ok or a one-line error. */
   importTools(): Promise<{ ok: true } | { ok: false; error: string } | null>;
   /** «Скачать архив»: zip of site/ through a save dialog; null when cancelled or nothing built. */

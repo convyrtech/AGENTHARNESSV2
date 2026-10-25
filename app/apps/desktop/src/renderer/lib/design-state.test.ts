@@ -3,6 +3,8 @@ import { join } from "node:path";
 import type { DesignEvent } from "@zeno/contracts";
 import { describe, expect, it } from "vite-plus/test";
 import {
+  editAnswer,
+  editOptions,
   DESIGN_STEPS,
   EMPTY_DESIGN_VIEW,
   elapsedMinutes,
@@ -311,5 +313,20 @@ describe("run.py's word options", () => {
     expect(isLetterKey("A")).toBe(true);
     expect(isLetterKey("Б")).toBe(true);
     expect(isLetterKey("да")).toBe(false);
+  });
+});
+
+describe("edit answers", () => {
+  const opt = (key: string) => ({ key, label: key, recommended: false });
+  it("knows run.py's two buttons after an edit", () => {
+    expect(editAnswer("edit:keep:3")).toBe("keep");
+    expect(editAnswer(" edit:revert:12 ")).toBe("revert");
+    expect(editAnswer("edit:keep")).toBeUndefined();
+    expect(editAnswer("оставить")).toBeUndefined();
+    expect(editOptions([{ q: "", options: [opt("edit:keep:1"), opt("edit:revert:1")] }])).toBe(
+      true,
+    );
+    expect(editOptions([{ q: "", options: [opt("A"), opt("edit:keep:1")] }])).toBe(false);
+    expect(editOptions([])).toBe(false);
   });
 });
