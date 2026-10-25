@@ -196,10 +196,23 @@ test("first run brings Claude Code and Codex chats over and continues one", asyn
     await expect(card).toHaveAttribute("data-expanded", "true", { timeout: 30_000 });
     const chat = page.getByText("Пекарня «Колосок»").first();
     await expect(chat).toBeVisible({ timeout: 60_000 });
+    // a quiet badge says where it came from
+    const row = page
+      .locator(".sidebar-thread-row")
+      .filter({ hasText: "Пекарня «Колосок»" })
+      .first();
+    await expect(row.getByTestId("imported-badge")).toHaveText("Claude Code");
     await chat.click();
     await expect(page.getByTestId("timeline")).toContainText("Добавил prices.html.", {
       timeout: 30_000,
     });
+    // and the chat says what the model works from
+    await expect(page.getByTestId("imported-notice")).toContainText(
+      "Перенесено из Claude Code. Модель видит сводку разговора и последние ходы",
+    );
+    if (process.env.IMPORT_SHOTS) {
+      await page.screenshot({ path: join(SCREENS, "imported-chat.png") });
+    }
     await page.getByTestId("prompt-input").fill("Добавь страницу контактов");
     await page.getByTestId("send-prompt").click();
     await expect(page.getByTestId("timeline")).toContainText("Продолжаю с того же места.", {

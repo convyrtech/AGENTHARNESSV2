@@ -34,6 +34,10 @@ export function installSessionImport(
     assertTrustedSender(event);
     return service.scan();
   });
+  ipcMain.handle("prsloy:import:origins", async (event) => {
+    assertTrustedSender(event);
+    return service.origins();
+  });
   ipcMain.handle("prsloy:import:run", async (event, keys: unknown) => {
     assertTrustedSender(event);
     return service.run(keys, (progress) => {

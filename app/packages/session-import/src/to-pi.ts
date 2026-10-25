@@ -62,6 +62,20 @@ function entryIds() {
   };
 }
 
+/**
+ * Tool notes («• Bash: npm test») as their own paragraphs: the chat shows replies as markdown,
+ * where single line breaks merge lines into one.
+ */
+export function noteParagraphs(text: string): string {
+  const lines = text.split("\n");
+  let out = lines[0] ?? "";
+  for (let i = 1; i < lines.length; i += 1) {
+    const aroundNote = lines[i - 1]!.startsWith("• ") || lines[i]!.startsWith("• ");
+    out += (aroundNote ? "\n\n" : "\n") + lines[i];
+  }
+  return out;
+}
+
 /** Index of the first kept turn: the last ≤6 within 32 000 characters, starting at a request. */
 export function tailStart(turns: ImportedChat["turns"]): number {
   let start = turns.length;
@@ -124,7 +138,7 @@ export function buildPiSession(
         ? { role: "user", content: turn.text, timestamp: time }
         : {
             role: "assistant",
-            content: [{ type: "text", text: turn.text }],
+            content: [{ type: "text", text: noteParagraphs(turn.text) }],
             api: IMPORTED_API,
             provider: IMPORTED_API,
             model: chat.model ?? chat.tool,

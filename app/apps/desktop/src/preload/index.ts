@@ -141,6 +141,7 @@ const api: ZenoDesktopApi = {
   sessionImport: {
     scan: () => ipcRenderer.invoke("prsloy:import:scan"),
     run: (keys) => ipcRenderer.invoke("prsloy:import:run", keys),
+    origins: () => ipcRenderer.invoke("prsloy:import:origins"),
     onProgress(listener) {
       const handler = (_event: Electron.IpcRendererEvent, progress: ImportProgress) =>
         listener(progress);

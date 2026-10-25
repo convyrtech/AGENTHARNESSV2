@@ -6810,6 +6810,26 @@ textarea.models-scoped-patterns-input[data-slot="textarea"] {
   color: var(--muted-foreground);
   text-align: right;
 }
+/* A chat brought over from another agent: a quiet badge in the sidebar, a note atop the chat. */
+.prsloy-imported-badge {
+  flex-shrink: 0;
+  padding: 0 6px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 11px;
+  line-height: 16px;
+  color: var(--muted-foreground);
+  white-space: nowrap;
+}
+.prsloy-imported-notice {
+  width: 100%;
+  margin: 0 0 16px;
+  padding: 8px 12px;
+  border-left: 2px solid var(--border);
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--muted-foreground);
+}
 .settings-import-panel {
   padding: 4px 16px 16px;
 }

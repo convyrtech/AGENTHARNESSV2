@@ -25,5 +25,8 @@ export const importZh = {
   "prsloy.import.settingsTitle": "其他程序的聊天",
   "prsloy.import.settingsHint": "把 Claude Code、Codex 等程序里的对话搬到这里继续。",
   "prsloy.import.unreadable": "无法读取这些程序的聊天：{tools}（格式不认识）。",
+  "prsloy.import.badgeTitle": "从 {tool} 搬过来的聊天",
+  "prsloy.import.notice":
+    "从 {tool} 搬过来的聊天。模型看到的是对话摘要和最近几轮，而不是全部记录。",
   "prsloy.import.find": "查找聊天",
 } as const;

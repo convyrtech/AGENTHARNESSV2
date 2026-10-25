@@ -805,6 +805,9 @@ export const TimelineRow = memo(function TimelineRow(props: {
         data-kind="system"
         data-testid="timeline-compaction-marker"
         data-tone={failed ? "error" : "info"}
+        {...(failed || /completed|done|started|abort/i.test(item.text) || !item.text.trim()
+          ? {}
+          : { title: item.text.trim() })}
       >
         <MarkerContent className="px-2">{label}</MarkerContent>
       </Marker>
@@ -939,7 +942,9 @@ function compactionMarkerLabel(locale: Locale, text: string): string {
   }
   if (/completed|done/i.test(body)) return t(locale, "timeline.compaction.completed");
   if (/started/i.test(body)) return t(locale, "timeline.compaction.started");
-  return body || t(locale, "timeline.compaction.completed");
+  // A compaction restored from history carries its summary, which can be pages long (an
+  // imported chat's summary, #22): the separator says «История сжата», the summary is a tooltip.
+  return t(locale, "timeline.compaction.completed");
 }
 
 function processToolIcon(kind: ProcessToolKind): ReactNode {
