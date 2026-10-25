@@ -1,0 +1,14 @@
+{"sessionId":"8f1e2d3c-4b5a-4968-8778-695a4b3c2d1e","projectHash":"h","startTime":"2026-10-22T10:00:00.000Z","lastUpdated":"2026-10-22T10:00:00.000Z","kind":"main"}
+{"id":"u1","timestamp":"2026-10-22T10:00:00.000Z","type":"user","content":[{"text":"Сделай лендинг для кофейни"}]}
+{"id":"g1","timestamp":"2026-10-22T10:01:00.000Z","type":"gemini","model":"gemini-3-pro","content":[{"text":"Начинаю."}],"thoughts":[{"subject":"план","description":"...","timestamp":"2026-10-22T10:01:00.000Z"}],"toolCalls":[{"id":"c1","name":"write_file","displayName":"WriteFile","args":{"file_path":"C:\\Users\\Пётр\\Проекты\\заметки\\index.html","content":"<html>"},"status":"success","timestamp":"2026-10-22T10:01:00.000Z","result":[{"functionResponse":{"response":{"output":"ok"}}}]},{"id":"c2","name":"run_shell_command","displayName":"Shell","args":{"command":"npm run build"},"status":"error","timestamp":"2026-10-22T10:01:00.000Z","resultDisplay":"npm ERR! missing script: build"}]}
+{"id":"i1","timestamp":"2026-10-22T10:02:00.000Z","type":"info","content":"Сохранено"}
+{"$set":{"summary":"Лендинг кофейни","lastUpdated":"2026-10-22T10:02:00.000Z"}}
+{"id":"u2","timestamp":"2026-10-22T10:03:00.000Z","type":"user","content":[{"text":"Сделай фон красным"}]}
+{"id":"g2","timestamp":"2026-10-22T10:04:00.000Z","type":"gemini","content":[{"text":"Красный фон готов."}]}
+{"$rewindTo":"u2"}
+{"id":"u3","timestamp":"2026-10-22T10:05:00.000Z","type":"user","content":"Сделай фон бежевым","displayContent":[{"text":"Сделай фон бежевым"}]}
+{"id":"g3","timestamp":"2026-10-22T10:06:00.000Z","type":"gemini","content":[{"text":"Черновик"}],"toolCalls":[{"id":"c3","name":"replace","args":{"file_path":"style.css"},"status":"success","timestamp":"2026-10-22T10:06:00.000Z"}]}
+{"$patch":{"updates":[{"id":"g3","content":[{"text":"Бежевый фон готов."}],"toolCalls":[{"id":"c3","result":"ok"}]}]}}
+{"id":"u4","timestamp":"2026-10-22T10:07:00.000Z","type":"user","content":[{"text":"/stats"}]}
+{"id":"u5","timestamp":"2026-10-22T10:08:00.000Z","type":"user","content":[{"text":"Спасибо, вот картинка"},{"inlineData":{"mimeType":"image/png","data":"AAAA"}}]}
+{"id": "broken", 

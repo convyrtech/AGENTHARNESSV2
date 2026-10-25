@@ -23,6 +23,8 @@ apps/desktop/runtimes/**
 
 # pi session exports / accidental test cwd dumps (exportToJsonl default path)
 session-*.jsonl
+# …except the synthetic Gemini CLI fixtures of the import tests (never real chats)
+!packages/session-import/test/fixtures/gemini/**/session-*.jsonl
 
 # Local environment
 .env
