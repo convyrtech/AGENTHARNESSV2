@@ -109,9 +109,10 @@ async function launch(
     env[key] = value;
   }
   delete env.ELECTRON_RUN_AS_NODE;
+  // Windows keeps the real profile: Electron resolves Documents etc. from it, and a temp
+  // USERPROFILE makes app.getPath("documents") throw. Pi is isolated via PI_CODING_AGENT_DIR.
+  if (process.platform !== "win32") Object.assign(env, { HOME: home, USERPROFILE: home });
   Object.assign(env, {
-    HOME: home,
-    USERPROFILE: home,
     PI_CODING_AGENT_DIR: agentDir,
     ZENO_WORKSPACE: workspace,
     ZENO_MODEL_PROVIDER: "zeno-fake",
