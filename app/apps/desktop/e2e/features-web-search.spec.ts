@@ -53,6 +53,21 @@ test("«Поиск в интернете»: free by default, a key only as a mas
     await brave.scrollIntoViewIfNeeded();
     await shot(page, "web-search-3-brave");
 
+    // The model search: GPT-6.1 Sol by default; add Grok 4.7, move it first, save through main.
+    const model = page.getByTestId("web-search-model");
+    await expect(model.getByTestId("web-search-models")).toHaveText(
+      "Модели по порядку: GPT-6.1 Sol",
+    );
+    await model.getByTestId("web-search-models-edit").click();
+    await model.getByTestId("web-search-model-add").click();
+    await page.getByRole("option", { name: "Grok 4.7" }).click();
+    await model.getByTestId("web-search-model-up").nth(1).click();
+    await shot(page, "web-search-6-models");
+    await model.getByTestId("web-search-models-save").click();
+    await expect(model.getByTestId("web-search-models")).toHaveText(
+      "Модели по порядку: Grok 4.7, GPT-6.1 Sol",
+    );
+
     // «Убрать» on the provider in use puts free back first.
     await brave.getByTestId("web-search-remove").click();
     await expect(free.getByTestId("web-search-active")).toBeVisible();

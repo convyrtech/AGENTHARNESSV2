@@ -188,7 +188,7 @@ export const featuresRu: Record<keyof typeof featuresZh, string> = {
   "features.web.lastOk": "Проверено {date} · работает",
   "features.web.lastFailed": "Проверено {date} · не работает: {reason}",
   "features.web.failed": "Не получилось: {error}",
-  "features.web.hintsChecked": "Подсказки сверены с документацией сервисов {date}.",
+  "features.web.hintsChecked": "Подсказки сверены с документацией сервисов: {date}",
   "features.web.error.no_key": "нет ключа",
   "features.web.error.auth": "ключ не подошёл",
   "features.web.error.limit": "лимит исчерпан",
@@ -222,6 +222,17 @@ export const featuresRu: Record<keyof typeof featuresZh, string> = {
   "features.web.hint.prsloy": "Через шлюз PRSLOY, оплата из баланса, другой ключ не нужен.",
   "features.web.hint.model":
     "Встроенный поиск модели: дороже, источники не проверены кодом. Запасной вариант.",
+  "features.web.name.github": "GitHub",
+  "features.web.hint.github":
+    "Необязательно. С токеном бесплатный поиск получает больше запросов, а выбранный GitHub ищет ещё в репозиториях, задачах и коде. Токен: github.com → настройки разработчика → личный токен (Fine-grained), права не нужны.",
+  "features.web.addToken": "Добавить токен",
+  "features.web.models": "Модели по порядку: {list}",
+  "features.web.modelsEdit": "Изменить модели",
+  "features.web.modelsAdd": "Добавить модель",
+  "features.web.modelsUp": "{name} выше",
+  "features.web.modelsRemove": "Убрать {name}",
+  "features.web.modelsHint":
+    "Пробуются по порядку. Встроенный поиск есть не у всех моделей — «Проверить» покажет.",
   "features.web.limit.title": "{name}: {reason}",
   "features.web.limit.hint":
     "Агент продолжил другим поиском. Добавьте ключ или выберите другой поиск.",

@@ -189,7 +189,7 @@ export const featuresEn: Record<keyof typeof featuresZh, string> = {
   "features.web.lastOk": "Checked {date} · works",
   "features.web.lastFailed": "Checked {date} · does not work: {reason}",
   "features.web.failed": "Did not work: {error}",
-  "features.web.hintsChecked": "Hints compared with the services' documentation on {date}.",
+  "features.web.hintsChecked": "Hints compared with the services' documentation on {date}",
   "features.web.error.no_key": "no key",
   "features.web.error.auth": "the key was not accepted",
   "features.web.error.limit": "the limit is used up",
@@ -223,6 +223,17 @@ export const featuresEn: Record<keyof typeof featuresZh, string> = {
   "features.web.hint.prsloy": "Through the PRSLOY gateway, paid from the balance; no other key.",
   "features.web.hint.model":
     "The model's built-in search: dearer, its sources are not checked by code. A fallback.",
+  "features.web.name.github": "GitHub",
+  "features.web.hint.github":
+    "Optional. With a token the free search gets more requests, and GitHub as the chosen search also looks in repositories, issues and code. Token: github.com → developer settings → a fine-grained personal token, no permissions needed.",
+  "features.web.addToken": "Add a token",
+  "features.web.models": "Models, in order: {list}",
+  "features.web.modelsEdit": "Change the models",
+  "features.web.modelsAdd": "Add a model",
+  "features.web.modelsUp": "Move {name} up",
+  "features.web.modelsRemove": "Remove {name}",
+  "features.web.modelsHint":
+    "Tried in order. Not every model has built-in search — «Check» will tell.",
   "features.web.limit.title": "{name}: {reason}",
   "features.web.limit.hint":
     "The agent went on with another search. Add a key or choose a different search.",

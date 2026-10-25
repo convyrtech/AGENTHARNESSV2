@@ -412,3 +412,18 @@
 .web-search-footnote {
   margin-top: 8px;
 }
+.web-search-models,
+.web-search-models-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 6px;
+}
+.web-search-model {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.web-search-model-name {
+  min-width: 12rem;
+}

@@ -19,6 +19,7 @@ function state(over: Partial<Record<SearchProviderId, Partial<SearchProviderStat
     "exa",
     "firecrawl",
     "jina",
+    "github",
   ];
   return {
     active: "free",
@@ -36,6 +37,7 @@ const search = {
   clearKey: vi.fn(),
   setActive: vi.fn(),
   check: vi.fn(),
+  setModels: vi.fn(),
 };
 const flags = { get: vi.fn(), set: vi.fn() };
 
@@ -45,6 +47,7 @@ beforeEach(() => {
   search.clearKey.mockReset();
   search.setActive.mockReset();
   search.check.mockReset();
+  search.setModels.mockReset();
   flags.get.mockReset().mockResolvedValue({ webTools: false });
   flags.set
     .mockReset()
@@ -146,5 +149,36 @@ describe("Settings → Поиск в интернете", () => {
     await waitFor(() => expect(exa.textContent).toContain("Проверено 25 окт."));
     expect(exa.textContent).toContain("не работает: лимит исчерпан");
     expect(screen.getByTestId("web-search-model").textContent).toContain("источники не проверены");
+  });
+
+  it("GitHub takes an optional token, last among the own keys", async () => {
+    render(<SearchSection tr={tr} locale="ru" />);
+    const list = await screen.findByTestId("web-search-providers");
+    const rows = [...list.querySelectorAll<HTMLElement>(".settings-row")].map(
+      (row) => row.dataset.testid,
+    );
+    expect(rows.indexOf("web-search-github")).toBe(rows.indexOf("web-search-prsloy") - 1);
+    const github = screen.getByTestId("web-search-github");
+    expect(github.textContent).toContain("Необязательно");
+    expect(within(github).getByTestId("web-search-edit").textContent).toBe("Добавить токен");
+  });
+
+  it("the model search: models in order, move one up, add one, save the list", async () => {
+    const withModels = state({ model: { fields: { models: ["gpt-6.1-sol", "grok-4.7"] } } });
+    search.getState.mockResolvedValue(withModels);
+    search.setModels.mockResolvedValue(withModels);
+    render(<SearchSection tr={tr} locale="ru" />);
+    const model = await screen.findByTestId("web-search-model");
+    await waitFor(() =>
+      expect(within(model).getByTestId("web-search-models").textContent).toBe(
+        "Модели по порядку: GPT-6.1 Sol, Grok 4.7",
+      ),
+    );
+    fireEvent.click(within(model).getByTestId("web-search-models-edit"));
+    const ups = within(model).getAllByTestId("web-search-model-up");
+    expect(ups[0]).toHaveProperty("disabled", true);
+    fireEvent.click(ups[1]!);
+    fireEvent.click(within(model).getByTestId("web-search-models-save"));
+    await waitFor(() => expect(search.setModels).toHaveBeenCalledWith(["grok-4.7", "gpt-6.1-sol"]));
   });
 });

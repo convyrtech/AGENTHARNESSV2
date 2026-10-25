@@ -10,6 +10,7 @@ import type {
   SearchProviderState,
   SearchState,
 } from "@zeno/contracts";
+import { PRSLOY_MODELS } from "../../shared/prsloy-config.ts";
 import type { MessageKey } from "./i18n.ts";
 
 /** Free first, own keys next, the gateway, the model's own search last (design, #23). */
@@ -22,6 +23,7 @@ export const SEARCH_ORDER: readonly SearchProviderId[] = [
   "exa",
   "firecrawl",
   "jina",
+  "github",
   "prsloy",
   "model",
 ];
@@ -134,4 +136,24 @@ export function takeKeyFormRequest(): SearchProviderId | undefined {
   const id = pendingEdit;
   pendingEdit = undefined;
   return id;
+}
+
+/** The model search tries at most this many models (design's `setModels`). */
+export const MAX_SEARCH_MODELS = 10;
+
+/** The gateway's catalog for the model search: id and the name people know. */
+export const SEARCH_MODEL_CATALOG: readonly { id: string; name: string }[] = PRSLOY_MODELS.map(
+  (model) => ({ id: model.id, name: model.name }),
+);
+
+export function searchModelName(id: string): string {
+  return SEARCH_MODEL_CATALOG.find((model) => model.id === id)?.name ?? id;
+}
+
+/** The list with the model at `index` one place higher. */
+export function moveUp<T>(list: readonly T[], index: number): T[] {
+  if (index <= 0 || index >= list.length) return [...list];
+  const next = [...list];
+  [next[index - 1], next[index]] = [next[index]!, next[index - 1]!];
+  return next;
 }

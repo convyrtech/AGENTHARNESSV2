@@ -24,9 +24,11 @@ import {
   nameKey,
   orderedProviders,
   searchForm,
+  searchModelName,
   takeKeyFormRequest,
 } from "../../lib/search-settings.ts";
 import "../code-preview-features.css";
+import { SearchModelsForm } from "./SearchModelsForm.tsx";
 import {
   SettingsButton,
   SettingsInput,
@@ -148,6 +150,7 @@ export function SearchSection(props: { tr: Tr; locale: Locale }) {
     const id = takeKeyFormRequest();
     if (id) setEditing(id);
   }, []);
+  const [editingModels, setEditingModels] = useState(false);
   const [busy, setBusy] = useState<SearchProviderId | undefined>();
   const [checks, setChecks] = useState<Partial<Record<SearchProviderId, SearchCheckResult>>>({});
   const [error, setError] = useState<{ id?: SearchProviderId; text: string } | undefined>();
@@ -203,6 +206,11 @@ export function SearchSection(props: { tr: Tr; locale: Locale }) {
     if (await run(id, () => api.setKey(id, key, fields))) setEditing(undefined);
   }
 
+  async function saveModels(models: string[]) {
+    if (!api) return;
+    if (await run("model", () => api.setModels(models))) setEditingModels(false);
+  }
+
   async function check(id: SearchProviderId) {
     if (!api) return;
     setBusy(id);
@@ -238,12 +246,18 @@ export function SearchSection(props: { tr: Tr; locale: Locale }) {
           : p.fields?.url
             ? tr("features.web.urlSaved", { url: p.fields.url })
             : undefined;
+    const models = p.id === "model" ? (p.fields?.models ?? []) : [];
     const fresh = checks[p.id];
     const result = fresh ? checkLine(tr, fresh) : lastCheckLine(tr, tag, p.lastCheck);
     return (
       <>
         <span className="web-search-hint">{tr(hintKey(p.id))}</span>
         {status ? <span className="web-search-status">{status}</span> : null}
+        {models.length && !editingModels ? (
+          <span className="web-search-status" data-testid="web-search-models">
+            {tr("features.web.models", { list: models.map(searchModelName).join(", ") })}
+          </span>
+        ) : null}
         {result ? (
           <span
             className="web-search-status"
@@ -297,6 +311,17 @@ export function SearchSection(props: { tr: Tr; locale: Locale }) {
         />
       );
     }
+    if (p.id === "model" && editingModels) {
+      return (
+        <SearchModelsForm
+          tr={tr}
+          models={p.fields?.models ?? []}
+          busy={busy === p.id}
+          onSave={(models) => void saveModels(models)}
+          onCancel={() => setEditingModels(false)}
+        />
+      );
+    }
     const form = searchForm(p.id);
     const isBusy = busy !== undefined;
     return (
@@ -323,7 +348,26 @@ export function SearchSection(props: { tr: Tr; locale: Locale }) {
           >
             {p.configured
               ? tr("features.web.change")
-              : tr(form === "url" ? "features.web.addUrl" : "features.web.addKey")}
+              : tr(
+                  form === "url"
+                    ? "features.web.addUrl"
+                    : p.id === "github"
+                      ? "features.web.addToken"
+                      : "features.web.addKey",
+                )}
+          </SettingsButton>
+        ) : null}
+        {p.id === "model" && api?.setModels ? (
+          <SettingsButton
+            testId="web-search-models-edit"
+            variant="ghost"
+            disabled={isBusy}
+            onClick={() => {
+              setError(undefined);
+              setEditingModels(true);
+            }}
+          >
+            {tr("features.web.modelsEdit")}
           </SettingsButton>
         ) : null}
         {form !== "none" && p.configured ? (

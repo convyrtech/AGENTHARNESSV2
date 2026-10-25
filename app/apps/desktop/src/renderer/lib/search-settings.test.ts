@@ -4,11 +4,13 @@ import {
   activeProvider,
   checkLine,
   lastCheckLine,
+  moveUp,
   orderedProviders,
   parseLimitDetails,
   requestKeyForm,
   searchErrorKey,
   searchForm,
+  searchModelName,
   SEARCH_ORDER,
   takeKeyFormRequest,
 } from "./search-settings.ts";
@@ -78,5 +80,22 @@ describe("search limit card", () => {
     requestKeyForm("exa");
     expect(takeKeyFormRequest()).toBe("exa");
     expect(takeKeyFormRequest()).toBeUndefined();
+  });
+});
+
+describe("model search list", () => {
+  it("moves a model one place up and leaves the first alone", () => {
+    expect(moveUp(["a", "b", "c"], 2)).toEqual(["a", "c", "b"]);
+    expect(moveUp(["a", "b"], 0)).toEqual(["a", "b"]);
+  });
+
+  it("names catalog models and keeps an unknown id as is", () => {
+    expect(searchModelName("gpt-6.1-sol")).toBe("GPT-6.1 Sol");
+    expect(searchModelName("gpt-5.4")).toBe("gpt-5.4");
+  });
+
+  it("puts GitHub last among the own keys", () => {
+    expect(SEARCH_ORDER.indexOf("github")).toBe(SEARCH_ORDER.indexOf("prsloy") - 1);
+    expect(searchForm("github")).toBe("key");
   });
 });
