@@ -275,7 +275,7 @@ export function PetSection(props: {
                         type="button"
                         className={"pet-settings-grid__btn" + (color === c ? " is-on" : "")}
                         aria-pressed={color === c}
-                        aria-label={PET_COLOR_SWATCH[c].label}
+                        aria-label={tr(`settings.pet.color.${c}`)}
                         disabled={busy}
                         onClick={() => void commit({ ...prefs, color: c })}
                       >
@@ -319,7 +319,7 @@ export function PetSection(props: {
                         type="button"
                         className={"pet-settings-grid__btn" + (eyeColor === c ? " is-on" : "")}
                         aria-pressed={eyeColor === c}
-                        aria-label={PET_COLOR_SWATCH[c].label}
+                        aria-label={tr(`settings.pet.color.${c}`)}
                         disabled={busy}
                         onClick={() => void commit({ ...prefs, eyeColor: c })}
                       >

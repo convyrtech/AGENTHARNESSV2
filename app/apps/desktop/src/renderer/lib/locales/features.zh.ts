@@ -3,6 +3,18 @@
  * into the locale table; `zh` is the key source.
  */
 export const featuresZh = {
+  "settings.pet.color.black": "黑色",
+  "settings.pet.color.white": "白色",
+  "settings.pet.color.brown": "棕色",
+  "settings.pet.color.red": "红色",
+  "settings.pet.color.orange": "橙色",
+  "settings.pet.color.yellow": "黄色",
+  "settings.pet.color.green": "绿色",
+  "settings.pet.color.cyan": "青色",
+  "settings.pet.color.blue": "蓝色",
+  "settings.pet.color.violet": "紫色",
+  "settings.pet.color.magenta": "品红",
+  "settings.pet.color.gray": "灰色",
   "features.search.group": "聊天",
   "features.search.untitled": "未命名聊天",
   "features.search.matches": "{count} 处匹配",
