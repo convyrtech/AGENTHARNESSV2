@@ -10,6 +10,7 @@ import type {
   DesignStatus,
 } from "@zeno/contracts";
 import { FolderOpen, Loader2, Paperclip, RotateCcw, Send, Square, X } from "lucide-react";
+import { ImagePreviewDialog } from "../ContentPreviewDialog.tsx";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { unwrapRemoteIpcError } from "../../../shared/ipc-error.ts";
 import {
@@ -134,10 +135,10 @@ export function DesignPage({ locale, projectPath }: Props) {
   if (!status.available) {
     return (
       <section
-        className="main-column flex h-full min-w-0 flex-1 items-center justify-center"
+        className="design-page main-column flex h-full min-w-0 flex-1 items-center justify-center"
         data-testid="design-page"
       >
-        <p className="text-lg text-muted-foreground" data-testid="design-unavailable">
+        <p className="design-heading text-muted-foreground" data-testid="design-unavailable">
           {tr("design.unavailable")}
         </p>
       </section>
@@ -146,7 +147,7 @@ export function DesignPage({ locale, projectPath }: Props) {
 
   return (
     <section
-      className="main-column relative flex h-full min-w-0 flex-1 flex-col"
+      className="design-page main-column relative flex h-full min-w-0 flex-1 flex-col"
       data-testid="design-page"
     >
       <div ref={streamRef} className="min-h-0 flex-1 overflow-y-auto">
@@ -165,13 +166,14 @@ export function DesignPage({ locale, projectPath }: Props) {
               onStart={runSetup}
             />
           ) : view.items.length === 0 ? (
-            <h1 className="pt-[18vh] text-center text-2xl font-medium" data-testid="design-empty">
+            <h1 className="design-hero pt-[18vh] text-center" data-testid="design-empty">
               {tr("design.empty")}
             </h1>
           ) : null}
           {view.items.map((item) => (
             <StreamItem
               key={item.id}
+              locale={locale}
               item={item}
               isLast={item === last}
               running={view.running}
@@ -322,7 +324,7 @@ function SetupCard({
       data-testid="design-setup"
       data-phase={progress?.phase ?? "idle"}
     >
-      <p className="text-lg">
+      <p className="design-heading">
         {tr("design.setup.title", { mb: String(mb), disk: String(diskMb) })}
       </p>
       {busy ? (
@@ -387,28 +389,34 @@ function ProgressLine({ view, now, tr }: { view: DesignView; now: number; tr: Tr
   );
 }
 
-function Media({ file }: { file: DesignFile }) {
+function Media({ file, locale }: { file: DesignFile; locale: Locale }) {
+  const [open, setOpen] = useState(false);
   if (file.kind === "image") {
     return (
-      <a href={file.url} target="_blank" rel="noreferrer" className="block">
-        <img
-          src={file.url}
-          alt=""
-          className="max-h-[420px] w-full rounded-lg border object-contain"
-          data-testid="design-image"
-        />
-      </a>
+      <>
+        <button
+          type="button"
+          className="design-media-button"
+          aria-label={t(locale, "timeline.imagePreview")}
+          onClick={() => setOpen(true)}
+        >
+          <img src={file.url} alt="" className="design-media" data-testid="design-image" />
+        </button>
+        <ImagePreviewDialog open={open} onOpenChange={setOpen} source={file.url} locale={locale} />
+      </>
     );
   }
   if (file.kind === "video") {
+    // `#t=0.1` + preload=metadata: the first frame shows as the poster before play.
     return (
       <video
-        src={file.url}
+        src={`${file.url}#t=0.1`}
         controls
         loop
         muted
         playsInline
-        className="w-full rounded-lg border"
+        preload="metadata"
+        className="design-media"
         data-testid="design-video"
       />
     );
@@ -417,6 +425,7 @@ function Media({ file }: { file: DesignFile }) {
 }
 
 function StreamItem({
+  locale,
   item,
   isLast,
   running,
@@ -426,6 +435,7 @@ function StreamItem({
   onRetry,
   onContinue,
 }: {
+  locale: Locale;
   item: DesignItem;
   isLast: boolean;
   running: boolean;
@@ -458,15 +468,12 @@ function StreamItem({
       const media = item.files.filter((f) => f.kind === "image" || f.kind === "video");
       const open = live && !item.answered;
       return (
-        <article
-          className="flex flex-col gap-3 rounded-xl border bg-card p-4"
-          data-testid="design-owner"
-        >
+        <article className="design-card flex flex-col gap-3 p-5" data-testid="design-owner">
           {text ? <p className="whitespace-pre-wrap leading-relaxed">{text}</p> : null}
           {media.length > 0 ? (
             <div className={cn("grid gap-2", media.length > 1 && "sm:grid-cols-2")}>
               {media.map((f) => (
-                <Media key={f.path} file={f} />
+                <Media key={f.path} file={f} locale={locale} />
               ))}
             </div>
           ) : null}
@@ -478,7 +485,9 @@ function StreamItem({
     case "error":
       return (
         <div className="flex flex-col gap-2" data-testid={`design-${item.kind}`}>
-          <p>{tr(item.kind === "stuck" ? "design.stuck" : "design.error")}</p>
+          <p className="design-heading">
+            {tr(item.kind === "stuck" ? "design.stuck" : "design.error")}
+          </p>
           <details className="text-xs text-muted-foreground">
             <summary className="cursor-pointer select-none">{tr("design.details")}</summary>
             <p className="mt-1 whitespace-pre-wrap">{item.detail}</p>
@@ -602,33 +611,61 @@ function DoneCard({ projectPath, tr }: { projectPath: string | undefined; tr: Tr
       alive = false;
     };
   }, [api, projectPath]);
+  const [device, setDevice] = useState<"desktop" | "phone">("desktop");
   const frame = useMemo(
     () =>
       url ? (
-        <iframe
-          src={url}
-          title={tr("design.preview")}
-          sandbox="allow-scripts"
-          referrerPolicy="no-referrer"
-          className="h-[70vh] w-full rounded-lg border bg-white"
-          data-testid="design-preview"
-        />
+        <div className="design-preview-stage" data-device={device}>
+          <iframe
+            src={url}
+            title={tr("design.preview")}
+            sandbox="allow-scripts"
+            referrerPolicy="no-referrer"
+            className="design-preview-frame"
+            data-testid="design-preview"
+          />
+        </div>
       ) : null,
-    [url, tr],
+    [url, tr, device],
   );
   return (
     <div className="flex flex-col gap-3" data-testid="design-done">
-      <div className="flex items-center justify-between gap-3">
-        <p className="font-medium">{tr("design.done")}</p>
-        <Button
-          variant="outline"
-          size="sm"
-          data-testid="design-open-folder"
-          onClick={() => void api.openFolder(projectPath)}
-        >
-          <FolderOpen />
-          {tr("design.openFolder")}
-        </Button>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="design-heading">{tr("design.done")}</p>
+        <div className="flex items-center gap-2">
+          {url ? (
+            <div
+              role="radiogroup"
+              aria-label={tr("design.preview")}
+              className="model-tier-switch"
+              data-testid="design-device"
+            >
+              {(["desktop", "phone"] as const).map((d) => (
+                <button
+                  key={d}
+                  type="button"
+                  role="radio"
+                  aria-checked={device === d}
+                  data-active={device === d ? "true" : "false"}
+                  data-testid={`design-device-${d}`}
+                  className="model-tier-option"
+                  onClick={() => setDevice(d)}
+                >
+                  {tr(d === "desktop" ? "design.device.desktop" : "design.device.phone")}
+                </button>
+              ))}
+            </div>
+          ) : null}
+          <Button
+            variant="outline"
+            size="sm"
+            data-testid="design-open-folder"
+            onClick={() => void api.openFolder(projectPath)}
+          >
+            <FolderOpen />
+            {tr("design.openFolder")}
+          </Button>
+        </div>
       </div>
       {frame}
     </div>

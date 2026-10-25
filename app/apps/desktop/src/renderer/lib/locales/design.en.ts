@@ -42,5 +42,7 @@ export const designEn: Record<keyof typeof designZh, string> = {
   "design.needsKey": "A PRSLOY key is needed: paste it in settings.",
   "design.answer": "Answer",
   "design.recommended": "recommended",
+  "design.device.desktop": "Desktop",
+  "design.device.phone": "Phone",
   "design.unavailable": "Design tools will arrive in the next version",
 };

@@ -29,7 +29,7 @@ describe("TurnUndoAction", () => {
     expect(undoTurn).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: t("ru", "prsloy.undo.short") }));
     expect((await screen.findByTestId("turn-undo-result")).textContent).toBe(
-      "Ход откатен: вернул 3 файла",
+      "Ход откачен: вернул 3 файла",
     );
     expect(undoTurn).toHaveBeenCalledWith("snap-2");
 
@@ -50,7 +50,7 @@ describe("TurnUndoAction", () => {
     await screen.findByTestId("turn-undo-result");
     cleanup();
     render(<TurnUndoAction locale="ru" snapshotId="snap-9" disabled={false} />);
-    expect(screen.getByTestId("turn-undo-result").textContent).toBe("Ход откатен: вернул 1 файл");
+    expect(screen.getByTestId("turn-undo-result").textContent).toBe("Ход откачен: вернул 1 файл");
   });
 
   it("is disabled while a turn runs", () => {

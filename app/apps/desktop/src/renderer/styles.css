@@ -2,7 +2,8 @@
 @import "tw-animate-css";
 
 /*
- * PRSLOY palette: paper #f3eee3, card #faf7f0, ink #3b2a1e, mid #7a6352, line #ddd2c1,
+ * PRSLOY palette: paper #f3eee3, card #faf7f0, ink #3b2a1e, mid #7a6352 (muted text uses
+ * #725b4a, one step deeper, to keep 4.5:1 on the sidebar and hover fills), line #ddd2c1,
  * accent (rust) #a4472c; the dark theme is the same palette at night (warm ink canvas,
  * lightened rust). Structure: shadcn-style semantic colors + product chrome.
  *
@@ -236,7 +237,7 @@
   --font-weight-medium: 500;
   --font-weight-semibold: 600;
   /* Dark theme group names */
-  --group-label-color: #8a7764;
+  --group-label-color: #a5907c;
 }
 
 [data-theme="light"] {
@@ -261,7 +262,7 @@
   --secondary: var(--surface-muted);
   --secondary-foreground: #3b2a1e;
   --muted: #ece5d8;
-  --muted-foreground: #7a6352;
+  --muted-foreground: #725b4a;
   --hover-fill: var(--surface-muted);
   --hover-fill-foreground: #3b2a1e;
   --accent: var(--hover-fill);
@@ -314,7 +315,7 @@
   --font-weight-medium: 500;
   --font-weight-semibold: 600;
   /* Light theme group names */
-  --group-label-color: #a08a76;
+  --group-label-color: #725b4a;
 }
 
 /* The PRSLOY wordmark and display headings (empty hero, page titles). */
@@ -6770,4 +6771,84 @@ textarea.models-scoped-patterns-input[data-slot="textarea"] {
   font-size: 12px;
   white-space: pre-wrap;
   word-break: break-word;
+}
+
+/*
+ * «Дизайн» tab, PRSLOY pass. Tailwind's bare `border` is currentColor here, which drew ink
+ * frames around every card; inside the tab every border takes the line color instead.
+ */
+.design-page :where(*, ::before, ::after) {
+  border-color: var(--border);
+}
+.design-hero {
+  font-family: var(--font-display);
+  font-size: 30px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+.design-heading {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 500;
+}
+.design-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--card);
+  box-shadow: 0 1px 2px rgb(59 42 30 / 0.04);
+}
+.design-media-button {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border-radius: var(--radius-md);
+  cursor: zoom-in;
+}
+.design-media {
+  display: block;
+  width: 100%;
+  max-height: 520px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-muted);
+  object-fit: contain;
+}
+.design-preview-stage {
+  display: flex;
+  justify-content: center;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-muted);
+}
+.design-preview-frame {
+  width: 100%;
+  height: 70vh;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: #ffffff;
+  transition: width 0.2s ease;
+}
+.design-preview-stage[data-device="phone"] .design-preview-frame {
+  width: 390px;
+  max-width: 100%;
+  border-radius: 24px;
+}
+
+/*
+ * Keyboard focus is always visible. Zero specificity (:where), so components with their own
+ * focus ring (shadcn controls, the composer) keep theirs; everything else gets this outline.
+ */
+:where(
+  button,
+  a[href],
+  summary,
+  [role="button"],
+  [role="radio"],
+  [role="option"],
+  [role="menuitem"],
+  [tabindex]:not([tabindex="-1"])
+):focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
 }

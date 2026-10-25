@@ -1,5 +1,5 @@
 /**
- * What happened to each «Откатить»: kept so the transcript marker («Ход откатен: вернул
+ * What happened to each «Откатить»: kept so the transcript marker («Ход откачен: вернул
  * 3 файла») survives a remount, a chat switch and a restart. Keyed by core's snapshot id.
  * localStorage, bounded; a missing or broken store just means no marker.
  */

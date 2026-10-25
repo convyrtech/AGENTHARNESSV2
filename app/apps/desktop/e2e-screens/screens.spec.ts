@@ -242,6 +242,15 @@ test("PRSLOY main screens, light and dark", async () => {
       await expect(page.getByTestId("example-chips")).toBeVisible();
       await shot(page, `${mode}-1-home`);
       await shot(page, `${mode}-empty-chat`);
+      // Keyboard focus is visible on the chips (and every other control without its own ring).
+      const chip = page.getByRole("button", { name: "Сделай простой сайт-визитку" });
+      for (let i = 0; i < 40; i += 1) {
+        await page.keyboard.press("Tab");
+        if (await chip.evaluate((el) => el === document.activeElement)) break;
+      }
+      await expect(chip).toBeFocused();
+      expect(await chip.evaluate((el) => getComputedStyle(el).outlineStyle)).not.toBe("none");
+      await shot(page, `${mode}-focus`);
       // A chip fills the composer and sends nothing.
       await page.getByRole("button", { name: "Сделай простой сайт-визитку" }).click();
       await expect(page.getByTestId("prompt-input")).toHaveValue("Сделай простой сайт-визитку");
@@ -293,6 +302,35 @@ test("PRSLOY main screens, light and dark", async () => {
       await shot(page, `${mode}-4-appearance`);
       await page.getByTestId("settings-back").click();
     }
+
+    // Small laptop window: 1024×640, nothing overflows sideways or gets cut off.
+    await app.evaluate(({ BrowserWindow }) => {
+      BrowserWindow.getAllWindows()[0]?.setContentSize(1024, 640);
+    });
+    const noSideScroll = () =>
+      page.evaluate(() =>
+        [...document.querySelectorAll<HTMLElement>("main, section, .page, [data-testid]")]
+          .filter(
+            (el) =>
+              el.scrollWidth > el.clientWidth + 1 && getComputedStyle(el).overflowX !== "hidden",
+          )
+          .filter((el) => getComputedStyle(el).overflowX !== "visible" || el === document.body)
+          .map((el) => el.dataset.testid ?? el.className.toString().slice(0, 40)),
+      );
+    await expect.poll(() => page.evaluate(() => window.innerWidth)).toBe(1024);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
+      1024,
+    );
+    expect(await noSideScroll()).toEqual([]);
+    await expect(page.getByTestId("prompt-input")).toBeInViewport();
+    await shot(page, "small-chat");
+    await page.keyboard.press(process.platform === "darwin" ? "Meta+," : "Control+,");
+    await page.getByTestId("settings-nav-account").click();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
+      1024,
+    );
+    expect(await noSideScroll()).toEqual([]);
+    await shot(page, "small-account");
   } finally {
     await app.close().catch(() => undefined);
     server.close();

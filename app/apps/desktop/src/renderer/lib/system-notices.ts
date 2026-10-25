@@ -27,7 +27,7 @@ export function isModelFailure(item: { title?: string; tone?: string }): boolean
 
 /**
  * Session notes written for the model, not the reader: core's «Файлы хода N откатены…»
- * after an undo (the transcript already shows «Ход откатен: …»).
+ * after an undo (the transcript already shows «Ход откачен: …»).
  */
 const MODEL_ONLY_CUSTOM_TYPES: ReadonlySet<string> = new Set(["prsloy.undo"]);
 
