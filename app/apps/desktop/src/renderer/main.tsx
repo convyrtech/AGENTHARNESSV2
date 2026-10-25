@@ -45,6 +45,7 @@ import { ThreadHeader } from "./components/ThreadHeader.tsx";
 import { PiTuiTerminal, preloadPiTuiTerminal } from "./components/PiTuiTerminal.tsx";
 import { WindowCaptionButtons } from "./components/WindowCaptionButtons.tsx";
 import { SessionTimelineScroller } from "./components/SessionTimelineContent.tsx";
+import { CodePreviewPanel } from "./components/CodePreviewPanel.tsx";
 import { MessageScrollerButton } from "@/components/ui/message-scroller";
 import { buildShellCommands } from "./lib/commands.ts";
 import { isPromptImagePath, promptWithAttachedPaths } from "./lib/composer-suggestions.ts";
@@ -3293,6 +3294,7 @@ function App() {
                     locale={locale}
                     sessionKey={sessionKey}
                     {...(workspacePath ? { workspacePath } : {})}
+                    sessionCwd={snapshot?.cwd?.trim()}
                     ready={timelineReady}
                     editingLocked={running}
                     endRef={timelineEndRef}
@@ -3483,6 +3485,9 @@ function App() {
                 }}
                 onOpenProject={(path) => void openWorkspacePath(path, { resumeRecent: true })}
               />
+              {contentMode === "chat" ? (
+                <CodePreviewPanel locale={locale} sessionKey={sessionKey} />
+              ) : null}
             </div>
           </section>
         ) : view === "projects" ? (

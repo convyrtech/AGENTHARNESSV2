@@ -1,4 +1,6 @@
+import type { CodePreviewApi } from "./code-preview.ts";
 import type { DesignApi } from "./design.ts";
+export type * from "./code-preview.ts";
 export type * from "./design.ts";
 import type { PrsloyDesktopApi } from "./prsloy.ts";
 export type * from "./prsloy.ts";
@@ -1792,6 +1794,8 @@ export interface ZenoDesktopApi {
   };
   /** «Дизайн» tab: design pipeline harness (see ./design.ts). */
   design: DesignApi;
+  /** «Код» tab: in-app preview of a written page or a local server (see ./code-preview.ts). */
+  codePreview: CodePreviewApi;
   /**
    * Always-on-top desktop pet (bloub) — a living SVG companion driven by
    * per-session focus + task bubbles. Enabled from Settings → 宠物.

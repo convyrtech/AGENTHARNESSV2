@@ -21,6 +21,7 @@ import {
   X,
 } from "lucide-react";
 import { ImagePreviewDialog } from "../ContentPreviewDialog.tsx";
+import { type PreviewDevice, PreviewDeviceSwitch, PreviewStage } from "../PreviewFrame.tsx";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { unwrapRemoteIpcError } from "../../../shared/ipc-error.ts";
 import {
@@ -531,7 +532,7 @@ function StreamItem({
         </div>
       );
     case "done":
-      return <DoneCard projectPath={projectPath} tr={tr} />;
+      return <DoneCard projectPath={projectPath} tr={tr} locale={locale} />;
   }
 }
 
@@ -608,7 +609,15 @@ function OwnerChoices({
   );
 }
 
-function DoneCard({ projectPath, tr }: { projectPath: string | undefined; tr: Tr }) {
+function DoneCard({
+  projectPath,
+  tr,
+  locale,
+}: {
+  projectPath: string | undefined;
+  tr: Tr;
+  locale: Locale;
+}) {
   const api = window.zeno.design;
   const [url, setUrl] = useState<string | null | undefined>();
   useEffect(() => {
@@ -621,23 +630,14 @@ function DoneCard({ projectPath, tr }: { projectPath: string | undefined; tr: Tr
       alive = false;
     };
   }, [api, projectPath]);
-  const [device, setDevice] = useState<"desktop" | "phone">("desktop");
+  const [device, setDevice] = useState<PreviewDevice>("desktop");
   const [saved, setSaved] = useState(false);
   const frame = useMemo(
     () =>
       url ? (
-        <div className="design-preview-stage" data-device={device}>
-          <iframe
-            src={url}
-            title={tr("design.preview")}
-            sandbox="allow-scripts"
-            referrerPolicy="no-referrer"
-            className="design-preview-frame"
-            data-testid="design-preview"
-          />
-        </div>
+        <PreviewStage locale={locale} url={url} device={device} testId="design-preview" />
       ) : null,
-    [url, tr, device],
+    [url, locale, device],
   );
   return (
     <div className="flex flex-col gap-3" data-testid="design-done">
@@ -645,27 +645,12 @@ function DoneCard({ projectPath, tr }: { projectPath: string | undefined; tr: Tr
         <p className="design-heading">{tr("design.done")}</p>
         <div className="flex items-center gap-2">
           {url ? (
-            <div
-              role="radiogroup"
-              aria-label={tr("design.preview")}
-              className="model-tier-switch"
-              data-testid="design-device"
-            >
-              {(["desktop", "phone"] as const).map((d) => (
-                <button
-                  key={d}
-                  type="button"
-                  role="radio"
-                  aria-checked={device === d}
-                  data-active={device === d ? "true" : "false"}
-                  data-testid={`design-device-${d}`}
-                  className="model-tier-option"
-                  onClick={() => setDevice(d)}
-                >
-                  {tr(d === "desktop" ? "design.device.desktop" : "design.device.phone")}
-                </button>
-              ))}
-            </div>
+            <PreviewDeviceSwitch
+              locale={locale}
+              device={device}
+              onChange={setDevice}
+              testIdPrefix="design"
+            />
           ) : null}
           <Button
             variant="outline"

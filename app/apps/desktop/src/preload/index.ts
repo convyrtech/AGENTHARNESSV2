@@ -110,6 +110,12 @@ const api: ZenoDesktopApi = {
       return () => ipcRenderer.removeListener("zeno:pet:command", handler);
     },
   },
+  codePreview: {
+    open: (target, workspacePath) =>
+      ipcRenderer.invoke("prsloy:code-preview:open", target, workspacePath),
+    openExternal: (target, workspacePath) =>
+      ipcRenderer.invoke("prsloy:code-preview:open-external", target, workspacePath),
+  },
   design: {
     status: (projectPath) => ipcRenderer.invoke("prsloy:design:status", projectPath),
     setup: () => ipcRenderer.invoke("prsloy:design:setup"),

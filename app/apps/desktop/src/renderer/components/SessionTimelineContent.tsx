@@ -20,6 +20,8 @@ import type { Locale } from "@/lib/i18n";
 import { matchTurnSnapshots, timelineTurns } from "@/lib/turn-undo";
 import { useTurnSnapshots } from "../hooks/useTurnSnapshots.ts";
 import { TurnUndoAction } from "./TurnUndoAction.tsx";
+import { TurnPreviewAction } from "./TurnPreviewAction.tsx";
+import { previewTargetsByBlock } from "@/lib/turn-preview";
 
 type UserTimelineItem = Extract<TimelineItem, { kind: "user" }>;
 type AssistantTimelineItem = Extract<TimelineItem, { kind: "assistant" }>;
@@ -32,6 +34,8 @@ export type SessionTimelineContentProps = {
   locale: Locale;
   sessionKey?: string;
   workspacePath?: string;
+  /** The session's own cwd (also set for chats without a project): base of the agent's paths. */
+  sessionCwd?: string | undefined;
   ready?: boolean;
   editingLocked?: boolean;
   onEditUser?: (item: UserTimelineItem, text: string) => void | Promise<void>;
@@ -130,6 +134,11 @@ export function SessionTimelineContent(props: SessionTimelineContentProps) {
     }
     return byBlock;
   }, [blocks, running, snapshots]);
+  // «Открыть превью» after a finished turn that wrote a page or started a local server.
+  const previewAfterBlock = useMemo(
+    () => previewTargetsByBlock(blocks, running),
+    [blocks, running],
+  );
   const showLiveStatus =
     liveActivity != null && !processBlockCoversLiveActivity(blocks, liveActivity);
 
@@ -149,6 +158,7 @@ export function SessionTimelineContent(props: SessionTimelineContentProps) {
             if (block.type === "item" && block.item.kind === "user") turnPrompt = block.item.text;
             const resendText = turnPrompt;
             const undoSnapshotId = undoAfterBlock.get(index);
+            const previewTarget = previewAfterBlock.get(index);
             return (
               <Fragment key={messageId}>
                 <MessageScrollerItem messageId={messageId} scrollAnchor={false} className="w-full">
@@ -181,18 +191,27 @@ export function SessionTimelineContent(props: SessionTimelineContentProps) {
                     />
                   )}
                 </MessageScrollerItem>
-                {undoSnapshotId ? (
+                {undoSnapshotId || previewTarget ? (
                   <MessageScrollerItem
                     messageId={`${messageId}:undo`}
                     scrollAnchor={false}
-                    className="w-full"
+                    className="turn-actions w-full"
                   >
-                    <TurnUndoAction
-                      key={undoSnapshotId}
-                      locale={locale}
-                      snapshotId={undoSnapshotId}
-                      disabled={running}
-                    />
+                    {undoSnapshotId ? (
+                      <TurnUndoAction
+                        key={undoSnapshotId}
+                        locale={locale}
+                        snapshotId={undoSnapshotId}
+                        disabled={running}
+                      />
+                    ) : null}
+                    {previewTarget ? (
+                      <TurnPreviewAction
+                        locale={locale}
+                        target={previewTarget}
+                        workspacePath={props.sessionCwd || props.workspacePath}
+                      />
+                    ) : null}
                   </MessageScrollerItem>
                 ) : null}
               </Fragment>
