@@ -198,10 +198,13 @@ class H(http.server.BaseHTTPRequestHandler):
                     att.setdefault("err", "stream ended early")
                     continue
                 self._headers(hs)
+                # отдаём только события data, каждое с пустой строкой после: поток мог оборваться нами сразу после
+                # итога по токенам, и без разделителя Pi склеивал его с [DONE] (E9: «malformed SSE» на каждом DeepSeek)
                 for ln in lines:
-                    self._chunk(ln)
-                if not done:
-                    self._chunk(b"data: [DONE]\n\n")
+                    s = ln.strip()
+                    if s.startswith(b"data:") and s != b"data: [DONE]":
+                        self._chunk(s + b"\n\n")
+                self._chunk(b"data: [DONE]\n\n")
                 self.wfile.write(b"0\r\n\r\n")
                 rec["status"] = 200
                 rec["total_s"] = round(time.time() - t_all, 2)
