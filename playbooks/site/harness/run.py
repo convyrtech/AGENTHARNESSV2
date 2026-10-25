@@ -293,8 +293,21 @@ def run_stage(ws, gate, prompt, model, cfg, session):
 
 # ---------- say: owner message → stages until the next question ----------
 def options_of(text):
-    opts = re.findall(r"(?m)^\s*(?:\d[.)]\s*)?([A-DА-Г])[.)]\s+(.{1,80})$", text)
-    return [{"key": k, "label": v.strip()} for k, v in opts][:8]
+    """Варианты для кнопок, сгруппированные по вопросам: [{"q": "Для кого страница?", "options": [{key, label}]}]."""
+    groups, cur = [], None
+    for ln in text.splitlines():
+        q = re.match(r"^\s*\d+[.)]\s+(.+\?)\s*$", ln)
+        o = re.match(r"^\s*([A-DА-Г])[.)]\s+(.{1,160})$", ln)
+        if q:
+            cur = {"q": q.group(1).strip(), "options": []}
+            groups.append(cur)
+        elif o:
+            if cur is None:
+                cur = {"q": "", "options": []}
+                groups.append(cur)
+            cur["options"].append({"key": o.group(1), "label": o.group(2).strip(),
+                                   "recommended": "рекомендую" in o.group(2).lower()})
+    return [g for g in groups if g["options"]][:3]
 
 
 def say(a):
