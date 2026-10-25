@@ -39,6 +39,8 @@ interface Launched {
   userData: string;
   launchMs: number;
   readyMs: number;
+  /** ms from launch to `[prsloy] PortableGit: ready|failed` (Windows background unpack). */
+  gitSetup: { status?: string; ms?: number };
 }
 
 async function writeMetrics(patch: Record<string, unknown>): Promise<void> {
@@ -152,6 +154,11 @@ async function launch(
     timeout: 120_000,
   });
   const proc = app.process();
+  const gitSetup: Launched["gitSetup"] = {};
+  proc.stdout?.on("data", (d) => {
+    const m = /\[prsloy\] PortableGit: (ready|failed)/.exec(String(d));
+    if (m && !gitSetup.status) Object.assign(gitSetup, { status: m[1], ms: Date.now() - t0 });
+  });
   proc.stdout?.on("data", (d) => void appendFile(mainLog, d));
   proc.stderr?.on("data", (d) => void appendFile(mainLog, d));
   app.on("close", () => void appendFile(mainLog, `\n[smoke] app closed\n`));
@@ -176,7 +183,7 @@ async function launch(
     timeout: 180_000,
   });
   const readyMs = Date.now() - t0;
-  return { bashCommand, app, page, fakeModel, userData, launchMs, readyMs };
+  return { bashCommand, app, page, fakeModel, userData, launchMs, readyMs, gitSetup };
 }
 
 async function close(launched: Launched | undefined): Promise<void> {
@@ -303,6 +310,10 @@ test("installed app: window, runtimes, host, reply, bash tool", async () => {
     await shot(page, "03-reply");
 
     const bash = await runBashTurn(launched, "runner");
+    await writeMetrics({
+      gitSetupStatus: launched.gitSetup.status ?? null,
+      gitSetupMs: launched.gitSetup.ms ?? null,
+    });
     await expect
       .poll(async () => page.getByTestId("timeline").innerText(), { timeout: 30_000 })
       .toContain("Tool result received");
