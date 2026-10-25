@@ -6899,6 +6899,14 @@ textarea.models-scoped-patterns-input[data-slot="textarea"] {
   background: var(--hover-fill);
   color: var(--foreground);
 }
+.turn-progress-hint {
+  width: 100%;
+  max-width: var(--thread-max);
+  margin: -4px auto 8px;
+  padding: 0 4px;
+  font-size: 12px;
+  color: var(--muted-foreground);
+}
 
 /* A suggestion pill that fills the composer («Что дальше», NextStepChips). */
 .example-chip {

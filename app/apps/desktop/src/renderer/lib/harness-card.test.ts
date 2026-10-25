@@ -34,6 +34,13 @@ describe("harness cards", () => {
     expect(harnessBodyKey("note")).toBeUndefined();
     expect(harnessOffersRetry("toolLeak")).toBe(true);
     expect(harnessOffersRetry("budget")).toBe(false);
+    // alpha.2: no network for packages offers «Повторить»; the loop stop reads on its own
+    expect(harnessCardKind("prsloy-harness.install-offline")).toBe("offline");
+    expect(harnessOffersRetry("offline")).toBe(true);
+    expect(harnessCardKind("prsloy-harness.loop")).toBe("loop");
+    expect(harnessOffersRetry("loop")).toBe(false);
+    expect(harnessUsesOwnText("loop")).toBe(true);
+    expect(harnessBodyKey("loop")).toBe("harness.loop.body");
   });
 
   it("the review keeps its own plain line and reads its remarks from details", () => {

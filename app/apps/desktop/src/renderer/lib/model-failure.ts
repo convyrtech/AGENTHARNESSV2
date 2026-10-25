@@ -55,7 +55,8 @@ export function failureKind(code: string | undefined, text: string): FailureKind
   if (/^402\b|insufficient (balance|funds|quota)|out of credits/iu.test(raw)) return "balance";
   if (/^40[13]\b|invalid api key|unauthori[sz]ed/iu.test(raw)) return "key";
   if (/^429\b|rate.?limit|too many requests/iu.test(raw)) return "busy";
-  if (/^(408|504)\b|timed? ?out|timeout/iu.test(raw)) return "slow";
+  if (/^(408|504)\b|timed? ?out|timeout|модель долго не отвечает|prsloy_model_slow/iu.test(raw))
+    return "slow";
   if (/^5\d\d\b|overloaded|bad gateway|service unavailable/iu.test(raw)) return "server";
   return "network";
 }
@@ -66,7 +67,9 @@ export function failureTitleKey(kind: FailureKind): MessageKey {
 
 /** A short second line only where the title alone does not say what to do. */
 export function failureHintKey(kind: FailureKind): MessageKey | undefined {
-  return kind === "model" || kind === "busy" ? `failure.${kind}.hint` : undefined;
+  return kind === "model" || kind === "busy" || kind === "slow"
+    ? `failure.${kind}.hint`
+    : undefined;
 }
 
 export function failureAction(kind: FailureKind): FailureAction {

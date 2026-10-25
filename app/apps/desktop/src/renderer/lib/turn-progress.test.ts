@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vite-plus/test";
 import type { TimelineItem } from "./timeline.ts";
-import { currentTurnAction, summarizeCommand, turnStartedAt } from "./turn-progress.ts";
+import {
+  currentTurnAction,
+  showSlowModelHint,
+  summarizeCommand,
+  turnStartedAt,
+} from "./turn-progress.ts";
 
 const user = (text: string, timestamp?: string): TimelineItem => ({
   id: `u-${text}`,
@@ -95,5 +100,16 @@ describe("summarizeCommand", () => {
     const long = `cd /a && ${"x".repeat(80)} --flag`;
     expect(summarizeCommand(long)).toEqual({ key: "progress.runOpen" });
     expect(summarizeCommand("cd /only/dir")).toEqual({ key: "progress.runOpen" });
+  });
+});
+
+describe("the slow-model hint", () => {
+  it("only while waiting on the model, after 30 s of silence", () => {
+    const waiting = currentTurnAction([user("go")]);
+    expect(showSlowModelHint(waiting, 29_000)).toBe(false);
+    expect(showSlowModelHint(waiting, 30_000)).toBe(true);
+    // A long-running tool is not the model being slow.
+    const running = currentTurnAction([user("go"), tool("bash", { command: "npm install" })]);
+    expect(showSlowModelHint(running, 120_000)).toBe(false);
   });
 });

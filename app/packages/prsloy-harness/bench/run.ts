@@ -96,6 +96,8 @@ export interface BenchOptions {
   testQuality?: boolean;
   /** Ревьюер ищет подгонку (флаг "reviewerCheats", H-4). По умолчанию выкл., как в приложении. */
   reviewerCheats?: boolean;
+  /** Слова и факты (флаг "claimCheck", H-2: H6–H8). По умолчанию выкл., как в приложении. */
+  claimCheck?: boolean;
   /** Разборщик сессий после прогона (research/24 §6, A-4; ci). Пока только помечается в отчёте. */
   audit?: boolean;
   /**
@@ -402,6 +404,7 @@ async function runTask(task: TaskDef, opts: BenchOptions): Promise<TaskResult> {
       testGuard: opts.testGuard === true,
       testQuality: opts.testQuality === true,
       reviewerCheats: opts.reviewerCheats === true,
+      claimCheck: opts.claimCheck === true,
     }),
   );
   const slash = opts.model.indexOf("/");
@@ -615,6 +618,7 @@ export interface BenchReport {
     testGuard: boolean;
     testQuality: boolean;
     reviewerCheats: boolean;
+    claimCheck: boolean;
     fake: boolean;
     date: string;
     gateway: string;
@@ -665,6 +669,7 @@ export async function runBench(opts: BenchOptions): Promise<BenchReport> {
     testGuard: opts.testGuard === true,
     testQuality: opts.testQuality === true,
     reviewerCheats: opts.reviewerCheats === true,
+    claimCheck: opts.claimCheck === true,
     fake: opts.fake === true,
     date: new Date().toISOString(),
     gateway: opts.fake ? "fake" : new URL(opts.baseUrl ?? "http://unknown").host,
@@ -803,7 +808,7 @@ export function reportMarkdown(report: BenchReport): string {
     return `| ${r.id} | ${mark} ${r.note.replace(/\|/g, "/")}${outcome}${r.error ? ` (${r.error})` : ""} | ${r.seconds} | ${r.toolCalls} | ${r.costUsd.toFixed(4)} | ${cache} | ${reply} | ${iv || "—"} |`;
   });
   return [
-    `# Замер: ${meta.model}, харнесс ${meta.harness ? "вкл" : "выкл"}, промпт ${meta.prompt}${meta.delta ? "+дельта" : ""}, уроки ${meta.lessons ? "вкл" : "выкл"}, ревью ${meta.review ? "вкл" : "выкл"}, навыки ${meta.skills ? "вкл" : "выкл"}, память ${meta.memory ? "вкл" : "выкл"}${meta.webTools ? ", поиск вкл" : ""}${meta.honestExit ? ", честный выход вкл" : ""}${meta.testGuard ? ", страж тестов вкл" : ""}${meta.testQuality ? ", полезность тестов вкл" : ""}${meta.reviewerCheats ? ", ревьюер ищет подгонку" : ""}${meta.audit ? ", разбор вкл" : ""}${meta.fake ? " (фейковая модель)" : ""}`,
+    `# Замер: ${meta.model}, харнесс ${meta.harness ? "вкл" : "выкл"}, промпт ${meta.prompt}${meta.delta ? "+дельта" : ""}, уроки ${meta.lessons ? "вкл" : "выкл"}, ревью ${meta.review ? "вкл" : "выкл"}, навыки ${meta.skills ? "вкл" : "выкл"}, память ${meta.memory ? "вкл" : "выкл"}${meta.webTools ? ", поиск вкл" : ""}${meta.honestExit ? ", честный выход вкл" : ""}${meta.testGuard ? ", страж тестов вкл" : ""}${meta.testQuality ? ", полезность тестов вкл" : ""}${meta.reviewerCheats ? ", ревьюер ищет подгонку" : ""}${meta.claimCheck ? ", слова и факты вкл" : ""}${meta.audit ? ", разбор вкл" : ""}${meta.fake ? " (фейковая модель)" : ""}`,
     "",
     `${meta.date} · шлюз ${meta.gateway} · таймаут задачи ${meta.timeoutSec} с`,
     "",
