@@ -240,9 +240,10 @@ test("2 · «Запомни: я не программист» → new chat → �
       "Запомни: я не программист, объясняй просто, без терминов",
       "Буду объяснять простыми словами.",
     );
-    await expect(page.getByTestId("memory-card")).toContainText(
-      "Запомнил: Не программист: объяснять просто, без терминов",
-    );
+    // «Запомнил: …» (alpha.1) or «Запомнил «…»» (core's novice texts): the words are what matter.
+    const saved = page.getByTestId("memory-card");
+    await expect(saved).toContainText("Запомнил");
+    await expect(saved).toContainText("Не программист: объяснять просто, без терминов");
     await shot(page, "first-hour-6-remembered");
 
     await page.getByText("Новый чат").first().click();
