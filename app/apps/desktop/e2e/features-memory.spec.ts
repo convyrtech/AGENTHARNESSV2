@@ -101,9 +101,9 @@ test("«Забыть» and «Вернуть» from the card and the panel, «З�
     await shot(page, "memory-4-card-forgot");
     await card.getByTestId("memory-card-restore").click();
     await expect(card).toContainText("Вернул.");
-    await expect.poll(async () => (await onDisk()).entries.map((e: { text: string }) => e.text)).toEqual([
-      "Звать меня Аня",
-    ]);
+    await expect
+      .poll(async () => (await onDisk()).entries.map((e: { text: string }) => e.text))
+      .toEqual(["Звать меня Аня"]);
     expect((await onDisk()).tombstones).toEqual([]);
 
     // The panel: «Забыть» → «Недавно забыто» → «Вернуть».
