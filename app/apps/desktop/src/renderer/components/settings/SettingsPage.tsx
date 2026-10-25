@@ -41,6 +41,7 @@ import {
   type LocalePreference,
   type MessageKey,
 } from "../../lib/i18n.ts";
+import { httpIdleTimeoutOptions } from "../../lib/http-idle-timeout.ts";
 import { groupModelsByProvider } from "../../lib/model-groups.ts";
 import type { ServiceTierId } from "../../lib/service-tier.ts";
 import {
@@ -145,6 +146,7 @@ import {
   SettingsToggle,
 } from "./SettingsPrimitives.tsx";
 import { PetSection } from "./PetSection.tsx";
+import { MemorySection } from "./MemorySection.tsx";
 import { EnvironmentSection } from "./EnvironmentSection.tsx";
 import { BehaviorSection } from "./BehaviorSection.tsx";
 import { AccountSection } from "./AccountSection.tsx";
@@ -225,6 +227,8 @@ export function SettingsPage(props: SettingsPageProps) {
           <BehaviorSection tr={tr} />
         ) : props.section === "pet" ? (
           <PetSection tr={tr} />
+        ) : props.section === "memory" ? (
+          <MemorySection tr={tr} workspace={props.snapshot?.cwd} />
         ) : props.section === "environment" ? (
           <EnvironmentSection tr={tr} />
         ) : props.section === "worktree" ? (
@@ -4349,42 +4353,6 @@ function ModelsSection(
       {(auth) => <ModelsSectionContent {...props} auth={auth} />}
     </ProviderAuthScope>
   );
-}
-
-/** pi HTTP_IDLE_TIMEOUT_CHOICES + Zeno longer presets (ms → i18n). */
-const HTTP_IDLE_TIMEOUT_PRESETS: ReadonlyArray<{ ms: number; labelKey: MessageKey }> = [
-  { ms: 30_000, labelKey: "piSettings.httpIdle30s" },
-  { ms: 60_000, labelKey: "piSettings.httpIdle1m" },
-  { ms: 120_000, labelKey: "piSettings.httpIdle2m" },
-  { ms: 300_000, labelKey: "piSettings.httpIdle5m" },
-  { ms: 900_000, labelKey: "piSettings.httpIdle15m" },
-  { ms: 1_800_000, labelKey: "piSettings.httpIdle30m" },
-  { ms: 3_600_000, labelKey: "piSettings.httpIdle60m" },
-  { ms: 0, labelKey: "piSettings.httpIdleDisabled" },
-];
-
-function httpIdleTimeoutOptions(
-  tr: (key: MessageKey, vars?: Record<string, string>) => string,
-  currentMs: number | undefined,
-): Array<{ value: string; label: string }> {
-  const options = HTTP_IDLE_TIMEOUT_PRESETS.map((row) => ({
-    value: String(row.ms),
-    label: tr(row.labelKey),
-  }));
-  if (currentMs === undefined || !Number.isFinite(currentMs)) return options;
-  const key = String(Math.floor(currentMs));
-  if (options.some((opt) => opt.value === key)) return options;
-  // Surface pi/custom values not in the preset list (so the select can echo them).
-  return [
-    {
-      value: key,
-      label:
-        currentMs === 0
-          ? tr("piSettings.httpIdleDisabled")
-          : tr("piSettings.httpIdleCustom", { seconds: String(Math.round(currentMs / 1000)) }),
-    },
-    ...options,
-  ];
 }
 
 /**

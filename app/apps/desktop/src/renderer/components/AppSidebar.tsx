@@ -9,6 +9,7 @@ import {
   Archive,
   ArrowLeft,
   Bell,
+  Brain,
   Cat,
   CircleAlert,
   Boxes,
@@ -600,6 +601,12 @@ function SettingsRail(props: {
           testId: "settings-nav-pet",
           labelKey: "section.pet",
           icon: <Cat className="size-3.5 shrink-0 opacity-70" strokeWidth={1.75} />,
+        },
+        {
+          section: "memory",
+          testId: "settings-nav-memory",
+          labelKey: "features.memory.section",
+          icon: <Brain className="size-3.5 shrink-0 opacity-70" strokeWidth={1.75} />,
         },
         {
           section: "notifications",
