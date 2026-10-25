@@ -156,6 +156,8 @@ test("memory extractor: one call outside the turn after leaving a chat (installe
         PRSLOY_MEMORY_EXTRACTOR: "probe",
         PRSLOY_MEMORY_EXTRACTOR_PROVIDER: "zeno-fake",
         PRSLOY_MEMORY_EXTRACTOR_MODEL: "zeno-fake",
+        // The smoke turns saving chats off; leaving a chat means leaving its file (as in the product).
+        ZENO_PERSIST_SESSION: "1",
       },
     });
     const { page } = launched;
