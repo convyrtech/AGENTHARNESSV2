@@ -879,8 +879,8 @@ console.log("ok");
     expect(server.requests).toHaveLength(4);
     const pushback = JSON.stringify(server.requests[2]!.messages);
     expect(pushback).toContain("Открыл index.html в браузере");
-    expect(pushback).toContain("390 px) страница шире окна");
-    expect(pushback).toContain("#menu «Меню пиццерии»");
+    expect(pushback).toContain("390 px) страница шире окна (scrollWidth 7");
+    expect(pushback).toContain("— div «Меню пиццерии»");
   }, 90_000);
 
   it("the model leaves a failing test, is pushed back once, fixes it, and the gate passes", async () => {

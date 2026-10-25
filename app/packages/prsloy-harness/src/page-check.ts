@@ -7,6 +7,7 @@ import { createReadStream, existsSync, readdirSync, readFileSync, statSync } fro
 import { createServer, type Server } from "node:http";
 import { extname, join, normalize, relative, resolve, sep } from "node:path";
 import { pathToFileURL } from "node:url";
+import { lintLayout } from "@zeno/layout-rules";
 import { sanitizedEnv } from "./options.ts";
 import { MODULE_SCRIPT } from "./page-paths.ts";
 
@@ -35,42 +36,6 @@ export interface PageCheckResult {
   skipped?: string;
   /** Файлом не открывали (Vite, type="module"). */
   fileSkipped?: boolean;
-}
-
-/**
- * Правила раскладки внутри страницы. Пока общий модуль с ci (`lintLayout`) не вынесен — только горизонтальная
- * прокрутка документа. Функция уходит в браузер исходником: всё, что ей нужно, — внутри неё.
- */
-export function basicLint(): { rule: string; selector: string; text: string; detail: string }[] {
-  const out: { rule: string; selector: string; text: string; detail: string }[] = [];
-  const doc = document.documentElement;
-  if (doc.scrollWidth > doc.clientWidth + 1) {
-    // Самый правый виновник — для «места» в возврате.
-    let worst: Element | undefined;
-    let right = doc.clientWidth;
-    for (const el of document.body.querySelectorAll("*")) {
-      const r = el.getBoundingClientRect();
-      if (r.width > 0 && r.right > right + 1) {
-        right = r.right;
-        worst = el;
-      }
-    }
-    const path = (el: Element) => {
-      const parts: string[] = [];
-      for (let n: Element | null = el; n && n !== document.body; n = n.parentElement) {
-        parts.unshift(n.id ? `#${n.id}` : n.tagName.toLowerCase());
-        if (n.id || parts.length >= 4) break;
-      }
-      return parts.join(" > ");
-    };
-    out.push({
-      rule: "root-hscroll",
-      selector: worst ? path(worst) : "html",
-      text: ((worst as HTMLElement | undefined)?.innerText ?? "").trim().slice(0, 60),
-      detail: `страница шире окна: ${doc.scrollWidth} px при окне ${doc.clientWidth} px`,
-    });
-  }
-  return out;
 }
 
 const VITE_CONFIGS = [
@@ -292,15 +257,6 @@ async function runNode(pw: NodePlaywright, job: Job, executablePath?: string): P
 /** Анимации и переходы в ноль перед правилами: элемент посреди анимации даёт ложные срабатывания (так же у ci). */
 const FREEZE = `() => { const s = document.createElement("style"); s.textContent = "*, *::before, *::after { transition: none !important; animation: none !important; }"; document.head.appendChild(s); }`;
 
-/**
- * `off-window` ci писался для окна приложения, которое не прокручивается. Страница пользователя прокручивается
- * вниз: блок ниже первого экрана — норма. Считаем только то, что вылезло вбок. С `scrollsY: true` (ci @ 4cf754c)
- * так считает сам `lintLayout`; фильтр — для версии пакета без опции, убрать вместе с подключением пакета.
- */
-export function belowTheFold(i: Pick<PageIssue, "rule" | "box" | "width">): boolean {
-  return i.rule === "off-window" && !!i.box && i.box.x >= -1 && i.box.x + i.box.w <= i.width + 1;
-}
-
 /** Правила-подсказки: сами по себе к работе не возвращают, идут в конце списка. */
 export const HINT_RULES = new Set(["target-size", "small-text"]);
 /** Для страницы пользователя не смотрим: минимальное окно и фокус — правила окна приложения. */
@@ -314,7 +270,7 @@ export interface PageCheckOptions {
   executablePath?: string | undefined;
   /** Канал Chromium: msedge на Windows (как «Дизайн»). */
   channel?: string | undefined;
-  /** Исходник функции правил раскладки (`lintLayout` ci или `basicLint`). */
+  /** Исходник функции правил раскладки (по умолчанию `lintLayout` из `@zeno/layout-rules`). */
   lint?: string;
   timeoutMs?: number;
 }
@@ -396,7 +352,8 @@ export async function checkPage(
         { name: "http", url: `${server.origin}/${relative(root, entry).replace(/\\/g, "/")}` },
       ],
       viewports: PAGE_VIEWPORTS,
-      lint: options.lint ?? basicLint.toString(),
+      // Правила раскладки — общий модуль с ci (layout-lint приложения): функция уходит в страницу исходником.
+      lint: options.lint ?? lintLayout.toString(),
       // Для lintLayout ci: окно чужой страницы без минимума, фокус не трогаем (он меняет состояние страницы).
       lintArg: { minWidth: 0, minHeight: 0, checkFocus: false, scrollsY: true },
       freeze: FREEZE,
@@ -438,7 +395,6 @@ export async function checkPage(
       // «Failed to load resource» в консоли дублирует незагрузившийся запрос (там виден файл).
       .filter((i) => !(i.kind === "console" && /^Failed to load resource\b/.test(i.detail)))
       .filter((i) => !(i.kind === "layout" && i.rule && IGNORED_RULES.has(i.rule)))
-      .filter((i) => !belowTheFold(i))
       .map((i) => ({ ...i, where: i.where ?? "", detail: local(i.detail) }));
     return { entry: rel, issues, ...(job.targets.length === 1 ? { fileSkipped: true } : {}) };
   } finally {
@@ -467,7 +423,7 @@ export function groupIssues(issues: PageIssue[]): string[] {
     const at = `${[...targets].join(" и ")}, ${[...widths].sort((a, b) => a - b).join(" и ")} px`;
     const what =
       issue.kind === "layout"
-        ? `${issue.detail}${issue.where ? ` — ${issue.where}` : ""}`
+        ? `${issue.rule === "root-hscroll" ? `страница шире окна (${issue.detail})` : issue.detail}${issue.where ? ` — ${issue.where}` : ""}`
         : issue.kind === "request"
           ? `не загрузился файл: ${issue.detail}`
           : `ошибка: ${issue.detail}`;
