@@ -25,7 +25,13 @@ import { headTail, showCard } from "./text.ts";
 import type { TurnChanges } from "./turn-changes.ts";
 import { modelFamily, recordEvent } from "./learning-log.ts";
 import { checkPagePaths, type PagePathReport, pagePathsMessage } from "./page-paths.ts";
-import { checkPage, hasBlocking, type PageCheckResult, pageCheckMessage } from "./page-check.ts";
+import {
+  checkPage,
+  hasBlocking,
+  type PageCheckResult,
+  pageCheckMessage,
+  pageFindings,
+} from "./page-check.ts";
 import {
   type CheckSnapshot,
   checkChange,
@@ -503,8 +509,11 @@ export function installStopGate(
     const guardOn = testGuard();
     const found = guardOn ? signatures(parsePatch(diff?.patch ?? "")) : [];
     let signalsCache: string[] | undefined;
+    // Находки проверки страницы с селекторами (нажатия, ссылки, axe, клавиатура) — ревьюеру как факты.
+    let pageSignals: string[] = [];
     const signals = () =>
       (signalsCache ??= [
+        ...pageSignals,
         ...gateSignals({
           checkChanged: changed,
           patch: diff?.patch ?? "",
@@ -598,7 +607,12 @@ export function installStopGate(
     webEdited = false;
     if (pageCheck && web && !capped() && !ctx.signal?.aborted) {
       const page = await pageCheck(ctx.cwd);
-      if (turnStatus && page && !page.skipped) turnStatus.page = !hasBlocking(page);
+      if (turnStatus && page && !page.skipped) {
+        turnStatus.page = !hasBlocking(page);
+        turnStatus.pageIssues = pageFindings(page);
+      }
+      if (page && !page.skipped)
+        pageSignals = pageFindings(page).map((l) => `Проверка страницы: ${l}`);
       if (page && !page.skipped && hasBlocking(page)) {
         pushbacks += 1;
         const tip = intervene(ctx, { kind: "gate.page", sig: "gate:page", n: pushbacks });

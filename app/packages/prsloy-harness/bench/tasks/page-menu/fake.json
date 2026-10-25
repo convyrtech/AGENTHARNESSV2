@@ -1,0 +1,16 @@
+[
+  {
+    "toolCalls": [
+      {
+        "name": "write",
+        "arguments": {
+          "path": "index.html",
+          "content": "<!doctype html>\n<html lang=\"ru\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<title>Пекарня «Колосок»</title>\n<style>\n  body { font-family: sans-serif; max-width: 720px; margin: 0 auto; padding: 16px; }\n  nav a { margin-right: 16px; }\n  section { padding: 24px 0; }\n</style>\n</head>\n<body>\n<nav>\n  <a href=\"#about\">О нас</a>\n  <a href=\"#menu\">Меню</a>\n  <a href=\"#reviews\">Отзывы</a>\n  <a href=\"#contacts\">Контакты</a>\n</nav>\n<h1>Пекарня «Колосок»</h1>\n<section id=\"about\">\n  <h2>О нас</h2>\n  <p>Печём хлеб на закваске каждое утро с 2015 года.</p>\n</section>\n<section id=\"menu\">\n  <h2>Меню</h2>\n  <p>Бородинский, чиабатта, круассаны, пирожки с капустой.</p>\n</section>\n<section id=\"reviews\">\n  <h2>Отзывы</h2>\n  <p>«Лучшая чиабатта в районе!» — Ирина</p>\n  <p>«Круассаны как в Париже.» — Павел</p>\n  <p>«Беру бородинский каждую неделю.» — Нина</p>\n</section>\n<section id=\"contacts\">\n  <h2>Контакты</h2>\n  <p>ул. Садовая, 12. Телефон: +7 900 123-45-67.</p>\n</section>\n</body>\n</html>\n"
+        }
+      }
+    ]
+  },
+  {
+    "text": "Добавил раздел «Отзывы» с тремя отзывами и пункт в меню. Заодно починил «Контакты»: ссылка вела на #contacts, а у раздела был id contact."
+  }
+]
