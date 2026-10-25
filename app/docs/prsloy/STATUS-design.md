@@ -1,6 +1,6 @@
 # STATUS — дорожка W4 «Дизайн» (`desktop/design`)
 
-Ветка от `origin/main` (последний rebase на `6a71f7a`). Скриншоты: `screens/design-*.png` (ru, с брендом ui).
+Этап 1 слит в main (`6162e93`). Этап 2 — ниже, ветка от main `6162e93`. Скриншоты: `screens/design-*.png` (ru, с брендом ui).
 
 ## Сделано
 
@@ -151,6 +151,66 @@ git ищет пути от корня внешнего репо. В прилож
   - с патчем + fonttools: 57/62. Остаток: 4 теста `vg_*` жёстко ждут прогон WebKit;
     `flow_code_written_before_owner_choice_is_caught_later` зависит от времени (`born()` в патче
     дирижёра): один проходит, в полном прогоне падает.
+
+## Этап 2 (после слияния)
+
+**Готово к слиянию (ready to merge).**
+
+### 1. Инструменты дизайна на Windows без приватного пайплайна
+
+- `.github/workflows/design-windows.yml` — отдельный файл, `desktop-windows.yml` дорожки ci не тронут.
+  Джоба `toolchain` на windows-latest гоняет `app/apps/desktop/scripts/design-smoke.mts`
+  (`node --experimental-strip-types`, без `pnpm install`). Скрипт вызывает **тот же код, что приложение**
+  (`setupDesignTools`), и делает по порядку:
+  1. Python — тот же python-build-standalone, что в установщике (`runtimes/versions.json`: 3.12.13 +
+     20260807, `install_only_stripped`);
+  2. первый заход вкладки: venv → `pip --only-binary=:all:` колёса Pillow, numpy, playwright, fonttools →
+     проба Edge через `channel="msedge"`, с замером времени и размера venv;
+  3. Edge рисует `playbooks/site/motion/demo/index.html?brand=prsloy&t=0.5` → `demo-prsloy.png` (артефакт
+     `design-smoke-windows`, проверка, что кадр не пустой);
+  4. `check.py` на маленьком сайте: чистый → PASS, с png → FAIL;
+  5. `run.py init`, `status`, `say` в `…\Иван Петров\Documents\PRSLOY\сайт` на заглушке пайплайна
+     (`e2e/design/stub-pipeline`) и заглушке pi, без сети. venv тоже лежит под «Иван Петров»
+     (`…\AppData\Roaming\PRSLOY\design\venv`), как у пользователя с кириллическим именем.
+- **Замеры на windows-latest:** Python 3.12.13 из установщика; колёса 59 МБ; venv **214 МБ**; вся
+  установка **18 с** (venv 4,9 · загрузка 3,3 · установка 5,7 · проба Edge 3,9); Edge 155.
+  Сеть раннера быстрая: у владельца загрузка 60 МБ займёт дольше. Текст первого захода теперь с
+  настоящими числами: «Готовлю инструменты дизайна, один раз: скачаю ~60 МБ, на диске ~215 МБ».
+- **Что нашёл прогон на Windows:**
+  - **ошибка движка, исправлена** (`035b1af`): `run.py` запускает `check.py`, `second_opinion.py` и
+    `judge.py` как `python -I`. Под `-I` `PYTHONUTF8` не действует, вывод в трубу идёт в cp1252, и первая
+    русская строка роняла скрипт с `UnicodeEncodeError`. На Windows проверка харнесса всегда «падала»,
+    второе мнение и судья не работали. Теперь каждый скрипт сам переводит свои stdout/stderr в UTF-8;
+  - `fs.cpSync` в Node 22 на Windows молча ничего не копирует в папку с кириллицей. В `apps/desktop/src`
+    его нет нигде (проверено `grep`), `run.py` копирует через `shutil`. В скрипте проверки заменён ручным
+    копированием. На будущее: в main `cpSync` с путями из профиля пользователя (`C:\Users\Иван…`)
+    не использовать.
+
+### 2. Сборка без пайплайна
+
+- В бандле нет `run.py` или `design-pipeline/tools/flow.py` (сборка без `DESIGN_PIPELINE_TOKEN`) →
+  `DesignStatus.available = false`. Вкладка показывает только «Дизайн-инструменты появятся в следующей
+  версии»: ни карточки установки, ни поля ввода, ни трассировок.
+- Сбой самого `status` по IPC ведёт в то же состояние. `setup`/`say` в main отвечают той же фразой.
+- Тесты: unit (`service.test.ts`), e2e «a build without the design bundle shows one calm state»,
+  скриншот `screens/design-unavailable.png`.
+
+### 3. Пути с пробелами и кириллицей
+
+- Покрыто шагом 5 выше на windows-latest и тем же скриптом на Linux. Каждая проверка печатает `ok`/`FAIL`,
+  итог — в `design-smoke.json` и в summary джобы:
+  - `run.py init`, `status`, `say` (`stage → tool → owner`, второе мнение без сети не падает);
+  - `check.py` (PASS и FAIL);
+  - `second_opinion.py` (внутри `say`).
+- `judge.py` в этой проверке не вызывается: судья зовётся только на шаге 7, до которого заглушка не
+  доходит. Его вывод исправлен тем же коммитом `035b1af`.
+
+### Как проверено (этап 2)
+
+- `pnpm check` — pass; `pnpm test` (desktop) — 841 тест, бюджеты ok; e2e «Дизайн» 3/3
+  (`DESIGN_E2E_LOCALE=ru`).
+- `design-smoke.mts` на Linux: 8/8 ok.
+- `design-windows` на windows-latest: RESULT_PLACEHOLDER
 
 ## Не сделано / нужно от других
 
