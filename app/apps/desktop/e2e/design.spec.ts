@@ -6,7 +6,7 @@
  * DESIGN_E2E_LOCALE picks the UI language (default: the app's own default).
  */
 import { AxeBuilder } from "@axe-core/playwright";
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 import { _electron as electron, type ElectronApplication } from "playwright";
 import { execFileSync } from "node:child_process";
 import {
@@ -277,6 +277,41 @@ test("first use offers the one-time tools setup", async () => {
     await shot(page, "setup");
   } finally {
     await app.close();
+  }
+});
+
+test("«Дизайн» by keyboard: write, Enter sends, answer the card with its buttons", async () => {
+  const { app, page } = await launch({ toolsReady: true });
+  try {
+    await page.getByTestId("nav-design").click();
+    await expect(page.getByTestId("design-empty")).toBeVisible();
+    const input = page.getByTestId("design-input");
+    await input.focus();
+    await page.keyboard.type("сделай лендинг для кофейни «Зерно»");
+    await page.keyboard.press("Enter");
+    const card = page.getByTestId("design-owner").first();
+    await expect(card.getByTestId("design-question-1")).toBeVisible({ timeout: 30_000 });
+    // Tab reaches each answer button; Space presses it; the answer goes with Enter on «Ответить»
+    const tabTo = async (target: Locator) => {
+      for (let i = 0; i < 40; i++) {
+        await page.keyboard.press("Tab");
+        if (await target.evaluate((el) => el === document.activeElement)) return;
+      }
+      throw new Error("Tab never reached the button");
+    };
+    const a1 = card.getByTestId("design-question-1").getByTestId("design-option-А");
+    await tabTo(a1);
+    expect(await a1.evaluate((el) => getComputedStyle(el).outlineStyle)).not.toBe("none");
+    await page.keyboard.press("Space");
+    await tabTo(card.getByTestId("design-question-2").getByTestId("design-option-А"));
+    await page.keyboard.press("Space");
+    const answer = card.getByTestId("design-answer");
+    await expect(answer).toBeEnabled();
+    await tabTo(answer);
+    await page.keyboard.press("Enter");
+    await expect(page.getByTestId("design-user").nth(1)).toContainText("1А 2А");
+  } finally {
+    await app.close().catch(() => undefined);
   }
 });
 
