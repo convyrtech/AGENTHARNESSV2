@@ -11,6 +11,7 @@ const DEFAULTS = {
   testGuard: false,
   claimCheck: false,
   webTools: true,
+  testQuality: false,
 } as const;
 
 vi.mock("electron", () => ({ app: { getPath: () => tmpdir() }, ipcMain: { handle: vi.fn() } }));

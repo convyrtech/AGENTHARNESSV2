@@ -174,3 +174,20 @@ describe("turn changes: no git left running after the turn", () => {
     }
   }, 60_000);
 });
+
+describe("the turn diff for the turn status survives the digest taking it", () => {
+  it("takeLastDiff (digest, S6) clears its copy; peekLastDiff (turn status) still sees the diff until the next message", async () => {
+    const { root, cwd } = await workspace();
+    await writeFile(join(cwd, "a.txt"), "1\n");
+    const changes = new TurnChanges(join(root, "turns"), () => "git");
+    changes.begin(cwd);
+    await changes.ready();
+    await writeFile(join(cwd, "a.txt"), "2\n");
+    const diff = await changes.current();
+    expect(changes.takeLastDiff()).toEqual(diff);
+    expect(changes.takeLastDiff()).toBeUndefined();
+    expect(changes.peekLastDiff()).toEqual(diff);
+    changes.begin(cwd);
+    expect(changes.peekLastDiff()).toBeUndefined();
+  });
+});

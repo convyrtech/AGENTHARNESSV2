@@ -24,6 +24,7 @@ const FLAGS: HarnessFlags = {
   testGuard: false,
   claimCheck: false,
   webTools: false,
+  testQuality: false,
 };
 
 function setup(busy: { value: boolean }) {
