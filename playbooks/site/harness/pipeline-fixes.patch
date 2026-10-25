@@ -129,18 +129,25 @@
              pr.append("гейт не в обоих движках (Chromium и WebKit)")
      else:
          pr.append("нет artifacts/visual-gate/report.json")
-@@ -1070,17 +1102,25 @@
+@@ -1068,19 +1100,31 @@
+     if not j.exists():
+         return ["нет отчёта судьи artifacts/judge/JUDGE.md"], hint
      jt = read(j)
-     if j.stat().st_mtime < newest:
-         pr.append("судья смотрел старую версию (код менялся после него): новый раунд")
+-    if j.stat().st_mtime < newest:
 +    # после лимита раундов судьи решает владелец (PLAN-v1 §4.1a п.8): «ВЫБОР 7j: принять как есть · «его слова»»
-+    # снимает вердикт и открытые находки; что это ответ самого судьи, сверяется как обычно
++    # снимает вердикт и открытые находки; что это ответ самого судьи, сверяется как обычно. Свежей тогда должна быть
++    # его подпись, а не отчёт судьи: он принимал страницу, какой она стала после последнего раунда
 +    waived = False
 +    if "7j" in p.choices:
 +        before = len(pr)
-+        p.choice("7j", pr, "владелец принял страницу с открытыми находками судьи после лимита раундов",
-+                 allowed=r"^(принять|как есть|выложить)")
++        c7 = p.choice("7j", pr, "владелец принял страницу с открытыми находками судьи после лимита раундов",
++                      allowed=r"^(принять|как есть|выложить)")
 +        waived = len(pr) == before
++        at = (c7 or {}).get("said_at")
++        if waived and at is not None and at < dt.datetime.fromtimestamp(newest, dt.timezone.utc):
++            pr.append("код менялся после того, как владелец принял страницу (ВЫБОР 7j): покажи ему новую версию")
++    if j.stat().st_mtime < newest and not waived:
+         pr.append("судья смотрел старую версию (код менялся после него): новый раунд")
      m = re.search(r"(?m)^\s*JUDGE-VERDICT\s*:\s*(\w+)", jt)
      if not m:
          pr.append("в отчёте судьи нет строки «JUDGE-VERDICT: PASS|FAIL» (нет строки = FAIL)")
@@ -157,7 +164,16 @@
          pr.append(f"у судьи открыто Blocker/Critical: {len(open_bad)}")
      no_where = [r for r, where in rows if not WHERE.search(where or "")]
      if no_where:
-@@ -1201,7 +1241,7 @@
+@@ -1116,7 +1160,7 @@
+             pr.append(f"нет ни в одном ответе судьи-подагента: засчитывается только вызов Agent, в промпте которого "
+                       f"есть строка «{JUDGE_MARK}» и пути снимков, и его собственный ответ. Свой текст, Write, вывод "
+                       "команды не годятся")
+-    elif not any(ts is not None and ts >= after for ts in same):
++    elif not waived and not any(ts is not None and ts >= after for ts in same):
+         pr.append("ответ судьи-подагента старше последней правки кода (или без времени): новый раунд по свежим снимкам")
+     return pr, hint
+ 
+@@ -1201,7 +1245,7 @@
      return made
  
  
