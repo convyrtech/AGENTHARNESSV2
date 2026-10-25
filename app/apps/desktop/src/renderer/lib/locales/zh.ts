@@ -1524,6 +1524,7 @@ export const zh = {
   "empty.example.bot": "一个回答问题的 Telegram 机器人",
   "empty.example.explore": "看懂别人的代码",
   "prsloy.setup.app": "正在准备应用… {percent}%",
+  "prsloy.setup.tools": "正在准备智能体工具… {percent}%。完成后第一条回复会自动开始。",
   "timeline.showEarlier": "显示更早的消息（{count}）",
   "prsloy.support.group": "支持",
   "prsloy.support.title": "支持报告",

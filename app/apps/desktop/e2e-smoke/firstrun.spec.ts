@@ -292,6 +292,10 @@ test("first command after the first launch: key → folder → command → reply
     m.runtimesAfterSendMs =
       timings.runtimes !== undefined ? timings.runtimes - since(sentAt) : null;
     expect(chats.length, "the command's result went back to the model").toBeGreaterThanOrEqual(2);
+    // A turn that sat behind the unpack must have said so on screen.
+    if ((timings["turn-wait"] ?? 0) > 2_000) {
+      expect(m.turnProgressShownMs, "«Готовлю инструменты» while the turn waited").not.toBeNull();
+    }
     expect(launched.pageErrors, launched.pageErrors.join("\n\n")).toEqual([]);
   } finally {
     await writeMetrics({ firstCommand: m });

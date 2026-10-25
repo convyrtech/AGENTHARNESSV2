@@ -1536,6 +1536,8 @@ export const ru = {
   "empty.example.bot": "Бот для Telegram, который отвечает на вопросы",
   "empty.example.explore": "Разобраться в чужом коде",
   "prsloy.setup.app": "Готовлю приложение… {percent}%",
+  "prsloy.setup.tools":
+    "Готовлю инструменты для агента… {percent}%. Первый ответ начнётся сам, как только закончу.",
   "timeline.showEarlier": "Показать предыдущие сообщения ({count})",
   "prsloy.support.group": "Поддержка",
   "prsloy.support.title": "Отчёт для поддержки",
