@@ -17,6 +17,7 @@ export type TurnFact =
   | "checks-fail"
   | "stubs-left"
   | "tests-changed"
+  | "tests-weak"
   | "checks-pass"
   | "page-ok"
   | "ran-ok"
@@ -28,6 +29,7 @@ export const TURN_FACT_TEXT: Readonly<Record<TurnFact, string>> = {
   "checks-fail": "Проверки не прошли",
   "stubs-left": "Остались заглушки",
   "tests-changed": "Агент поменял старые проверки — посмотрите",
+  "tests-weak": "Новые тесты почти ничего не проверяют — посмотрите",
   "checks-pass": "Проверки прошли",
   "page-ok": "Страница открылась без ошибок",
   "ran-ok": "Программу запускал — работает",
@@ -49,6 +51,8 @@ export interface TurnStatusState {
   edited: boolean;
   /** Программу запускали после последней правки, и она отработала. */
   ranOk: boolean;
+  /** Слабые новые тесты (H-3, флаг testQuality): файлы. */
+  weakTests: string[];
 }
 
 export function createTurnStatus(): TurnStatusState {
@@ -59,6 +63,7 @@ export function createTurnStatus(): TurnStatusState {
     page: undefined,
     edited: false,
     ranOk: false,
+    weakTests: [],
   };
 }
 
@@ -105,6 +110,10 @@ export function turnFacts(
     if (tests.length) {
       facts.add(userAskedToChange(state.task) ? "tests-updated" : "tests-changed");
       files.push(...tests.map((t) => t.file));
+    }
+    if (state.weakTests.length) {
+      facts.add("tests-weak");
+      files.push(...state.weakTests);
     }
     const stubs = stubFiles(patch);
     if (stubs.length) {

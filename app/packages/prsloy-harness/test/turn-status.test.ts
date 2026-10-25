@@ -111,6 +111,7 @@ describe("turn status facts", () => {
       "checks-fail",
       "stubs-left",
       "tests-changed",
+      "tests-weak",
       "checks-pass",
       "page-ok",
       "ran-ok",

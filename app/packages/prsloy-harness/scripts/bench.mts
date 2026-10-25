@@ -17,6 +17,7 @@
 //   … --memory off             без памяти (флаг "memory")
 //   … --honest-exit on         инструмент report_blocker (флаг "honestExit", H-1; по умолчанию выкл.)
 //   … --test-guard on          страж старых тестов (флаг "testGuard", H-1; по умолчанию выкл.)
+//   … --test-quality on        полезность новых тестов (флаг "testQuality", H-3; по умолчанию выкл.)
 //   … --audit                  разборщик сессий после прогона (research/24 §6, ci; пока только метка в отчёте)
 //   … --allow-outside          отвечать «Да» на «менять файлы вне проекта?» (по умолчанию «Нет»)
 //   … --out bench-out          куда писать отчёт, сессии и папки задач
@@ -48,6 +49,7 @@ const { values } = parseArgs({
     memory: { type: "string", default: "on" },
     "honest-exit": { type: "string", default: "off" },
     "test-guard": { type: "string", default: "off" },
+    "test-quality": { type: "string", default: "off" },
     web: { type: "string", default: "off" },
     out: { type: "string", default: "bench-out" },
   },
@@ -83,6 +85,7 @@ async function main(): Promise<number> {
     memory: values.memory !== "off",
     honestExit: values["honest-exit"] === "on",
     testGuard: values["test-guard"] === "on",
+    testQuality: values["test-quality"] === "on",
     webTools: values.web === "on",
     model: values.model,
     ...(values.fake ? { fake: true } : { baseUrl: values["base-url"] ?? PRSLOY_DEFAULT_BASE_URL }),
