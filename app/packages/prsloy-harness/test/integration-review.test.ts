@@ -266,7 +266,7 @@ describe("integration: gate after the cap and a swapped test command (research/2
     expect(t.reviews[0]).toContain("Сигналы харнесса (посчитано кодом");
     expect(t.reviews[0]).toContain("литерал из тестов «200»");
     expect(t.cards()).toEqual([
-      "Вторая модель нашла 1 замечание — посмотрите: возможна подгонка под проверку",
+      "Вторая модель нашла 1 замечание: похоже, код подогнан под проверку, а не исправлен. Посмотрите замечания.",
     ]);
   }, 90_000);
 

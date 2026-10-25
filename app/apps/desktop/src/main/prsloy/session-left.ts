@@ -20,3 +20,21 @@ export function emitSessionLeft(sessionFile: string): void {
     }
   }
 }
+
+let current: string | undefined;
+
+/**
+ * Every assignment of the supervisor's foreground session file goes through here (new chat, switch,
+ * start, restore, a snapshot): when it moves from one file to another, the user left the first one.
+ * Going through «no file» (a new chat before its first message) does not count as leaving twice.
+ */
+export function trackSessionFile<T extends string | undefined>(next: T): T {
+  if (next && current && next !== current) emitSessionLeft(current);
+  if (next) current = next;
+  return next;
+}
+
+/** Tests: forget the last foreground file. */
+export function resetSessionTracking(): void {
+  current = undefined;
+}

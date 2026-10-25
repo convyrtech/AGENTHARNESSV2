@@ -104,6 +104,10 @@ describe("memory-match: records against records", () => {
     const yes: [string, string][] = [
       ["Пользователь — бухгалтер и не разбирается в коде", "Я бухгалтер, в коде не разбираюсь"],
       ["Пользователь выбрал PostgreSQL вместо SQLite", "Используем PostgreSQL, не SQLite"],
+      [
+        "Пользователь запретил использовать React в этом проекте",
+        "Никогда не используй React в этом проекте",
+      ],
       ["Пользователь работает на Mac, у него нет PowerShell", "Я на Mac, у меня нет PowerShell"],
       ["Пользователь просит обращаться к нему на «ты»", "Давай на ты"],
       ["Обращаться к пользователю на «вы»", "Обращайся ко мне на вы"],
@@ -119,6 +123,7 @@ describe("memory-match: records against records", () => {
       // Its own words outweigh the user's: not a retelling.
       ["Отправлять ключи на сервер, пользователь бухгалтер", "Я бухгалтер"],
       ["React не использовать", "используем React"],
+      ["Пользователь запретил использовать React", "используй React"],
     ];
     for (const [text, quote] of no) expect(textMatchesQuote(text, quote), text).toBe(false);
   });

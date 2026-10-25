@@ -95,6 +95,10 @@ describe("bench --fake", () => {
       const cont = report.results.find((r) => r.id === "snake-continue");
       if (cont?.ok !== null)
         expect(cont?.note).toContain(`сводка прошлого раза: ${harness ? "была" : "нет"}`);
+      // Статус хода (H9) — факты последней карточки; без харнесса карточки нет.
+      expect(report.results.find((r) => r.id === "fix-discount")?.turnStatus).toEqual(
+        harness ? ["checks-pass"] : [],
+      );
       const two = report.results.find((r) => r.id === "visit-card-memory");
       expect(two?.note).toContain(`в памяти записей: ${harness ? 1 : 0}`);
       expect(report.totals.toolCalls).toBeGreaterThanOrEqual(12);

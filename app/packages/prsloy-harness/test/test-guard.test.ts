@@ -9,6 +9,7 @@ import { BLOCKER_TEXT, createHonesty, installHonestExit } from "../src/honest-ex
 import { configureLearning, onLearningEvent, type LearningEvent } from "../src/learning-log.ts";
 import { resolveOptions } from "../src/options.ts";
 import { installStopGate, runProjectCheck, type CheckRunner } from "../src/stop-gate.ts";
+import { plainLine } from "../src/text.ts";
 import {
   oldTestChanges,
   rerunOldTests,
@@ -412,7 +413,7 @@ describe("H-1 in the gate: guard, signatures, report_blocker", () => {
     expect(await ask("../outside.csv")).toBe(BLOCKER_TEXT.noPath);
     expect(await ask("sales-2025.csv")).toBe(BLOCKER_TEXT.accepted);
     s.off();
-    const off = await scene({ honestExit: false }, "задача");
+    const off = await scene({}, "задача");
     expect(off.pi.activeTools).not.toContain("report_blocker");
     off.off();
   });
@@ -426,6 +427,33 @@ describe("H-1 in the gate: guard, signatures, report_blocker", () => {
     ).toBe(BLOCKER_TEXT.shown);
     expect(s.pi.sent.some((m) => m.customType === "prsloy-harness.blocker")).toBe(true);
     expect((await s.settle()).continue).toBe(true);
+    s.off();
+  });
+});
+
+describe("card texts from the model (blocker, key reason)", () => {
+  it("one line, no «X: Y: …», no trailing dot, capped", () => {
+    expect(plainLine("Тест: ждёт 170.\n")).toBe("Тест — ждёт 170");
+    expect(plainLine("Не программист: объяснять  просто:")).toBe(
+      "Не программист — объяснять просто",
+    );
+    expect(plainLine("откройте http://127.0.0.1:5173 в 12:30")).toBe(
+      "откройте http://127.0.0.1:5173 в 12:30",
+    );
+    expect(plainLine("a".repeat(200), 50)).toHaveLength(50);
+  });
+
+  it("a blocker field with an inner colon reaches the card without it", async () => {
+    const s = await scene({ honestExit: true }, "Посчитай итоги продаж из sales-2025.csv");
+    await s.blocker({
+      what: "Нет файла: sales-2025.csv.",
+      reason: "missing_file",
+      why: "Файла нет в папке",
+      need: "Пришлите файл",
+      evidence: "sales-2025.csv",
+    });
+    const card = s.pi.sent.find((m) => m.customType === "prsloy-harness.blocker");
+    expect(card?.content).toBe("Не получилось: Нет файла — sales-2025.csv");
     s.off();
   });
 });

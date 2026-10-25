@@ -10,9 +10,14 @@
  *    refuse quietly, show nothing and keep running as A.
  * 2. Good feed: A detects and downloads B, shows «Обновление готово — перезапустить»; the click
  *    installs B and the updater relaunches it; the installed app then reports version B.
+ * 3. Previous public release → this build: the installer published on GitHub (the newest release
+ *    before this one) is installed, used like a person would — key, a project, a chat, a memory
+ *    entry its own memory tool saved — and updated to B through the same feed. B must open
+ *    straight into the app with all of it in %APPDATA%\PRSLOY.
  *
  * Env: PRSLOY_EXE (installed A), UPDATE_INSTALLER_A (A's setup, to reinstall A), UPDATE_VERSION_A,
- * UPDATE_VERSION_B, UPDATE_FEED_GOOD, UPDATE_FEED_BAD (directories).
+ * UPDATE_VERSION_B, UPDATE_FEED_GOOD, UPDATE_FEED_BAD (directories); for 3: UPDATE_PUBLIC_VERSION,
+ * UPDATE_PUBLIC_INSTALLER, UPDATE_RELEASE_PUBLIC (its release assets), UPDATE_FEED_PUBLIC (B + its blockmap).
  *
  * electron-updater downloads B differentially (changed blocks only, the rest from A's cached
  * installer) and installs a verified download on quit even without the click
@@ -20,14 +25,16 @@
  */
 import { expect, test } from "@playwright/test";
 import { execFileSync, spawn } from "node:child_process";
-import { existsSync } from "node:fs";
-import { readFile, writeFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { passFirstRun, seedGateway, startGateway } from "./gateway.ts";
 import {
   beforeAllSmoke,
   close,
   findings,
+  FIRST_RUN_KEY,
   launch,
   outDir,
   shot,
@@ -43,6 +50,11 @@ const feedBad = process.env.UPDATE_FEED_BAD ?? "";
 /** A's own release assets (its blockmap is the base of the differential download). */
 const releaseA = process.env.UPDATE_RELEASE_A ?? "";
 const installerA = process.env.UPDATE_INSTALLER_A ?? "";
+/** The newest release already on GitHub (what users have installed) and B's feed for it. */
+const publicVersion = process.env.UPDATE_PUBLIC_VERSION ?? "";
+const publicInstaller = process.env.UPDATE_PUBLIC_INSTALLER ?? "";
+const releasePublic = process.env.UPDATE_RELEASE_PUBLIC ?? "";
+const feedPublic = process.env.UPDATE_FEED_PUBLIC ?? "";
 const READY = '[data-testid="prsloy-update-ready"]';
 
 function powershell(command: string): string {
@@ -96,9 +108,28 @@ function installedVersion(): string {
   );
 }
 
+/**
+ * Wait until no PRSLOY installer runs: a test that closes A with B downloaded leaves B's silent
+ * installer running (autoInstallOnAppQuit), and a second NSIS run at the same time fails.
+ */
+async function noInstallerRunning(maxMs = 240_000): Promise<string> {
+  const running = () =>
+    powershell(
+      "Get-Process | Where-Object Name -like 'PRSLOY-*' | Select-Object -ExpandProperty Name; exit 0",
+    );
+  const end = Date.now() + maxMs;
+  let names = running();
+  while (names && Date.now() < end) {
+    await new Promise((r) => setTimeout(r, 2_000));
+    names = running();
+  }
+  return names;
+}
+
 /** Silent per-user install of A (undoes an update a previous test installed on quit). */
-function reinstallA(): string {
+async function reinstallA(): Promise<string> {
   powershell("Get-Process PRSLOY -ErrorAction SilentlyContinue | Stop-Process -Force; exit 0");
+  expect(await noInstallerRunning(), "an installer still running").toBe("");
   execFileSync(installerA, ["/S", "/currentuser"], { windowsHide: true });
   return installedVersion();
 }
@@ -166,9 +197,11 @@ test.beforeAll(async () => {
 
 const updaterCache = join(process.env.LOCALAPPDATA ?? "", "prsloy-updater");
 
-test.beforeEach(() => {
+test.beforeEach(async () => {
   if (process.platform !== "win32") return;
-  expect(reinstallA()).toContain(versionA);
+  // That test installs the public release itself; A is not part of it.
+  if (test.info().title.startsWith("previous public release")) return;
+  expect(await reinstallA()).toContain(versionA);
   // The installer keeps its own copy here: the base for differential downloads.
   expect(existsSync(join(updaterCache, "installer.exe")), `${updaterCache}\\installer.exe`).toBe(
     true,
@@ -441,5 +474,200 @@ test("newest release has no assets yet: A skips it and still finds B", async () 
       join(outDir, "update-feed-hits-noassets.json"),
       JSON.stringify(feed.hits, null, 2),
     );
+  }
+});
+
+/** Every file under `dir` (relative path → bytes). */
+function contents(dir: string): Record<string, Buffer> {
+  const out: Record<string, Buffer> = {};
+  if (!existsSync(dir)) return out;
+  for (const entry of readdirSync(dir, { recursive: true, withFileTypes: true })) {
+    if (!entry.isFile()) continue;
+    const path = join(entry.parentPath, entry.name);
+    out[path.slice(dir.length + 1)] = readFileSync(path);
+  }
+  return out;
+}
+
+/** sha256 of every file under `dir` (relative path → hash), for «nothing lost, nothing rewritten». */
+function hashes(dir: string): Record<string, string> {
+  const out: Record<string, string> = {};
+  if (!existsSync(dir)) return out;
+  for (const entry of readdirSync(dir, { recursive: true, withFileTypes: true })) {
+    if (!entry.isFile()) continue;
+    const path = join(entry.parentPath, entry.name);
+    out[path.slice(dir.length + 1)] = createHash("sha256").update(readFileSync(path)).digest("hex");
+  }
+  return out;
+}
+
+test("previous public release → this build: key, project, chat and memory survive the update", async () => {
+  test.skip(process.platform !== "win32", "Windows only");
+  expect(
+    publicVersion && publicInstaller && releasePublic && feedPublic,
+    "UPDATE_PUBLIC_* env (the update-e2e job downloads the newest GitHub release)",
+  ).toBeTruthy();
+  // A real user's profile: %APPDATA%\PRSLOY, the folder the updater-relaunched app opens too.
+  const profile = join(process.env.APPDATA ?? "", "PRSLOY");
+  const chat = "Привет! Запомни: я люблю короткие ответы. tool";
+  const fact = "Любит короткие ответы";
+  const metrics: Record<string, unknown> = { from: publicVersion, to: versionB };
+  const feed = await startGitHub([
+    { tag: `v${versionB}`, dir: feedPublic },
+    { tag: `v${publicVersion}`, dir: releasePublic },
+  ]);
+  const gateway = await startGateway();
+  let launched: Launched | undefined;
+  let after: Launched | undefined;
+  try {
+    // 1. Install what users have: the published installer, over whatever is there.
+    powershell("Get-Process PRSLOY -ErrorAction SilentlyContinue | Stop-Process -Force; exit 0");
+    expect(await noInstallerRunning(), "an installer still running").toBe("");
+    await rm(profile, { recursive: true, force: true });
+    execFileSync(publicInstaller, ["/S", "/currentuser"], { windowsHide: true });
+    expect(installedVersion()).toContain(publicVersion);
+
+    // 2. Use it: key through the gate, a project folder, memory on, one chat in which its own
+    //    memory tool saves a fact (the fake model calls it on a prompt with «tool»).
+    await mkdir(join(profile, "prsloy"), { recursive: true });
+    await seedGateway(gateway.baseUrl)(profile);
+    await mkdir(join(profile, "agent"), { recursive: true });
+    await writeFile(
+      join(profile, "agent", "prsloy-harness.json"),
+      JSON.stringify({ memory: true }),
+    );
+    launched = await launch("upd-public", {
+      testMode: false,
+      updates: true,
+      userData: profile,
+      env: { PRSLOY_E2E: "1", PRSLOY_UPDATE_FEED_URL: feed.url },
+      toolCall: {
+        name: "memory",
+        arguments: {
+          action: "remember",
+          scope: "user",
+          text: fact,
+          quote: "я люблю короткие ответы",
+        },
+      },
+    });
+    gateway.setUpstream(launched.fakeModel.baseUrl);
+    const { page } = launched;
+    expect(await launched.app.evaluate(({ app }) => app.getVersion())).toBe(publicVersion);
+    await passFirstRun(launched);
+    const workspace = join(launched.root, "Мой проект");
+    await page.getByTestId("prompt-input").fill(chat);
+    await page.getByTestId("send-prompt").click();
+    const remembered = () =>
+      page.evaluate(
+        async (ws) => ((await window.zeno.memory?.list(ws))?.user ?? []).map((e) => e.text),
+        workspace,
+      );
+    await expect.poll(remembered, { timeout: 180_000 }).toContain(fact);
+    await shot(page, "35-public-before-update");
+    const stateBefore = await page.evaluate(() => window.zeno.prsloy.getState());
+    expect(stateBefore.hasKey).toBe(true);
+
+    // 3. The update arrives; snapshot the profile's data before the click.
+    await expect(page.locator(READY)).toBeVisible({ timeout: 300_000 });
+    const data = {
+      key: hashes(join(profile, "prsloy")),
+      // A chat file is a log: lines may be added later, what was written must stay as it was.
+      sessions: contents(join(profile, "agent", "sessions")),
+      memory: hashes(join(profile, "agent", "prsloy-memory")),
+    };
+    metrics.files = {
+      key: Object.keys(data.key),
+      sessions: Object.keys(data.sessions).length,
+      memory: Object.keys(data.memory),
+    };
+    expect(Object.keys(data.key)).toContain("gateway-key.bin");
+    expect(Object.keys(data.sessions).length, "the chat is on disk").toBeGreaterThan(0);
+    const before = new Set(runningInstalled().map((p) => p.Id));
+    const clickedAt = Date.now();
+    const closed = new Promise<void>((resolve) => launched!.app.once("close", () => resolve()));
+    await page.locator(`${READY} button`).first().click();
+    await Promise.race([closed, new Promise((r) => setTimeout(r, 60_000))]);
+    launched = undefined;
+    let relaunchMs: number | undefined;
+    for (const end = Date.now() + 240_000; Date.now() < end; ) {
+      if (
+        installedVersion().includes(versionB) &&
+        runningInstalled().some((p) => !before.has(p.Id))
+      ) {
+        relaunchMs = Date.now() - clickedAt;
+        break;
+      }
+      await new Promise((r) => setTimeout(r, 3_000));
+    }
+    metrics.relaunchMs = relaunchMs ?? null;
+    metrics.installed = installedVersion();
+    metrics.processes = prsloyProcesses();
+    desktopScreenshot("36-public-relaunched-desktop");
+    expect(installedVersion(), "installed version after the click").toContain(versionB);
+    expect(relaunchMs, "updater installed B silently and relaunched it").toBeDefined();
+
+    // 4. B on the same profile: straight into the app, everything still there.
+    powershell("Get-Process PRSLOY -ErrorAction SilentlyContinue | Stop-Process -Force; exit 0");
+    await new Promise((r) => setTimeout(r, 3_000));
+    after = await launch("upd-public-after", {
+      testMode: false,
+      updates: true,
+      userData: profile,
+      readySelector: '[data-testid="zeno-app"]',
+      env: { PRSLOY_NO_UPDATE: "1" },
+    });
+    expect(await after.app.evaluate(({ app }) => app.getVersion())).toBe(versionB);
+    const gate = await after.page.locator(FIRST_RUN_KEY).isVisible();
+    const state = await after.page.evaluate(() => window.zeno.prsloy.getState());
+    await expect
+      .poll(async () => after!.page.locator("body").innerText(), { timeout: 60_000 })
+      .toContain("Привет! Запомни: я люблю короткие ответы.");
+    const memoryAfter = await after.page.evaluate(
+      async (ws) => ((await window.zeno.memory?.list(ws))?.user ?? []).map((e) => e.text),
+      workspace,
+    );
+    await shot(after.page, "37-public-after-update");
+    const keyAfter = hashes(join(profile, "prsloy"));
+    const sessionsAfter = contents(join(profile, "agent", "sessions"));
+    metrics.after = {
+      gate,
+      hasKey: state.hasKey,
+      needsWorkspace: state.needsWorkspace,
+      memory: memoryAfter,
+      memoryFiles: Object.keys(hashes(join(profile, "agent", "prsloy-memory"))),
+    };
+    expect(gate, "first-run key screen after the update").toBe(false);
+    expect(state.hasKey, "key kept").toBe(true);
+    expect(state.needsWorkspace, "project kept").toBe(false);
+    expect(memoryAfter, "memory kept and readable by the new version").toContain(fact);
+    expect(keyAfter["gateway-key.bin"], "key file unchanged").toBe(data.key["gateway-key.bin"]);
+    metrics.chatFiles = Object.fromEntries(
+      Object.entries(data.sessions).map(([f, b]) => [
+        f,
+        { before: b.length, after: sessionsAfter[f]?.length ?? null },
+      ]),
+    );
+    for (const [file, bytes] of Object.entries(data.sessions)) {
+      const now = sessionsAfter[file];
+      expect(now, `chat file ${file} kept`).toBeDefined();
+      expect(
+        now!.subarray(0, bytes.length).equals(bytes),
+        `chat file ${file}: what was written before the update is unchanged`,
+      ).toBe(true);
+    }
+    expect(after.pageErrors, after.pageErrors.join("\n\n")).toEqual([]);
+  } finally {
+    await writeMetrics({ updateFromPublic: metrics });
+    await close(after);
+    await close(launched);
+    await gateway.stop();
+    await feed.stop();
+    await writeFile(
+      join(outDir, "update-feed-hits-public.json"),
+      JSON.stringify(feed.hits, null, 2),
+    );
+    powershell("Get-Process PRSLOY -ErrorAction SilentlyContinue | Stop-Process -Force; exit 0");
+    await rm(profile, { recursive: true, force: true }).catch(() => undefined);
   }
 });

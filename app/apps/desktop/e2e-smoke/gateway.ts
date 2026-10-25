@@ -91,8 +91,6 @@ export async function passFirstRun(launched: Launched, folderName = "Мой пр
   const { page } = launched;
   await page.locator(`${FIRST_RUN_KEY} input`).fill(GOOD_KEY);
   await page.locator(`${FIRST_RUN_KEY} button[type="submit"]`).click();
-  // RC check (desktop/ui-rc): the search step shows once SEARCH_READY
-  await page.getByTestId("first-run-search-skip").click({ timeout: 60_000 });
   await expect(page.getByTestId("prsloy-first-run-folder")).toBeVisible({ timeout: 60_000 });
   const folder = join(launched.root, folderName);
   await mkdir(folder, { recursive: true });

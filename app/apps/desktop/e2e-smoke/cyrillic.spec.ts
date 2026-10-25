@@ -243,8 +243,6 @@ test("Cyrillic profile: first run brings a Claude Code chat over", async () => {
       timeout: 60_000,
     });
     await page.getByTestId("prsloy-import-next").click();
-    // RC check (desktop/ui-rc): the search step shows once SEARCH_READY
-    await page.getByTestId("first-run-search-skip").click({ timeout: 60_000 });
 
     await expect(page.getByTestId("prsloy-first-run-folder")).toBeVisible({ timeout: 60_000 });
     const first = page.getByTestId("prsloy-folder-recent").getByRole("button").first();

@@ -134,6 +134,8 @@ export interface TaskResult {
   cacheShare: number | null;
   /** Навыки, чьи файлы модель прочитала (S9: «загружен»). */
   skills: string[];
+  /** Факты последней карточки статуса хода (H9): checks-pass, checks-fail, no-checks… Пусто — карточки не было. */
+  turnStatus: string[];
   /** Исход (research/24 §4.1); null — проверки не было. */
   outcome: Outcome | null;
   expectedOutcome: Outcome;
@@ -233,6 +235,15 @@ export function listTasks(
   return out;
 }
 
+/** Факты последней карточки `prsloy-harness.turn-status` сессии. */
+export function lastTurnStatus(messages: MessageLike[]): string[] {
+  const card = messages.findLast(
+    (m) => m.role === "custom" && m.customType === "prsloy-harness.turn-status",
+  ) as (MessageLike & { details?: { facts?: unknown } }) | undefined;
+  const facts = card?.details?.facts;
+  return Array.isArray(facts) ? facts.filter((f): f is string => typeof f === "string") : [];
+}
+
 interface MessageLike {
   role: string;
   content?: unknown;
@@ -276,7 +287,8 @@ export function countInterventions(
       else if (kind === "tool-leak") add(m.display ? "leakGaveUp" : "leak");
       else if (kind === "loop")
         add(text.startsWith("Ответ дважды обрезан") ? "lengthStop" : "pseudoCall");
-      else add(kind);
+      // Статус хода (H9) — итог, а не вмешательство: в отчёте отдельной колонкой (turnStatus).
+      else if (kind !== "turn-status") add(kind);
     }
   }
   for (const [k, n] of Object.entries(stats)) if (k.startsWith("repair:")) add("repair", n);
@@ -556,6 +568,7 @@ async function runTask(task: TaskDef, opts: BenchOptions): Promise<TaskResult> {
     reply,
     cacheShare: cacheShareOf(join(opts.outDir, "sessions", slug, "prsloy-proxy.jsonl")),
     skills: skillsRead(messages),
+    turnStatus: lastTurnStatus(messages),
     outcome,
     expectedOutcome,
     acceptOutcomes,
@@ -719,7 +732,7 @@ export function reportMarkdown(report: BenchReport): string {
       .map(([k, n]) => `${k} ${n}`)
       .join(", ");
     const a = r.reply;
-    const reply = `${a.russian ? "ru" : "НЕ ru"}, команд ${a.commandsToUser}, ?${a.questions}${a.questions && a.recommends ? "+реком." : ""}, строк ${a.lines}, жарг. ${a.jargon}${a.falseDone ? ", ЛОЖНОЕ «готово»" : ""}`;
+    const reply = `${a.russian ? "ru" : "НЕ ru"}, команд ${a.commandsToUser}, ?${a.questions}${a.questions && a.recommends ? "+реком." : ""}, строк ${a.lines}, жарг. ${a.jargon}${a.falseDone ? ", ЛОЖНОЕ «готово»" : ""}${r.turnStatus.length ? `, статус: ${r.turnStatus.join("+")}` : ""}`;
     const cache = r.cacheShare === null ? "—" : `${Math.round(r.cacheShare * 100)}%`;
     const outcome =
       r.expectedOutcome !== "solved" || (r.outcome && r.outcome !== "solved")

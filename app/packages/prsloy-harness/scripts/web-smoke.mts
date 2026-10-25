@@ -43,6 +43,14 @@ for (const query of [
     return hits.map((h) => `${h.date ?? "—"} ${h.url}`).join(" | ");
   });
 }
+// без прокси (раннер CI) соединение идёт на проверенный IP (pinned.ts): настоящий HTTPS и редирект http → https
+for (const url of ["https://example.com/", "http://nodejs.org/en/about/previous-releases"]) {
+  await probe(`readPage ${url}`, async () => {
+    const p = await readPage(url, { jina: false });
+    if (p.text.length < 100) throw new Error(`мало текста: ${p.text.length}`);
+    return `${p.via} ${p.finalUrl} ${p.text.length} знаков`;
+  });
+}
 await probe("jsDelivr README", async () => {
   const p = await readPage("https://cdn.jsdelivr.net/gh/vitejs/vite/README.md", { jina: false });
   return `${p.via} ${p.text.length} знаков`;
@@ -50,5 +58,6 @@ await probe("jsDelivr README", async () => {
 
 for (const r of rows) console.log(`${r.ok ? "✓" : "✗"} ${r.what}: ${r.note.slice(0, 300)}`);
 const official = rows.filter((r) => r.what.startsWith("free")).some((r) => r.ok);
+const reads = rows.filter((r) => r.what.startsWith("readPage")).every((r) => r.ok);
 const github = rows.filter((r) => r.what.startsWith("GitHub")).every((r) => r.ok);
-process.exit(official && github ? 0 : 1);
+process.exit(official && github && reads ? 0 : 1);

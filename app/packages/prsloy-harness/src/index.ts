@@ -16,6 +16,7 @@ import { installSkills } from "./skills.ts";
 import { installAutoMemory } from "./memory-auto.ts";
 import { installClaimCheck } from "./claim-check.ts";
 import { createHonesty, installHonestExit } from "./honest-exit.ts";
+import { createTurnStatus, installTurnStatus } from "./turn-status.ts";
 import { readFlags } from "./flags.ts";
 import { installVagueRequest } from "./vague-request.ts";
 import { installReusePrompt } from "./reuse-prompt.ts";
@@ -136,9 +137,12 @@ export function createPrsloyHarness(options: HarnessOptions = {}): (pi: Extensio
     // Честный выход и страж старых тестов (research/24 §4, H-1): за флагами honestExit / testGuard, по умолчанию
     // выкл. Состояние сообщения общее у report_blocker и гейта: принятый блокер снимает возвраты «почини».
     const honesty = opts.profile === "code" && on("honestExit") ? createHonesty() : undefined;
+    // Статус хода по фактам (H9): гейт пишет прогоны, карточка — в конце хода, после ответа.
+    const turnStatus = opts.profile === "code" && on("turnStatus") ? createTurnStatus() : undefined;
     if (codeGate)
       installStopGate(pi, opts, {
         ...(honesty ? { honesty } : {}),
+        ...(turnStatus ? { turnStatus } : {}),
         ...(on("testGuard") ? { testGuard: () => readFlags(opts.settingsPath).testGuard } : {}),
         ...(changes ? { changes } : {}),
         ...(budget ? { budget } : {}),
@@ -167,6 +171,7 @@ export function createPrsloyHarness(options: HarnessOptions = {}): (pi: Extensio
     if (opts.profile === "code") {
       if (on("autoMemory")) installAutoMemory(pi, opts);
       if (honesty) installHonestExit(pi, opts, { state: honesty, changes });
+      if (turnStatus) installTurnStatus(pi, opts, { state: turnStatus, changes });
       if (on("claimCheck")) installClaimCheck(pi, opts);
     }
     if (on("secretScrub")) installSecretScrub(pi);

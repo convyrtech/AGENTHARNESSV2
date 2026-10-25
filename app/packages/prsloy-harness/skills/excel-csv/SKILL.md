@@ -6,6 +6,7 @@ description: "Таблицы Excel и CSV: свести продажи, посч
 # Excel и CSV
 
 Tools: **pandas** + **openpyxl** (`.venv/Scripts/python -m pip install pandas openpyxl` in a project venv).
+Before installing, check the names with find_ready (`ecosystem: "pypi"`, `candidates: ["pandas", "openpyxl"]`): latest release, not deprecated.
 `read_table.py` next to this file reads a CSV or Excel file the way Russian Excel writes it — copy it.
 
 ## Reading

@@ -197,10 +197,9 @@ describe("integration: H-1 test guard and report_blocker", () => {
     expect(t.cards("prsloy-harness.stop-gate")).toEqual([]);
   }, 90_000);
 
-  it("flags off: no report_blocker for the model, the rewritten test passes the gate", async () => {
-    // the RC turns honestExit on by default: off has to be said
+  it("flags off (the default): no report_blocker for the model, the rewritten test passes the gate", async () => {
     const t = await startSession(
-      { honestExit: false },
+      {},
       (_r, i) =>
         [
           write("test.js", TEST_JS.replace("170", "190").replace("170", "190")),
@@ -222,5 +221,68 @@ describe("integration: H-1 test guard and report_blocker", () => {
     const writer = t.server.requests.filter((r) => r.model === WRITER);
     expect(toolNames(writer[0]!)).not.toContain("report_blocker");
     expect(writer).toHaveLength(2);
+  }, 90_000);
+});
+
+describe("integration: turn status card (H9, ui contract)", () => {
+  const order = (t: Awaited<ReturnType<typeof startSession>>) =>
+    (t.session.messages as unknown as { role: string; customType?: string; display?: boolean }[])
+      .map((m) => (m.role === "custom" ? (m.customType ?? "custom") : m.role))
+      .filter((r) => r !== "toolResult");
+  const project = async (
+    cwd: string,
+    price = "exports.finalPrice = (price, percent) => price - percent;\n",
+  ) => {
+    await writeFile(
+      join(cwd, "package.json"),
+      JSON.stringify({ name: "shop", scripts: { test: "node test.js" } }),
+    );
+    await writeFile(join(cwd, "test.js"), TEST_JS.replaceAll("170", "180"));
+    await writeFile(join(cwd, "price.js"), price);
+  };
+  const FIXED = "exports.finalPrice = (price, percent) => price - (price * percent) / 100;\n";
+
+  it("green check → one card after the final reply: «Проверки прошли», facts [checks-pass]", async () => {
+    const t = await startSession(
+      {},
+      (_r, i) =>
+        [write("price.js", FIXED), { text: "Готово, считает в процентах." }][i] ?? { text: "?" },
+    );
+    await project(t.cwd);
+    await t.session.prompt("Почини скидку.");
+    expect(t.cards("prsloy-harness.turn-status")).toEqual([
+      { content: "Проверки прошли", details: { facts: ["checks-pass"] } },
+    ]);
+    const seq = order(t);
+    expect(seq.at(-1)).toBe("prsloy-harness.turn-status");
+    expect(seq.at(-2)).toBe("assistant");
+  }, 90_000);
+
+  it("red after the cap → one card for the whole turn: «Проверки не прошли»", async () => {
+    const WRONG = "exports.finalPrice = (price, percent) => price - percent * 1;\n";
+    const t = await startSession(
+      {},
+      (_r, i) =>
+        [
+          write("price.js", WRONG),
+          { text: "Готово." },
+          write("price.js", WRONG),
+          { text: "Готово." },
+          write("price.js", WRONG),
+          { text: "Не вышло." },
+        ][i] ?? { text: "?" },
+    );
+    await project(t.cwd);
+    await t.session.prompt("Почини скидку.");
+    expect(t.cards("prsloy-harness.turn-status")).toEqual([
+      { content: "Проверки не прошли", details: { facts: ["checks-fail"] } },
+    ]);
+  }, 90_000);
+
+  it("a question without edits → no card", async () => {
+    const t = await startSession({}, () => ({ text: "Это магазин: price.js считает цену." }));
+    await project(t.cwd);
+    await t.session.prompt("Что это за проект?");
+    expect(t.cards("prsloy-harness.turn-status")).toEqual([]);
   }, 90_000);
 });

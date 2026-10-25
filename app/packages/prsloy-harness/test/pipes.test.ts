@@ -29,24 +29,13 @@ const flagsFile = (v: unknown) => {
 };
 
 describe("pipes: flags", () => {
-  it("RC defaults: memory, autoMemory, honestExit, webTools on; testGuard, claimCheck off", () => {
+  it("memory and auto memory on by default (MVP); autoMemory off | shadow | true, the rest booleans", () => {
     expect(readFlags(undefined)).toMatchObject({
       memory: true,
       autoMemory: true,
-      honestExit: true,
-      webTools: true,
+      honestExit: false,
       testGuard: false,
       claimCheck: false,
-    });
-    expect(
-      readFlags(
-        flagsFile({ memory: false, autoMemory: "off", honestExit: false, webTools: false }),
-      ),
-    ).toMatchObject({
-      memory: false,
-      autoMemory: "off",
-      honestExit: false,
-      webTools: false,
     });
     expect(readFlags(flagsFile({ autoMemory: "shadow", honestExit: true }))).toMatchObject({
       autoMemory: "shadow",
@@ -60,10 +49,15 @@ describe("pipes: flags", () => {
       testGuard: true,
       claimCheck: true,
     });
-    // чужие значения — по умолчанию (в RC — включено)
+    // чужие значения — по умолчанию
     expect(readFlags(flagsFile({ autoMemory: "yes", honestExit: "1" }))).toMatchObject({
       autoMemory: true,
-      honestExit: true,
+      honestExit: false,
+    });
+    // Выключенное руками остаётся выключенным.
+    expect(readFlags(flagsFile({ memory: false, autoMemory: "off" }))).toMatchObject({
+      memory: false,
+      autoMemory: "off",
     });
   });
 

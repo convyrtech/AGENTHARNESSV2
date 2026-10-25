@@ -77,4 +77,22 @@ describe("selectNextSteps", () => {
     );
     expect(selectNextSteps("ru", [user("x"), write("a.html"), failed], false)).toEqual([]);
   });
+
+  it("the turn-status card after the reply does not hide the steps", () => {
+    const status: TimelineItem = {
+      id: "s",
+      kind: "system",
+      text: "Нечем проверить",
+      title: "prsloy-harness.turn-status",
+      extension: true,
+      details: { facts: ["no-checks"] },
+    };
+    expect(
+      selectNextSteps(
+        "ru",
+        [user("сделай сайт"), write("index.html"), reply("Готово."), status],
+        false,
+      ),
+    ).toHaveLength(3);
+  });
 });

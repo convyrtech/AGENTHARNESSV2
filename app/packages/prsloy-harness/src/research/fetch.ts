@@ -6,7 +6,8 @@
 // Last-Modified; иначе «дата неизвестна».
 
 import { netReason, timeoutSignal } from "./common.ts";
-import { assertPublicUrl, PrivateAddressError, type Resolve } from "./net-guard.ts";
+import { checkPublicUrl, PrivateAddressError, type Resolve } from "./net-guard.ts";
+import { pinnedFetch, proxyFor } from "./pinned.ts";
 
 export interface PageText {
   url: string;
@@ -35,6 +36,8 @@ export interface ReadDeps {
   signal?: AbortSignal;
   /** Разрешение имён для проверки частных адресов (тесты). */
   resolve?: Resolve;
+  /** Запрос на проверенный IP (тесты подменяют); по умолчанию pinned.ts. */
+  pinnedFetch?: typeof pinnedFetch;
 }
 
 export class ReadError extends Error {
@@ -160,6 +163,16 @@ const BLOCK = new Set([
   "ol",
 ]);
 
+/** Позиция `</name` (без учёта регистра) в самой строке, начиная с `from`; -1 — нет. */
+function closingTag(html: string, name: string, from: number): number {
+  for (let k = html.indexOf("</", from); k !== -1; k = html.indexOf("</", k + 2)) {
+    if (html.slice(k + 2, k + 2 + name.length).toLowerCase() !== name) continue;
+    const next = html[k + 2 + name.length];
+    if (next === undefined || !/[A-Za-z0-9-]/.test(next)) return k;
+  }
+  return -1;
+}
+
 interface Scan {
   title: string;
   /** Текст без обвязки. */
@@ -180,7 +193,6 @@ interface Scan {
  */
 function scanHtml(input: string): Scan {
   const html = input.length > MAX_HTML_CHARS ? input.slice(0, MAX_HTML_CHARS) : input;
-  const lower = html.toLowerCase();
   const out: string[] = [];
   const metas: string[] = [];
   const times: string[] = [];
@@ -214,7 +226,7 @@ function scanHtml(input: string): Scan {
       break;
     }
     if (lt > i) emit(html.slice(i, lt));
-    if (lower.startsWith("<!--", lt)) {
+    if (html.startsWith("<!--", lt)) {
       const end = html.indexOf("-->", lt + 4);
       emit(" ");
       i = end === -1 ? n : end + 3;
@@ -235,7 +247,9 @@ function scanHtml(input: string): Scan {
       }
       continue;
     }
-    const name = lower.slice(nameStart, j);
+    // имя тега — только ASCII, его и приводим к нижнему регистру: toLowerCase всей строки сдвигает позиции
+    // («İ» → два знака), и найденное по копии место уже не то в оригинале
+    const name = html.slice(nameStart, j).toLowerCase();
     const gt = html.indexOf(">", j);
     if (gt === -1 || gt - lt > MAX_TAG) {
       // незакрытый или гигантский тег: дальше разметки нет
@@ -260,7 +274,7 @@ function scanHtml(input: string): Scan {
     if (name === "meta") metas.push(tag);
     if (name === "time") times.push(tag);
     if (RAW.has(name) && !tag.endsWith("/>")) {
-      const close = lower.indexOf(`</${name}`, i);
+      const close = closingTag(html, name, i);
       const body = html.slice(i, close === -1 ? n : close);
       if (name === "title" && !title) title = body;
       if (name === "script" && /application\/ld\+json/i.test(tag)) jsonld.push(body);
@@ -390,22 +404,38 @@ async function cappedJson<T>(res: Response, max = MAX_BODY_BYTES): Promise<T> {
   return JSON.parse(new TextDecoder().decode(await readCapped(res, max))) as T;
 }
 
-async function direct(url: string, deps: ReadDeps): Promise<PageText> {
+/** `checked` — IP адреса, уже проверенные вызывающим (readPage): не разрешаем имя второй раз. */
+async function direct(url: string, deps: ReadDeps, checked?: string[]): Promise<PageText> {
   let res: Response | undefined;
   let current = url;
   const signal = timeoutSignal(deps.timeoutMs ?? 20_000, deps.signal);
+  let ips: string[];
+  try {
+    ips = checked ?? (await checkPublicUrl(current, deps.resolve)).ips;
+  } catch (e) {
+    throw new ReadError(
+      e instanceof PrivateAddressError ? e.message : "это не адрес страницы",
+      0,
+      true,
+    );
+  }
+  const headers = {
+    "User-Agent": UA,
+    Accept: "text/html,application/xhtml+xml,text/plain;q=0.9,*/*;q=0.5",
+    "Accept-Language": "ru,en;q=0.8",
+  };
   for (let hop = 0; ; hop++) {
     try {
-      res = await (deps.fetchImpl ?? fetch)(current, {
-        // редиректы — сами: каждый шаг проверяем, не ведёт ли он на частный адрес
-        redirect: "manual",
-        headers: {
-          "User-Agent": UA,
-          Accept: "text/html,application/xhtml+xml,text/plain;q=0.9,*/*;q=0.5",
-          "Accept-Language": "ru,en;q=0.8",
-        },
-        signal,
-      });
+      // соединение — на проверенный IP (если он известен и между нами нет прокси): DNS не успеет подменить адрес
+      const pinTo = !deps.fetchImpl && ips[0] && !proxyFor(new URL(current)) ? ips[0] : undefined;
+      res = pinTo
+        ? await (deps.pinnedFetch ?? pinnedFetch)(current, { headers, signal }, pinTo)
+        : await (deps.fetchImpl ?? fetch)(current, {
+            // редиректы — сами: каждый шаг проверяем, не ведёт ли он на частный адрес
+            redirect: "manual",
+            headers,
+            signal,
+          });
     } catch (e) {
       throw new ReadError(`не открылась: ${netReason(e)}`);
     }
@@ -416,7 +446,7 @@ async function direct(url: string, deps: ReadDeps): Promise<PageText> {
     let next: string;
     try {
       next = new URL(location, current).toString();
-      await assertPublicUrl(next, deps.resolve);
+      ({ ips } = await checkPublicUrl(next, deps.resolve));
     } catch (e) {
       throw new ReadError(
         `редирект на ${e instanceof PrivateAddressError ? "частный адрес" : "неверный адрес"} — не читаем`,
@@ -550,8 +580,9 @@ export async function readPage(url: string, deps: ReadDeps = {}): Promise<PageTe
   if (parsed.username || parsed.password)
     throw new ReadError("адрес с логином и паролем не читаем");
   // частный адрес не читаем и в запасные пути (шлюз, Jina, jsDelivr) не отдаём
+  let checked: string[];
   try {
-    await assertPublicUrl(url, deps.resolve);
+    ({ ips: checked } = await checkPublicUrl(url, deps.resolve));
   } catch (e) {
     throw new ReadError(
       e instanceof PrivateAddressError ? e.message : "это не адрес страницы",
@@ -562,7 +593,7 @@ export async function readPage(url: string, deps: ReadDeps = {}): Promise<PageTe
   const errors: string[] = [];
   let first: PageText | undefined;
   try {
-    first = await direct(url, deps);
+    first = await direct(url, deps, checked);
     if (first.text.length >= MIN_TEXT) return first;
     errors.push("почти пустая страница (собирается скриптом?)");
   } catch (e) {

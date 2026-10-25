@@ -230,6 +230,11 @@ export class TurnChanges {
   #start: Promise<string | undefined> | undefined;
   #last: TurnDiff | undefined;
 
+  /** Последний посчитанный дифф хода, не забирая его (статус хода; сводку S6 он не трогает). */
+  peekLastDiff(): TurnDiff | undefined {
+    return this.#last;
+  }
+
   /** Последний посчитанный дифф хода (его считает стоп-гейт); забирается один раз. */
   takeLastDiff(): TurnDiff | undefined {
     const diff = this.#last;

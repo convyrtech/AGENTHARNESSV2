@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from "vite-plus/test";
 import type { PrsloyState } from "@zeno/contracts";
+import { FIRST_RUN_SEARCH_STEP } from "../../shared/search-ready.ts";
 import {
   cleanPastedKey,
   firstRunStep,
@@ -11,7 +12,6 @@ import {
   readFirstRunSeen,
 } from "./prsloy-first-run.ts";
 import { t } from "./i18n.ts";
-import { SEARCH_READY } from "../../shared/search-ready.ts";
 
 const base: PrsloyState = {
   hasKey: false,
@@ -37,10 +37,9 @@ describe("prsloy first run", () => {
     expect(firstRunStep({ ...base, firstRunBypass: true })).toBe("done");
   });
 
-  it("skips the search step until SEARCH_READY (#23)", () => {
-    // RC check (desktop/ui-rc): search is shown to everyone
-    expect(SEARCH_READY).toBe(true);
-    expect(firstRunStep({ ...base, hasKey: true }, { import: true })).toBe("search");
+  it("skips the search step while FIRST_RUN_SEARCH_STEP is off (alpha.2: search on by default)", () => {
+    expect(FIRST_RUN_SEARCH_STEP).toBe(false);
+    expect(firstRunStep({ ...base, hasKey: true }, { import: true })).toBe("folder");
     expect(firstRunStep({ ...base, hasKey: true }, { import: true }, false)).toBe("folder");
   });
 

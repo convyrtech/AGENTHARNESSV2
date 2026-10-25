@@ -24,8 +24,10 @@ the rules, keep the skeleton.
 
 ## Check
 
-Open it in the preview, play a round: the game starts, reacts to keys, the score grows, game over and restart
-work, at 390 px it fits the screen without scrolling.
+The app opens the page in a real browser at the end of your turn and tells you about errors; do not install
+jsdom, puppeteer or browsers yourself. Read your loop once more for the rules you cannot see in a screenshot: the
+game starts, reacts to keys and taps, the score grows, game over and restart work, at 390 px it fits without
+scrolling.
 
 ## Sources
 

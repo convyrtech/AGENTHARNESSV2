@@ -61,12 +61,14 @@ async function phrases(): Promise<number> {
   const rows: Record<string, unknown>[] = [];
   let cost = 0;
   let calls = 0;
+  const times: number[] = [];
   for (const [i, p] of fixture.phrases.entries()) {
     const kinds = messageSignals(p.text);
     if (!kinds.length) {
       rows.push({ text: p.text, label: p.signal, called: false, accepted: [] });
       continue;
     }
+    const t0 = Date.now();
     const { call, ops, candidates } = await extractOnce({
       baseUrl,
       apiKey: key,
@@ -76,6 +78,7 @@ async function phrases(): Promise<number> {
       fetch,
     });
     calls += 1;
+    times.push(Date.now() - t0);
     cost += call.costUsd ?? 0;
     rows.push({
       text: p.text,
@@ -118,7 +121,8 @@ async function phrases(): Promise<number> {
   writeFileSync(out, `${JSON.stringify(report, null, 2).split(key).join("***")}\n`);
   console.log(
     [
-      `Модель: ${model}; вызовов ${calls}; цена $${report.costUsd}`,
+      `Модель: ${model}; вызовов ${calls}; цена $${report.costUsd} (≈${(report.costUsd * 95).toFixed(3)} ₽ по 95 ₽/$, цена шлюза)`,
+      `Время вызова: среднее ${times.length ? Math.round(times.reduce((a, b) => a + b, 0) / times.length) : 0} мс, максимум ${times.length ? Math.max(...times) : 0} мс (вне хода, UI не ждёт)`,
       `Пойманные (есть принятый кандидат): ${report.caught}`,
       `Ложные (принят кандидат на разовой фразе): ${report.falseAccepted}`,
       `Ответ не JSON: ${report.notJson}`,
@@ -159,6 +163,12 @@ function sessions(agentDir: string): number {
       `Сессий просмотрено: ${new Set(runs.map((r) => r.session)).size}; вызовов модели: ${called.length}; без сигнала: ${runs.length - called.length}`,
       `Цена: всего $${costs.reduce((a, b) => a + b, 0).toFixed(6)}; на вызов $${costs.length ? (costs.reduce((a, b) => a + b, 0) / costs.length).toFixed(6) : "—"}; без цены ${called.length - costs.length}`,
       `Ответ не JSON: ${called.filter((r) => r.json === false).length}; ошибки: ${called.filter((r) => r.ok === false).length}`,
+      `Время вызова: ${(() => {
+        const ms = called.map((r) => r.ms).filter((m): m is number => typeof m === "number");
+        return ms.length
+          ? `среднее ${Math.round(ms.reduce((a, b) => a + b, 0) / ms.length)} мс, максимум ${Math.max(...ms)} мс`
+          : "—";
+      })()}; записано: ${runs.reduce((n, r) => n + (typeof r.written === "number" ? r.written : 0), 0)}`,
       `Кандидаты: ${candidates.length}; вердикты ${JSON.stringify(count(candidates.map((c) => c.verdict)))}`,
       "",
       "Принятые — разметьте верно / неверно:",

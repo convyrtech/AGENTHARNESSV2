@@ -73,7 +73,7 @@ describe("casual-prefs", () => {
   });
 
   it("shows «Поиск в интернете» to everyone only once SEARCH_READY (#23)", () => {
-    // RC check (desktop/ui-rc): SEARCH_READY is true, so the default shows it
+    // alpha.2: SEARCH_READY is true, so the default shows it
     expect(isSettingsSectionVisible("webSearch", false)).toBe(true);
     expect(isSettingsSectionVisible("webSearch", false, false)).toBe(false);
     expect(isSettingsSectionVisible("webSearch", true, false)).toBe(true);

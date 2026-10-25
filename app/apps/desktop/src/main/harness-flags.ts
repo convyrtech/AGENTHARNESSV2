@@ -28,19 +28,20 @@ function readRaw(path: string): Record<string, unknown> {
 }
 
 /**
- * Missing file or flag: the second opinion is on; in the RC check memory, auto memory, honest exit
- * and web tools are on too. The test guard and the claim check stay off (research/24 §2, #25).
+ * Missing file or flag: the second opinion, memory, auto memory and web tools are on (MVP
+ * defaults since 25.10, owner's call; research/24 §3, #23); the honesty checks are off until
+ * turned on. A value the user wrote (memory: false, autoMemory: "off", webTools: false) stays:
+ * users of alpha.1 have no such keys, so they get the new defaults.
  */
 export function readHarnessFlags(path: string): HarnessFlags {
   const raw = readRaw(path);
   const auto = raw.autoMemory;
   return {
     secondOpinion: raw.secondOpinion !== false,
-    // RC check (desktop/ui-rc): on unless the file says false; must match the harness
-    // (packages/prsloy-harness/src/flags.ts). testGuard waits for the owner's #25.
     memory: raw.memory !== false,
+    // research/24 §2 «трубы»: the harness reads the same keys (packages/prsloy-harness/src/flags.ts)
     autoMemory: auto === "off" || auto === "shadow" ? auto : true,
-    honestExit: raw.honestExit !== false,
+    honestExit: raw.honestExit === true,
     testGuard: raw.testGuard === true,
     claimCheck: raw.claimCheck === true,
     webTools: raw.webTools !== false,

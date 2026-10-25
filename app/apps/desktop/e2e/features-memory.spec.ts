@@ -47,8 +47,8 @@ test("a memory card in the chat and the «Память» settings", async () => 
     await expect(page.getByTestId("settings-memory")).toContainText("Запоминать, когда я прошу");
     await expect(page.getByTestId("memory-unavailable")).toHaveCount(0);
     await expect(page.getByTestId("memory-user")).toContainText("Отвечать коротко, без умных слов");
+    // Memory is on by default (MVP, 25.10): the switch shows what main reads.
     const toggle = page.getByTestId("settings-memory-toggle");
-    // RC check (desktop/ui-rc): on by default
     await expect(toggle).toHaveAttribute("aria-checked", "true");
     await shot(page, "memory-2-settings-before");
 

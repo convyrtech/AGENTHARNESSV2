@@ -5,10 +5,9 @@ import { describe, expect, it, vi } from "vite-plus/test";
 
 const DEFAULTS = {
   secondOpinion: true,
-  // RC check (desktop/ui-rc): memory, auto memory, honest exit and web tools on by default
   memory: true,
   autoMemory: true,
-  honestExit: true,
+  honestExit: false,
   testGuard: false,
   claimCheck: false,
   webTools: true,
@@ -48,6 +47,18 @@ describe("harness flags (prsloy-harness.json)", () => {
     });
   });
 
+  it("MVP: memory and auto memory on for a file without them (alpha.1); off by hand stays off", () => {
+    const dir = mkdtempSync(join(tmpdir(), "flags-"));
+    const path = harnessFlagsPath(dir);
+    // An alpha.1 profile: the settings file has other keys, no memory keys.
+    writeFileSync(path, JSON.stringify({ secondOpinion: true, webTools: false }));
+    expect(readHarnessFlags(path)).toMatchObject({ memory: true, autoMemory: true });
+    writeFileSync(path, JSON.stringify({ memory: false }));
+    expect(readHarnessFlags(path)).toMatchObject({ memory: false, autoMemory: true });
+    writeFileSync(path, JSON.stringify({ autoMemory: "off" }));
+    expect(readHarnessFlags(path)).toMatchObject({ memory: true, autoMemory: "off" });
+  });
+
   it("research/24 flags: autoMemory off | shadow | true, the honesty checks are booleans", () => {
     const path = harnessFlagsPath(mkdtempSync(join(tmpdir(), "flags-")));
     expect(writeHarnessFlags(path, { autoMemory: "shadow", testGuard: true })).toEqual({
@@ -67,11 +78,12 @@ describe("harness flags (prsloy-harness.json)", () => {
     expect(() => writeHarnessFlags(path, { honestExit: "on" })).toThrow();
   });
 
-  it("webTools (issue #23): web_search and web_fetch in «Код», on in the RC, a boolean", () => {
+  it("webTools (issue #23): web_search and web_fetch in «Код», on by default (alpha.2), a hand-set false stays", () => {
     const path = harnessFlagsPath(mkdtempSync(join(tmpdir(), "flags-")));
     expect(readHarnessFlags(path).webTools).toBe(true);
     expect(writeHarnessFlags(path, { webTools: false })).toEqual({ ...DEFAULTS, webTools: false });
     expect(JSON.parse(readFileSync(path, "utf8"))).toEqual({ webTools: false });
+    expect(readHarnessFlags(path).webTools).toBe(false);
     expect(() => writeHarnessFlags(path, { webTools: "on" })).toThrow();
   });
 
