@@ -1,13 +1,13 @@
 import { expect, test, type Page } from "@playwright/test";
 import { _electron as electron, type ElectronApplication } from "playwright";
-import { existsSync, readFileSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { homedir, tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { GOOD_KEY, scriptedGateway, type ScriptRule } from "./first-hour-gateway.ts";
-import { shot } from "./features-helpers.ts";
+import { shot as docsShot } from "./features-helpers.ts";
 
 /**
  * A novice's first hour, live-like: the real first run (key → folder), the real PRSLOY provider and
@@ -15,6 +15,46 @@ import { shot } from "./features-helpers.ts";
  * One journey per test, each ending in a screenshot (docs/prsloy/screens/features-first-hour-*.png).
  * What a person who never programmed trips over is written down in STATUS-features.md.
  */
+/**
+ * Nightly (scripts/first-hour-nightly.mjs): with FIRST_HOUR_OUT set, screenshots go there instead of the docs,
+ * and each one also records what a novice sees at that moment — the cards in the chat and the last reply — in
+ * seen.jsonl, which the script turns into NOVICE.md («что видит новичок»).
+ */
+const OUT = process.env.FIRST_HOUR_OUT?.trim() || undefined;
+
+async function shot(page: Page, name: string): Promise<void> {
+  if (!OUT) {
+    await docsShot(page, name);
+    return;
+  }
+  mkdirSync(join(OUT, "screens"), { recursive: true });
+  await page.waitForTimeout(300);
+  await page.screenshot({ path: join(OUT, "screens", `${name}.png`) });
+  const seen = await page.evaluate(() => {
+    const text = (el: Element) => (el as HTMLElement).innerText.replace(/\s+/gu, " ").trim();
+    const cards = [
+      ...document.querySelectorAll('[data-kind="system"], [data-testid="turn-status"]'),
+    ]
+      .map(text)
+      .filter(Boolean);
+    const dialog = document.querySelector('[role="dialog"], [role="alertdialog"]');
+    // The reply without its trailing time («вс 20:56»).
+    const replies = [...document.querySelectorAll('[data-kind="assistant"]')].map((el) =>
+      text(el).replace(/\s+\S{2}\s+\d{1,2}:\d{2}$/u, ""),
+    );
+    return {
+      title: document.querySelector("h1, h2")?.textContent?.trim() ?? "",
+      cards: [...new Set(cards)].slice(0, 12),
+      dialog: dialog ? text(dialog) : "",
+      reply: replies.at(-1) ?? "",
+    };
+  });
+  appendFileSync(
+    join(OUT, "seen.jsonl"),
+    `${JSON.stringify({ shot: name, test: test.info().title, ...seen })}\n`,
+  );
+}
+
 const require = createRequire(import.meta.url);
 const electronBinary = require("electron") as string;
 const APP = join(dirname(fileURLToPath(import.meta.url)), "..");
