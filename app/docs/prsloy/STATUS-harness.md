@@ -135,3 +135,65 @@ $ pnpm test                         # exit 0
 Не сделано: на Windows `__prsloy_pkill` не работает (нет групп процессов), поэтому там `pkill -f` блокируется,
 а не переписывается; Windows-ветки (`taskkill`, `netstat`) проверены только разбором, живой проверки под
 Windows нет — её даёт CI `windows-latest`.
+
+## Этап 3 — ветки Windows вживую
+
+### Сначала: хост падал при старте (регрессия этапа 2)
+
+При локальном прогоне собранного `apps/desktop` (Electron под xvfb) `Start Host` не поднимался:
+`Agent Host exited with code 1: Calling require for "assert" in an environment that doesn't expose the
+require function`. Причина — мой импорт `signal-exit@3` (CommonJS) на этапе 2: `vite.agent.config.ts`
+собирает хост в ESM-бандл, и `require("assert")` внутри него падает. `pnpm test` этого не видел: юнит-тесты
+не запускают бандл. Исправлено в b137761 (отдельный коммит):
+
+- `signal-exit` не импортируется; подписка на общий эмиттер, который уже держит копия Pi
+  (`process.__signal_exit_emitter__` / `Symbol.for("signal-exit emitter")`) — ровно то, что делает `onExit()`;
+  без него — свои обработчики сигналов, только если сигнал никто не слушает.
+- `postcss` (тоже CommonJS) в бандле не грузится (`require("fs")`): проверка CSS переходит на встроенную
+  проверку комментариев, строк и скобок. Чтобы работали все CommonJS-зависимости хоста, ядру стоит добавить в
+  `vite.agent.config.ts` баннер `import { createRequire } from "node:module"; const require =
+  createRequire(import.meta.url);` — файл не мой, не трогал.
+- Новый тест `test/host-bundle.test.ts` собирает пакет так же, как хост (ESM, внешние — только Pi и модули Node),
+  и запускает его в чистом Node: загрузка, все практики, проверка CSS.
+
+### Smoke-спека `apps/desktop/e2e-smoke/harness.spec.ts`
+
+Самодостаточна (свой запуск приложения и свой мок модели: `helpers.ts` фиксирует `ZENO_TOOLS=read,bash` и
+одновызовный `FakeOpenAiServer`). Модель на каждое «harness step N» делает один вызов; проверяется текст
+результата тула, который приложение вернуло модели:
+
+| Шаг | Вызов | Ожидание |
+|---|---|---|
+| 1 | `(python -m http.server P > srv.log 2>&1 &) && sleep 2 && curl … http://127.0.0.1:P/` | `[exit 0`, `200`, «запущен через реестр харнесса», `порт P` |
+| 2 | `pkill -f "http.server P"; echo shell-alive` | `[exit 0`, `shell-alive`, «выполнено через реестр: остановлены bg1», порт P свободен |
+| 3 | `echo before-hang; sleep 60; echo never` при `PRSLOY_BASH_TIMEOUT_SEC=5` | `before-hang`, без `never`, «[Процесс остановлен по таймауту 5 с.]» |
+| 4 | `taskkill /IM bash.exe /F` | «не выполнено» и подсказка `process action=stop` |
+| 5 | `write broken.js` с `const a = ;` | «[Проверка синтаксиса (node --check): ОШИБКА в broken.js», `SyntaxError` (node — сам PRSLOY.exe с `ELECTRON_RUN_AS_NODE=1`) |
+| 6 | `python -m http.server Q &`, затем выход из приложения | порт Q отвечал, после выхода свободен |
+
+Артефакты в `smoke-out/` (их уже выгружает шаг `prsloy-win-smoke`): `harness-requests.jsonl` (все запросы к
+модели), `harness-sessions/*.jsonl` (сессия pi), `harness-results.json`, `harness-steps.png`, логи main/renderer.
+
+Для этого в пакете: `PRSLOY_BASH_TIMEOUT_SEC` (таймаут bash по умолчанию из env, как `PRSLOY_PROFILE`) и
+очистка цветов node в строке проверки синтаксиса.
+
+`.github/workflows/desktop-windows.yml`: одна строка — `harness.spec.ts` добавлен в список шага «Smoke test
+(installed app)». Больше `.github/` не трогал.
+
+### Как проверено
+
+Локально (Linux, собранный `apps/desktop`, Electron 43 под xvfb, `SMOKE_DEV_APP=$PWD`):
+
+```
+✓ 1: `(python -m http.server &)` goes to the harness registry (3.1s)
+✓ 2: pkill -f is routed through the registry, the shell survives (380ms)
+✓ 3: a hanging command hits the harness bash timeout (6.1s)
+✓ 4: taskkill of bash.exe is blocked with the hint (270ms)
+✓ 5: a broken .js write gets the post-edit syntax line (767ms)
+✓ 6: a background server left running dies with the app (751ms)
+6 passed (16.3s)
+```
+
+`pnpm check` — чисто; `pnpm test` — exit 0 (harness 138, agent-runtime 118, desktop 903).
+
+Windows (`workflow_dispatch` `desktop-windows.yml` на `desktop/harness`, run 40160871223): WINDOWS_RESULT
