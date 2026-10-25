@@ -15,7 +15,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { formatSelectTitle } from "../lib/extension-ui-format.ts";
-import type { Locale } from "../lib/i18n.ts";
+import { t, type Locale } from "../lib/i18n.ts";
 import { MarkdownContent } from "./MarkdownContent.tsx";
 
 const PREVIEW_MD_CLASS =
@@ -24,11 +24,16 @@ const PREVIEW_MD_CLASS =
   "[&_pre]:my-1.5 [&_p]:my-1 [&_ul]:my-1 [&_ol]:my-1 [&_li]:my-0.5 " +
   "[&_table]:my-1.5 [&_h1]:my-1 [&_h2]:my-1 [&_h3]:my-1";
 
+/** request_secret's field mark (prsloy-harness `SECRET_PLACEHOLDER_PREFIX`). */
+export const SECRET_MARK = "secret:";
+
 export function ExtensionUiInputDialog(props: {
   open: boolean;
   title: string;
   initialValue: string;
   multiline?: boolean;
+  /** A key or token: hidden as typed, with where it goes; «Сохранить». */
+  secret?: boolean;
   locale?: Locale;
   confirmLabel?: string;
   cancelLabel?: string;
@@ -123,6 +128,14 @@ export function ExtensionUiInputDialog(props: {
           <Input
             ref={inputRef}
             data-testid="extension-ui-input-field"
+            {...(props.secret
+              ? {
+                  type: "password",
+                  autoComplete: "off",
+                  spellCheck: false,
+                  placeholder: t(props.locale ?? "ru", "features.secret.placeholder"),
+                }
+              : {})}
             value={value}
             onChange={(e) => setValue(e.target.value)}
             onKeyDown={(e) => {
@@ -134,6 +147,14 @@ export function ExtensionUiInputDialog(props: {
             className="h-9 text-[13px]"
           />
         )}
+        {props.secret ? (
+          <p
+            className="m-0 text-[12px] leading-relaxed text-muted-foreground"
+            data-testid="extension-ui-secret-note"
+          >
+            {t(props.locale ?? "ru", "features.secret.note")}
+          </p>
+        ) : null}
         <DialogFooter className="gap-2 sm:justify-end">
           <Button
             type="button"
@@ -148,7 +169,9 @@ export function ExtensionUiInputDialog(props: {
             {props.cancelLabel ?? "Cancel"}
           </Button>
           <Button type="button" size="sm" data-testid="extension-ui-input-confirm" onClick={submit}>
-            {props.confirmLabel ?? "OK"}
+            {props.secret
+              ? t(props.locale ?? "ru", "features.secret.save")
+              : (props.confirmLabel ?? "OK")}
           </Button>
         </DialogFooter>
       </DialogContent>

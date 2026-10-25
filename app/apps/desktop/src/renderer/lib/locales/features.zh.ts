@@ -99,6 +99,9 @@ export const featuresZh = {
   "features.memory.chat.forgotNone": "这个对话里没有只在这里学到的内容",
   "features.memory.chat.forgotNoneHint": "别的对话里也提到的内容只去掉了这个对话的引用。",
   "features.memory.chat.done": "完成",
+  "features.secret.placeholder": "粘贴密钥",
+  "features.secret.note": "密钥保存在项目文件夹的 .env 文件里，不会发给模型，也不会出现在对话里。",
+  "features.secret.save": "保存",
   "features.memory.autoToggle": "自动注意重要内容",
   "features.memory.autoToggleHint":
     "代理会从你自己的话中记住重要内容：怎么回答、你喜欢什么、项目决定。绝不从文件或网站记忆。",
