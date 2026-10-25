@@ -106,5 +106,6 @@ GIT_ROOT=C:\Users\runneradmin\AppData\Local\Temp\prsloy-smoke-clean-…\userData
   (bash: `PRSLOY_SMOKE_42`, `/bin/bash`).
 - CI, `desktop-windows` на `desktop/ci`, все зелёные. Исследование: 40144577288, 40145410772, 40146190949,
   40146870805, 40147775976 (MinGit vs PortableGit). На интегрированном `main`, со строгим clean-bash:
-  40149024243 и 40149932681 (`main` с ru UI и first-run). Smoke-прогон:
-  https://github.com/convyrtech/AGENTHARNESSV2/actions/runs/40149932681 (финальный — см. ниже). Артефакты `prsloy-win-x64` (установщик) и `prsloy-win-smoke` (скриншоты, логи, json) — 14 дней.
+  40149024243, 40149932681, **40150827601** (`main` 6a71f7a с ru UI, first-run и харнессом; 2/2 теста, bash
+  с заголовком `[exit 0 …]` и с Git, и без него). Smoke-прогон:
+  https://github.com/convyrtech/AGENTHARNESSV2/actions/runs/40150827601 Артефакты `prsloy-win-x64` (установщик) и `prsloy-win-smoke` (скриншоты, логи, json) — 14 дней.
