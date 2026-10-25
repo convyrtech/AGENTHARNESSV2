@@ -14,6 +14,9 @@ export const IMPORT_TOOL_NAMES: Record<ImportToolId, string> = {
   opencode: "OpenCode",
   gemini: "Gemini CLI",
   "cursor-agent": "Cursor",
+  cline: "Cline",
+  "roo-code": "Roo Code",
+  "kilo-code": "Kilo Code",
 };
 /** At most this many chats in one go (Codex's limit). */
 export const IMPORT_MAX_CHATS = 50;

@@ -11,6 +11,9 @@ export const IMPORT_TOOLS = [
   "opencode",
   "gemini",
   "cursor-agent",
+  "cline",
+  "roo-code",
+  "kilo-code",
 ] as const;
 export type ImportTool = (typeof IMPORT_TOOLS)[number];
 
@@ -21,6 +24,9 @@ export const IMPORT_TOOL_LABELS: Record<ImportTool, string> = {
   opencode: "OpenCode",
   gemini: "Gemini CLI",
   "cursor-agent": "Cursor",
+  cline: "Cline",
+  "roo-code": "Roo Code",
+  "kilo-code": "Kilo Code",
 };
 
 export type ImportedTurn = {

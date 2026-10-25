@@ -21,6 +21,9 @@ describe("scanSources", () => {
       opencode: { chats: 0, projects: 0, recent: 0 },
       gemini: { chats: 0, projects: 0, recent: 0 },
       "cursor-agent": { chats: 0, projects: 0, recent: 0 },
+      cline: { chats: 0, projects: 0, recent: 0 },
+      "roo-code": { chats: 0, projects: 0, recent: 0 },
+      "kilo-code": { chats: 0, projects: 0, recent: 0 },
     });
     expect(result.skipped).toEqual([]);
     expect(result.selected).toHaveLength(5);
@@ -71,6 +74,8 @@ describe("scanSources", () => {
         opencodeData: "/нет/4",
         geminiDir: "/нет/5",
         cursorDir: "/нет/6",
+        editorData: "/нет/7",
+        clineData: "/нет/8",
       },
       ledger: emptyLedger(),
     });

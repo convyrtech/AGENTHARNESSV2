@@ -10,7 +10,10 @@ export type ImportToolId =
   | "pi-cli"
   | "opencode"
   | "gemini"
-  | "cursor-agent";
+  | "cursor-agent"
+  | "cline"
+  | "roo-code"
+  | "kilo-code";
 
 export type ImportToolCount = { chats: number; projects: number; recent: number };
 

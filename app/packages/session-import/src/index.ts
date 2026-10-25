@@ -8,6 +8,7 @@ export { readPiCliSession } from "./adapters/pi-cli.ts";
 export { readOpenCodeChat } from "./adapters/opencode.ts";
 export { readGeminiChat } from "./adapters/gemini.ts";
 export { readCursorChat } from "./adapters/cursor-agent.ts";
+export { readClineChat } from "./adapters/cline-family.ts";
 export { buildSummary } from "./summary.ts";
 export {
   buildPiSession,

@@ -7,6 +7,7 @@
  */
 import { readClaudeCodeChat } from "./adapters/claude-code.ts";
 import { codexTitles, readCodexChat } from "./adapters/codex.ts";
+import { readClineChat } from "./adapters/cline-family.ts";
 import { readCursorChat } from "./adapters/cursor-agent.ts";
 import { readGeminiChat } from "./adapters/gemini.ts";
 import { readOpenCodeChat, releaseOpenCodeSnapshots } from "./adapters/opencode.ts";
@@ -103,6 +104,19 @@ async function prepare(
       break;
     case "cursor-agent":
       chat = await readCursorChat(candidate.sourcePath, candidate.cwd);
+      break;
+    case "cline":
+    case "roo-code":
+    case "kilo-code":
+      chat = await readClineChat(
+        {
+          tool: candidate.tool,
+          id: candidate.sourceId,
+          path: candidate.sourcePath,
+          title: candidate.title,
+        },
+        candidate.cwd,
+      );
       break;
     default: {
       const unknown: never = candidate.tool;

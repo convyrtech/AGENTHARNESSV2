@@ -30,6 +30,10 @@ export type SourceRoots = {
   geminiDir: string;
   /** Cursor's folder: `~/.cursor` (Agent / CLI transcripts under `projects/<encoded>/agent-transcripts`). */
   cursorDir: string;
+  /** Where editors keep user data (`<root>/<Code|Cursor|…>/User/globalStorage`). */
+  editorData: string;
+  /** New Cline storage shared by its VS Code, CLI and JetBrains builds: `~/.cline/data`. */
+  clineData: string;
 };
 
 export function sourceRoots(
@@ -48,5 +52,12 @@ export function sourceRoots(
     ...(env.OPENCODE_DB ? { opencodeDb: env.OPENCODE_DB } : {}),
     geminiDir: join(env.GEMINI_CLI_HOME || home, ".gemini"),
     cursorDir: join(home, ".cursor"),
+    editorData:
+      platform === "win32"
+        ? env.APPDATA || join(home, "AppData", "Roaming")
+        : platform === "darwin"
+          ? join(home, "Library", "Application Support")
+          : env.XDG_CONFIG_HOME || join(home, ".config"),
+    clineData: join(home, ".cline", "data"),
   };
 }

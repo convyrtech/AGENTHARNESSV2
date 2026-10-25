@@ -2,6 +2,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import type { ImportProgress, ImportScanResult } from "@zeno/contracts";
+import { IMPORT_TOOL_NAMES } from "@/lib/session-import";
 import { ImportChats } from "./ImportChats.tsx";
 
 afterEach(cleanup);
@@ -9,12 +10,10 @@ afterEach(cleanup);
 const zero = { chats: 0, projects: 0, recent: 0 };
 const found: ImportScanResult = {
   counts: {
+    ...(Object.fromEntries(
+      Object.keys(IMPORT_TOOL_NAMES).map((tool) => [tool, zero]),
+    ) as ImportScanResult["counts"]),
     "claude-code": { chats: 2, projects: 1, recent: 2 },
-    codex: zero,
-    "pi-cli": zero,
-    opencode: zero,
-    gemini: zero,
-    "cursor-agent": zero,
   },
   chats: [
     {

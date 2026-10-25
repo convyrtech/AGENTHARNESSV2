@@ -29,7 +29,15 @@ describe("paths", () => {
       opencodeData: join("/h", ".local", "share", "opencode"),
       geminiDir: join("/h", ".gemini"),
       cursorDir: join("/h", ".cursor"),
+      editorData: join("/h", ".config"),
+      clineData: join("/h", ".cline", "data"),
     });
+    expect(
+      sourceRoots(
+        { USERPROFILE: "C:\\Users\\Пётр", APPDATA: "C:\\Users\\Пётр\\AppData\\Roaming" },
+        "win32",
+      ).editorData,
+    ).toBe("C:\\Users\\Пётр\\AppData\\Roaming");
     expect(sourceRoots({ HOME: "/h", GEMINI_CLI_HOME: "/g" }, "linux").geminiDir).toBe(
       join("/g", ".gemini"),
     );

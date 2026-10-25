@@ -6,6 +6,7 @@
  */
 import { claudeCodeCandidate, claudeCodeFiles } from "./adapters/claude-code.ts";
 import { codexCandidate, codexFiles, codexTitles, richestPerChat } from "./adapters/codex.ts";
+import { clineCandidate, clineTasks } from "./adapters/cline-family.ts";
 import { cursorCandidate, cursorTranscripts } from "./adapters/cursor-agent.ts";
 import { geminiCandidate, geminiChatFiles, newestGeminiFile } from "./adapters/gemini.ts";
 import {
@@ -51,6 +52,15 @@ async function mapLimited<T, R>(items: T[], map: (item: T) => Promise<R>): Promi
   return results;
 }
 
+/** A source whose listing itself fails is skipped, not the whole scan. */
+function safelySync<T>(list: () => T[]): T[] {
+  try {
+    return list();
+  } catch {
+    return [];
+  }
+}
+
 async function safely<T>(look: () => Promise<T | undefined>): Promise<T | undefined> {
   try {
     return await look();
@@ -83,10 +93,21 @@ export async function scanSources(options: {
     mapLimited(piFiles, (file) => safely(() => piCliCandidate(file))),
     mapLimited(geminiChatFiles(roots), (file) => safely(() => geminiCandidate(file))),
     mapLimited(cursorTranscripts(roots), (file) => safely(() => cursorCandidate(file))),
+    mapLimited(
+      safelySync(() => clineTasks(roots)),
+      (task) => safely(() => clineCandidate(task)),
+    ),
   ]);
-  const [claude, codexAll, pi, gemini, cursor] = found.map((list) =>
+  const [claude, codexAll, pi, gemini, cursor, clineFamily] = found.map((list) =>
     list.filter((c): c is ChatCandidate => c !== undefined),
-  ) as [ChatCandidate[], ChatCandidate[], ChatCandidate[], ChatCandidate[], ChatCandidate[]];
+  ) as ChatCandidate[][] as [
+    ChatCandidate[],
+    ChatCandidate[],
+    ChatCandidate[],
+    ChatCandidate[],
+    ChatCandidate[],
+    ChatCandidate[],
+  ];
   const opencode: ChatCandidate[] = [];
   const skipped: SourceSkip[] = [];
   try {
@@ -105,6 +126,7 @@ export async function scanSources(options: {
     ...opencode,
     ...newestGeminiFile(gemini),
     ...cursor,
+    ...clineFamily,
   ]
     .map((c) => (isImported(ledger, c) ? { ...c, alreadyImported: true } : c))
     .sort((a, b) => b.updatedAt - a.updatedAt);

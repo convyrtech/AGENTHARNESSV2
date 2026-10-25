@@ -121,3 +121,8 @@
   (`packages/core/src/services/chatRecordingTypes.ts`, `chatRecordingService.ts`, `config/projectRegistry.ts`, коммит
   `cd1b45c`). Apache License 2.0, Copyright 2025 Google LLC. Изменено PRSLOY: только текст с пометками инструментов, только
   чтение, чаты субагентов пропускаются, код переписан на нашу схему разбора.
+- `packages/session-import/src/adapters/cline-family.ts` — где Cline, Roo Code и Kilo Code держат задачи и их индекс
+  (`state/taskHistory.json`, `tasks/_index.json`, строка в `state.vscdb`, поле папки `cwdOnTaskInitialization` /
+  `workspace`) — по [jhlee0409/claude-code-history-viewer](https://github.com/jhlee0409/claude-code-history-viewer)
+  (`src-tauri/src/providers/cline.rs`, MIT License, Copyright (c) jhlee0409) и cline/cline (Apache-2.0,
+  `apps/vscode/src/core/storage`, `src/shared/HistoryItem.ts`, коммит `40c5d99`). Код не копировался.

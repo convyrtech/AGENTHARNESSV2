@@ -983,3 +983,28 @@ Playwright) с точным временем кадров, ffmpeg собирае
      - пометка и маркер сжатия;
      - e2e: значок «Claude Code» в строке чата и пометка в чате.
    - Скриншот: `screens/imported-chat.png`.
+6. **Cline, Roo Code, Kilo Code** — три строки в списке программ, один разбор (`adapters/cline-family.ts`).
+   - Где искать: папки данных редакторов (`%APPDATA%` на Windows, `~/.config` на Linux, Application Support на macOS):
+     `Code`, `Code - Insiders`, `Cursor`, `VSCodium`, `Codium`, `Windsurf` → `User\globalStorage\<расширение>\tasks\<id>\
+api_conversation_history.json`; новый Cline — `~\.cline\data`.
+   - Папка проекта — из индекса задач (`cwdOnTaskInitialization` у Cline, `workspace` у Roo и Kilo). Индекс берётся по
+     порядку: `state/taskHistory.json`, `tasks/_index.json`, `tasks/taskHistory.json`, иначе строка расширения в
+     `state.vscdb` самого редактора (через ту же копию SQLite только на чтение — так у Kilo). Задачу без папки не
+     предлагаем.
+   - Что переносится:
+     - слова человека из `<task>`, `<feedback>`, `<user_message>`, `<answer>` (ответ на вопрос агента приходит внутри
+       результата инструмента — его тоже достаём);
+     - ответы агента; вызовы инструментов, и структурные (`tool_use`), и старые XML в тексте (`<write_to_file>…`),
+       становятся пометками;
+     - из `<attempt_completion>` / `<ask_followup_question>` / `<plan_mode_respond>` остаются сами слова.
+   - Что не переносится: `<environment_details>`, `<thinking>` и результаты инструментов. Старые текстовые результаты
+     («[write_to_file for 'a'] Result:») тоже считаются результатами.
+   - Копия задачи, перенесённая в `~/.cline/data`, не дублируется: берётся более свежий файл.
+   - Проверки: синтетический профиль, который собирается в тесте (домашняя папка «Пётр», пути `C:\Users\Пётр\…`):
+     - все три способа хранить индекс;
+     - задача без индекса;
+     - миграция в `.cline`;
+     - разбор старого и нового формата;
+     - полный перенос всех трёх.
+   - Не сделано: Kilo CLI с 2026-05 хранит чаты в `~/.local/share/kilo/kilo.db` по схеме OpenCode. Это отдельный
+     источник, его можно добавить через разбор OpenCode следующим шагом.

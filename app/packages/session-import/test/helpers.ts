@@ -77,6 +77,8 @@ export async function fakeMachine(): Promise<{
     opencodeData: join(home, ".local", "share", "opencode"),
     geminiDir: join(home, ".gemini"),
     cursorDir: join(home, ".cursor"),
+    editorData: join(home, "AppData", "Roaming"),
+    clineData: join(home, ".cline", "data"),
   };
   await cp(join(FIXTURES, "claude-code", "projects"), roots.claudeProjects, { recursive: true });
   await cp(join(FIXTURES, "codex"), roots.codexHome, { recursive: true });

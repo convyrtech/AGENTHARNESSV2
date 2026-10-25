@@ -4,6 +4,7 @@ import type { ImportChatSummary, ImportScanResult } from "@zeno/contracts";
 import { t } from "./i18n.ts";
 import {
   countText,
+  IMPORT_TOOL_NAMES,
   expandIfImported,
   IMPORT_MAX_CHATS,
   importKeys,
@@ -30,14 +31,9 @@ function chat(key: string, overrides: Partial<ImportChatSummary> = {}): ImportCh
 function scan(chats: ImportChatSummary[], selected: string[]): ImportScanResult {
   const zero = { chats: 0, projects: 0, recent: 0 };
   return {
-    counts: {
-      "claude-code": zero,
-      codex: zero,
-      "pi-cli": zero,
-      opencode: zero,
-      gemini: zero,
-      "cursor-agent": zero,
-    },
+    counts: Object.fromEntries(
+      Object.keys(IMPORT_TOOL_NAMES).map((tool) => [tool, zero]),
+    ) as ImportScanResult["counts"],
     chats,
     selected,
   };
