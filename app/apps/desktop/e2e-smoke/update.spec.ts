@@ -34,12 +34,14 @@ import {
   writeMetrics,
   type Launched,
 } from "./helpers.ts";
-import { startFeedServer, type FeedHit } from "./update-feed.ts";
+import { startGitHubFeed, type FakeRelease, type FeedHit } from "./update-feed.ts";
 
 const versionA = process.env.UPDATE_VERSION_A ?? "";
 const versionB = process.env.UPDATE_VERSION_B ?? "";
 const feedGood = process.env.UPDATE_FEED_GOOD ?? "";
 const feedBad = process.env.UPDATE_FEED_BAD ?? "";
+/** A's own release assets (its blockmap is the base of the differential download). */
+const releaseA = process.env.UPDATE_RELEASE_A ?? "";
 const installerA = process.env.UPDATE_INSTALLER_A ?? "";
 const READY = '[data-testid="prsloy-update-ready"]';
 
@@ -117,9 +119,19 @@ function desktopScreenshot(name: string): void {
   }
 }
 
+/** Releases as on github.com, newest first; A's tag carries A's assets. */
+function releases(...newer: FakeRelease[]): FakeRelease[] {
+  return [...newer, { tag: `v${versionA}`, dir: releaseA }];
+}
+
+function startGitHub(list: FakeRelease[]) {
+  return startGitHubFeed({ owner: "convyrtech", repo: "AGENTHARNESSV2", releases: list });
+}
+
 function summarize(hits: FeedHit[]) {
   const yml = hits.find((h) => h.path.endsWith(".yml"));
-  const exeHits = hits.filter((h) => h.path.endsWith(".exe"));
+  // Bytes come from the «objects» host after GitHub's 302.
+  const exeHits = hits.filter((h) => h.path.endsWith(".exe") && h.host === "objects");
   const blockmaps = hits.filter((h) => h.path.endsWith(".blockmap")).map((h) => h.path);
   return {
     firstYmlMs: yml?.t ?? null,
@@ -128,6 +140,10 @@ function summarize(hits: FeedHit[]) {
     exeRequests: exeHits.length,
     rangedExeRequests: exeHits.filter((h) => h.range).length,
     blockmaps,
+    /** GitHub-side requests in order: atom, channel files, downloads (path + status). */
+    github: hits
+      .filter((h) => h.host === "github")
+      .map((h) => `${h.path.replace("/convyrtech/AGENTHARNESSV2/releases", "")} ${h.status}`),
   };
 }
 
@@ -141,7 +157,10 @@ async function launchA(label: string, feedUrl: string, gatewayBase: string): Pro
 
 test.beforeAll(async () => {
   await beforeAllSmoke();
-  expect(versionA && versionB && feedGood && feedBad && installerA, "UPDATE_* env").toBeTruthy();
+  expect(
+    versionA && versionB && feedGood && feedBad && releaseA && installerA,
+    "UPDATE_* env",
+  ).toBeTruthy();
 });
 
 const updaterCache = join(process.env.LOCALAPPDATA ?? "", "prsloy-updater");
@@ -157,7 +176,7 @@ test.beforeEach(() => {
 
 test("tampered update (sha512 mismatch): A refuses quietly and keeps running", async () => {
   test.skip(process.platform !== "win32", "Windows only");
-  const feed = await startFeedServer(feedBad);
+  const feed = await startGitHub(releases({ tag: `v${versionB}`, dir: feedBad }));
   const gateway = await startGateway();
   let launched: Launched | undefined;
   try {
@@ -168,7 +187,7 @@ test("tampered update (sha512 mismatch): A refuses quietly and keeps running", a
 
     // The download is attempted, then rejected: wait for the installer requests to stop.
     await expect
-      .poll(() => feed.hits.some((h) => h.path.endsWith(".exe")), {
+      .poll(() => feed.hits.some((h) => h.path.endsWith(".exe") && h.host === "objects"), {
         timeout: 180_000,
       })
       .toBe(true);
@@ -218,7 +237,13 @@ test("tampered update (sha512 mismatch): A refuses quietly and keeps running", a
 
 test("good update: detect, download, «Обновление готово — перезапустить», relaunch as B", async () => {
   test.skip(process.platform !== "win32", "Windows only");
-  const feed = await startFeedServer(feedGood);
+  // A non-semver tag on top (an old «desktop-v» name) must be skipped, not installed.
+  const feed = await startGitHub(
+    releases(
+      { tag: `desktop-v${versionB.replace(/\d+$/, "99")}`, dir: feedGood },
+      { tag: `v${versionB}`, dir: feedGood },
+    ),
+  );
   const gateway = await startGateway();
   let launched: Launched | undefined;
   let relaunched: Launched | undefined;
@@ -246,6 +271,18 @@ test("good update: detect, download, «Обновление готово — п�
     expect(Number(toDownload?.[2] ?? 100), "differential download").toBeLessThan(20);
     await shot(page, "31-update-ready");
     await writeMetrics({ updateGood: { readyMs, feed: summarize(feed.hits) } });
+    // The real GitHubProvider path: atom → channel file (alpha.yml 404 → latest.yml) via the
+    // tag's download URL → 302 → bytes from the objects host; the non-semver tag never touched.
+    const github = summarize(feed.hits).github;
+    expect(github[0], github.join("\n")).toBe(".atom 200");
+    expect(github, github.join("\n")).toContain(`/download/v${versionB}/latest.yml 302`);
+    expect(
+      github.some((h) => h.includes("desktop-v")),
+      github.join("\n"),
+    ).toBe(false);
+    expect(
+      feed.hits.some((h) => h.host === "objects" && h.path.endsWith(".exe") && h.status === 206),
+    ).toBe(true);
 
     // Click: quit → NSIS installs B (update mode, no wizard) → --force-run relaunches B.
     const before = new Set(runningInstalled().map((p) => p.Id));
@@ -357,5 +394,58 @@ test("good update: detect, download, «Обновление готово — п�
     await gateway.stop();
     await feed.stop();
     await writeFile(join(outDir, "update-feed-hits-good.json"), JSON.stringify(feed.hits, null, 2));
+  }
+});
+
+test("newest release has no assets yet: the check fails quietly, A keeps running", async () => {
+  test.skip(process.platform !== "win32", "Windows only");
+  // What a user sees while a release is published but CI has not attached latest.yml yet.
+  // GitHubProvider takes the first semver entry of the atom and does not fall back to older
+  // releases: ERR_UPDATER_CHANNEL_FILE_NOT_FOUND until the assets are there.
+  const feed = await startGitHub(
+    releases(
+      { tag: `v${versionB.replace(/\d+$/, "92")}`, dir: null },
+      { tag: `v${versionB}`, dir: feedGood },
+    ),
+  );
+  const gateway = await startGateway();
+  let launched: Launched | undefined;
+  try {
+    launched = await launchA("upd-noassets", feed.url, gateway.baseUrl);
+    gateway.setUpstream(launched.fakeModel.baseUrl);
+    await passFirstRun(launched);
+    const { page } = launched;
+    await expect
+      .poll(() => feed.hits.some((h) => h.path.endsWith("/latest.yml")), { timeout: 120_000 })
+      .toBe(true);
+    // No retry loop: stay a while and count requests.
+    await page.waitForTimeout(20_000);
+    const mainLog = await readFile(launched.mainLog, "utf8").catch(() => "");
+    const error = /ERR_UPDATER_\w+|Cannot find latest\.yml[^\n]*/.exec(mainLog)?.[0] ?? null;
+    const version = await launched.app.evaluate(({ app }) => app.getVersion());
+    const ready = await page.locator(READY).isVisible();
+    await page.getByTestId("prompt-input").fill("работаю дальше");
+    await expect(page.getByTestId("prompt-input")).toHaveValue("работаю дальше");
+    await shot(page, "34-update-noassets");
+    const summary = summarize(feed.hits);
+    await writeMetrics({
+      updateNoAssets: { feed: summary, error, versionAfter: version, readyShown: ready },
+    });
+    expect(summary.github.filter((h) => h === ".atom 200").length, "one check, no loop").toBe(1);
+    expect(summary.github.some((h) => h.includes(`/download/v${versionB}/`))).toBe(false);
+    expect(error, "updater error in the log").toMatch(
+      /CHANNEL_FILE_NOT_FOUND|Cannot find latest\.yml/,
+    );
+    expect(ready).toBe(false);
+    expect(version).toBe(versionA);
+    expect(launched.pageErrors, launched.pageErrors.join("\n\n")).toEqual([]);
+  } finally {
+    await close(launched);
+    await gateway.stop();
+    await feed.stop();
+    await writeFile(
+      join(outDir, "update-feed-hits-noassets.json"),
+      JSON.stringify(feed.hits, null, 2),
+    );
   }
 });

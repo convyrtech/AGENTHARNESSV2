@@ -42,12 +42,15 @@ export const DEFAULT_UPDATE_FEED = {
   releaseType: "prerelease" as const,
 };
 
-export type UpdateFeed = typeof DEFAULT_UPDATE_FEED | { provider: "generic"; url: string };
+export type UpdateFeed =
+  | typeof DEFAULT_UPDATE_FEED
+  | (typeof DEFAULT_UPDATE_FEED & { host: string; protocol: "http" | "https" });
 
 /**
- * Feed for this launch: GitHub, except in the Windows update e2e (CI), which serves a newer
- * build from a local HTTP server. The override needs PRSLOY_E2E=1 *and* a loopback URL, so
- * an env var can never point a real install at a remote feed.
+ * Feed for this launch: GitHub. The Windows update e2e (CI) serves releases from a local
+ * GitHub look-alike (releases.atom + /releases/download/<tag>/… → 302 to an «objects» host),
+ * so the same GitHubProvider path runs with only `host`/`protocol` changed. The override needs
+ * PRSLOY_E2E=1 *and* a loopback URL, so an env var can never point a real install elsewhere.
  */
 export function resolveUpdateFeed(env: NodeJS.ProcessEnv = process.env): UpdateFeed {
   const raw = env.PRSLOY_UPDATE_FEED_URL?.trim();
@@ -62,7 +65,11 @@ export function resolveUpdateFeed(env: NodeJS.ProcessEnv = process.env): UpdateF
   if (!loopback || (url.protocol !== "http:" && url.protocol !== "https:")) {
     return DEFAULT_UPDATE_FEED;
   }
-  return { provider: "generic", url: url.toString() };
+  return {
+    ...DEFAULT_UPDATE_FEED,
+    host: url.host,
+    protocol: url.protocol === "http:" ? "http" : "https",
+  };
 }
 
 /** No update traffic in test harnesses / CI launches. */

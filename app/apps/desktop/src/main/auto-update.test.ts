@@ -327,13 +327,13 @@ describe("resolveUpdateFeed", () => {
     );
   });
 
-  it("serves a loopback feed only in the update e2e", () => {
+  it("points the GitHub provider at a loopback host only in the update e2e", () => {
     expect(
-      resolveUpdateFeed({ PRSLOY_E2E: "1", PRSLOY_UPDATE_FEED_URL: "http://127.0.0.1:4567/feed" }),
-    ).toEqual({ provider: "generic", url: "http://127.0.0.1:4567/feed" });
+      resolveUpdateFeed({ PRSLOY_E2E: "1", PRSLOY_UPDATE_FEED_URL: "http://127.0.0.1:4567/" }),
+    ).toEqual({ ...DEFAULT_UPDATE_FEED, host: "127.0.0.1:4567", protocol: "http" });
     expect(
-      resolveUpdateFeed({ PRSLOY_E2E: "1", PRSLOY_UPDATE_FEED_URL: "http://localhost:4567/" }),
-    ).toEqual({ provider: "generic", url: "http://localhost:4567/" });
+      resolveUpdateFeed({ PRSLOY_E2E: "1", PRSLOY_UPDATE_FEED_URL: "https://localhost:4567/x" }),
+    ).toEqual({ ...DEFAULT_UPDATE_FEED, host: "localhost:4567", protocol: "https" });
   });
 
   it("never points at a remote or malformed feed", () => {
