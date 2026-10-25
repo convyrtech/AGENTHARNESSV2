@@ -46,7 +46,17 @@ def emit(**ev):
 class WS:
     def __init__(self, root):
         self.root = Path(root).resolve()
-        self.h = self.root / "harness"
+        # состояние харнесса (журнал, сессии, переписка судьи, шимы) — вне папки агента: в E9 DeepSeek потратил
+        # шаг на чтение ledger.jsonl и чужих сессий. Агенту в <ws>/harness остаются только его инструменты.
+        legacy = self.root / "harness" / "state.json"
+        env_dir = os.environ.get("HARNESS_STATE_DIR")
+        if env_dir:
+            self.h = Path(env_dir).resolve()
+        elif legacy.exists():
+            self.h = legacy.parent
+        else:
+            self.h = self.root.parent / f".{self.root.name}.harness"
+        self.tools = self.root / "harness"
         self.state_f = self.h / "state.json"
         self.state = json.loads(self.state_f.read_text(encoding="utf-8")) if self.state_f.exists() else {}
 
@@ -80,8 +90,10 @@ def init(a):
     if not (src / "tools" / "flow.py").exists():
         sys.exit("run.py init: нужна копия design-pipeline (--pipeline или DESIGN_PIPELINE)")
     ws.root.mkdir(parents=True, exist_ok=True)
-    for d in ("harness/tx", "harness/sessions", "harness/bin", "owner", "materials", "design", "site"):
+    for d in ("owner", "materials", "design", "site", "harness"):
         (ws.root / d).mkdir(parents=True, exist_ok=True)
+    for d in ("tx", "sessions", "bin"):
+        (ws.h / d).mkdir(parents=True, exist_ok=True)
     if not ws.pipe.exists():
         shutil.copytree(src, ws.pipe, ignore=shutil.ignore_patterns(".git", "__pycache__", "examples"))
         patch = HERE / "pipeline-fixes.patch"
@@ -102,8 +114,10 @@ def init(a):
     if cat.exists() and not (ws.root / "etalons").exists():
         shutil.copytree(cat, ws.root / "etalons", ignore=shutil.ignore_patterns("*.mp4", "frames*", "__pycache__"))
     shutil.copyfile(HERE / "AGENTS.md", ws.root / "AGENTS.md")
-    for f in ("check.py", "second_opinion.py", "moves.py"):
+    for f in ("check.py", "second_opinion.py"):                 # служебные: в состоянии харнесса
         shutil.copyfile(HERE / f, ws.h / f)
+    for f in ("moves.py", "check.py"):                           # инструменты агента: в его папке
+        shutil.copyfile(HERE / f, ws.tools / f)
     for name in SHIMS:                                   # чужие ИИ-программы первыми на PATH: блок в коде, не в промпте
         msg = "запрещено харнессом: другие ИИ-программы запускать нельзя (аккаунт и деньги владельца)"
         if WIN:
