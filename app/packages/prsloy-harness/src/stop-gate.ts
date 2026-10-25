@@ -23,6 +23,7 @@ import { headTail, showCard } from "./text.ts";
 import type { TurnChanges } from "./turn-changes.ts";
 import { modelFamily, recordEvent } from "./learning-log.ts";
 import { checkPagePaths, type PagePathReport, pagePathsMessage } from "./page-paths.ts";
+import { checkPage, type PageCheckResult, pageCheckMessage } from "./page-check.ts";
 import { intervene } from "./lessons.ts";
 
 export interface ProjectCheck {
@@ -221,7 +222,12 @@ export interface StopGateDeps {
   reviewEnabled?: () => boolean;
   /** Пути от корня в страницах (откроется ли двойным кликом); false — не проверять. */
   pagePaths?: ((cwd: string) => PagePathReport) | false;
+  /** Страница в браузере (файлом и через сервер, 390 и 1440); false — не проверять. undefined от функции — нечем. */
+  pageCheck?: ((cwd: string) => Promise<PageCheckResult | undefined>) | false;
 }
+
+/** Правки, после которых стоит открыть страницу в браузере. */
+const WEB_FILE = /\.(?:html?|css|m?js|jsx|tsx?|vue|svelte)$/i;
 
 /** Ревью не нужно, если поменялось меньше строк. */
 export const MIN_REVIEW_LINES = 5;
@@ -246,8 +252,10 @@ export function installStopGate(
     budget,
     reviewEnabled = () => true,
     pagePaths = checkPagePaths,
+    pageCheck = (cwd: string) => checkPage(cwd),
   } = typeof deps === "function" ? { runner: deps } : deps;
   let edited = false;
+  let webEdited = false;
   let pushbacks = 0;
   let gaveUp = false;
   let reviewed = false;
@@ -256,6 +264,7 @@ export function installStopGate(
   pi.on("before_agent_start", (event) => {
     if (event.messageType !== "user") return;
     edited = false;
+    webEdited = false;
     pushbacks = 0;
     gaveUp = false;
     reviewed = false;
@@ -263,7 +272,11 @@ export function installStopGate(
   });
 
   pi.on("tool_result", (event) => {
-    if ((event.toolName === "edit" || event.toolName === "write") && !event.isError) edited = true;
+    if ((event.toolName === "edit" || event.toolName === "write") && !event.isError) {
+      edited = true;
+      const path = (event.input as { path?: unknown }).path;
+      if (typeof path === "string" && WEB_FILE.test(path)) webEdited = true;
+    }
     return undefined;
   });
 
@@ -351,6 +364,28 @@ export function installStopGate(
         ],
         continue: true,
       };
+    }
+    // Страница в браузере — только если ход трогал файлы страницы (по edit/write или по теневому git).
+    const web = webEdited || (diff?.files ?? []).some((f) => WEB_FILE.test(f));
+    webEdited = false;
+    if (pageCheck && web && pushbacks < MAX_PUSHBACKS && !ctx.signal?.aborted) {
+      const page = await pageCheck(ctx.cwd);
+      if (page && !page.skipped && page.issues.length > 0) {
+        pushbacks += 1;
+        const tip = intervene(ctx, { kind: "gate.page", sig: "gate:page", n: pushbacks });
+        return {
+          entries: [
+            ...event.entries,
+            {
+              type: "custom_message",
+              customType: "prsloy-harness.stop-gate",
+              content: `${pageCheckMessage(page, pushbacks, MAX_PUSHBACKS)}${tip}`,
+              display: false,
+            },
+          ],
+          continue: true,
+        };
+      }
     }
     if (!diff?.patch) return undefined;
     const result = await review(diff.patch, checksSummary(check, run), ctx);

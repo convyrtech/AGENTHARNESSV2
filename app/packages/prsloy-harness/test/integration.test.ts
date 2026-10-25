@@ -15,6 +15,7 @@ import {
 import { afterEach, describe, expect, it } from "vite-plus/test";
 import { createPrsloyHarness, type HarnessOptions } from "../src/index.ts";
 import { TOOL_LEAK_NOTE } from "../src/tool-leak.ts";
+import { CHROMIUM, loadPlaywright } from "./playwright.ts";
 import { recordedFetch } from "./recorded-fetch.ts";
 import { messageText, ScriptedOpenAiServer, type Script } from "./scripted-openai-server.ts";
 
@@ -798,6 +799,35 @@ console.log("ok");
     expect(pushback).toContain("Страница не откроется двойным кликом");
     expect(pushback).toContain("index.html: /style.css");
   }, 60_000);
+
+  it("a page that scrolls sideways on a phone is opened in Chromium and pushed back with the place", async (t) => {
+    const pw = await loadPlaywright();
+    if (!pw) return t.skip();
+    const page = (width: string) => ({
+      toolCalls: [
+        {
+          name: "write",
+          arguments: {
+            path: "index.html",
+            content: `<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"></head><body><div id="menu" style="width:${width}">Меню пиццерии</div></body></html>`,
+          },
+        },
+      ],
+    });
+    const { session, server } = await startSession(
+      (_req, index) =>
+        [page("700px"), { text: "Готово." }, page("100%"), { text: "Поправил ширину." }][index] ?? {
+          text: "?",
+        },
+      { factory: { pageCheck: { playwright: pw, executablePath: CHROMIUM } } },
+    );
+    await session.prompt("сделай меню");
+    expect(server.requests).toHaveLength(4);
+    const pushback = JSON.stringify(server.requests[2]!.messages);
+    expect(pushback).toContain("Открыл index.html в браузере");
+    expect(pushback).toContain("390 px) страница шире окна");
+    expect(pushback).toContain("#menu «Меню пиццерии»");
+  }, 90_000);
 
   it("the model leaves a failing test, is pushed back once, fixes it, and the gate passes", async () => {
     const { session, server, cwd } = await startSession(

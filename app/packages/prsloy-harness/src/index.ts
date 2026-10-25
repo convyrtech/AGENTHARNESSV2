@@ -18,6 +18,7 @@ import { installDigest } from "./digest.ts";
 import { memoryDirFor } from "./memory-store.ts";
 import { installSecretScrub } from "./secret-scrub.ts";
 import { installStopGate } from "./stop-gate.ts";
+import { checkPage } from "./page-check.ts";
 import { installArgRepair } from "./arg-repair.ts";
 import { configureLearning, installLearningLog } from "./learning-log.ts";
 import { installToolLeak } from "./tool-leak.ts";
@@ -114,6 +115,7 @@ export function createPrsloyHarness(options: HarnessOptions = {}): (pi: Extensio
         ...(changes ? { changes } : {}),
         ...(budget ? { budget } : {}),
         ...(on("pagePaths") ? {} : { pagePaths: false as const }),
+        pageCheck: on("pageCheck") ? (cwd: string) => checkPage(cwd, opts.pageCheck) : false,
         ...(on("secondOpinion")
           ? {
               reviewer: modelReviewer(opts.review),
