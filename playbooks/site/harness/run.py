@@ -187,6 +187,25 @@ def tree_fp(*dirs):
     return h.hexdigest()
 
 
+def judge_cap_message(ws):
+    """Сообщение владельцу после лимита раундов судьи: снимок страницы, главное из находок, два варианта."""
+    jt = (ws.page / "artifacts" / "judge" / "JUDGE.md").read_text(encoding="utf-8")
+    rows = [[c.strip() for c in ln.strip().strip("|").split("|")] for ln in jt.splitlines()
+            if ln.strip().startswith("|") and not re.match(r"^\|\s*-", ln.strip()) and "Серьёзн" not in ln]
+    bad = [r for r in rows if r and re.match(r"(blocker|critical)", r[0], re.I)]
+    other = [r for r in rows if r and not re.match(r"(blocker|critical)", r[0], re.I)]
+    shot = next((s for s in ("contact-chromium-390.png", "contact-chromium-1440.png")
+                 if (ws.page / "artifacts" / "visual-gate" / s).exists()), None)
+    rel = f"design/{ws.state['page']}/artifacts/visual-gate/{shot}" if shot else ""
+    # подробности находок техничны для казуала: только счёт; список лежит в JUDGE.md для агента
+    lines = ([rel] if rel else []) + [
+        f"Страница собрана. Строгий проверяющий нашёл важных замечаний: {len(bad)}, мелких: {len(other)}.",
+        "А. Выложить как есть",
+        "Б. Исправить важные и показать снова (рекомендую)" if bad else "Б. Исправить и показать снова"]
+    files = [str((ws.root / rel).resolve())] if rel else []
+    return "\n".join(lines), files
+
+
 def snapshots_fp(ws):
     """Отпечаток контакт-листов гейта: судья смотрит их, новый раунд имеет смысл только по новым."""
     h = hashlib.sha1()
@@ -199,7 +218,7 @@ def snapshots_fp(ws):
 def run_judge(ws):
     r = subprocess.run([PY, "-I", str(HERE / "judge.py"), "--page", str(ws.page), "--transcripts", str(ws.h / "tx"),
                         "--pipeline", str(ws.pipe), "--model", CFG["judge"]["model"],
-                        "--max-rounds", str(CFG["judge"]["max_rounds"]), *PROXY],
+                        "--max-rounds", str(CFG["judge"]["max_rounds"] + ws.state.get("judge_bonus", 0)), *PROXY],
                        cwd=ws.root, capture_output=True, text=True, encoding="utf-8")
     ws.ledger(kind="judge", exit=r.returncode, out=r.stdout[-400:])
     return r.returncode, r.stdout.strip()
@@ -389,6 +408,18 @@ def say(a):
         ws.save()
     notes = list(ws.state.pop("carry_notes", []))
     ws.state["transport_errors"] = 0
+    if a.text and ws.state.pop("judge_cap_asked", False):
+        fix = re.match(r"\s*[бb6]\b", a.text.lower()) or "исправ" in a.text.lower()
+        if fix:
+            ws.state["judge_bonus"] = ws.state.get("judge_bonus", 0) + 1
+            notes.append(f"Владелец после лимита судьи ответил «{a.text}»: исправь находки Blocker и Critical, "
+                         "подтверждённые кадром, перезапусти гейт и закончи «ЭТАП ГОТОВ». Харнесс даст судье ещё раунд.")
+        else:
+            notes.append(f"Владелец после лимита судьи ответил «{a.text}»: если это согласие выложить как есть, запиши в "
+                         f"STATUS.md строку «ВЫБОР 7j: принять как есть · «{a.text}» · {dt.date.today()}» (его слова "
+                         "дословно), запусти flow.py и закончи «ЭТАП ГОТОВ». Если ответ про другое — сделай, что он "
+                         "просит, и закончи сообщением ему.")
+        ws.save()
     for _ in range(CFG["max_stages_per_turn"]):
         if not judge_intact(ws):
             emit(ev="stuck", text="переписку судьи меняли не через харнесс: результат судьи не принимается")
@@ -426,8 +457,18 @@ def say(a):
                 ws.save()
                 continue
             if code == 3:
-                notes = ["Лимит раундов судьи исчерпан. Покажи владельцу страницу и открытые находки JUDGE.md одним "
-                         "сообщением, решает он."]
+                # шаг 7 не пройти, пока судья FAIL, а показывать страницу до шага 7 пайплайн не даёт: пишет харнесс
+                text, files = judge_cap_message(ws)
+                h7 = ws.state.setdefault("attempts", {}).setdefault("g7", {"n": 0, "rung": 0, "last": None})
+                h7["waiting_owner"] = True
+                ws.state["judge_cap_asked"] = True
+                ws.state["outbox"] = ws.state.get("outbox", 0) + 1
+                sent = ws.h / "sent"
+                sent.mkdir(exist_ok=True)
+                (sent / f"{ws.state['outbox']:02d}.md").write_text(text + "\n", encoding="utf-8")
+                ws.save()
+                emit(ev="owner", text=text, files=files, options=options_of(text))
+                return
             elif code == 4:
                 notes = ["Судья не смотрит старые снимки: перезапусти гейт (команда выше), потом «ЭТАП ГОТОВ»."]
             else:

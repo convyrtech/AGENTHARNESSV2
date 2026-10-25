@@ -1,8 +1,6 @@
-diff --git a/tools/_common.py b/tools/_common.py
-index 877f66e..ebd729c 100644
 --- a/tools/_common.py
 +++ b/tools/_common.py
-@@ -40,10 +40,23 @@ def verdict_from_exit(code):
+@@ -40,10 +40,23 @@
      return {0: PASS, 1: FAIL, 2: CONCERNS}.get(code, FAIL)
  
  
@@ -27,11 +25,9 @@ index 877f66e..ebd729c 100644
      out = [e.strip() for e in value.split(",") if e.strip()]
      for e in out:
          if e not in ("chromium", "webkit"):
-diff --git a/tools/compare_sheet.py b/tools/compare_sheet.py
-index 400dc78..66703ea 100644
 --- a/tools/compare_sheet.py
 +++ b/tools/compare_sheet.py
-@@ -86,7 +86,7 @@ def main():
+@@ -86,7 +86,7 @@
      blocks, meta = [], []
      try:
          with sync_playwright() as p:
@@ -40,11 +36,9 @@ index 400dc78..66703ea 100644
              try:
                  for i, t in enumerate(a.variant):
                      extra = {}
-diff --git a/tools/flow.py b/tools/flow.py
-index a8a5a8d..87757c0 100644
 --- a/tools/flow.py
 +++ b/tools/flow.py
-@@ -476,10 +476,26 @@ def channel_messages(path, voice_dir=None):
+@@ -476,10 +476,26 @@
  
  def born(path):
      """When the artifact first appeared on disk: creation time where the OS keeps it, else mtime."""
@@ -73,7 +67,17 @@ index a8a5a8d..87757c0 100644
      return dt.datetime.fromtimestamp(t, dt.timezone.utc)
  
  
-@@ -588,6 +604,11 @@ class Page:
+@@ -550,7 +566,8 @@
+ ANSWERS_TO = {"в1": "00-intake.md", "в2": "00-intake.md", "в3": "00-intake.md", "0s": "00-intake.md",
+               "1": "01-candidates.png",
+               "2": "02-directions.png", "2a": "MESSAGE.md", "3": "03-references.md", "5s": "05-storyboard.png",
+-              "5": "05-compare.png", "7": "artifacts/design-gate.json", "8": "artifacts/judge/JUDGE.md"}
++              "5": "05-compare.png", "7": "artifacts/design-gate.json", "7j": "artifacts/judge/JUDGE.md",
++              "8": "artifacts/judge/JUDGE.md"}
+ 
+ 
+ def gate_key(gid):
+@@ -588,6 +605,11 @@
                             voice_dir=self.root / voice if meaningful(voice) and not is_none(voice) else None)
          self.unverified = []
          update_baseline(self)
@@ -85,7 +89,7 @@ index a8a5a8d..87757c0 100644
  
      def f(self, name):
          return self.fields.get(name, "")
-@@ -769,16 +790,25 @@ def g1(p):
+@@ -769,16 +791,25 @@
          if sheet_ok(p, p.path("01-candidates.png"), 3, "три кандидата в эталоны", pr):
              p.choice("1", pr, "какой эталон берём")
          if pr:
@@ -115,7 +119,7 @@ index a8a5a8d..87757c0 100644
      rows = [r for rows in wow for r in rows if any(re.search(r"берём|берем|нет", c, re.I) for c in r)]
      if len(rows) < 3:
          pr.append(f"в таблице «что даёт вау» строк с решением «берём/нет» {len(rows)}, нужно ≥ 3")
-@@ -1047,7 +1077,8 @@ def g7(p):
+@@ -1047,7 +1078,8 @@
          miss = {360, 390, 1440} - set(v.get("viewports", []))
          if miss:
              pr.append(f"гейт без ширин {sorted(miss)}")
@@ -125,7 +129,35 @@ index a8a5a8d..87757c0 100644
              pr.append("гейт не в обоих движках (Chromium и WebKit)")
      else:
          pr.append("нет artifacts/visual-gate/report.json")
-@@ -1201,7 +1232,7 @@ def init_page(page_dir):
+@@ -1070,17 +1102,25 @@
+     jt = read(j)
+     if j.stat().st_mtime < newest:
+         pr.append("судья смотрел старую версию (код менялся после него): новый раунд")
++    # после лимита раундов судьи решает владелец (PLAN-v1 §4.1a п.8): «ВЫБОР 7j: принять как есть · «его слова»»
++    # снимает вердикт и открытые находки; что это ответ самого судьи, сверяется как обычно
++    waived = False
++    if "7j" in p.choices:
++        before = len(pr)
++        p.choice("7j", pr, "владелец принял страницу с открытыми находками судьи после лимита раундов",
++                 allowed=r"^(принять|как есть|выложить)")
++        waived = len(pr) == before
+     m = re.search(r"(?m)^\s*JUDGE-VERDICT\s*:\s*(\w+)", jt)
+     if not m:
+         pr.append("в отчёте судьи нет строки «JUDGE-VERDICT: PASS|FAIL» (нет строки = FAIL)")
+-    elif m.group(1).upper() != "PASS":
++    elif m.group(1).upper() != "PASS" and not waived:
+         pr.append(f"судья: {m.group(1)}. Исправь находки, подтверждённые кадром, и новый раунд")
+     rd = re.search(r"(?m)^\s*РАУНД\s*:\s*(\d+)", jt)
+     if not rd or int(rd.group(1)) < 2:
+         pr.append("судья прошёл меньше 2 раундов («РАУНД: 2»)")
+     rows, nc_lines = judge_lines(jt)
+     open_bad = [r for r, _ in rows if re.match(r"\s*(blocker|critical)", r, re.I)]
+-    if open_bad:
++    if open_bad and not waived:
+         pr.append(f"у судьи открыто Blocker/Critical: {len(open_bad)}")
+     no_where = [r for r, where in rows if not WHERE.search(where or "")]
+     if no_where:
+@@ -1201,7 +1241,7 @@
      return made
  
  
@@ -134,11 +166,9 @@ index a8a5a8d..87757c0 100644
  MEANING_LINK = re.compile(r"/(MESSAGE|FACTS)\.md([?#]\S*)?$", re.I)   # step 2a: the meaning itself, not the built page
  OPTION = re.compile(r"^\s*[-*]?\s*[А-ЯA-Z][.)]\s+\S")
  MATERIALS = re.compile(r"^\s*[-*]?\s*(пришлите|пришлёте|пришлете|скиньте|отправьте|если есть)\b", re.I)
-diff --git a/tools/motion_probe.py b/tools/motion_probe.py
-index d766c8b..91449bd 100644
 --- a/tools/motion_probe.py
 +++ b/tools/motion_probe.py
-@@ -96,7 +96,8 @@ def run(url, trigger, selector, out, viewport):
+@@ -96,7 +96,8 @@
      report = {"url": url, "trigger": trigger, "selector": selector, "viewport": viewport,
                "thresholds": THRESHOLDS, "checks": [], "shots": []}
      with sync_playwright() as p:
@@ -148,11 +178,9 @@ index d766c8b..91449bd 100644
  
          # ---------- main pass ----------
          ctx = b.new_context(viewport=viewport, device_scale_factor=1)
-diff --git a/tools/page_judge.py b/tools/page_judge.py
-index 093522d..4cb444c 100644
 --- a/tools/page_judge.py
 +++ b/tools/page_judge.py
-@@ -138,7 +138,7 @@ class Api:
+@@ -138,7 +138,7 @@
  
  class Browser:
      def __init__(self, p, url):
@@ -161,11 +189,9 @@ index 093522d..4cb444c 100644
          self.url = url
          self.ctxs, self.pg, self.errs, self.device = {}, None, [], None
  
-diff --git a/tools/slop_lint.py b/tools/slop_lint.py
-index 6840f41..17c6ea6 100644
 --- a/tools/slop_lint.py
 +++ b/tools/slop_lint.py
-@@ -274,7 +274,7 @@ def lint(items, lang="", beginner=False, plan_promises=(), source_text="", block
+@@ -274,7 +274,7 @@
  def collect_url(url, engine, timeout):
      from playwright.sync_api import sync_playwright
      with sync_playwright() as p:
@@ -174,11 +200,9 @@ index 6840f41..17c6ea6 100644
          pg = b.new_page(viewport={"width": 1440, "height": 900})
          try:
              C.goto(pg, url, timeout, 600)
-diff --git a/tools/storyboard.py b/tools/storyboard.py
-index eb5857a..636b5a3 100644
 --- a/tools/storyboard.py
 +++ b/tools/storyboard.py
-@@ -93,7 +93,7 @@ def main():
+@@ -93,7 +93,7 @@
                "action": args.action, "mode": "realtime" if args.realtime else "deterministic",
                "at": ts, "generatedAt": C.now_iso(), "frames": []}
      with sync_playwright() as p:
@@ -187,11 +211,9 @@ index eb5857a..636b5a3 100644
          ctx = b.new_context(viewport={"width": w, "height": h}, device_scale_factor=1)
          page = ctx.new_page()
          try:
-diff --git a/tools/text_diff.py b/tools/text_diff.py
-index b84c0c5..789d421 100644
 --- a/tools/text_diff.py
 +++ b/tools/text_diff.py
-@@ -115,7 +115,7 @@ def compare(page_text, source_text, allow=(), max_extra=0):
+@@ -115,7 +115,7 @@
  def page_text(url, selector, engine, timeout):
      from playwright.sync_api import sync_playwright
      with sync_playwright() as p:
@@ -200,11 +222,9 @@ index b84c0c5..789d421 100644
          pg = b.new_page(viewport={"width": 1440, "height": 900})
          try:
              C.goto(pg, url, timeout, 600)
-diff --git a/tools/visual_gate.py b/tools/visual_gate.py
-index 972c0e1..4eef26c 100644
 --- a/tools/visual_gate.py
 +++ b/tools/visual_gate.py
-@@ -608,7 +608,7 @@ def main():
+@@ -608,7 +608,7 @@
      with sync_playwright() as p:
          for eng in engines:
              try:
