@@ -27,6 +27,7 @@ function mockZeno(overrides: Record<string, unknown> = {}) {
       setKey: vi.fn(),
       ...overrides,
     },
+    harnessFlags: { get: vi.fn(), set: vi.fn().mockResolvedValue({}) },
     workspace: {
       pickFolder: vi.fn().mockResolvedValue("/home/u/site"),
       openPath: vi.fn().mockResolvedValue({}),

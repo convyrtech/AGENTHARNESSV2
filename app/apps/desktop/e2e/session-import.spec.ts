@@ -246,6 +246,10 @@ test("no other agents: the first run goes straight from the key to the folder", 
       timeout: 60_000,
     });
     await expect(launched.page.getByTestId("prsloy-import-choose")).toHaveCount(0);
+    // «Не сейчас» on the search step is saved: search on by default in the RC, off after the answer
+    expect(
+      await launched.page.evaluate(async () => (await window.zeno.harnessFlags.get()).webTools),
+    ).toBe(false);
   } finally {
     await launched.close();
   }
