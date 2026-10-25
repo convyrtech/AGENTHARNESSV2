@@ -56,7 +56,7 @@ export const featuresZh = {
   "features.proc.logEmpty": "暂无输出。",
   "features.proc.notOurs": "此进程不是从这个窗口启动的，无法在这里停止。",
   "features.proc.stillRunning": "无法停止：进程仍在运行。",
-  "features.recipes.title": "或者从配方开始",
+  "features.recipes.title": "从配方开始",
   "features.recipes.hint": "回答几个问题：PRSLOY 会创建带模板的项目文件夹并开始工作。",
   "features.recipes.start": "开始",
   "features.recipes.cancel": "取消",
@@ -105,6 +105,10 @@ export const featuresZh = {
   "features.secret.placeholder": "粘贴密钥",
   "features.secret.note": "密钥保存在项目文件夹的 .env 文件里，不会发给模型，也不会出现在对话里。",
   "features.secret.save": "保存",
+  "features.memory.hintAuto":
+    "助手会记住你让它记的，也会自己从你的话里注意到重要的事。不记密码和密钥。下面能看到它记了什么，也可以让它忘掉。",
+  "features.next.failed.fix": "修好错误，再运行一次",
+  "features.next.failed.explain": "用简单的话说说哪里坏了",
   "features.memory.autoToggle": "自动注意重要内容",
   "features.memory.autoToggleHint":
     "代理会从你自己的话中记住重要内容：怎么回答、你喜欢什么、项目决定。绝不从文件或网站记忆。",

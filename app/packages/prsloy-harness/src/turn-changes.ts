@@ -229,10 +229,12 @@ export class TurnChanges {
   #shadow: ShadowGit | undefined;
   #start: Promise<string | undefined> | undefined;
   #last: TurnDiff | undefined;
+  /** Тот же дифф для чтения без забора: сводка S6 забирает #last раньше, чем статус хода его читает. */
+  #seen: TurnDiff | undefined;
 
-  /** Последний посчитанный дифф хода, не забирая его (статус хода; сводку S6 он не трогает). */
+  /** Последний посчитанный дифф хода, не забирая его (статус хода): переживает takeLastDiff сводки S6. */
   peekLastDiff(): TurnDiff | undefined {
-    return this.#last;
+    return this.#seen;
   }
 
   /** Последний посчитанный дифф хода (его считает стоп-гейт); забирается один раз. */
@@ -260,6 +262,7 @@ export class TurnChanges {
   /** Новое сообщение пользователя: снимаем папку, не задерживая первый запрос к модели. */
   begin(cwd: string): void {
     this.#shadow = new ShadowGit(this.#root, cwd, this.#git);
+    this.#seen = undefined;
     this.#start = this.#track(this.#shadow.snapshot());
   }
 
@@ -310,6 +313,7 @@ export class TurnChanges {
     if (!end) return undefined;
     const diff = await this.#track(shadow.diff(start, end));
     this.#last = diff;
+    this.#seen = diff;
     return diff;
   }
 }

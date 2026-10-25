@@ -41,10 +41,15 @@ function DialogContent({
   className,
   children,
   showCloseButton = true,
+  onOpenAutoFocus,
+  onCloseAutoFocus,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   showCloseButton?: boolean;
 }) {
+  // A dialog opened from state (no DialogTrigger) gave focus back to the page on close: keyboard
+  // users lost their place. Remember what had focus when it opened and return there.
+  const returnTo = React.useRef<HTMLElement | null>(null);
   return (
     <DialogPortal data-slot="dialog-portal">
       <DialogOverlay />
@@ -55,6 +60,21 @@ function DialogContent({
           className,
         )}
         {...props}
+        onOpenAutoFocus={(event) => {
+          const active = document.activeElement;
+          returnTo.current =
+            active instanceof HTMLElement && active !== document.body ? active : null;
+          onOpenAutoFocus?.(event);
+        }}
+        onCloseAutoFocus={(event) => {
+          onCloseAutoFocus?.(event);
+          if (event.defaultPrevented) return;
+          const target = returnTo.current;
+          if (target?.isConnected) {
+            event.preventDefault();
+            target.focus();
+          }
+        }}
       >
         {children}
         {showCloseButton && (

@@ -335,12 +335,20 @@ export function setThreadAlias(id: string, alias: string | undefined): Record<st
   return map;
 }
 
+/** The host's placeholder for a session without user messages (pi `firstMessage`), never shown as is. */
+export const NO_MESSAGES_TITLE = "(no messages)";
+
 export function threadDisplayTitle(
   id: string,
   aliases: Record<string, string>,
   fallback: string,
+  /** Shown instead of the host's English «(no messages)» (e.g. a chat holding only a card). */
+  emptyLabel?: string,
 ): string {
-  return aliases[id]?.trim() || fallback;
+  const alias = aliases[id]?.trim();
+  if (alias) return alias;
+  if (emptyLabel && fallback.trim().toLowerCase() === NO_MESSAGES_TITLE) return emptyLabel;
+  return fallback;
 }
 
 export function loadArchivedThreads(): string[] {

@@ -2440,12 +2440,10 @@ function App() {
     newThreadForProjectPendingPathRef.current = path;
     // Coalesce bursts: one in-flight op; later clicks only bump gen + pending path.
     if (newThreadForProjectInFlightRef.current) return;
-
     newThreadForProjectInFlightRef.current = true;
 
-    // Watchdog: release the in-flight gate if this op hangs (e.g. the main-process
-    // lifecycle queue is stuck while the busy host is parked), so later「新建会话」
-    // clicks can retry instead of being silently swallowed.
+    // Watchdog: release the in-flight gate if this op hangs (e.g. the main-process lifecycle queue
+    // is stuck while the busy host is parked), so later「新建会话」clicks can retry.
     const newThreadWatchdog = setTimeout(() => {
       if (!newThreadForProjectInFlightRef.current) return;
       newThreadForProjectGenRef.current += 1;
@@ -2968,6 +2966,12 @@ function App() {
     }
   }
 
+  /** «Новый чат» stays in the open project; focus only if «Настройки» was not clicked meanwhile. */
+  const newChat = () => {
+    const cwd = selectedWorkspacePathRef.current ?? useShellStore.getState().snapshot?.cwd;
+    const opened = cwd && asProjectPath(cwd) ? newThreadForProject(cwd) : newBlankTask();
+    return opened.then(() => useShellStore.getState().view === "thread" && focusComposer());
+  };
   function focusComposer() {
     pendingComposerFocus.current = true;
     setView("thread");
@@ -2995,7 +2999,7 @@ function App() {
     () =>
       buildShellCommands(
         {
-          newThread: () => void newBlankTask(),
+          newThread: () => void newChat(),
           openPackages: () => void openPackages(),
           openResources: () => void openResources(),
           openSettings: () => void openSettings(),
@@ -3039,7 +3043,7 @@ function App() {
           setPaletteOpen(!useShellStore.getState().paletteOpen);
           break;
         case "new-thread":
-          void newBlankTask();
+          void newChat();
           break;
         case "packages":
           void openPackages();
@@ -3163,7 +3167,7 @@ function App() {
         onToggleTheme={() => toggleColorMode()}
         onToggleCollapse={() => toggleSidebarCollapsed()}
         onResizeWidth={(px) => setSidebarWidthPx(px)}
-        onNewThread={() => void newBlankTask().then(focusComposer)}
+        onNewThread={() => void newChat()}
         onSelectProject={(path) => selectProjectPath(path)}
         onOpenProjects={() => openProjects()}
         onOpenPackages={() => void openPackages()}
@@ -3319,10 +3323,6 @@ function App() {
                               ? t(locale, "empty.subtitleConversation")
                               : t(locale, "empty.subtitleNoWorkspace")
                         }
-                        onPickExample={(text) => {
-                          setPrompt(text);
-                          composerRef.current?.focus();
-                        }}
                         onStartRecipe={(path, text) =>
                           void openWorkspacePath(path).then(() =>
                             sendPrompt(undefined, undefined, { text, attachments: [] }),

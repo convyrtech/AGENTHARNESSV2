@@ -3,7 +3,7 @@
  * hour, features-first-hour.spec.ts). A rule matches words in the user's request; its steps play in
  * order within that turn — step N is the answer after N assistant replies since that request — each either
  * tool calls (the harness runs them for real) or the closing text. Requests without tools (the memory
- * extractor, summaries) get an empty answer. Every request body is kept for the checks (no secret leaks).
+ * extractor, summaries) get an empty answer, or the scripted extractor answer. Every request body is kept for the checks (no secret leaks).
  */
 import { createServer, type Server } from "node:http";
 
@@ -11,7 +11,13 @@ export const GOOD_KEY = "sk-good-0000abcd";
 
 export type ScriptStep =
   | { tools: { name: string; args: Record<string, unknown> }[] }
-  | { text: string };
+  | { text: string }
+  /** The gateway refuses: e.g. 402 «Insufficient balance». */
+  | { fail: { status: number; error: Record<string, unknown> } }
+  /** The connection drops before any answer (the internet went away). */
+  | { drop: true }
+  /** The first token comes after `afterMs` (a slow model). */
+  | { slow: { afterMs: number; text: string } };
 
 export type ScriptRule = { when: string; steps: ScriptStep[] };
 
@@ -29,7 +35,15 @@ function text(content: unknown): string {
     .join("");
 }
 
-export function scriptedGateway(rules: ScriptRule[], bodies: string[]): Server {
+/**
+ * `extractor`: the memory extractor's answer (core's M-3: a request without tools that asks for `{"ops":[…]}`),
+ * as a real model would give it; without it the extractor gets an empty answer.
+ */
+export function scriptedGateway(
+  rules: ScriptRule[],
+  bodies: string[],
+  extractor?: { ops: Record<string, unknown>[] },
+): Server {
   let callId = 0;
   return createServer((req, res) => {
     const authorized = req.headers.authorization === `Bearer ${GOOD_KEY}`;
@@ -83,12 +97,31 @@ export function scriptedGateway(rules: ScriptRule[], bodies: string[]): Server {
               : {}),
           })}\n\n`,
         );
-      res.writeHead(200, { "content-type": "text/event-stream" });
-      send({ role: "assistant", content: "" });
       const rule = parsed.tools?.length
         ? rules.find((r) => prompt.includes(r.when.toLowerCase()))
         : undefined;
       const next = rule?.steps[step];
+      if (next && "fail" in next) {
+        res.writeHead(next.fail.status, { "content-type": "application/json" });
+        res.end(JSON.stringify({ error: next.fail.error }));
+        return;
+      }
+      if (next && "drop" in next) {
+        req.socket.destroy();
+        return;
+      }
+      res.writeHead(200, { "content-type": "text/event-stream" });
+      if (next && "slow" in next) {
+        setTimeout(() => {
+          if (res.destroyed) return;
+          send({ role: "assistant", content: "" });
+          for (const part of next.slow.text.split(" ")) if (part) send({ content: `${part} ` });
+          send({}, "stop");
+          res.end("data: [DONE]\n\n");
+        }, next.slow.afterMs);
+        return;
+      }
+      send({ role: "assistant", content: "" });
       if (next && "tools" in next) {
         send({
           tool_calls: next.tools.map((call, index) => ({
@@ -100,7 +133,15 @@ export function scriptedGateway(rules: ScriptRule[], bodies: string[]): Server {
         });
         send({}, "tool_calls");
       } else {
-        const reply = next && "text" in next ? next.text : parsed.tools?.length ? "Готово." : "";
+        const asksOps = !parsed.tools?.length && body.includes('\\"ops\\"');
+        const reply =
+          next && "text" in next
+            ? next.text
+            : parsed.tools?.length
+              ? "Готово."
+              : asksOps && extractor
+                ? JSON.stringify(extractor)
+                : "";
         for (const part of reply.split(" ")) if (part) send({ content: `${part} ` });
         send({}, "stop");
       }

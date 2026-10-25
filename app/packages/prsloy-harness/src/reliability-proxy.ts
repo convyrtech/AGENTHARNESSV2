@@ -25,6 +25,37 @@ export interface ReliabilityOptions {
   fetchImpl?: typeof fetch;
 }
 
+/**
+ * Свой срок до первого куска для моделей, у которых его честно долго нет (проба шлюза 2026-10-25): Opus отдаёт
+ * поток только когда ответ готов целиком (~18 с, на длинных — минуты), Grok думает молча больше минуты. С общим
+ * сроком 60 с длинный ответ обрывается, а каждый повтор оплачен. Общий срок — нижняя граница.
+ */
+export const MODEL_TTFT_MS: readonly (readonly [RegExp, number])[] = [
+  [/claude-opus/i, 300_000],
+  [/grok/i, 180_000],
+];
+
+export function ttftFor(model: unknown, baseMs: number): number {
+  const id = typeof model === "string" ? model : "";
+  const own = MODEL_TTFT_MS.find(([re]) => re.test(id))?.[1];
+  return own === undefined ? baseMs : Math.max(baseMs, own);
+}
+
+/**
+ * Канарейка: первый вызов сессии, а prompt_tokens больше нашей оценки на столько — канал шлюза дописал свой
+ * скрытый промпт (так было у Qwen, Opus, части Fable и GPT). Только в локальный журнал, человеку не показываем.
+ */
+export const HIDDEN_PROMPT_TOKENS = 1_500;
+
+/**
+ * Грубая оценка токенов запроса: байты UTF-8 сообщений и инструментов / 4. Английский текст и JSON — около
+ * 4 байт на токен; кириллица — больше (оценка выше настоящей), так что лишних срабатываний меньше.
+ */
+export function estimatePromptTokens(payload: Record<string, unknown>): number {
+  const text = JSON.stringify({ messages: payload.messages ?? [], tools: payload.tools ?? [] });
+  return Math.ceil(Buffer.byteLength(text, "utf8") / 4);
+}
+
 /** Текст для интерфейса: по нему UI показывает «Связь с моделью оборвалась» + «Повторить». */
 export const STREAM_INTERRUPTED_MESSAGE = "Связь с моделью оборвалась";
 export const STREAM_INTERRUPTED_CODE = "prsloy_stream_interrupted";
@@ -205,6 +236,9 @@ export interface CallMetrics {
   cached?: number;
   completion?: number;
   reasoning?: number;
+  /** Канарейка: насколько prompt_tokens первого вызова сессии больше нашей оценки (когда больше порога). */
+  hidden_prompt?: number;
+  estimate?: number;
 }
 
 interface Route {
@@ -262,6 +296,8 @@ export class ReliabilityProxy {
   readonly #opts: Required<Omit<ReliabilityOptions, "fetchImpl">> & { fetchImpl: typeof fetch };
   #server: Server | undefined;
   #origin: string | undefined;
+  /** Сессии, чей первый вызов уже сверен канарейкой. */
+  readonly #canarySeen = new Set<string>();
 
   constructor(options: ReliabilityOptions = {}) {
     this.#opts = {
@@ -370,8 +406,22 @@ export class ReliabilityProxy {
       }
     } finally {
       metrics.total_s = seconds(Date.now() - started);
+      if (payload && route.s) this.#canary(route.s, payload, metrics);
       if (route.m && metrics.outcome !== "passthrough") await writeMetrics(route.m, metrics);
     }
+  }
+
+  #canary(session: string, payload: Record<string, unknown>, metrics: CallMetrics): void {
+    if (this.#canarySeen.has(session) || typeof metrics.prompt !== "number") return;
+    this.#canarySeen.add(session);
+    const estimate = estimatePromptTokens(payload);
+    const excess = metrics.prompt - estimate;
+    if (excess <= HIDDEN_PROMPT_TOKENS) return;
+    metrics.hidden_prompt = excess;
+    metrics.estimate = estimate;
+    console.warn(
+      `[prsloy] канал добавляет скрытый промпт: ${String(payload.model)} (+${excess} токенов к нашим ~${estimate})`,
+    );
   }
 
   async #passthrough(
@@ -539,9 +589,12 @@ export class ReliabilityProxy {
     const ping = setInterval(() => {
       if (!committed) out.ping();
     }, this.#opts.pingMs);
-    const ttft = setTimeout(() => {
-      if (!committed) upstreamAbort.abort("ttft deadline");
-    }, this.#opts.ttftMs);
+    const ttft = setTimeout(
+      () => {
+        if (!committed) upstreamAbort.abort("ttft deadline");
+      },
+      ttftFor(metrics.model, this.#opts.ttftMs),
+    );
     try {
       let upstream: Response;
       try {

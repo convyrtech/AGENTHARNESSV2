@@ -143,6 +143,12 @@ export function createPrsloyHarness(options: HarnessOptions = {}): (pi: Extensio
       installStopGate(pi, opts, {
         ...(honesty ? { honesty } : {}),
         ...(turnStatus ? { turnStatus } : {}),
+        ...(on("reviewerCheats")
+          ? { reviewerCheats: () => readFlags(opts.settingsPath).reviewerCheats }
+          : {}),
+        ...(on("testQuality")
+          ? { testQuality: () => readFlags(opts.settingsPath).testQuality }
+          : {}),
         ...(on("testGuard") ? { testGuard: () => readFlags(opts.settingsPath).testGuard } : {}),
         ...(changes ? { changes } : {}),
         ...(budget ? { budget } : {}),

@@ -47,12 +47,12 @@ export function CostChip(props: { locale: Locale }) {
       title={turnLabel ? `${turnLabel} · ${sessionLabel}` : sessionLabel}
     >
       {turnLabel ? (
-        <>
+        <span className="cost-chip-turn">
           <RollText testId="cost-turn" text={turnLabel} />
           <span aria-hidden className="cost-chip-sep">
             ·
           </span>
-        </>
+        </span>
       ) : null}
       <RollText testId="cost-session" text={sessionLabel} />
     </span>

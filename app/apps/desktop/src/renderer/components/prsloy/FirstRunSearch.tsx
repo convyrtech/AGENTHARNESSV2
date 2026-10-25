@@ -39,6 +39,7 @@ export function FirstRunSearch({ locale, onDone }: FirstRunStepProps) {
       <Button
         className="h-10"
         data-testid="first-run-search-on"
+        data-first-run-primary
         disabled={busy}
         onClick={() => void choose(true)}
       >

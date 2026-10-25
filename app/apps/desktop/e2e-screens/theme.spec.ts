@@ -36,7 +36,7 @@ test("blueprint theme, light and dark, with its motion", async () => {
         /Agent Host ready|Agent Host restarted/,
         { timeout: 45_000 },
       );
-      await expect(page.getByTestId("example-chips")).toBeVisible();
+      await expect(page.getByTestId("recipes")).toBeVisible();
       await shot(page, `theme-${mode}-home`);
 
       await page.getByTestId("prompt-input").fill("Посмотри проект и скажи, что тут");

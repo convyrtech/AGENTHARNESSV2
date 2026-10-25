@@ -32,6 +32,10 @@ export interface HarnessFlags {
   claimCheck: boolean;
   /** web_search и web_fetch в обычных ходах «Кода» (issue #23, research/26 §4). По умолчанию выкл. до замера. */
   webTools: boolean;
+  /** Полезность новых тестов (H-3, #8): сигналы ревьюеру и в статус хода. По умолчанию выкл. */
+  testQuality: boolean;
+  /** Ревьюер ищет подгонку (H-4, #9): виды подгонки в промпте, факты кодом, тесты в диффе целиком. По умолчанию выкл. */
+  reviewerCheats: boolean;
 }
 
 export type AutoMemoryMode = "off" | "shadow" | true;
@@ -52,6 +56,8 @@ export function readFlags(settingsPath: string | undefined): HarnessFlags {
     testGuard: false,
     claimCheck: false,
     webTools: true,
+    testQuality: false,
+    reviewerCheats: false,
   };
   if (settingsPath && existsSync(settingsPath)) {
     try {
@@ -69,6 +75,8 @@ export function readFlags(settingsPath: string | undefined): HarnessFlags {
       if (raw.testGuard === true) flags.testGuard = true;
       if (raw.claimCheck === true) flags.claimCheck = true;
       if (typeof raw.webTools === "boolean") flags.webTools = raw.webTools;
+      if (raw.testQuality === true) flags.testQuality = true;
+      if (raw.reviewerCheats === true) flags.reviewerCheats = true;
       if (Array.isArray(raw.disabledLessons))
         flags.disabledLessons = raw.disabledLessons.filter(
           (x): x is string => typeof x === "string",
@@ -94,6 +102,8 @@ export function readFlags(settingsPath: string | undefined): HarnessFlags {
     ["PRSLOY_TEST_GUARD", "testGuard"],
     ["PRSLOY_CLAIM_CHECK", "claimCheck"],
     ["PRSLOY_WEB_TOOLS", "webTools"],
+    ["PRSLOY_TEST_QUALITY", "testQuality"],
+    ["PRSLOY_REVIEWER_CHEATS", "reviewerCheats"],
   ] as const) {
     if (process.env[env] === "1") flags[key] = true;
     if (process.env[env] === "0") flags[key] = false;

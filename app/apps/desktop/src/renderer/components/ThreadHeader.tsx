@@ -90,7 +90,9 @@ export function ThreadHeader(props: {
 
   const threadId = props.thread?.id ?? props.sessionId;
   const pinned = threadId ? isPinnedThread(threadId, pinnedIds) : false;
-  const fullTitle = threadId ? threadDisplayTitle(threadId, aliases, props.title) : props.title;
+  const fullTitle = threadId
+    ? threadDisplayTitle(threadId, aliases, props.title, tr("thread.new"))
+    : props.title;
   /** Visible title capped at 28 chars; full string stays in tooltip / rename. */
   const displayTitle = fullTitle.length > 28 ? `${fullTitle.slice(0, 28)}…` : fullTitle;
   const isFork = Boolean(props.thread?.parentSessionPath?.trim());

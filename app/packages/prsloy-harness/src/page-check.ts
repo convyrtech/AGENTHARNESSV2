@@ -10,6 +10,15 @@ import { pathToFileURL } from "node:url";
 import { lintLayout } from "@zeno/layout-rules";
 import { sanitizedEnv } from "./options.ts";
 import { MODULE_SCRIPT } from "./page-paths.ts";
+import {
+  keyboardFindings,
+  probeAct,
+  probeAxe,
+  probeFocus,
+  probeLinks,
+  probeMain,
+  probeTargets,
+} from "./page-probe.ts";
 
 export const PAGE_VIEWPORTS = [
   { width: 390, height: 844 },
@@ -20,7 +29,19 @@ export interface PageIssue {
   /** «файлом» или «через сервер». */
   target: "file" | "http";
   width: number;
-  kind: "console" | "pageerror" | "request" | "layout";
+  /**
+   * interaction — ошибка после нажатия (research/28 §4 п. 1); link — якорь в никуда или ссылка на свой файл,
+   * которого нет; a11y — axe, только serious/critical; keyboard — Tab не доходит или фокус застрял.
+   */
+  kind:
+    | "console"
+    | "pageerror"
+    | "request"
+    | "layout"
+    | "interaction"
+    | "link"
+    | "a11y"
+    | "keyboard";
   /** Правило раскладки (root-hscroll, overlap, …) или пусто. */
   rule?: string;
   where: string;
@@ -136,6 +157,44 @@ import json, sys
 from playwright.sync_api import sync_playwright
 job = json.load(sys.stdin)
 out = []
+
+def interact(page, t, ia, found):
+    import time
+    start = time.time()
+    for l in page.evaluate(ia["links"]):
+        found.append({"kind": "link", "where": l["selector"], "detail": l["detail"]})
+    try:
+        page.add_script_tag(content=ia["axeSource"])
+        for v in page.evaluate(ia["axe"]):
+            found.append({"kind": "a11y", "rule": v["id"], "where": ", ".join(v["nodes"]), "detail": v["help"]})
+    except Exception:
+        pass
+    main = page.evaluate(ia["main"])
+    path = []
+    for _ in range(ia["tabs"]):
+        page.keyboard.press("Tab")
+        path.append(page.evaluate(ia["focus"]))
+    found.append({"kind": "keyboard-raw", "path": path, "main": main})
+    n = len(page.evaluate(ia["list"], ia["max"]))
+    for i in range(n):
+        if (time.time() - start) * 1000 > ia["budgetMs"]:
+            break
+        before = len(found)
+        try:
+            raw = page.evaluate(ia["act"], {"i": i, "max": ia["max"], "list": ia["list"]})
+        except Exception:
+            raw = ""
+        page.wait_for_timeout(ia["afterMs"])
+        target = json.loads(raw) if raw else None
+        for f in found[before:]:
+            if target and f["kind"] in ("console", "pageerror", "request"):
+                f["kind"] = "interaction"
+                f["where"] = target["selector"]
+                f["detail"] = "после нажатия «" + target["label"] + "»: " + f["detail"]
+        if page.url.split("#")[0] != t["url"].split("#")[0]:
+            page.goto(t["url"], wait_until="load", timeout=ia["backTimeoutMs"])
+            page.wait_for_timeout(job["settleMs"])
+
 with sync_playwright() as p:
     kw = {"channel": job["channel"]} if job.get("channel") else {}
     browser = p.chromium.launch(**kw)
@@ -148,12 +207,19 @@ with sync_playwright() as p:
                 page.on("console", lambda m: found.append({"kind": "console", "detail": m.text}) if m.type == "error" else None)
                 page.on("pageerror", lambda e: found.append({"kind": "pageerror", "detail": str(e)}))
                 page.on("requestfailed", lambda r: found.append({"kind": "request", "detail": r.url + " " + (r.failure or "")}))
+                page.on("response", lambda r: found.append({"kind": "request", "detail": r.url + " " + str(r.status)}) if r.status >= 400 and r.url.startswith(job["localOrigin"]) else None)
                 try:
                     page.goto(t["url"], wait_until="load", timeout=job["navTimeoutMs"])
                     page.wait_for_timeout(job["settleMs"])
                     page.evaluate(job["freeze"])
                     for v in page.evaluate(job["lint"], job["lintArg"]):
                         found.append({"kind": "layout", "rule": v["rule"], "where": v["selector"] + (" «" + v["text"] + "»" if v.get("text") else ""), "detail": v["detail"], **({"box": v["box"]} if v.get("box") else {})})
+                    ia = job.get("interact")
+                    if ia and t["name"] == ia["target"] and vp["width"] == ia["width"]:
+                        try:
+                            interact(page, t, ia, found)
+                        except Exception:
+                            pass
                 except Exception as e:
                     found.append({"kind": "pageerror", "detail": "страница не открылась: " + str(e).splitlines()[0]})
                 for f in found:
@@ -166,17 +232,22 @@ with sync_playwright() as p:
 print(json.dumps(out, ensure_ascii=False))
 `;
 
+export interface NodePage {
+  on(event: string, cb: (x: any) => void): void;
+  goto(url: string, o: { waitUntil: "load"; timeout: number }): Promise<unknown>;
+  waitForTimeout(ms: number): Promise<void>;
+  evaluate(fn: string, arg?: unknown): Promise<unknown>;
+  addScriptTag(o: { content: string }): Promise<unknown>;
+  keyboard: { press(key: string): Promise<void> };
+  url(): string;
+}
+
 /** Мини-интерфейс Node-Playwright: тесты и замер (в приложении — Python из venv «Дизайна»). */
 export interface NodePlaywright {
   chromium: {
     launch(o?: { executablePath?: string; channel?: string }): Promise<{
       newContext(o: { viewport: { width: number; height: number } }): Promise<{
-        newPage(): Promise<{
-          on(event: string, cb: (x: any) => void): void;
-          goto(url: string, o: { waitUntil: "load"; timeout: number }): Promise<unknown>;
-          waitForTimeout(ms: number): Promise<void>;
-          evaluate(fn: string): Promise<unknown>;
-        }>;
+        newPage(): Promise<NodePage>;
         close(): Promise<void>;
       }>;
       close(): Promise<void>;
@@ -193,9 +264,95 @@ interface Job {
   freeze: string;
   navTimeoutMs: number;
   settleMs: number;
+  /** Свои адреса (сервер и file://): ответы 4xx/5xx с них — незагрузившийся файл. */
+  localOrigin: string;
+  /** Нажатия, ссылки, клавиатура, axe — один раз: через сервер, на 1440 px. */
+  interact?: Interact;
 }
 
-type RawIssue = Omit<PageIssue, "where"> & { where?: string };
+export interface Interact {
+  target: "http";
+  width: number;
+  max: number;
+  budgetMs: number;
+  afterMs: number;
+  /** Возврат на страницу после ухода с неё: короче обычного открытия, чтобы бюджет не перерасходовался. */
+  backTimeoutMs: number;
+  tabs: number;
+  list: string;
+  act: string;
+  links: string;
+  focus: string;
+  main: string;
+  axe: string;
+  axeSource: string;
+}
+
+type RawIssue = Omit<PageIssue, "where" | "kind"> & {
+  kind: PageIssue["kind"] | "keyboard-raw";
+  where?: string;
+  path?: string[];
+  main?: { label: string; selector: string }[];
+};
+
+/** Тот же сценарий, что `interact` в PY. */
+async function interactNode(
+  page: NodePage,
+  url: string,
+  ia: Interact,
+  job: Job,
+  found: Omit<RawIssue, "target" | "width">[],
+): Promise<void> {
+  const start = Date.now();
+  for (const l of (await page.evaluate(`(${ia.links})()`)) as {
+    selector: string;
+    detail: string;
+  }[])
+    found.push({ kind: "link", where: l.selector, detail: l.detail });
+  try {
+    await page.addScriptTag({ content: ia.axeSource });
+    for (const v of (await page.evaluate(`(${ia.axe})()`)) as {
+      id: string;
+      nodes: string[];
+      help: string;
+    }[])
+      found.push({ kind: "a11y", rule: v.id, where: v.nodes.join(", "), detail: v.help });
+  } catch {
+    // axe не встал — без него
+  }
+  const main = (await page.evaluate(`(${ia.main})()`)) as { label: string; selector: string }[];
+  const path: string[] = [];
+  for (let k = 0; k < ia.tabs; k++) {
+    await page.keyboard.press("Tab");
+    path.push((await page.evaluate(`(${ia.focus})()`)) as string);
+  }
+  found.push({ kind: "keyboard-raw", detail: "", path, main });
+  const n = ((await page.evaluate(`(${ia.list})(${ia.max})`)) as unknown[]).length;
+  for (let i = 0; i < n; i++) {
+    if (Date.now() - start > ia.budgetMs) break;
+    const before = found.length;
+    let raw = "";
+    try {
+      raw = (await page.evaluate(
+        `(${ia.act})(${JSON.stringify({ i, max: ia.max, list: ia.list })})`,
+      )) as string;
+    } catch {
+      raw = "";
+    }
+    await page.waitForTimeout(ia.afterMs);
+    const target = raw ? (JSON.parse(raw) as { label: string; selector: string }) : undefined;
+    for (const f of found.slice(before))
+      if (target && (f.kind === "console" || f.kind === "pageerror" || f.kind === "request")) {
+        f.kind = "interaction";
+        f.where = target.selector;
+        f.detail = `после нажатия «${target.label}»: ${f.detail}`;
+      }
+    if (page.url().split("#")[0] !== url.split("#")[0]) {
+      await page.goto(url, { waitUntil: "load", timeout: ia.backTimeoutMs });
+      await page.waitForTimeout(job.settleMs);
+    }
+  }
+}
 
 /** Тот же сценарий, что PY, на Node-Playwright. */
 async function runNode(pw: NodePlaywright, job: Job, executablePath?: string): Promise<RawIssue[]> {
@@ -219,6 +376,10 @@ async function runNode(pw: NodePlaywright, job: Job, executablePath?: string): P
         page.on("requestfailed", (r: { url(): string; failure(): { errorText: string } | null }) =>
           found.push({ kind: "request", detail: `${r.url()} ${r.failure()?.errorText ?? ""}` }),
         );
+        page.on("response", (r: { url(): string; status(): number }) => {
+          if (r.status() >= 400 && r.url().startsWith(job.localOrigin))
+            found.push({ kind: "request", detail: `${r.url()} ${r.status()}` });
+        });
         try {
           await page.goto(t.url, { waitUntil: "load", timeout: job.navTimeoutMs });
           await page.waitForTimeout(job.settleMs);
@@ -238,6 +399,9 @@ async function runNode(pw: NodePlaywright, job: Job, executablePath?: string): P
               detail: v.detail,
               ...(v.box ? { box: v.box } : {}),
             });
+          const ia = job.interact;
+          if (ia && t.name === ia.target && vp.width === ia.width)
+            await interactNode(page, t.url, ia, job, found).catch(() => undefined);
         } catch (e) {
           found.push({
             kind: "pageerror",
@@ -272,7 +436,44 @@ export interface PageCheckOptions {
   channel?: string | undefined;
   /** Исходник функции правил раскладки (по умолчанию `lintLayout` из `@zeno/layout-rules`). */
   lint?: string;
+  /** Нажатия, ссылки, клавиатура и axe (research/28 §4). По умолчанию включены; false — только открыть. */
+  interact?: boolean;
   timeoutMs?: number;
+}
+
+/**
+ * Сколько нажимать и сколько ждать: ≤15 действий и ≤10 с на всё (бюджет — на ходу, не обрезаем посередине).
+ * Замер (STATUS): +0,3–1,3 с на страницах бенча, +10 с на тяжёлой (20 уходящих кнопок, 30 ссылок, 5 форм). Худший
+ * случай — бюджет плюс одно действие с возвратом ≤3 с, около 14 с.
+ */
+export const INTERACT_LIMITS = {
+  width: 1440,
+  max: 15,
+  budgetMs: 10_000,
+  afterMs: 300,
+  backTimeoutMs: 3_000,
+  tabs: 30,
+} as const;
+
+/** Метка запросов probeLinks (сервер смотрит только путь). */
+const LINK_PROBE = "prsloy-link-check";
+
+let axeSource: string | undefined;
+async function interactJob(): Promise<Interact> {
+  // axe-core (MPL-2.0) — как есть, исходником в страницу; 1,3 МБ читаем один раз и только когда нужно.
+  axeSource ??= ((await import("axe-core")) as unknown as { default: { source: string } }).default
+    .source;
+  return {
+    target: "http",
+    ...INTERACT_LIMITS,
+    list: probeTargets.toString(),
+    act: probeAct.toString(),
+    links: probeLinks.toString(),
+    focus: probeFocus.toString(),
+    main: probeMain.toString(),
+    axe: probeAxe.toString(),
+    axeSource,
+  };
 }
 
 export function designPython(env: NodeJS.ProcessEnv = process.env): string | undefined {
@@ -359,6 +560,8 @@ export async function checkPage(
       freeze: FREEZE,
       navTimeoutMs: 8_000,
       settleMs: 300,
+      localOrigin: server.origin,
+      ...(options.interact === false ? {} : { interact: await interactJob() }),
     };
     const rel = relative(cwd, entry).replace(/\\/g, "/");
     let raw: RawIssue[];
@@ -373,7 +576,7 @@ export async function checkPage(
         };
       }
     } else {
-      const { out, err } = await runPython(python!, job, options.timeoutMs ?? 30_000);
+      const { out, err } = await runPython(python!, job, options.timeoutMs ?? 45_000);
       if (err !== undefined) return { entry: rel, issues: [], skipped: err };
       try {
         raw = JSON.parse(out) as RawIssue[];
@@ -394,17 +597,44 @@ export async function checkPage(
     const issues = raw
       // «Failed to load resource» в консоли дублирует незагрузившийся запрос (там виден файл).
       .filter((i) => !(i.kind === "console" && /^Failed to load resource\b/.test(i.detail)))
+      // Свои запросы проверки ссылок — не ошибки страницы: их 404 уже в находке «ссылка … ведёт на …».
+      .filter((i) => !(i.kind === "request" && i.detail.includes(LINK_PROBE)))
       .filter((i) => !(i.kind === "layout" && i.rule && IGNORED_RULES.has(i.rule)))
-      .map((i) => ({ ...i, where: i.where ?? "", detail: local(i.detail) }));
+      .flatMap((i): PageIssue[] => {
+        if (i.kind !== "keyboard-raw") {
+          const { path: _p, main: _m, ...rest } = i;
+          return [{ ...rest, kind: i.kind, where: i.where ?? "", detail: local(i.detail) }];
+        }
+        return keyboardFindings(i.path ?? [], i.main ?? []).map((k) => ({
+          target: i.target,
+          width: i.width,
+          kind: "keyboard",
+          rule: k.kind,
+          where: k.selector,
+          detail: k.detail,
+        }));
+      });
     return { entry: rel, issues, ...(job.targets.length === 1 ? { fileSkipped: true } : {}) };
   } finally {
     await server.close();
   }
 }
 
+/**
+ * Подсказка — сама по себе к работе не возвращает: мелкие правила раскладки, axe и клавиатура (у казуала их
+ * никто не требовал; research/28 §4 — сигнал, а не приговор). Нажатия и битые ссылки — настоящие ошибки.
+ */
+export function isHint(i: PageIssue): boolean {
+  return (
+    i.kind === "a11y" ||
+    i.kind === "keyboard" ||
+    (i.kind === "layout" && !!i.rule && HINT_RULES.has(i.rule))
+  );
+}
+
 /** Есть ли что-то, ради чего возвращать к работе (не только подсказки). */
 export function hasBlocking(result: PageCheckResult): boolean {
-  return result.issues.some((i) => !(i.kind === "layout" && i.rule && HINT_RULES.has(i.rule)));
+  return result.issues.some((i) => !isHint(i));
 }
 
 const TARGET = { file: "файлом", http: "через сервер" } as const;
@@ -426,16 +656,38 @@ export function groupIssues(issues: PageIssue[]): string[] {
         ? `${issue.rule === "root-hscroll" ? `страница шире окна (${issue.detail})` : issue.detail}${issue.where ? ` — ${issue.where}` : ""}`
         : issue.kind === "request"
           ? `не загрузился файл: ${issue.detail}`
-          : `ошибка: ${issue.detail}`;
+          : issue.kind === "interaction"
+            ? `${issue.detail} — ${issue.where}`
+            : issue.kind === "link"
+              ? `${issue.detail} — ${issue.where}`
+              : issue.kind === "a11y"
+                ? `доступность: ${issue.detail} (${issue.rule}) — ${issue.where}`
+                : issue.kind === "keyboard"
+                  ? `клавиатура: ${issue.detail} — ${issue.where}`
+                  : `ошибка: ${issue.detail}`;
     return `- (${at}) ${what.slice(0, 300)}`;
   });
 }
 
+/**
+ * Находки сценария (нажатия, ссылки, axe, клавиатура) строками с селекторами — для ревьюера и карточки хода.
+ * Сначала ошибки, потом подсказки; не больше трёх. Ошибки загрузки и раскладки сюда не идут: их чинит возврат.
+ */
+export function pageFindings(result: PageCheckResult): string[] {
+  const scripted = result.issues.filter((i) => SCRIPTED.has(i.kind));
+  return [
+    ...groupIssues(scripted.filter((i) => !isHint(i))),
+    ...groupIssues(scripted.filter(isHint)).map((l) => `${l} (подсказка)`),
+  ]
+    .slice(0, 3)
+    .map((l) => l.replace(/^- /, ""));
+}
+const SCRIPTED = new Set<PageIssue["kind"]>(["interaction", "link", "a11y", "keyboard"]);
+
 export function pageCheckMessage(result: PageCheckResult, attempt: number, max: number): string {
-  const hint = (i: PageIssue) => i.kind === "layout" && !!i.rule && HINT_RULES.has(i.rule);
   const lines = [
-    ...groupIssues(result.issues.filter((i) => !hint(i))),
-    ...groupIssues(result.issues.filter(hint)).map((l) => `${l} (подсказка)`),
+    ...groupIssues(result.issues.filter((i) => !isHint(i))),
+    ...groupIssues(result.issues.filter(isHint)).map((l) => `${l} (подсказка)`),
   ];
   const shown = lines.slice(0, 6);
   if (lines.length > 6) shown.push(`- … и ещё ${lines.length - 6}`);

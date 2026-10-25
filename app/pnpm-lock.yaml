@@ -238,6 +238,9 @@ catalogs:
     '@types/react-dom':
       specifier: 19.2.3
       version: 19.2.3
+    axe-core:
+      specifier: 4.13.0
+      version: 4.13.0
     class-variance-authority:
       specifier: 0.7.1
       version: 0.7.1
@@ -603,6 +606,9 @@ importers:
       '@zeno/layout-rules':
         specifier: workspace:*
         version: link:../layout-rules
+      axe-core:
+        specifier: 'catalog:'
+        version: 4.13.0
       postcss:
         specifier: 8.5.19
         version: 8.5.19

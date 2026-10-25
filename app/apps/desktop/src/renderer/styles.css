@@ -2146,9 +2146,18 @@ html[data-custom-window-controls="true"] .page-header {
   opacity: 1;
   pointer-events: auto;
 }
+/* The hover-only actions take no room (first-hour pass: 38 px of empty space under every message):
+   they float in the row's bottom margin, which is at least as tall as they are. */
+.timeline-meta-float {
+  position: absolute;
+  top: 100%;
+  right: 0;
+}
 .timeline-meta-actions-assistant {
+  position: absolute;
+  top: 100%;
+  left: 0;
   justify-content: flex-start;
-  margin-top: 10px;
 }
 .timeline-meta-time {
   font-size: 12px;
@@ -2682,8 +2691,9 @@ html[data-custom-window-controls="true"] .page-header {
   cursor: grabbing;
 }
 .timeline-assistant-row {
+  position: relative;
   width: 100%;
-  margin-bottom: 26px;
+  margin-bottom: 30px;
 }
 .timeline-assistant-body {
   display: flex;
@@ -6533,11 +6543,22 @@ textarea.models-scoped-patterns-input[data-slot="textarea"] {
 .cost-chip-sep {
   opacity: 0.5;
 }
-/* Narrow composer (a preview panel beside the chat): the access control keeps its icon only. */
+.cost-chip-turn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+/* Narrow composer (a preview panel beside the chat): the turn's cost goes (the chat's stays, the
+   title has both), so «Обычный доступ» keeps its words; only a very narrow bar leaves the icon. */
 .composer-bar {
   container-type: inline-size;
 }
 @container (max-width: 560px) {
+  .cost-chip-turn {
+    display: none;
+  }
+}
+@container (max-width: 420px) {
   /* Visually hidden, still the button's name for screen readers. */
   .composer-access-label {
     position: absolute;
@@ -6879,15 +6900,7 @@ textarea.models-scoped-patterns-input[data-slot="textarea"] {
   color: var(--foreground);
 }
 
-/* Empty chat: example tasks that fill the composer. */
-.example-chips {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  margin-top: 24px;
-  max-width: 100%;
-}
+/* A suggestion pill that fills the composer («Что дальше», NextStepChips). */
 .example-chip {
   max-width: 100%;
   min-height: 34px;

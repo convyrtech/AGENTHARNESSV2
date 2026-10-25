@@ -16,6 +16,7 @@
 import { createHash } from "node:crypto";
 import {
   appendFileSync,
+  existsSync,
   mkdirSync,
   readdirSync,
   readFileSync,
@@ -47,6 +48,7 @@ import {
   prsloySpeedModelId,
 } from "../../shared/prsloy-config.ts";
 import type { FetchLike } from "./gateway-check.ts";
+import { carryUnsavedCards } from "./memory-card-carry.ts";
 import { onSessionLeft } from "./session-left.ts";
 
 /** Cheapest that meters input on the gateway first (deepseek reports no input tokens yet). */
@@ -568,7 +570,8 @@ export function installMemoryExtractor(options: {
 }): { stop(): void; idle(): Promise<void> } {
   const probed = new Set<string>();
   const queued = new Set<string>();
-  const note = options.note ? limitMemoryCards(options.note) : undefined;
+  const carry = options.note ? carryUnsavedCards(options.note) : undefined;
+  const note = carry ? limitMemoryCards(carry.note) : undefined;
   let chain: Promise<void> = Promise.resolve();
   const learningDir =
     options.learningDir ??
@@ -577,6 +580,8 @@ export function installMemoryExtractor(options: {
   const enqueue = (sessionFile: string) => {
     const mode = options.mode();
     if (mode === "off") return;
+    // A new chat left before its first message was never saved: nothing to read.
+    if (mode !== "probe" && !existsSync(sessionFile)) return;
     if (mode === "probe") {
       if (probed.has(sessionFile)) return;
       probed.add(sessionFile);
@@ -634,6 +639,7 @@ export function installMemoryExtractor(options: {
   return {
     stop: () => {
       stop();
+      carry?.stop();
       if (timer) clearTimeout(timer);
     },
     idle: async () => {

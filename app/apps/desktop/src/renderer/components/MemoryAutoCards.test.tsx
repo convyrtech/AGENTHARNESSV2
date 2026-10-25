@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import { MemoryAutoCard, MemoryConfirmCard, MemoryUpdatedCard } from "./MemoryAutoCards.tsx";
 
 const snap = { user: [], project: [], forgotten: [] };
-const api = { forget: vi.fn(), pin: vi.fn(), revert: vi.fn(), confirm: vi.fn() };
+const api = { forget: vi.fn(), pin: vi.fn(), revert: vi.fn(), confirm: vi.fn(), restore: vi.fn() };
 
 beforeEach(() => {
   for (const fn of Object.values(api)) fn.mockReset().mockResolvedValue(snap);
@@ -30,6 +30,25 @@ describe("«Заметил и запомнил»", () => {
     fireEvent.click(screen.getByTestId("memory-auto-pin"));
     await waitFor(() => expect(api.pin).toHaveBeenCalledWith("a-1", true, undefined));
     expect((await screen.findByRole("status")).textContent).toBe("Закреплено");
+  });
+
+  it("[Забыть] → «Забыл.» · [Вернуть] → «Вернул.»", async () => {
+    render(
+      <MemoryAutoCard
+        locale="ru"
+        text=""
+        details={{
+          items: [{ id: "a-1", scope: "user", text: "Без анимаций", quote: "без анимаций" }],
+        }}
+      />,
+    );
+    fireEvent.click(screen.getByTestId("memory-auto-forget"));
+    await waitFor(() => expect(api.forget).toHaveBeenCalledWith("a-1", undefined));
+    expect((await screen.findByRole("status")).textContent).toBe("Забыл.");
+    fireEvent.click(await screen.findByTestId("memory-auto-restore"));
+    await waitFor(() => expect(api.restore).toHaveBeenCalledWith("a-1", undefined));
+    await waitFor(() => expect(screen.queryByTestId("memory-auto-restore")).toBeNull());
+    expect(screen.getByRole("status").textContent).toBe("Вернул.");
   });
 
   it("several: «Запомнил несколько вещей (2)» · [Показать], each with its own buttons", async () => {

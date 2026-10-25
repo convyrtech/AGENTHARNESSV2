@@ -39,8 +39,12 @@ export function resetLiveStream(): LiveStreamState {
  * stream still carries extra tokens that must be preserved; that is NOT "covered".
  */
 function historyCoversText(historyText: string, liveText: string): boolean {
-  if (!liveText) return Boolean(historyText);
-  return liveText === historyText || historyText.startsWith(liveText);
+  // History is stored trimmed; the stream keeps a model's trailing space or newline. Without
+  // trimming, a reopened chat kept the streamed copy and showed the answer twice.
+  const live = liveText.trim();
+  const stored = historyText.trim();
+  if (!live) return Boolean(stored);
+  return live === stored || stored.startsWith(live);
 }
 
 function historyCoversLiveItem(history: SessionHistoryMessage[], item: TimelineItem): boolean {

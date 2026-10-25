@@ -25,6 +25,10 @@
   `fetch-honesty.mjs` в локальный кэш. Варианты `syn-*` в git — свои задачи, сделанные тем же кодом.
 - [hyparquet](https://github.com/hyparam/hyparquet) 1.31.3 — dev-зависимость `prsloy-harness`: чтение parquet в
   `fetch-honesty.mjs`. MIT License (строки copyright в их LICENSE нет).
+- [axe-core](https://github.com/dequelabs/axe-core) 4.13.0 — зависимость `prsloy-harness`: проверка доступности
+  в проверке страницы «Кода» (`src/page-check.ts`, `src/page-probe.ts`). Mozilla Public License 2.0, © Deque Systems,
+  Inc. Используется как есть, без изменений: исходник пакета (`axe.source`) уходит в страницу, исходный код — в
+  npm-пакете `axe-core` и в их репозитории.
 - `packages/prsloy-harness/src/request-secret.ts` — описание инструмента и параметров `request_secret` по
   [OpenHands Agent Canvas](https://github.com/All-Hands-AI/OpenHands) `src/api/request-secret-client-tool.ts`
   (коммит `b185939`), MIT, © 2025 OpenHands contributors. Изменено PRSLOY: ответ приходит в результате вызова,

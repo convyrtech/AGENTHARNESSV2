@@ -1,13 +1,7 @@
-import { expect, test, type Page } from "@playwright/test";
-import { _electron as electron, type ElectronApplication } from "playwright";
+import { expect, test } from "@playwright/test";
 import { existsSync, readFileSync } from "node:fs";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
-import { createRequire } from "node:module";
-import { homedir, tmpdir } from "node:os";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
-import { GOOD_KEY, scriptedGateway, type ScriptRule } from "./first-hour-gateway.ts";
-import { shot } from "./features-helpers.ts";
+import { join } from "node:path";
+import { ask, firstRun, launchNovice, LIGHT, shot } from "./first-hour-helpers.ts";
 
 /**
  * A novice's first hour, live-like: the real first run (key → folder), the real PRSLOY provider and
@@ -15,113 +9,6 @@ import { shot } from "./features-helpers.ts";
  * One journey per test, each ending in a screenshot (docs/prsloy/screens/features-first-hour-*.png).
  * What a person who never programmed trips over is written down in STATUS-features.md.
  */
-const require = createRequire(import.meta.url);
-const electronBinary = require("electron") as string;
-const APP = join(dirname(fileURLToPath(import.meta.url)), "..");
-
-type Novice = {
-  app: ElectronApplication;
-  page: Page;
-  project: string;
-  agentDir: string;
-  bodies: string[];
-  close: () => Promise<void>;
-};
-
-/** A fresh computer: no key, no project. `flags` go to the harness flags file before the start. */
-async function launchNovice(rules: ScriptRule[], flags: Record<string, unknown> = {}) {
-  const root = await mkdtemp(join(tmpdir(), "prsloy-first-hour-"));
-  const home = join(root, "home");
-  const userData = join(root, "userData");
-  // Main points PI_CODING_AGENT_DIR at userData/agent before ready (prsloy/agent-home.ts).
-  const agentDir = join(userData, "agent");
-  // Projects outside tmp: main never treats a /tmp folder as a project.
-  const projects = await mkdtemp(join(homedir(), ".prsloy-first-hour-"));
-  const project = join(projects, "Мой сайт");
-  await Promise.all([
-    mkdir(join(userData, "prsloy"), { recursive: true }),
-    mkdir(agentDir, { recursive: true }),
-    mkdir(project, { recursive: true }),
-  ]);
-  if (Object.keys(flags).length) {
-    await writeFile(join(agentDir, "prsloy-harness.json"), JSON.stringify(flags));
-  }
-  const bodies: string[] = [];
-  const server = scriptedGateway(rules, bodies);
-  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
-  const { port } = server.address() as { port: number };
-  await writeFile(
-    join(userData, "prsloy", "state.json"),
-    JSON.stringify({ baseUrl: `http://127.0.0.1:${port}/v1` }),
-  );
-  const env: Record<string, string> = {};
-  for (const [key, value] of Object.entries(process.env)) if (value !== undefined) env[key] = value;
-  Object.assign(env, {
-    HOME: home,
-    USERPROFILE: home,
-    XDG_CONFIG_HOME: join(home, ".config"),
-    ZENO_ISOLATED: "1",
-    ZENO_NO_AUTO_RESUME: "1",
-    LANG: "ru_RU.UTF-8",
-  });
-  for (const name of ["ELECTRON_RUN_AS_NODE", "ZENO_ENABLE_TEST_COMMANDS", "PI_CODING_AGENT_DIR"]) {
-    delete env[name];
-  }
-  const app = await electron.launch({
-    executablePath: electronBinary,
-    args: [APP, `--user-data-dir=${userData}`, "--lang=ru", "--password-store=basic"],
-    cwd: APP,
-    env,
-    timeout: 60_000,
-  });
-  const page = await app.firstWindow({ timeout: 60_000 });
-  await page.setViewportSize({ width: 1280, height: 820 });
-  const close = async () => {
-    await app.close().catch(() => undefined);
-    server.close();
-    await rm(root, { recursive: true, force: true }).catch(() => undefined);
-    await rm(projects, { recursive: true, force: true }).catch(() => undefined);
-  };
-  return { app, page, project, agentDir, bodies, close } satisfies Novice;
-}
-
-/** First run as a person does it: the key from the site, then «Выбрать папку». */
-async function firstRun(n: Novice) {
-  const { page, app } = n;
-  await expect(page.getByTestId("prsloy-first-run-key")).toBeVisible({ timeout: 60_000 });
-  await page.getByPlaceholder("sk-…").fill(GOOD_KEY);
-  await page.getByRole("button", { name: "Продолжить" }).click();
-  await expect(page.getByTestId("prsloy-first-run-folder")).toBeVisible({ timeout: 60_000 });
-  await app.evaluate(({ dialog }, folder) => {
-    dialog.showOpenDialog = (async () => ({
-      canceled: false,
-      filePaths: [folder],
-    })) as unknown as typeof dialog.showOpenDialog;
-  }, n.project);
-  await page.getByTestId("prsloy-folder-pick").click();
-  await page.waitForSelector('[data-testid="zeno-app"][data-bootstrap-ready="true"]', {
-    timeout: 120_000,
-  });
-}
-
-/** Sends a request and waits for the model's closing words (the end of the scripted turn). */
-async function ask(page: Page, text: string, reply: string) {
-  await page.getByTestId("prompt-input").fill(text);
-  await page.getByTestId("send-prompt").click();
-  await expect(page.getByTestId("timeline")).toContainText(reply, { timeout: 90_000 });
-  await page.waitForTimeout(800);
-}
-
-const LIGHT = `<!doctype html>
-<html lang="ru"><head><meta charset="utf-8"><title>Анна Смирнова — фотограф</title>
-<style>body { background: #ffffff; color: #222; font-family: sans-serif; margin: 3rem; }</style>
-</head><body>
-<h1>Анна Смирнова</h1>
-<p>Фотограф. Свадьбы, портреты, семейные съёмки в Казани.</p>
-<p>Телефон: +7 900 000-00-00</p>
-</body></html>
-`;
-
 test("1 · first run → «Сделай сайт-визитку» → preview → «Сделай фон тёмным» → «Откатить ход» → «Что дальше»", async () => {
   test.setTimeout(300_000);
   const n = await launchNovice([
@@ -247,11 +134,10 @@ test("2 · «Запомни: я не программист» → new chat → �
     await shot(page, "first-hour-6-remembered");
 
     await page.getByText("Новый чат").first().click();
-    await expect(page.getByText("Начните разговор")).toBeVisible({ timeout: 30_000 });
+    // A new chat stays in the open project (ui, first-hour pass), not a project-less conversation.
+    await expect(page.getByTestId("empty-hero")).toContainText("Что делаем?", { timeout: 30_000 });
     await shot(page, "first-hour-7-new-chat");
-    // «Новый чат» finishes its switch a few seconds later and pulls the view back to the chat: going to
-    // Settings right away lands back in the chat (reported to ui). Wait it out like a person would.
-    await page.waitForTimeout(6000);
+    // «Настройки» right away: the new chat finishing its switch no longer pulls the view back.
     await page.getByTestId("nav-settings").click();
     await page.getByTestId("settings-nav-memory").click();
     const user = page.getByTestId("memory-user");
@@ -393,6 +279,55 @@ test("4 · the agent hits a wall: «Не получилось: …» with ready 
       timeout: 90_000,
     });
     await shot(page, "first-hour-14-answered");
+  } finally {
+    await n.close();
+  }
+});
+
+test("5 · defaults on (memory, «замечать само», turn status): a liking said in passing: «Заметил и запомнил» in the new chat, «заметил сам» in «Память»", async () => {
+  test.setTimeout(300_000);
+  const said = "без анимаций — терпеть не могу, когда всё прыгает";
+  const n = await launchNovice(
+    [
+      {
+        when: "сайт для пекарни",
+        steps: [
+          { tools: [{ name: "write", args: { path: "index.html", content: LIGHT } }] },
+          { text: "Готово: сделал страницу пекарни, без анимаций." },
+        ],
+      },
+    ],
+    {},
+    {
+      ops: [
+        {
+          op: "add",
+          scope: "user",
+          kind: "preference",
+          text: "Сайты делать без анимаций",
+          quote: said,
+        },
+      ],
+    },
+  );
+  const page = n.page;
+  try {
+    await firstRun(n);
+    await ask(page, `Сделай сайт для пекарни, только ${said}`, "без анимаций.");
+    await shot(page, "first-hour-15-defaults-turn");
+    await page.getByText("Новый чат").first().click();
+    // Leaving the chat runs the extractor (core's M-3b): the liking is written to the memory and its
+    // «Заметил и запомнил» card comes into the new chat.
+    const card = page.getByTestId("memory-card");
+    await expect(card.first()).toContainText("Сайты делать без анимаций", { timeout: 30_000 });
+    await shot(page, "first-hour-16-new-chat");
+    await page.getByTestId("nav-settings").click();
+    await page.getByTestId("settings-nav-memory").click();
+    const user = page.getByTestId("memory-user");
+    await expect(user).toContainText("Сайты делать без анимаций", { timeout: 60_000 });
+    await expect(user).toContainText("заметил сам");
+    await expect(page.getByTestId("memory-hint")).toContainText("сам замечает важное");
+    await shot(page, "first-hour-17-noticed-in-settings");
   } finally {
     await n.close();
   }

@@ -203,6 +203,28 @@ export async function rerunOldTests(input: GuardInput): Promise<GuardRerun | und
     if (text === undefined) return undefined;
     originals.set(c.file, text);
   }
+  const result = await runInCopy({ ...input, files: originals });
+  return result && { changes, ...result };
+}
+
+export interface CopyRun {
+  run: CheckRun;
+  /** Красно (таймаут и «нечем проверить» — не красное). */
+  red: boolean;
+}
+
+/**
+ * Проверка во временной копии проекта: `files` — что подменить (текст) или убрать (null). Короткий путь
+ * (`outputDir/tg/<8>`), тяжёлое — ссылкой (на Windows junction), служебное не копируется; копия удаляется.
+ */
+export async function runInCopy(input: {
+  cwd: string;
+  files: Map<string, string | null>;
+  check: (dir: string) => ProjectCheck;
+  runner: CheckRunner;
+  outputDir: string;
+  timeoutMs: number;
+}): Promise<CopyRun> {
   const key = createHash("sha256").update(input.cwd).digest("hex").slice(0, 8);
   const dir = join(input.outputDir, "tg", key);
   rmSync(dir, { recursive: true, force: true });
@@ -218,18 +240,18 @@ export async function rerunOldTests(input: GuardInput): Promise<GuardRerun | und
           join(dir, name),
           process.platform === "win32" ? "junction" : "dir",
         );
-    for (const [file, text] of originals) {
+    for (const [file, text] of input.files) {
+      if (text === null) {
+        rmSync(join(dir, file), { force: true });
+        continue;
+      }
       mkdirSync(dirname(join(dir, file)), { recursive: true });
       writeFileSync(join(dir, file), text);
     }
     const check = input.check(dir);
     const run = await input.runner(check, dir, input.timeoutMs);
     // Нечем проверить (pytest не установлен) — не красное: молчим, как гейт.
-    return {
-      changes,
-      run,
-      red: !run.timedOut && run.code !== 0 && !check.missingTool?.test(run.output),
-    };
+    return { run, red: !run.timedOut && run.code !== 0 && !check.missingTool?.test(run.output) };
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

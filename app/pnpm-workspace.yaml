@@ -49,6 +49,7 @@ catalog:
   "@testing-library/jest-dom": ^7.0.1
   "@axe-core/playwright": 4.13.0
   hyparquet: 1.31.3
+  axe-core: 4.13.0
 
 overrides:
   vite: "catalog:"
