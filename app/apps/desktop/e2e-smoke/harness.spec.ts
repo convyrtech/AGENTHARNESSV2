@@ -3,12 +3,13 @@
  *
  * A scripted fake model makes one tool call per prompt («harness step N»), and each test
  * checks the tool result text the app sent back to the model:
- *   1. `(python -m http.server P > srv.log 2>&1 &) && sleep 2 && curl …` → 200, server in the registry
- *   2. `pkill -f "http.server P"` → stopped via the registry, port free, the shell alive
+ *   1. `(node server.js P > srv.log 2>&1 &) && sleep 2 && curl …` → 200, server in the registry
+ *   2. `pkill -f "server.js P"` → stopped via the registry, port free, the shell alive
  *   3. a command that hangs past the bash timeout (PRSLOY_BASH_TIMEOUT_SEC=5) → harness timeout note
  *   4. `taskkill /IM bash.exe /F` → blocked with the hint
  *   5. write of a broken .js → post-edit syntax line (node --check via Electron as node)
- *   6. `python -m http.server Q &` left running → port Q free after the app quits
+ *   7. `python -m http.server R &` → recorded as a finding (bundled Windows Python lacked `threading`)
+ *   6. `node server.js Q &` left running → port Q free after the app quits
  * Step 0 only records python in the agent's bash. Content checks are soft: every step runs and
  * reports. Artifacts: smoke-out/harness-requests.jsonl (every request the model got), session
  * JSONL files, harness-results.json, harness-bg-logs/ (registry process output).
@@ -27,7 +28,16 @@ import { createRequire } from "node:module";
 import { createServer as createNetServer } from "node:net";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
-import { beforeAllSmoke, exe, outDir, send, shot, startHost, writeMetrics } from "./helpers.ts";
+import {
+  beforeAllSmoke,
+  exe,
+  findings,
+  outDir,
+  send,
+  shot,
+  startHost,
+  writeMetrics,
+} from "./helpers.ts";
 
 const PY = process.platform === "win32" ? "python" : "python3";
 const BASH_TIMEOUT_SEC = 5;
@@ -177,8 +187,9 @@ const state: {
   workspace?: string;
   serverPort: number;
   leftPort: number;
+  pyPort: number;
   results: Record<string, string | undefined>;
-} = { serverPort: 0, leftPort: 0, results: {} };
+} = { serverPort: 0, leftPort: 0, pyPort: 0, results: {} };
 
 async function launchApp(steps: Record<number, Step>): Promise<void> {
   const root = await mkdtemp(join(tmpdir(), "prsloy-smoke-harness-"));
@@ -186,6 +197,16 @@ async function launchApp(steps: Record<number, Step>): Promise<void> {
   const userData = join(root, "userData");
   const workspace = join(root, "workspace");
   await Promise.all([agentDir, userData, workspace].map((d) => mkdir(d, { recursive: true })));
+  // Сервер для шагов реестра: только node (python из runtimes на Windows может быть неполным, шаг 7).
+  await writeFile(
+    join(workspace, "server.js"),
+    `const http = require("node:http");
+const port = Number(process.argv[2]);
+http.createServer((q, r) => r.end("ok")).listen(port, "127.0.0.1", () =>
+  console.log("listening on http://127.0.0.1:" + port),
+);
+`,
+  );
   const model = new ScriptedModel(steps);
   await model.start();
   await writeFile(
@@ -273,6 +294,7 @@ test.beforeAll(async () => {
   else await mkdir(outDir, { recursive: true });
   state.serverPort = await freePort();
   state.leftPort = await freePort();
+  state.pyPort = await freePort();
   await launchApp({
     0: {
       name: "bash",
@@ -283,17 +305,18 @@ test.beforeAll(async () => {
     1: {
       name: "bash",
       arguments: {
-        command: `(${PY} -m http.server ${state.serverPort} > srv.log 2>&1 &) && sleep 2 && curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:${state.serverPort}/`,
+        command: `(node server.js ${state.serverPort} > srv.log 2>&1 &) && sleep 2 && curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:${state.serverPort}/`,
       },
     },
     2: {
       name: "bash",
-      arguments: { command: `pkill -f "http.server ${state.serverPort}"; echo shell-alive` },
+      arguments: { command: `pkill -f "server.js ${state.serverPort}"; echo shell-alive` },
     },
     3: { name: "bash", arguments: { command: "echo before-hang; sleep 60; echo never" } },
     4: { name: "bash", arguments: { command: "taskkill /IM bash.exe /F" } },
     5: { name: "write", arguments: { path: "broken.js", content: "const a = ;\n" } },
-    6: { name: "bash", arguments: { command: `${PY} -m http.server ${state.leftPort} &` } },
+    6: { name: "bash", arguments: { command: `node server.js ${state.leftPort} &` } },
+    7: { name: "bash", arguments: { command: `${PY} -m http.server ${state.pyPort} &` } },
   });
   await startHost(state.page!);
 });
@@ -337,7 +360,7 @@ test("harness on the installed app: steps 0–6", async () => {
     test.info().annotations.push({ type: "python", description: result.slice(0, 2000) });
   });
 
-  await test.step("1: `(python -m http.server &)` goes to the harness registry", async () => {
+  await test.step("1: `(node server.js &)` goes to the harness registry", async () => {
     const result = await step(1);
     expect.soft(result).toMatch(/^\s*\[exit 0 · /);
     expect.soft(result).toContain("200");
@@ -373,6 +396,14 @@ test("harness on the installed app: steps 0–6", async () => {
     expect.soft(result).toContain("[Проверка синтаксиса (node --check): ОШИБКА в broken.js");
     expect.soft(result).toContain("SyntaxError");
     await shot(state.page!, "harness-steps");
+  });
+
+  await test.step("7: `python -m http.server &` (finding for the runtime owner)", async () => {
+    const result = await step(7);
+    const up = await portAnswers(state.pyPort);
+    const f = findings("harness-python-http", process.env.SMOKE_STRICT_PYTHON_HTTP === "1");
+    f.check("python -m http.server serves the preview", up, result.slice(0, 1500));
+    await f.finish();
   });
 
   await test.step("6: a background server left running dies with the app", async () => {
