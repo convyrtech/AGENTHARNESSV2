@@ -1,0 +1,93 @@
+# Разборщик сессий (research/24 §6, A-0s): каждую ночь — стенд «Кода» на фейковой модели (без ключа, 0 токенов)
+# и сессии Electron-e2e последнего зелёного desktop-ci на main (#29), детекторы-код по ним. REPORT-audit.md и SUMMARY.md (без цитат) — в summary прогона, всё остальное —
+# артефактом на 14 дней. Еженедельный разбор сессий дирижёра и владельца идёт на их машине:
+#   node packages/prsloy-harness/scripts/audit-sessions.mts --sessions ~/.pi/agent/sessions --since <неделю назад>
+name: desktop-audit
+
+on:
+  schedule:
+    # 01:17 UTC (04:17 МСК): не на ровном часе, чтобы не ждать очереди раннеров.
+    - cron: "17 1 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  # artifacts of the latest green desktop-ci run on main (e2e sessions)
+  actions: read
+
+concurrency:
+  group: desktop-audit
+  cancel-in-progress: false
+
+defaults:
+  run:
+    working-directory: app
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11.15.1
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: app/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      # Красный стенд — тоже материал для разбора: шаг не роняет прогон, итог виден в отчёте стенда.
+      - name: Bench (fake model, no key)
+        id: bench
+        continue-on-error: true
+        run: node packages/prsloy-harness/scripts/bench.mts --fake --out "$RUNNER_TEMP/bench-out"
+      # Pi sessions of the Electron e2e (fake gateway, real host and harness) from the latest green
+      # desktop-ci on main (#29). None yet — the audit runs on the bench alone.
+      - name: Latest e2e sessions from desktop-ci on main
+        id: e2e
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          id=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/desktop-ci.yml/runs?branch=main&status=success&per_page=1" --jq '.workflow_runs[0].id // empty')
+          echo "run=$id" >> "$GITHUB_OUTPUT"
+          echo "desktop-ci run: ${id:-none}"
+      - uses: actions/download-artifact@v4
+        if: steps.e2e.outputs.run != ''
+        continue-on-error: true
+        with:
+          pattern: e2e-sessions-*
+          path: ${{ runner.temp }}/e2e-sessions
+          run-id: ${{ steps.e2e.outputs.run }}
+          github-token: ${{ github.token }}
+      - name: Audit sessions (code detectors, 0 tokens)
+        run: |
+          args=(--sessions "$RUNNER_TEMP/bench-out")
+          [ -d "$RUNNER_TEMP/e2e-sessions" ] && args+=(--sessions "$RUNNER_TEMP/e2e-sessions")
+          node packages/prsloy-harness/scripts/audit-sessions.mts "${args[@]}" --out "$RUNNER_TEMP/audit-out" > /dev/null
+      - name: Report
+        if: always()
+        env:
+          BENCH: ${{ steps.bench.outcome }}
+          E2E_RUN: ${{ steps.e2e.outputs.run }}
+        run: |
+          {
+            echo "Стенд на фейковой модели: $BENCH. Сессии e2e: run ${E2E_RUN:-нет}."
+            echo
+            [ -f "$RUNNER_TEMP/audit-out/REPORT-audit.md" ] && cat "$RUNNER_TEMP/audit-out/REPORT-audit.md"
+            echo
+            [ -f "$RUNNER_TEMP/audit-out/SUMMARY.md" ] && cat "$RUNNER_TEMP/audit-out/SUMMARY.md"
+          } >> "$GITHUB_STEP_SUMMARY"
+      # Сессии стенда — синтетика фейковой модели, без текста пользователей; с ними разбор можно повторить.
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: audit-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/audit-out
+            ${{ runner.temp }}/bench-out/*.json
+            ${{ runner.temp }}/bench-out/*.md
+            ${{ runner.temp }}/bench-out/sessions/**/*.jsonl
+          if-no-files-found: warn
+          retention-days: 14

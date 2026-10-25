@@ -4,7 +4,30 @@
  * (`prsloy-memory/`); main reads and changes them through the harness's `MemoryStore`
  * (IPC `prsloy:memory-*`, core). Each call returns the fresh snapshot.
  */
-export type MemoryItem = { id: string; text: string; created?: string };
+export type MemoryItem = {
+  id: string;
+  text: string;
+  created?: string;
+  /**
+   * Memory v2 (research/24 §3.6), optional until core's M-1: «вы просили» (`user`) or «заметил сам»
+   * (`auto`), the owner's words it came from, and «Закрепить».
+   */
+  origin?: "user" | "auto";
+  quote?: string;
+  pinned?: boolean;
+};
+
+/** «Было» (research/24 §3.6): replaced, expired or forgotten, with «Вернуть» by the journal `opId`. */
+export type MemoryHistoryItem = {
+  opId: string;
+  scope: "user" | "project";
+  kind: "replaced" | "expired" | "forgotten";
+  /** What it was. */
+  text: string;
+  /** For `replaced`: what it is now. */
+  now?: string;
+  at: string;
+};
 
 /** Forgotten, still in the tombstones: «Вернуть» brings it back (text from the journal). */
 export type MemoryForgottenItem = {
@@ -22,6 +45,29 @@ export type MemorySnapshot = {
   digest?: { text: string; updated: string };
   /** Newest first, up to 20. */
   forgotten: MemoryForgottenItem[];
+  /** Memory v2: one history of what changed, newest first, 90 days (core M-1). */
+  history?: MemoryHistoryItem[];
+};
+
+/**
+ * Cards the harness shows in the chat for automatic memory (research/24 §3.6), `details` of the custom
+ * message. `prsloy-memory.auto` — «Заметил и запомнил: …» (one) or «Запомнил N» (several);
+ * `prsloy-memory.updated` — «Обновил: было «…», стало «…»» with «Вернуть»; when the replaced entry was
+ * pinned, the card asks instead: «Раньше вы просили «…». Теперь — «…»?».
+ */
+export type MemoryAutoCardDetails = {
+  items: { id: string; scope: "user" | "project"; text: string; quote?: string }[];
+};
+
+export type MemoryUpdatedCardDetails = {
+  opId: string;
+  /** The new entry. «Да, теперь так» on a pinned one calls pin(id, true): pinned stays pinned. */
+  id: string;
+  scope: "user" | "project";
+  before: string;
+  after: string;
+  /** The replaced entry was pinned: ask, do not just tell. */
+  pinned?: boolean;
 };
 
 export interface MemoryApi {
