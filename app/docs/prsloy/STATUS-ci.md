@@ -24,19 +24,23 @@
      `bash-*.json`, копия userData без рантаймов — в артефакте `prsloy-win-smoke`. Сводка цифр — в Summary job;
    - падение, вылет или таймаут (10 мин на тест, 30 мин на job) красят job.
 
-## Цифры (windows-latest, 5 прогонов)
+## Цифры (windows-latest)
 
-| Что                                                             | Значение                   |
-| --------------------------------------------------------------- | -------------------------- |
-| Установщик `PRSLOY-0.1.6-win-x64.exe`                           | 200,8 МБ                   |
-| После установки (папка программы)                               | 704,4 МБ                   |
-| Тихая установка                                                 | 23,6–30,6 с                |
-| Запуск → первое окно                                            | 14,8–23,8 с                |
-| Запуск → интерфейс готов (вкл. первую распаковку Node + Python) | 17,1–26,3 с                |
-| «Новый разговор» → Agent Host ready                             | ~2,0 с                     |
-| Сборка `package`                                                | ~4–7 мин; `smoke` ~4–5 мин |
+Сборка с `main` после интеграции core/ui/harness (прогон 40149024243): в установщике теперь ещё PortableGit и rg/fd.
 
-Архивы рантаймов в установщике: node.tar.gz 34,1 МБ, python.tar.gz 16,7 МБ.
+| Что                                                         | После интеграции | До (база Zeno, 5 прогонов) |
+| ----------------------------------------------------------- | ---------------- | -------------------------- |
+| Установщик `PRSLOY-0.1.6-win-x64.exe`                       | **282,9 МБ**     | 200,8 МБ                   |
+| После установки (папка программы)                           | 788,1 МБ         | 704,4 МБ                   |
+| Тихая установка                                             | 36,2 с           | 23,6–30,6 с                |
+| Запуск → первое окно                                        | 25,8 с           | 14,8–23,8 с                |
+| Запуск → интерфейс готов (вкл. первую распаковку рантаймов) | 29,0 с           | 17,1–26,3 с                |
+| «Новый разговор» → Agent Host ready                         | 1,9 с            | ~2,0 с                     |
+| Время job: `package` / `smoke`                              | 7,7 / 4,2 мин    | 4–7 / 4–5 мин              |
+
+Архивы рантаймов: node.tar.gz 34,1 МБ, python.tar.gz 16,7 МБ, git.tar.gz 80,2 МБ, tools.tar.gz 3,2 МБ.
+Первый запуск почти 30 с: это сначала распаковка ~134 МБ архивов. Повторные запуски быстрее (не замерялось).
+Если 30 с с пустым окном пугает, дорожке ui стоит показать прогресс распаковки.
 
 ## Bash-тул Pi на Windows
 
@@ -46,69 +50,59 @@
 2. `%ProgramFiles%\Git\bin\bash.exe`, затем `%ProgramFiles(x86)%\Git\bin\bash.exe`;
 3. `where bash.exe` по PATH. Вызов: `bash -c <command>`; для `System32\bash.exe` (WSL) — `-s` через stdin.
 
-**Раннер как есть** (Git for Windows установлен): работает. Shell — Git Bash (MSYS2), `/usr/bin/bash`,
-`MINGW64_NT-10.0-26100`. Вывод виден в карточке тула (скриншот `runner-bash.png`).
+**Что показал smoke на базе Zeno, до правки core:**
 
-**Чистая Windows** (Git спрятан: `ProgramFiles*` указывают на пустую папку, из PATH убраны git/msys/cygwin):
-**не работает.** Ошибка дословно:
+- Раннер как есть (Git for Windows стоит): работает, Git Bash (MSYS2) `/usr/bin/bash`.
+- Чистая Windows (Git спрятан: `ProgramFiles*` → пустая папка, из PATH убраны git/msys/cygwin): **не работает**,
+  дословно `No bash shell found. Options: 1. Install Git for Windows … Searched Git Bash in: …\Git\bin\bash.exe`.
+  Приложение не падает: карточка тула красная, ход завершается.
+- Ловушка WSL: когда bash.exe ищется по PATH, находится `C:\Windows\System32\bash.exe` — лаунчер WSL. Тул
+  отвечает `Windows Subsystem for Linux has no installed distributions…` в UTF-16 (мусор `W\0i\0n\0…`), exit 1.
+- Кандидаты (Git спрятан, Pi направлен на shell через `shellPath`):
+
+| Кандидат                | Размер (архив / распак.) | Результат                                                                                                                                                                  |
+| ----------------------- | ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| MinGit 2.56.0.3         | 38,0 / 91,8 МБ           | `bash.exe` нет; `usr\bin\sh.exe` (bash 5.3) работает, `git` есть, но **нет coreutils**: `ls/head/tr/grep/sed/awk/which` → `command not found`, `find` → Windows `FIND.EXE` |
+| MinGit-busybox 2.56.0.3 | 33,7 / 82,5 МБ           | только `busybox.exe`, с `-c` напрямую не запускается                                                                                                                       |
+| PortableGit 2.56.0.3    | 57,3 / 392,3 МБ          | **работает всё**: bash, `[[ ]]`, массивы, coreutils, grep/sed/awk/find, git                                                                                                |
+
+**Решение уже в `main`** (core, `ed0afd8`, `d368055`): PortableGit идёт архивом рантаймов, распаковывается в
+`userData\runtimes\git`. Приложение **всегда** задаёт Pi `shellPath`: свой bash, затем системный Git, никогда не WSL.
+
+**Проверка в smoke теперь обязательная** (`SMOKE_STRICT_CLEAN_BASH=1`): системный Git спрятан, агент через bash-тул
+выполняет bash-синтаксис, coreutils и git. Результат на интегрированной сборке (`bash-clean.json`):
 
 ```
-No bash shell found. Options:
-  1. Install Git for Windows: https://git-scm.com/download/win
-  2. Add your bash to PATH (Cygwin, MSYS2, etc.)
-  3. Set shellPath in settings.json
-
-Searched Git Bash in:
-  C:\...\no-program-files\Git\bin\bash.exe
+PRSLOY_SMOKE_42
+SHELL=/usr/bin/bash
+MINGW64_NT-10.0-26100 … x86_64 Msys
+BASH_VERSION=5.2.37(1)-release
+bashisms=b
+git version 2.51.0.windows.1
+fixture.txt
+1
+PRSLOY smoke fixture
+42
+./fixture.txt
+GIT_ROOT=C:\Users\runneradmin\AppData\Local\Temp\prsloy-smoke-clean-…\userData\runtimes\git\
 ```
 
-Приложение не падает: карточка тула красная, ход завершается («Tool result received»).
-
-**Ловушка WSL.** В одном прогоне на PATH не было bash.exe, и `where bash.exe` нашёл `C:\Windows\System32\bash.exe` —
-это лаунчер WSL. Результат тула: `Windows Subsystem for Linux has no installed distributions…` в UTF-16 (мусор
-`W\0i\0n\0…`), exit 1. У пользователя с включённым WSL без дистрибутива будет так же. Вывод: на Windows
-**нельзя полагаться на поиск по PATH**, нужно явно задавать `shellPath`.
-
-**Кандидаты на исправление** (проверены в smoke при спрятанном системном Git, Pi направлен на shell через
-`settings.json` → `shellPath`; только отчёт, на зелёный цвет не влияют):
-
-| Кандидат                | Размер (zip / распак.)                | Результат                                                                                                                                                                                 |
-| ----------------------- | ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| MinGit 2.56.0.3         | 38,0 / 91,8 МБ                        | `bash.exe` нет, есть `usr\bin\sh.exe` = bash 5.3.15. Как `shellPath` работает: `$((…))`, `[[ ]]`, массивы, `git`. **Но нет coreutils:** `ls`, `head`, `tr`, `uname` → `command not found` |
-| MinGit-busybox 2.56.0.3 | 33,7 / 82,5 МБ                        | нет ни `bash.exe`, ни `sh.exe`, только `ucrt64\bin\busybox.exe`; с `-c` напрямую не вызвать                                                                                               |
-| PortableGit 2.56.0.3    | 57,3 (7z.exe) / 392,3 МБ, 9616 файлов | **Работает всё:** `bin\bash.exe` 5.3.15, `$((…))`, `[[ ]]`, массивы, `git`, `ls/head/tr/grep/sed/awk/find/which/uname`. `which python` → бандловый Python из userData                     |
-| PowerShell-тул          | 0                                     | не проверялся: модели и промпты Pi рассчитаны на bash; нужен свой тул в core                                                                                                              |
-
-**Предложение (решает дирижёр, делает core):** взять PortableGit.
-
-- Положить урезанный PortableGit третьим архивом в `runtimes/archives` (как Node и Python) и распаковывать при
-  первом запуске в `userData/runtimes/git`. Урезать: `mingw64/share/doc`, `locale`, perl/tcl/tk, `gitk`,
-  `git-gui`. Это оценка, не замер: точную прибавку к установщику покажет сборка; без урезания ~+57 МБ.
-- В Pi **явно** задать `shellPath = <userData>/runtimes/git/bin/bash.exe` (на Windows, если пользователь не задал
-  свой). На PATH не полагаться: так обходим ловушку WSL и `FIND.EXE` вместо `find` (MinGit-прогон показал
-  `FIND: Parameter format not correct`).
-- MinGit отпадает: нет coreutils, агент сломается на первом `ls`/`grep`. MinGit-busybox без обёртки не
-  запускается. PowerShell-тул — свой тул и другой промпт, модели хуже пишут PowerShell; оставить на потом.
-- Когда core это сделает: в smoke поставить `SMOKE_STRICT_CLEAN_BASH=1`, и сценарий «чистая Windows» станет
-  обязательным. Сейчас он только пишет отчёт.
-
-Наблюдение для core: на раннере `which node` в bash-туле нашёл системный `C:\Program Files\nodejs`, а не
-бандловый Node (у Python — бандловый). На чистой машине системного Node нет, но порядок PATH для bash стоит
-проверить.
+Не проверено: машина с WSL без дистрибутива. По коду core (`shellPath` задаётся всегда) WSL не будет выбран
+никогда, но отдельного прогона такой машины нет.
 
 ## Замечания
 
 - Версия в установщике пока `0.1.6` (от Zeno). По тегу `desktop-v0.1.0-alpha.1` workflow ставит `0.1.0-alpha.1`.
-- В шапке и сайдбаре ещё «Zeno», плейсхолдер на английском — это дорожка ui.
 - Ошибка `Failed to get 'documents' path` появлялась только из-за подменённого `USERPROFILE` в тесте. На Windows
   тест теперь оставляет настоящий профиль, ошибки нет.
 - `Checking for update` в логе: апдейтер ходит в Releases `convyrtech/AGENTHARNESSV2`. В smoke это не мешает.
 
 ## Как проверено
 
-- Локально: `pnpm check` ✓, `pnpm test` ✓ (92 файла, 669 тестов + скриптовые тесты), `pnpm build` ✓.
+- Локально (база Zeno): `pnpm check` ✓, `pnpm test` ✓ (92 файла, 669 тестов + скриптовые тесты), `pnpm build` ✓.
+  После rebase на `main`: `pnpm check` ✓, упакованная Linux-сборка + smoke ✓.
 - Локально на Linux: упакованная сборка `electron-builder --linux dir` + тот же smoke под `xvfb-run` ✓
   (bash: `PRSLOY_SMOKE_42`, `/bin/bash`).
-- CI, `desktop-windows` на `desktop/ci`, все зелёные: 40144577288, 40145410772, 40146190949, 40146870805,
-  40147775976 (последний: MinGit vs PortableGit). Артефакты `prsloy-win-x64` (установщик) и
-  `prsloy-win-smoke` (скриншоты, логи, json) — 14 дней.
+- CI, `desktop-windows` на `desktop/ci`, все зелёные. Исследование: 40144577288, 40145410772, 40146190949,
+  40146870805, 40147775976 (MinGit vs PortableGit). На интегрированном `main`, со строгим clean-bash:
+  **40149024243**. Артефакты `prsloy-win-x64` (установщик) и `prsloy-win-smoke` (скриншоты, логи, json) — 14 дней.
