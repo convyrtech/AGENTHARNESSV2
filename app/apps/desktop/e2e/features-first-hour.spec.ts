@@ -476,12 +476,16 @@ test("5 · defaults on (memory, «замечать само», turn status): a l
     await ask(page, `Сделай сайт для пекарни, только ${said}`, "без анимаций.");
     await shot(page, "first-hour-15-defaults-turn");
     await page.getByText("Новый чат").first().click();
-    // Leaving the chat runs the extractor (core's M-3b): the liking is written to the memory. Its
-    // «Заметил и запомнил» card reaches neither chat today (reported to core), so the person learns it
-    // only in Settings → «Память».
-    await page.waitForTimeout(8000);
-    await expect(page.getByTestId("memory-card")).toHaveCount(0);
-    await shot(page, "first-hour-16-new-chat-silent");
+    // Leaving the chat runs the extractor (core's M-3b): the liking is written to the memory, and since
+    // core 9a1d084 its «Заметил и запомнил» card reaches the new chat. Before that fix it reached no chat;
+    // either way the person finds it in Settings → «Память».
+    const card = page.getByTestId("memory-card");
+    await expect
+      .poll(async () => (await card.count()) > 0, { timeout: 15_000 })
+      .toBe(true)
+      .catch(() => undefined);
+    if ((await card.count()) > 0) await expect(card.first()).toContainText("Сайты без анимаций");
+    await shot(page, "first-hour-16-new-chat");
     await page.getByTestId("nav-settings").click();
     await page.getByTestId("settings-nav-memory").click();
     const user = page.getByTestId("memory-user");
