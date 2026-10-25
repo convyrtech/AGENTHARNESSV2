@@ -4,6 +4,7 @@ import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-a
 import type { ResolvedOptions } from "./options.ts";
 import { appendText, keepStructured, showCard } from "./text.ts";
 import { recordEvent } from "./learning-log.ts";
+import { intervene } from "./lessons.ts";
 
 interface UsageLike {
   input?: number;
@@ -131,9 +132,15 @@ export function installBudget(pi: ExtensionAPI, opts: ResolvedOptions): BudgetHa
       state.blockedAfterStop += 1;
       // Первый раз даём модели ход на итог; если она снова зовёт тулы — завершаем.
       if (state.blockedAfterStop > 3) ctx.abort();
-      if (state.blockedAfterStop === 1)
-        recordEvent(ctx, { kind: "budget.stop", sig: `budget:${state.exhausted}` });
-      return { block: true, reason: stopReason(state), terminate: state.blockedAfterStop > 1 };
+      const tip =
+        state.blockedAfterStop === 1
+          ? intervene(ctx, { kind: "budget.stop", sig: `budget:${state.exhausted}` })
+          : "";
+      return {
+        block: true,
+        reason: `${stopReason(state)}${tip}`,
+        terminate: state.blockedAfterStop > 1,
+      };
     }
     state.toolCalls += 1;
     if (event.toolName === "bash" || event.toolName === "powershell") state.commands += 1;

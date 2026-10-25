@@ -6,6 +6,8 @@
 //   … --harness off            голый Pi с тем же системным промптом
 //   … --task visit-card        одна задача (можно несколько --task)
 //   … --timeout 900            секунд на задачу (по умолчанию 600)
+//   … --lessons off            без уроков (флаг "lessons" в prsloy-harness.json агента)
+//   … --memory off             без памяти (флаг "memory")
 //   … --allow-outside          отвечать «Да» на «менять файлы вне проекта?» (по умолчанию «Нет»)
 //   … --out bench-out          куда писать отчёт, сессии и папки задач
 // Итог: <out>/bench-<модель>-<on|off>-<время>.md и .json. Ключ берётся только из окружения и никуда не пишется.
@@ -25,6 +27,8 @@ const { values } = parseArgs({
     task: { type: "string", multiple: true },
     timeout: { type: "string", default: "600" },
     "allow-outside": { type: "boolean" },
+    lessons: { type: "string", default: "on" },
+    memory: { type: "string", default: "on" },
     out: { type: "string", default: "bench-out" },
   },
 });
@@ -46,6 +50,8 @@ async function main(): Promise<number> {
   const outDir = resolve(values.out);
   const report = await runBench({
     harness: values.harness === "on",
+    lessons: values.lessons !== "off",
+    memory: values.memory !== "off",
     model: values.model,
     ...(values.fake ? { fake: true } : { baseUrl: values["base-url"] ?? PRSLOY_DEFAULT_BASE_URL }),
     ...(key && !values.fake ? { key } : {}),
@@ -56,7 +62,8 @@ async function main(): Promise<number> {
     log: (line) => console.log(line),
   });
   const stamp = report.meta.date.replace(/[:.]/g, "-");
-  const base = join(outDir, `bench-${values.model.replace(/\//g, "_")}-${values.harness}-${stamp}`);
+  const mode = `${values.harness}${values.lessons === "off" ? "-nolessons" : ""}${values.memory === "off" ? "-nomemory" : ""}`;
+  const base = join(outDir, `bench-${values.model.replace(/\//g, "_")}-${mode}-${stamp}`);
   const md = reportMarkdown(report);
   writeFileSync(`${base}.md`, md);
   writeFileSync(`${base}.json`, `${JSON.stringify(report, null, 2)}\n`);

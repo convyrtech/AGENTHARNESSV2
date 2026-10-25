@@ -10,6 +10,7 @@ import { installPostEditVerify } from "./post-edit-verify.ts";
 import { installFindReady } from "./find-ready.ts";
 import { installReliability } from "./reliability.ts";
 import { installReusePrompt } from "./reuse-prompt.ts";
+import { installLessons } from "./lessons.ts";
 import { installSecretScrub } from "./secret-scrub.ts";
 import { installStopGate } from "./stop-gate.ts";
 import { installArgRepair } from "./arg-repair.ts";
@@ -81,6 +82,9 @@ export function createPrsloyHarness(options: HarnessOptions = {}): (pi: Extensio
     if (on("postEditVerify")) installPostEditVerify(pi, opts);
     budget?.installWarning();
     if (on("reusePrompt")) installReusePrompt(pi, opts);
+    // После разделов «поиск готового» и «пользователь не программист»: свои разделы идут в порядке установки.
+    if (opts.profile === "code" && on("lessons"))
+      installLessons(pi, { lessonsPath: opts.lessonsPath, settingsPath: opts.settingsPath });
     if (on("findReady")) installFindReady(pi, opts, opts.findReady);
     // Раньше стоп-гейта: сорванный вызов инструмента — сначала повтор, проверки проекта потом.
     if (on("toolLeak")) installToolLeak(pi);

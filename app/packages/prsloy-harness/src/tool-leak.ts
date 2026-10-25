@@ -7,6 +7,7 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { showCard } from "./text.ts";
 import { recordEvent } from "./learning-log.ts";
+import { intervene } from "./lessons.ts";
 
 /** Служебные токены вызова инструмента. В обычном тексте их не бывает, поэтому код-блоки не исключаем. */
 export const TOOL_MARKUP: readonly RegExp[] = [
@@ -130,14 +131,14 @@ export function installToolLeak(pi: ExtensionAPI): void {
       return undefined;
     }
     retries += 1;
-    recordEvent(ctx, { kind: "leak", sig: `leak:${detectToolLeak(text, thinking)}` });
+    const tip = intervene(ctx, { kind: "leak", sig: `leak:${detectToolLeak(text, thinking)}` });
     return {
       entries: [
         ...event.entries,
         {
           type: "custom_message",
           customType: "prsloy-harness.tool-leak",
-          content: TOOL_LEAK_NOTE,
+          content: `${TOOL_LEAK_NOTE}${tip}`,
           display: false,
         },
       ],

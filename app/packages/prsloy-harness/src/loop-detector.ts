@@ -7,6 +7,7 @@ import { detectToolLeak } from "./tool-leak.ts";
 import type { ResolvedOptions } from "./options.ts";
 import { contentText, stableStringify } from "./text.ts";
 import { callSignature, recordEvent } from "./learning-log.ts";
+import { intervene } from "./lessons.ts";
 
 interface CallRecord {
   /** Номер «эпохи» файлов: после успешной правки старые счётчики не действуют. */
@@ -130,7 +131,7 @@ export function installLoopDetector(pi: ExtensionAPI, opts: ResolvedOptions): vo
     if (looping && record.count >= opts.loopAbortAt) {
       keyById.delete(event.toolCallId);
       if (record.count > opts.loopAbortAt) ctx.abort();
-      recordEvent(ctx, {
+      const tip = intervene(ctx, {
         kind: "loop.stop",
         tool: event.toolName,
         sig: callSignature(event.toolName, event.input),
@@ -138,19 +139,19 @@ export function installLoopDetector(pi: ExtensionAPI, opts: ResolvedOptions): vo
       return {
         block: true,
         terminate: true,
-        reason: `Вызов ${event.toolName} повторён ${record.count} раз с тем же результатом. Задача остановлена, чтобы не тратить бюджет. Напиши пользователю коротко, что сделано и где застрял.`,
+        reason: `Вызов ${event.toolName} повторён ${record.count} раз с тем же результатом. Задача остановлена, чтобы не тратить бюджет. Напиши пользователю коротко, что сделано и где застрял.${tip}`,
       };
     }
     if (looping && record.count >= opts.loopWarnAt) {
       keyById.delete(event.toolCallId);
-      recordEvent(ctx, {
+      const tip = intervene(ctx, {
         kind: "loop.warn",
         tool: event.toolName,
         sig: callSignature(event.toolName, event.input),
       });
       return {
         block: true,
-        reason: `Этот вызов уже был ${record.count - 1} ${plural(record.count - 1)} с тем же результатом. Сделай другое: перечитай условие задачи, посмотри файл или лог, который ещё не смотрел, или смени подход. Повтор не поможет.`,
+        reason: `Этот вызов уже был ${record.count - 1} ${plural(record.count - 1)} с тем же результатом. Сделай другое: перечитай условие задачи, посмотри файл или лог, который ещё не смотрел, или смени подход. Повтор не поможет.${tip}`,
       };
     }
     return undefined;
@@ -183,7 +184,7 @@ export function installLoopDetector(pi: ExtensionAPI, opts: ResolvedOptions): vo
     if (message.stopReason === "length" && hasCalls) {
       lengthStops += 1;
       if (lengthStops === 2) {
-        recordEvent(ctx, { kind: "length.stop" });
+        const tip = intervene(ctx, { kind: "length.stop" });
         // Pi заменяет список записей тем, что вернул обработчик (runner.emitBoundary): чужие сохраняем.
         return {
           entries: [
@@ -191,7 +192,7 @@ export function installLoopDetector(pi: ExtensionAPI, opts: ResolvedOptions): vo
             {
               type: "custom_message",
               customType: "prsloy-harness",
-              content: LENGTH_NOTE,
+              content: `${LENGTH_NOTE}${tip}`,
               display: false,
             },
           ],
@@ -210,14 +211,14 @@ export function installLoopDetector(pi: ExtensionAPI, opts: ResolvedOptions): vo
     const marker = detectPseudoToolCall(text, toolNames);
     if (!marker || pseudoNudges >= 2) return undefined;
     pseudoNudges += 1;
-    recordEvent(ctx, { kind: "pseudo.call" });
+    const tip = intervene(ctx, { kind: "pseudo.call" });
     return {
       entries: [
         ...event.entries,
         {
           type: "custom_message",
           customType: "prsloy-harness",
-          content: PSEUDO_CALL_NOTE,
+          content: `${PSEUDO_CALL_NOTE}${tip}`,
           display: false,
         },
       ],

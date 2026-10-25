@@ -32,6 +32,7 @@ export type LearningKind =
   | "leak.gaveup"
   | "repair"
   | "validation.error"
+  | "lessons.active"
   | "turn.end";
 
 export type TurnOutcome = "green" | "red" | "budget" | "aborted" | "error";
@@ -45,6 +46,17 @@ export interface LearningEvent {
   /** Число (замечаний ревью, вызовов за ход). */
   n?: number;
   outcome?: TurnOutcome;
+  /** id уроков, которые действовали (раздел) или были дописаны к этому возврату. */
+  lessons?: string[];
+}
+
+type Listener = (session: string, event: LearningEvent) => void;
+const listeners = new Set<Listener>();
+
+/** Подписка на события (уроки считают повторы подписи после совета и итог хода). */
+export function onLearningEvent(listener: Listener): () => void {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
 }
 
 export const LEARNING_MAX_BYTES = 5 * 1024 * 1024;
@@ -190,6 +202,13 @@ export function recordEvent(ctx: ExtensionContext | undefined, event: LearningEv
   if (event.kind === "gate.green") t.red = false;
   if (event.kind === "gate.gaveup" || event.kind === "leak.gaveup") t.gaveUp = true;
   if (event.kind === "budget.stop") t.budget = true;
+  for (const listener of listeners) {
+    try {
+      listener(session, event);
+    } catch {
+      // слушатель — не повод ронять ход
+    }
+  }
   if (!enabled) return;
   try {
     const line = {
