@@ -26,7 +26,10 @@ PY = sys.executable
 PI = json.loads(os.environ["PI_BIN"]) if os.environ.get("PI_BIN", "").startswith("[") else [os.environ.get("PI_BIN", "pi")]
 PI[0] = shutil.which(PI[0]) or PI[0]
 WIN = os.name == "nt"
+# PROGRAMFILES*: Playwright finds Edge (channel msedge) through them; without them every browser tool of the agent
+# failed on Windows (Edge lives in Program Files (x86)). Python upper-cases Windows env names.
 SAFE = ("PATH", "HOME", "USERPROFILE", "APPDATA", "LOCALAPPDATA", "SYSTEMROOT", "COMSPEC", "PATHEXT", "TEMP", "TMP",
+        "PROGRAMFILES", "PROGRAMFILES(X86)", "PROGRAMW6432",
         "LANG", "LC_ALL", "TERM", "TMPDIR", "PLAYWRIGHT_BROWSERS_PATH", "PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD",
         "HTTPS_PROXY", "HTTP_PROXY", "NO_PROXY", "https_proxy", "http_proxy", "no_proxy", "SSL_CERT_FILE",
         "REQUESTS_CA_BUNDLE", "NODE_EXTRA_CA_CERTS", "CURL_CA_BUNDLE", "PI_CODING_AGENT_DIR",
