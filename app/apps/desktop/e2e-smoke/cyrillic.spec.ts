@@ -250,9 +250,8 @@ test("Cyrillic profile: first run brings a Claude Code chat over", async () => {
     await first.click();
     await expect(page.getByTestId("zeno-app")).toBeVisible({ timeout: 60_000 });
     const card = page.getByTestId("project-card").filter({ hasText: "мой сайт" }).first();
-    if ((await card.getAttribute("data-expanded")) !== "true") {
-      await card.getByTestId("workspace-current").click();
-    }
+    // the project chats were brought into starts open in the sidebar
+    await expect(card).toHaveAttribute("data-expanded", "true", { timeout: 30_000 });
     await expect(page.getByText("Страница «О нас»").first()).toBeVisible({ timeout: 60_000 });
     await shot(page, "23-cyrillic-imported-chat");
   } finally {

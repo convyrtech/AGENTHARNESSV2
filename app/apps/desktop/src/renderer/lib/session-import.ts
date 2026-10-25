@@ -5,6 +5,7 @@
  */
 import type { ImportScanResult, ImportToolId } from "@zeno/contracts";
 import { localeTag, type Locale, type MessageKey } from "./i18n.ts";
+import { isExpandedProject, loadExpandedProjects, toggleExpandedProject } from "./project-prefs.ts";
 
 export const IMPORT_TOOL_NAMES: Record<ImportToolId, string> = {
   "claude-code": "Claude Code",
@@ -107,4 +108,16 @@ export function mergeRecentFolders(
   max: number,
 ): string[] {
   return [...new Set([...imported, ...recent])].slice(0, max);
+}
+
+/**
+ * After the first run opens a project chats were brought into, its card in the sidebar starts
+ * open, so the imported chats are in sight (a fresh project would otherwise start collapsed).
+ */
+export function expandIfImported(folder: string): boolean {
+  const imported = readImportedProjects();
+  if (!isExpandedProject(folder, imported)) return false;
+  const expanded = loadExpandedProjects();
+  if (!isExpandedProject(folder, expanded)) toggleExpandedProject(folder, expanded);
+  return true;
 }
