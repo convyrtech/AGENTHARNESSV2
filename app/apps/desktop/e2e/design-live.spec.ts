@@ -13,6 +13,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { _electron as electron, type ElectronApplication } from "playwright";
 import { execFileSync } from "node:child_process";
 import {
+  copyFileSync,
   cpSync,
   existsSync,
   mkdirSync,
@@ -82,9 +83,32 @@ test.afterAll(() => gateway?.close());
 
 type Lab = { root: string; profile: string; userData: string; downloads: string };
 
+let current: Lab | undefined;
+/** On failure: the harness ledger, pi sessions, live_pi's bash log and the tab's events next to the screenshots. */
+test.afterEach(async () => {
+  const info = test.info();
+  if (!current || info.status === info.expectedStatus) return;
+  const name = info.title.replace(/[^\w]+/g, "-").slice(0, 60);
+  const out = join(process.env.DESIGN_LIVE_SHOTS || info.outputDir, "diag", name);
+  const grab = (dir: string) => {
+    if (!existsSync(dir)) return;
+    for (const rel of readdirSync(dir, { recursive: true }) as string[]) {
+      const from = join(dir, rel);
+      const st = statSync(from);
+      if (!st.isFile() || st.size > 2 << 20 || /\.(png|mp4|webm)$/.test(rel)) continue;
+      mkdirSync(out, { recursive: true });
+      copyFileSync(from, join(out, rel.replace(/[\\/:]+/g, "__")));
+    }
+  };
+  grab(join(current.userData, "design-state"));
+  grab(join(current.userData, "design", "pi-agent"));
+  grab(join(current.userData, "design", "logs"));
+});
+
 /** Public-build bundle (harness, motion; no pipeline) and an owner profile with a Cyrillic name. */
 function lab(): Lab {
   const root = mkdtempSync(join(tmpdir(), "design-live-"));
+  const made = (l: Lab) => (current = l);
   const bundle = join(root, "bundle");
   for (const dir of [
     ["playbooks", "site", "harness"],
@@ -102,7 +126,7 @@ function lab(): Lab {
     join(downloads, `design-pipeline-${SHA}.zip`),
     zipDirectory(join(FIXTURE, "stub-pipeline"), `design-pipeline-${SHA}`),
   );
-  return { root, profile, userData: join(profile, "AppData", "PRSLOY"), downloads };
+  return made({ root, profile, userData: join(profile, "AppData", "PRSLOY"), downloads });
 }
 
 async function launch(l: Lab): Promise<{ app: ElectronApplication; page: Page }> {

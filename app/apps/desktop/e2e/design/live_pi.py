@@ -50,11 +50,14 @@ def tool(name, args):
         sys.exit(3)
 
 
-def bash(cmd):
+def bash(cmd, check=True):
+    """check=False: an informational call (flow.py exits 1 while steps are open), as pi would read it."""
     tool("bash", {"command": cmd})
     r = subprocess.run([shell(), "-c", cmd], cwd=WS, capture_output=True)
     out = (r.stdout + r.stderr).decode("utf-8", "replace")
-    if r.returncode:
+    with open(HOME / "live-bash.log", "a", encoding="utf-8") as log:
+        log.write(f"$ {cmd}\n[{r.returncode}] {out[-1500:]}\n")
+    if r.returncode and check:
         finish(f"команда упала ({r.returncode}): {cmd}\n{out[-600:]}")
     return out
 
@@ -119,7 +122,7 @@ def main():
     if gate == "0":
         text = status.read_text(encoding="utf-8").replace("- Владелец: ...", "- Владелец: кофейня «Зерно»")
         write("design/landing/STATUS.md", text)
-        bash("python3 -I design-pipeline/tools/flow.py --page design/landing")
+        bash("python3 -I design-pipeline/tools/flow.py --page design/landing", check=False)
         finish("Паспорт заполнен.\nЭТАП ГОТОВ")
 
     if gate == "1":
@@ -132,7 +135,7 @@ def main():
             write("design/landing/STATUS.md", status.read_text(encoding="utf-8").rstrip("\n") +
                   f"\n- ВЫБОР 1: {pack} · «{words}» · {today}\n")
             bash(f"python3 -I harness/moves.py pick --page design/landing --pack {pack}")
-            bash("python3 -I design-pipeline/tools/flow.py --page design/landing")
+            bash("python3 -I design-pipeline/tools/flow.py --page design/landing", check=False)
             finish(f"Набор {pack} разобран.\nЭТАП ГОТОВ")
         secs = take_hold()
         if secs:
@@ -163,7 +166,7 @@ def main():
             "<p data-signature='ring' style='display:inline-block;border:2px solid #b4532a;border-radius:50%;"
             "padding:18px 28px'>180 ₽</p></main>"))
         bash("python3 -I harness/check.py site design/landing")
-        bash("python3 -I design-pipeline/tools/flow.py --page design/landing")
+        bash("python3 -I design-pipeline/tools/flow.py --page design/landing", check=False)
         finish("Страница собрана, проверка харнесса прошла.\nЭТАП ГОТОВ")
 
     finish(f"не знаю шаг {gate}")
