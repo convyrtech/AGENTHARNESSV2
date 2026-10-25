@@ -43,10 +43,12 @@ export function PreviewDeviceSwitch(props: {
 }
 
 /**
- * Talk with the script the «Код» preview server injects (`main/preview-bridge`). A message
- * counts only when it comes from this frame's window and the preview's own origin; commands
- * go to that origin only. Pages without the script (an agent's own server, «Дизайн») never
- * say `ready`, so the caller shows no bridge controls for them.
+ * Talk with the script a preview server injects (`main/preview-bridge`, the `inject` option of
+ * `startPreviewServer`). A message counts only when it comes from this frame's window and
+ * from the preview's origin: the page's own (127.0.0.1:<port>) when the sandbox allows
+ * same-origin («Код»), else the opaque "null" of a scripts-only sandbox («Дизайн»), where
+ * the window check is what holds. Pages without the script never say `ready`, so the caller
+ * shows no bridge controls for them.
  */
 export type PreviewBridge = {
   picking: boolean;
@@ -81,7 +83,12 @@ export function PreviewStage(props: {
   onMessage.current = props.bridge?.onMessage;
   const picking = useRef(props.bridge?.picking ?? false);
   picking.current = props.bridge?.picking ?? false;
-  const origin = originOf(props.url);
+  const sameOrigin = (props.sandbox ?? "allow-scripts").split(/\s+/u).includes("allow-same-origin");
+  const pageOrigin = originOf(props.url);
+  /** What `event.origin` must be. */
+  const origin = pageOrigin && (sameOrigin ? pageOrigin : "null");
+  /** Where commands go: an opaque frame has no origin to name, its window is the target. */
+  const target = sameOrigin ? pageOrigin : "*";
 
   useEffect(() => {
     if (!hasBridge || !origin) return;
@@ -91,18 +98,20 @@ export function PreviewStage(props: {
       const message = parseBridgeMessage(event.data);
       if (!message) return;
       // A page the frame moved to starts with picking off: repeat the owner's choice.
-      if (message.type === "ready" && picking.current) frame.postMessage(pickCommand(true), origin);
+      if (message.type === "ready" && picking.current) {
+        frame.postMessage(pickCommand(true), target ?? "*");
+      }
       onMessage.current?.(message);
     };
     window.addEventListener("message", listener);
     return () => window.removeEventListener("message", listener);
-  }, [hasBridge, origin]);
+  }, [hasBridge, origin, target]);
 
   const pickingNow = props.bridge?.picking ?? false;
   useEffect(() => {
     if (!hasBridge || !origin) return;
-    frameRef.current?.contentWindow?.postMessage(pickCommand(pickingNow), origin);
-  }, [hasBridge, origin, pickingNow]);
+    frameRef.current?.contentWindow?.postMessage(pickCommand(pickingNow), target ?? "*");
+  }, [hasBridge, origin, target, pickingNow]);
 
   return (
     <div className={cn("design-preview-stage", props.className)} data-device={props.device}>

@@ -118,6 +118,14 @@ describe("project preview (inject)", () => {
     expect(raw.toString("latin1")).toContain(`<head><script src="${BRIDGE_PATH}"></script>`);
   });
 
+  it("marks the page's elements with their place in the source", async () => {
+    const { dir } = site();
+    server = await startPreviewServer(dir, { inject: "", tagSource: true });
+    expect((await get(server.url, "/landing/")).body).toBe(
+      `<script src="${BRIDGE_PATH}"></script><h1 data-pl="landing/index.html:1:1">Зерно</h1>`,
+    );
+  });
+
   it("has no bridge without the option", async () => {
     const { dir } = site();
     server = await startPreviewServer(dir);

@@ -58,6 +58,10 @@ export const featuresRu: Record<keyof typeof featuresZh, string> = {
   "features.pick.hint": "Нажмите на место, которое надо поменять. Esc — отмена.",
   "features.pick.picked": "Выбрано: {what}. Напишите внизу, что поменять.",
   "features.pick.block.title": "Место на странице {page}",
+  "features.pick.block.file": "Файл: {file}, строка {line}",
+  "features.pick.block.fileNear":
+    "Файл: {file}, строка {line} (элемент создал скрипт, это ближайший родитель)",
+  "features.pick.block.nth": "Таких на странице {of}, выбран {nth}-й",
   "features.pick.block.element": "Элемент",
   "features.pick.block.text": "Текст",
   "features.pick.block.code": "Код",

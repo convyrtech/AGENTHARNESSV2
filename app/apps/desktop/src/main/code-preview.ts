@@ -75,7 +75,11 @@ async function open(raw: unknown, workspacePath: unknown): Promise<CodePreviewRe
   if (!file.ok) return file;
   let server = servers.get(ws);
   if (!server) {
-    server = startPreviewServer(ws, { hideDotfiles: true, inject: PREVIEW_BRIDGE_SCRIPT });
+    server = startPreviewServer(ws, {
+      hideDotfiles: true,
+      inject: PREVIEW_BRIDGE_SCRIPT,
+      tagSource: true,
+    });
     servers.set(ws, server);
     server.catch(() => servers.delete(ws));
   }

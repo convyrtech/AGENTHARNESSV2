@@ -4,23 +4,14 @@
  * posts is untrusted: the frame checks the sender (`PreviewStage`), this parser checks
  * the shape and clamps every string.
  */
+import type { PreviewPick } from "@zeno/contracts";
 import { t, type Locale } from "./i18n.ts";
 
 export const BRIDGE_SOURCE = "prsloy-preview";
 export const HOST_SOURCE = "prsloy-host";
 
-export type PickedElement = {
-  tag: string;
-  /** CSS path that finds exactly this element. */
-  selector: string;
-  /** Readable breadcrumb, up to five steps. */
-  path: string;
-  text: string;
-  /** Start of the element's outerHTML. */
-  html: string;
-  /** Page path inside the preview, e.g. `/index.html`. */
-  page: string;
-};
+/** The pick event, shared with «Дизайн»: see `PreviewPick` in @zeno/contracts. */
+export type PickedElement = PreviewPick;
 
 /** What went wrong on the page (`main/preview-bridge/page-errors.js`). */
 export type PageError = {
@@ -58,15 +49,30 @@ export function parseBridgeMessage(data: unknown): BridgeMessage | undefined {
     const tag = str(raw.tag, 40);
     const selector = str(raw.selector, 400);
     if (!tag || !selector) return undefined;
-    return {
+    const box = (raw.rect ?? {}) as Record<string, unknown>;
+    const num = (value: unknown) =>
+      typeof value === "number" && Number.isFinite(value) ? Math.round(value) : 0;
+    const of = Math.max(1, count(raw.of));
+    const picked: { type: "picked" } & PickedElement = {
       type: "picked",
       tag,
       selector,
       path: str(raw.path, 400),
       text: str(raw.text, 120),
-      html: str(raw.html, 310),
+      outerHTMLShort: str(raw.outerHTMLShort, 260),
+      nth: Math.min(of, Math.max(1, count(raw.nth))),
+      of,
+      rect: { x: num(box.x), y: num(box.y), width: num(box.width), height: num(box.height) },
       page: str(raw.page, 300) || "/",
     };
+    const file = str(raw.file, 300);
+    if (file && count(raw.line) > 0) {
+      picked.file = file;
+      picked.line = count(raw.line);
+      picked.col = count(raw.col);
+      picked.exact = raw.exact !== false;
+    }
+    return picked;
   }
   if (raw.type === "error") {
     const message = str(raw.message, 500).trim();
@@ -138,13 +144,27 @@ export function pickedLabel(picked: PickedElement): string {
  * owner to finish. Backticks in the page's HTML would break the inline code span.
  */
 export function pickedPrompt(locale: Locale, picked: PickedElement): string {
-  const lines = [
-    `[${t(locale, "features.pick.block.title", { page: pageName(picked.page) })}]`,
-    `${t(locale, "features.pick.block.element")}: \`${picked.selector.replaceAll("`", "'")}\``,
-  ];
+  const code = (text: string) => `\`${text.replaceAll("`", "'")}\``;
+  const lines = [`[${t(locale, "features.pick.block.title", { page: pageName(picked.page) })}]`];
+  if (picked.file && picked.line) {
+    const vars = { file: picked.file, line: String(picked.line) };
+    lines.push(
+      t(
+        locale,
+        picked.exact === false ? "features.pick.block.fileNear" : "features.pick.block.file",
+        vars,
+      ),
+    );
+  }
+  lines.push(`${t(locale, "features.pick.block.element")}: ${code(picked.selector)}`);
   if (picked.text) lines.push(`${t(locale, "features.pick.block.text")}: ${picked.text}`);
-  if (picked.html) {
-    lines.push(`${t(locale, "features.pick.block.code")}: \`${picked.html.replaceAll("`", "'")}\``);
+  if (picked.outerHTMLShort) {
+    lines.push(`${t(locale, "features.pick.block.code")}: ${code(picked.outerHTMLShort)}`);
+  }
+  if (picked.of > 1) {
+    lines.push(
+      t(locale, "features.pick.block.nth", { nth: String(picked.nth), of: String(picked.of) }),
+    );
   }
   lines.push(`${t(locale, "features.pick.block.ask")} `);
   return lines.join("\n");

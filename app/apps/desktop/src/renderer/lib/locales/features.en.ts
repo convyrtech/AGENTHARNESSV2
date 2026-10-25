@@ -58,6 +58,10 @@ export const featuresEn: Record<keyof typeof featuresZh, string> = {
   "features.pick.hint": "Click the place on the page to change. Esc cancels.",
   "features.pick.picked": "Picked: {what}. Write below what to change.",
   "features.pick.block.title": "Place on page {page}",
+  "features.pick.block.file": "File: {file}, line {line}",
+  "features.pick.block.fileNear":
+    "File: {file}, line {line} (a script made the element; this is its nearest parent)",
+  "features.pick.block.nth": "There are {of} like it on the page; this is number {nth}",
   "features.pick.block.element": "Element",
   "features.pick.block.text": "Text",
   "features.pick.block.code": "Code",

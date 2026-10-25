@@ -271,6 +271,9 @@ catalogs:
     node-pty:
       specifier: ^1.1.0
       version: 1.1.0
+    parse5:
+      specifier: ^8.0.1
+      version: 8.0.1
     playwright:
       specifier: 1.55.0
       version: 1.55.0
@@ -430,6 +433,9 @@ importers:
       mermaid:
         specifier: 'catalog:'
         version: 11.16.1
+      parse5:
+        specifier: 'catalog:'
+        version: 8.0.1
       playwright:
         specifier: 'catalog:'
         version: 1.55.0
