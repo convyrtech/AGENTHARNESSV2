@@ -33,3 +33,38 @@ jobs:
       - run: pnpm check
       - run: pnpm test
       - run: pnpm build
+
+  # Electron e2e на Linux под xvfb: весь набор e2e/*.spec.ts (кроме дымовых Windows), два шарда по ~4 мин.
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11.15.1
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: app/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm electron:install
+      - run: pnpm build:desktop
+      # Ubuntu 24.04: AppArmor blocks the unprivileged user namespaces Chromium's sandbox needs
+      - name: Allow Electron's sandbox
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+      - name: Electron e2e (shard ${{ matrix.shard }}/2)
+        working-directory: app/apps/desktop
+        run: xvfb-run -a npx playwright test --shard=${{ matrix.shard }}/2 --reporter=list --trace=retain-on-failure
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: e2e-results-${{ matrix.shard }}
+          path: app/apps/desktop/test-results/
+          if-no-files-found: ignore
+          retention-days: 14
