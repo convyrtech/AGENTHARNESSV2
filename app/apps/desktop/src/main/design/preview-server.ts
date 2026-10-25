@@ -10,7 +10,13 @@ import { insideRoot, mimeFor } from "./paths.ts";
 
 export type PreviewServer = { url: string; root: string; close(): Promise<void> };
 
-export function startPreviewServer(root: string): Promise<PreviewServer> {
+/** Loopback ports of the preview servers that are up; the frame guard allows only these. */
+export const previewServerPorts = new Set<number>();
+
+export function startPreviewServer(
+  root: string,
+  options: { hideDotfiles?: boolean } = {},
+): Promise<PreviewServer> {
   const server: Server = createServer((req, res) => {
     if (req.method !== "GET" && req.method !== "HEAD") {
       res.writeHead(405).end();
@@ -24,6 +30,11 @@ export function startPreviewServer(root: string): Promise<PreviewServer> {
       return;
     }
     const rel = pathname.replace(/^\/+/, "");
+    // A whole project is served for the «Код» preview: never its .env, .git or other dotfiles.
+    if (options.hideDotfiles && rel.split("/").some((part) => part.startsWith("."))) {
+      res.writeHead(404, { "Content-Type": "text/plain; charset=utf-8" }).end("Not found");
+      return;
+    }
     let target = rel ? insideRoot(root, rel) : root;
     if (target && existsSync(target) && statSync(target).isDirectory()) {
       if (rel && !pathname.endsWith("/")) {
@@ -52,10 +63,14 @@ export function startPreviewServer(root: string): Promise<PreviewServer> {
     server.once("error", reject);
     server.listen(0, "127.0.0.1", () => {
       const { port } = server.address() as AddressInfo;
+      previewServerPorts.add(port);
       resolve({
         url: `http://127.0.0.1:${port}/`,
         root,
-        close: () => new Promise((done) => server.close(() => done())),
+        close: () => {
+          previewServerPorts.delete(port);
+          return new Promise((done) => server.close(() => done()));
+        },
       });
     });
   });

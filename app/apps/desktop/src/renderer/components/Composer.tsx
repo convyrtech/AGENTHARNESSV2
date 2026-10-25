@@ -998,7 +998,7 @@ export function Composer(props: ComposerProps) {
           />
         </div>
 
-        <div className="flex items-center justify-between gap-2 px-2 pb-2 pt-1">
+        <div className="composer-bar flex items-center justify-between gap-2 px-2 pb-2 pt-1">
           {/* Left: attach + access */}
           <div className="flex min-w-0 items-center gap-0.5">
             <button
@@ -1015,7 +1015,7 @@ export function Composer(props: ComposerProps) {
               type="button"
               data-testid="composer-access"
               className={cn(
-                "inline-flex h-8 max-w-[11rem] cursor-pointer items-center gap-1 rounded-full px-2",
+                "inline-flex h-8 max-w-[11rem] min-w-0 cursor-pointer items-center gap-1 rounded-full px-2",
                 "text-[12px] hover:bg-[var(--hover-fill)]",
                 props.accessMode === "full"
                   ? "text-[#ff5c1a] hover:bg-[#ff5c1a]/12 hover:text-[#ff4d00]"
@@ -1024,7 +1024,7 @@ export function Composer(props: ComposerProps) {
               onClick={(e) => openMenu("access", e)}
             >
               {accessIcon(props.accessMode)}
-              <span className="min-w-0 truncate">
+              <span className="composer-access-label min-w-0 truncate">
                 {accessLabel(props.locale, props.accessMode)}
               </span>
             </button>

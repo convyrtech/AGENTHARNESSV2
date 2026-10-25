@@ -24,6 +24,33 @@ const outDir = join(appDirectory, "..", "..", "docs", "prsloy", "screens");
 
 type Message = { role: string; content?: unknown };
 
+/** The page the fake agent writes for «Сделай сайт-визитку»: what a casual owner asks for. */
+const VIZITKA = `<!doctype html>
+<html lang="ru"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Анна Смирнова — флорист</title>
+<style>
+  body { margin: 0; font-family: Georgia, serif; background: #f6efe6; color: #2f2419; }
+  header { padding: 64px 24px 40px; text-align: center; background: #e9dccb; }
+  h1 { margin: 0 0 8px; font-size: 40px; font-weight: normal; }
+  header p { margin: 0; font-size: 18px; color: #6b5442; }
+  main { max-width: 720px; margin: 0 auto; padding: 32px 24px; display: grid; gap: 16px;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+  section { background: #fffaf3; border: 1px solid #e3d5c3; border-radius: 12px; padding: 20px; }
+  h2 { margin: 0 0 6px; font-size: 18px; }
+  a.button { display: inline-block; margin-top: 8px; padding: 10px 18px; border-radius: 999px;
+    background: #8c3f28; color: #fff; text-decoration: none; font-family: sans-serif; }
+</style></head>
+<body>
+  <header><h1>Анна Смирнова</h1><p>Букеты к празднику и на каждый день · Казань</p></header>
+  <main>
+    <section><h2>Букеты</h2>Сезонные цветы, сборка за час, от 2 500 ₽.</section>
+    <section><h2>Свадьбы</h2>Оформление зала и букет невесты под ваш стиль.</section>
+    <section><h2>Связаться</h2>+7 900 000-00-00<br><a class="button" href="#">Написать</a></section>
+  </main>
+</body></html>
+`;
+
 function fakeModel(readmePath: string): Server {
   let breaks = 0;
   return createServer((req, res) => {
@@ -62,6 +89,34 @@ function fakeModel(readmePath: string): Server {
           })}\n\n`,
         );
       send({ role: "assistant", content: "" });
+      // «Визитка»: writes site/index.html, so the turn offers «Открыть превью».
+      if (userText.includes("визитк")) {
+        if (!afterTool) {
+          send({
+            tool_calls: [
+              {
+                index: 0,
+                id: "call-write",
+                type: "function",
+                function: {
+                  name: "write",
+                  arguments: JSON.stringify({ path: "site/index.html", content: VIZITKA }),
+                },
+              },
+            ],
+          });
+          send({}, "tool_calls", {
+            prompt_tokens: 2400,
+            completion_tokens: 400,
+            total_tokens: 2800,
+          });
+        } else {
+          send({ content: "Готово: сайт-визитка в `site/index.html`. Откройте превью справа." });
+          send({}, "stop", { prompt_tokens: 2900, completion_tokens: 30, total_tokens: 2930 });
+        }
+        res.end("data: [DONE]\n\n");
+        return;
+      }
       // «Цена»: English reasoning, then a price split into deltas that repeat the tail.
       if (userText.includes("Цена")) {
         send({ reasoning_content: "Let me look at the working directory first." });
@@ -190,7 +245,7 @@ async function launch(): Promise<{ app: ElectronApplication; page: Page; server:
     ZENO_WORKSPACE: workspace,
     ZENO_MODEL_PROVIDER: "prsloy-demo",
     ZENO_MODEL_ID: "deepseek-v4.1-flash-1017",
-    ZENO_TOOLS: "read,bash",
+    ZENO_TOOLS: "read,bash,write",
     ZENO_PERSIST_SESSION: "0",
     ZENO_NO_AUTO_RESUME: "1",
     LANG: "ru_RU.UTF-8",
@@ -306,6 +361,17 @@ test("PRSLOY main screens, light and dark", async () => {
       await expect(page.getByTestId("thinking-toggle").last()).toHaveText("Думаю…");
       await expect(leak).toHaveCount(0);
       await shot(page, `${mode}-price-thinking`);
+
+      // «Код» preview: the turn that wrote a page offers it; it opens beside the chat.
+      await page.getByTestId("prompt-input").fill("Сделай сайт-визитку для флориста");
+      await page.getByTestId("send-prompt").click();
+      await page.getByTestId("turn-preview-btn").last().click({ timeout: 30_000 });
+      const site = page.frameLocator('[data-testid="code-preview-frame"]');
+      await expect(site.getByRole("heading", { name: "Анна Смирнова" })).toBeVisible();
+      await shot(page, `${mode}-code-preview`);
+      await page.getByTestId("code-preview-device-phone").click();
+      await shot(page, `${mode}-code-preview-phone`);
+      await page.getByTestId("code-preview-close").click();
 
       await page.getByTestId("prompt-input").fill("Проверим обрыв связи");
       await page.getByTestId("send-prompt").click();

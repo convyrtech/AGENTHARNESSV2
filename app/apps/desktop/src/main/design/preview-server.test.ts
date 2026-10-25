@@ -3,7 +3,12 @@ import { request } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vite-plus/test";
-import { findEntry, type PreviewServer, startPreviewServer } from "./preview-server.ts";
+import {
+  findEntry,
+  type PreviewServer,
+  previewServerPorts,
+  startPreviewServer,
+} from "./preview-server.ts";
 
 function site() {
   const root = mkdtempSync(join(tmpdir(), "design-site-"));
@@ -58,6 +63,25 @@ describe("startPreviewServer", () => {
     expect((await get(server.url, "/../secret.txt")).status).toBe(404);
     expect((await get(server.url, "/%2e%2e/secret.txt")).status).toBe(404);
     expect((await get(server.url, "/nope.html")).status).toBe(404);
+  });
+});
+
+describe("project preview (hideDotfiles)", () => {
+  it("serves the project but never its dotfiles, and registers its port while up", async () => {
+    const { root } = site();
+    mkdirSync(join(root, ".git"), { recursive: true });
+    writeFileSync(join(root, ".env"), "KEY=1");
+    writeFileSync(join(root, ".git", "config"), "x");
+    server = await startPreviewServer(root, { hideDotfiles: true });
+    const port = Number(new URL(server.url).port);
+    expect(previewServerPorts.has(port)).toBe(true);
+    expect((await get(server.url, "/site/landing/")).status).toBe(200);
+    expect((await get(server.url, "/.env")).status).toBe(404);
+    expect((await get(server.url, "/.git/config")).status).toBe(404);
+    expect((await get(server.url, "/site/%2eenv")).status).toBe(404);
+    await server.close();
+    server = undefined;
+    expect(previewServerPorts.has(port)).toBe(false);
   });
 });
 
