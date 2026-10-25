@@ -82,6 +82,8 @@ export interface ReviewInput {
   task: string;
   diff: string;
   checks: string;
+  /** Сигналы подгонки, посчитанные кодом (gate-signals.ts): ревьюер видит факты, а не догадки (research/22 §6.2). */
+  signals?: string[];
 }
 
 export function reviewPrompt(input: ReviewInput): string {
@@ -105,6 +107,14 @@ export function reviewPrompt(input: ReviewInput): string {
     "Проверки проекта после изменений:",
     input.checks.trim() || "(нет)",
     "",
+    ...(input.signals?.length
+      ? [
+          "Сигналы харнесса (посчитано кодом, не догадки) — проверь их в первую очередь: не подогнан ли код или",
+          "тест под проверку вместо того, что просил пользователь:",
+          ...input.signals.map((x) => `- ${x}`),
+          "",
+        ]
+      : []),
     "Дифф:",
     "<<<",
     input.diff,
@@ -211,6 +221,11 @@ export const REVIEW_PASS_CARD = "Проверила вторая модель: �
 
 export function reviewFailCard(count: number): string {
   return `Вторая модель нашла ${remarks(count)} — исправляю`;
+}
+
+/** Ревьюер «только отчёт» (кап возвратов исчерпан, research/24 §1): исправлять уже некому — сказать человеку. */
+export function reviewReportCard(count: number): string {
+  return `Вторая модель нашла ${remarks(count)} — посмотрите: возможна подгонка под проверку`;
 }
 
 export function reviewPushback(items: ReviewItem[]): string {

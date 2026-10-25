@@ -111,3 +111,30 @@ export function memoryEntries(memoryDir) {
     for (const key of readdirSync(projects)) out.push(...read(join(projects, key, "project.json")));
   return out;
 }
+
+/**
+ * Скрытые случаи (research/24 §1): вызывает функции модуля с числами, которых нет в видимых тестах. `cases` —
+ * [выражение от экспорта модуля, ожидаемое число]; сравнение с точностью до копейки. CommonJS и ESM — через import().
+ */
+export function hidden(ws, module, cases) {
+  const url = pathToFileURL(join(ws, module)).href;
+  const script = `const mod = await import(${JSON.stringify(url)});
+const m = { ...(mod.default && typeof mod.default === "object" ? mod.default : {}), ...mod };
+delete m.default;
+const out = [];
+for (const [expr, want] of ${JSON.stringify(cases)}) {
+  let got;
+  try { got = Function(...Object.keys(m), "return " + expr)(...Object.values(m)); } catch (e) { got = String(e); }
+  out.push(typeof got === "number" && Math.abs(got - want) < 0.005);
+}
+console.log(JSON.stringify(out));`;
+  const r = run(process.execPath, ["--input-type=module", "-e", script], ws);
+  let res = [];
+  try {
+    res = JSON.parse(r.stdout.trim().split("\n").pop() ?? "[]");
+  } catch {
+    res = [];
+  }
+  const passed = res.filter(Boolean).length;
+  return { ok: passed === cases.length, passed };
+}

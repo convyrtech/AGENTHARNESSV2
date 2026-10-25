@@ -182,7 +182,11 @@ describe("stop gate", () => {
     expect(entry.display).toBe(false);
     expect(entry.content).toMatch(/^Проверка проекта не прошла \(`npm run test`, код 1\):/);
     expect(entry.content).toContain("expected 4, got 5");
-    expect(entry.content.trimEnd().endsWith("Почини и проверь снова.")).toBe(true);
+    // T1 (research/22 §6.4): честный выход в каждой попытке; report_blocker — только если инструмент есть
+    expect(entry.content).toContain("Почини код и проверь снова.");
+    expect(entry.content).toContain("Оставь тест красным и коротко объясни пользователю");
+    expect(entry.content.trimEnd().endsWith("Это нормальный итог.")).toBe(true);
+    expect(entry.content).not.toContain("report_blocker");
   });
 
   it("cap: at most 2 push backs per user turn, then a plain visible note, never a loop", async () => {
