@@ -10,6 +10,8 @@
     var q = new URLSearchParams(location.search), b = q.get("brand") || "prsloy";
     document.write('<link rel="stylesheet" href="../brands/' + b.replace(/[^a-z0-9-]/g, "") + '.css">');
     if (q.get("move")) document.documentElement.setAttribute("data-solo", q.get("move"));
+    // ?words=<slug> — слова владельца (brands/<slug>.words.js задаёт window.WORDS), см. harness/moves.py
+    if (q.get("words")) document.write('<script src="../brands/' + q.get("words").replace(/[^a-z0-9-]/g, "") + '.words.js"><\/script>');
   })();
 </script>
 <link rel="stylesheet" href="../motion.css">
@@ -78,37 +80,37 @@
 
   <section class="demo" id="ring">
     <header><span class="tag">1 · ringHead</span><h2>Кольцо с головкой</h2></header>
-    <div class="stage"><div data-move="ringHead" data-opts='{"pad":26}' data-signature="ring"><span class="big mono">32,41 ₽</span></div></div>
+    <div class="stage"><div data-move="ringHead" data-opts='{"pad":26}' data-signature="ring"><span class="big mono" data-w="num">32,41 ₽</span></div></div>
   </section>
 
   <section class="demo" id="rail">
     <header><span class="tag">6 · stepsRail</span><h2>Рельс шагов</h2></header>
     <div class="stage" style="place-items:stretch">
       <ol data-move="stepsRail" class="m-rail-row-wide">
-        <li><div><h3 style="font-size:21px">Войдите</h3><span style="color:var(--mid)">почта или Telegram</span></div></li>
-        <li><div><h3 style="font-size:21px">Получите ключ</h3><span style="color:var(--mid)">его видно один раз</span></div></li>
-        <li><div><h3 style="font-size:21px">Вставьте адрес</h3><span class="mono" style="color:var(--mid)">api.prsloy.online/v1</span></div></li>
+        <li><div><h3 style="font-size:21px" data-w="step1">Войдите</h3><span style="color:var(--mid)" data-w="step1Sub">почта или Telegram</span></div></li>
+        <li><div><h3 style="font-size:21px" data-w="step2">Получите ключ</h3><span style="color:var(--mid)" data-w="step2Sub">его видно один раз</span></div></li>
+        <li><div><h3 style="font-size:21px" data-w="step3">Вставьте адрес</h3><span class="mono" style="color:var(--mid)" data-w="step3Sub">api.prsloy.online/v1</span></div></li>
       </ol>
     </div>
   </section>
 
   <section class="demo" id="odometer">
     <header><span class="tag">13 · odometer</span><h2>Число с торможением</h2></header>
-    <div class="stage"><div style="display:grid;gap:6px;justify-items:center"><span class="tag">лимит ключа на день</span>
-      <span class="big" data-move="odometer">1 250 ₽</span></div></div>
+    <div class="stage"><div style="display:grid;gap:6px;justify-items:center"><span class="tag" data-w="limitLabel">лимит ключа на день</span>
+      <span class="big" data-move="odometer" data-w="limit">1 250 ₽</span></div></div>
   </section>
 
   <section class="demo" id="stamp">
     <header><span class="tag">14 · stamp</span><h2>Печать-штамп</h2></header>
     <div class="stage">
-      <div class="card"><span class="tag">ключ «работа»</span><span class="mono">sk-prs-…7qF2</span><span style="color:var(--mid)">Claude Code</span></div>
-      <span class="stampbox" data-move="stamp" data-delay="250">КЛЮЧ ВЫДАН</span>
+      <div class="card"><span class="tag" data-w="cardTag">ключ «работа»</span><span class="mono" data-w="cardMain">sk-prs-…7qF2</span><span style="color:var(--mid)" data-w="cardSub">Claude Code</span></div>
+      <span class="stampbox" data-move="stamp" data-delay="250" data-w="stamp">КЛЮЧ ВЫДАН</span>
     </div>
   </section>
 
   <section class="demo" id="slot">
     <header><span class="tag">12 · slotLift</span><h2>Выезд из-под кромки</h2></header>
-    <div class="stage"><div class="slot" data-move="slotLift"><div class="card" data-lift><span class="tag">новый ключ</span><span class="mono">sk-prs-…7qF2</span></div></div></div>
+    <div class="stage"><div class="slot" data-move="slotLift"><div class="card" data-lift><span class="tag" data-w="liftTag">новый ключ</span><span class="mono" data-w="liftMain">sk-prs-…7qF2</span></div></div></div>
   </section>
 
   <section class="demo" id="trail">
@@ -117,9 +119,9 @@
       <div data-move="trailDot" data-opts='{"dur":2600}' style="width:100%">
         <svg viewBox="0 0 1000 240" aria-hidden="true">
           <path data-trail d="M40 170 C 180 40, 300 40, 360 120 S 520 220, 600 140 S 780 40, 900 110 L 960 110"/>
-          <g data-node data-at="0.18"><circle r="9"/><text x="-26" y="34">вход</text></g>
-          <g data-node data-at="0.52"><circle r="9"/><text x="-22" y="34">ключ</text></g>
-          <g data-node data-at="0.86"><circle r="9"/><text x="-26" y="34">адрес</text></g>
+          <g data-node data-at="0.18"><circle r="9"/><text x="-26" y="34" data-w="node1">вход</text></g>
+          <g data-node data-at="0.52"><circle r="9"/><text x="-22" y="34" data-w="node2">ключ</text></g>
+          <g data-node data-at="0.86"><circle r="9"/><text x="-26" y="34" data-w="node3">адрес</text></g>
         </svg>
       </div>
     </div>
@@ -127,8 +129,8 @@
 
   <section class="demo" id="morph">
     <header><span class="tag">8 · morph</span><h2>Одна фигура — все состояния</h2></header>
-    <div class="stage" style="gap:14px"><span class="mono" style="color:var(--mid)">https://api.prsloy.online/v1</span>
-      <button class="btn" data-move="morph" data-signature="copy">Скопировать адрес</button></div>
+    <div class="stage" style="gap:14px"><span class="mono" style="color:var(--mid)" data-w="copyLine">https://api.prsloy.online/v1</span>
+      <button class="btn" data-move="morph" data-signature="copy" data-w="copyBtn">Скопировать адрес</button></div>
   </section>
 
   <section class="demo" id="cascade">
@@ -140,21 +142,21 @@
         <span data-dot class="is-pick" style="left:52%;top:58%"></span><span data-dot style="left:58%;top:18%"></span><span data-dot style="left:64%;top:70%"></span>
         <span data-dot style="left:71%;top:40%"></span><span data-dot style="left:78%;top:24%"></span><span data-dot style="left:84%;top:64%"></span>
         <span data-dot style="left:90%;top:38%"></span><span data-dot style="left:12%;top:86%"></span><span data-dot style="left:68%;top:88%"></span>
-        <span data-dot-label style="left:55%;top:66%">+12 рядом</span>
+        <span data-dot-label style="left:55%;top:66%" data-w="pickLabel">+12 рядом</span>
       </div>
     </div>
   </section>
 
   <section class="demo" id="lineword">
     <header><span class="tag">15 · lineWord</span><h2>Линия-строка</h2></header>
-    <div class="stage"><h2 class="big" data-move="lineWord">Расход в <span data-rise>рублях</span></h2></div>
+    <div class="stage"><h2 class="big" data-move="lineWord"><span data-w="slogan">Расход в </span><span data-rise data-w="sloganRise">рублях</span></h2></div>
   </section>
 
   <section class="demo" id="shutter">
     <header><span class="tag">2 · shutter</span><h2>Предмет-шторка</h2></header>
     <div class="stage shutter" data-move="shutter" data-opts='{"x":24,"y":60}'>
-      <div class="layer l1">Глава 1</div>
-      <div class="layer" data-shutter-to>Глава 2</div>
+      <div class="layer l1" data-w="chapter1">Глава 1</div>
+      <div class="layer" data-shutter-to data-w="chapter2">Глава 2</div>
     </div>
   </section>
 
@@ -168,21 +170,26 @@
   <section class="scene" data-move="director" data-opts='{"screens":3}'>
     <div class="m-stage">
       <ol>
-        <li data-step-at="0"><span class="tag">ключ</span><h3>Ключ на программу</h3></li>
-        <li data-step-at="0.4"><span class="tag">лимит</span><h3>Лимит в рублях на день</h3></li>
-        <li data-step-at="0.75"><span class="tag">расход</span><h3>Расход видно сразу</h3></li>
+        <li data-step-at="0"><span class="tag" data-w="scene1Tag">ключ</span><h3 data-w="scene1">Ключ на программу</h3></li>
+        <li data-step-at="0.4"><span class="tag" data-w="scene2Tag">лимит</span><h3 data-w="scene2">Лимит в рублях на день</h3></li>
+        <li data-step-at="0.75"><span class="tag" data-w="scene3Tag">расход</span><h3 data-w="scene3">Расход видно сразу</h3></li>
       </ol>
       <div class="instrument">
         <div data-move="ringHead" data-at="0-0.45" data-opts='{"pad":30}' data-signature="director-ring">
-          <span class="big" data-move="odometer" data-at="0.35-0.8">50 ₽</span>
+          <span class="big" data-move="odometer" data-at="0.35-0.8" data-w="sceneNum">50 ₽</span>
         </div>
-        <span class="stampbox" data-move="stamp" data-at="0.82-0.95" style="right:6%;bottom:18%">ЛИМИТ ЗАДАН</span>
+        <span class="stampbox" data-move="stamp" data-at="0.82-0.95" style="right:6%;bottom:18%" data-w="sceneStamp">ЛИМИТ ЗАДАН</span>
       </div>
     </div>
   </section>
 </div>
 <main style="padding-top:0"><p style="color:var(--mid)">Конец демо.</p></main>
 
+<script>
+  // слова владельца в [data-w] до motion.js: компоненты (число с торможением) читают текст при запуске
+  (function () { var w = window.WORDS || {}; document.querySelectorAll("[data-w]").forEach(function (el) {
+    var v = w[el.getAttribute("data-w")]; if (typeof v === "string" && v) el.textContent = v; }); })();
+</script>
 <script src="../motion.js"></script>
 <script>
   // рельс горизонтальный на широком экране
