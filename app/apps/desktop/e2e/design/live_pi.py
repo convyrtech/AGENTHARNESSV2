@@ -10,6 +10,8 @@ The step comes from the harness brief («Шаг 1 «…»»), against the stub p
   1  words → moves.py candidates (sheet + three mp4) → ВЛАДЕЛЬЦУ with the sheet and videos;
      after the owner's answer: «ВЫБОР 1» in his words → moves.py pick → ЭТАП ГОТОВ
   2  04-motion.md + site/landing/index.html → check.py → ЭТАП ГОТОВ
+  edit (run.py say --edit, «Править»): the heading in the accent colour, nothing else → ЭТАП ГОТОВ;
+     the harness's check of the edit («Проверка правки») → ЭТАП ГОТОВ
 $PI_CODING_AGENT_DIR/live-control.json:
   {"crash": n}  the next n runs die after their first tool call (exit 3, no text);
   {"hold": s}   once, step 1 first runs a tool that opens the tools' browser and holds it s seconds (a turn to close
@@ -114,6 +116,13 @@ def owner_said():
 def main():
     args = sys.argv[1:]
     brief = Path(next(x for x in args if x.startswith("@"))[1:]).read_text(encoding="utf-8")
+    if "Правка владельца на готовой странице" in brief:
+        page = WS / "site" / "landing" / "index.html"
+        html = page.read_text(encoding="utf-8")
+        write("site/landing/index.html", html.replace("<h1 style='", "<h1 style='color:#b4532a;", 1))
+        finish("Заголовок теперь в цвете акцента.\nЭТАП ГОТОВ")
+    if "[харнесс] Проверка правки" in brief:
+        finish("Остальное не трогал.\nЭТАП ГОТОВ")
     m = re.search(r"Шаг (\S+) «", brief)
     gate = m.group(1) if m else "?"
     state = json.loads(STATE.read_text(encoding="utf-8")) if STATE.exists() else {}

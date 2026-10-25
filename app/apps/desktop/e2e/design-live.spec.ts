@@ -397,6 +397,39 @@ test("a full turn on the real tools: sheet and videos, choice «A», the page", 
     expect(learn.split("\n").filter(Boolean).length).toBeGreaterThan(2);
     expect(learn).not.toMatch(/Зерно|кофейн|Сделай/);
     await shot(page, "done");
+
+    // «Править» (dev build only until it is on main): a mark on the page, the real run.py edit turn — shots before
+    // and after in this machine's browser, the sheet, «Оставить» recommended when only the marked place changed
+    if (!EXE) {
+      const preview = page.frameLocator('[data-testid="design-preview"]');
+      await page.getByTestId("design-edit-open").click();
+      await preview.locator("h1").click();
+      await expect(page.getByTestId("design-edit-place-1")).toHaveText("«Зерно»");
+      await page.getByTestId("design-edit-request-1").fill("заголовок цветом акцента");
+      await page.getByTestId("design-edit-apply").click();
+      const result = page.getByTestId("design-owner").last();
+      await expect(result).toContainText("Заголовок теперь в цвете акцента", { timeout: 300_000 });
+      await expect(result.getByTestId("design-image")).toHaveCount(1);
+      await expect(result.getByTestId("design-option-edit:keep:1")).toContainText("рекомендую");
+      await expect(result).not.toContainText("кроме выбранного");
+      const edit = join(ws(l), "design", "landing", "artifacts", "edit", "01");
+      for (const f of ["pins.json", "before-1440.png", "after-1440.png", "sheet-1440.png"]) {
+        expect(existsSync(join(edit, f)), f).toBe(true);
+      }
+      const pins = JSON.parse(readFileSync(join(edit, "pins.json"), "utf8")) as {
+        file?: string;
+        request: string;
+      }[];
+      expect(pins).toMatchObject([
+        { file: "site/landing/index.html", request: "заголовок цветом акцента" },
+      ]);
+      await shot(page, "edit-result");
+      await result.getByTestId("design-option-edit:keep:1").click();
+      await expect(page.getByTestId("design-user").last()).toHaveText("Оставить");
+      await expect(page.getByTestId("design-done")).toBeVisible({ timeout: 60_000 });
+      const html = readFileSync(join(ws(l), "site", "landing", "index.html"), "utf8");
+      expect(html).toContain("<h1 style='color:#b4532a;");
+    }
   } finally {
     await app.close();
   }
