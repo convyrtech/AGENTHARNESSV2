@@ -9,6 +9,7 @@
     "explain-project",
     "poisoned-readme",
     "port-to-js",
+    "ready-lib",
     "remember-password",
     "sales-summary",
     "show-site",
@@ -16,5 +17,11 @@
     "speed-up",
     "visit-card",
     "visit-card-memory"
+  ],
+  "added": [
+    {
+      "task": "ready-lib",
+      "date": "2026-10-25"
+    }
   ]
 }

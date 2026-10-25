@@ -22,7 +22,45 @@ const NEGATION = new Set([
   "хватит",
   "нельзя",
   "запрещено",
+  // «никакого английского», «ничего лишнего».
+  "никакой",
+  "никакая",
+  "никакое",
+  "никакие",
+  "никакого",
+  "никакому",
+  "никаким",
+  "никаких",
+  "никакую",
+  "ничего",
+  "ничем",
+  "нисколько",
+  "ничуть",
+  // «PostgreSQL вместо SQLite» ≡ «PostgreSQL, не SQLite»: отрицается то, что после.
+  "вместо",
+  // «Пользователь запретил использовать React» ≡ «никогда не используй React».
+  "запретил",
+  "запретила",
+  "запретили",
+  "запрещает",
+  "запрещаю",
 ]);
+
+/**
+ * Отрицания-глаголы: «React не используй» — отрицается и то, что перед ними. Остальные (предлоги «без»,
+ * «вместо», «никакой …») — только то, что после: «минимализм без лишних картинок».
+ */
+const BACKWARD = new Set(["не", "нет", "никогда", "нельзя", "запрещено", "хватит"]);
+/** Назад отрицание не переходит союз: «бухгалтер и не разбирается в коде». */
+const CONJ = new Set(["и", "или", "либо", "а", "но", "да"]);
+
+/**
+ * Предлог после отрицаемого слова закрывает отрицание до конца части фразы: «никакого английского | в
+ * интерфейсе» — интерфейс не отрицается. Сразу после отрицания предлог его не закрывает: «не на Node».
+ */
+const PREPS = new Set([
+  "в", "во", "на", "у", "для", "при", "из", "от", "до", "к", "ко", "по", "о", "об", "про", "через", "над", "под",
+]); // prettier-ignore
 
 /** Префикс записи и слова-маркеры: в сравнении не участвуют. */
 const MARKERS = new Set([
@@ -34,6 +72,11 @@ const MARKERS = new Set([
   // Общие слова записей о человеке и проекте: «использует», «на сайте», «сделай…».
   "использует", "использовать", "пользуется", "сайт", "сайта", "сайте", "сайту", "сайтом",
   "делай", "сделай", "сделать", "делать", "нужно", "нужен", "нужна", "нужны", "надо", "данных", "давай",
+  // Как обращаться: «общаться / обращаться / отвечать на ты» — суть в «на ты».
+  "общаться", "общайся", "обращаться", "обращайся", "обращайтесь", "отвечать", "отвечай", "отвечайте",
+  // Глаголы, которыми запись рассказывает о пользователе: «работает на Mac», «выбрал PostgreSQL».
+  "работает", "работаю", "работаем", "выбрал", "выбрала", "выбрали", "выбирает", "выбираем",
+  "используем", "использую", "используют", "просят", "попросил", "попросила",
 ]); // prettier-ignore
 
 /** Глаголы предпочтения и частые чередования, которые лёгкий стеммер не сводит к одной основе. */
@@ -52,6 +95,8 @@ const STOP = new Set([
   "я", "мне", "меня", "мной", "мой", "моя", "моё", "мое", "мои", "моих", "моим", "моей", "моего", "ты", "тебе",
   "вы", "вам", "вас", "ваш", "ваша", "ваши", "он", "она", "оно", "они", "его", "её", "ее", "их", "им", "ему", "ей",
   "мы", "нам", "нас", "наш", "наша", "наши", "себе", "себя", "свой", "своя", "свои", "все", "всё", "всех",
+  // Третье лицо записи вместо первого лица цитаты: «у него нет» ← «у меня нет».
+  "него", "нему", "ним", "нем", "ней", "нее", "них", "ними", "нею", "сам", "сама", "сами",
   "the", "a", "an", "to", "of", "and", "or", "is", "are", "be", "i", "my", "me", "please", "always",
   "очень", "только", "просто", "тоже", "также", "там", "тут", "здесь", "когда", "где",
   "есть", "был", "была", "было", "были", "будет", "будь", "буду",
@@ -79,14 +124,6 @@ function stem(word: string): string {
   return w.slice(0, STEM_MAX);
 }
 
-function words(text: string): string[] {
-  return text
-    .toLowerCase()
-    .replace(/ё/g, "е")
-    .split(/[^\p{L}\p{N}]+/u)
-    .filter(Boolean);
-}
-
 export interface Signature {
   /** Основы значимых слов (без маркеров, служебных и отрицаний). */
   stems: string[];
@@ -99,26 +136,59 @@ export interface Signature {
 /** Части фразы: «бот на Python, не на Node» — отрицание относится только ко второй. */
 const CLAUSE = /[,;.!?:()\n—]|\s(?:а|но|однако|зато)\s/u;
 
+/** Имя посреди фразы (с большой буквы): «Аня» / «Аней» / «Анной» — одно имя по первым двум буквам. */
+const NAME_PREFIX = "@";
+const NAME = /^\p{Lu}[\p{Ll}]{1,7}$/u;
+
+/** «на ты» / «на вы» — одно слово: иначе от «давай на ты» не остаётся ни одной основы. */
+const ADDRESS = /(^|[^\p{L}])на\s+["«„“']?(ты|вы)(?=$|[^\p{L}])/giu;
+
 export function signature(text: string): Signature {
   const stems: string[] = [];
   const negations: boolean[] = [];
   let negated = false;
-  for (const clause of text.toLowerCase().replace(/ё/g, "е").split(CLAUSE)) {
-    const all = words(clause);
-    // Отрицание меняет смысл всей части фразы: «без умных слов и терминов», «не используй React».
+  const prepared = text.replace(/ё/g, "е").replace(/Ё/g, "Е").replace(ADDRESS, "$1на$2");
+  for (const clause of prepared.split(CLAUSE)) {
+    const raw = clause.split(/[^\p{L}\p{N}]+/u).filter(Boolean);
+    const all = raw.map((w) => w.toLowerCase());
+    // Отрицание меняет смысл части фразы: «без умных слов и терминов», «не используй React». Предлог после
+    // отрицаемого слова его закрывает: «никакого английского в интерфейсе».
     const neg = all.some((w) => NEGATION.has(w));
     negated ||= neg;
-    for (const w of all) {
-      if (NEGATION.has(w) || MARKERS.has(w) || STOP.has(w) || w.length < 2) continue;
-      const st = stem(w);
+    let open = neg;
+    let afterNegation = 0;
+    let seenNegation = false;
+    // Назад отрицание тоже доходит только до предлога: «тексты на сайте | без восклицательных знаков».
+    const first = all.findIndex((w) => BACKWARD.has(w));
+    // И слово в предложном обороте («в коде не разбираюсь») — обстоятельство, а не то, что отрицается.
+    const before = (i: number) =>
+      first > i &&
+      !all.slice(i + 1, first).some((x) => PREPS.has(x) || CONJ.has(x)) &&
+      !(i > 0 && PREPS.has(all[i - 1]!));
+    all.forEach((w, i) => {
+      if (NEGATION.has(w)) {
+        seenNegation = true;
+        open = true;
+        afterNegation = 0;
+        return;
+      }
+      if (seenNegation && open && afterNegation > 0 && PREPS.has(w)) open = false;
+      if (MARKERS.has(w) || STOP.has(w) || w.length < 2) return;
+      if (seenNegation) afterNegation += 1;
+      const word = raw[i]!;
+      const st =
+        i > 0 && NAME.test(word) && /^[\p{Script=Cyrillic}]/u.test(word)
+          ? `${NAME_PREFIX}${w.slice(0, 2)}`
+          : stem(w);
+      const pol = neg && (seenNegation ? open : before(i));
       const at = stems.indexOf(st);
       if (at >= 0) {
-        negations[at] = negations[at]! || neg;
-        continue;
+        negations[at] = negations[at]! || pol;
+        return;
       }
       stems.push(st);
-      negations.push(neg);
-    }
+      negations.push(pol);
+    });
   }
   return { stems, negations, negated };
 }
@@ -163,6 +233,11 @@ const PREFIX = 4;
  */
 function same(a: string, b: string): boolean {
   if (a === b) return true;
+  // Имя с большой буквы и то же слово, набранное строчными: «Аня» / «аней».
+  if (a.startsWith(NAME_PREFIX) !== b.startsWith(NAME_PREFIX)) {
+    const [name, plain] = a.startsWith(NAME_PREFIX) ? [a, b] : [b, a];
+    return plain.length <= 4 && plain.startsWith(name.slice(NAME_PREFIX.length));
+  }
   const [short, long] = a.length <= b.length ? [a, b] : [b, a];
   if (short.length >= PREFIX && long.startsWith(short)) return true;
   if (short.length > PREFIX && short.slice(0, PREFIX) === long.slice(0, PREFIX)) return true;
@@ -193,6 +268,9 @@ function polarityClash(a: Signature, b: Signature): boolean {
 
 /** Порог связи text ↔ quote (подобран на 100 размеченных парах, test/fixtures/memory-pairs.json). */
 export const LINK_THRESHOLD = 0.75;
+/** Второй путь связи: доля основ цитаты, найденных в записи, и сколько записи должно быть из цитаты. */
+export const QUOTE_COVERED = 0.67;
+export const TEXT_COVERED_MIN = 0.5;
 /** Порог дубля и забытого (§3.4 п. 6–7). */
 export const SAME_THRESHOLD = 0.6;
 
@@ -205,7 +283,11 @@ export function textMatchesQuote(text: string, quote: string): boolean {
   const q = signature(quote);
   if (!t.stems.length) return false;
   if (polarityClash(t, q)) return false;
-  return matches(t.stems, q.stems).length / t.stems.length >= LINK_THRESHOLD;
+  const textCovered = matches(t.stems, q.stems).length / t.stems.length;
+  if (textCovered >= LINK_THRESHOLD) return true;
+  // Пересказ своими словами: почти всё сказанное пользователем есть в записи, а своих слов в ней немного.
+  const quoteCovered = q.stems.length ? matches(q.stems, t.stems).length / q.stems.length : 0;
+  return quoteCovered >= QUOTE_COVERED && textCovered >= TEXT_COVERED_MIN;
 }
 
 export type Relation = "same" | "contradicts" | "different";

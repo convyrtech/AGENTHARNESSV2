@@ -3,7 +3,7 @@
  * index.ts calls `initPrsloy()` right after the bundled runtimes are configured and
  * before any Agent Host spawn.
  */
-import { app, net, safeStorage } from "electron";
+import { app, net, safeStorage, utilityProcess, type UtilityProcess } from "electron";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import {
@@ -11,6 +11,7 @@ import {
   getActiveBundledRuntimeStatus,
 } from "../bundled-runtimes.ts";
 import { resolveVendorRuntimeLayout } from "../runtime-provision.ts";
+import { splitHostHandoff } from "./agent-env.ts";
 import { bootstrapPrsloy, pickPythonExecutable, type PrsloyContext } from "./context.ts";
 import type { FetchLike } from "./gateway-check.ts";
 import type { RuntimeBoot } from "./runtime-boot.ts";
@@ -82,3 +83,17 @@ export function initPrsloy(mainModuleUrl: string, runtimes?: RuntimeBoot): Prslo
 
 /** Gateway checks go through Chromium's network stack (system proxy, OS cert store). */
 export const electronFetch: FetchLike = (input, init) => net.fetch(input, init);
+
+/**
+ * Fork the Agent Host without secrets in its env: the gateway key and the search config go as
+ * the first parentPort message (shared/host-handoff.ts), queued before any command main sends.
+ */
+export function forkAgentHost(
+  entry: string,
+  options: { env: Record<string, string>; serviceName: string; stdio: "pipe" },
+): UtilityProcess {
+  const { env, handoff } = splitHostHandoff(options.env);
+  const child = utilityProcess.fork(entry, [], { ...options, env });
+  child.postMessage(handoff);
+  return child;
+}

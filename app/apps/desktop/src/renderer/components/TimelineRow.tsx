@@ -90,7 +90,9 @@ import { isTurnStatusItem, parseTurnStatus } from "../lib/turn-status.ts";
 import { HarnessCard } from "./HarnessCard.tsx";
 import { MemoryCard } from "./MemoryCard.tsx";
 import { BlockerCard } from "./BlockerCard.tsx";
+import { SearchLimitCard } from "./SearchLimitCard.tsx";
 import { BLOCKER_TYPE } from "../lib/blocker-card.ts";
+import { SEARCH_LIMIT_TYPE } from "../lib/search-settings.ts";
 import { memoryCardKind } from "../lib/memory.ts";
 import {
   isHostCrash,
@@ -803,6 +805,9 @@ export const TimelineRow = memo(function TimelineRow(props: {
         data-kind="system"
         data-testid="timeline-compaction-marker"
         data-tone={failed ? "error" : "info"}
+        {...(failed || /completed|done|started|abort/i.test(item.text) || !item.text.trim()
+          ? {}
+          : { title: item.text.trim() })}
       >
         <MarkerContent className="px-2">{label}</MarkerContent>
       </Marker>
@@ -838,6 +843,9 @@ export const TimelineRow = memo(function TimelineRow(props: {
   if (isTurnStatusItem(item)) {
     const status = parseTurnStatus(item.kind === "system" ? item.details : undefined);
     return status ? <TurnStatusLine locale={props.locale} status={status} /> : null;
+  }
+  if (item.extension && item.title === SEARCH_LIMIT_TYPE) {
+    return <SearchLimitCard locale={props.locale} text={item.text} details={item.details} />;
   }
   if (item.extension && item.title === BLOCKER_TYPE) {
     return (
@@ -934,7 +942,9 @@ function compactionMarkerLabel(locale: Locale, text: string): string {
   }
   if (/completed|done/i.test(body)) return t(locale, "timeline.compaction.completed");
   if (/started/i.test(body)) return t(locale, "timeline.compaction.started");
-  return body || t(locale, "timeline.compaction.completed");
+  // A compaction restored from history carries its summary, which can be pages long (an
+  // imported chat's summary, #22): the separator says «История сжата», the summary is a tooltip.
+  return t(locale, "timeline.compaction.completed");
 }
 
 function processToolIcon(kind: ProcessToolKind): ReactNode {

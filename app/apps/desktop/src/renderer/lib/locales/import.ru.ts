@@ -29,5 +29,9 @@ export const importRu: Record<keyof typeof importZh, string> = {
   "prsloy.import.settingsTitle": "Чаты из других программ",
   "prsloy.import.settingsHint":
     "Перенесу сюда переписку из Claude Code, Codex и других, чтобы продолжить её здесь.",
+  "prsloy.import.unreadable": "Не смог прочитать чаты {tools}: незнакомый формат.",
+  "prsloy.import.badgeTitle": "Перенесён из {tool}",
+  "prsloy.import.notice":
+    "Перенесено из {tool}. Модель видит сводку разговора и последние ходы, а не всю переписку.",
   "prsloy.import.find": "Найти чаты",
 };

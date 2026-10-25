@@ -9,6 +9,8 @@
 //   node packages/prsloy-harness/scripts/ppc.mts split --seed 33 --train 4 --decided 2026-10-25
 //   node packages/prsloy-harness/scripts/ppc.mts split --from base-1.json --from base-2.json --train 4 \
 //     --decided 2026-11-01 --replace-seeded    # «нестабильные» по базовым отчётам вместо разбиения по seed
+//   node packages/prsloy-harness/scripts/ppc.mts split --add-new --decided 2026-10-25
+//     # задачи, добавленные в стенд позже, — в test; train не меняется
 //
 // Итог раунда: <out>/PROPOSAL.md (кандидаты, check.mjs на train и test, diff), RESULT.json, REFLECTION.md,
 // candidates/composed/harness/ — обвязка, которую переносит человек. Выход 0 — раунд прошёл, 2 — нет.
@@ -25,6 +27,7 @@ import {
   SPLIT_FILE,
   unstableSplit,
   writeSplitOnce,
+  writeWithNewTasks,
 } from "../src/tuner/split.ts";
 
 const [command, ...rest] = process.argv.slice(2);
@@ -46,6 +49,7 @@ const { values } = parseArgs({
     decided: { type: "string" },
     from: { type: "string", multiple: true },
     "replace-seeded": { type: "boolean" },
+    "add-new": { type: "boolean" },
   },
 });
 
@@ -55,6 +59,12 @@ function split(): number {
     return 2;
   }
   const tasks = listTasks(undefined, "casual", false).map((t) => t.id);
+  if (values["add-new"]) {
+    const file = values.split ? resolve(values.split) : SPLIT_FILE;
+    const next = writeWithNewTasks(file, tasks, values.decided);
+    console.log(`train как был (${next.train.join(", ")}); test ${next.test.length} задач`);
+    return 0;
+  }
   const nTrain = Number(values.train);
   const file = values.split ? resolve(values.split) : SPLIT_FILE;
   const next = values.from?.length

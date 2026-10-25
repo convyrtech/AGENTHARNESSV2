@@ -6,7 +6,7 @@
  * only writes are PRSLOY's new chat files and the import journal (packages/session-import).
  */
 import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import {
   candidateKey,
   type ChatCandidate,
@@ -17,11 +17,13 @@ import {
   type TargetModel,
 } from "@prsloy/session-import";
 import type {
+  ImportOrigins,
   ImportProgress,
   ImportRunResult,
   ImportScanResult,
   ImportSkipReason,
 } from "@zeno/contracts";
+import { importOriginKey } from "../../shared/import-origin.ts";
 import {
   PRSLOY_DEFAULT_SPEED_MODE,
   PRSLOY_PROVIDER_ID,
@@ -105,6 +107,7 @@ export class SessionImportService {
         alreadyImported: c.alreadyImported === true,
       })),
       selected: result.selected,
+      unreadable: [...new Set(result.skipped.map((skip) => skip.tool))],
     };
   }
 
@@ -142,5 +145,16 @@ export class SessionImportService {
     }
     const projects = [...perProject.entries()].sort((a, b) => b[1] - a[1]).map(([path]) => path);
     return { imported, skipped, projects };
+  }
+
+  /** The chats the journal says were brought over: only their session file and tool. */
+  async origins(platform: NodeJS.Platform = process.platform): Promise<ImportOrigins> {
+    const foldCase = platform === "win32";
+    const ledger = await readLedger(this.#paths().ledgerPath);
+    const origins: ImportOrigins["origins"] = {};
+    for (const entry of ledger.entries) {
+      origins[importOriginKey(resolve(entry.piSession), foldCase)] = entry.tool;
+    }
+    return { origins, foldCase };
   }
 }

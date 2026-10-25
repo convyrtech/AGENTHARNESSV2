@@ -61,6 +61,20 @@ describe("M-3 prompt and reply", () => {
     ]);
     expect(parseExtractorReply('{"ops":[]}')).toEqual([]);
     expect(parseExtractorReply("не знаю")).toBeUndefined();
+    // Straight quotes inside a string (the live qwen run): repaired, not lost.
+    expect(
+      parseExtractorReply(
+        '{"ops":[{"op":"add","scope":"user","kind":"preference","text":"Обращаться на "ты"","quote":"давай на ты"}]}',
+      ),
+    ).toEqual([
+      {
+        op: "add",
+        scope: "user",
+        kind: "preference",
+        text: 'Обращаться на "ты"',
+        quote: "давай на ты",
+      },
+    ]);
     expect(parseExtractorReply('{"ops": "нет"}')).toBeUndefined();
   });
 });
@@ -84,6 +98,43 @@ describe("M-3 checks (§3.4)", () => {
       memory,
     );
     expect(again.map((c) => [c.verdict, c.target])).toEqual([["ok", "u-1"]]);
+  });
+
+  it("quotes match tolerantly but only in the user's own words (case, ё, quotes, dashes, punctuation)", () => {
+    const words = [{ text: "Я бухгалтер — в коде не разбираюсь. Ёлки, «пиши» проще!" }];
+    const c = checkCandidates(
+      [
+        op({ text: "Пользователь бухгалтер", quote: "я Бухгалтер - в коде" }),
+        op({ text: "Писать проще", quote: "ёлки пиши проще" }),
+        // Part of a word is not a quote; words not in the message are not either.
+        op({ text: "Пользователь бухгалтер", quote: "хгалтер в коде не" }),
+      ],
+      words,
+      empty,
+    );
+    expect(c.map((x) => x.verdict)).toEqual(["ok", "ok", "not-user-words"]);
+    const more = checkCandidates(
+      [op({ text: "Пользователь бухгалтер", quote: "я главный бухгалтер" })],
+      words,
+      empty,
+    );
+    expect(more.map((x) => x.verdict)).toEqual(["not-user-words"]);
+  });
+
+  it("the record may retell the whole message the quote stands in, polarity still checked", () => {
+    const words = [{ text: "Я бухгалтер, в коде не разбираюсь" }];
+    const c = checkCandidates(
+      [op({ text: "Бухгалтер, не разбирается в коде", quote: "Я бухгалтер" })],
+      words,
+      empty,
+    );
+    expect(c.map((x) => x.verdict)).toEqual(["ok"]);
+    const flipped = checkCandidates(
+      [op({ text: "Бухгалтер, разбирается в коде", quote: "Я бухгалтер" })],
+      words,
+      empty,
+    );
+    expect(flipped.map((x) => x.verdict)).toEqual(["not-linked"]);
   });
 
   it("no more than 3 ops and 1 supersede; a pinned entry is not replaced", () => {

@@ -13,7 +13,7 @@ import {
   type SearchConfig,
 } from "../src/research/search.ts";
 import { clip, installResearch } from "../src/research/tools.ts";
-import { fakeFetch, json } from "./fake-fetch.ts";
+import { fakeFetch, json, PUBLIC_DNS } from "./fake-fetch.ts";
 import { MockPi } from "./mock-pi.ts";
 
 const NOW = () => new Date("2026-10-25T12:00:00Z");
@@ -278,7 +278,11 @@ describe("reading pages", () => {
     const f = fakeFetch([
       ["https://old.ru/", () => new Response(body, { headers: { "content-type": "text/html" } })],
     ]);
-    const page = await readPage("https://old.ru/", { fetchImpl: f.impl, jina: false });
+    const page = await readPage("https://old.ru/", {
+      fetchImpl: f.impl,
+      jina: false,
+      resolve: PUBLIC_DNS,
+    });
     expect(page.text).toContain("Привет");
   });
 
@@ -309,7 +313,11 @@ describe("reading pages", () => {
         () => json({ data: { title: "J", content: "из Jina", publishedTime: "2026-01-02" } }),
       ],
     ]);
-    const deps = { fetchImpl: f.impl, gateway: { url: "https://gw.example", key: "sk-gw" } };
+    const deps = {
+      fetchImpl: f.impl,
+      resolve: PUBLIC_DNS,
+      gateway: { url: "https://gw.example", key: "sk-gw" },
+    };
     const ok = await readPage("https://ok.ru/", deps);
     expect(ok).toMatchObject({ via: "direct", status: 200, date: "2026-10-23", dateFrom: "meta" });
     expect((await readPage("https://spa.ru/", deps)).via).toBe("gateway");
@@ -374,7 +382,10 @@ describe("web_search / web_fetch tools", () => {
     (mock.ctx as unknown as { modelRegistry: unknown }).modelRegistry = {
       getApiKeyForProvider: async (p: string) => (p === "prsloy" ? "sk-gateway" : undefined),
     };
-    installResearch(mock.api, resolveOptions({ outputDir: out, settingsPath }), research);
+    installResearch(mock.api, resolveOptions({ outputDir: out, settingsPath }), {
+      resolve: PUBLIC_DNS,
+      ...research,
+    });
     return { mock, out };
   }
 
@@ -393,6 +404,11 @@ describe("web_search / web_fetch tools", () => {
     writeFileSync(join(on.out, "prsloy-harness.json"), JSON.stringify({ webTools: true }));
     await on.mock.userPrompt();
     expect(on.mock.activeTools).toEqual(expect.arrayContaining(["web_search", "web_fetch"]));
+    // one of the two left active by someone else: still taken off when the flag is off
+    writeFileSync(join(on.out, "prsloy-harness.json"), JSON.stringify({ webTools: false }));
+    on.mock.activeTools = on.mock.activeTools.filter((t) => t !== "web_fetch");
+    await on.mock.userPrompt();
+    expect(on.mock.activeTools).not.toContain("web_search");
     // the old key `research` no longer turns them on
     expect(setup({}, { research: true }).mock.activeTools).not.toContain("web_search");
   });

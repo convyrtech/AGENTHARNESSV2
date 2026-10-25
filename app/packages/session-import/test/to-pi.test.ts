@@ -4,6 +4,7 @@ import {
   buildPiSession,
   copyPiCliSession,
   IMPORT_CUSTOM_TYPE,
+  noteParagraphs,
   sessionFileName,
   tailStart,
   TAIL_CHARS,
@@ -150,5 +151,25 @@ describe("to-pi", () => {
     expect(lines.map((l) => JSON.parse(l).type)[0]).toBe("session");
     expect(lines).toHaveLength(1 + file.entries.length);
     expect(await readdir(dir)).toHaveLength(1);
+  });
+
+  it("puts tool notes on their own paragraphs for the markdown chat", () => {
+    expect(noteParagraphs("Начну.\n• Write: a.html\n• Bash: npm test\nГотово.\nЕщё строка")).toBe(
+      "Начну.\n\n• Write: a.html\n\n• Bash: npm test\n\nГотово.\nЕщё строка",
+    );
+    expect(noteParagraphs("просто текст")).toBe("просто текст");
+    const file = buildPiSession(
+      chat([turn("user", "a"), turn("assistant", "Сделал.\n• Edit: x")]),
+      {
+        target: TARGET,
+        sha256: "s",
+      },
+    );
+    const reply = file.entries.find(
+      (e) => e.type === "message" && (e.message as { role: string }).role === "assistant",
+    );
+    expect((reply!.message as { content: { text: string }[] }).content[0]!.text).toBe(
+      "Сделал.\n\n• Edit: x",
+    );
   });
 });

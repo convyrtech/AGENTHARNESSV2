@@ -192,15 +192,27 @@ test("first run brings Claude Code and Codex chats over and continues one", asyn
 
     // the imported chat is an ordinary chat of the project, and continuing it works
     const card = page.getByTestId("project-card").filter({ hasText: "сайт-пекарни" }).first();
-    if ((await card.getAttribute("data-expanded")) !== "true") {
-      await card.getByTestId("workspace-current").click();
-    }
+    // the project chats were brought into starts open in the sidebar
+    await expect(card).toHaveAttribute("data-expanded", "true", { timeout: 30_000 });
     const chat = page.getByText("Пекарня «Колосок»").first();
     await expect(chat).toBeVisible({ timeout: 60_000 });
+    // a quiet badge says where it came from
+    const row = page
+      .locator(".sidebar-thread-row")
+      .filter({ hasText: "Пекарня «Колосок»" })
+      .first();
+    await expect(row.getByTestId("imported-badge")).toHaveText("Claude Code");
     await chat.click();
     await expect(page.getByTestId("timeline")).toContainText("Добавил prices.html.", {
       timeout: 30_000,
     });
+    // and the chat says what the model works from
+    await expect(page.getByTestId("imported-notice")).toContainText(
+      "Перенесено из Claude Code. Модель видит сводку разговора и последние ходы",
+    );
+    if (process.env.IMPORT_SHOTS) {
+      await page.screenshot({ path: join(SCREENS, "imported-chat.png") });
+    }
     await page.getByTestId("prompt-input").fill("Добавь страницу контактов");
     await page.getByTestId("send-prompt").click();
     await expect(page.getByTestId("timeline")).toContainText("Продолжаю с того же места.", {

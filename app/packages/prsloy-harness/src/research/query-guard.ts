@@ -8,20 +8,56 @@ export interface GuardedQuery {
   removed: number[];
 }
 
-/** Слова, при которых год в запросе — смысл, а не привычка модели. */
-const HISTORICAL =
-  /истори|архив|прошл|ранее|раньше|было|был[аио]?\b|с\s+(19|20)\d\d|до\s+(19|20)\d\d|в\s+(19|20)\d\d\s+год|(19|20)\d\d\s*[-–—]\s*(19|20)\d\d|\bhistory\b|\bhistorical\b|\barchive\b|\bsince\s+(19|20)\d\d|\bin\s+(19|20)\d\d\b|\bwas\b|\bwere\b|\bback in\b|за\s+(19|20)\d\d\s+год/i;
+// В JS \b — граница только для латиницы: «был\b» не срабатывает никогда. Для русских слов — свои границы.
+const RU_START = "(?<![а-яё])";
+const RU_END = "(?![а-яё])";
+const Y = "(?:19|20)\\d\\d";
 
-const YEAR = /(^|[^\d])((?:19|20)\d\d)(?!\d)/g;
+/** Слова, при которых год в запросе — смысл, а не привычка модели. */
+const HISTORICAL = new RegExp(
+  [
+    `${RU_START}(истори|архив|прошл|ранее|раньше)`,
+    `${RU_START}был[аио]?${RU_END}`,
+    `${RU_START}(с|до|после)\\s+${Y}`,
+    `${RU_START}(в|за)\\s+${Y}\\s+год`,
+    `${Y}\\s*[-–—]\\s*${Y}`,
+    `\\b(history|historical|archive|was|were)\\b`,
+    `\\b(since|in|before|after)\\s+${Y}\\b`,
+    `\\bback in\\b`,
+  ].join("|"),
+  "i",
+);
+
+/**
+ * Год — часть имени, а не дата: продукт («Windows Server 2019», «Visual Studio 2022», «Office 2016»), код ошибки
+ * («ERROR 2002», «ошибка 2003», «port 2020»). Слово перед годом — из этого списка.
+ */
+const NAME_BEFORE =
+  /^(windows|server|studio|office|excel|word|outlook|exchange|sql|sharepoint|project|visio|access|dynamics|autocad|revit|3ds|photoshop|illustrator|premiere|lightroom|cc|ce|edition|error|errno|err|code|код|ошибка|ошибки|exit|status|статус|port|порт|ГОСТ|gost|iso|rfc|stage|build|сборка|version|версия|mysql|mariadb|postgres|postgresql|oracle|mssql|intellij|idea|pycharm|webstorm|phpstorm|rider|clion|goland|datagrip|rubymine|unity|unreal|delphi|xcode|sap|1с|1c|ue)$/i;
+
+/** Запрос про ошибку или соединение: числа в нём — коды («mysql 2002 socket»), годы не трогаем. */
+const CODE_CONTEXT =
+  /\b\w*(Error|Exception)\b|\b(error|errno|socket|connect|connection|refused|timeout|failed|exit code|status code|port)\b|ошибк|не удаётся|не удается|соединени|сокет/i;
+
+/**
+ * Год отдельным словом: перед ним начало, пробел или скобка, после — конец, пробел или знак препинания. Точка с
+ * цифрой после — это версия («IntelliJ IDEA 2024.2», «Unity 2022.3»), не год.
+ */
+const YEAR = new RegExp(`(^|[\\s(«"])(${Y})(?=$|[\\s),;:!?»"]|\\.(?!\\d))`, "g");
 
 export function guardQuery(query: string, today: Date = new Date()): GuardedQuery {
   const year = today.getUTCFullYear();
-  if (HISTORICAL.test(query)) return { query: query.trim(), removed: [] };
+  if (HISTORICAL.test(query) || CODE_CONTEXT.test(query))
+    return { query: query.trim(), removed: [] };
   const removed: number[] = [];
   const next = query
-    .replace(YEAR, (m, pre: string, y: string) => {
+    .replace(YEAR, (m, pre: string, y: string, at: number) => {
       const n = Number(y);
       if (n >= year) return m;
+      const before = /([\p{L}\d+#.-]+)\s*$/u.exec(query.slice(0, at + pre.length))?.[1] ?? "";
+      // «ISO 9001 2015»: год после номера (не года) — часть названия стандарта
+      if (NAME_BEFORE.test(before) || (/^\d+$/.test(before) && !new RegExp(`^${Y}$`).test(before)))
+        return m;
       removed.push(n);
       return pre;
     })

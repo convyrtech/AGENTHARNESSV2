@@ -87,9 +87,9 @@ export function budgetSummary(state: BudgetState, opts: ResolvedOptions): string
       : "на эту задачу ушла вся отведённая на неё сумма";
   const files = [...state.filesChanged];
   const done = files.length
-    ? `Что успел: изменил ${files.slice(0, 5).join(", ")}${files.length > 5 ? ` и ещё ${files.length - 5}` : ""}.`
+    ? `Успел изменить ${files.slice(0, 5).join(", ")}${files.length > 5 ? ` и ещё ${files.length - 5}` : ""}.`
     : "Файлы я не менял.";
-  return `Я остановился: ${reason}. ${done} Если нужно доделать, напишите «продолжай».`;
+  return `Я остановился: ${reason}. ${done} Чтобы доделать, напишите «продолжай».`;
 }
 
 /** Модели: лимит исчерпан, тулы больше не выполняются — коротко подвести итог для человека. */

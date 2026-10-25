@@ -100,3 +100,20 @@ export interface SearchApi {
   /** One query «Пушкин», 1 result, from the user's own network; the result is stored as `lastCheck`. */
   check(id: SearchProviderId): Promise<SearchCheckResult>;
 }
+
+/**
+ * What the Agent Host gets for web search (review #23, item 5): in the prsloy.handoff message over its parentPort
+ * (apps/desktop/src/shared/host-handoff.ts), never its env, and only while the harness flag `webTools` is on.
+ */
+export type PrsloySearchHandoff = {
+  search: {
+    provider: SearchProviderId;
+    key?: string;
+    folderId?: string;
+    url?: string;
+    models?: string[];
+  };
+  gatewayUrl?: string;
+  githubToken?: string;
+  modelSearch?: string[];
+};

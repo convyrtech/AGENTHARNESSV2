@@ -21,6 +21,7 @@ import {
   loadSplit,
   seededSplit,
   unstableSplit,
+  withNewTasks,
   writeSplitOnce,
   type Split,
 } from "../src/tuner/split.ts";
@@ -185,6 +186,18 @@ describe("train/test split, fixed before tuning", () => {
     writeSplitOnce(u, file, { replaceSeeded: true });
     expect(loadSplit(file).rule).toMatch(/нестабильные/);
     expect(() => writeSplitOnce(seeded, file, { replaceSeeded: true })).toThrow();
+  });
+});
+
+describe("split: tasks added to the bench later", () => {
+  it("go to test with their date; train never grows; a vanished train task needs a new decision", () => {
+    const s = seededSplit(["a", "b", "c", "d"], 2, 7, "2026-10-25");
+    const next = withNewTasks(s, ["a", "b", "c", "d", "e"], "2026-10-26");
+    expect(next.train).toEqual(s.train);
+    expect(next.test).toContain("e");
+    expect(next.added).toEqual([{ task: "e", date: "2026-10-26" }]);
+    expect(withNewTasks(next, ["a", "b", "c", "d", "e"], "2026-10-27").added).toHaveLength(1);
+    expect(() => withNewTasks(s, ["x"], "2026-10-26")).toThrow(/нужно новое решение/);
   });
 });
 

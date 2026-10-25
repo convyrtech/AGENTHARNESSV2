@@ -11,11 +11,11 @@ import type { MemorySnapshot } from "@zeno/contracts";
 import { bootstrapPrsloy } from "./context.ts";
 import { registerPrsloyIpc } from "./ipc.ts";
 import { MemoryStore } from "@prsloy/harness";
+import { harnessFlagsChanged } from "./flags-events.ts";
 import {
   MEMORY_FORGOT_ALL_NOTE,
   MEMORY_FORGOT_NOTE_TYPE,
   MEMORY_REVERTED_NOTE_TYPE,
-  memoryFlagsChanged,
   memoryForgotNote,
   memoryRevertedNote,
   PRSLOY_MEMORY_IPC,
@@ -245,9 +245,9 @@ describe("memory IPC (S5)", () => {
       webTools: false,
     } as const;
     // Other switches: nothing happens.
-    await memoryFlagsChanged(flags, { ...flags, secondOpinion: false });
+    await harnessFlagsChanged(flags, { ...flags, secondOpinion: false });
     expect((await t.invoke<MemorySnapshot>(PRSLOY_MEMORY_IPC.list)).project).toHaveLength(1);
-    await memoryFlagsChanged(flags, { ...flags, memory: false });
+    await harnessFlagsChanged(flags, { ...flags, memory: false });
     for (const path of [t.projectA, t.projectB]) {
       const s = await t.invoke<MemorySnapshot>(PRSLOY_MEMORY_IPC.list, path);
       expect(s).toEqual({ user: [], project: [], forgotten: [], history: [] });
@@ -263,6 +263,56 @@ describe("memory IPC (S5)", () => {
       customType: MEMORY_FORGOT_NOTE_TYPE,
       text: MEMORY_FORGOT_ALL_NOTE,
     });
+  });
+
+  it("#14: the tool's proposal waits for the user — yes applies it and tells the session, no drops it", async () => {
+    const t = setup();
+    const store = new MemoryStore(t.dir);
+    const forget = store.propose({
+      action: "forget",
+      scope: "user",
+      target: "u-aaaa",
+      text: "Пиши без англицизмов",
+    });
+    const no = await t.invoke<MemorySnapshot>(PRSLOY_MEMORY_IPC.confirm, forget, false);
+    expect(no.user.map((e) => e.id)).toEqual(["u-aaaa"]);
+    expect(t.notes).toEqual([]);
+    const again = store.propose({
+      action: "forget",
+      scope: "user",
+      target: "u-aaaa",
+      text: "Пиши без англицизмов",
+    });
+    const yes = await t.invoke<MemorySnapshot>(PRSLOY_MEMORY_IPC.confirm, again, true);
+    expect(yes.user).toEqual([]);
+    expect(t.notes).toEqual([
+      { customType: MEMORY_FORGOT_NOTE_TYPE, text: memoryForgotNote("Пиши без англицизмов") },
+    ]);
+    // Used: a second answer changes nothing.
+    await t.invoke(PRSLOY_MEMORY_IPC.confirm, again, true);
+    expect(t.notes).toHaveLength(1);
+  });
+
+  it("#14: «forget this chat» — entries learned only there go, the session is told", async () => {
+    const t = setup();
+    const store = new MemoryStore(t.dir);
+    store.add("user", t.projectA, {
+      text: "Любит тёмные сайты",
+      quote: "люблю тёмные сайты",
+      session: "chat-1",
+      message: "m1",
+    });
+    const listed = await t.invoke<MemorySnapshot>(PRSLOY_MEMORY_IPC.list);
+    expect(listed.user.find((e) => e.text === "Любит тёмные сайты")?.sessions).toEqual(["chat-1"]);
+    const after = await t.invoke<MemorySnapshot>(PRSLOY_MEMORY_IPC.forgetSource, "chat-1");
+    expect(after.user.map((e) => e.id)).toEqual(["u-aaaa"]);
+    expect(t.notes.map((n) => n.text)).toEqual([memoryForgotNote("Любит тёмные сайты")]);
+    await expect(t.invoke(PRSLOY_MEMORY_IPC.forgetSource, "../x")).rejects.toThrow(
+      /Invalid session id/,
+    );
+    await expect(t.invoke(PRSLOY_MEMORY_IPC.confirm, "op-1234567", true)).rejects.toThrow(
+      /Invalid memory confirmation/,
+    );
   });
 
   it("rejects bad input and untrusted senders", async () => {

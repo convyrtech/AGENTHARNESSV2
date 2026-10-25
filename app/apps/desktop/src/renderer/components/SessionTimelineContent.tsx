@@ -45,6 +45,8 @@ import { previewTargetsByBlock } from "@/lib/turn-preview";
 import { withoutRetryNoise } from "@/lib/model-failure";
 import { arrangeTurnStatus } from "@/lib/turn-status";
 import { useCasualPrefs } from "../hooks/useCasualPrefs.ts";
+import { useImportOrigins } from "../hooks/useImportOrigins.ts";
+import { ImportedChatNotice } from "./prsloy/ImportedChatMarks.tsx";
 
 type UserTimelineItem = Extract<TimelineItem, { kind: "user" }>;
 type AssistantTimelineItem = Extract<TimelineItem, { kind: "assistant" }>;
@@ -238,6 +240,8 @@ export function SessionTimelineContent(props: SessionTimelineContentProps) {
   );
   const showLiveStatus =
     liveActivity != null && !processBlockCoversLiveActivity(blocks, liveActivity);
+  // a chat brought over from another agent says what the model works from (#22)
+  const importedTool = useImportOrigins()(sessionKey);
 
   return (
     <MessageScrollerContent
@@ -250,6 +254,7 @@ export function SessionTimelineContent(props: SessionTimelineContentProps) {
     >
       {hasActivity ? (
         <>
+          {importedTool ? <ImportedChatNotice tool={importedTool} locale={locale} /> : null}
           {start > 0 ? (
             <EarlierMessages hidden={start} locale={locale} onShow={showEarlier} />
           ) : null}

@@ -17,6 +17,7 @@
  */
 import { t, type Locale, type MessageKey } from "./i18n.ts";
 import type { TimelineItem } from "./timeline.ts";
+import { isTurnStatusItem } from "./turn-status.ts";
 
 export const NEXT_TAG = "prsloy-next";
 export const MAX_NEXT_STEPS = 3;
@@ -115,7 +116,8 @@ export function selectNextSteps(
   if (running) return [];
   const start = items.findLastIndex((item) => item.kind === "user");
   if (start < 0) return [];
-  const turn = items.slice(start + 1);
+  // The harness's turn-status card (H9) comes after the reply: it is not the end of the reply.
+  const turn = items.slice(start + 1).filter((item) => !isTurnStatusItem(item));
   const last = turn.at(-1);
   if (!last || last.kind !== "assistant" || !last.text.trim()) return [];
   if (turn.some((item) => item.kind === "system" && item.tone === "error")) return [];

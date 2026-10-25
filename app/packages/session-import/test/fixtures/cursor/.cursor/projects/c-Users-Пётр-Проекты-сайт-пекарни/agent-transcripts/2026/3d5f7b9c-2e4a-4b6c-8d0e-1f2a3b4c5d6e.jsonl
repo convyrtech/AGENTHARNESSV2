@@ -1,0 +1,2 @@
+{"role":"user","timestamp_ms":1792713600000,"message":{"content":"<user_query>Почини футер</user_query>"}}
+{"role":"assistant","message":{"content":[{"type":"text","text":"Починил."}]}}

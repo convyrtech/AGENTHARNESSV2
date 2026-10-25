@@ -4,7 +4,13 @@
  * the keys main gave it, never by path: main reads nothing the scan did not find.
  */
 
-export type ImportToolId = "claude-code" | "codex" | "pi-cli";
+export type ImportToolId =
+  | "claude-code"
+  | "codex"
+  | "pi-cli"
+  | "opencode"
+  | "gemini"
+  | "cursor-agent";
 
 export type ImportToolCount = { chats: number; projects: number; recent: number };
 
@@ -26,6 +32,8 @@ export interface ImportScanResult {
   chats: ImportChatSummary[];
   /** Keys ticked by default: the last 30 days, not imported yet, at most 50. */
   selected: string[];
+  /** Tools whose chats could not be read at all (an unknown database format, a broken file). */
+  unreadable?: ImportToolId[];
 }
 
 export type ImportSkipReason =
@@ -48,9 +56,20 @@ export interface ImportProgress {
   total: number;
 }
 
+/**
+ * Which PRSLOY chats were brought over, from the import journal: session file → tool. Keys are
+ * normalized in main (shared/import-origin.ts); `foldCase` tells the renderer to compare
+ * case-insensitively (Windows). Nothing but paths and tools.
+ */
+export interface ImportOrigins {
+  origins: Record<string, ImportToolId>;
+  foldCase: boolean;
+}
+
 export interface SessionImportApi {
   scan(): Promise<ImportScanResult>;
   /** Unknown keys are ignored; rejects when an import is already running. */
   run(keys: string[]): Promise<ImportRunResult>;
   onProgress(listener: (progress: ImportProgress) => void): () => void;
+  origins(): Promise<ImportOrigins>;
 }

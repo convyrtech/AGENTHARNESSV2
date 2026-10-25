@@ -1,6 +1,7 @@
 import "./proxy-bootstrap.ts";
 import { assistantFinalContent } from "./assistant-final.ts";
-import { prsloyHandoff } from "./prsloy-handoff.ts";
+import { applyHostHandoff, prsloyHandoff } from "./prsloy-handoff.ts";
+import { isHostHandoff } from "../shared/host-handoff.ts";
 import { createPrsloyHarness, type HarnessOptions } from "@prsloy/harness";
 import { createWriteBoundary } from "./write-boundary.ts";
 import {
@@ -57,10 +58,14 @@ function post(event: HostEvent): void {
 }
 
 // PRSLOY gateway requests: quiet max_tokens step-down and a switch to the next served model
-// when the chosen one is gone (prsloy-fetch.ts).
-if (prsloyHandoff.gatewayKey) {
+// when the chosen one is gone (prsloy-fetch.ts). Installed once the key is here (the handoff).
+// Once: it wraps the global fetch, and a new key means a new host (main restarts it).
+let gatewayFetchInstalled = false;
+function installGatewayFetch(apiKey: string): void {
+  if (gatewayFetchInstalled) return;
+  gatewayFetchInstalled = true;
   installPrsloyFetch({
-    apiKey: prsloyHandoff.gatewayKey,
+    apiKey,
     agentDir: () => process.env.PI_CODING_AGENT_DIR,
     onModelSwitch(from, to) {
       const current = handle;
@@ -82,6 +87,7 @@ if (prsloyHandoff.gatewayKey) {
     },
   });
 }
+if (prsloyHandoff.gatewayKey) installGatewayFetch(prsloyHandoff.gatewayKey);
 
 /** session.note types the model reads but the timeline doesn't show. */
 const HIDDEN_NOTE_TYPES = new Set(["prsloy-memory.forgot"]);
@@ -433,8 +439,8 @@ async function handleCommand(command: HostCommand): Promise<void> {
         ];
         if (prsloyHandoff.harnessEnabled) {
           // Bundled into the host (survives asar); profile from PRSLOY_PROFILE (main sets "code").
-          // Web search (issue #23): the provider and key main handed over; the tools themselves are behind
-          // the harness flag `webTools`, read every turn.
+          // Web search (issue #23): config and keys come in the prsloy.handoff message (never env), and only
+          // while the harness flag `webTools` is on.
           const search = prsloyHandoff.search;
           options.extensionFactories.push(
             createPrsloyHarness(
@@ -698,6 +704,7 @@ async function handleCommand(command: HostCommand): Promise<void> {
             customType: command.customType,
             content: command.text,
             display: !HIDDEN_NOTE_TYPES.has(command.customType),
+            ...(command.details ? { details: command.details } : {}),
           },
           { triggerTurn: false },
         );
@@ -1247,6 +1254,12 @@ async function handleCommand(command: HostCommand): Promise<void> {
 }
 
 parentPort.on("message", (event) => {
+  // Secrets from main, before any command (shared/host-handoff.ts).
+  if (isHostHandoff(event.data)) {
+    applyHostHandoff(prsloyHandoff, event.data);
+    if (prsloyHandoff.gatewayKey) installGatewayFetch(prsloyHandoff.gatewayKey);
+    return;
+  }
   if (!isHostCommand(event.data)) {
     post(errorEvent(new Error("Rejected invalid Agent Host command")));
     return;

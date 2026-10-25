@@ -19,7 +19,7 @@ import {
   savedCardText,
 } from "../lib/memory.ts";
 import { useShellStore } from "../store/shell-store.ts";
-import { MemoryAutoCard, MemoryUpdatedCard } from "./MemoryAutoCards.tsx";
+import { MemoryAutoCard, MemoryConfirmCard, MemoryUpdatedCard } from "./MemoryAutoCards.tsx";
 
 type State =
   | { kind: "card" }
@@ -44,6 +44,9 @@ export function MemoryCard(props: {
 }) {
   if (props.kind === "auto") {
     return <MemoryAutoCard locale={props.locale} details={props.details} text={props.text} />;
+  }
+  if (props.kind === "confirm") {
+    return <MemoryConfirmCard locale={props.locale} details={props.details} text={props.text} />;
   }
   if (props.kind === "updated") {
     return <MemoryUpdatedCard locale={props.locale} details={props.details} text={props.text} />;

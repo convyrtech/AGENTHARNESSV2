@@ -173,6 +173,26 @@ export class ShadowGit {
     }
   }
 
+  /** Содержимое файла в снимке (`git cat-file`); undefined — файла в снимке нет или ошибка. Не бросает. */
+  async fileAt(tree: string, path: string): Promise<string | undefined> {
+    try {
+      return await this.#run(["cat-file", "blob", `${tree}:${path}`]);
+    } catch {
+      return undefined;
+    }
+  }
+
+  /** Пути файлов снимка, через `/`. Не бросает: при ошибке — пусто. */
+  async filesAt(tree: string): Promise<string[]> {
+    try {
+      return (await this.#run(["ls-tree", "-r", "--name-only", "-z", tree]))
+        .split("\0")
+        .filter(Boolean);
+    } catch {
+      return [];
+    }
+  }
+
   /** Дифф между двумя снимками. Не бросает: при ошибке — пустой. */
   async diff(from: string, to: string): Promise<TurnDiff> {
     if (from === to) return { files: [], patch: "" };
@@ -209,6 +229,11 @@ export class TurnChanges {
   #shadow: ShadowGit | undefined;
   #start: Promise<string | undefined> | undefined;
   #last: TurnDiff | undefined;
+
+  /** Последний посчитанный дифф хода, не забирая его (статус хода; сводку S6 он не трогает). */
+  peekLastDiff(): TurnDiff | undefined {
+    return this.#last;
+  }
 
   /** Последний посчитанный дифф хода (его считает стоп-гейт); забирается один раз. */
   takeLastDiff(): TurnDiff | undefined {
@@ -260,6 +285,20 @@ export class TurnChanges {
       }),
     ]);
     if (timer) clearTimeout(timer);
+  }
+
+  /** Файл, каким он был в начале хода (страж старых тестов, H2). undefined — его не было или снимка нет. */
+  async fileAtStart(path: string): Promise<string | undefined> {
+    const start = await this.#start;
+    if (!start || !this.#shadow) return undefined;
+    return this.#track(this.#shadow.fileAt(start, path));
+  }
+
+  /** Файлы начала хода; undefined — снимка нет (не знаем). */
+  async filesAtStart(): Promise<string[] | undefined> {
+    const start = await this.#start;
+    if (!start || !this.#shadow) return undefined;
+    return this.#track(this.#shadow.filesAt(start));
   }
 
   /** Что изменилось с начала хода. undefined — снимков нет (не знаем, а не «ничего»). */

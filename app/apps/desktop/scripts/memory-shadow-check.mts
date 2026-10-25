@@ -14,7 +14,7 @@
 // пользователя — среди принятых их быть не может по построению, отказы видны по вердиктам.
 import { readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { messageSignals } from "@prsloy/harness";
+import { messageSignals, quoteSource } from "@prsloy/harness";
 import { extractOnce } from "../src/main/prsloy/memory-extractor.ts";
 
 const args = process.argv.slice(2);
@@ -61,12 +61,14 @@ async function phrases(): Promise<number> {
   const rows: Record<string, unknown>[] = [];
   let cost = 0;
   let calls = 0;
+  const times: number[] = [];
   for (const [i, p] of fixture.phrases.entries()) {
     const kinds = messageSignals(p.text);
     if (!kinds.length) {
       rows.push({ text: p.text, label: p.signal, called: false, accepted: [] });
       continue;
     }
+    const t0 = Date.now();
     const { call, ops, candidates } = await extractOnce({
       baseUrl,
       apiKey: key,
@@ -76,14 +78,26 @@ async function phrases(): Promise<number> {
       fetch,
     });
     calls += 1;
+    times.push(Date.now() - t0);
     cost += call.costUsd ?? 0;
     rows.push({
       text: p.text,
       label: p.signal,
       called: true,
       json: ops !== undefined,
+      // Only here: what the model answered when it was not JSON.
+      ...(ops === undefined && !call.error ? { raw: call.text.slice(0, 800) } : {}),
       error: call.error,
       verdicts: candidates.map((c) => c.verdict),
+      // Only here, never in the app's journal: why a candidate was not linked or not the user's words.
+      rejected: candidates
+        .filter((c) => c.verdict === "not-linked" || c.verdict === "not-user-words")
+        .map((c) => ({
+          verdict: c.verdict,
+          text: c.text,
+          quote: c.quote,
+          message: quoteSource(c.quote, [p.text]) ?? null,
+        })),
       accepted: candidates.filter((c) => c.verdict === "ok").map((c) => c.text),
     });
     console.error(`${i + 1}/${fixture.phrases.length} ${call.error ? "ошибка" : "ok"}`);
@@ -107,11 +121,30 @@ async function phrases(): Promise<number> {
   writeFileSync(out, `${JSON.stringify(report, null, 2).split(key).join("***")}\n`);
   console.log(
     [
-      `Модель: ${model}; вызовов ${calls}; цена $${report.costUsd}`,
+      `Модель: ${model}; вызовов ${calls}; цена $${report.costUsd} (≈${(report.costUsd * 95).toFixed(3)} ₽ по 95 ₽/$, цена шлюза)`,
+      `Время вызова: среднее ${times.length ? Math.round(times.reduce((a, b) => a + b, 0) / times.length) : 0} мс, максимум ${times.length ? Math.max(...times) : 0} мс (вне хода, UI не ждёт)`,
       `Пойманные (есть принятый кандидат): ${report.caught}`,
       `Ложные (принят кандидат на разовой фразе): ${report.falseAccepted}`,
       `Ответ не JSON: ${report.notJson}`,
       `Вердикты: ${JSON.stringify(report.verdicts)}`,
+      ...rows
+        .filter((r) => typeof r.raw === "string")
+        .map(
+          (r) => `  не JSON на «${String(r.text)}»:\n    ${String(r.raw).replace(/\n/g, "\n    ")}`,
+        ),
+      ...rows.flatMap((r) =>
+        (
+          (r.rejected as {
+            verdict: string;
+            text: string;
+            quote: string;
+            message: string | null;
+          }[]) ?? []
+        ).map(
+          (x) =>
+            `  ${x.verdict}: text «${x.text}» ← quote «${x.quote}» ← message ${x.message === null ? "(цитаты в сообщении нет)" : `«${x.message}»`}`,
+        ),
+      ),
       `JSON: ${out}`,
     ].join("\n"),
   );
@@ -130,6 +163,12 @@ function sessions(agentDir: string): number {
       `Сессий просмотрено: ${new Set(runs.map((r) => r.session)).size}; вызовов модели: ${called.length}; без сигнала: ${runs.length - called.length}`,
       `Цена: всего $${costs.reduce((a, b) => a + b, 0).toFixed(6)}; на вызов $${costs.length ? (costs.reduce((a, b) => a + b, 0) / costs.length).toFixed(6) : "—"}; без цены ${called.length - costs.length}`,
       `Ответ не JSON: ${called.filter((r) => r.json === false).length}; ошибки: ${called.filter((r) => r.ok === false).length}`,
+      `Время вызова: ${(() => {
+        const ms = called.map((r) => r.ms).filter((m): m is number => typeof m === "number");
+        return ms.length
+          ? `среднее ${Math.round(ms.reduce((a, b) => a + b, 0) / ms.length)} мс, максимум ${Math.max(...ms)} мс`
+          : "—";
+      })()}; записано: ${runs.reduce((n, r) => n + (typeof r.written === "number" ? r.written : 0), 0)}`,
       `Кандидаты: ${candidates.length}; вердикты ${JSON.stringify(count(candidates.map((c) => c.verdict)))}`,
       "",
       "Принятые — разметьте верно / неверно:",

@@ -46,6 +46,7 @@ import { anchorFromEvent, FloatingMenu, type AnchorRect } from "./FloatingMenu.t
 import { ConfirmDialog } from "./ConfirmDialog.tsx";
 import { RenameDialog } from "./RenameDialog.tsx";
 import { VersionHistoryDialog } from "./VersionHistoryDialog.tsx";
+import { useForgetChatMemory } from "./ForgetChatMemory.tsx";
 
 /** @deprecated use notifyThreadPrefsChanged from project-prefs — re-export for callers. */
 export { notifyThreadPrefsChanged };
@@ -84,6 +85,7 @@ export function ThreadHeader(props: {
   const [renameOpen, setRenameOpen] = useState(false);
   const [archiveConfirmOpen, setArchiveConfirmOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const forgetMemory = useForgetChatMemory({ locale: props.locale, sessionId: props.sessionId });
   const running = useShellStore((s) => s.running);
 
   const threadId = props.thread?.id ?? props.sessionId;
@@ -433,7 +435,9 @@ export function ThreadHeader(props: {
           onClick={() => void copyText(props.thread?.cwd || props.workspacePath || "")}
           testId="thread-header-copy-cwd"
         />
+        {forgetMemory.menuItem(closeMenu)}
       </FloatingMenu>
+      {forgetMemory.dialogs}
 
       <ConfirmDialog
         open={archiveConfirmOpen && canAct}

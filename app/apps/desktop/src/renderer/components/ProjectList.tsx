@@ -124,6 +124,8 @@ import { sessionMarkerFromThread } from "../lib/session-markers.ts";
 import { sessionRunKey } from "../store/shell-store.ts";
 import type { ThreadRunState } from "../lib/timeline.ts";
 import { markerLabel, ThreadRunMarker } from "./ThreadRunMarker.tsx";
+import { useImportOrigins } from "../hooks/useImportOrigins.ts";
+import { ImportedBadge } from "./prsloy/ImportedChatMarks.tsx";
 
 export interface ProjectListProps {
   locale: Locale;
@@ -163,6 +165,7 @@ export function ProjectList(props: ProjectListProps) {
   const [unreadThreads, setUnreadThreads] = useState(loadUnreadThreads);
   const [deletedThreads, setDeletedThreads] = useState(loadDeletedThreads);
   const [expanded, setExpanded] = useState(loadExpandedProjects);
+  const importedFrom = useImportOrigins();
   const [visibleCounts, setVisibleCounts] = useState(loadVisibleThreadCounts);
   /** `project:<path>` | `thread:<id>` — content rendered in top-layer FloatingMenu */
   const [menuKey, setMenuKey] = useState<string | null>(null);
@@ -979,6 +982,9 @@ export function ProjectList(props: ProjectListProps) {
                 unread && "font-medium text-[var(--foreground)]",
               )}
             />
+            {importedFrom(thread.path) ? (
+              <ImportedBadge tool={importedFrom(thread.path)!} locale={props.locale} />
+            ) : null}
             <ThreadRunMarker marker={runMarker} {...(stateLabel ? { label: stateLabel } : {})} />
           </button>
           {/* Hover: pin + archive only. Full menu via right-click. */}

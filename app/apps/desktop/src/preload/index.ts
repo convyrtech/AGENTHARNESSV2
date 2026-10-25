@@ -39,6 +39,10 @@ const api: ZenoDesktopApi = {
     // research/24 §2 «трубы»: handlers in main come with core's memory stages (M-1, M-3b).
     pin: (id, pinned, workspace) => ipcRenderer.invoke("prsloy:memory-pin", id, pinned, workspace),
     revert: (opId, workspace) => ipcRenderer.invoke("prsloy:memory-revert", opId, workspace),
+    confirm: (confirmId, yes, workspace) =>
+      ipcRenderer.invoke("prsloy:memory-confirm", confirmId, yes, workspace),
+    forgetSource: (session, workspace) =>
+      ipcRenderer.invoke("prsloy:memory-forget-source", session, workspace),
   },
   search: {
     getState: () => ipcRenderer.invoke("prsloy:search:get-state"),
@@ -137,6 +141,7 @@ const api: ZenoDesktopApi = {
   sessionImport: {
     scan: () => ipcRenderer.invoke("prsloy:import:scan"),
     run: (keys) => ipcRenderer.invoke("prsloy:import:run", keys),
+    origins: () => ipcRenderer.invoke("prsloy:import:origins"),
     onProgress(listener) {
       const handler = (_event: Electron.IpcRendererEvent, progress: ImportProgress) =>
         listener(progress);

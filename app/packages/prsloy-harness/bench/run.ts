@@ -73,7 +73,7 @@ export interface BenchOptions {
   /** Память (флаг "memory"). По умолчанию вкл. */
   memory?: boolean;
   /** Системный промпт «Кода»: pi (база Pi + разделы) или prsloy (research/17 §9). По умолчанию prsloy. */
-  prompt?: "pi" | "prsloy";
+  prompt?: "pi" | "prsloy" | "diet";
   /** Дельта промпта под модель (qwen, opus). По умолчанию выкл. */
   delta?: boolean;
   /** Файл уроков вместо lessons/code.json пакета (оффлайн-улучшатель #33: пробы правленых уроков). */
@@ -87,6 +87,10 @@ export interface BenchOptions {
    * свой поставщик — файл JSON в BENCH_SEARCH_CONFIG ({"provider": "brave", "key": "…"}).
    */
   webTools?: boolean;
+  /** Честный выход report_blocker (флаг "honestExit", H-1). По умолчанию выкл., как в приложении. */
+  honestExit?: boolean;
+  /** Страж старых тестов (флаг "testGuard", H-1). По умолчанию выкл., как в приложении. */
+  testGuard?: boolean;
   /** Разборщик сессий после прогона (research/24 §6, A-4; ci). Пока только помечается в отчёте. */
   audit?: boolean;
   log?: (line: string) => void;
@@ -136,6 +140,8 @@ export interface TaskResult {
   cacheShare: number | null;
   /** Навыки, чьи файлы модель прочитала (S9: «загружен»). */
   skills: string[];
+  /** Факты последней карточки статуса хода (H9): checks-pass, checks-fail, no-checks… Пусто — карточки не было. */
+  turnStatus: string[];
   /** Исход (research/24 §4.1); null — проверки не было. */
   outcome: Outcome | null;
   expectedOutcome: Outcome;
@@ -235,6 +241,15 @@ export function listTasks(
   return out;
 }
 
+/** Факты последней карточки `prsloy-harness.turn-status` сессии. */
+export function lastTurnStatus(messages: MessageLike[]): string[] {
+  const card = messages.findLast(
+    (m) => m.role === "custom" && m.customType === "prsloy-harness.turn-status",
+  ) as (MessageLike & { details?: { facts?: unknown } }) | undefined;
+  const facts = card?.details?.facts;
+  return Array.isArray(facts) ? facts.filter((f): f is string => typeof f === "string") : [];
+}
+
 interface MessageLike {
   role: string;
   content?: unknown;
@@ -278,7 +293,8 @@ export function countInterventions(
       else if (kind === "tool-leak") add(m.display ? "leakGaveUp" : "leak");
       else if (kind === "loop")
         add(text.startsWith("Ответ дважды обрезан") ? "lengthStop" : "pseudoCall");
-      else add(kind);
+      // Статус хода (H9) — итог, а не вмешательство: в отчёте отдельной колонкой (turnStatus).
+      else if (kind !== "turn-status") add(kind);
     }
   }
   for (const [k, n] of Object.entries(stats)) if (k.startsWith("repair:")) add("repair", n);
@@ -372,6 +388,8 @@ async function runTask(task: TaskDef, opts: BenchOptions): Promise<TaskResult> {
       prompt: opts.prompt ?? "prsloy",
       promptDelta: opts.delta === true || opts.deltaText !== undefined,
       webTools: opts.webTools === true,
+      honestExit: opts.honestExit === true,
+      testGuard: opts.testGuard === true,
     }),
   );
   const slash = opts.model.indexOf("/");
@@ -559,6 +577,7 @@ async function runTask(task: TaskDef, opts: BenchOptions): Promise<TaskResult> {
     reply,
     cacheShare: cacheShareOf(join(opts.outDir, "sessions", slug, "prsloy-proxy.jsonl")),
     skills: skillsRead(messages),
+    turnStatus: lastTurnStatus(messages),
     outcome,
     expectedOutcome,
     acceptOutcomes,
@@ -577,9 +596,11 @@ export interface BenchReport {
     review: boolean;
     skills: boolean;
     memory: boolean;
-    prompt: "pi" | "prsloy";
+    prompt: "pi" | "prsloy" | "diet";
     delta: boolean;
     webTools: boolean;
+    honestExit: boolean;
+    testGuard: boolean;
     fake: boolean;
     date: string;
     gateway: string;
@@ -640,6 +661,8 @@ export async function runBench(opts: BenchOptions): Promise<BenchReport> {
       prompt: opts.prompt ?? "prsloy",
       delta: opts.delta === true,
       webTools: opts.webTools === true,
+      honestExit: opts.honestExit === true,
+      testGuard: opts.testGuard === true,
       fake: opts.fake === true,
       date: new Date().toISOString(),
       gateway: opts.fake ? "fake" : new URL(opts.baseUrl ?? "http://unknown").host,
@@ -718,7 +741,7 @@ export function reportMarkdown(report: BenchReport): string {
       .map(([k, n]) => `${k} ${n}`)
       .join(", ");
     const a = r.reply;
-    const reply = `${a.russian ? "ru" : "НЕ ru"}, команд ${a.commandsToUser}, ?${a.questions}${a.questions && a.recommends ? "+реком." : ""}, строк ${a.lines}, жарг. ${a.jargon}${a.falseDone ? ", ЛОЖНОЕ «готово»" : ""}`;
+    const reply = `${a.russian ? "ru" : "НЕ ru"}, команд ${a.commandsToUser}, ?${a.questions}${a.questions && a.recommends ? "+реком." : ""}, строк ${a.lines}, жарг. ${a.jargon}${a.falseDone ? ", ЛОЖНОЕ «готово»" : ""}${r.turnStatus.length ? `, статус: ${r.turnStatus.join("+")}` : ""}`;
     const cache = r.cacheShare === null ? "—" : `${Math.round(r.cacheShare * 100)}%`;
     const outcome =
       r.expectedOutcome !== "solved" || (r.outcome && r.outcome !== "solved")
@@ -727,7 +750,7 @@ export function reportMarkdown(report: BenchReport): string {
     return `| ${r.id} | ${mark} ${r.note.replace(/\|/g, "/")}${outcome}${r.error ? ` (${r.error})` : ""} | ${r.seconds} | ${r.toolCalls} | ${r.costUsd.toFixed(4)} | ${cache} | ${reply} | ${iv || "—"} |`;
   });
   return [
-    `# Замер: ${meta.model}, харнесс ${meta.harness ? "вкл" : "выкл"}, промпт ${meta.prompt}${meta.delta ? "+дельта" : ""}, уроки ${meta.lessons ? "вкл" : "выкл"}, ревью ${meta.review ? "вкл" : "выкл"}, навыки ${meta.skills ? "вкл" : "выкл"}, память ${meta.memory ? "вкл" : "выкл"}${meta.webTools ? ", поиск вкл" : ""}${meta.audit ? ", разбор вкл" : ""}${meta.fake ? " (фейковая модель)" : ""}`,
+    `# Замер: ${meta.model}, харнесс ${meta.harness ? "вкл" : "выкл"}, промпт ${meta.prompt}${meta.delta ? "+дельта" : ""}, уроки ${meta.lessons ? "вкл" : "выкл"}, ревью ${meta.review ? "вкл" : "выкл"}, навыки ${meta.skills ? "вкл" : "выкл"}, память ${meta.memory ? "вкл" : "выкл"}${meta.webTools ? ", поиск вкл" : ""}${meta.honestExit ? ", честный выход вкл" : ""}${meta.testGuard ? ", страж тестов вкл" : ""}${meta.audit ? ", разбор вкл" : ""}${meta.fake ? " (фейковая модель)" : ""}`,
     "",
     `${meta.date} · шлюз ${meta.gateway} · таймаут задачи ${meta.timeoutSec} с`,
     "",

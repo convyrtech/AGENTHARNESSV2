@@ -5,6 +5,9 @@ export { pickTitle, FALLBACK_TITLE } from "./title.ts";
 export { readClaudeCodeChat } from "./adapters/claude-code.ts";
 export { readCodexChat } from "./adapters/codex.ts";
 export { readPiCliSession } from "./adapters/pi-cli.ts";
+export { readOpenCodeChat } from "./adapters/opencode.ts";
+export { readGeminiChat } from "./adapters/gemini.ts";
+export { readCursorChat } from "./adapters/cursor-agent.ts";
 export { buildSummary } from "./summary.ts";
 export {
   buildPiSession,

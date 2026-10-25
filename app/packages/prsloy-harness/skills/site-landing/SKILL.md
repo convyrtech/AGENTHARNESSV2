@@ -33,9 +33,13 @@ A static page cannot send email by itself. Two honest options — tell the user 
 
 ## Check before you say «готово»
 
+- The app opens the page in a real browser (phone and desktop width) at the end of your turn and tells you about
+  errors. Do not install jsdom, puppeteer or browsers to test it yourself.
 - The page opens in the preview without console errors.
 - At 390 px nothing scrolls sideways, buttons do not overlap, text is not cut.
 - Every link and image path is relative and the files exist.
+- No template look: no "01 / 02 / 03" section numbers, no lorem ipsum. Simple graphics — CSS or inline SVG, not
+  pictures that do not exist.
 
 ## Sources
 

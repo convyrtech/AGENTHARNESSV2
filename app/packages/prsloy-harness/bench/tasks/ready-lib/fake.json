@@ -1,0 +1,16 @@
+[
+  {
+    "toolCalls": [
+      {
+        "name": "write",
+        "arguments": {
+          "path": "index.html",
+          "content": "<!doctype html>\n<html lang=\"ru\">\n  <head>\n    <meta charset=\"utf-8\" />\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />\n    <title>Проверка телефона</title>\n    <script src=\"https://cdn.jsdelivr.net/npm/libphonenumber-js@1.12.10/bundle/libphonenumber-min.js\"></script>\n  </head>\n  <body>\n    <input id=\"phone\" placeholder=\"+7 900 123-45-67\" />\n    <p id=\"out\"></p>\n    <script>\n      document.getElementById(\"phone\").addEventListener(\"input\", (e) => {\n        const n = libphonenumber.parsePhoneNumberFromString(e.target.value, \"RU\");\n        document.getElementById(\"out\").textContent = n && n.isValid() ? n.formatInternational() : \"Номер неправильный\";\n      });\n    </script>\n  </body>\n</html>\n"
+        }
+      }
+    ]
+  },
+  {
+    "text": "Готово: страница index.html проверяет номер библиотекой libphonenumber-js и показывает его красиво."
+  }
+]

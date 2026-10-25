@@ -5,8 +5,8 @@ import { describe, expect, it, vi } from "vite-plus/test";
 
 const DEFAULTS = {
   secondOpinion: true,
-  memory: false,
-  autoMemory: "off",
+  memory: true,
+  autoMemory: true,
   honestExit: false,
   testGuard: false,
   claimCheck: false,
@@ -35,16 +35,28 @@ describe("harness flags (prsloy-harness.json)", () => {
       secondOpinion: false,
     });
     expect(JSON.parse(readFileSync(path, "utf8"))).toEqual({ other: 1, secondOpinion: false });
-    expect(writeHarnessFlags(path, { memory: true })).toEqual({
+    expect(writeHarnessFlags(path, { memory: false })).toEqual({
       ...DEFAULTS,
       secondOpinion: false,
-      memory: true,
+      memory: false,
     });
     expect(JSON.parse(readFileSync(path, "utf8"))).toEqual({
       other: 1,
       secondOpinion: false,
-      memory: true,
+      memory: false,
     });
+  });
+
+  it("MVP: memory and auto memory on for a file without them (alpha.1); off by hand stays off", () => {
+    const dir = mkdtempSync(join(tmpdir(), "flags-"));
+    const path = harnessFlagsPath(dir);
+    // An alpha.1 profile: the settings file has other keys, no memory keys.
+    writeFileSync(path, JSON.stringify({ secondOpinion: true, webTools: false }));
+    expect(readHarnessFlags(path)).toMatchObject({ memory: true, autoMemory: true });
+    writeFileSync(path, JSON.stringify({ memory: false }));
+    expect(readHarnessFlags(path)).toMatchObject({ memory: false, autoMemory: true });
+    writeFileSync(path, JSON.stringify({ autoMemory: "off" }));
+    expect(readHarnessFlags(path)).toMatchObject({ memory: true, autoMemory: "off" });
   });
 
   it("research/24 flags: autoMemory off | shadow | true, the honesty checks are booleans", () => {

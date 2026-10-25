@@ -19,6 +19,7 @@ import {
   extractorMode,
   extractorModel,
   installMemoryExtractor,
+  limitMemoryCards,
   runExtractorProbe,
   runExtractorShadow,
   type ExtractorRun,
@@ -312,6 +313,135 @@ describe("memory extractor in the shadow (M-3)", () => {
     expect(JSON.stringify(server.requests[0]!.body)).toContain("Шапка зелёная");
   });
 
+  it("M-3b write: accepted candidates go into the memory as auto, with a card in the open chat", async () => {
+    const server = await gateway({ text: OPS });
+    const agentDir = tempDir();
+    const file = writeSession(agentDir, "w.jsonl", [
+      userLine("m1", "Я не программист, пиши проще"),
+    ]);
+    const notes: { type: string; text: string; details: Record<string, unknown> }[] = [];
+    const run = await runExtractorShadow({
+      baseUrl: server.baseUrl,
+      apiKey: "sk-x",
+      model: "qwen3.8-max",
+      sessionFile: file,
+      agentDir,
+      learningDir: agentDir,
+      fetch,
+      write: true,
+      note: async (type, text, details) => void notes.push({ type, text, details }),
+    });
+    expect(run).toMatchObject({ accepted: 1, written: 1 });
+    const user = JSON.parse(readFileSync(join(agentDir, "prsloy-memory", "user.json"), "utf8"));
+    expect(user.entries).toMatchObject([
+      {
+        text: "Пользователь не программист",
+        origin: "auto",
+        kind: "profile",
+        evidence: [{ quote: "Я не программист", session: "sid-w.jsonl", message: "m1" }],
+      },
+    ]);
+    expect(notes).toEqual([
+      {
+        type: "prsloy-memory.auto",
+        text: "Заметил и запомнил: Пользователь не программист",
+        details: {
+          items: [
+            {
+              id: user.entries[0].id,
+              scope: "user",
+              text: "Пользователь не программист",
+              quote: "Я не программист",
+            },
+          ],
+        },
+      },
+    ]);
+  });
+
+  it("cards: at most 3 an hour; the rest is written quietly and counted on the next card", async () => {
+    let t = 0;
+    const shown: { text: string; details: Record<string, unknown> }[] = [];
+    const note = limitMemoryCards(
+      async (_type, text, details) => void shown.push({ text, details }),
+      {
+        now: () => t,
+      },
+    );
+    for (let i = 0; i < 5; i++)
+      await note("prsloy-memory.auto", `Заметил и запомнил: ${i}`, { items: [{ id: `u-${i}` }] });
+    expect(shown.map((x) => x.text)).toEqual([
+      "Заметил и запомнил: 0",
+      "Заметил и запомнил: 1",
+      "Заметил и запомнил: 2",
+    ]);
+    t += 61 * 60_000;
+    await note("prsloy-memory.auto", "Заметил и запомнил: 5", { items: [{ id: "u-5" }] });
+    expect(shown.at(-1)).toEqual({
+      text: "Заметил и запомнил: 5 (и ещё 2 — в настройках «Память»)",
+      details: { items: [{ id: "u-5" }], unannounced: 2 },
+    });
+  });
+
+  it("one card per run: a replacement and a new entry make one «Запомнил 2»", async () => {
+    const ops = JSON.stringify({
+      ops: [
+        {
+          op: "add",
+          scope: "user",
+          kind: "profile",
+          text: "Пользователь не программист",
+          quote: "Я не программист",
+        },
+        {
+          op: "supersede",
+          scope: "user",
+          kind: "preference",
+          text: "Пользователь не любит тёмные сайты",
+          quote: "больше не люблю тёмные сайты",
+        },
+      ],
+    });
+    const server = await gateway({ text: ops });
+    const agentDir = tempDir();
+    const dir = join(agentDir, "prsloy-memory");
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(
+      join(dir, "user.json"),
+      JSON.stringify({
+        version: 2,
+        rules: "m0",
+        entries: [
+          {
+            id: "u-old1",
+            text: "Пользователь любит тёмные сайты",
+            quote: "люблю тёмные сайты",
+            origin: "user",
+            created: "2026-10-01T00:00:00.000Z",
+          },
+        ],
+        tombstones: [],
+      }),
+    );
+    const file = writeSession(agentDir, "two.jsonl", [
+      userLine("m1", "Я не программист, и я больше не люблю тёмные сайты"),
+    ]);
+    const notes: { type: string; text: string }[] = [];
+    const run = await runExtractorShadow({
+      baseUrl: server.baseUrl,
+      apiKey: "sk-x",
+      model: "qwen3.8-max",
+      sessionFile: file,
+      agentDir,
+      learningDir: agentDir,
+      fetch,
+      write: true,
+      note: async (type, text) => void notes.push({ type, text }),
+    });
+    expect(run.written).toBe(2);
+    expect(notes).toEqual([{ type: "prsloy-memory.auto", text: "Запомнил 2" }]);
+  });
+
   it("mode: the env wins; otherwise memory on with autoMemory shadow or true", () => {
     const flags = (memory: boolean, autoMemory: "off" | "shadow" | true) => ({
       memory,
@@ -320,7 +450,8 @@ describe("memory extractor in the shadow (M-3)", () => {
     expect(extractorMode("probe", flags(false, "off"))).toBe("probe");
     expect(extractorMode("off", flags(true, "shadow"))).toBe("off");
     expect(extractorMode(undefined, flags(true, "shadow"))).toBe("shadow");
-    expect(extractorMode(undefined, flags(true, true))).toBe("shadow");
+    expect(extractorMode(undefined, flags(true, true))).toBe("write");
+    expect(extractorMode("write", flags(false, "off"))).toBe("write");
     expect(extractorMode(undefined, flags(false, "shadow"))).toBe("off");
     expect(extractorMode(undefined, flags(true, "off"))).toBe("off");
   });

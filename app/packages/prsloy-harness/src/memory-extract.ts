@@ -12,7 +12,7 @@ import {
   type MemoryKind,
   type MemoryScope,
 } from "./memory-store.ts";
-import { quoteFromUser } from "./memory.ts";
+import { quoteSource } from "./memory.ts";
 
 export const EXTRACTOR_MAX_OPS = 3;
 export const EXTRACTOR_MAX_SUPERSEDE = 1;
@@ -62,12 +62,15 @@ export function extractorPrompt(
     "Правила ответа:",
     `- не больше ${EXTRACTOR_MAX_OPS} операций; лучше ни одной, чем лишняя;`,
     "- text — факт по-русски одной строкой до 160 знаков, пересказ цитаты без своих добавлений;",
-    "- quote — дословный кусок ОДНОГО сообщения пользователя ниже, не меньше 8 букв;",
+    "- quote — дословный кусок ОДНОГО сообщения пользователя ниже, не меньше 8 букв; бери кусок целиком, со всеми словами, которые пересказывает text;",
+    "- text пересказывает только слова из quote, без своих оценок («предпочитает», «важно»): «делай сайты тёмными» → «Делать сайты тёмными»;",
+    "- text — в третьем лице о пользователе («Пользователь…», «его», «ему»), не «я / меня / мне»: эту запись прочтёт агент, и «меня» он примет за себя. quote остаётся дословным;",
     '- op: "add" — новое; "reinforce" — то же, что уже есть в памяти; "supersede" — пользователь передумал, replaces = id старой записи;',
     '- scope: "user" — о человеке; "project" — об этой папке;',
     '- kind: "profile" (о себе, компьютер), "preference" (как отвечать, вкус), "decision" (решение проекта), "correction" (повторное исправление).',
     "",
     'Ответ — только JSON: {"ops":[{"op":"add","scope":"user","kind":"preference","text":"…","quote":"…"}]}. Нечего сохранять — {"ops":[]}.',
+    'Внутри строк не ставь прямые кавычки ": если нужно выделить слово, пиши «ёлочки» или без кавычек.',
     "",
     "Что уже в памяти — обо мне:",
     list(memory.user),
@@ -79,16 +82,53 @@ export function extractorPrompt(
   ].join("\n");
 }
 
+/**
+ * Прямые кавычки внутри строки («обращаться на "ты"») ломают JSON. Кавычка внутри строки, за которой (после
+ * пробелов) не идёт `,` `}` `]` `:` или конец, — часть текста: её экранируем.
+ */
+export function repairJsonQuotes(raw: string): string {
+  let out = "";
+  let inString = false;
+  for (let i = 0; i < raw.length; i++) {
+    const ch = raw[i]!;
+    if (inString && ch === "\\") {
+      out += ch + (raw[i + 1] ?? "");
+      i += 1;
+      continue;
+    }
+    if (ch === '"') {
+      if (!inString) {
+        inString = true;
+        out += ch;
+        continue;
+      }
+      const next = raw.slice(i + 1).trimStart()[0];
+      if (next === undefined || next === "," || next === "}" || next === "]" || next === ":") {
+        inString = false;
+        out += ch;
+      } else out += '\\"';
+      continue;
+    }
+    out += ch;
+  }
+  return out;
+}
+
 /** Первый JSON-объект в ответе (модель могла обернуть его в ```json или добавить слова). */
 export function parseExtractorReply(reply: string): ExtractorOp[] | undefined {
   const start = reply.indexOf("{");
   const end = reply.lastIndexOf("}");
   if (start < 0 || end <= start) return undefined;
+  const raw = reply.slice(start, end + 1);
   let parsed: unknown;
   try {
-    parsed = JSON.parse(reply.slice(start, end + 1));
+    parsed = JSON.parse(raw);
   } catch {
-    return undefined;
+    try {
+      parsed = JSON.parse(repairJsonQuotes(raw));
+    } catch {
+      return undefined;
+    }
   }
   const ops = (parsed as { ops?: unknown }).ops;
   if (!Array.isArray(ops)) return undefined;
@@ -148,9 +188,13 @@ export function checkCandidates(
   const out = ops.map((op, i): Candidate => {
     const verdict = ((): CandidateVerdict => {
       if (i >= EXTRACTOR_MAX_OPS) return "too-many";
-      if (!quoteFromUser(op.quote, texts)) return "not-user-words";
+      const source = quoteSource(op.quote, texts);
+      if (source === undefined) return "not-user-words";
       if (op.text.length > MEMORY_LIMITS.entryChars) return "too-long";
-      if (!textMatchesQuote(op.text, op.quote)) return "not-linked";
+      // Запись пересказывает слова пользователя: цитату или всё сообщение, где она стоит (модель часто берёт
+      // в цитату кусок короче своего пересказа). Полярность проверяется так же; чужого текста тут нет.
+      if (!textMatchesQuote(op.text, op.quote) && !textMatchesQuote(op.text, source))
+        return "not-linked";
       if (looksSensitive(op.text, op.quote)) return "secret";
       if (looksLikeThreat(op.text) || looksLikeThreat(op.quote)) return "threat";
       if (isForgotten(op.scope, op.text)) return "forgotten";

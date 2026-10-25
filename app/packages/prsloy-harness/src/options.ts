@@ -105,7 +105,9 @@ export type PracticeName =
   | "autoMemory"
   | "honestExit"
   | "testGuard"
-  | "claimCheck";
+  | "claimCheck"
+  // Строка статуса хода по фактам (H9, research/24 §4.4–4.5): одна карточка в конце хода.
+  | "turnStatus";
 
 export interface ResolvedOptions {
   profile: HarnessProfile;

@@ -4,7 +4,7 @@
 // доля проверенных библиотек 67% → 94%. Текст правила — дословно из эксперимента, плюс проверка
 // существования пакета (slopsquatting, там же).
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { PRSLOY_CODE_PROMPT, modelDelta } from "./code-prompt.ts";
+import { DIET_CODE_PROMPT, PRSLOY_CODE_PROMPT, modelDelta } from "./code-prompt.ts";
 import { readFlags } from "./flags.ts";
 import type { ResolvedOptions } from "./options.ts";
 
@@ -45,14 +45,14 @@ export function installReusePrompt(pi: ExtensionAPI, opts: ResolvedOptions): voi
     if (!choice) {
       const flags = readFlags(opts.settingsPath);
       choice =
-        flags.prompt === "prsloy"
-          ? {
-              custom: PRSLOY_CODE_PROMPT,
+        flags.prompt === "pi"
+          ? { custom: undefined, delta: undefined }
+          : {
+              custom: flags.prompt === "diet" ? DIET_CODE_PROMPT : PRSLOY_CODE_PROMPT,
               delta: flags.promptDelta
                 ? (opts.promptDeltaText ?? modelDelta(ctx.model?.id))
                 : undefined,
-            }
-          : { custom: undefined, delta: undefined };
+            };
       chosen.set(session, choice);
     }
     const o = event.systemPromptOptions;

@@ -98,3 +98,63 @@ test("memory M-1: pin, revert by opId, turning memory off erases the files", asy
   ].join("\n");
   expect(disk).not.toMatch(/англицизм|Аня/u);
 });
+
+/**
+ * #14 (research/27 §2) through the real preload: a change the agent's tool proposed waits for
+ * the user's answer, and «forget this chat» drops what was learned only there.
+ */
+test("memory #14: confirm a proposed change, forget what one chat taught", async ({
+  page,
+  zeno,
+}) => {
+  const dir = join(zeno.agentDir, "prsloy-memory");
+  await mkdir(dir, { recursive: true });
+  const entry = (id: string, text: string, session: string) => ({
+    id,
+    text,
+    quote: text,
+    origin: "auto",
+    evidence: [{ quote: text, session, at: "2026-10-25T10:00:00Z" }],
+    created: "2026-10-25T10:00:00Z",
+  });
+  await writeFile(
+    join(dir, "user.json"),
+    JSON.stringify({
+      version: 2,
+      rules: "m0",
+      entries: [
+        entry("u-e2e1", "Любит тёмные сайты", "chat-a"),
+        entry("u-e2e2", "Зовут Аня", "chat-b"),
+      ],
+      tombstones: [],
+    }),
+  );
+  await writeFile(
+    join(dir, "pending.json"),
+    JSON.stringify({
+      items: [
+        {
+          id: "cf-0123456789ab",
+          at: new Date().toISOString(),
+          action: "forget",
+          scope: "user",
+          target: "u-e2e2",
+          text: "Зовут Аня",
+        },
+      ],
+    }),
+  );
+  const listed = await page.evaluate(() => window.zeno.memory!.list());
+  expect(listed.user.map((e) => e.sessions)).toEqual([["chat-a"], ["chat-b"]]);
+
+  const confirmed = await page.evaluate(() =>
+    window.zeno.memory!.confirm!("cf-0123456789ab", true),
+  );
+  expect(confirmed.user.map((e) => e.id)).toEqual(["u-e2e1"]);
+
+  const forgotten = await page.evaluate(() => window.zeno.memory!.forgetSource!("chat-a"));
+  expect(forgotten.user).toEqual([]);
+  expect(forgotten.history?.map((h) => [h.kind, h.text])).toEqual(
+    expect.arrayContaining([["forgotten", "Любит тёмные сайты"]]),
+  );
+});

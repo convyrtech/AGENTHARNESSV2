@@ -131,3 +131,16 @@ export function keepStructured<T extends { structuredContent?: unknown }>(
     ? {}
     : { structuredContent: event.structuredContent };
 }
+
+/**
+ * Строка для карточки человеку из текста модели (блокер, причина ключа): одна строка, без «X: Y: …» —
+ * двоеточие внутри становится тире (адреса и время вида 12:30 не трогаем), без точки в конце, не длиннее `max`.
+ */
+export function plainLine(text: string, max = 160): string {
+  const one = text
+    .replace(/\s+/g, " ")
+    .replace(/(?<!https?|\d):\s+/g, " — ")
+    .trim()
+    .replace(/[.:;,\s—-]+$/u, "");
+  return one.length > max ? `${one.slice(0, max - 1).trimEnd()}…` : one;
+}

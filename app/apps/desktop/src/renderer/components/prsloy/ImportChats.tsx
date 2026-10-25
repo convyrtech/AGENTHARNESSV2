@@ -8,8 +8,15 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ImportRunResult, ImportScanResult, ImportToolId } from "@zeno/contracts";
 import { Button } from "@/components/ui/button";
 import { LineLoader } from "@/components/motion/LineLoader";
+import { refreshImportOrigins } from "../../hooks/useImportOrigins.ts";
 import { t, type Locale, type MessageKey } from "@/lib/i18n";
-import { countText, importKeys, importToolRows, saveImportedProjects } from "@/lib/session-import";
+import {
+  countText,
+  IMPORT_TOOL_NAMES,
+  importKeys,
+  importToolRows,
+  saveImportedProjects,
+} from "@/lib/session-import";
 
 type Phase =
   | { kind: "scanning" }
@@ -87,6 +94,7 @@ export function ImportChats({
     try {
       const result = await api.run(keys);
       saveImportedProjects(result.projects);
+      void refreshImportOrigins();
       setPhase({ kind: "done", result });
     } catch (cause) {
       setPhase({
@@ -188,6 +196,13 @@ export function ImportChats({
         ))}
       </div>
       <p className="prsloy-first-run-note">{tr("prsloy.import.note")}</p>
+      {scan?.unreadable?.length ? (
+        <p className="prsloy-first-run-note" data-testid="prsloy-import-unreadable">
+          {tr("prsloy.import.unreadable", {
+            tools: scan.unreadable.map((tool) => IMPORT_TOOL_NAMES[tool]).join(", "),
+          })}
+        </p>
+      ) : null}
       <Button
         className="h-10"
         data-testid="prsloy-import-submit"

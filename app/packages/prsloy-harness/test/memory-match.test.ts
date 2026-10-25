@@ -77,6 +77,57 @@ describe("memory-match: records against records", () => {
     expect(matchesForgotten("Не хочу платить за сервисы", forgotten)).toBe(true);
   });
 
+  it("retellings in the third person (live kimi run): names, «у него», «никакого … в», «на ты»", () => {
+    const yes: [string, string][] = [
+      ["Звать пользователя Аней", "Зови меня Аня"],
+      ["Пользователь на Mac, у него нет PowerShell", "Я на Mac, у меня нет PowerShell"],
+      [
+        "Интерфейс только на русском, без английского",
+        "Только на русском, никакого английского в интерфейсе",
+      ],
+      ["Общаться на ты", "Давай на ты"],
+      ["Тексты на сайте без восклицательных знаков", "без восклицательных знаков в текстах"],
+      ["Бухгалтер, не разбирается в коде", "Я бухгалтер, в коде не разбираюсь"],
+    ];
+    for (const [text, quote] of yes) expect(textMatchesQuote(text, quote), text).toBe(true);
+    const no: [string, string][] = [
+      ["Интерфейс на английском", "никакого английского в интерфейсе"],
+      ["Обращаться на вы", "давай на ты"],
+      ["Зовут Аня", "зови меня Олей"],
+      ["Пользователь на Windows", "у меня нет Windows"],
+      ["Бухгалтер, разбирается в коде", "Я бухгалтер, в коде не разбираюсь"],
+    ];
+    for (const [text, quote] of no) expect(textMatchesQuote(text, quote), text).toBe(false);
+  });
+
+  it("third-person retellings with words of their own (live run 2), polarity strict", () => {
+    const yes: [string, string][] = [
+      ["Пользователь — бухгалтер и не разбирается в коде", "Я бухгалтер, в коде не разбираюсь"],
+      ["Пользователь выбрал PostgreSQL вместо SQLite", "Используем PostgreSQL, не SQLite"],
+      [
+        "Пользователь запретил использовать React в этом проекте",
+        "Никогда не используй React в этом проекте",
+      ],
+      ["Пользователь работает на Mac, у него нет PowerShell", "Я на Mac, у меня нет PowerShell"],
+      ["Пользователь просит обращаться к нему на «ты»", "Давай на ты"],
+      ["Обращаться к пользователю на «вы»", "Обращайся ко мне на вы"],
+      [
+        "Пользователь предпочитает минимализм без лишних картинок.",
+        "Предпочитаю минимализм, без лишних картинок",
+      ],
+    ];
+    for (const [text, quote] of yes) expect(textMatchesQuote(text, quote), text).toBe(true);
+    const no: [string, string][] = [
+      ["Пользователь выбрал SQLite вместо PostgreSQL", "Используем PostgreSQL, не SQLite"],
+      ["Пользователь бухгалтер и разбирается в коде", "Я бухгалтер, в коде не разбираюсь"],
+      // Its own words outweigh the user's: not a retelling.
+      ["Отправлять ключи на сервер, пользователь бухгалтер", "Я бухгалтер"],
+      ["React не использовать", "используем React"],
+      ["Пользователь запретил использовать React", "используй React"],
+    ];
+    for (const [text, quote] of no) expect(textMatchesQuote(text, quote), text).toBe(false);
+  });
+
   it("forgotten by stem hashes: a paraphrase is caught, a negation is not", () => {
     const forgotten = hashedSignature("Пользователь любит тёмные сайты");
     expect(matchesForgotten("Нравятся тёмные сайты, любит", forgotten)).toBe(true);

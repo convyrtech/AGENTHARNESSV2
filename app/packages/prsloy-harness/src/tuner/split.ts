@@ -22,6 +22,8 @@ export interface Split {
   rule: string;
   train: string[];
   test: string[];
+  /** Задачи, добавленные в стенд после решения: только в test, с датой добавления. */
+  added?: { task: string; date: string }[];
 }
 
 export function loadSplit(file = SPLIT_FILE): Split {
@@ -109,4 +111,32 @@ export function writeSplitOnce(
 export function assertTrainOnly(split: Split, tasks: readonly string[]): void {
   const bad = tasks.filter((t) => !split.train.includes(t.split("/")[0]!));
   if (bad.length) throw new Error(`не из train (${split.train.join(", ")}): ${bad.join(", ")}`);
+}
+
+/**
+ * Новые задачи стенда (появились после решения) — только в test: train задним числом не расширяется, а задачи,
+ * которых больше нет, убираются. Train должен остаться прежним, иначе — ошибка.
+ */
+export function withNewTasks(split: Split, tasks: readonly string[], date: string): Split {
+  const gone = split.train.filter((t) => !tasks.includes(t));
+  if (gone.length)
+    throw new Error(`train-задач больше нет в стенде: ${gone.join(", ")} — нужно новое решение`);
+  const known = new Set([...split.train, ...split.test]);
+  const fresh = tasks.filter((t) => !known.has(t)).sort();
+  return {
+    ...split,
+    test: [...split.test.filter((t) => tasks.includes(t)), ...fresh].sort(),
+    ...(fresh.length || split.added
+      ? { added: [...(split.added ?? []), ...fresh.map((task) => ({ task, date }))] }
+      : {}),
+  };
+}
+
+/** Записать разбиение с новыми задачами в test (train сверяется с файлом). */
+export function writeWithNewTasks(file: string, tasks: readonly string[], date: string): Split {
+  const old = loadSplit(file);
+  const next = withNewTasks(old, tasks, date);
+  if (next.train.join() !== old.train.join()) throw new Error("train изменился бы — отказ");
+  writeFileSync(file, `${JSON.stringify(next, null, 2)}\n`);
+  return next;
 }

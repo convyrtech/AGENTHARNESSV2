@@ -10,6 +10,7 @@ import {
   ArrowLeft,
   Bell,
   Brain,
+  Globe,
   Cat,
   CircleAlert,
   Boxes,
@@ -616,6 +617,12 @@ function SettingsRail(props: {
           testId: "settings-nav-memory",
           labelKey: "features.memory.section",
           icon: <Brain className="size-3.5 shrink-0 opacity-70" strokeWidth={1.75} />,
+        },
+        {
+          section: "webSearch",
+          testId: "settings-nav-web-search",
+          labelKey: "features.web.section",
+          icon: <Globe className="size-3.5 shrink-0 opacity-70" strokeWidth={1.75} />,
         },
         {
           section: "notifications",

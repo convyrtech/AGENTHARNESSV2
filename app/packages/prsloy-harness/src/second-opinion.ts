@@ -217,7 +217,7 @@ export function remarks(n: number): string {
   return `${n} ${word}`;
 }
 
-export const REVIEW_PASS_CARD = "Проверила вторая модель: замечаний нет";
+export const REVIEW_PASS_CARD = "Проверила вторая модель — замечаний нет";
 
 export function reviewFailCard(count: number): string {
   return `Вторая модель нашла ${remarks(count)} — исправляю`;
@@ -225,7 +225,7 @@ export function reviewFailCard(count: number): string {
 
 /** Ревьюер «только отчёт» (кап возвратов исчерпан, research/24 §1): исправлять уже некому — сказать человеку. */
 export function reviewReportCard(count: number): string {
-  return `Вторая модель нашла ${remarks(count)} — посмотрите: возможна подгонка под проверку`;
+  return `Вторая модель нашла ${remarks(count)}: похоже, код подогнан под проверку, а не исправлен. Посмотрите замечания.`;
 }
 
 export function reviewPushback(items: ReviewItem[]): string {

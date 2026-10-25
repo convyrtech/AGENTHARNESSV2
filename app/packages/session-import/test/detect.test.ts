@@ -18,7 +18,11 @@ describe("scanSources", () => {
       "claude-code": { chats: 3, projects: 1, recent: 3 },
       codex: { chats: 1, projects: 1, recent: 1 },
       "pi-cli": { chats: 1, projects: 1, recent: 1 },
+      opencode: { chats: 0, projects: 0, recent: 0 },
+      gemini: { chats: 0, projects: 0, recent: 0 },
+      "cursor-agent": { chats: 0, projects: 0, recent: 0 },
     });
+    expect(result.skipped).toEqual([]);
     expect(result.selected).toHaveLength(5);
     expect(result.candidates.find((c) => c.tool === "codex")?.sourcePath).toContain("2026/10/02");
     expect(result.candidates.map((c) => c.updatedAt)).toEqual(
@@ -60,7 +64,14 @@ describe("scanSources", () => {
   it("finds nothing on a machine without other agents, and survives an unreadable file", async () => {
     const machine = await fakeMachine();
     const empty = await scanSources({
-      roots: { claudeProjects: "/нет/1", codexHome: "/нет/2", piSessions: "/нет/3" },
+      roots: {
+        claudeProjects: "/нет/1",
+        codexHome: "/нет/2",
+        piSessions: "/нет/3",
+        opencodeData: "/нет/4",
+        geminiDir: "/нет/5",
+        cursorDir: "/нет/6",
+      },
       ledger: emptyLedger(),
     });
     expect(empty.candidates).toEqual([]);

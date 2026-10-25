@@ -29,5 +29,9 @@ export const importEn: Record<keyof typeof importZh, string> = {
   "prsloy.import.settingsTitle": "Chats from other apps",
   "prsloy.import.settingsHint":
     "Bring conversations from Claude Code, Codex and others here to continue them.",
+  "prsloy.import.unreadable": "Could not read chats from {tools} (an unfamiliar format).",
+  "prsloy.import.badgeTitle": "Brought over from {tool}",
+  "prsloy.import.notice":
+    "Brought over from {tool}. The model works from a summary of the conversation and the last few turns, not the whole history.",
   "prsloy.import.find": "Find chats",
 };
