@@ -26,18 +26,32 @@ function readRaw(path: string): Record<string, unknown> {
   }
 }
 
-/** Missing file or flag means on: the second opinion is a default, not an opt-in. */
+/**
+ * Missing file or flag: the second opinion is on (a default, not an opt-in); memory is off
+ * until the owner turns it on (research/18 §6.7, STATUS-harness S4).
+ */
 export function readHarnessFlags(path: string): HarnessFlags {
-  return { secondOpinion: readRaw(path).secondOpinion !== false };
+  const raw = readRaw(path);
+  return { secondOpinion: raw.secondOpinion !== false, memory: raw.memory === true };
 }
 
+const FLAG_KEYS = ["secondOpinion", "memory"] as const;
+
+/** Only known flags, only booleans, at least one; other keys in the file are kept. */
 export function writeHarnessFlags(path: string, patch: unknown): HarnessFlags {
-  const value = (patch as { secondOpinion?: unknown } | null)?.secondOpinion;
-  if (typeof value !== "boolean") throw new Error("secondOpinion must be a boolean");
-  const next = { ...readRaw(path), secondOpinion: value };
+  if (!patch || typeof patch !== "object") throw new Error("flags must be an object");
+  const raw = patch as Record<string, unknown>;
+  const next: Record<string, boolean> = {};
+  for (const key of FLAG_KEYS) {
+    if (raw[key] === undefined) continue;
+    if (typeof raw[key] !== "boolean") throw new Error(`${key} must be a boolean`);
+    next[key] = raw[key];
+  }
+  if (Object.keys(next).length === 0) throw new Error("no known flag to set");
+  const file = { ...readRaw(path), ...next };
   mkdirSync(dirname(path), { recursive: true });
   const tmp = `${path}.tmp`;
-  writeFileSync(tmp, `${JSON.stringify(next, null, 2)}\n`);
+  writeFileSync(tmp, `${JSON.stringify(file, null, 2)}\n`);
   renameSync(tmp, path);
   return readHarnessFlags(path);
 }

@@ -20,9 +20,11 @@ export interface CodePreviewApi {
 export type HarnessFlags = {
   /** Another model family reviews the turn's changes (default on). */
   secondOpinion: boolean;
+  /** «Запоминать, когда я прошу»: the harness's `memory` tool and prompt section (default off). */
+  memory: boolean;
 };
 
 export interface HarnessFlagsApi {
   get(): Promise<HarnessFlags>;
-  set(patch: HarnessFlags): Promise<HarnessFlags>;
+  set(patch: Partial<HarnessFlags>): Promise<HarnessFlags>;
 }

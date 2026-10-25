@@ -4,6 +4,8 @@ export type * from "./code-preview.ts";
 export type * from "./design.ts";
 import type { FeaturesApi } from "./features.ts";
 export type * from "./features.ts";
+import type { MemoryApi } from "./memory.ts";
+export type * from "./memory.ts";
 import type { PrsloyDesktopApi } from "./prsloy.ts";
 export type * from "./prsloy.ts";
 export const IPC_PROTOCOL_VERSION = 1 as const;
@@ -1808,6 +1810,8 @@ export interface ZenoDesktopApi {
   harnessFlags: HarnessFlagsApi;
   /** «Код» features from open-source analogs (see ./features.ts). */
   features: FeaturesApi;
+  /** «Память» (see ./memory.ts). Optional until main serves `prsloy:memory-*`. */
+  memory?: MemoryApi;
   /**
    * Always-on-top desktop pet (bloub) — a living SVG companion driven by
    * per-session focus + task bubbles. Enabled from Settings → 宠物.

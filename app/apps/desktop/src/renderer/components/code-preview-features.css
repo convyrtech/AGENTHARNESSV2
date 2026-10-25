@@ -159,3 +159,18 @@
   background: color-mix(in srgb, var(--primary) 10%, transparent);
   pointer-events: none;
 }
+/* Settings → «Память» */
+.memory-note {
+  margin: 0 0 12px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--muted-foreground);
+}
+.memory-note[role="alert"] {
+  color: var(--destructive);
+}
+.memory-forget-all {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 4px;
+}
