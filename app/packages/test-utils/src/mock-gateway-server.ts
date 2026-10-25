@@ -32,6 +32,8 @@ export interface MockGatewayOptions {
   serveListedOnly?: boolean;
   /** `max_tokens` above this answers 400 (a gateway with a lower output cap). */
   maxTokensLimit?: number;
+  /** Prompt tokens reported in usage (default 10; 0 = a gateway that doesn't meter input). */
+  promptTokens?: number;
 }
 
 function sendChunk(response: ServerResponse, delta: Record<string, unknown>, finish?: string) {
@@ -202,7 +204,11 @@ export class MockGatewayServer {
         created: 1,
         model: "mock",
         choices: [],
-        usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 },
+        usage: {
+          prompt_tokens: this.#options.promptTokens ?? 10,
+          completion_tokens: 5,
+          total_tokens: (this.#options.promptTokens ?? 10) + 5,
+        },
       })}\n\n`,
     );
     response.end("data: [DONE]\n\n");

@@ -244,6 +244,12 @@ export interface SessionUsageSummary {
     total: number;
   };
   cost: number;
+  /**
+   * A reply reported output tokens but no input (a gateway that doesn't meter input): the
+   * session's cost is not known, so `cost` is 0 and no money is shown, as for a model
+   * without a price.
+   */
+  costUnknown?: boolean;
   context?: {
     tokens: number | null;
     contextWindow: number;
@@ -2677,6 +2683,7 @@ function isProviderUsageSnapshot(value: unknown): value is ProviderUsageSnapshot
 
 function isSessionUsageSummary(value: unknown): value is SessionUsageSummary {
   if (!isRecord(value) || !isRecord(value.tokens) || typeof value.cost !== "number") return false;
+  if (value.costUnknown !== undefined && typeof value.costUnknown !== "boolean") return false;
   const tokens = value.tokens;
   for (const key of ["input", "output", "cacheRead", "cacheWrite", "total"] as const) {
     if (typeof tokens[key] !== "number") return false;

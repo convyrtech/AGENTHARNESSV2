@@ -1547,6 +1547,11 @@ function createSnapshot(
     },
     cost: stats.cost,
   };
+  if (hasUnmeteredReply(runtime.session.sessionManager.getEntries())) {
+    // Part of the bill is missing: a partial sum would read as the real price.
+    usage.cost = 0;
+    usage.costUnknown = true;
+  }
   if (contextUsage) {
     usage.context = {
       tokens: contextUsage.tokens,
@@ -1557,6 +1562,32 @@ function createSnapshot(
   snapshot.usage = usage;
 
   return snapshot;
+}
+
+/**
+ * A reply with output tokens but no input, cache or otherwise: the gateway didn't meter
+ * the input (seen live on deepseek through the PRSLOY gateway), so pi's cost covers the
+ * output only.
+ */
+export function hasUnmeteredReply(entries: readonly unknown[]): boolean {
+  return entries.some((entry) => {
+    const e = entry as {
+      type?: string;
+      message?: {
+        role?: string;
+        usage?: { input?: number; output?: number; cacheRead?: number; cacheWrite?: number };
+      };
+    };
+    const usage =
+      e.type === "message" && e.message?.role === "assistant" ? e.message.usage : undefined;
+    return (
+      !!usage &&
+      (usage.output ?? 0) > 0 &&
+      (usage.input ?? 0) === 0 &&
+      (usage.cacheRead ?? 0) === 0 &&
+      (usage.cacheWrite ?? 0) === 0
+    );
+  });
 }
 
 export async function createPixRuntime(
