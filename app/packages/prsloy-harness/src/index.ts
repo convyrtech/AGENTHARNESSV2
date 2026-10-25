@@ -9,6 +9,7 @@ import { resolveOptions, type HarnessOptions } from "./options.ts";
 import { installPostEditVerify } from "./post-edit-verify.ts";
 import { installAskUser } from "./ask-user.ts";
 import { installFindReady } from "./find-ready.ts";
+import { installResearch } from "./research/tools.ts";
 import { installReliability } from "./reliability.ts";
 import { installRequestSecret } from "./request-secret.ts";
 import { installSkills } from "./skills.ts";
@@ -111,6 +112,7 @@ export function createPrsloyHarness(options: HarnessOptions = {}): (pi: Extensio
         ...(memory ? { memorySection: memory.section } : {}),
       });
     if (on("findReady")) installFindReady(pi, opts, opts.findReady);
+    if (on("research")) installResearch(pi, opts, options.research);
     // Вопрос кнопками и ключ формой (research/19 §1.1, §1.3): только «Код».
     if (on("askUser")) installAskUser(pi, opts);
     if (on("requestSecret")) installRequestSecret(pi, opts);
