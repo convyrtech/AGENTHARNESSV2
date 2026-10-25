@@ -20,4 +20,17 @@ describe("TurnStatusLine", () => {
     );
     expect(screen.getByTestId("turn-status-page").querySelectorAll("li")).toHaveLength(2);
   });
+
+  it("shows the agent's unbacked words with the reason", () => {
+    const status = parseTurnStatus({
+      facts: ["claim-unbacked"],
+      claims: [{ quote: "Всё проверил", why: "проверок в ходе не было" }, { quote: "Готово" }],
+    })!;
+    render(<TurnStatusLine locale="ru" status={status} />);
+    const items = screen.getByTestId("turn-status-claims").querySelectorAll("li");
+    expect([...items].map((li) => li.textContent)).toEqual([
+      "«Всё проверил» — проверок в ходе не было",
+      "«Готово»",
+    ]);
+  });
 });

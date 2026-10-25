@@ -31,6 +31,17 @@ export function TurnStatusLine(props: { locale: Locale; status: TurnStatus }) {
             {t(props.locale, "turnStatus.files", { files: status.files.join(", ") })}
           </p>
         ) : null}
+        {status.claims.length ? (
+          <ul className="turn-status-files turn-status-page" data-testid="turn-status-claims">
+            {status.claims.map((claim) => (
+              <li key={claim.quote}>
+                {claim.why
+                  ? t(props.locale, "turnStatus.claim", { quote: claim.quote, why: claim.why })
+                  : t(props.locale, "turnStatus.claimQuote", { quote: claim.quote })}
+              </li>
+            ))}
+          </ul>
+        ) : null}
         {status.page.length ? (
           <ul className="turn-status-files turn-status-page" data-testid="turn-status-page">
             {status.page.map((finding) => (

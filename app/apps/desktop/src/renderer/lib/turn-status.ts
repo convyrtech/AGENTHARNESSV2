@@ -18,6 +18,7 @@ export type TurnFact =
   | "page-fail"
   | "ran-fail"
   | "stubs-left"
+  | "claim-unbacked"
   | "tests-changed"
   | "tests-weak"
   | "page-hints"
@@ -33,6 +34,7 @@ const ORDER: readonly TurnFact[] = [
   "page-fail",
   "ran-fail",
   "stubs-left",
+  "claim-unbacked",
   "tests-changed",
   "tests-weak",
   "page-hints",
@@ -46,10 +48,22 @@ const ORDER: readonly TurnFact[] = [
 export type TurnTone = "fail" | "warn" | "ok" | "neutral";
 
 /** `page`: up to 3 findings of harness's page check («кнопка .cta: не нажимается»), shown like files. */
-export type TurnStatus = { facts: TurnFact[]; tone: TurnTone; files: string[]; page: string[] };
+export type TurnClaim = { quote: string; why?: string };
+
+/** `claims`: up to 2 of the agent's words a check did not back (harness claimCheck), shown like files. */
+export type TurnStatus = {
+  facts: TurnFact[];
+  tone: TurnTone;
+  files: string[];
+  page: string[];
+  claims: TurnClaim[];
+};
 
 export function parseTurnStatus(details: unknown): TurnStatus | undefined {
-  const value = details as { facts?: unknown; files?: unknown; page?: unknown } | null | undefined;
+  const value = details as
+    | { facts?: unknown; files?: unknown; page?: unknown; claims?: unknown }
+    | null
+    | undefined;
   if (!Array.isArray(value?.facts)) return undefined;
   const given = new Set(value.facts.filter((f): f is TurnFact => ORDER.includes(f as TurnFact)));
   // red wins over a stale green from the same turn
@@ -66,14 +80,25 @@ export function parseTurnStatus(details: unknown): TurnStatus | undefined {
         .filter((f): f is string => typeof f === "string" && f.trim().length > 0)
         .slice(0, 3)
     : [];
-  return { facts, tone: turnTone(facts), files, page };
+  const claims = Array.isArray(value.claims)
+    ? value.claims
+        .flatMap((raw): TurnClaim[] => {
+          const claim = raw as { quote?: unknown; why?: unknown } | null;
+          const quote = typeof claim?.quote === "string" ? claim.quote.trim() : "";
+          if (!quote) return [];
+          const why = typeof claim?.why === "string" ? claim.why.trim() : "";
+          return [why ? { quote, why } : { quote }];
+        })
+        .slice(0, 2)
+    : [];
+  return { facts, tone: turnTone(facts), files, page, claims };
 }
 
 export function turnTone(facts: readonly TurnFact[]): TurnTone {
   if (facts.some((f) => f === "checks-fail" || f === "page-fail" || f === "ran-fail"))
     return "fail";
-  if (facts.some((f) => f === "stubs-left" || f === "tests-changed" || f === "tests-weak"))
-    return "warn";
+  const warn: readonly TurnFact[] = ["stubs-left", "claim-unbacked", "tests-changed", "tests-weak"];
+  if (facts.some((f) => warn.includes(f))) return "warn";
   if (facts.some((f) => f === "checks-pass" || f === "page-ok" || f === "ran-ok")) return "ok";
   return "neutral";
 }

@@ -15,6 +15,7 @@ describe("parseTurnStatus", () => {
       tone: "warn",
       files: [],
       page: [],
+      claims: [],
     });
   });
 
@@ -32,7 +33,7 @@ describe("parseTurnStatus", () => {
   it("red wins over a green from the same turn; unknown facts and junk are dropped", () => {
     expect(
       parseTurnStatus({ facts: ["checks-pass", "checks-fail", "made-up", 3], files: ["a.ts", 1] }),
-    ).toEqual({ facts: ["checks-fail"], tone: "fail", files: ["a.ts"], page: [] });
+    ).toEqual({ facts: ["checks-fail"], tone: "fail", files: ["a.ts"], page: [], claims: [] });
   });
 
   it("nothing to show without facts", () => {
@@ -97,6 +98,24 @@ describe("arrangeTurnStatus", () => {
     const out = arrangeTurnStatus([user("u1"), process("p1"), failed, user("u2"), process("p2")]);
     const stopped = out.filter((b) => b.type === "process").map((b) => Boolean(b.stopped));
     expect(stopped).toEqual([true, false]);
+  });
+
+  it("claim-unbacked warns after stubs-left; up to 2 quotes with why", () => {
+    const status = parseTurnStatus({
+      facts: ["checks-pass", "claim-unbacked", "stubs-left"],
+      claims: [
+        { quote: "Всё проверил", why: "проверок в ходе не было" },
+        { quote: "  " },
+        { quote: "Работает на телефоне" },
+        { quote: "третья" },
+      ],
+    });
+    expect(status?.facts).toEqual(["stubs-left", "claim-unbacked", "checks-pass"]);
+    expect(status?.tone).toBe("warn");
+    expect(status?.claims).toEqual([
+      { quote: "Всё проверил", why: "проверок в ходе не было" },
+      { quote: "Работает на телефоне" },
+    ]);
   });
 
   it("ran-fail is red and beats ran-ok", () => {
