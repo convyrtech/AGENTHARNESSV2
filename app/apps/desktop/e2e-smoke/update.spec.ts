@@ -50,10 +50,15 @@ function powershell(command: string): string {
 
 /** PRSLOY.exe processes running from the install dir. */
 function runningInstalled(): Array<{ Id: number; Path: string; StartTime: string }> {
-  const json = powershell(
-    "Get-Process PRSLOY -ErrorAction SilentlyContinue | Select-Object Id, Path, " +
-      "@{n='StartTime';e={$_.StartTime.ToString('o')}} | ConvertTo-Json -Compress",
-  );
+  let json = "";
+  try {
+    json = powershell(
+      "Get-Process PRSLOY -ErrorAction SilentlyContinue | Select-Object Id, Path, " +
+        "@{n='StartTime';e={$_.StartTime.ToString('o')}} | ConvertTo-Json -Compress; exit 0",
+    );
+  } catch {
+    return [];
+  }
   if (!json) return [];
   const parsed = JSON.parse(json) as unknown;
   return (Array.isArray(parsed) ? parsed : [parsed]) as Array<{
