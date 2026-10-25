@@ -26,6 +26,14 @@ export function injectBridgeTag(html: string): string {
   return html.slice(0, end) + tag + html.slice(end);
 }
 
+/** `markup` (ASCII) right after `<head>` (or at the very start of a page without one). */
+export function injectHead(html: string, markup: string): string {
+  const at = /<head\b[^>]*>/iu.exec(html) ?? /<html\b[^>]*>/iu.exec(html);
+  if (!at) return markup + html;
+  const end = at.index + at[0].length;
+  return html.slice(0, end) + markup + html.slice(end);
+}
+
 export function startPreviewServer(
   root: string,
   options: {
@@ -37,6 +45,8 @@ export function startPreviewServer(
      * (`preview-bridge/source-tags.ts`) so a pick names the place in the source.
      */
     tagSource?: boolean;
+    /** Markup put after `<head>` of every HTML page, asked per request («Настроить» in «Дизайн»). */
+    extraHead?: () => string;
   } = {},
 ): Promise<PreviewServer> {
   const server: Server = createServer((req, res) => {
@@ -82,11 +92,16 @@ export function startPreviewServer(
       return;
     }
     const type = mimeFor(target);
-    if (options.inject !== undefined && type.startsWith("text/html")) {
+    const extra = type.startsWith("text/html") ? (options.extraHead?.() ?? "") : "";
+    if ((options.inject !== undefined || extra) && type.startsWith("text/html")) {
       // UTF-8 stays UTF-8; any other encoding is kept byte for byte (latin1). Tags are ASCII.
       const page = decodePage(readFileSync(target));
-      const html = options.tagSource ? tagSource(page.text, servedRel) : page.text;
-      const body = Buffer.from(injectBridgeTag(html), page.encoding);
+      let html = page.text;
+      if (options.inject !== undefined) {
+        html = injectBridgeTag(options.tagSource ? tagSource(html, servedRel) : html);
+      }
+      if (extra) html = injectHead(html, extra);
+      const body = Buffer.from(html, page.encoding);
       res.writeHead(200, {
         "Content-Type": type,
         "Content-Length": body.length,

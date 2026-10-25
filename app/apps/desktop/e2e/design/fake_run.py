@@ -57,10 +57,14 @@ def say(a):
         page = ws / "site" / st["page"]
         page.mkdir(parents=True, exist_ok=True)
         (page / "index.html").write_text(
-            "<!doctype html><html lang=ru><meta charset=utf-8><title>Зерно</title>"
-            "<body style='margin:0;font:18px/1.5 Georgia,serif;background:#f4ede1;color:#2b211b'>"
-            "<main style='padding:64px 48px'><p style='letter-spacing:.2em;color:#b4532a'>КОФЕЙНЯ</p>"
-            "<h1 style='font-size:64px;margin:.2em 0'>Зерно</h1><p>Обжариваем сами, каждое утро.</p></main>",
+            "<!doctype html><html lang=ru><head><meta charset=utf-8><title>Зерно</title>"
+            "<style>:root{--paper:#f4ede1;--ink:#2b211b;--accent:#b4532a;--radius:12px;--step:18px}"
+            "body{margin:0;font:var(--step)/1.5 Georgia,serif;background:var(--paper);color:var(--ink)}"
+            ".k{letter-spacing:.2em;color:var(--accent)}.c{border:2px solid var(--accent);border-radius:var(--radius);"
+            "padding:12px 20px;display:inline-block}</style></head>"
+            "<body><main style='padding:64px 48px'><p class=k>КОФЕЙНЯ</p>"
+            "<h1 style='font-size:64px;margin:.2em 0'>Зерно</h1><p>Обжариваем сами, каждое утро.</p>"
+            "<p class=c>180 ₽</p></main>",
             encoding="utf-8")
         for ev in ({"ev": "stage", "gate": "5", "title": "Страница", "model": "a6p/kimi-k3.1-pro", "attempt": 1},
                    {"ev": "tool", "name": "write", "brief": f"site/{st['page']}/index.html"},

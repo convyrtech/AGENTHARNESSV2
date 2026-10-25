@@ -18,10 +18,12 @@ import {
   Paperclip,
   RotateCcw,
   Send,
+  SlidersHorizontal,
   Square,
   X,
 } from "lucide-react";
 import { ImagePreviewDialog } from "../ContentPreviewDialog.tsx";
+import { TokenPanel } from "./TokenPanel.tsx";
 import { type PreviewDevice, PreviewDeviceSwitch, PreviewStage } from "../PreviewFrame.tsx";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { unwrapRemoteIpcError } from "../../../shared/ipc-error.ts";
@@ -697,18 +699,26 @@ function DoneCard({
   }, [api, projectPath]);
   const [device, setDevice] = useState<PreviewDevice>("desktop");
   const [saved, setSaved] = useState(false);
+  const [tweaking, setTweaking] = useState(false);
+  // «Настроить» shows values by reloading the page main serves with them
+  const [shown, setShown] = useState(0);
   const frame = useMemo(
     () =>
       url ? (
-        <PreviewStage locale={locale} url={url} device={device} testId="design-preview" />
+        <PreviewStage
+          locale={locale}
+          url={shown ? `${url}?v=${shown}` : url}
+          device={device}
+          testId="design-preview"
+        />
       ) : null,
-    [url, locale, device],
+    [url, locale, device, shown],
   );
   return (
     <div className="flex flex-col gap-3" data-testid="design-done">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="design-heading">{tr("design.done")}</p>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center justify-end gap-2">
           {url ? (
             <PreviewDeviceSwitch
               locale={locale}
@@ -726,6 +736,18 @@ function DoneCard({
             <FolderOpen />
             {tr("design.openFolder")}
           </Button>
+          {url ? (
+            <Button
+              variant={tweaking ? "secondary" : "outline"}
+              size="sm"
+              aria-pressed={tweaking}
+              data-testid="design-tweak-open"
+              onClick={() => setTweaking((v) => !v)}
+            >
+              <SlidersHorizontal />
+              {tr("design.tweak")}
+            </Button>
+          ) : null}
           {url ? (
             <Button
               variant="outline"
@@ -753,6 +775,14 @@ function DoneCard({
           </Button>
         </div>
       </div>
+      {tweaking && url ? (
+        <TokenPanel
+          projectPath={projectPath}
+          tr={tr}
+          onPreview={() => setShown((n) => n + 1)}
+          onClose={() => setTweaking(false)}
+        />
+      ) : null}
       {frame}
     </div>
   );

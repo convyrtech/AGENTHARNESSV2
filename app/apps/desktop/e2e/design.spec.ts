@@ -394,6 +394,36 @@ test("owner leads a landing page from request to preview", async () => {
       .poll(() => app.evaluate(() => (globalThis as { __opened?: string }).__opened))
       .toBe(join(documents, "PRSLOY", "prsloy-design", "site"));
 
+    // «Настроить»: brand variables as handles, shown in the preview, saved only on «Сохранить»
+    const pageFile = join(documents, "PRSLOY", "prsloy-design", "site", "landing", "index.html");
+    const rootVar = (name: string) =>
+      page
+        .frameLocator('[data-testid="design-preview"]')
+        .locator("html")
+        .evaluate((el, n) => getComputedStyle(el).getPropertyValue(n).trim(), name);
+    await page.getByTestId("design-tweak-open").click();
+    const tweak = page.getByTestId("design-tweak");
+    await expect(tweak).toBeVisible();
+    await expect(tweak.getByTestId("design-tweak-radius")).toBeVisible();
+    await tweak.getByTestId("design-tweak-radius-range").fill("20");
+    await expect.poll(() => rootVar("--radius")).toBe("20px");
+    expect(readFileSync(pageFile, "utf8")).toContain("--radius:12px");
+    // the accent the colour of the background: refused, nothing to save
+    await tweak.getByTestId("design-tweak-accent-f4ede1").click();
+    await expect(tweak.getByTestId("design-tweak-error")).toHaveText(
+      "Акцент потеряется на этом фоне",
+    );
+    await expect(tweak.getByTestId("design-tweak-save")).toBeDisabled();
+    await tweak.getByTestId("design-tweak-accent-2b211b").click();
+    await expect(tweak.getByTestId("design-tweak-error")).toHaveCount(0);
+    await expect.poll(() => rootVar("--accent")).toBe("#2b211b");
+    await shot(page, "tweak");
+    await tweak.getByTestId("design-tweak-save").click();
+    await expect(tweak).toHaveCount(0);
+    expect(readFileSync(pageFile, "utf8")).toContain("--radius:20px");
+    expect(readFileSync(pageFile, "utf8")).toContain("--accent:#2b211b");
+    await expect.poll(() => rootVar("--radius")).toBe("20px");
+
     // the stream survives leaving and reopening the tab
     await page.getByTestId("nav-settings").click();
     await page.getByTestId("settings-back").click();

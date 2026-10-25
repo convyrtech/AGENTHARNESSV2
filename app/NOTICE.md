@@ -29,3 +29,8 @@
   название чата — первая просьба, чаты без проекта прямо в `sessions/`.
 - [parse5](https://github.com/inikulin/parse5) 8.0.1 — зависимость, собирается в main (разметка `data-pl` в превью
   «Кода»). MIT License, Copyright (c) 2013-2019 Ivan Nikulin and other parse5 contributors.
+- `apps/desktop/src/main/design/tokens.ts`, `src/renderer/components/design/TokenPanel.tsx` — «Настроить»: ручки
+  токенов бренда без модели по идее протокола tweaks из
+  [OpenCoworkAI/open-codesign](https://github.com/OpenCoworkAI/open-codesign) (коммит `4cf3393`,
+  `packages/runtime/src/tweaks-bridge.ts`, `apps/desktop/src/renderer/src/preview/tweak-persistence.ts`). MIT License,
+  Copyright (c) OpenCoworkAI. Код не копировался: у нас статический HTML, значения подставляет сервер превью.

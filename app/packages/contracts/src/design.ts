@@ -87,6 +87,17 @@ export type DesignStatus = {
 
 export type DesignEventMessage = { workspace: string; event: DesignEvent };
 
+export type DesignTokenKind = "color" | "length";
+export type DesignTokenLabel = "background" | "text" | "accent" | "radius" | "size" | "spacing";
+/** One handle of «Настроить»: a brand variable on the page's `:root`; `label` is translated by the renderer. */
+export type DesignToken = {
+  name: string;
+  value: string;
+  kind: DesignTokenKind;
+  label: DesignTokenLabel;
+};
+export type DesignTokenResult = { ok: true } | { ok: false; error: string };
+
 export interface DesignApi {
   status(projectPath: string | undefined): Promise<DesignStatus>;
   /** Install Python tools once; progress arrives through onSetup. */
@@ -109,6 +120,18 @@ export interface DesignApi {
   openFolder(projectPath: string | undefined): Promise<void>;
   /** The built page in the system browser (main opens only its own loopback preview address). */
   openInBrowser(projectPath: string | undefined): Promise<void>;
+  /** «Настроить»: the page's brand variables (background, text, accent, radius, size, spacing) and swatches. */
+  tokens(projectPath: string | undefined): Promise<{ tokens: DesignToken[]; swatches: string[] }>;
+  /** Show these values in the preview without saving; null drops the preview values. */
+  previewTokens(
+    projectPath: string | undefined,
+    changes: Record<string, string> | null,
+  ): Promise<DesignTokenResult>;
+  /** Write the values into the page's files (checked: brand swatches, 0.5–2×, contrast). */
+  saveTokens(
+    projectPath: string | undefined,
+    changes: Record<string, string>,
+  ): Promise<DesignTokenResult>;
   /** Pick the owner's design-pipeline zip or folder; null when cancelled, else ok or a one-line error. */
   importTools(): Promise<{ ok: true } | { ok: false; error: string } | null>;
   /** «Скачать архив»: zip of site/ through a save dialog; null when cancelled or nothing built. */

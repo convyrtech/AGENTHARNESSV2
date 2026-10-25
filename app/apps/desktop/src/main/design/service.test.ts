@@ -146,9 +146,12 @@ describe.skipIf(!python3 || process.platform === "win32")("design IPC", () => {
         "open-in-browser",
         "pick-files",
         "preview",
+        "preview-tokens",
+        "save-tokens",
         "say",
         "setup",
         "status",
+        "tokens",
       ].map((c) => `prsloy:design:${c}`),
     );
     expect(() => handlers.get("prsloy:design:status")!({ senderFrame: null }, project)).toThrow(

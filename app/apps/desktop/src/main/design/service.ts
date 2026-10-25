@@ -40,6 +40,7 @@ import {
 } from "electron";
 import type {
   DesignEvent,
+  DesignToken,
   DesignSetupProgress,
   DesignStatus,
   DesignEventMessage,
@@ -63,6 +64,7 @@ import {
 import { findEntry, type PreviewServer, startPreviewServer } from "./preview-server.ts";
 import { importPipeline } from "./pipeline-import.ts";
 import { killTree, killTreeNow, treeSpawnOptions } from "./proc.ts";
+import { checkTokens, overrideStyle, readTokens, saveTokens, type TokenCheck } from "./tokens.ts";
 import { listFiles, zipDirectory } from "./zip.ts";
 import { DESIGN_DISK_MB, DESIGN_SETUP_MB, setupDesignTools, toolsReady } from "./setup.ts";
 
@@ -114,6 +116,8 @@ export class DesignService {
   #proxyStarting: Promise<string> | undefined;
   #setup: Promise<DesignSetupProgress> | undefined;
   #models: { key: string; at: number; ids: string[] | undefined } | undefined;
+  /** «Настроить»: values shown in the preview, not yet saved, per workspace. */
+  readonly #tweaks = new Map<string, Record<string, string>>();
 
   constructor(deps: DesignServiceDeps) {
     this.#deps = deps;
@@ -613,10 +617,38 @@ export class DesignService {
     if (entry === undefined) return null;
     let server = this.#previews.get(ws);
     if (!server) {
-      server = await startPreviewServer(site);
+      server = await startPreviewServer(site, {
+        extraHead: () => overrideStyle(this.#tweaks.get(ws) ?? {}),
+      });
       this.#previews.set(ws, server);
     }
     return { url: server.url + entry };
+  }
+
+  // ---------- «Настроить»: brand variables without a model ----------
+  tokens(projectPath: string | undefined): { tokens: DesignToken[]; swatches: string[] } {
+    return readTokens(join(this.workspace(projectPath), "site"), DESIGN_PAGE);
+  }
+
+  previewTokens(
+    projectPath: string | undefined,
+    changes: Record<string, string> | null,
+  ): TokenCheck {
+    const ws = this.workspace(projectPath);
+    if (!changes || Object.keys(changes).length === 0) {
+      this.#tweaks.delete(ws);
+      return { ok: true };
+    }
+    const check = checkTokens(join(ws, "site"), DESIGN_PAGE, changes);
+    if (check.ok) this.#tweaks.set(ws, { ...changes });
+    return check;
+  }
+
+  saveTokens(projectPath: string | undefined, changes: Record<string, string>): TokenCheck {
+    const ws = this.workspace(projectPath);
+    const result = saveTokens(join(ws, "site"), DESIGN_PAGE, changes);
+    if (result.ok) this.#tweaks.delete(ws);
+    return result;
   }
 
   /** «Скачать архив»: site/ as a zip wherever the owner saves it (Downloads by default). */
@@ -714,6 +746,15 @@ function restrictToUser(path: string, isDir = false): void {
   if (!result.ok) console.warn("[design] could not restrict", path, result.detail);
 }
 
+/** `{ "--name": "value" }` from the renderer, strings only; anything else → null. */
+function tokenChanges(raw: unknown): Record<string, string> | null {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(raw).slice(0, 20))
+    if (typeof v === "string") out[k] = v.slice(0, 40);
+  return out;
+}
+
 function projectArg(raw: unknown): string | undefined {
   return typeof raw === "string" && raw.trim() ? raw : undefined;
 }
@@ -770,6 +811,22 @@ export function registerDesignIpc(deps: DesignServiceDeps): DesignService {
   ipcMain.handle(
     "prsloy:design:import-tools",
     guard(() => svc.importTools()),
+  );
+  ipcMain.handle(
+    "prsloy:design:tokens",
+    guard((p: unknown) => svc.tokens(projectArg(p))),
+  );
+  ipcMain.handle(
+    "prsloy:design:preview-tokens",
+    guard((p: unknown, changes: unknown) =>
+      svc.previewTokens(projectArg(p), tokenChanges(changes)),
+    ),
+  );
+  ipcMain.handle(
+    "prsloy:design:save-tokens",
+    guard((p: unknown, changes: unknown) =>
+      svc.saveTokens(projectArg(p), tokenChanges(changes) ?? {}),
+    ),
   );
   ipcMain.handle(
     "prsloy:design:export-zip",
