@@ -103,4 +103,5 @@ export const designRu: Record<keyof typeof designZh, string> = {
   "design.openInBrowser": "Открыть в браузере",
   "design.downloadZip": "Скачать архив",
   "design.zipSaved": "Архив сохранён",
+  "design.zipReveal": "Показать в папке",
 };

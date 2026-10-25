@@ -938,8 +938,9 @@ function DoneCard({
               {tr("design.openInBrowser")}
             </Button>
           ) : null}
+          {/* the one thing the owner takes away: the main button; after saving, where the file is */}
           <Button
-            variant="outline"
+            variant={saved ? "outline" : "default"}
             size="sm"
             data-testid="design-download-zip"
             onClick={() =>
@@ -952,6 +953,17 @@ function DoneCard({
             {saved ? <Check /> : <Download />}
             {tr(saved ? "design.zipSaved" : "design.downloadZip")}
           </Button>
+          {saved ? (
+            <Button
+              variant="default"
+              size="sm"
+              data-testid="design-zip-reveal"
+              onClick={() => void api.revealExport(projectPath)}
+            >
+              <FolderOpen />
+              {tr("design.zipReveal")}
+            </Button>
+          ) : null}
         </div>
       </div>
       {tweaking && url ? (

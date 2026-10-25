@@ -99,4 +99,5 @@ export const designZh = {
   "design.openInBrowser": "在浏览器中打开",
   "design.downloadZip": "下载压缩包",
   "design.zipSaved": "压缩包已保存",
+  "design.zipReveal": "在文件夹中显示",
 } as const;
