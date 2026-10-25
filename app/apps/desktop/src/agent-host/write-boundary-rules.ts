@@ -11,6 +11,7 @@
  * a destructive word counts as "outside" and is asked about.
  */
 import { realpathSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, isAbsolute, join, relative, win32 } from "node:path";
 import { resolveToolPath } from "@prsloy/harness";
 
@@ -20,18 +21,20 @@ export type BoundaryEnv = {
   allowedRoots: string[];
   platform?: NodeJS.Platform;
   home?: string;
+  /** The system temp dir: what `$TMP`, `$TEMP`, `$TMPDIR` and Git Bash's `/tmp` mean. */
+  tmp?: string;
 };
 
 export type BoundaryVerdict = { ask: false } | { ask: true; question: string; key: string };
 
 const QUESTION_TAIL = "Разрешить?";
 
-function platformOf(env: BoundaryEnv): NodeJS.Platform {
+export function platformOf(env: BoundaryEnv): NodeJS.Platform {
   return env.platform ?? process.platform;
 }
 
 /** Follow symlinks of the deepest existing ancestor, so a link can't smuggle a path out. */
-function realish(path: string): string {
+export function realish(path: string): string {
   let current = path;
   const rest: string[] = [];
   for (let i = 0; i < 64; i++) {
@@ -73,10 +76,10 @@ export function classifyFileWrite(rawPath: string, env: BoundaryEnv): BoundaryVe
 
 // ── bash ────────────────────────────────────────────────────────────────────────────
 
-type Segment = { tokens: string[]; redirects: string[] };
+export type Segment = { tokens: string[]; redirects: string[] };
 
 /** Split on unquoted ; && || | & and newlines; undefined when quotes don't balance. */
-function splitCommand(command: string): Segment[] | undefined {
+export function splitCommand(command: string): Segment[] | undefined {
   const segments: Segment[] = [];
   let tokens: string[] = [];
   let redirects: string[] = [];
@@ -162,17 +165,24 @@ const PS_VALUE_PARAMS = new Set(["-filter", "-include", "-exclude", "-credential
 const PS_PATH_PARAMS = new Set(["-path", "-literalpath", "-destination"]);
 const NULL_SINKS = new Set(["/dev/null", "nul", "$null", "/dev/stdout", "/dev/stderr"]);
 
-function commandName(token: string): string {
+export function commandName(token: string): string {
   const base = token.replace(/^.*[\\/]/, "").toLowerCase();
   return base.endsWith(".exe") ? base.slice(0, -4) : base;
 }
 
-function expandHome(arg: string, env: BoundaryEnv): string | undefined {
+export function expandHome(arg: string, env: BoundaryEnv): string | undefined {
   const home = env.home ?? process.env.HOME ?? process.env.USERPROFILE ?? "";
+  const tmp = env.tmp ?? tmpdir();
   let out = arg
     .replace(/^\$\{?HOME\}?(?=$|[\\/])/u, home)
     .replace(/^%USERPROFILE%/iu, home)
-    .replace(/^\$env:USERPROFILE/iu, home);
+    .replace(/^\$env:USERPROFILE/iu, home)
+    .replace(
+      /^(?:\$\{?(?:TMPDIR|TMP|TEMP)\}?|%(?:TMP|TEMP)%|\$env:(?:TMP|TEMP))(?=$|[\\/])/iu,
+      tmp,
+    );
+  // Git Bash mounts the Windows temp dir (%TEMP%) at /tmp.
+  if (platformOf(env) === "win32" && /^\/tmp(?=$|\/)/u.test(out)) out = tmp + out.slice(4);
   if (/[$`%]/u.test(out)) return undefined; // a variable we can't resolve
   // Globs: judge the folder they expand in.
   const glob = out.search(/[*?[]/u);

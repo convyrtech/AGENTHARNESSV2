@@ -45,6 +45,24 @@ describe("U01-U04 portable Extension UI bridge", () => {
     bridge.dispose();
   });
 
+  it("accepts an answer given synchronously from onRequest (headless hosts, bench)", async () => {
+    let bridge: ReturnType<typeof createPortableExtensionUiBridge> | undefined;
+    bridge = createPortableExtensionUiBridge({
+      runtimeId: "runtime-sync",
+      onRequest: (request) => {
+        if (request.method !== "select") return;
+        bridge?.respond({
+          runtimeId: request.runtimeId,
+          requestId: request.requestId,
+          ok: true,
+          value: "Нет",
+        });
+      },
+    });
+    await expect(bridge.uiContext.select("Разрешить?", ["Да", "Нет"])).resolves.toBe("Нет");
+    bridge.dispose();
+  });
+
   it("uses RPC-equivalent defaults for timeout, abort, dispose, and unsupported UI", async () => {
     const requests: Array<{ requestId: string; method: string; args: unknown }> = [];
     const bridge = createPortableExtensionUiBridge({

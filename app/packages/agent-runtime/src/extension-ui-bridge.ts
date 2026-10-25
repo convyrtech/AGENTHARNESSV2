@@ -67,8 +67,12 @@ export function createPortableExtensionUiBridge(
   let workingVisibleSet = false;
   let disposed = false;
 
-  function emit(method: ExtensionUiMethod, args: unknown, timeoutMs?: number): string {
-    const requestId = randomUUID();
+  function emit(
+    method: ExtensionUiMethod,
+    args: unknown,
+    timeoutMs?: number,
+    requestId: string = randomUUID(),
+  ): string {
     const request: ExtensionUiRequestEvent = {
       protocolVersion: IPC_PROTOCOL_VERSION,
       type: "extensionUi.request",
@@ -99,8 +103,10 @@ export function createPortableExtensionUiBridge(
   ): Promise<unknown> {
     if (disposed || opts?.signal?.aborted) return Promise.resolve(fallback);
     return new Promise((resolve) => {
-      const requestId = emit(method, args, opts?.timeout);
+      // Registered before the request goes out: a host may answer synchronously.
+      const requestId = randomUUID();
       const entry: PendingDialog = { fallback, resolve };
+      pending.set(requestId, entry);
       if (opts?.timeout !== undefined && opts.timeout >= 0) {
         entry.timer = setTimeout(() => finish(requestId, fallback), opts.timeout);
       }
@@ -109,7 +115,7 @@ export function createPortableExtensionUiBridge(
         opts.signal.addEventListener("abort", abort, { once: true });
         entry.removeAbort = () => opts.signal?.removeEventListener("abort", abort);
       }
-      pending.set(requestId, entry);
+      emit(method, args, opts?.timeout, requestId);
     });
   }
 

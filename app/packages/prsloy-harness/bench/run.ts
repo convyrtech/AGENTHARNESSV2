@@ -228,7 +228,7 @@ async function runTask(task: TaskDef, opts: BenchOptions): Promise<TaskResult> {
     );
     // Как в приложении: граница записи первой, потом харнесс; «выкл» — голый Pi с тем же системным промптом.
     const extensionFactories = [
-      createWriteBoundary(),
+      createWriteBoundary({ agentDir }),
       opts.harness
         ? createPrsloyHarness({
             outputDir: join(opts.outDir, "harness"),
