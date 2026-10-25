@@ -200,6 +200,8 @@ export class DesignService {
       ...(stateDir ? { stateDir } : {}),
       ...(this.#deps.learnDir ? { learnDir: this.#deps.learnDir } : {}),
       ...(models ? { models } : {}),
+      // the Design proxy only ever fronts the PRSLOY gateway (getGateway)
+      gateway: "prsloy",
     });
   }
 

@@ -26,11 +26,17 @@ CFG = json.loads((HERE / "stages.json").read_text(encoding="utf-8"))
 AVAILABLE = {m.strip() for m in os.environ.get("HARNESS_MODELS", "").split(",") if m.strip()}
 
 
-def fit_ladder(cfg, available):
-    if not available:
+def fit_ladder(cfg, available, gateway=""):
+    # gateway_skip: модели, чей канал на этом шлюзе ломает шаг (PRSLOY 2026-10-25: qwen3.8-max выбрасывает system- и
+    # developer-сообщения, а с ними задание шага, подмешивает ~2 тыс. скрытых токенов и теряет картинки)
+    skip = [s.lower() for s in (cfg.get("gateway_skip") or {}).get(gateway, [])]
+
+    def ok(m):
+        return (not available or m.split("/", 1)[-1] in available) and not any(s in m.lower() for s in skip)
+    if not available and not skip:
         return cfg
     orig = cfg["ladder"]
-    keep = [m for m in orig if m.split("/", 1)[-1] in available]
+    keep = [m for m in orig if ok(m)]
     if not keep:
         return cfg                                   # ничего из лестницы нет: пусть шаг упадёт понятной ошибкой модели
 
@@ -42,11 +48,12 @@ def fit_ladder(cfg, available):
     for st in cfg["stages"].values():
         if "start" in st:
             st["start"] = remap(st["start"])
-    if cfg.get("judge", {}).get("model") not in available:
+    judge = cfg.get("judge", {}).get("model")
+    if (judge is not None and not ok(judge)) or (available and judge not in available):
         # зрительная роль — не ниже класса Opus (research/28 §4.4: Kimi K2.5 «видит» различие в 12,8 % одинаковых
         # пар, Opus — в 0,4 %): самая сильная ступень этого класса, иначе любая модель класса из шлюза, иначе никто
         strong = [m.split("/", 1)[-1] for m in reversed(keep) if VISUAL_CLASS.search(m)]
-        strong += sorted(m for m in available if VISUAL_CLASS.search(m))
+        strong += sorted(m for m in available if VISUAL_CLASS.search(m) and ok(m))
         cfg.setdefault("judge", {})["model"] = strong[0] if strong else None
     return cfg
 
@@ -54,7 +61,7 @@ def fit_ladder(cfg, available):
 # Модели для зрительных ролей (судья, пометки владельца на картинке): класс Opus и сопоставимые по замерам DiffSpot /
 # PerceptUI (research/28 §2.2, §4.4). Kimi и qwen сюда не входят, пока калибровка (§4.2) не покажет обратное.
 VISUAL_CLASS = re.compile(r"opus|gpt-6|gpt-5\.[4-9]|gemini-[3-9][\w.-]*-pro", re.I)
-CFG = fit_ladder(CFG, AVAILABLE)
+CFG = fit_ladder(CFG, AVAILABLE, os.environ.get("HARNESS_GATEWAY", ""))
 # A/B шага 5 без правки stages.json: HARNESS_PARALLEL5=1 включает параллельные прототипы, 0 — выключает
 if os.environ.get("HARNESS_PARALLEL5") in ("0", "1"):
     CFG["stages"].setdefault("5", {})["parallel"] = os.environ["HARNESS_PARALLEL5"] == "1"

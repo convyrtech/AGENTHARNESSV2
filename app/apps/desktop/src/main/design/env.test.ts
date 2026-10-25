@@ -100,6 +100,12 @@ describe("buildHarnessEnv", () => {
     ).toBe("qwen3.8-max,claude-opus-5-5");
   });
 
+  it("sets HARNESS_GATEWAY only from the service, never from the host env", () => {
+    const base = { PATH: "/usr/bin", HARNESS_GATEWAY: "a6" };
+    expect(buildHarnessEnv({ ...input, base }).HARNESS_GATEWAY).toBeUndefined();
+    expect(buildHarnessEnv({ ...input, base, gateway: "prsloy" }).HARNESS_GATEWAY).toBe("prsloy");
+  });
+
   it("sets HARNESS_LEARN_DIR only from the service, never from the host env", () => {
     const base = { PATH: "/usr/bin", HARNESS_LEARN_DIR: "/elsewhere" };
     expect(buildHarnessEnv({ ...input, base }).HARNESS_LEARN_DIR).toBeUndefined();
