@@ -16,7 +16,6 @@
  * metrics.json, bash-*.json.
  */
 import { expect, test } from "@playwright/test";
-import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -41,6 +40,8 @@ import {
   startHost,
   writeMetrics,
   type Launched,
+  reinstall,
+  uninstallAndWait,
 } from "./helpers.ts";
 
 const strictCleanBash = process.env.SMOKE_STRICT_CLEAN_BASH === "1";
@@ -350,28 +351,22 @@ test("uninstall → reinstall → launch keeps the profile and projects", async 
 
     // 2. Silent uninstall. NSIS re-launches itself from %TEMP%: wait for the files to go.
     expect(existsSync(uninstaller), `missing ${uninstaller}`).toBe(true);
-    let t = Date.now();
-    execFileSync(uninstaller, ["/S"], { windowsHide: true, timeout: 120_000 });
-    const removed = await waitFor(() => !existsSync(exe), 120_000);
-    expect(removed, `${exe} still present after uninstall`).toBe(true);
-    // The uninstaller deletes the exe first and itself last.
-    await waitFor(() => !existsSync(uninstaller), 120_000);
-    metrics.uninstallMs = Date.now() - t;
+    // The %TEMP% copy deletes the exe first, PortableGit next, the registry key last (#32).
+    const uninstall = await uninstallAndWait(installDir, exe);
+    metrics.uninstall = uninstall;
+    expect(uninstall.exeGone, `${exe} still present after uninstall`).toBe(true);
     metrics.installDirLeftovers = existsSync(installDir) ? readdirSync(installDir) : [];
     // deleteAppDataOnUninstall: false — the profile (key, settings, runtimes) and projects stay.
     expect(existsSync(userData), "userData removed by uninstall").toBe(true);
     expect(existsSync(join(project, "keep.txt")), "user project removed by uninstall").toBe(true);
 
     // 3. Reinstall into the same folder over the kept profile (/D= last and unquoted).
-    t = Date.now();
-    execFileSync(installer!, ["/S", "/currentuser", `/D=${installDir}`], {
-      windowsHide: true,
-      timeout: 300_000,
-    });
+    const install = await reinstall(installer!, installDir);
+    metrics.reinstall = install;
+    expect(install.attempts.at(-1), JSON.stringify(install.attempts)).toMatchObject({ code: 0 });
     expect(await waitFor(() => existsSync(exe), 60_000), `${exe} missing after reinstall`).toBe(
       true,
     );
-    metrics.reinstallMs = Date.now() - t;
 
     // 4. Launch on the kept profile: window, host, a bash turn.
     launched = await launch("reinstalled", { userData: null });

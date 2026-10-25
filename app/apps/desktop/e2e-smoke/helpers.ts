@@ -8,6 +8,7 @@
  */
 import { expect, test, type Page } from "@playwright/test";
 import { _electron as electron, type ElectronApplication } from "playwright";
+import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync, statSync } from "node:fs";
 import { appendFile, mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -448,4 +449,77 @@ export function findings(scope: string, strict: boolean) {
       }
     },
   };
+}
+
+// ── Silent uninstall → reinstall (#32) ──
+// An NSIS uninstaller started with /S copies itself to %TEMP% (Au_.exe / Un_A.exe) and returns at
+// once; the copy deletes PRSLOY.exe early, then thousands of PortableGit files, and removes the
+// uninstall registry key last. A reinstall started in that window races it.
+
+const UNINSTALLER_PROCESSES = ["Au_.exe", "Un_A.exe"];
+
+function uninstallerRunning(): boolean {
+  try {
+    const out = execFileSync("tasklist", ["/FO", "CSV", "/NH"], {
+      encoding: "utf8",
+      windowsHide: true,
+    });
+    return UNINSTALLER_PROCESSES.some((name) => out.includes(`"${name}"`));
+  } catch {
+    return false;
+  }
+}
+
+async function pollUntil(check: () => boolean, timeoutMs: number): Promise<boolean> {
+  const end = Date.now() + timeoutMs;
+  while (Date.now() < end) {
+    if (check()) return true;
+    await new Promise((r) => setTimeout(r, 500));
+  }
+  return check();
+}
+
+/** Run the uninstaller and wait for its %TEMP% copy to finish and the install folder to go. */
+export async function uninstallAndWait(
+  installDir: string,
+  exe: string,
+): Promise<{ ms: number; exeGone: boolean; processGone: boolean; dirGone: boolean }> {
+  const t = Date.now();
+  execFileSync(join(installDir, "Uninstall PRSLOY.exe"), ["/S"], {
+    windowsHide: true,
+    timeout: 120_000,
+  });
+  const exeGone = await pollUntil(() => !existsSync(exe), 120_000);
+  const processGone = await pollUntil(() => !uninstallerRunning(), 180_000);
+  const dirGone = await pollUntil(() => !existsSync(installDir), 30_000);
+  return { ms: Date.now() - t, exeGone, processGone, dirGone };
+}
+
+/**
+ * Silent install into `installDir` with the exit code in the result; one retry after a pause
+ * if the first run fails (the installer itself also waits for a running uninstall, installer.nsh).
+ */
+export async function reinstall(
+  installer: string,
+  installDir: string,
+): Promise<{ ms: number; attempts: { code: number | null; error?: string }[] }> {
+  const t = Date.now();
+  const attempts: { code: number | null; error?: string }[] = [];
+  for (let i = 0; i < 2; i++) {
+    try {
+      execFileSync(installer, ["/S", "/currentuser", `/D=${installDir}`], {
+        windowsHide: true,
+        timeout: 300_000,
+      });
+      attempts.push({ code: 0 });
+      break;
+    } catch (error) {
+      const e = error as { status?: number | null; message?: string };
+      attempts.push({ code: e.status ?? null, error: String(e.message ?? error).slice(0, 300) });
+      console.log(`[smoke] installer attempt ${i + 1} failed: exit ${e.status ?? "?"}`);
+      await pollUntil(() => !uninstallerRunning(), 60_000);
+      await new Promise((r) => setTimeout(r, 5_000));
+    }
+  }
+  return { ms: Date.now() - t, attempts };
 }
