@@ -4,6 +4,11 @@
 import type { featuresZh } from "./features.zh.ts";
 
 export const featuresEn: Record<keyof typeof featuresZh, string> = {
+  "features.zip.action": "Download archive",
+  "features.zip.saved": "Archive saved: {name}",
+  "features.zip.empty": "There are no files in the project to pack.",
+  "features.zip.tooBig": "The project is over 200 MB, so it can't be packed.",
+  "features.zip.failed": "Couldn't save the archive.",
   "features.pick.start": "Pick on the page",
   "features.pick.cancel": "Cancel picking",
   "features.pick.hint": "Click the place on the page to change. Esc cancels.",

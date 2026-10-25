@@ -169,6 +169,7 @@ import { APP_SCHEMES } from "./app-schemes.ts";
 import { installDesign } from "./design/wire.ts";
 import { installCodePreview } from "./code-preview.ts";
 import { installHarnessFlags } from "./harness-flags.ts";
+import { installFeatures } from "./features/ipc.ts";
 
 protocol.registerSchemesAsPrivileged(APP_SCHEMES);
 
@@ -4751,6 +4752,7 @@ void app
     installDesign(currentDirectory, () => mainWindow, assertTrustedSender, designPiCli, prsloy);
     installCodePreview(assertTrustedSender);
     installHarnessFlags(assertTrustedSender);
+    installFeatures(assertTrustedSender);
     // App-channel proxy before any network from Chromium / main.
     await applyAppSessionProxy();
     // Default Electron File/Edit/View/Window menu is English-only and not product chrome.

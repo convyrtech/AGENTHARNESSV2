@@ -11,6 +11,7 @@ import {
   Archive,
   ChevronRight,
   Copy,
+  Download,
   ExternalLink,
   Folder,
   FolderGit2,
@@ -36,6 +37,7 @@ import {
   type ReactNode,
 } from "react";
 import { anchorFromEvent, FloatingMenu, type AnchorRect } from "./FloatingMenu.tsx";
+import { exportProjectZip } from "../lib/project-zip.ts";
 import { MenuItem } from "./ui/menu-item.tsx";
 import { MarqueeText } from "./MarqueeText.tsx";
 import { ConfirmDialog } from "./ConfirmDialog.tsx";
@@ -435,6 +437,14 @@ export function ProjectList(props: ProjectListProps) {
   function handleReveal(path: string) {
     closeMenus();
     props.onRevealInFolder(path);
+  }
+
+  /** «Скачать архив»: main shows the saved zip in its folder; a refusal opens the error dialog. */
+  function handleExportZip(path: string) {
+    closeMenus();
+    void exportProjectZip(props.locale, path).then((note) => {
+      if (note?.kind === "error") showAppError(note.text);
+    });
   }
 
   function handleCreateWorktree(path: string) {
@@ -1502,6 +1512,12 @@ export function ProjectList(props: ProjectListProps) {
                     label={tr("project.reveal")}
                     onClick={() => handleReveal(path)}
                     testId="project-menu-reveal"
+                  />
+                  <MenuItem
+                    icon={<Download className="size-3.5" strokeWidth={1.75} />}
+                    label={tr("features.zip.action")}
+                    onClick={() => handleExportZip(path)}
+                    testId="project-menu-zip"
                   />
                   <MenuItem
                     icon={<FolderGit2 className="size-3.5" strokeWidth={1.75} />}

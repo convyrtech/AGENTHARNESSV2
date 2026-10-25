@@ -3,7 +3,7 @@
  * the «Дизайн» preview, with «Компьютер / Телефон», «Обновить» and «Открыть в браузере».
  */
 import type { CodePreviewResult } from "@zeno/contracts";
-import { CircleAlert, ExternalLink, MousePointerClick, RotateCw, X } from "lucide-react";
+import { CircleAlert, Download, ExternalLink, MousePointerClick, RotateCw, X } from "lucide-react";
 import { type RefObject, useEffect, useState } from "react";
 import { closeCodePreview, useCodePreview } from "../lib/code-preview-store.ts";
 import { t, type Locale, type MessageKey } from "../lib/i18n.ts";
@@ -18,6 +18,7 @@ import {
   pickedPrompt,
 } from "../lib/preview-bridge.ts";
 import { useShellStore } from "../store/shell-store.ts";
+import { exportProjectZip, type ProjectZipNote } from "../lib/project-zip.ts";
 import { previewTargetLabel } from "../lib/turn-preview.ts";
 import { type PreviewDevice, PreviewDeviceSwitch, PreviewStage } from "./PreviewFrame.tsx";
 import "./code-preview-features.css";
@@ -50,6 +51,8 @@ export function CodePreviewPanel(props: {
   const [pickedWhat, setPickedWhat] = useState<string | undefined>();
   const [errors, setErrors] = useState<PageError[]>([]);
   const [errorsHidden, setErrorsHidden] = useState(false);
+  const [zipNote, setZipNote] = useState<ProjectZipNote>();
+  const [zipping, setZipping] = useState(false);
 
   // A new page or a reload starts clean.
   useEffect(() => {
@@ -58,6 +61,7 @@ export function CodePreviewPanel(props: {
     setPickedWhat(undefined);
     setErrors([]);
     setErrorsHidden(false);
+    setZipNote(undefined);
   }, [preview, reloads]);
 
   // Esc cancels picking wherever focus is: the frame tells us itself, the app hears it here.
@@ -162,23 +166,53 @@ export function CodePreviewPanel(props: {
           <X className="size-4" strokeWidth={1.75} />
         </button>
       </header>
-      {result?.ok && bridgeReady && props.composerRef ? (
+      {result?.ok ? (
         <div className="code-preview-tools" data-testid="code-preview-tools">
-          <button
-            type="button"
-            className="code-preview-tool"
-            data-active={picking ? "true" : "false"}
-            aria-pressed={picking}
-            data-testid="code-preview-pick"
-            onClick={() => {
-              setPickedWhat(undefined);
-              setPicking((on) => !on);
-            }}
-          >
-            <MousePointerClick className="size-3.5" strokeWidth={1.75} />
-            {tr(picking ? "features.pick.cancel" : "features.pick.start")}
-          </button>
-          {picking || pickedWhat ? (
+          {bridgeReady && props.composerRef ? (
+            <button
+              type="button"
+              className="code-preview-tool"
+              data-active={picking ? "true" : "false"}
+              aria-pressed={picking}
+              data-testid="code-preview-pick"
+              onClick={() => {
+                setPickedWhat(undefined);
+                setPicking((on) => !on);
+              }}
+            >
+              <MousePointerClick className="size-3.5" strokeWidth={1.75} />
+              {tr(picking ? "features.pick.cancel" : "features.pick.start")}
+            </button>
+          ) : null}
+          {preview.workspacePath ? (
+            <button
+              type="button"
+              className="code-preview-tool"
+              data-testid="code-preview-zip"
+              disabled={zipping}
+              onClick={() => {
+                setZipping(true);
+                setZipNote(undefined);
+                void exportProjectZip(props.locale, preview.workspacePath).then((note) => {
+                  setZipping(false);
+                  setZipNote(note);
+                });
+              }}
+            >
+              <Download className="size-3.5" strokeWidth={1.75} />
+              {tr("features.zip.action")}
+            </button>
+          ) : null}
+          {zipNote && !picking ? (
+            <span
+              className="code-preview-tools-note"
+              role={zipNote.kind === "error" ? "alert" : "status"}
+              data-kind={zipNote.kind}
+              data-testid="code-preview-zip-note"
+            >
+              {zipNote.text}
+            </span>
+          ) : picking || pickedWhat ? (
             <span
               className="code-preview-tools-note"
               role="status"

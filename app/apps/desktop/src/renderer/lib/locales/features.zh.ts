@@ -3,6 +3,11 @@
  * into the locale table; `zh` is the key source.
  */
 export const featuresZh = {
+  "features.zip.action": "下载压缩包",
+  "features.zip.saved": "压缩包已保存：{name}",
+  "features.zip.empty": "项目里没有可打包的文件。",
+  "features.zip.tooBig": "项目超过 200 MB，无法打包。",
+  "features.zip.failed": "无法保存压缩包。",
   "features.pick.start": "在页面上选择",
   "features.pick.cancel": "取消选择",
   "features.pick.hint": "点击页面上要修改的地方。Esc 取消。",

@@ -4,6 +4,11 @@
 import type { featuresZh } from "./features.zh.ts";
 
 export const featuresRu: Record<keyof typeof featuresZh, string> = {
+  "features.zip.action": "Скачать архив",
+  "features.zip.saved": "Архив сохранён: {name}",
+  "features.zip.empty": "В проекте нет файлов для архива.",
+  "features.zip.tooBig": "Проект больше 200 МБ — архив не собрать.",
+  "features.zip.failed": "Не получилось сохранить архив.",
   "features.pick.start": "Выбрать на странице",
   "features.pick.cancel": "Отменить выбор",
   "features.pick.hint": "Нажмите на место, которое надо поменять. Esc — отмена.",
