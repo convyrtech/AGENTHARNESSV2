@@ -17,6 +17,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { zipDirectory } from "./zip.ts";
+import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { DesignEventMessage } from "@zeno/contracts";
@@ -318,6 +319,17 @@ describe.skipIf(!python3 || process.platform === "win32")("design IPC", () => {
     cpSync(join(root, "bundle", "playbooks"), join(bare, "playbooks"), { recursive: true });
     const userData = join(root, "Иван Петров", "PRSLOY");
     const events: DesignEventMessage[] = [];
+    // the live gateway (2026-10-25): no deepseek, no kimi from the stages.json ladder
+    const LIVE = ["qwen3.8-max", "claude-opus-5-5", "claude-fable-5", "gpt-6.1-sol", "grok-4.7"];
+    const gateway = createServer((req, res) => {
+      const body = JSON.stringify(
+        req.url === "/v1/models" ? { data: LIVE.map((id) => ({ id })) } : {},
+      );
+      res.writeHead(req.url === "/v1/models" ? 200 : 404, { "Content-Type": "application/json" });
+      res.end(body);
+    });
+    await new Promise<void>((done) => gateway.listen(0, "127.0.0.1", done));
+    const port = (gateway.address() as { port: number }).port;
     const svc = new DesignService({
       userDataPath: userData,
       bundleRoot: bare,
@@ -327,7 +339,7 @@ describe.skipIf(!python3 || process.platform === "win32")("design IPC", () => {
           isDestroyed: () => false,
           webContents: { send: (_c: string, m: DesignEventMessage) => events.push(m) },
         }) as never,
-      getGateway: () => ({ apiKey: "sk-test-key", baseUrl: "http://127.0.0.1:9/v1" }),
+      getGateway: () => ({ apiKey: "sk-test-key", baseUrl: `http://127.0.0.1:${port}/v1` }),
       basePython: () => python3,
       nodeExecutable: () => "node",
       piCliPath: async () => undefined,
@@ -358,9 +370,12 @@ describe.skipIf(!python3 || process.platform === "win32")("design IPC", () => {
     const ws = join(shop, "prsloy-design");
     const state = JSON.parse(
       readFileSync(join(userData, "design-state", workspaceId(ws), "state.json"), "utf8"),
-    ) as { pipeline: string };
+    ) as { pipeline: string; models: string | null };
     expect(state.pipeline).toBe(copy);
+    // run.py gets the gateway's models and narrows its ladder to them
+    expect(state.models).toBe(LIVE.join(","));
     svc.dispose();
+    gateway.close();
     // a build that ships the pipeline offers no import at all
     expect(await call("prsloy:design:import-tools")).toBeNull();
   });

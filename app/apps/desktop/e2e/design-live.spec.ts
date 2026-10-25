@@ -40,6 +40,8 @@ const VENV = process.env.DESIGN_LIVE_VENV ?? "";
 const WIN = process.platform === "win32";
 const VENV_PY = WIN ? join(VENV, "Scripts", "python.exe") : join(VENV, "bin", "python");
 const SHA = "39fcac42db4bd344c7d9747a5903cc18c9d87718";
+/** What the live PRSLOY gateway served on 2026-10-25: no deepseek, no kimi from the stages.json ladder. */
+const LIVE_MODELS = ["qwen3.8-max", "claude-opus-5-5", "claude-fable-5", "gpt-6.1-sol", "grok-4.7"];
 const CHECKS = [
   "lang",
   "casual",
@@ -63,6 +65,12 @@ test.beforeAll(async () => {
   gateway = createServer((req, res) => {
     req.resume();
     req.on("end", () => {
+      if (req.method === "GET" && req.url?.endsWith("/models")) {
+        const list = JSON.stringify({ data: LIVE_MODELS.map((id) => ({ id })) });
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(list);
+        return;
+      }
       const text = CHECKS.map((k) => `${k} | да | не применимо`).join("\n");
       const body = JSON.stringify({
         choices: [{ message: { role: "assistant", content: text }, finish_reason: "stop" }],
@@ -278,6 +286,14 @@ test("a full turn on the real tools: sheet and videos, choice «A», the page", 
     );
     expect(existsSync(join(ws(l), "design", "landing", "01-pack.json"))).toBe(true);
     expect(ownerLines(l)).toBe(2);
+    // the ladder follows the gateway's /v1/models: the first stage runs on qwen, nothing on deepseek or kimi
+    const stages = readFileSync(join(state, "ledger.jsonl"), "utf8")
+      .split("\n")
+      .filter(Boolean)
+      .map((x) => JSON.parse(x) as { kind: string; model?: string })
+      .filter((x) => x.kind === "stage");
+    expect(stages[0]?.model).toBe("a6p/qwen3.8-max");
+    expect(stages.every((x) => LIVE_MODELS.includes(x.model!.split("/")[1]!))).toBe(true);
     await shot(page, "done");
   } finally {
     await app.close();
@@ -332,10 +348,12 @@ test("pi dying mid-step: «stuck» in plain words, «Повторить» works"
     mkdirSync(piHome(l), { recursive: true });
     writeFileSync(join(piHome(l), "live-control.json"), JSON.stringify({ crash: 99 }));
     await say(page, "Сделай лендинг для кофейни «Зерно»");
-    // every rung of the ladder dies: the turn's stage budget runs out, then the ladder is spent
-    await expect(page.getByTestId("design-paused")).toBeVisible({ timeout: 120_000 });
-    await page.getByTestId("design-continue").click();
+    // every rung of the ladder dies. A long ladder runs out of the turn's stages first («Сделал часть
+    // работы» → «Продолжить»); the ladder narrowed to the gateway's models (qwen → opus) is spent at once.
+    const paused = page.getByTestId("design-paused");
     const stuck = page.getByTestId("design-stuck");
+    await expect(paused.or(stuck)).toBeVisible({ timeout: 120_000 });
+    if (await paused.isVisible()) await page.getByTestId("design-continue").click();
     await expect(stuck).toBeVisible({ timeout: 120_000 });
     await expect(stuck).not.toContainText(/Traceback|Error|exit/);
     await shot(page, "stuck");

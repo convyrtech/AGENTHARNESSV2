@@ -46,6 +46,7 @@ import type {
 } from "@zeno/contracts";
 import { checkExternalUrl } from "../external-url.ts";
 import { restrictToCurrentUser } from "../prsloy/file-acl.ts";
+import { checkPrsloyKey } from "../prsloy/gateway-check.ts";
 import { buildHarnessEnv, buildModelsJson, python3Shims, venvBinDir, venvPython } from "./env.ts";
 import { LineSplitter, parseHarnessLine } from "./events.ts";
 import {
@@ -112,6 +113,7 @@ export class DesignService {
   #proxy: { child: ChildProcess; url: string; upstream: string } | undefined;
   #proxyStarting: Promise<string> | undefined;
   #setup: Promise<DesignSetupProgress> | undefined;
+  #models: { key: string; at: number; ids: string[] | undefined } | undefined;
 
   constructor(deps: DesignServiceDeps) {
     this.#deps = deps;
@@ -136,7 +138,34 @@ export class DesignService {
     return process.platform === "win32" ? "msedge" : undefined;
   }
 
-  #env(proxyUrl: string, piBin: string[], stateDir?: string): Record<string, string> {
+  /**
+   * Model ids the gateway really serves (`GET {base}/models`, core's key check), cached a few minutes.
+   * The live gateway lacked deepseek and kimi of the stages.json ladder: run.py narrows to this list.
+   * Unknown (no list, network down) → undefined, run.py keeps its whole ladder.
+   */
+  async #gatewayModels(gw: DesignGateway): Promise<string[] | undefined> {
+    const key = `${gw.baseUrl} ${gw.apiKey}`;
+    if (this.#models && this.#models.key === key && Date.now() - this.#models.at < 5 * 60_000) {
+      return this.#models.ids;
+    }
+    const check = await checkPrsloyKey({
+      baseUrl: gw.baseUrl,
+      apiKey: gw.apiKey,
+      fetch: (input, init) => fetch(input, init),
+      timeoutMs: 10_000,
+    }).catch(() => undefined);
+    const ids =
+      check?.ok && check.via === "models" && check.modelIds.length ? check.modelIds : undefined;
+    this.#models = { key, at: Date.now(), ids };
+    return ids;
+  }
+
+  #env(
+    proxyUrl: string,
+    piBin: string[],
+    stateDir?: string,
+    models?: string[],
+  ): Record<string, string> {
     const shimDir = join(this.#designRoot, "bin");
     // run.py init applies pipeline-fixes.patch with git: the app's own on Windows, which is not on PATH
     const git = this.#deps.gitBinary?.();
@@ -154,6 +183,7 @@ export class DesignService {
       chromiumOnly: process.env.DP_CHROMIUM_ONLY !== "0",
       ...(stateDir ? { stateDir } : {}),
       ...(this.#deps.learnDir ? { learnDir: this.#deps.learnDir } : {}),
+      ...(models ? { models } : {}),
     });
   }
 
@@ -493,7 +523,14 @@ export class DesignService {
     const proxyUrl = await this.#ensureProxy();
     this.#writePiConfig(proxyUrl);
     const state = this.#state(ws, true);
-    const env = this.#env(proxyUrl, await this.#piBin(), state.legacy ? undefined : state.dir);
+    const gw = this.#deps.getGateway();
+    const models = gw ? await this.#gatewayModels(gw) : undefined;
+    const env = this.#env(
+      proxyUrl,
+      await this.#piBin(),
+      state.legacy ? undefined : state.dir,
+      models,
+    );
     await this.#ensureWorkspace(ws, env);
     for (const tok of fileTokens) this.#picked.delete(tok);
 

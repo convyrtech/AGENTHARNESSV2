@@ -128,6 +128,8 @@ export type HarnessEnvInput = {
   stateDir?: string;
   /** Text-free learning events (HARNESS_LEARN_DIR): the «Код» harness's prsloy-learning folder. */
   learnDir?: string;
+  /** Model ids the gateway really serves (HARNESS_MODELS): run.py narrows its ladder to them. */
+  models?: string[];
 };
 
 /**
@@ -164,5 +166,6 @@ export function buildHarnessEnv(input: HarnessEnvInput): Record<string, string> 
   if (input.chromiumOnly) env.DP_CHROMIUM_ONLY = "1";
   if (input.stateDir) env.HARNESS_STATE_DIR = input.stateDir;
   if (input.learnDir) env.HARNESS_LEARN_DIR = input.learnDir;
+  if (input.models?.length) env.HARNESS_MODELS = input.models.join(",");
   return env;
 }

@@ -90,6 +90,16 @@ describe("buildHarnessEnv", () => {
     });
   });
 
+  it("passes the gateway's models as HARNESS_MODELS, never the host's", () => {
+    const base = { PATH: "/usr/bin", HARNESS_MODELS: "deepseek-v4.1-flash-1017" };
+    expect(buildHarnessEnv({ ...input, base }).HARNESS_MODELS).toBeUndefined();
+    expect(buildHarnessEnv({ ...input, base, models: [] }).HARNESS_MODELS).toBeUndefined();
+    expect(
+      buildHarnessEnv({ ...input, base, models: ["qwen3.8-max", "claude-opus-5-5"] })
+        .HARNESS_MODELS,
+    ).toBe("qwen3.8-max,claude-opus-5-5");
+  });
+
   it("sets HARNESS_LEARN_DIR only from the service, never from the host env", () => {
     const base = { PATH: "/usr/bin", HARNESS_LEARN_DIR: "/elsewhere" };
     expect(buildHarnessEnv({ ...input, base }).HARNESS_LEARN_DIR).toBeUndefined();

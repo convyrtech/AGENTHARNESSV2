@@ -37,7 +37,8 @@ def init(a):
         shutil.copytree(src, ws / "design", dirs_exist_ok=True)
     h = state_dir(ws.resolve())
     h.mkdir(parents=True, exist_ok=True)
-    (h / "state.json").write_text(json.dumps({"page": a.page, "turn": 0, "pipeline": str(Path(a.pipeline).resolve())},
+    (h / "state.json").write_text(json.dumps({"page": a.page, "turn": 0, "pipeline": str(Path(a.pipeline).resolve()),
+                                              "models": os.environ.get("HARNESS_MODELS")},
                                              ensure_ascii=False), encoding="utf-8")
     print(json.dumps({"ws": str(ws.resolve()), "page": a.page}, ensure_ascii=False))
 
