@@ -44,6 +44,11 @@ export type LintOptions = {
   checkFocus: boolean;
   /** At most this many focusable elements get the focus check. */
   focusLimit?: number;
+  /**
+   * The page scrolls down (a site, not the app window): content below or above the visible part
+   * is not «off-window», only what sticks out sideways is.
+   */
+  scrollsY?: boolean;
 };
 
 export function lintLayout(options: LintOptions): LayoutViolation[] {
@@ -191,7 +196,8 @@ export function lintLayout(options: LintOptions): LayoutViolation[] {
   const offending = new Set<Element>();
   for (const el of all) {
     const r = el.getBoundingClientRect();
-    const out_ = r.right > vw + 1 || r.bottom > vh + 1 || r.left < -1 || r.top < -1;
+    const outX = r.right > vw + 1 || r.left < -1;
+    const out_ = outX || (!options.scrollsY && (r.bottom > vh + 1 || r.top < -1));
     if (!out_) continue;
     let clipped = false;
     for (let node = el.parentElement; node && node !== document.body; node = node.parentElement) {

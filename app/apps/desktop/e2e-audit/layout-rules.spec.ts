@@ -108,6 +108,28 @@ test("a covered button is not an overlap; an invisible focus is reported", async
   expect(v.map((x) => [x.rule, x.selector])).toEqual([["focus-hidden", '[data-testid="plain"]']]);
 });
 
+test("scrollsY: a page that scrolls down is not off-window below the fold, only sideways", async () => {
+  const body = `<section data-testid="below" style="position:absolute;top:900px;width:200px;height:300px">ниже первого экрана</section>
+     <div data-testid="wide" style="position:absolute;top:10px;left:600px;width:400px;height:20px">вбок</div>`;
+  await page.setContent(`<style>${CSS}</style>${body}`);
+  const site = await page.evaluate(lintLayout, {
+    minWidth: 0,
+    minHeight: 0,
+    checkFocus: false,
+    scrollsY: true,
+  });
+  expect(site.filter((v) => v.rule === "off-window").map((v) => v.selector)).toEqual([
+    '[data-testid="wide"]',
+  ]);
+  const app = await page.evaluate(lintLayout, { minWidth: 0, minHeight: 0, checkFocus: false });
+  expect(
+    app
+      .filter((v) => v.rule === "off-window")
+      .map((v) => v.selector)
+      .sort(),
+  ).toEqual(['[data-testid="below"]', '[data-testid="wide"]']);
+});
+
 test("a window below the minimum is reported", async () => {
   await page.setContent("<p>ок</p>");
   const v = await page.evaluate(lintLayout, { minWidth: 5000, minHeight: 480, checkFocus: false });
