@@ -117,7 +117,7 @@ export function SessionTimelineScroller(props: SessionTimelineScrollerProps) {
         defaultScrollPosition="end"
         scrollEdgeThreshold={SESSION_SCROLL_BOTTOM_GAP_PX}
       >
-        <MessageScroller className="size-full min-h-0">
+        <MessageScroller className="timeline-scroller size-full min-h-0">
           <MessageScrollerViewport
             ref={viewportRef}
             className={cn(
