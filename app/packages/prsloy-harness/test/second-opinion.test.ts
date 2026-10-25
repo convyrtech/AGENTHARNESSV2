@@ -7,19 +7,49 @@ import {
   pickModel,
   remarks,
   reviewerFor,
+  reviewersFor,
   reviewFailCard,
   reviewPrompt,
   reviewPushback,
 } from "../src/second-opinion.ts";
+import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { resolveReviewerModel } from "../src/reviewer.ts";
 import { BUGGY_DIFF } from "./review-fixtures.ts";
 
-describe("family pairs (ADR-7: writer and reviewer from different families)", () => {
-  it("deepseek → kimi, kimi → deepseek, qwen → deepseek, opus → kimi", () => {
-    expect(reviewerFor("deepseek-v4.1-flash-1017")).toBe("kimi-k3.1-pro");
-    expect(reviewerFor("kimi-k3.1-pro")).toBe("deepseek-v4.1-flash");
-    expect(reviewerFor("qwen3.8-max")).toBe("deepseek-v4.1-flash");
-    expect(reviewerFor("claude-opus-5-5")).toBe("kimi-k3.1-pro");
-    expect(reviewerFor("mock")).toBeUndefined();
+describe("reviewer choice (ADR-7: writer and reviewer from different families)", () => {
+  it("preference lists by family; unknown family — no review", () => {
+    expect(reviewersFor("qwen3.8-max")).toEqual(["deepseek", "kimi", "claude-opus"]);
+    expect(reviewersFor("claude-opus-5-5")).toEqual(["kimi", "deepseek", "qwen"]);
+    expect(reviewersFor("deepseek-v4.1-flash-1017")).toEqual(["kimi", "qwen", "claude-opus"]);
+    expect(reviewersFor("kimi-k3.1-pro")).toEqual(["deepseek", "qwen", "claude-opus"]);
+    expect(reviewerFor("qwen3.8-max")).toBe("deepseek");
+    expect(reviewersFor("mock")).toEqual([]);
+  });
+
+  it("the reviewer is the first preferred model that the session catalog has", () => {
+    const at = (writer: string, ids: string[]) => {
+      const models = ids.map((id) => ({ provider: "prsloy", id }));
+      const ctx = {
+        model: { provider: "prsloy", id: writer },
+        modelRegistry: { getAll: () => models },
+      } as unknown as ExtensionContext;
+      return resolveReviewerModel(ctx, undefined)?.id;
+    };
+    const all = ["deepseek-v4.1-flash-1017", "kimi-k3.1-pro", "qwen3.8-max", "claude-opus-5-5"];
+    expect(at("qwen3.8-max", all)).toBe("deepseek-v4.1-flash-1017");
+    // каталог шлюза без deepseek → qwen проверяет kimi
+    expect(
+      at(
+        "qwen3.8-max",
+        all.filter((id) => !id.startsWith("deepseek")),
+      ),
+    ).toBe("kimi-k3.1-pro");
+    expect(at("claude-opus-5-5", ["claude-opus-5-5", "qwen3.8-max"])).toBe("qwen3.8-max");
+    expect(at("kimi-k3.1-pro", ["kimi-k3.1-pro", "claude-opus-5-5"])).toBe("claude-opus-5-5");
+    // только своя семья — ревью нет
+    expect(
+      at("deepseek-v4.1-flash-1017", ["deepseek-v4.1-flash-1017", "deepseek-v4.2"]),
+    ).toBeUndefined();
   });
 
   it("picks the gateway model by prefix (deepseek-v4.1-flash → deepseek-v4.1-flash-1017)", () => {
