@@ -37,6 +37,9 @@ export type LearningKind =
   | "memory.saved"
   | "memory.forget"
   | "memory.refused"
+  | "ask"
+  | "secret.saved"
+  | "secret.declined"
   | "turn.end";
 
 export type TurnOutcome = "green" | "red" | "budget" | "aborted" | "error";

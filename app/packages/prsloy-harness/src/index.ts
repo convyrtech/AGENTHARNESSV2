@@ -7,8 +7,10 @@ import { installEditRobustness } from "./edit-robustness.ts";
 import { installLoopDetector } from "./loop-detector.ts";
 import { resolveOptions, type HarnessOptions } from "./options.ts";
 import { installPostEditVerify } from "./post-edit-verify.ts";
+import { installAskUser } from "./ask-user.ts";
 import { installFindReady } from "./find-ready.ts";
 import { installReliability } from "./reliability.ts";
+import { installRequestSecret } from "./request-secret.ts";
 import { installReusePrompt } from "./reuse-prompt.ts";
 import { installLessons } from "./lessons.ts";
 import { installMemory } from "./memory.ts";
@@ -102,6 +104,9 @@ export function createPrsloyHarness(options: HarnessOptions = {}): (pi: Extensio
         ...(memory ? { memorySection: memory.section } : {}),
       });
     if (on("findReady")) installFindReady(pi, opts, opts.findReady);
+    // Вопрос кнопками и ключ формой (research/19 §1.1, §1.3): только «Код».
+    if (on("askUser")) installAskUser(pi, opts);
+    if (on("requestSecret")) installRequestSecret(pi, opts);
     // Раньше стоп-гейта: сорванный вызов инструмента — сначала повтор, проверки проекта потом.
     if (on("toolLeak")) installToolLeak(pi);
     if (codeGate)

@@ -78,7 +78,9 @@ export type PracticeName =
   | "memory"
   | "digest"
   | "secondOpinion"
-  | "turnChanges";
+  | "turnChanges"
+  | "askUser"
+  | "requestSecret";
 
 export interface ResolvedOptions {
   profile: HarnessProfile;

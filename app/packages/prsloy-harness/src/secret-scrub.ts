@@ -43,10 +43,29 @@ export interface ScrubResult {
   kinds: string[];
 }
 
+// Значения, которые пользователь ввёл в окно ключа (request_secret): прячутся дословно, где бы ни всплыли.
+const KNOWN_VALUES = new Map<string, string>();
+const KNOWN_MAX = 200;
+
+/** Добавить введённый ключ в список чистки. Короче 6 знаков не берём: заденет обычный текст. */
+export function rememberSecretValue(value: string, name: string): void {
+  if (value.length < 6) return;
+  KNOWN_VALUES.delete(value);
+  KNOWN_VALUES.set(value, `ключ ${name}`);
+  while (KNOWN_VALUES.size > KNOWN_MAX) KNOWN_VALUES.delete(KNOWN_VALUES.keys().next().value!);
+}
+
 export function scrubSecrets(text: string): ScrubResult {
   let count = 0;
   const kinds = new Set<string>();
   let out = text;
+  for (const [value, kind] of KNOWN_VALUES) {
+    if (!out.includes(value)) continue;
+    const parts = out.split(value);
+    count += parts.length - 1;
+    kinds.add(kind);
+    out = parts.join(`[СКРЫТО: ${kind}]`);
+  }
   for (const rule of RULES) {
     out = out.replace(rule.pattern, (_whole: string, group?: unknown) => {
       count += 1;
