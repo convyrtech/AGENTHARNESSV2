@@ -46,7 +46,12 @@ function option(item: unknown): DesignOption | undefined {
   const key = str(rec.key, 8).trim();
   const label = str(rec.label, MAX_SHORT).trim();
   if (!key || !label) return undefined;
-  return rec.recommended === true ? { key, label, recommended: true } : { key, label };
+  if (rec.recommended !== true) return { key, label };
+  // the card shows its own «рекомендую» badge: the agent's «(рекомендую)» would say it twice
+  const bare = label
+    .replace(/\s*(?:[([]\s*рекомендую\s*[)\]]|[—–,-]\s*рекомендую)\s*$/i, "")
+    .trim();
+  return { key, label: bare || label, recommended: true };
 }
 
 /**

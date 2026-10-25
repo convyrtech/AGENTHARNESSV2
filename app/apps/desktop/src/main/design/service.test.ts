@@ -16,6 +16,7 @@ import {
   symlinkSync,
   writeFileSync,
 } from "node:fs";
+import { zipDirectory } from "./zip.ts";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { DesignEventMessage } from "@zeno/contracts";
@@ -28,6 +29,7 @@ let protocolHandler: ((req: Request) => Promise<Response>) | undefined;
 let pickedPaths: string[] = [];
 let savePath: string | undefined;
 const quitHooks: (() => void)[] = [];
+const opened: string[] = [];
 
 vi.mock("electron", () => ({
   app: { on: (name: string, fn: () => void) => name === "before-quit" && quitHooks.push(fn) },
@@ -39,7 +41,10 @@ vi.mock("electron", () => ({
     showOpenDialog: async () => ({ canceled: false, filePaths: pickedPaths }),
     showSaveDialog: async () => ({ canceled: savePath === undefined, filePath: savePath }),
   },
-  shell: { openPath: async () => "" },
+  shell: {
+    openPath: async () => "",
+    openExternal: async (url: string) => void opened.push(url),
+  },
 }));
 
 const { DesignService, registerDesignIpc } = await import("./service.ts");
@@ -135,7 +140,9 @@ describe.skipIf(!python3 || process.platform === "win32")("design IPC", () => {
       [
         "cancel",
         "export-zip",
+        "import-tools",
         "open-folder",
+        "open-in-browser",
         "pick-files",
         "preview",
         "say",
@@ -240,6 +247,9 @@ describe.skipIf(!python3 || process.platform === "win32")("design IPC", () => {
     expect(preview.url).toMatch(/^http:\/\/127\.0\.0\.1:\d+\/landing\/$/);
     const html = await (await fetch(preview.url)).text();
     expect(html).toContain("Зерно");
+    // «Открыть в браузере»: main opens its own loopback address, nothing from the renderer
+    await call("prsloy:design:open-in-browser", project);
+    expect(opened).toEqual([preview.url]);
 
     savePath = undefined;
     expect(await call("prsloy:design:export-zip", project)).toBeNull();
@@ -300,6 +310,59 @@ describe.skipIf(!python3 || process.platform === "win32")("design IPC", () => {
     expect(readFileSync(join(harness, "app-events.jsonl"), "utf8")).toContain("привет");
     const moved = join(root, "userData", "design-state", workspaceId(join(old, "prsloy-design")));
     expect(existsSync(moved)).toBe(false);
+  });
+
+  it("a build without the pipeline takes the owner's tools file and runs on it", async () => {
+    // the bundle with the harness only, as public installers ship; the owner's profile is Cyrillic
+    const bare = join(root, "bundle-bare");
+    cpSync(join(root, "bundle", "playbooks"), join(bare, "playbooks"), { recursive: true });
+    const userData = join(root, "Иван Петров", "PRSLOY");
+    const events: DesignEventMessage[] = [];
+    const svc = new DesignService({
+      userDataPath: userData,
+      bundleRoot: bare,
+      fallbackRoot: join(root, "docs-bare"),
+      getWindow: () =>
+        ({
+          isDestroyed: () => false,
+          webContents: { send: (_c: string, m: DesignEventMessage) => events.push(m) },
+        }) as never,
+      getGateway: () => ({ apiKey: "sk-test-key", baseUrl: "http://127.0.0.1:9/v1" }),
+      basePython: () => python3,
+      nodeExecutable: () => "node",
+      piCliPath: async () => undefined,
+      assertTrustedSender: () => undefined,
+    });
+    const shop = join(root, "магазин");
+    mkdirSync(shop);
+    expect(svc.status(shop)).toMatchObject({ available: false, canImportTools: true });
+    pickedPaths = [join(root, "logo.png")];
+    expect(await svc.importTools()).toEqual({
+      ok: false,
+      error: "Это не папка инструментов дизайна",
+    });
+    const zip = join(root, "design-pipeline-main.zip");
+    writeFileSync(zip, zipDirectory(join(E2E, "stub-pipeline"), "design-pipeline-main"));
+    pickedPaths = [zip];
+    expect(await svc.importTools()).toEqual({ ok: true });
+    const copy = join(userData, "design", "design-pipeline");
+    expect(existsSync(join(copy, "tools", "flow.py"))).toBe(true);
+    expect(svc.status(shop)).toMatchObject({ available: true });
+    // first turn: run.py init gets the imported copy
+    await svc.say(shop, "сделай лендинг", []);
+    const until = Date.now() + 20_000;
+    while (!events.some((m) => m.event.ev === "exit") && Date.now() < until) {
+      await new Promise((r) => setTimeout(r, 50));
+    }
+    expect(events.map((m) => m.event.ev)).toContain("owner");
+    const ws = join(shop, "prsloy-design");
+    const state = JSON.parse(
+      readFileSync(join(userData, "design-state", workspaceId(ws), "state.json"), "utf8"),
+    ) as { pipeline: string };
+    expect(state.pipeline).toBe(copy);
+    svc.dispose();
+    // a build that ships the pipeline offers no import at all
+    expect(await call("prsloy:design:import-tools")).toBeNull();
   });
 
   it("starts a workspace for the fallback folder when no project is open", async () => {

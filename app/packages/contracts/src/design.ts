@@ -71,6 +71,11 @@ export type DesignStatus = {
    * without the private pipeline: the tab shows one calm state and nothing else.
    */
   available: boolean;
+  /**
+   * The harness shipped but the private pipeline did not: the calm state offers «У меня есть
+   * файл инструментов» (the owner's own zip or folder of design-pipeline).
+   */
+  canImportTools: boolean;
 };
 
 export type DesignEventMessage = { workspace: string; event: DesignEvent };
@@ -95,6 +100,10 @@ export interface DesignApi {
   /** Start (or reuse) the static server over `site/`; resolves to the page URL. */
   preview(projectPath: string | undefined): Promise<{ url: string } | null>;
   openFolder(projectPath: string | undefined): Promise<void>;
+  /** The built page in the system browser (main opens only its own loopback preview address). */
+  openInBrowser(projectPath: string | undefined): Promise<void>;
+  /** Pick the owner's design-pipeline zip or folder; null when cancelled, else ok or a one-line error. */
+  importTools(): Promise<{ ok: true } | { ok: false; error: string } | null>;
   /** «Скачать архив»: zip of site/ through a save dialog; null when cancelled or nothing built. */
   exportZip(projectPath: string | undefined): Promise<{ path: string } | null>;
   onEvent(listener: (message: DesignEventMessage) => void): () => void;

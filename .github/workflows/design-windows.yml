@@ -1,6 +1,7 @@
 # «Дизайн» на Windows без приватного design-pipeline (дорожка design):
 # Python из комплекта приложения → venv и колёса так же, как при первом заходе во вкладку → Edge через
-# Playwright channel=msedge рисует демо движения → check.py на маленьком сайте → run.py init/status/say в папке
+# Playwright channel=msedge рисует демо движения → check.py на маленьком сайте → «файл инструментов» (zip заглушки
+# пайплайна в виде GitHub «Download ZIP») импортируется в userData → run.py init/status/say в папке
 # с пробелом и кириллицей на заглушке пайплайна и заглушке pi, без сети. Скрипт: app/apps/desktop/scripts/design-smoke.mts.
 name: design-windows
 
@@ -39,7 +40,7 @@ jobs:
           $edge = Get-ChildItem "${env:ProgramFiles(x86)}\Microsoft\Edge\Application\msedge.exe", "$env:ProgramFiles\Microsoft\Edge\Application\msedge.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
           if (-not $edge) { throw "Microsoft Edge not found" }
           (Get-Item $edge.FullName).VersionInfo.ProductVersion
-      - name: Design smoke (Python from the app, venv + wheels, Edge, check.py, run.py in «Иван Петров»)
+      - name: Design smoke (Python from the app, venv + wheels, Edge, check.py, tools zip import + run.py in «Иван Петров»)
         shell: pwsh
         working-directory: app/apps/desktop
         env:

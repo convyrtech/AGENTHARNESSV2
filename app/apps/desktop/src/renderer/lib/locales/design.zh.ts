@@ -43,6 +43,8 @@ export const designZh = {
   "design.device.desktop": "电脑",
   "design.device.phone": "手机",
   "design.unavailable": "设计工具将在下一个版本中提供",
+  "design.importTools": "我有工具文件",
+  "design.openInBrowser": "在浏览器中打开",
   "design.downloadZip": "下载压缩包",
   "design.zipSaved": "压缩包已保存",
 } as const;

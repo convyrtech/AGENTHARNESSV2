@@ -12,6 +12,7 @@ import type {
 import {
   Check,
   Download,
+  ExternalLink,
   FolderOpen,
   Loader2,
   Paperclip,
@@ -73,6 +74,7 @@ export function DesignPage({ locale, projectPath }: Props) {
         history: [],
         needsKey: false,
         available: false,
+        canImportTools: false,
       }),
     );
     workspaceRef.current = s.workspace;
@@ -149,9 +151,7 @@ export function DesignPage({ locale, projectPath }: Props) {
         className="design-page main-column flex h-full min-w-0 flex-1 items-center justify-center"
         data-testid="design-page"
       >
-        <p className="design-heading text-muted-foreground" data-testid="design-unavailable">
-          {tr("design.unavailable")}
-        </p>
+        <UnavailableCard canImport={status.canImportTools} onImported={refresh} tr={tr} />
       </section>
     );
   }
@@ -609,6 +609,58 @@ function OwnerChoices({
   );
 }
 
+/** Builds without the private pipeline: one calm line, and the owner's own tools file if he has it. */
+function UnavailableCard({
+  canImport,
+  onImported,
+  tr,
+}: {
+  canImport: boolean;
+  onImported: () => Promise<void>;
+  tr: Tr;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string>();
+  const pick = async () => {
+    setBusy(true);
+    setError(undefined);
+    try {
+      const res = await window.zeno.design.importTools();
+      if (res?.ok) await onImported();
+      else if (res) setError(res.error);
+    } catch (e) {
+      setError(unwrapRemoteIpcError(e instanceof Error ? e.message : String(e)));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="flex flex-col items-center gap-2 text-center">
+      <p className="design-heading text-muted-foreground" data-testid="design-unavailable">
+        {tr("design.unavailable")}
+      </p>
+      {canImport ? (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="text-muted-foreground"
+          disabled={busy}
+          data-testid="design-import-tools"
+          onClick={() => void pick()}
+        >
+          {busy ? <Loader2 className="animate-spin" /> : null}
+          {tr("design.importTools")}
+        </Button>
+      ) : null}
+      {error ? (
+        <p className="text-sm text-muted-foreground" role="alert" data-testid="design-import-error">
+          {error}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
 function DoneCard({
   projectPath,
   tr,
@@ -661,6 +713,17 @@ function DoneCard({
             <FolderOpen />
             {tr("design.openFolder")}
           </Button>
+          {url ? (
+            <Button
+              variant="outline"
+              size="sm"
+              data-testid="design-open-browser"
+              onClick={() => void api.openInBrowser(projectPath)}
+            >
+              <ExternalLink />
+              {tr("design.openInBrowser")}
+            </Button>
+          ) : null}
           <Button
             variant="outline"
             size="sm"

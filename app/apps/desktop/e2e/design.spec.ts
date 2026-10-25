@@ -15,12 +15,16 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  readdirSync,
+  rmSync,
   symlinkSync,
+  writeFileSync,
 } from "node:fs";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { zipDirectory } from "../src/main/design/zip.ts";
 
 const require = createRequire(import.meta.url);
 const electronBinary = require("electron") as string;
@@ -39,13 +43,13 @@ const python3 = (() => {
 
 type Launched = { app: ElectronApplication; page: Page; root: string };
 
-function prepare(): { root: string; bundle: string; venv: string } {
+function prepare(recording = "recorded.jsonl"): { root: string; bundle: string; venv: string } {
   const root = mkdtempSync(join(tmpdir(), "design-e2e-"));
   const bundle = join(root, "bundle");
   const harness = join(bundle, "playbooks", "site", "harness");
   mkdirSync(harness, { recursive: true });
   copyFileSync(join(FIXTURE, "fake_run.py"), join(harness, "run.py"));
-  copyFileSync(join(FIXTURE, "recorded.jsonl"), join(harness, "recorded.jsonl"));
+  copyFileSync(join(FIXTURE, recording), join(harness, "recorded.jsonl"));
   cpSync(join(FIXTURE, "fixtures"), join(harness, "fixtures"), { recursive: true });
   for (const f of ["a6proxy.py", "stages.json"]) copyFileSync(join(HARNESS, f), join(harness, f));
   cpSync(join(FIXTURE, "stub-pipeline"), join(bundle, "design-pipeline"), { recursive: true });
@@ -55,9 +59,16 @@ function prepare(): { root: string; bundle: string; venv: string } {
   return { root, bundle, venv };
 }
 
-async function launch(opts: { toolsReady: boolean; noBundle?: boolean }): Promise<Launched> {
-  const prepared = prepare();
+async function launch(opts: {
+  toolsReady: boolean;
+  noBundle?: boolean;
+  /** Public installers: harness shipped, private pipeline not. */
+  noPipeline?: boolean;
+  recording?: string;
+}): Promise<Launched> {
+  const prepared = prepare(opts.recording);
   const { root, venv } = prepared;
+  if (opts.noPipeline) rmSync(join(prepared.bundle, "design-pipeline"), { recursive: true });
   // a build made without the private design-pipeline ships no design bundle at all
   const bundle = opts.noBundle ? join(root, "no-design-bundle") : prepared.bundle;
   const home = join(root, "home");
@@ -128,10 +139,106 @@ test("a build without the design bundle shows one calm state", async () => {
   try {
     await page.getByTestId("nav-design").click();
     await expect(page.getByTestId("design-unavailable")).toBeVisible();
+    // no harness in the build at all: nothing to add a tools file to
+    await expect(page.getByTestId("design-import-tools")).toHaveCount(0);
     await expect(page.getByTestId("design-setup")).toHaveCount(0);
     await expect(page.getByTestId("design-input")).toHaveCount(0);
     await expect(page.getByTestId("design-page")).not.toContainText(/Error|Traceback|ENOENT/);
     await shot(page, "unavailable");
+  } finally {
+    await app.close();
+  }
+});
+
+test("a public build takes the owner's tools file and runs its first turn on it", async () => {
+  const { app, page, root } = await launch({ toolsReady: true, noPipeline: true });
+  try {
+    // GitHub «Code → Download ZIP» of the stub pipeline, saved where an owner would keep it
+    mkdirSync(join(root, "Загрузки"));
+    const zip = join(root, "Загрузки", "design-pipeline-main.zip");
+    writeFileSync(zip, zipDirectory(join(FIXTURE, "stub-pipeline"), "design-pipeline-main"));
+    const junk = join(root, "Загрузки", "фото.jpg");
+    writeFileSync(junk, "not a pipeline");
+    const pickNext = (picked: string) =>
+      app.evaluate(({ dialog }, p) => {
+        Object.defineProperty(dialog, "showOpenDialog", {
+          configurable: true,
+          value: async () => ({ canceled: false, filePaths: [p] }),
+        });
+      }, picked);
+
+    await page.getByTestId("nav-design").click();
+    await expect(page.getByTestId("design-unavailable")).toBeVisible();
+    const add = page.getByTestId("design-import-tools");
+    await expect(add).toBeVisible();
+    await shot(page, "import");
+    await pickNext(junk);
+    await add.click();
+    await expect(page.getByTestId("design-import-error")).toHaveText(
+      "Это не папка инструментов дизайна",
+    );
+    await expect(page.getByTestId("design-input")).toHaveCount(0);
+
+    await pickNext(zip);
+    await add.click();
+    await expect(page.getByTestId("design-empty")).toBeVisible();
+    const userData = await app.evaluate(({ app: a }) => a.getPath("userData"));
+    const copy = join(userData, "design", "design-pipeline");
+    expect(existsSync(join(copy, "tools", "flow.py"))).toBe(true);
+
+    // first turn: run.py init starts from the copy the owner added
+    await say(page, "сделай лендинг для кофейни «Зерно»");
+    await expect(page.getByTestId("design-owner")).toHaveCount(1, { timeout: 30_000 });
+    await expect(page.getByTestId("design-question-1")).toContainText("Для кого страница?");
+    const stateDir = join(userData, "design-state");
+    const state = JSON.parse(
+      readFileSync(join(stateDir, readdirSync(stateDir)[0]!, "state.json"), "utf8"),
+    ) as { pipeline: string };
+    expect(state.pipeline).toBe(copy);
+  } finally {
+    await app.close();
+  }
+});
+
+test("the step-1 card plays the candidate videos (prsloy-design://, Range)", async () => {
+  const { app, page } = await launch({ toolsReady: true, recording: "recorded-moves.jsonl" });
+  try {
+    await page.getByTestId("nav-design").click();
+    await say(page, "сделай лендинг для кофейни «Зерно»");
+    const card = page.getByTestId("design-owner").first();
+    await expect(card).toBeVisible({ timeout: 30_000 });
+    await expect(card.getByTestId("design-image")).toHaveCount(1);
+    const videos = card.getByTestId("design-video");
+    await expect(videos).toHaveCount(3);
+    const video = videos.first();
+    expect(await video.getAttribute("src")).toMatch(
+      /^prsloy-design:\/\/ws\/[0-9a-f]{16}\/.+A\.mp4#t=0\.1$/,
+    );
+    // metadata and the first frame really load: the protocol serves the mp4 the way <video> asks
+    await expect
+      .poll(() =>
+        video.evaluate((el: HTMLVideoElement) => ({
+          ready: el.readyState >= 2,
+          w: el.videoWidth,
+          long: el.duration > 1,
+          error: el.error?.code ?? 0,
+        })),
+      )
+      .toEqual({ ready: true, w: expect.any(Number), long: true, error: 0 });
+    expect(await video.evaluate((el: HTMLVideoElement) => el.videoWidth)).toBeGreaterThan(100);
+    // the same handler <video> streams through answers a byte range (asked from main: the page's CSP blocks fetch)
+    const src = (await video.evaluate((el: HTMLVideoElement) => el.currentSrc)).split("#")[0]!;
+    const ranged = await app.evaluate(async ({ net }, url) => {
+      const res = await net.fetch(url, { headers: { range: "bytes=0-99" } });
+      return { status: res.status, bytes: (await res.arrayBuffer()).byteLength };
+    }, src);
+    expect(ranged).toEqual({ status: 206, bytes: 100 });
+    // it plays
+    await video.evaluate((el: HTMLVideoElement) => el.play());
+    await expect
+      .poll(() => video.evaluate((el: HTMLVideoElement) => el.currentTime))
+      .toBeGreaterThan(0.5);
+    await shot(page, "videos");
   } finally {
     await app.close();
   }
@@ -170,6 +277,11 @@ test("owner leads a landing page from request to preview", async () => {
         Object.defineProperty(dialog, "showSaveDialog", {
           configurable: true,
           value: async () => ({ canceled: false, filePath: zip }),
+        });
+        Object.defineProperty(shell, "openExternal", {
+          configurable: true,
+          value: async (u: string) =>
+            void ((g as { __external?: string[] }).__external ??= []).push(u),
         });
         Object.defineProperty(shell, "openPath", {
           configurable: true,
@@ -261,6 +373,11 @@ test("owner leads a landing page from request to preview", async () => {
       .toBeLessThanOrEqual(390);
     await shot(page, "done-phone", 400);
     await page.getByTestId("design-device-desktop").click();
+    // «Открыть в браузере»: the system browser gets our own loopback preview address
+    await page.getByTestId("design-open-browser").click();
+    await expect
+      .poll(() => app.evaluate(() => (globalThis as { __external?: string[] }).__external))
+      .toEqual([await frame.getAttribute("src")]);
     // «Скачать архив»: site/ as a zip where the owner saved it
     await page.getByTestId("design-download-zip").click();
     await expect.poll(() => existsSync(zipPath)).toBe(true);

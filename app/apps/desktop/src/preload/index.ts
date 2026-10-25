@@ -126,6 +126,9 @@ const api: ZenoDesktopApi = {
     preview: (projectPath) => ipcRenderer.invoke("prsloy:design:preview", projectPath),
     openFolder: (projectPath) => ipcRenderer.invoke("prsloy:design:open-folder", projectPath),
     exportZip: (projectPath) => ipcRenderer.invoke("prsloy:design:export-zip", projectPath),
+    openInBrowser: (projectPath) =>
+      ipcRenderer.invoke("prsloy:design:open-in-browser", projectPath),
+    importTools: () => ipcRenderer.invoke("prsloy:design:import-tools"),
     onEvent(listener) {
       const handler = (_event: Electron.IpcRendererEvent, message: DesignEventMessage) =>
         listener(message);

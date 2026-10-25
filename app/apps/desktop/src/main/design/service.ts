@@ -7,7 +7,9 @@
  *   run.py say   one owner message → stages until the next question; cancellable
  *
  * The harness, motion library, etalon catalogue and a pinned, pre-patched copy of
- * design-pipeline ship as extraResources under `design/` (scripts/fetch-design.mjs).
+ * design-pipeline ship as extraResources under `design/` (scripts/fetch-design.mjs). Builds
+ * without the private pipeline take the owner's own copy instead («У меня есть файл
+ * инструментов», pipeline-import.ts) into userData/design/design-pipeline.
  */
 import { type ChildProcess, spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
@@ -25,7 +27,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { homedir } from "node:os";
-import { basename, dirname, join } from "node:path";
+import { basename, dirname, isAbsolute, join } from "node:path";
 import { Readable } from "node:stream";
 import {
   app,
@@ -42,6 +44,7 @@ import type {
   DesignStatus,
   DesignEventMessage,
 } from "@zeno/contracts";
+import { checkExternalUrl } from "../external-url.ts";
 import { restrictToCurrentUser } from "../prsloy/file-acl.ts";
 import { buildHarnessEnv, buildModelsJson, python3Shims, venvBinDir, venvPython } from "./env.ts";
 import { LineSplitter, parseHarnessLine } from "./events.ts";
@@ -57,6 +60,7 @@ import {
   workspaceId,
 } from "./paths.ts";
 import { findEntry, type PreviewServer, startPreviewServer } from "./preview-server.ts";
+import { importPipeline } from "./pipeline-import.ts";
 import { killTree, killTreeNow, treeSpawnOptions } from "./proc.ts";
 import { listFiles, zipDirectory } from "./zip.ts";
 import { DESIGN_DISK_MB, DESIGN_SETUP_MB, setupDesignTools, toolsReady } from "./setup.ts";
@@ -82,7 +86,11 @@ export type DesignServiceDeps = {
   assertTrustedSender(event: IpcMainInvokeEvent): void;
   /** Where workspaces go when no project folder is open. */
   fallbackRoot: string;
+  /** git for run.py's `git apply` of pipeline-fixes.patch (Windows: the app's PortableGit). */
+  gitBinary?: () => string;
 };
+
+export type DesignToolsImport = { ok: true } | { ok: false; error: string };
 
 const EVENTS_FILE = "app-events.jsonl";
 const UNAVAILABLE = "Дизайн-инструменты появятся в следующей версии";
@@ -127,10 +135,13 @@ export class DesignService {
 
   #env(proxyUrl: string, piBin: string[], stateDir?: string): Record<string, string> {
     const shimDir = join(this.#designRoot, "bin");
+    // run.py init applies pipeline-fixes.patch with git: the app's own on Windows, which is not on PATH
+    const git = this.#deps.gitBinary?.();
+    const gitDir = git && isAbsolute(git) ? dirname(git) : "";
     return buildHarnessEnv({
       base: process.env,
       platform: process.platform,
-      pathDirs: [shimDir, venvBinDir(this.#venv), dirname(piBin[0] ?? "")].filter(
+      pathDirs: [shimDir, venvBinDir(this.#venv), dirname(piBin[0] ?? ""), gitDir].filter(
         (d) => d && d !== ".",
       ),
       piBin,
@@ -199,15 +210,87 @@ export class DesignService {
       history: this.#history(ws),
       needsKey: !this.#deps.getGateway(),
       available: this.available(),
+      canImportTools: this.#canImportTools(),
     };
   }
 
-  /** run.py and a design-pipeline copy are in the bundle. */
+  /** Pipeline copy run.py init starts from: the bundle's, else the one the owner added. */
+  #pipelineDir(): string | undefined {
+    return [
+      join(this.#deps.bundleRoot, "design-pipeline"),
+      join(this.#designRoot, "design-pipeline"),
+    ].find((d) => existsSync(join(d, "tools", "flow.py")));
+  }
+
+  /** run.py is in the bundle and a design-pipeline copy is there or in userData. */
   available(): boolean {
+    return existsSync(join(this.#harness, "run.py")) && this.#pipelineDir() !== undefined;
+  }
+
+  /** The harness shipped but the pipeline did not (public builds): the owner may add his copy. */
+  #canImportTools(): boolean {
     return (
       existsSync(join(this.#harness, "run.py")) &&
-      existsSync(join(this.#deps.bundleRoot, "design-pipeline", "tools", "flow.py"))
+      !existsSync(join(this.#deps.bundleRoot, "design-pipeline", "tools", "flow.py"))
     );
+  }
+
+  /**
+   * «У меня есть файл инструментов»: zip from GitHub, the unpacked folder or a file in it →
+   * userData/design/design-pipeline. Null when the dialog is cancelled. The copy stays
+   * unpatched: run.py init applies pipeline-fixes.patch to each workspace's copy; here only
+   * `git apply --check` tells the log whether the patch fits this version.
+   */
+  async importTools(): Promise<DesignToolsImport | null> {
+    if (!this.#canImportTools()) return null;
+    const mac = process.platform === "darwin";
+    const opts: Electron.OpenDialogOptions = {
+      title: "Файл инструментов дизайна",
+      // Windows and Linux pick a file or a folder, not both: a file inside the folder stands for it
+      properties: mac ? ["openFile", "openDirectory"] : ["openFile"],
+      filters: mac
+        ? []
+        : [
+            { name: "ZIP", extensions: ["zip"] },
+            { name: "*", extensions: ["*"] },
+          ],
+    };
+    const win = this.#deps.getWindow();
+    const res = win ? await dialog.showOpenDialog(win, opts) : await dialog.showOpenDialog(opts);
+    const picked = res.filePaths[0];
+    if (res.canceled || !picked) return null;
+    const dest = join(this.#designRoot, "design-pipeline");
+    const result = importPipeline(picked, dest);
+    if (!result.ok) return result;
+    void this.#checkPatch(dest);
+    return { ok: true };
+  }
+
+  async #checkPatch(pipeline: string): Promise<void> {
+    const patch = join(this.#harness, "pipeline-fixes.patch");
+    if (!existsSync(patch)) return;
+    const child = spawn(this.#deps.gitBinary?.() ?? "git", ["apply", "--check", patch], {
+      cwd: pipeline,
+      env: { ...process.env, GIT_CEILING_DIRECTORIES: dirname(pipeline) },
+      stdio: ["ignore", "ignore", "pipe"],
+      windowsHide: true,
+    });
+    let err = "";
+    child.stderr?.on("data", (b: Buffer) => (err += b.toString("utf8")));
+    const code = await new Promise<number | null>((done) => {
+      child.on("error", () => done(null));
+      child.on("close", done);
+    });
+    const meta = join(pipeline, ".imported.json");
+    try {
+      const info = JSON.parse(readFileSync(meta, "utf8")) as Record<string, unknown>;
+      info.patch = code === 0 ? "fits" : code === null ? "no git" : "does not fit";
+      writeFileSync(meta, `${JSON.stringify(info)}\n`);
+    } catch {
+      // the copy was replaced meanwhile
+    }
+    if (code !== 0)
+      console.warn("[design] pipeline-fixes.patch on the imported copy:", code, err.slice(-300));
   }
 
   #toolsReady(): boolean {
@@ -371,7 +454,8 @@ export class DesignService {
   async #ensureWorkspace(ws: string, env: Record<string, string>): Promise<void> {
     if (existsSync(join(this.#state(ws).dir, "state.json"))) return;
     mkdirSync(ws, { recursive: true });
-    const pipeline = join(this.#deps.bundleRoot, "design-pipeline");
+    const pipeline = this.#pipelineDir();
+    if (!pipeline) throw new Error(UNAVAILABLE);
     const child = this.#python(
       [join(this.#harness, "run.py"), "init", ws, "--page", DESIGN_PAGE, "--pipeline", pipeline],
       dirname(ws),
@@ -508,6 +592,15 @@ export class DesignService {
     return { path: res.filePath };
   }
 
+  /** «Открыть в браузере»: only the address of our own loopback preview server, never one from the renderer. */
+  async openInBrowser(projectPath: string | undefined): Promise<void> {
+    const preview = await this.preview(projectPath);
+    if (!preview) return;
+    const url = new URL(preview.url);
+    if (url.hostname !== "127.0.0.1" || !checkExternalUrl(preview.url).ok) return;
+    await shell.openExternal(preview.url);
+  }
+
   async openFolder(projectPath: string | undefined): Promise<void> {
     const ws = this.workspace(projectPath);
     const site = join(ws, "site");
@@ -619,6 +712,14 @@ export function registerDesignIpc(deps: DesignServiceDeps): DesignService {
   ipcMain.handle(
     "prsloy:design:open-folder",
     guard((p: unknown) => svc.openFolder(projectArg(p))),
+  );
+  ipcMain.handle(
+    "prsloy:design:open-in-browser",
+    guard((p: unknown) => svc.openInBrowser(projectArg(p))),
+  );
+  ipcMain.handle(
+    "prsloy:design:import-tools",
+    guard(() => svc.importTools()),
   );
   ipcMain.handle(
     "prsloy:design:export-zip",

@@ -57,6 +57,34 @@ describe("parseHarnessLine", () => {
     });
   });
 
+  it("drops the agent's «(рекомендую)» from a recommended label: the card has its own badge", () => {
+    const ev = parseHarnessLine(
+      JSON.stringify({
+        ev: "owner",
+        text: "x",
+        options: [
+          {
+            q: "",
+            options: [
+              { key: "A", label: "Кольцо и счётчик (рекомендую)", recommended: true },
+              { key: "B", label: "Выдача — рекомендую", recommended: true },
+              { key: "C", label: "(рекомендую)", recommended: true },
+              { key: "D", label: "Без пометки (рекомендую)" },
+            ],
+          },
+        ],
+      }),
+      () => undefined,
+    );
+    if (ev?.ev !== "owner") throw new Error("no owner");
+    expect(ev.options[0]!.options.map((o) => o.label)).toEqual([
+      "Кольцо и счётчик",
+      "Выдача",
+      "(рекомендую)",
+      "Без пометки (рекомендую)",
+    ]);
+  });
+
   it("reads grouped options and turns an old flat list into one group", () => {
     const grouped = parseHarnessLine(
       JSON.stringify({
