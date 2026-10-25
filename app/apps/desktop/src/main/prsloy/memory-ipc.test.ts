@@ -242,6 +242,7 @@ describe("memory IPC (S5)", () => {
       honestExit: false,
       testGuard: false,
       claimCheck: false,
+      webTools: false,
     } as const;
     // Other switches: nothing happens.
     await memoryFlagsChanged(flags, { ...flags, secondOpinion: false });
