@@ -1,19 +1,24 @@
 /**
  * «Быстрее / Качественнее»: the casual model switch.
  *
- * Casual users pick a speed/quality trade-off, not a model id. The two tiers map to model
- * ids through this one constant; the core stream owns which ids and provider are current.
+ * Casual users pick a speed/quality trade-off, not a model id. Ids and provider come from
+ * the core stream's `shared/prsloy-config.ts` (single source of truth).
  */
+import {
+  PRSLOY_PROVIDER_ID,
+  PRSLOY_SPEED_MODES,
+  type PrsloySpeedMode,
+} from "../../shared/prsloy-config.ts";
 
-export const MODEL_TIERS = {
-  fast: "deepseek-v4.1-flash-1017",
-  quality: "kimi-k3.1-pro",
-} as const;
+export type ModelTier = PrsloySpeedMode;
+
+export const MODEL_TIERS: Readonly<Record<ModelTier, string>> = {
+  fast: PRSLOY_SPEED_MODES.fast.modelId,
+  quality: PRSLOY_SPEED_MODES.quality.modelId,
+};
 
 /** Provider used when a tier's model is not in the host's model list yet. */
-export const MODEL_TIER_PROVIDER = "prsloy";
-
-export type ModelTier = keyof typeof MODEL_TIERS;
+export const MODEL_TIER_PROVIDER = PRSLOY_PROVIDER_ID;
 export const MODEL_TIER_ORDER: readonly ModelTier[] = ["fast", "quality"];
 
 export type TierModelOption = { provider: string; id: string };

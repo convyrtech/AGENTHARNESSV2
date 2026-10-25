@@ -35,7 +35,7 @@ export function initPrsloy(mainModuleUrl: string): PrsloyContext {
     cipher: safeStorage,
   });
   console.log(
-    `[prsloy] agent home ${ctx.agentDir}; harness ${ctx.harnessExtensions.length ? ctx.harnessExtensions.join(", ") : "not found"}` +
+    `[prsloy] agent home ${ctx.agentDir}; harness ${ctx.harnessEnabled ? "on" : "off"}` +
       (ctx.shellPath ? `; shell ${ctx.shellPath} (${ctx.shellSource})` : ""),
   );
   return ctx;

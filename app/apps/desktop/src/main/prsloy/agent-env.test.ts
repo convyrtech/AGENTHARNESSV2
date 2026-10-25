@@ -95,7 +95,6 @@ describe("host env", () => {
         agentDir: "/ud/agent",
         sessionDir: "/ud/agent/sessions",
         shimsDir: "/ud/agent-shims",
-        harnessExtensions: ["/res/prsloy-harness"],
         gatewayKey: "sk-live",
         platform: "linux",
       },
@@ -106,7 +105,8 @@ describe("host env", () => {
     expect(env.PI_CODING_AGENT_DIR).toBe("/ud/agent");
     expect(env.PI_CODING_AGENT_SESSION_DIR).toBe("/ud/agent/sessions");
     expect(env.PI_OFFLINE).toBe("1");
-    expect(JSON.parse(env.PRSLOY_HARNESS_EXTENSIONS!)).toEqual(["/res/prsloy-harness"]);
+    expect(env.PRSLOY_PROFILE).toBe("code");
+    expect(env.GIT_EDITOR).toBe("true");
     expect(env[GATEWAY_KEY_HANDOFF_ENV]).toBe("sk-live");
   });
 

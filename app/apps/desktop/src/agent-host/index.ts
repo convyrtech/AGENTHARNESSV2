@@ -1,5 +1,6 @@
 import "./proxy-bootstrap.ts";
 import { prsloyHandoff } from "./prsloy-handoff.ts";
+import { createPrsloyHarness } from "@prsloy/harness";
 import {
   createPixRuntime,
   projectCustomEntry,
@@ -386,8 +387,9 @@ async function handleCommand(command: HostCommand): Promise<void> {
         if (prsloyHandoff.gatewayKey) {
           options.runtimeApiKeys = { [PRSLOY_PROVIDER_ID]: prsloyHandoff.gatewayKey };
         }
-        if (prsloyHandoff.harnessExtensions.length > 0) {
-          options.extensionPaths = prsloyHandoff.harnessExtensions;
+        if (prsloyHandoff.harnessEnabled) {
+          // Bundled into the host (survives asar); profile from PRSLOY_PROFILE (main sets "code").
+          options.extensionFactories = [createPrsloyHarness()];
         }
         options.contextFilesRequireTrust = true;
         handle = await createPixRuntime(options);

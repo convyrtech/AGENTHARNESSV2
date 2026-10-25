@@ -1448,8 +1448,6 @@ export const en = {
   "composer.tier.quality": "Better",
   "cost.turn": "turn {amount}",
   "cost.session": "chat {amount}",
-  "prsloy.speed.fast": "Faster",
-  "prsloy.speed.quality": "Better",
   "prsloy.firstRun.keyTitle": "Paste your PRSLOY key",
   "prsloy.firstRun.keyPlaceholder": "sk-…",
   "prsloy.firstRun.keySubmit": "Continue",

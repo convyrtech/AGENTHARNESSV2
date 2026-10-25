@@ -1,8 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
-import { join, resolve } from "node:path";
-import { pathToFileURL } from "node:url";
+import { join } from "node:path";
 import { pickPythonExecutable } from "./context.ts";
-import { resolveHarnessExtensions } from "./harness-paths.ts";
 import { chooseGitBinary, chooseWindowsShellPath } from "./windows-shell.ts";
 
 const BUNDLED = "C:\\Users\\u\\AppData\\Roaming\\PRSLOY\\runtimes\\git";
@@ -77,38 +75,5 @@ describe("python shim target", () => {
       }),
     ).toBe("/p/bin/python3");
     expect(pickPythonExecutable({ platform: "linux", exists: () => false })).toBeUndefined();
-  });
-});
-
-describe("harness extension paths", () => {
-  const mainModuleUrl = pathToFileURL("/repo/app/apps/desktop/dist/main/main.mjs").href;
-
-  it("finds the monorepo package in dev and resources/ when packaged", () => {
-    const dev = resolve("/repo/app/packages/prsloy-harness");
-    expect(
-      resolveHarnessExtensions({
-        env: {},
-        mainModuleUrl,
-        exists: (p) => p === join(dev, "package.json"),
-      }),
-    ).toEqual([dev]);
-    expect(
-      resolveHarnessExtensions({
-        env: {},
-        resourcesPath: "/opt/PRSLOY/resources",
-        mainModuleUrl,
-        exists: () => true,
-      }),
-    ).toEqual([join("/opt/PRSLOY/resources", "prsloy-harness")]);
-  });
-
-  it("honours PRSLOY_HARNESS_DIR and PRSLOY_HARNESS=0", () => {
-    expect(
-      resolveHarnessExtensions({ env: { PRSLOY_HARNESS_DIR: "/x/h" }, exists: () => true }),
-    ).toEqual([resolve("/x/h")]);
-    expect(resolveHarnessExtensions({ env: { PRSLOY_HARNESS: "0" }, exists: () => true })).toEqual(
-      [],
-    );
-    expect(resolveHarnessExtensions({ env: {}, mainModuleUrl, exists: () => false })).toEqual([]);
   });
 });

@@ -50,7 +50,7 @@ export function buildPrsloyState(ctx: PrsloyContext, needsWorkspace: boolean): P
     defaultBaseUrl: PRSLOY_DEFAULT_BASE_URL,
     needsWorkspace,
     ...(ctx.shellSource ? { shellSource: ctx.shellSource } : {}),
-    harnessLoaded: ctx.harnessExtensions.length > 0,
+    harnessLoaded: ctx.harnessEnabled,
     firstRunBypass:
       process.env.ZENO_ENABLE_TEST_COMMANDS === "1" && process.env.PRSLOY_FORCE_FIRST_RUN !== "1",
   };

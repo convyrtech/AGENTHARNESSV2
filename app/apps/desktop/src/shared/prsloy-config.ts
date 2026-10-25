@@ -103,14 +103,14 @@ export const PRSLOY_MODELS: readonly PrsloyModelDef[] = [
 export type PrsloySpeedMode = "fast" | "quality";
 
 /**
- * «Быстрее / Качественнее» → model id. The ui stream renders this toggle; labels are
- * i18n keys so every locale carries them.
+ * «Быстрее / Качественнее» → model id: the single source of truth. The renderer's
+ * `lib/model-tiers.ts` derives `MODEL_TIERS` from this; labels are i18n keys.
  */
 export const PRSLOY_SPEED_MODES: Readonly<
   Record<PrsloySpeedMode, { modelId: string; labelKey: string }>
 > = {
-  fast: { modelId: "deepseek-v4.1-flash-1017", labelKey: "prsloy.speed.fast" },
-  quality: { modelId: "kimi-k3.1-pro", labelKey: "prsloy.speed.quality" },
+  fast: { modelId: "deepseek-v4.1-flash-1017", labelKey: "composer.tier.fast" },
+  quality: { modelId: "kimi-k3.1-pro", labelKey: "composer.tier.quality" },
 };
 
 export const PRSLOY_DEFAULT_SPEED_MODE: PrsloySpeedMode = "fast";

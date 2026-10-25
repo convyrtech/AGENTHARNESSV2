@@ -16,6 +16,7 @@ import {
   SessionManager,
   SettingsManager,
 } from "@earendil-works/pi-coding-agent";
+import type { ExtensionFactory } from "@earendil-works/pi-coding-agent";
 import type {
   ExtensionUiResponse,
   HostSnapshot,
@@ -249,8 +250,13 @@ export interface CreateZenoRuntimeOptions {
    * auth.json / models.json). PRSLOY desktop keeps its gateway key encrypted on disk.
    */
   runtimeApiKeys?: Record<string, string>;
-  /** Extra extension sources loaded for every session (e.g. the prsloy-harness package). */
+  /** Extra extension sources (paths / package dirs) loaded for every session. */
   extensionPaths?: string[];
+  /**
+   * Inline extensions bundled with the host, loaded for every session (PRSLOY harness).
+   * Survives asar packaging: no files to resolve at runtime.
+   */
+  extensionFactories?: ExtensionFactory[];
   /**
    * When true, project AGENTS.md / CLAUDE.md (outside agentDir) load only after the
    * folder is trusted, and such files make trust "required" so the UI asks once.
@@ -1596,6 +1602,9 @@ export async function createPixRuntime(
       settingsManager,
       resourceLoaderOptions: {
         additionalExtensionPaths: temporaryExtensionPaths,
+        ...(options.extensionFactories?.length
+          ? { extensionFactories: options.extensionFactories }
+          : {}),
         ...(options.contextFilesRequireTrust
           ? {
               // Read trust at load time: setTrust() flips the same SettingsManager, then reloads.

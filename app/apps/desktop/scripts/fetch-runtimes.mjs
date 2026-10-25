@@ -209,6 +209,13 @@ export function pruneGitRuntime(gitRoot) {
     join(gitRoot, "usr", "share", "man"),
     join(gitRoot, "usr", "share", "info"),
     join(gitRoot, "usr", "share", "locale"),
+    // An agent must never land in an interactive editor; git-lfs is unused (~10MB).
+    join(gitRoot, "usr", "share", "vim"),
+    join(gitRoot, "usr", "bin", "vim.exe"),
+    join(gitRoot, "usr", "bin", "vimdiff"),
+    join(gitRoot, "usr", "bin", "vi"),
+    join(gitRoot, "usr", "bin", "view"),
+    join(gitRoot, "mingw64", "bin", "git-lfs.exe"),
     join(gitRoot, "mingw64", "bin", "gitk"),
     join(gitRoot, "cmd", "gitk.exe"),
     join(gitRoot, "cmd", "git-gui.exe"),

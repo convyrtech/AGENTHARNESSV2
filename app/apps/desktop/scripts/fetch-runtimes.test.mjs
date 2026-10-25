@@ -265,6 +265,8 @@ function assertEqual(actual, expected, message) {
     touch("cmd", "gitk.exe");
     touch("usr", "bin", "bash.exe");
     touch("usr", "share", "doc", "readme");
+    touch("usr", "share", "vim", "vim91", "defaults.vim");
+    touch("usr", "bin", "vim.exe");
     touch("mingw64", "share", "doc", "git-doc", "index.html");
     touch("mingw64", "lib", "tcl8.6", "init.tcl");
     touch("mingw64", "lib", "tk8.6", "tk.tcl");
@@ -283,6 +285,8 @@ function assertEqual(actual, expected, message) {
     }
     for (const gone of [
       ["cmd", "gitk.exe"],
+      ["usr", "share", "vim"],
+      ["usr", "bin", "vim.exe"],
       ["usr", "share", "doc"],
       ["mingw64", "share", "doc"],
       ["mingw64", "lib", "tcl8.6"],

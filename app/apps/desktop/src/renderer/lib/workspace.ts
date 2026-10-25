@@ -51,7 +51,7 @@ export function isAutoDefaultWorkspacePath(path: string): boolean {
  */
 export function isConversationWorkspacePath(path: string): boolean {
   const normalized = path.replace(/\\/g, "/").replace(/\/+$/, "");
-  return /\/Zeno\/conversations(?:\/|$)/i.test(normalized);
+  return /\/(?:Zeno|PRSLOY)\/conversations(?:\/|$)/i.test(normalized);
 }
 
 /** Paths that must never appear as projects in the sidebar recent/current rail. */

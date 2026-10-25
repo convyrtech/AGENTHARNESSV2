@@ -3,6 +3,7 @@
 ## Сделано
 
 ### 1. Изоляция от CLI pi
+
 - Свой pi home: `userData/agent` (models.json, settings.json, trust, `bin/` для rg/fd), сессии в
   `userData/agent/sessions`. `~/.pi/agent` не читается и не пишется.
 - `main/prsloy/context.ts` → `bootstrapPrsloy()` ставит `PI_CODING_AGENT_DIR` и
@@ -12,10 +13,13 @@
   (`ZENO_ENABLE_TEST_COMMANDS=1`), чтобы e2e могли подложить свой каталог.
 
 ### 2. Провайдер PRSLOY
-- Каталог в `apps/desktop/src/shared/prsloy-config.ts`. Он же — **единая константа для ui**:
+
+- Каталог в `apps/desktop/src/shared/prsloy-config.ts`. Он же — **единственный источник для
+  режимов скорости**:
   - `PRSLOY_SPEED_MODES`: `fast` → `deepseek-v4.1-flash-1017`, `quality` → `kimi-k3.1-pro`;
-  - подписи — ключи `prsloy.speed.fast` / `prsloy.speed.quality`;
-  - хелперы `prsloyModelForSpeed()` и `prsloySpeedForModel()`.
+  - подписи — ключи ui `composer.tier.fast` / `composer.tier.quality`;
+  - `renderer/lib/model-tiers.ts` (`MODEL_TIERS`, `MODEL_TIER_PROVIDER`) выводится из него,
+    дубликата нет.
 - В `models.json` пишется `providers.prsloy` **без ключа**:
   - `api: openai-completions`, `baseUrl` по умолчанию `https://api.prsloy.online/v1`, меняется в
     настройках;
@@ -32,6 +36,7 @@
   пользователь ещё ничего не выбрал.
 
 ### 3. Первый запуск
+
 - IPC `prsloy:*`, тип `PrsloyDesktopApi` в `@zeno/contracts`, `window.zeno.prsloy` в preload:
   - `getState`, `setKey`, `clearKey`, `setBaseUrl`;
   - `listTurns`, `undoTurn`.
@@ -39,17 +44,18 @@
   запасной путь через completion в 1 токен. Запросы идут через `net.fetch` (системный прокси).
   Коды ошибок:
 
-  | Код | Когда |
-  |---|---|
-  | `invalid_key` | 401/403 |
-  | `no_balance` | 402 |
-  | `network` | нет соединения |
-  | `timeout` | сервер не ответил |
-  | `server` | 5xx |
-  | `bad_url` | неверный адрес |
+  | Код           | Когда             |
+  | ------------- | ----------------- |
+  | `invalid_key` | 401/403           |
+  | `no_balance`  | 402               |
+  | `network`     | нет соединения    |
+  | `timeout`     | сервер не ответил |
+  | `server`      | 5xx               |
+  | `bad_url`     | неверный адрес    |
 
   Ключ и адрес сохраняются только после успешной проверки, затем хост перезапускается
   (`supervisor.restartWithFreshEnv()`, та же сессия).
+
 - Хранение ключа: `safeStorage` (DPAPI) → `userData/prsloy/gateway-key.bin`. Если ОС не умеет
   шифровать, ключ держится только в памяти и `keyMemoryOnly=true`. В открытом виде на диск не
   пишется никогда (проверено тестом).
@@ -63,6 +69,7 @@
   i18n `prsloy.dev.section` уже добавлен.
 
 ### 4. Shell на Windows
+
 - `fetch-runtimes.mjs` для win32 качает:
   - **PortableGit 2.51.0** (7z SFX; распаковка через 7z, иначе самим SFX). Режем docs, locale,
     man, Tcl/Tk, gitk, git-gui. Результат → `archives/git.tar.gz`;
@@ -78,10 +85,21 @@
   в PATH агента. Заодно перекрывают Store-заглушку `python` в Windows.
 - Тул `powershell` выключен: в Pi он не входит в набор по умолчанию, а мы ещё и вычищаем его из
   `defaultTools`.
-- MinGit-busybox не понадобился. В MinGit нет bash, только `ash` из busybox, а pi нужен bash.
-  Размер PortableGit после обрезки — см. «Как проверено» (лог CI).
+- Из PortableGit также убраны vim и git-lfs. В env агента `GIT_EDITOR`/`EDITOR`/`VISUAL=true` и
+  `GIT_PAGER`/`PAGER=cat`, так что `git commit` без `-m` или `git log` не повиснут.
+- Размер: PortableGit 385 МБ → 359 МБ после обрезки. 7z SFX превращает жёсткие ссылки git в
+  копии, поэтому перед упаковкой одинаковые файлы снова связываются жёсткими ссылками (−102 МБ).
+  `git.tar.gz` — 96,5 МБ (было 141). Артефакт установщика в CI — 315 МБ против 211 МБ на main
+  без git; прогон с vim/lfs ещё не мерил.
+- На Windows-раннере сборка распаковывает `git.tar.gz` тем же System32 tar, что и приложение
+  при первом запуске, и запускает оттуда bash (`roundtrip-ok`). sha256 PortableGit закреплён в
+  `versions.json`.
+- MinGit-busybox не понадобился: в MinGit нет bash, только `ash` из busybox, а pi нужен bash.
+  Если 315 МБ много, следующий шаг — везти исходный `PortableGit.7z.exe` (~60 МБ) и
+  распаковывать его при первом запуске.
 
 ### 5. Чистое окружение агента
+
 - `main/prsloy/agent-env.ts`. Env хоста (его наследуют все тулы pi) собирается через
   `prsloy.hostEnv()` в `processEnvironment()`:
   - выбрасываются `*_TOKEN`, `*_KEY`, `*_SECRET`, `*_PASSWORD`, `AWS_*`, `GH_*`, `GITHUB_*`,
@@ -99,6 +117,7 @@
     раз, решение сохраняется в trust-store pi.
 
 ### 6. Откат хода
+
 - В Zeno готового отката файлов не было. Fork/tree там только для разговора, git-панель работает
   с репозиторием пользователя. Поэтому сделано своё: `main/prsloy/turn-snapshots.ts` (дизайн
   OpenCode).
@@ -121,20 +140,18 @@
 - Ограничение: вложенные git-репозитории внутри проекта хранятся как gitlink, их содержимое не
   снимается.
 
-### 7. Харнесс (договорённость с W2)
-- Хост грузит расширения из пакета `app/packages/prsloy-harness` в каждой сессии. Опция
-  `extensionPaths` в `createPixRuntime`, её переживают new/switch/fork (тест).
-- Поиск пакета — `main/prsloy/harness-paths.ts`:
-  - `PRSLOY_HARNESS_DIR` (переопределение) → `resources/prsloy-harness` (упакованное
-    приложение) → `app/packages/prsloy-harness` (dev);
-  - `PRSLOY_HARNESS=0` выключает загрузку.
-- Требование к пакету: pi package (`package.json` с `"pi": {"extensions": [...]}` или
-  `index.ts`), который pi грузит из локального пути. Список уходит хосту через
-  `PRSLOY_HARNESS_EXTENSIONS` (JSON).
-- **Нужно от W0/ci при сборке:** `extraResources: {from: ../../packages/prsloy-harness, to:
-  prsloy-harness}`. Пока пакета нет, загрузчик молчит (`harnessLoaded:false` в `getState`).
+### 7. Харнесс (`@prsloy/harness`)
+
+- Хост в каждой сессии подключает `createPrsloyHarness()` через `extensionFactories` (новая
+  опция `createPixRuntime`). Харнесс вшит в бандл хоста, поэтому asar ему не мешает и пути к
+  файлам не нужны.
+- Профиль берётся из `PRSLOY_PROFILE=code`: main ставит его в env хоста.
+  `PRSLOY_HARNESS=0` выключает харнесс (`harnessLoaded` в `getState`).
+- Загрузчик по путям (`harness-paths.ts`) удалён, `extraResources` для харнесса не нужен.
+  Опция `extensionPaths` осталась в runtime как общий механизм.
 
 ## Как проверено (Linux, без ключа шлюза)
+
 - `pnpm --filter @zeno/desktop test`: **105 files / 731 tests passed**, `fetch-runtimes.test.mjs`
   ok, `after-pack` ok, file budgets ok.
 - `packages/agent-runtime`: 28 files / 115 tests passed, включая новый `runtime-hooks.test.ts`:
@@ -160,41 +177,36 @@
   - все 8 шимов дают код 126 и «запрещено харнессом»;
   - `python` запускает Python 3;
   - `env` не содержит `GH_TOKEN`.
-- Windows CI: прогон `desktop-windows.yml` на `desktop/core` — см. блок ниже.
+- Харнесс:
+  - `agent-host/prsloy-harness.test.ts`: опции хоста против фейковой модели; bash tool result
+    приходит модели как `[exit 0 · … ]\nharness-ok`, в том числе после `newSession()`;
+  - **e2e на настоящем Electron** (`e2e/prsloy-harness.spec.ts`, xvfb, Electron 43.1.1 с
+    npmmirror): фейковая модель получает tool result с заголовком `[exit 0 · …]`;
+  - с `PRSLOY_HARNESS=0` тот же e2e падает (приходит голое `harness-e2e`), значит проверка не
+    пустая.
+- Windows CI (`desktop-windows.yml` на `desktop/core`, оба прогона зелёные):
+  - PortableGit скачан и обрезан, `bash-ok git version 2.51.0.windows.1`;
+  - распаковка архива туда и обратно проходит, установщик собран.
 
 ## Не сделано / риски
+
 - **Живой ключ** не проверял: ключа нет. Нужно, чтобы дирижёр проверил `/v1/models` на
   настоящем шлюзе. Если шлюз отдаёт 404, сработает fallback через completion. Баланс в UI не
   показываю: эндпоинт баланса шлюза неизвестен.
 - Compat Kimi/Qwen (`thinkingFormat`, effort) взят из research/07, через живой шлюз не
   проверен.
 - PortableGit: не запускаю `post-install.bat`. Для `bash -c` он не нужен, но на чистой Windows
-  стоит проверить `git status` из агента. sha256 не закреплён: впишите `gitSha256` в
-  `runtimes/versions.json` по логу CI.
+  стоит проверить `git status` из агента.
 - Окно терминала pi TUI (режим для разработчиков) получает env без чистки секретов, чистится
   только env хоста.
 - Бюджет `main/index.ts` можно опустить до 5701 строки (я вынес `workspace-paths.ts`), но
   оставил 5753, чтобы у параллельных дорожек был запас.
-- `docs/prsloy/CONTEXT.md` не проходит `vp fmt` — это файл из main, я его не трогал.
+- Папки по умолчанию переименованы дорожкой ui (`Documents/PRSLOY`). Классификаторы
+  временных и разговорных папок в main и renderer (`isAutoDefaultWorkspacePath`,
+  `isConversationWorkspacePath`) ещё искали `/Zeno/`. Теперь они принимают обе папки, иначе
+  дневные scratch-папки попадали бы в список проектов.
 
-## i18n: русские строки для дорожки ui (ключи уже есть в zh/en)
+## i18n
 
-| Ключ | ru |
-|---|---|
-| prsloy.speed.fast / quality | Быстрее / Качественнее |
-| prsloy.firstRun.keyTitle | Вставьте ключ PRSLOY |
-| prsloy.firstRun.keySubmit / keyChecking | Продолжить / Проверяю ключ… |
-| prsloy.firstRun.folderTitle / folderPick | Выберите папку проекта / Выбрать папку |
-| prsloy.firstRun.keyMemoryOnly | Ключ не сохранится: в следующий раз спросим снова |
-| prsloy.dev.section | Для разработчиков |
-| prsloy.settings.baseUrl / baseUrlReset | Адрес шлюза / Вернуть по умолчанию |
-| prsloy.settings.keyChange / keyRemove | Сменить ключ / Удалить ключ |
-| prsloy.error.invalid_key | Ключ не подошёл |
-| prsloy.error.no_balance | Закончился баланс |
-| prsloy.error.network | Нет связи с сервером |
-| prsloy.error.timeout | Сервер не отвечает |
-| prsloy.error.server | Ошибка сервера, попробуйте позже |
-| prsloy.error.bad_url | Неверный адрес |
-| prsloy.error.shellMissing | Не найден bash: агент не сможет запускать команды |
-| prsloy.undo.action / done | Откатить ход / Вернул состояние до хода {turn} |
-| prsloy.undo.restoreBack / busy / empty | Вернуть как было / Сначала остановите агента / Откатывать пока нечего |
+- Все ключи `prsloy.*` есть в ru (язык по умолчанию), zh и en.
+- Свои `prsloy.speed.*` я убрал в пользу `composer.tier.*` от дорожки ui.

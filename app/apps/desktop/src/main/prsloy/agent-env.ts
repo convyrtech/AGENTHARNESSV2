@@ -130,8 +130,6 @@ export type PrsloyHostEnvOptions = {
   agentDir: string;
   sessionDir: string;
   shimsDir: string;
-  /** Extension sources the host loads for every session (prsloy-harness). */
-  harnessExtensions?: string[];
   /** Gateway key handed to the host; the host removes it from its env at boot. */
   gatewayKey?: string | undefined;
   platform?: NodeJS.Platform;
@@ -139,7 +137,6 @@ export type PrsloyHostEnvOptions = {
 
 /** Env var the host reads (and deletes) at boot. Added after the scrub on purpose. */
 export const GATEWAY_KEY_HANDOFF_ENV = "PRSLOY_GATEWAY_KEY";
-export const HARNESS_EXTENSIONS_ENV = "PRSLOY_HARNESS_EXTENSIONS";
 
 export function buildPrsloyHostEnv(
   base: Record<string, string | undefined>,
@@ -155,11 +152,14 @@ export function buildPrsloyHostEnv(
   // Git inside agent commands must never pop a credential/editor window.
   env.GIT_TERMINAL_PROMPT = "0";
   env.GCM_INTERACTIVE = "never";
-  if (options.harnessExtensions?.length) {
-    env[HARNESS_EXTENSIONS_ENV] = JSON.stringify(options.harnessExtensions);
-  } else {
-    delete env[HARNESS_EXTENSIONS_ENV];
-  }
+  // No editor / pager can block a tool call (`git commit` without -m, `git log`).
+  env.GIT_EDITOR = "true";
+  env.EDITOR = "true";
+  env.VISUAL = "true";
+  env.GIT_PAGER = "cat";
+  env.PAGER = "cat";
+  // prsloy-harness profile for the «Код» tab.
+  env.PRSLOY_PROFILE = "code";
   if (options.gatewayKey) env[GATEWAY_KEY_HANDOFF_ENV] = options.gatewayKey;
   return env;
 }

@@ -27,7 +27,14 @@ export interface ZenoE2EFixtures {
   page: Page;
 }
 
-async function launchZenoApp(): Promise<LaunchedZeno> {
+export interface LaunchOptions {
+  /** Comma-separated tool allow-list (default "read"). */
+  tools?: string;
+  /** Tool the fake model calls for prompts containing "tool". */
+  toolCall?: { name: string; arguments: Record<string, unknown> };
+}
+
+export async function launchZenoApp(options: LaunchOptions = {}): Promise<LaunchedZeno> {
   const root = await mkdtemp(join(tmpdir(), "zeno-e2e-"));
   const home = join(root, "home");
   const agentDir = join(home, ".pi", "agent");
@@ -94,7 +101,10 @@ async function launchZenoApp(): Promise<LaunchedZeno> {
     writeFile(join(localPackage, "prompts", "e2e.md"), "E2E local package prompt.\n"),
   ]);
 
-  const fakeModel = new FakeOpenAiServer({ toolPath });
+  const fakeModel = new FakeOpenAiServer({
+    toolPath,
+    ...(options.toolCall ? { toolCall: options.toolCall } : {}),
+  });
   await fakeModel.start();
   await writeFile(
     join(agentDir, "models.json"),
@@ -133,7 +143,7 @@ async function launchZenoApp(): Promise<LaunchedZeno> {
     ZENO_WORKSPACE: workspace,
     ZENO_MODEL_PROVIDER: "zeno-fake",
     ZENO_MODEL_ID: "zeno-fake",
-    ZENO_TOOLS: "read",
+    ZENO_TOOLS: options.tools ?? "read",
     ZENO_ENABLE_TEST_COMMANDS: "1",
     ZENO_TEST_PROVIDER_OAUTH: "openai-codex",
     ZENO_TEST_PROVIDER_USAGE: JSON.stringify([

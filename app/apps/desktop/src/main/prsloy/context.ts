@@ -15,7 +15,6 @@ import {
   resolvePrsloyAgentDir,
   type PrsloyHomePaths,
 } from "./agent-home.ts";
-import { resolveHarnessExtensions } from "./harness-paths.ts";
 import { PrsloyKeyStore, type SecretCipher } from "./key-store.ts";
 import { TurnSnapshots } from "./turn-snapshots.ts";
 import { chooseGitBinary, chooseWindowsShellPath } from "./windows-shell.ts";
@@ -26,7 +25,8 @@ export type PrsloyContext = {
   paths: PrsloyHomePaths;
   agentDir: string;
   sessionDir: string;
-  harnessExtensions: string[];
+  /** prsloy-harness extensions run in every session (bundled into the host). */
+  harnessEnabled: boolean;
   /** Windows only: what pi's bash tool runs. */
   shellPath?: string;
   shellSource?: "bundled" | "system" | "missing";
@@ -127,11 +127,7 @@ export function bootstrapPrsloy(options: {
     console.warn("[prsloy] writing agent shims failed:", error);
   }
 
-  const harnessExtensions = resolveHarnessExtensions({
-    env,
-    resourcesPath: options.resourcesPath,
-    mainModuleUrl: options.mainModuleUrl,
-  });
+  const harnessEnabled = env.PRSLOY_HARNESS !== "0";
   const keyStore = new PrsloyKeyStore(join(paths.stateDir, "gateway-key.bin"), options.cipher);
   const snapshots = new TurnSnapshots({ root: paths.snapshotsDir, gitBinary, platform });
 
@@ -139,7 +135,7 @@ export function bootstrapPrsloy(options: {
     paths,
     agentDir,
     sessionDir,
-    harnessExtensions,
+    harnessEnabled,
     ...(shellPath ? { shellPath } : {}),
     ...(shellSource ? { shellSource } : {}),
     gitBinary,
@@ -159,7 +155,6 @@ export function bootstrapPrsloy(options: {
         agentDir,
         sessionDir,
         shimsDir: paths.shimsDir,
-        harnessExtensions,
         gatewayKey: keyStore.read(),
         platform,
       });

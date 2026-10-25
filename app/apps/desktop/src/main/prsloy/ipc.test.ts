@@ -82,7 +82,7 @@ describe("first run over IPC (mock gateway)", () => {
     const models = JSON.parse(readFileSync(join(t.userData, "agent", "models.json"), "utf8"));
     expect(models.providers.prsloy.baseUrl).toBe("https://api.prsloy.online/v1");
     const state = await t.invoke<PrsloyState>(PRSLOY_IPC.getState);
-    expect(state).toMatchObject({ hasKey: false, needsWorkspace: true, harnessLoaded: false });
+    expect(state).toMatchObject({ hasKey: false, needsWorkspace: true, harnessLoaded: true });
   });
 
   it("rejects a wrong key without storing it", async () => {

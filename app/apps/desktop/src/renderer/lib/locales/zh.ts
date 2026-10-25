@@ -1418,8 +1418,6 @@ export const zh = {
   "composer.tier.quality": "更好",
   "cost.turn": "本回合 {amount}",
   "cost.session": "会话 {amount}",
-  "prsloy.speed.fast": "更快",
-  "prsloy.speed.quality": "更好",
   "prsloy.firstRun.keyTitle": "粘贴 PRSLOY 密钥",
   "prsloy.firstRun.keyPlaceholder": "sk-…",
   "prsloy.firstRun.keySubmit": "继续",
