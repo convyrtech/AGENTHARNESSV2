@@ -198,7 +198,8 @@ export function MemorySection(props: { tr: Tr; locale: Locale; workspace: string
   return (
     <SettingsPageShell title={tr("features.memory.section")} testId="settings-memory">
       <p className="memory-note" data-testid="memory-hint">
-        {tr("features.memory.hint")}
+        {/* «Замечать важное само» is on by default now: «only when you ask» would not be true. */}
+        {tr(flags?.autoMemory === true ? "features.memory.hintAuto" : "features.memory.hint")}
       </p>
       <SettingsSectionBlock label={tr("features.memory.section")} showLabel={false}>
         <SettingsRow

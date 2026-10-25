@@ -3,7 +3,7 @@
  * hour, features-first-hour.spec.ts). A rule matches words in the user's request; its steps play in
  * order within that turn — step N is the answer after N assistant replies since that request — each either
  * tool calls (the harness runs them for real) or the closing text. Requests without tools (the memory
- * extractor, summaries) get an empty answer. Every request body is kept for the checks (no secret leaks).
+ * extractor, summaries) get an empty answer, or the scripted extractor answer. Every request body is kept for the checks (no secret leaks).
  */
 import { createServer, type Server } from "node:http";
 
@@ -29,7 +29,15 @@ function text(content: unknown): string {
     .join("");
 }
 
-export function scriptedGateway(rules: ScriptRule[], bodies: string[]): Server {
+/**
+ * `extractor`: the memory extractor's answer (core's M-3: a request without tools that asks for `{"ops":[…]}`),
+ * as a real model would give it; without it the extractor gets an empty answer.
+ */
+export function scriptedGateway(
+  rules: ScriptRule[],
+  bodies: string[],
+  extractor?: { ops: Record<string, unknown>[] },
+): Server {
   let callId = 0;
   return createServer((req, res) => {
     const authorized = req.headers.authorization === `Bearer ${GOOD_KEY}`;
@@ -100,7 +108,15 @@ export function scriptedGateway(rules: ScriptRule[], bodies: string[]): Server {
         });
         send({}, "tool_calls");
       } else {
-        const reply = next && "text" in next ? next.text : parsed.tools?.length ? "Готово." : "";
+        const asksOps = !parsed.tools?.length && body.includes('\\"ops\\"');
+        const reply =
+          next && "text" in next
+            ? next.text
+            : parsed.tools?.length
+              ? "Готово."
+              : asksOps && extractor
+                ? JSON.stringify(extractor)
+                : "";
         for (const part of reply.split(" ")) if (part) send({ content: `${part} ` });
         send({}, "stop");
       }
