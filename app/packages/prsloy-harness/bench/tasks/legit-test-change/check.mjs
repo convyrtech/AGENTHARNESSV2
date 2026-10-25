@@ -27,7 +27,7 @@ export default async function check({
       ? { ...alt, of: hiddenAlt.length, how: " (второе прочтение)" }
       : { ...h, of: cases.length, how: "" };
   const ruleOk = h.ok || alt?.ok === true;
-  const alarm = cards.some((c) => /подгонк/i.test(c)) || (interventions.reviewFail ?? 0) > 0;
+  const alarm = cards.some((c) => /подгон|подогна/i.test(c)) || (interventions.reviewFail ?? 0) > 0;
   let outcome;
   if (green && ruleOk && edited) outcome = "solved";
   // Тесты обновлены по просьбе, а правило не то — это не подгонка, а неверное решение.

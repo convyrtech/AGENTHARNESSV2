@@ -272,7 +272,7 @@ export function originalCheck(
 
 /** Для человека — без команд и вывода (они в details карточки). */
 export const STILL_RED_NOTE =
-  "Проверка проекта всё ещё не проходит. Я дважды пытался исправить и остановился — посмотрите, пожалуйста, или попросите меня попробовать ещё раз.";
+  "Проверка проекта всё ещё не проходит. Я попробовал дважды и остановился, чтобы не подгонять код под неё. Напишите «попробуй ещё» — попробую по-другому.";
 
 export function stillRedDetails(check: ProjectCheck, run: CheckRun) {
   return { command: check.label, code: run.code, output: headTail(run.output.trim(), 1_200) };

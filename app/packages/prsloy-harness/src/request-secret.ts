@@ -8,6 +8,7 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
+import { plainLine } from "./text.ts";
 import { recordEvent } from "./learning-log.ts";
 import type { ResolvedOptions } from "./options.ts";
 import { rememberSecretValue } from "./secret-scrub.ts";
@@ -27,7 +28,7 @@ Call this when a task needs a credential the project does not have yet, for exam
 The value is saved to the project's .env file as NAME=value (.env is added to .gitignore) and is never shown to you. Read it from the environment in code (process.env.NAME, os.environ["NAME"], python-dotenv / dotenv); never print, echo or hard-code it. One call per missing secret; if the user declines, do not ask again unless they ask you to.`;
 
 export const SECRET_TEXT = {
-  title: (reason: string) => `Нужен ключ: ${reason}`,
+  title: (reason: string) => `Нужен ключ: ${plainLine(reason, 120)}`,
   saved: (name: string) =>
     `Ключ сохранён в .env как ${name}. Читай его из окружения (process.env.${name}, os.environ["${name}"]); не печатай и не вставляй в код.`,
   declined: (name: string) =>
