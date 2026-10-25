@@ -78,6 +78,19 @@ describe("host contract validation", () => {
     ).toBe(true);
   });
 
+  it("message.failed accepts the model_unavailable code", () => {
+    const failed = (code: string) =>
+      isHostEvent({
+        protocolVersion: IPC_PROTOCOL_VERSION,
+        type: "runtime.event",
+        runtimeId: "runtime-1",
+        sequence: 10,
+        event: { type: "message.failed", reason: "error", message: "404", code },
+      });
+    expect(failed("model_unavailable")).toBe(true);
+    expect(failed("no_such_code")).toBe(false);
+  });
+
   it("message.completed may carry the final text and thinking", () => {
     const completed = (event: Record<string, unknown>) =>
       isHostEvent({
