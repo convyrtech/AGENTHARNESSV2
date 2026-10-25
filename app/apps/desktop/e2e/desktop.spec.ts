@@ -563,7 +563,7 @@ test.describe("Desktop shell Playwright E2E (macOS Electron)", () => {
         ),
       )
       // PRSLOY light surface: the studio dialog stays on the brand's paper card (desktop/ui f0aca51).
-      .toBe("#faf7f0");
+      .toBe("#f4efe3");
     await expect(studio).not.toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
     const themePreview = studio.locator(".theme-skin-preview-app");
     await expect(themePreview).toBeVisible();
@@ -587,7 +587,7 @@ test.describe("Desktop shell Playwright E2E (macOS Electron)", () => {
         ),
       )
       // PRSLOY light surface: the studio dialog stays on the brand's paper card (desktop/ui f0aca51).
-      .toBe("#faf7f0");
+      .toBe("#f4efe3");
     await studio
       .locator(".theme-skin-mode-switch button")
       .filter({ hasText: /Light|浅色/ })
