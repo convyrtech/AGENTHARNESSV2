@@ -176,7 +176,12 @@ export class FakeOpenAiServer {
       return;
     }
 
-    if (prompt.includes("tool") && !hasToolResult) {
+    // pi's compaction summary request carries the transcript (which mentions tools) but
+    // must get a summary back, never a tool call.
+    const isPiSummarization = messages.some((message) =>
+      textContent(message).includes("context summarization assistant"),
+    );
+    if (prompt.includes("tool") && !hasToolResult && !isPiSummarization) {
       sendChunk(
         response,
         chunk({
