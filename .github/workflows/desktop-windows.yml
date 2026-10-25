@@ -79,7 +79,11 @@ jobs:
   smoke:
     needs: package
     runs-on: windows-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
+    env:
+      # A Russian user «Иван Петров» with a project folder that has Cyrillic and a space.
+      SMOKE_CYRILLIC_PROFILE: 'C:\Users\Иван Петров'
+      SMOKE_CYRILLIC_WORKSPACE: 'C:\Проекты\мой сайт'
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
@@ -125,7 +129,38 @@ jobs:
           SMOKE_OUT: ${{ github.workspace }}/app/smoke-out
           # Clean-machine bash (system Git hidden) must work via the bundled PortableGit.
           SMOKE_STRICT_CLEAN_BASH: "1"
-        run: pnpm exec playwright test -c playwright.smoke.config.ts
+          SMOKE_REPORT: main
+        # smoke: test-mode launches (runner + clean Windows); firstrun: product mode (key gate,
+        # PRSLOY provider, update check behind a dead proxy).
+        run: pnpm exec playwright test -c playwright.smoke.config.ts smoke.spec.ts firstrun.spec.ts
+      # Reinstall into the Cyrillic profile (NSIS replaces the first install) and run the app from there.
+      - name: Silent install into a Cyrillic profile
+        if: success() || failure()
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $setup = Get-ChildItem installer -Filter 'PRSLOY-*-win-x64.exe' | Select-Object -First 1
+          $target = Join-Path $env:SMOKE_CYRILLIC_PROFILE 'AppData\Local\Programs\PRSLOY'
+          New-Item -ItemType Directory -Force $env:SMOKE_CYRILLIC_PROFILE, $env:SMOKE_CYRILLIC_WORKSPACE | Out-Null
+          $sw = [Diagnostics.Stopwatch]::StartNew()
+          # NSIS: /D= must be last and unquoted, even with spaces.
+          $p = Start-Process $setup.FullName -ArgumentList "/S /currentuser /D=$target" -Wait -PassThru
+          $sw.Stop()
+          if ($p.ExitCode -ne 0) { throw "installer exit code $($p.ExitCode)" }
+          $exe = Join-Path $target 'PRSLOY.exe'
+          if (-not (Test-Path -LiteralPath $exe)) { throw "PRSLOY.exe not found in $target" }
+          "PRSLOY_EXE_CYRILLIC=$exe" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
+          @{ exe = $exe; installSeconds = [math]::Round($sw.Elapsed.TotalSeconds, 1) } |
+            ConvertTo-Json | Out-File -Encoding utf8 smoke-out/install-cyrillic.json
+          Get-Content smoke-out/install-cyrillic.json
+      - name: Smoke test (Cyrillic profile)
+        if: (success() || failure()) && env.PRSLOY_EXE_CYRILLIC != ''
+        working-directory: app/apps/desktop
+        env:
+          SMOKE_OUT: ${{ github.workspace }}/app/smoke-out
+          SMOKE_REPORT: cyrillic
+          PRSLOY_EXE: ${{ env.PRSLOY_EXE_CYRILLIC }}
+        run: pnpm exec playwright test -c playwright.smoke.config.ts cyrillic.spec.ts
       - name: Collect app logs
         if: always()
         shell: pwsh
@@ -134,13 +169,21 @@ jobs:
             $dest = Join-Path smoke-out "userData-$($_.Name)"
             robocopy (Join-Path $_.FullName 'userData') $dest /E /XD runtimes npm-prefix python-venv Cache 'Code Cache' GPUCache DawnCache /NFL /NDL /NJH /NJS | Out-Null
           }
+          $cyr = Join-Path $env:SMOKE_CYRILLIC_PROFILE 'AppData\Roaming\PRSLOY'
+          if (Test-Path -LiteralPath $cyr) {
+            robocopy $cyr (Join-Path smoke-out 'userData-cyrillic') /E /XD runtimes npm-prefix python-venv Cache 'Code Cache' GPUCache DawnCache /NFL /NDL /NJH /NJS | Out-Null
+          }
+          if (Test-Path -LiteralPath $env:SMOKE_CYRILLIC_WORKSPACE) {
+            Get-ChildItem -LiteralPath $env:SMOKE_CYRILLIC_WORKSPACE -Force | Select-Object Name, Length |
+              ConvertTo-Json | Out-File -Encoding utf8 smoke-out/cyrillic-workspace.json
+          }
           $global:LASTEXITCODE = 0
       - name: Summary
         if: always()
         shell: pwsh
         run: |
           "## Smoke" | Out-File -Append $env:GITHUB_STEP_SUMMARY
-          foreach ($f in 'install.json','metrics.json','bash-runner.json','bash-clean.json','clean-env.json') {
+          foreach ($f in 'install.json','install-cyrillic.json','metrics.json','bash-runner.json','bash-clean.json','bash-cyrillic.json','clean-env.json') {
             $path = Join-Path smoke-out $f
             if (Test-Path $path) { "### $f", '```json', (Get-Content $path -Raw), '```' | Out-File -Append $env:GITHUB_STEP_SUMMARY }
           }
