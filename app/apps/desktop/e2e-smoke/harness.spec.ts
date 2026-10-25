@@ -539,13 +539,20 @@ test("harness on the installed app: steps 0–12", async () => {
 
   await test.step("9–12: second opinion of another model on the turn diff", async () => {
     const { page, model } = state;
-    // Считаем абзацы карточек: getByText на одну карточку находит здесь два элемента.
-    const cards = (text: string) => page!.locator("p", { hasText: text }).count();
-    const pass = "Проверила вторая модель: замечаний нет";
-    const fail = "Вторая модель нашла 1 замечание — исправляю";
+    // Карточки ревью считаем по стабильным атрибутам HarnessCard (вид карточки может меняться),
+    // а их видимый текст проверяем отдельно: он должен говорить то же самое.
+    const review = (verdict: "pass" | "fail") =>
+      page!.locator(
+        `[data-testid="harness-card"][data-harness="review"][data-verdict="${verdict}"]`,
+      );
+    const cards = (verdict: "pass" | "fail") => review(verdict).count();
+    const pass = "pass" as const;
+    const fail = "fail" as const;
 
     await step(9, " (review real)");
     await expect.poll(() => cards(fail), { timeout: 30_000 }).toBe(1);
+    await expect(review(fail)).toHaveAttribute("data-count", "1");
+    await expect(review(fail)).toContainText("Вторая модель нашла 1 замечание — исправляю");
     // Один возврат: писатель получил замечание с цитатой, второго ревью в ходе нет.
     await expect
       .poll(
@@ -562,6 +569,7 @@ test("harness on the installed app: steps 0–12", async () => {
 
     await step(10, " (review fake)");
     await expect.poll(() => cards(pass), { timeout: 30_000 }).toBe(1);
+    await expect(review(pass)).toContainText("Проверила вторая модель: замечаний нет");
     await step(11, " (review pass)");
     await expect.poll(() => cards(pass), { timeout: 30_000 }).toBe(2);
     expect.soft(await cards(fail)).toBe(1);

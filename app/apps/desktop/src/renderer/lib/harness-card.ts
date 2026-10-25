@@ -48,6 +48,15 @@ export function stopGateOutput(details: unknown): string | undefined {
 
 export type ReviewRemark = { where?: string; problem: string };
 
+/** The second opinion's verdict (`details.verdict`), else read from whether it has remarks. */
+export function reviewVerdict(details: unknown): "pass" | "fail" | undefined {
+  const verdict = (details as { verdict?: unknown } | null | undefined)?.verdict;
+  if (verdict === "PASS") return "pass";
+  if (verdict === "FAIL") return "fail";
+  if (details === undefined || details === null) return undefined;
+  return reviewRemarks(details).length ? "fail" : "pass";
+}
+
 /** The second opinion's remarks from the card's `details` ({ items: [{ file, line, problem }] }). */
 export function reviewRemarks(details: unknown): ReviewRemark[] {
   const items = (details as { items?: unknown } | null | undefined)?.items;

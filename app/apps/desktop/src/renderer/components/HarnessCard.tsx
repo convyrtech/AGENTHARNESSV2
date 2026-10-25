@@ -12,6 +12,7 @@ import {
   harnessTitleKey,
   harnessUsesOwnText,
   reviewRemarks,
+  reviewVerdict,
   stopGateOutput,
   type HarnessCardKind,
 } from "../lib/harness-card.ts";
@@ -33,6 +34,7 @@ export function HarnessCard(props: {
   const bodyKey = ownText ? undefined : harnessBodyKey(props.kind);
   const retry = harnessOffersRetry(props.kind) ? props.onRetry : undefined;
   const remarks = props.kind === "review" ? reviewRemarks(props.details) : [];
+  const verdict = props.kind === "review" ? reviewVerdict(props.details) : undefined;
   const raw =
     props.kind === "stopGate"
       ? (stopGateOutput(props.details) ?? "")
@@ -50,6 +52,7 @@ export function HarnessCard(props: {
       data-kind="system"
       data-harness={props.kind}
       data-testid="harness-card"
+      {...(verdict ? { "data-verdict": verdict, "data-count": String(remarks.length) } : {})}
     >
       <div className="model-failure-head">
         <Icon className="size-4 shrink-0" strokeWidth={1.75} />
