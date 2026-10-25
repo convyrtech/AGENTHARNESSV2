@@ -89,6 +89,8 @@ import { TurnStatusLine } from "./TurnStatusLine.tsx";
 import { isTurnStatusItem, parseTurnStatus } from "../lib/turn-status.ts";
 import { HarnessCard } from "./HarnessCard.tsx";
 import { MemoryCard } from "./MemoryCard.tsx";
+import { BlockerCard } from "./BlockerCard.tsx";
+import { BLOCKER_TYPE } from "../lib/blocker-card.ts";
 import { memoryCardKind } from "../lib/memory.ts";
 import {
   isHostCrash,
@@ -513,6 +515,8 @@ export const TimelineRow = memo(function TimelineRow(props: {
   onForkAssistant?: (item: Extract<TimelineItem, { kind: "assistant" }>) => void | Promise<void>;
   /** Resend the prompt of the turn this failure belongs to. */
   onRetry?: (() => void) | undefined;
+  /** Send a ready answer as the owner's next message («Не получилось» card). */
+  onSend?: ((text: string) => void) | undefined;
   editingLocked?: boolean;
 }) {
   const { item } = props;
@@ -834,6 +838,17 @@ export const TimelineRow = memo(function TimelineRow(props: {
   if (isTurnStatusItem(item)) {
     const status = parseTurnStatus(item.kind === "system" ? item.details : undefined);
     return status ? <TurnStatusLine locale={props.locale} status={status} /> : null;
+  }
+  if (item.extension && item.title === BLOCKER_TYPE) {
+    return (
+      <BlockerCard
+        locale={props.locale}
+        text={item.text}
+        details={item.details}
+        onSend={props.onSend}
+        disabled={props.editingLocked}
+      />
+    );
   }
   const memory = item.extension ? memoryCardKind(item.title) : undefined;
   if (memory) {

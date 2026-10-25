@@ -290,6 +290,7 @@ export function SessionTimelineContent(props: SessionTimelineContentProps) {
                       {...(props.onResend && resendText
                         ? { onRetry: () => props.onResend?.(resendText) }
                         : {})}
+                      {...(props.onResend ? { onSend: props.onResend } : {})}
                     />
                   )}
                 </MessageScrollerItem>

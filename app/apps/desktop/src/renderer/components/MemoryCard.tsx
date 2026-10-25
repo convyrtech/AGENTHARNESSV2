@@ -19,6 +19,7 @@ import {
   savedCardText,
 } from "../lib/memory.ts";
 import { useShellStore } from "../store/shell-store.ts";
+import { MemoryAutoCard, MemoryUpdatedCard } from "./MemoryAutoCards.tsx";
 
 type State =
   | { kind: "card" }
@@ -35,6 +36,23 @@ function focusComposer() {
 }
 
 export function MemoryCard(props: {
+  locale: Locale;
+  kind: MemoryCardKind;
+  text: string;
+  details?: unknown;
+  timestamp?: string | undefined;
+}) {
+  if (props.kind === "auto") {
+    return <MemoryAutoCard locale={props.locale} details={props.details} text={props.text} />;
+  }
+  if (props.kind === "updated") {
+    return <MemoryUpdatedCard locale={props.locale} details={props.details} text={props.text} />;
+  }
+  return <MemoryRequestCard {...props} />;
+}
+
+/** The cards of memory «по просьбе» (research/18 §6.7): saved, forgot, full, refused. */
+function MemoryRequestCard(props: {
   locale: Locale;
   kind: MemoryCardKind;
   text: string;

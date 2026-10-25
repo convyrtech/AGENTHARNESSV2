@@ -31,7 +31,7 @@ afterEach(cleanup);
 
 describe("Settings → Память", () => {
   it("shows what the agent remembers, forgets one, restores one", async () => {
-    render(<MemorySection tr={tr} workspace="/home/u/site" />);
+    render(<MemorySection tr={tr} locale="ru" workspace="/home/u/site" />);
     const user = await screen.findByTestId("memory-user");
     expect(user.textContent).toContain("Обо мне");
     expect(user.textContent).toContain("Отвечать коротко, без терминов");
@@ -48,7 +48,7 @@ describe("Settings → Память", () => {
   });
 
   it("«Забыть всё» only after the confirm", async () => {
-    render(<MemorySection tr={tr} workspace={undefined} />);
+    render(<MemorySection tr={tr} locale="ru" workspace={undefined} />);
     expect((await screen.findByTestId("memory-project")).textContent).toContain("Откройте проект");
     fireEvent.click(screen.getByTestId("memory-forget-all"));
     expect(screen.getByTestId("memory-forget-all-confirm").textContent).toContain(
@@ -62,7 +62,7 @@ describe("Settings → Память", () => {
   });
 
   it("the switch writes the harness flag; off by default", async () => {
-    render(<MemorySection tr={tr} workspace={undefined} />);
+    render(<MemorySection tr={tr} locale="ru" workspace={undefined} />);
     const toggle = await screen.findByTestId("settings-memory-toggle");
     await waitFor(() => expect(toggle.getAttribute("aria-checked")).toBe("false"));
     expect(screen.getByText("Сейчас выключено: агент ничего не запоминает.")).toBeTruthy();
@@ -73,9 +73,98 @@ describe("Settings → Память", () => {
 
   it("says so while main has no memory yet", () => {
     (window as unknown as { zeno: unknown }).zeno = { harnessFlags: flags };
-    render(<MemorySection tr={tr} workspace={undefined} />);
+    render(<MemorySection tr={tr} locale="ru" workspace={undefined} />);
     expect(screen.getByTestId("memory-unavailable").textContent).toBe(
       "Память пока недоступна в этой версии приложения.",
+    );
+  });
+});
+
+describe("Settings → Память, v2 (research/24 §3.6)", () => {
+  const v2 = {
+    user: [
+      {
+        id: "u-1",
+        text: "Отвечать коротко",
+        origin: "auto",
+        quote: "пиши короче",
+        created: "2026-10-12T10:00:00Z",
+      },
+      { id: "u-2", text: "Без английских слов", origin: "user", pinned: true },
+    ],
+    project: [],
+    forgotten: [],
+    history: [
+      {
+        opId: "op-9",
+        scope: "user",
+        kind: "replaced",
+        text: "Тёмные сайты",
+        now: "Светлые сайты",
+        at: "2026-10-20T10:00:00Z",
+      },
+    ],
+  };
+
+  beforeEach(() => {
+    localStorage.clear();
+    api.list.mockResolvedValue(v2);
+    (api as Record<string, unknown>).pin = vi.fn().mockResolvedValue(v2);
+    (api as Record<string, unknown>).revert = vi.fn().mockResolvedValue({ ...v2, history: [] });
+    flags.get.mockResolvedValue({ secondOpinion: true, memory: true, autoMemory: "off" });
+  });
+
+  it("says who it came from, when and in which words; pins; brings back from «Было»", async () => {
+    render(<MemorySection tr={tr} locale="ru" workspace="/p" />);
+    const rows = await screen.findAllByTestId("memory-user-row");
+    expect(rows[0]?.textContent).toMatch(/заметил сам · 12 окт\.? · Ваши слова: «пиши короче»/u);
+    expect(rows[1]?.textContent).toContain("вы просили");
+    const pins = screen.getAllByTestId("memory-user-pin");
+    expect(pins.map((b) => b.textContent)).toEqual(["Закрепить", "Открепить"]);
+    fireEvent.click(pins[0]!);
+    await waitFor(() =>
+      expect((api as unknown as { pin: ReturnType<typeof vi.fn> }).pin).toHaveBeenCalledWith(
+        "u-1",
+        true,
+        "/p",
+      ),
+    );
+    const history = screen.getByTestId("memory-history");
+    expect(history.textContent).toContain("Было");
+    expect(history.textContent).toContain("заменено, теперь «Светлые сайты»");
+    fireEvent.click(screen.getByTestId("memory-history-revert"));
+    await waitFor(() =>
+      expect((api as unknown as { revert: ReturnType<typeof vi.fn> }).revert).toHaveBeenCalledWith(
+        "op-9",
+        "/p",
+      ),
+    );
+  });
+
+  it("«Замечать важное само»: the first time a card with [Выключить], which turns it off", async () => {
+    render(<MemorySection tr={tr} locale="ru" workspace="/p" />);
+    const auto = await screen.findByTestId("settings-memory-auto-toggle");
+    await waitFor(() => expect((auto as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(auto);
+    await waitFor(() => expect(flags.set).toHaveBeenCalledWith({ autoMemory: true }));
+    expect(screen.getByTestId("memory-auto-intro").textContent).toContain(
+      "Теперь замечаю важное в ваших словах сам",
+    );
+    fireEvent.click(screen.getByTestId("memory-auto-intro-off"));
+    await waitFor(() => expect(flags.set).toHaveBeenCalledWith({ autoMemory: "off" }));
+    expect(screen.queryByTestId("memory-auto-intro")).toBeNull();
+  });
+
+  it("no [Закрепить] while core serves memory v1; «само» waits for memory to be on", async () => {
+    api.list.mockResolvedValue({ user: [{ id: "u-1", text: "А" }], project: [], forgotten: [] });
+    flags.get.mockResolvedValue({ secondOpinion: true, memory: false, autoMemory: "off" });
+    render(<MemorySection tr={tr} locale="ru" workspace="/p" />);
+    await screen.findAllByTestId("memory-user-row");
+    expect(screen.queryByTestId("memory-user-pin")).toBeNull();
+    await waitFor(() =>
+      expect(
+        (screen.getByTestId("settings-memory-auto-toggle") as HTMLButtonElement).disabled,
+      ).toBe(true),
     );
   });
 });
