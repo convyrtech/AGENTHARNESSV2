@@ -153,7 +153,7 @@ import {
 } from "./prsloy/hardening.ts";
 import { RuntimeBoot } from "./prsloy/runtime-boot.ts";
 import { prepareTurn, registerPrsloyIpc } from "./prsloy/ipc.ts";
-import { emitSessionLeft } from "./prsloy/session-left.ts";
+import { trackSessionFile } from "./prsloy/session-left.ts";
 import { CRASH_RESTART_DELAY_MS, nextCrashRestart } from "./prsloy/crash-restart.ts";
 import {
   isConversationWorkspacePath,
@@ -2475,7 +2475,7 @@ class HostSupervisor {
     this.#snapshot = live.snapshot;
     this.#lastSequence = live.lastSequence;
     this.#pending = live.pending;
-    this.#sessionFile = live.snapshot.sessionFile ?? sessionPath;
+    this.#sessionFile = trackSessionFile(live.snapshot.sessionFile ?? sessionPath);
     if (live.workspaceCwd) {
       this.#workspaceCwd = live.workspaceCwd;
       this.#requireExplicitWorkspace = false;
@@ -2619,9 +2619,10 @@ class HostSupervisor {
       this.#workspaceCwd = options.cwd;
       this.#requireExplicitWorkspace = false;
       // Workspace change invalidates a pinned session unless the caller supplies one.
-      if (options.sessionFile === undefined) this.#sessionFile = undefined;
+      if (options.sessionFile === undefined) this.#sessionFile = trackSessionFile(undefined);
     }
-    if (options?.sessionFile !== undefined) this.#sessionFile = options.sessionFile;
+    if (options?.sessionFile !== undefined)
+      this.#sessionFile = trackSessionFile(options.sessionFile);
     if (options?.resumeRecent !== undefined) this.#resumeRecent = options.resumeRecent;
 
     const live = this.#host && this.#snapshot && !this.#host.ignoreMessages && !this.#host.stopping;
@@ -2684,7 +2685,7 @@ class HostSupervisor {
       ) {
         this.#workspaceCwd = cwd;
         this.#requireExplicitWorkspace = false;
-        if (options?.sessionFile) this.#sessionFile = options.sessionFile;
+        if (options?.sessionFile) this.#sessionFile = trackSessionFile(options.sessionFile);
         return this.#snapshot;
       }
 
@@ -2694,7 +2695,7 @@ class HostSupervisor {
         if (promoted && this.#snapshot) {
           this.#workspaceCwd = this.#snapshot.cwd || cwd;
           this.#requireExplicitWorkspace = false;
-          this.#sessionFile = options.sessionFile;
+          this.#sessionFile = trackSessionFile(options.sessionFile);
           return this.#snapshot;
         }
       }
@@ -2705,7 +2706,7 @@ class HostSupervisor {
         if (this.#snapshot) {
           this.#workspaceCwd = this.#snapshot.cwd || cwd;
           this.#requireExplicitWorkspace = false;
-          if (options?.sessionFile) this.#sessionFile = options.sessionFile;
+          if (options?.sessionFile) this.#sessionFile = trackSessionFile(options.sessionFile);
           return this.#snapshot;
         }
       }
@@ -2713,12 +2714,12 @@ class HostSupervisor {
       this.#workspaceCwd = cwd;
       this.#requireExplicitWorkspace = false;
       // Prefer explicit session when switching into a project (avoids open→default→switch flicker).
-      this.#sessionFile = options?.sessionFile;
+      this.#sessionFile = trackSessionFile(options?.sessionFile);
       this.#resumeRecent = options?.resumeRecent === true && !options?.sessionFile;
       // Park current host (idle or busy) for later promote instead of killing it.
       await this.#detachForeground();
       // stop/park may have cleared pointers; re-assert intent.
-      this.#sessionFile = options?.sessionFile;
+      this.#sessionFile = trackSessionFile(options?.sessionFile);
       this.#resumeRecent = options?.resumeRecent === true && !options?.sessionFile;
       return this.#startExclusive({
         cwd,
@@ -2743,7 +2744,7 @@ class HostSupervisor {
     const previous = this.#workspaceCwd;
     // Keep generating sessions alive in the background.
     await this.#detachForeground();
-    this.#sessionFile = undefined;
+    this.#sessionFile = trackSessionFile(undefined);
     this.#snapshot = undefined;
     this.#host = undefined;
     this.#resumeRecent = false;
@@ -3075,7 +3076,7 @@ class HostSupervisor {
       if (opened.snapshot.cwd) {
         this.#workspaceCwd = opened.snapshot.cwd;
         this.#requireExplicitWorkspace = false;
-        this.#sessionFile = opened.snapshot.sessionFile ?? sessionPath;
+        this.#sessionFile = trackSessionFile(opened.snapshot.sessionFile ?? sessionPath);
         rememberWorkspace(opened.snapshot.cwd);
       }
       return opened;
@@ -3090,7 +3091,7 @@ class HostSupervisor {
     // Ensure a live runtime exists. Prefer opening the target session file directly
     // so we do not start a throwaway session then switch (flash + missing history).
     if (!this.#host || !this.#snapshot) {
-      this.#sessionFile = sessionPath;
+      this.#sessionFile = trackSessionFile(sessionPath);
       this.#requireExplicitWorkspace = false;
       // Use #startExclusive — already inside #exclusive; do not re-enter via start().
       await this.#startExclusive({
@@ -3107,7 +3108,7 @@ class HostSupervisor {
         if (opened.snapshot.cwd) {
           this.#workspaceCwd = opened.snapshot.cwd;
           this.#requireExplicitWorkspace = false;
-          this.#sessionFile = opened.snapshot.sessionFile ?? sessionPath;
+          this.#sessionFile = trackSessionFile(opened.snapshot.sessionFile ?? sessionPath);
           rememberWorkspace(opened.snapshot.cwd);
         }
         return opened;
@@ -3127,7 +3128,7 @@ class HostSupervisor {
     if (event.snapshot.cwd) {
       this.#workspaceCwd = event.snapshot.cwd;
       this.#requireExplicitWorkspace = false;
-      this.#sessionFile = event.snapshot.sessionFile ?? sessionPath;
+      this.#sessionFile = trackSessionFile(event.snapshot.sessionFile ?? sessionPath);
       rememberWorkspace(event.snapshot.cwd);
     }
     return { snapshot: event.snapshot, threads: event.threads, history: event.history };
@@ -3321,7 +3322,7 @@ class HostSupervisor {
     if (event.snapshot.cwd) {
       this.#workspaceCwd = event.snapshot.cwd;
       this.#requireExplicitWorkspace = false;
-      this.#sessionFile = event.snapshot.sessionFile;
+      this.#sessionFile = trackSessionFile(event.snapshot.sessionFile);
       rememberWorkspace(event.snapshot.cwd);
     }
     return { snapshot: event.snapshot, threads: event.threads, history: event.history };
@@ -4152,7 +4153,7 @@ class HostSupervisor {
     // Crash recovery may continue the same session file. Intentional stop / workspace
     // switch must not re-pin the previous session onto the next start.
     if (!host.stopping && this.#snapshot?.sessionFile) {
-      this.#sessionFile = this.#snapshot.sessionFile;
+      this.#sessionFile = trackSessionFile(this.#snapshot.sessionFile);
     }
     this.#snapshot = undefined;
     this.#lastSequence = 0;
@@ -4189,8 +4190,7 @@ class HostSupervisor {
     this.#snapshot = snapshot;
     this.#lastSequence = snapshot.sequence;
     if (snapshot.sessionFile && snapshot.sessionFile !== this.#sessionFile) {
-      if (this.#sessionFile) emitSessionLeft(this.#sessionFile);
-      this.#sessionFile = snapshot.sessionFile;
+      this.#sessionFile = trackSessionFile(snapshot.sessionFile);
     }
   }
 
