@@ -86,7 +86,8 @@ export function saveSupportReport(deps: SupportReportDeps): PrsloySupportReportR
     const name = supportReportFileName(now);
     const path = join(targetDir(), name);
     writeFileSync(path, zip);
-    shell.showItemInFolder(path);
+    // Headless CI runners have no file manager: the reveal there kept the app from quitting.
+    if (process.env.ZENO_ENABLE_TEST_COMMANDS !== "1") shell.showItemInFolder(path);
     console.log(`[prsloy] support report saved (${zip.length} bytes)`);
     return { ok: true, path, name };
   } catch (error) {
