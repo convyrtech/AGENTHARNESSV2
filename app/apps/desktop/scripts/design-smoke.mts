@@ -26,6 +26,7 @@ import {
   mkdirSync,
   readdirSync,
   readFileSync,
+  rmSync,
   statSync,
   writeFileSync,
 } from "node:fs";
@@ -34,10 +35,11 @@ import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { pythonDistMeta } from "./fetch-runtimes.mjs";
-import { venvPython } from "../src/main/design/env.ts";
+import { buildHarnessEnv, python3Shims, venvBinDir, venvPython } from "../src/main/design/env.ts";
 import { importPipeline, NOT_TOOLS } from "../src/main/design/pipeline-import.ts";
 import { DESIGN_PACKAGES, setupDesignTools } from "../src/main/design/setup.ts";
 import { zipDirectory, zipFiles } from "../src/main/design/zip.ts";
+import { restrictToCurrentUser } from "../src/main/prsloy/file-acl.ts";
 
 const DESKTOP = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const REPO = resolve(DESKTOP, "..", "..", "..");
@@ -278,8 +280,20 @@ writeFileSync(
     },
   ]),
 );
+// harness state where the app keeps it: userData/design-state/<workspace id>, user-only (service.ts)
+const stateDir = join(
+  work,
+  "AppData",
+  "Roaming",
+  "PRSLOY",
+  "design-state",
+  createHash("sha256").update(resolve(ws)).digest("hex").slice(0, 16),
+);
+mkdirSync(stateDir, { recursive: true });
+const acl = restrictToCurrentUser(stateDir, { isDir: true });
 const harnessEnv = {
   ...env,
+  HARNESS_STATE_DIR: stateDir,
   PI_BIN: JSON.stringify([py, join(STUBS, "stub_pi.py")]),
   PI_CODING_AGENT_DIR: piHome,
   // nothing listens there: the second opinion must degrade, not crash
@@ -329,8 +343,80 @@ check(
   say.code === 0 && events.includes("stage") && events.at(-1) === "owner",
   `run.py say: ${events.join(", ")} (${say.code !== 0 ? say.out.slice(-400) : "ok"})`,
 );
+// the state folder: the owner and the machine's administrators (icacls), 0700 elsewhere
+let aclText = "";
+if (process.platform === "win32") {
+  aclText = run("icacls", [stateDir]).out;
+  check(
+    acl.ok &&
+      existsSync(join(stateDir, "state.json")) &&
+      !/Everyone|BUILTIN\\Users|Authenticated Users|NT AUTHORITY\\SYSTEM/i.test(aclText) &&
+      /\(F\)/.test(aclText),
+    `harness state «${stateDir}»: the user and the machine's admins only (${aclText.trim().replace(/\s+/g, " ").slice(0, 300)})`,
+  );
+} else {
+  const mode = statSync(stateDir).mode & 0o777;
+  check(
+    acl.ok && existsSync(join(stateDir, "state.json")) && mode === 0o700,
+    `harness state «${stateDir}» is user-only (mode ${mode.toString(8)})`,
+  );
+}
+
+// ---------- 5b: the agent's shell (Git Bash on Windows) finds the app's python3, not the Store stub ----------
+const shimDir = join(designRoot, "bin");
+mkdirSync(shimDir, { recursive: true });
+for (const shim of python3Shims(py)) {
+  writeFileSync(join(shimDir, shim.name), shim.body, shim.mode ? { mode: shim.mode } : {});
+}
+// as run.py hands it to pi: no PYTHONUTF8 / PYTHONIOENCODING, so the shim alone must make output UTF-8
+const agentEnv = buildHarnessEnv({
+  base: env,
+  platform: process.platform,
+  pathDirs: [shimDir, venvBinDir(venv)],
+  piBin: [],
+  piAgentDir: piHome,
+  proxyUrl: "",
+  chromiumOnly: true,
+});
+for (const k of Object.keys(agentEnv)) if (/^PYTHON(UTF8|IOENCODING)$/i.test(k)) delete agentEnv[k];
+const gitBash = join(process.env.ProgramFiles ?? "C:\\Program Files", "Git", "bin", "bash.exe");
+const shell = process.platform === "win32" ? gitBash : "bash";
+rmSync(join(site, "landing", "shot.png"), { force: true });
+const probe = run(
+  shell,
+  [
+    "-c",
+    'command -v python3; python3 -c "import threading, sqlite3, ssl, sys; print(1, sys.executable)"; ' +
+      // a Cyrillic path printed by the agent's python (the owner's profile is «Иван Петров»)
+      `python3 -c "print('ok', '${work.replaceAll("\\", "/")}')"; ` +
+      `python3 -I "${join(HARNESS, "check.py").replaceAll("\\", "/")}" "${site.replaceAll("\\", "/")}" "${page.replaceAll("\\", "/")}"`,
+  ],
+  { env: agentEnv },
+);
+const [whichPy = "", stdlib = ""] = probe.out.trim().split(/\r?\n/);
+const storeStub = process.env.LOCALAPPDATA
+  ? join(process.env.LOCALAPPDATA, "Microsoft", "WindowsApps", "python3.exe")
+  : "";
+check(
+  probe.code === 0 &&
+    whichPy.endsWith("PRSLOY/design/bin/python3") &&
+    stdlib.startsWith("1 ") &&
+    !/WindowsApps/i.test(stdlib) &&
+    probe.out.includes("харнесс: PASS") &&
+    probe.out.includes(`ok ${work.replaceAll("\\", "/")}`),
+  `agent shell: python3 → app shim, full stdlib, Cyrillic output, check.py PASS (${probe.out.trim().replace(/\s+/g, " ").slice(0, 300)})`,
+);
+report.agentShell = {
+  shell,
+  python3: whichPy,
+  interpreter: stdlib.slice(2),
+  storeStubOnMachine: storeStub ? existsSync(storeStub) : false,
+};
+
 report.runPy = {
   ws,
+  stateDir,
+  acl: aclText.trim() || undefined,
   init: init.seconds,
   status: statusJson,
   sayEvents: events,

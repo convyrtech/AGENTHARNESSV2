@@ -90,6 +90,14 @@ describe("buildHarnessEnv", () => {
     });
   });
 
+  it("sets HARNESS_LEARN_DIR only from the service, never from the host env", () => {
+    const base = { PATH: "/usr/bin", HARNESS_LEARN_DIR: "/elsewhere" };
+    expect(buildHarnessEnv({ ...input, base }).HARNESS_LEARN_DIR).toBeUndefined();
+    expect(
+      buildHarnessEnv({ ...input, base, learnDir: "/pi/agent/prsloy-learning" }).HARNESS_LEARN_DIR,
+    ).toBe("/pi/agent/prsloy-learning");
+  });
+
   it("sets HARNESS_STATE_DIR only from the service, never from the host env", () => {
     const base = { PATH: "/usr/bin", HARNESS_STATE_DIR: "/somewhere/else" };
     expect(buildHarnessEnv({ ...input, base }).HARNESS_STATE_DIR).toBeUndefined();
@@ -103,8 +111,17 @@ describe("buildHarnessEnv", () => {
       ...input,
       platform: "win32",
       pathDirs: ["C:\\shims"],
-      base: { Path: "C:\\Windows", SystemRoot: "C:\\Windows", SYSTEMROOT: "C:\\Windows" },
+      base: {
+        Path: "C:\\Windows",
+        SystemRoot: "C:\\Windows",
+        SYSTEMROOT: "C:\\Windows",
+        // Playwright finds Edge through these
+        ProgramFiles: "C:\\Program Files",
+        "ProgramFiles(x86)": "C:\\Program Files (x86)",
+      },
     });
+    expect(env["ProgramFiles(x86)"]).toBe("C:\\Program Files (x86)");
+    expect(env.ProgramFiles).toBe("C:\\Program Files");
     expect(env.PATH).toBe("C:\\shims;C:\\Windows");
     expect(Object.keys(env).filter((k) => k.toUpperCase() === "SYSTEMROOT")).toHaveLength(1);
     expect(Object.keys(env).filter((k) => k.toUpperCase() === "PATH")).toEqual(["PATH"]);
@@ -120,7 +137,7 @@ describe("venv layout", () => {
   it("gives the agent a python3 for both shells", () => {
     const shims = python3Shims("C:\\ud\\venv\\Scripts\\python.exe");
     expect(shims.map((s) => s.name)).toEqual(["python3", "python3.cmd"]);
-    expect(shims[0]!.body).toContain('exec "C:/ud/venv/Scripts/python.exe" "$@"');
-    expect(shims[1]!.body).toBe('@"C:\\ud\\venv\\Scripts\\python.exe" %*\r\n');
+    expect(shims[0]!.body).toContain('exec "C:/ud/venv/Scripts/python.exe" -X utf8 "$@"');
+    expect(shims[1]!.body).toBe('@"C:\\ud\\venv\\Scripts\\python.exe" -X utf8 %*\r\n');
   });
 });

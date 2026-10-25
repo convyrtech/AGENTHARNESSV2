@@ -51,7 +51,8 @@ export function installDesign(
     piToolsDir: join(prsloy.agentDir, "bin"),
     userDataPath: app.getPath("userData"),
     bundleRoot: resolveDesignBundle(mainDir),
-    fallbackRoot: join(app.getPath("documents"), "PRSLOY"),
+    // PRSLOY_DESIGN_HOME: tests put the no-project workspace under a Cyrillic profile folder
+    fallbackRoot: process.env.PRSLOY_DESIGN_HOME || join(app.getPath("documents"), "PRSLOY"),
     getWindow,
     assertTrustedSender,
     piCliPath,
@@ -63,5 +64,7 @@ export function installDesign(
     },
     nodeExecutable: () => getActiveBundledNodeExecutable() ?? "node",
     gitBinary: () => prsloy.gitBinary(),
+    // <pi agent dir>/prsloy-learning (%APPDATA%\\PRSLOY\\agent\\prsloy-learning), next to the «Код» harness's events
+    learnDir: join(prsloy.agentDir, "prsloy-learning"),
   });
 }

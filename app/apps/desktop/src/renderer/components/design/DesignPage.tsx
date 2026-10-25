@@ -418,15 +418,17 @@ function Media({ file, locale }: { file: DesignFile; locale: Locale }) {
     );
   }
   if (file.kind === "video") {
-    // `#t=0.1` + preload=metadata: the first frame shows as the poster before play.
+    // Short muted loops of the movement candidates: they play by themselves. A paused video with
+    // only its metadata loaded kept Chromium's loading ring over the poster on Windows.
     return (
       <video
-        src={`${file.url}#t=0.1`}
+        src={file.url}
         controls
+        autoPlay
         loop
         muted
         playsInline
-        preload="metadata"
+        preload="auto"
         className="design-media"
         data-testid="design-video"
       />
@@ -519,10 +521,17 @@ function StreamItem({
       );
     case "paused":
     case "cancelled":
+    case "interrupted":
       return (
         <div className="flex items-center gap-3" data-testid={`design-${item.kind}`}>
           <p className="text-muted-foreground">
-            {tr(item.kind === "paused" ? "design.paused" : "design.cancelled")}
+            {tr(
+              item.kind === "paused"
+                ? "design.paused"
+                : item.kind === "interrupted"
+                  ? "design.interrupted"
+                  : "design.cancelled",
+            )}
           </p>
           {live ? (
             <Button variant="outline" size="sm" data-testid="design-continue" onClick={onContinue}>

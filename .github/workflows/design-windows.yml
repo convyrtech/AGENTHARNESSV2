@@ -3,6 +3,8 @@
 # Playwright channel=msedge рисует демо движения → check.py на маленьком сайте → «файл инструментов» (zip заглушки
 # пайплайна в виде GitHub «Download ZIP») импортируется в userData → run.py init/status/say в папке
 # с пробелом и кириллицей на заглушке пайплайна и заглушке pi, без сети. Скрипт: app/apps/desktop/scripts/design-smoke.mts.
+# Потом настоящее приложение на этом venv (e2e/design-live.spec.ts): ход на настоящих инструментах с видео в карточке,
+# закрытие посреди хода (дерево процессов гаснет), обрыв pi → «Повторить», icacls, шимы python3 в Git Bash.
 name: design-windows
 
 on:
@@ -13,6 +15,9 @@ on:
       - "app/apps/desktop/src/main/design/**"
       - "app/apps/desktop/scripts/design-smoke.mts"
       - "app/apps/desktop/e2e/design/**"
+      - "app/apps/desktop/e2e/design-live.spec.ts"
+      - "app/apps/desktop/src/renderer/components/design/**"
+      - "app/apps/desktop/src/renderer/lib/design-state.ts"
       - "app/apps/desktop/runtimes/versions.json"
       - ".github/workflows/design-windows.yml"
   workflow_dispatch:
@@ -28,12 +33,17 @@ permissions:
 jobs:
   toolchain:
     runs-on: windows-latest
-    timeout-minutes: 30
+    timeout-minutes: 50
     steps:
       - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11.15.1
       - uses: actions/setup-node@v7
         with:
           node-version: 22
+          cache: pnpm
+          cache-dependency-path: app/pnpm-lock.yaml
       - name: Edge
         shell: pwsh
         run: |
@@ -49,6 +59,30 @@ jobs:
           PIP_NO_CACHE_DIR: "1"
           PYTHONUTF8: "1"
         run: node --experimental-strip-types scripts/design-smoke.mts --out "$env:OUT" --work "$env:WORK"
+      # the real app on the venv the smoke made: real run.py, real tools, Edge; pi is e2e/design/live_pi.py
+      - name: Build the app
+        working-directory: app
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm electron:install
+          pnpm build:desktop
+      - name: Live «Дизайн» e2e (full turn with videos, close mid-turn, stuck → «Повторить», icacls, shims)
+        shell: pwsh
+        working-directory: app/apps/desktop
+        env:
+          DESIGN_LIVE_VENV: ${{ runner.temp }}\Иван Петров\AppData\Roaming\PRSLOY\design\venv
+          DESIGN_LIVE_SHOTS: ${{ runner.temp }}\design-live-shots
+          PYTHONUTF8: "1"
+        run: npx playwright test e2e/design-live.spec.ts --reporter=list --trace=retain-on-failure
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: design-live-windows
+          path: |
+            ${{ runner.temp }}/design-live-shots/
+            app/apps/desktop/test-results/
+          if-no-files-found: warn
+          retention-days: 14
       - name: Summary
         if: always()
         shell: pwsh

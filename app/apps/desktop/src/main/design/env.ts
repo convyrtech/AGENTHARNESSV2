@@ -56,12 +56,16 @@ export function venvPython(venv: string, platform: NodeJS.Platform = process.pla
   return join(venvBinDir(venv, platform), platform === "win32" ? "python.exe" : "python");
 }
 
-/** `python3` for the agent's shell commands: AGENTS.md says `python3 -I …`; Windows venvs have no python3. */
+/**
+ * `python3` for the agent's shell commands: AGENTS.md says `python3 -I …`; Windows venvs have no python3.
+ * `-X utf8`: run.py hands pi an env without PYTHONUTF8 (and `-I` would ignore it), so on Windows the agent's
+ * python printed into a cp1252 pipe and died on the first Cyrillic path («Иван Петров») it printed.
+ */
 export function python3Shims(pythonExe: string): { name: string; body: string; mode?: number }[] {
   const posix = pythonExe.replaceAll("\\", "/");
   return [
-    { name: "python3", body: `#!/bin/sh\nexec "${posix}" "$@"\n`, mode: 0o755 },
-    { name: "python3.cmd", body: `@"${pythonExe}" %*\r\n` },
+    { name: "python3", body: `#!/bin/sh\nexec "${posix}" -X utf8 "$@"\n`, mode: 0o755 },
+    { name: "python3.cmd", body: `@"${pythonExe}" -X utf8 %*\r\n` },
   ];
 }
 
@@ -70,6 +74,21 @@ const PASS_THROUGH = [
   "USERPROFILE",
   "APPDATA",
   "LOCALAPPDATA",
+  // Playwright finds Edge (channel msedge) under Program Files; without these every browser tool failed on Windows
+  "PROGRAMFILES",
+  "PROGRAMFILES(X86)",
+  "PROGRAMW6432",
+  // the same non-secret Windows system names run.py's SAFE passes (cmd and Edge misbehave without some of them)
+  "SYSTEMDRIVE",
+  "PROGRAMDATA",
+  "ALLUSERSPROFILE",
+  "PUBLIC",
+  "HOMEDRIVE",
+  "HOMEPATH",
+  "USERNAME",
+  "NUMBER_OF_PROCESSORS",
+  "PROCESSOR_ARCHITECTURE",
+  "OS",
   "SYSTEMROOT",
   "WINDIR",
   "COMSPEC",
@@ -107,6 +126,8 @@ export type HarnessEnvInput = {
   chromiumOnly: boolean;
   /** run.py state outside the workspace (HARNESS_STATE_DIR); unset keeps run.py's default. */
   stateDir?: string;
+  /** Text-free learning events (HARNESS_LEARN_DIR): the «Код» harness's prsloy-learning folder. */
+  learnDir?: string;
 };
 
 /**
@@ -142,5 +163,6 @@ export function buildHarnessEnv(input: HarnessEnvInput): Record<string, string> 
   if (input.browserChannel) env.DP_BROWSER_CHANNEL = input.browserChannel;
   if (input.chromiumOnly) env.DP_CHROMIUM_ONLY = "1";
   if (input.stateDir) env.HARNESS_STATE_DIR = input.stateDir;
+  if (input.learnDir) env.HARNESS_LEARN_DIR = input.learnDir;
   return env;
 }

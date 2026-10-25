@@ -33,6 +33,7 @@ export const designZh = {
   "design.error": "出了点问题。",
   "design.cancelled": "已停止。",
   "design.paused": "完成了一部分。",
+  "design.interrupted": "工作中断：应用在步骤进行中被关闭。",
   "design.continue": "继续",
   "design.done": "页面完成了。",
   "design.openFolder": "打开文件夹",

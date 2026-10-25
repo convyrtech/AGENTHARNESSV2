@@ -35,6 +35,7 @@ export const designEn: Record<keyof typeof designZh, string> = {
   "design.error": "Something broke.",
   "design.cancelled": "Stopped.",
   "design.paused": "Part of the work is done.",
+  "design.interrupted": "Work was cut off: the app closed in the middle of a step.",
   "design.continue": "Continue",
   "design.done": "The page is ready.",
   "design.openFolder": "Open folder",

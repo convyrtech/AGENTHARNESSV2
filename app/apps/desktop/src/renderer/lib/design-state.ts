@@ -44,7 +44,9 @@ export type DesignItem =
   | { kind: "error"; id: number; detail: string }
   | { kind: "cancelled"; id: number }
   /** The turn used its stage budget without a question: the owner continues it. */
-  | { kind: "paused"; id: number };
+  | { kind: "paused"; id: number }
+  /** The app closed in the middle of a turn: no exit came back; the owner continues it. */
+  | { kind: "interrupted"; id: number };
 
 export type DesignStage = { gate: string; title: string; attempt: number; since: number };
 
@@ -151,8 +153,11 @@ export function reduceDesign(view: DesignView, event: DesignEvent, now = Date.no
 
 export function foldDesign(events: DesignEvent[], running: boolean): DesignView {
   const view = events.reduce((v, e) => reduceDesign(v, e, (e.t ?? 0) * 1000), EMPTY_DESIGN_VIEW);
-  // A run that ended while the tab was closed left no exit event behind.
-  return running ? { ...view, running: true } : { ...view, running: false, stage: undefined };
+  if (running) return { ...view, running: true };
+  const ended = { ...view, running: false, stage: undefined, ticker: [] };
+  // No exit after the turn started: the app closed mid-turn (main writes no exit on quit).
+  // A turn that already asked, finished or got stuck needs nothing more.
+  return view.running && !view.answered ? push(ended, { kind: "interrupted" }) : ended;
 }
 
 /** The latest owner card still waiting for an answer (its buttons are live). */

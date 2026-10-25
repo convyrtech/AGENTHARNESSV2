@@ -86,6 +86,8 @@ export type DesignServiceDeps = {
   assertTrustedSender(event: IpcMainInvokeEvent): void;
   /** Where workspaces go when no project folder is open. */
   fallbackRoot: string;
+  /** run.py's text-free learning events; the «Код» harness keeps its own in the same folder. */
+  learnDir?: string;
   /** git for run.py's `git apply` of pipeline-fixes.patch (Windows: the app's PortableGit). */
   gitBinary?: () => string;
 };
@@ -96,7 +98,8 @@ const EVENTS_FILE = "app-events.jsonl";
 const UNAVAILABLE = "Дизайн-инструменты появятся в следующей версии";
 const HISTORY_LIMIT = 400;
 
-type Run = { child: ChildProcess; cancelled: boolean };
+/** `quitting`: the app is closing; no exit event, so the tab shows the turn as interrupted. */
+type Run = { child: ChildProcess; cancelled: boolean; quitting?: boolean };
 
 export class DesignService {
   readonly #deps: DesignServiceDeps;
@@ -150,6 +153,7 @@ export class DesignService {
       ...(this.#browserChannel() ? { browserChannel: this.#browserChannel() as string } : {}),
       chromiumOnly: process.env.DP_CHROMIUM_ONLY !== "0",
       ...(stateDir ? { stateDir } : {}),
+      ...(this.#deps.learnDir ? { learnDir: this.#deps.learnDir } : {}),
     });
   }
 
@@ -354,6 +358,9 @@ export class DesignService {
     const child = spawn(
       venvPython(this.#venv),
       [
+        // -X utf8: its start line has «→»; under -I PYTHONUTF8 is ignored and a Windows pipe is cp1252
+        "-X",
+        "utf8",
         "-I",
         join(this.#harness, "a6proxy.py"),
         "--port",
@@ -520,6 +527,7 @@ export class DesignService {
     child.on("close", (code) => {
       lines.flush().forEach(onLine);
       this.#runs.delete(ws);
+      if (run.quitting) return;
       const failed = !run.cancelled && !terminal && code !== 0;
       this.#emit(ws, {
         ev: "exit",
@@ -650,7 +658,7 @@ export class DesignService {
   /** App quit: nothing the harness started may outlive the window (proxy, pi, browsers). */
   dispose(): void {
     for (const run of this.#runs.values()) {
-      run.cancelled = true;
+      run.quitting = true;
       killTreeNow(run.child);
     }
     if (this.#proxy) killTreeNow(this.#proxy.child);

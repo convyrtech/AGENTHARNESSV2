@@ -212,7 +212,7 @@ test("the step-1 card plays the candidate videos (prsloy-design://, Range)", asy
     await expect(videos).toHaveCount(3);
     const video = videos.first();
     expect(await video.getAttribute("src")).toMatch(
-      /^prsloy-design:\/\/ws\/[0-9a-f]{16}\/.+A\.mp4#t=0\.1$/,
+      /^prsloy-design:\/\/ws\/[0-9a-f]{16}\/.+A\.mp4$/,
     );
     // metadata and the first frame really load: the protocol serves the mp4 the way <video> asks
     await expect
