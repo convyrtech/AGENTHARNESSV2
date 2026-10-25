@@ -48,6 +48,9 @@ CHECKS = [
 ]
 # шаг 3: картинки — кадры чужих референсов, правила «своей страницы» к ним не относятся. Шаг 1 (moves.py): кадры —
 # наши приёмы в бренде владельца, пустые и сломанные кадры недопустимы; скриншотов и согласованных чисел там нет
+# на шаге 8 страница уже принята владельцем (шаг 7): правка по картинке откатила бы его согласие (E9) — только текст
+if a.gate == "8":
+    CHECKS = [c for c in CHECKS if c[0] not in ("no_empty", "no_broken", "no_dupes", "no_screens", "consistent")]
 if a.gate in ("1", "3"):
     drop = ("no_dupes", "no_screens", "consistent") if a.gate == "1" else \
         ("no_empty", "no_broken", "no_dupes", "no_screens", "consistent")
