@@ -309,12 +309,10 @@ test("closing the app mid-turn leaves no processes; «Продолжить» fin
     mkdirSync(piHome(l), { recursive: true });
     writeFileSync(join(piHome(l), "live-control.json"), JSON.stringify({ hold: 300 }));
     await say(page, "Сделай лендинг для кофейни «Зерно»");
-    await expect(page.getByTestId("design-ticker")).toContainText("browser_hold.py", {
-      timeout: 120_000,
-    });
+    // the tool's browser is up: checked on the process, the progress line shows a human status, not the command
     await expect
       .poll(() => leftovers(l).some((r) => r.includes("--remote-debugging-pipe")), {
-        timeout: 60_000,
+        timeout: 120_000,
       })
       .toBe(true);
     const during = leftovers(l);
