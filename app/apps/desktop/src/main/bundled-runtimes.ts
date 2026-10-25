@@ -32,6 +32,8 @@ export type BundledRuntimeManifest = {
   arch?: string;
   key?: string;
   pruned?: boolean;
+  /** Pruning revision: runtimes stamped with an older one are re-extracted. */
+  pruneRev?: number;
 };
 
 export type BundledRuntimeRoots = {

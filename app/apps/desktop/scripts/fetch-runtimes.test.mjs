@@ -24,6 +24,7 @@ import {
   searchToolsDistMeta,
   pruneNodeRuntime,
   prunePythonRuntime,
+  PYTHON_PRUNE_REV,
   pythonDistMeta,
   resolveTarget,
   resolveTarBinary,
@@ -180,6 +181,36 @@ function assertEqual(actual, expected, message) {
     assert(!existsSync(join(pyRoot, "include")), "include removed");
     assert(!existsSync(join(bin, "idle3")), "idle3 bin removed");
     assert(!existsSync(join(lib, "__pycache__")), "pycache removed");
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+}
+
+// ── prunePythonRuntime on the Windows layout keeps the stdlib (Lib == lib on NTFS) ──
+{
+  const root = mkdtempSync(join(tmpdir(), "zeno-prune-pywin-"));
+  try {
+    const pyRoot = join(root, "python");
+    const stdlib = join(pyRoot, "Lib");
+    mkdirSync(join(stdlib, "sqlite3"), { recursive: true });
+    mkdirSync(join(stdlib, "tkinter"), { recursive: true });
+    mkdirSync(join(stdlib, "idlelib"), { recursive: true });
+    mkdirSync(join(pyRoot, "tcl", "tcl8.6"), { recursive: true });
+    writeFileSync(join(pyRoot, "python.exe"), "MZ");
+    for (const name of ["os.py", "threading.py", "tkinter/__init__.py", "idlelib/x.py"]) {
+      writeFileSync(join(stdlib, name), "pass\n");
+    }
+    writeFileSync(join(stdlib, "sqlite3", "__init__.py"), "pass\n");
+
+    prunePythonRuntime(pyRoot);
+
+    assert(existsSync(join(stdlib, "threading.py")), "threading.py kept");
+    assert(existsSync(join(stdlib, "sqlite3", "__init__.py")), "sqlite3 kept");
+    assert(existsSync(join(stdlib, "os.py")), "os.py kept");
+    assert(!existsSync(join(stdlib, "tkinter")), "tkinter removed");
+    assert(!existsSync(join(stdlib, "idlelib")), "idlelib removed");
+    assert(!existsSync(join(pyRoot, "tcl")), "tcl removed");
+    assert(PYTHON_PRUNE_REV >= 2, "prune revision bumped for the Windows stdlib fix");
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

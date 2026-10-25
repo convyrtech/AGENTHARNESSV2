@@ -64,6 +64,7 @@ export type ProvisionStamp = {
   git?: string;
   pythonReleaseTag?: string;
   key?: string;
+  pruneRev?: number;
   provisionedAt: string;
 };
 
@@ -176,6 +177,8 @@ export function isProvisionStampCurrent(
   const expectedPython = manifest?.python;
   if (expectedNode && stamp.node !== expectedNode) return false;
   if (expectedPython && stamp.python !== expectedPython) return false;
+  // Same versions, different pruning (e.g. the broken Windows stdlib of the first alpha).
+  if (manifest?.pruneRev && stamp.pruneRev !== manifest.pruneRev) return false;
   const nodeOk = !expectedNode || Boolean(getBundledNodeExecutable(roots.nodeRoot));
   const pyOk = !expectedPython || Boolean(getBundledPythonExecutable(roots.pythonRoot));
   // tools/ arrived after the first alpha installs: re-extract when it is missing.
@@ -414,6 +417,9 @@ export function ensureProvisionedRuntimes(options: {
             ? { pythonReleaseTag: vendor.archives.manifest.pythonReleaseTag }
             : {}),
           ...(vendor.archives.manifest.key ? { key: vendor.archives.manifest.key } : {}),
+          ...(vendor.archives.manifest.pruneRev
+            ? { pruneRev: vendor.archives.manifest.pruneRev }
+            : {}),
         };
         writeFileSync(
           provisionStampPath(options.userDataPath),
@@ -661,6 +667,7 @@ export async function provisionRuntimesAsync(
     ...(manifest.python ? { python: manifest.python } : {}),
     ...(manifest.pythonReleaseTag ? { pythonReleaseTag: manifest.pythonReleaseTag } : {}),
     ...(manifest.key ? { key: manifest.key } : {}),
+    ...(manifest.pruneRev ? { pruneRev: manifest.pruneRev } : {}),
   };
   writeFileSync(provisionStampPath(options.userDataPath), `${JSON.stringify(stamp, null, 2)}\n`);
   return { roots, npmPrefix, pythonVenv, provisioned: true, source: "userData" };

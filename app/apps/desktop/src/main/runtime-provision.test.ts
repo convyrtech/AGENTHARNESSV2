@@ -1,5 +1,13 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vite-plus/test";
@@ -279,6 +287,24 @@ describe("PRSLOY: tools archive + PortableGit SFX (Windows layout)", () => {
 });
 
 describe("PRSLOY window first: plan + background unpack", () => {
+  it("re-extracts when the shipped prune revision differs from the stamp", () => {
+    const { vendorRoot, userData } = makeVendorWithArchives();
+    try {
+      rmSync(join(vendorRoot, "node"), { recursive: true, force: true });
+      rmSync(join(vendorRoot, "python"), { recursive: true, force: true });
+      const options = { userDataPath: userData, explicitVendorRoot: vendorRoot, skipVenv: true };
+      ensureProvisionedRuntimes(options);
+      expect(planProvisionedRuntimes(options).kind).toBe("ready");
+      const manifestPath = join(vendorRoot, "manifest.json");
+      const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
+      writeFileSync(manifestPath, JSON.stringify({ ...manifest, pruneRev: 2 }));
+      expect(planProvisionedRuntimes(options).kind).toBe("extract");
+    } finally {
+      rmSync(vendorRoot, { recursive: true, force: true });
+      rmSync(userData, { recursive: true, force: true });
+    }
+  });
+
   it("plans extract on first launch, unpacks async with progress, then plans ready", async () => {
     const { vendorRoot, userData } = makeVendorWithArchives();
     try {

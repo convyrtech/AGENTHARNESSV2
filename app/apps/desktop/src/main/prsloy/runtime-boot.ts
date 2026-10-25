@@ -6,18 +6,25 @@
  * - startBackground() (after the window): first launch unpacks the archives without
  *   blocking (provisionRuntimesAsync), then configures PATH/env and bumps generation().
  *
- * The Agent Host inherits PATH at spawn. A host spawned before the runtimes were ready has
- * a stale env: the supervisor compares its spawn generation with generation() and
- * respawns it before the first turn (see index.ts prompt()).
+ * The Agent Host inherits PATH at spawn, and may spawn while the unpack still runs. So
+ * during the unpack the env already carries the final runtime locations (they are fixed
+ * paths under userData): a host spawned early needs no respawn, and the first turn waits
+ * for the unpack anyway (prepareTurn).
  */
+import { join } from "node:path";
 import {
   applyManagedRuntimeToProcessEnv,
+  getActiveBundledBinDirs,
   captureManagedPathBase,
   configureBundledRuntimes,
   type BundledRuntimePrefs,
 } from "../bundled-runtimes.ts";
+import { augmentEnvPath } from "../shell-path.ts";
 import {
+  npmPrefixDir,
   planProvisionedRuntimes,
+  pythonVenvDir,
+  userRuntimesRoot,
   provisionRuntimesAsync,
   type ProvisionedRuntimeLayout,
   type ProvisionPlan,
@@ -44,11 +51,48 @@ export type RuntimeBootOptions = {
   provision?: typeof provisionRuntimesAsync;
 };
 
+/**
+ * PATH dirs + env the unpacked runtimes will have, in getActiveBundledBinDirs() order
+ * (npm prefix, venv, node, python). VIRTUAL_ENV is left out: the venv may fail to
+ * build, and a venv python on PATH works without it.
+ */
+export function expectedRuntimeEnv(options: {
+  userDataPath: string;
+  prefs: BundledRuntimePrefs;
+  platform?: NodeJS.Platform;
+}): { binDirs: string[]; env: Record<string, string> } {
+  const win = (options.platform ?? process.platform) === "win32";
+  const root = userRuntimesRoot(options.userDataPath);
+  const npmPrefix = npmPrefixDir(options.userDataPath);
+  const venv = pythonVenvDir(options.userDataPath);
+  const binDirs: string[] = [];
+  const env: Record<string, string> = {};
+  if (options.prefs.useBundledNode) {
+    binDirs.push(win ? npmPrefix : join(npmPrefix, "bin"));
+    env.NPM_CONFIG_PREFIX = npmPrefix;
+    env.npm_config_prefix = npmPrefix;
+    env.NODE_BINARY = win ? join(root, "node", "node.exe") : join(root, "node", "bin", "node");
+  }
+  if (options.prefs.useBundledPython) binDirs.push(join(venv, win ? "Scripts" : "bin"));
+  if (options.prefs.useBundledNode)
+    binDirs.push(win ? join(root, "node") : join(root, "node", "bin"));
+  if (options.prefs.useBundledPython) {
+    binDirs.push(win ? join(root, "python") : join(root, "python", "bin"));
+  }
+  return { binDirs, env };
+}
+
+/** Test hook (test commands only): stretch the unpack to reproduce slow Windows disks. */
+async function testUnpackDelay(env: NodeJS.ProcessEnv): Promise<void> {
+  const ms = Number(env.PRSLOY_TEST_UNPACK_DELAY_MS);
+  if (env.ZENO_ENABLE_TEST_COMMANDS !== "1" || !Number.isFinite(ms) || ms <= 0) return;
+  await new Promise((resolve) => setTimeout(resolve, Math.min(ms, 120_000)));
+}
+
 export class RuntimeBoot {
   readonly #opts: RuntimeBootOptions;
   #plan: ProvisionPlan = { kind: "none" };
   #state: RuntimeBootState = { status: "absent" };
-  #generation = 0;
   #running: Promise<RuntimeBootState> | undefined;
   #layout: ProvisionedRuntimeLayout | undefined;
   readonly #listeners = new Set<(state: RuntimeBootState) => void>();
@@ -102,10 +146,22 @@ export class RuntimeBoot {
       this.#apply(this.#layout);
       this.#set({ status: "ready" });
     } else {
-      // Host PATH stays the clean base until the background unpack finishes.
       this.#apply(undefined);
-      this.#set({ status: this.#plan.kind === "extract" ? "installing" : "absent", done: 0 });
-      if (this.#plan.kind === "none") this.#set({ status: "absent" });
+      if (this.#plan.kind === "extract") {
+        // Point PATH at where the runtimes are about to land (see the header).
+        const env = this.#opts.env ?? process.env;
+        const expected = expectedRuntimeEnv({
+          userDataPath: this.#opts.userDataPath,
+          prefs: this.#opts.prefs,
+        });
+        const next = augmentEnvPath(env, expected.binDirs);
+        if (next.PATH) env.PATH = next.PATH;
+        if (process.platform === "win32" && next.Path) env.Path = next.Path;
+        Object.assign(env, expected.env);
+        this.#set({ status: "installing", done: 0 });
+      } else {
+        this.#set({ status: "absent" });
+      }
     }
     return this.state();
   }
@@ -116,6 +172,7 @@ export class RuntimeBoot {
     const plan = this.#plan;
     this.#running ??= (async () => {
       try {
+        await testUnpackDelay(this.#opts.env ?? process.env);
         const layout = await (this.#opts.provision ?? provisionRuntimesAsync)({
           ...this.#provisionOptions(),
           plan,
@@ -124,7 +181,6 @@ export class RuntimeBoot {
         });
         this.#layout = layout;
         this.#apply(layout);
-        this.#generation += 1;
         this.#set(layout ? { status: "ready" } : { status: "failed", error: "runtimes missing" });
       } catch (error) {
         this.#set({
@@ -141,13 +197,18 @@ export class RuntimeBoot {
     return { ...this.#state };
   }
 
-  layout(): ProvisionedRuntimeLayout | undefined {
-    return this.#layout;
+  /**
+   * Managed bin dirs to put first on a spawned host's PATH (ahead of /usr/local/bin,
+   * Program Files\nodejs and the like): the final ones while the unpack runs.
+   */
+  binDirs(): string[] {
+    if (this.#state.status !== "installing") return getActiveBundledBinDirs();
+    return expectedRuntimeEnv({ userDataPath: this.#opts.userDataPath, prefs: this.#opts.prefs })
+      .binDirs;
   }
 
-  /** Bumped when runtimes become ready after startup (hosts spawned earlier are stale). */
-  generation(): number {
-    return this.#generation;
+  layout(): ProvisionedRuntimeLayout | undefined {
+    return this.#layout;
   }
 
   onChange(listener: (state: RuntimeBootState) => void): () => void {

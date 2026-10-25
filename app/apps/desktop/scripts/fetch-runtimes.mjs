@@ -631,9 +631,50 @@ export function pruneNodeRuntime(nodeRoot) {
  * @param {string} pythonRoot
  * @returns {number}
  */
+/**
+ * Bumped whenever pruning changes what ships: the app re-extracts runtimes whose stamp
+ * carries an older revision. 2: the Windows stdlib is no longer pruned (see below).
+ */
+export const PYTHON_PRUNE_REV = 2;
+
+/** Stdlib modules the agent's python must import after pruning (build fails otherwise). */
+export const PYTHON_REQUIRED_MODULES = [
+  "threading",
+  "logging",
+  "venv",
+  "ensurepip",
+  "sqlite3",
+  "ssl",
+  "json",
+  "urllib.request",
+  "concurrent.futures",
+  "asyncio",
+];
+
 export function prunePythonRuntime(pythonRoot) {
   if (!pythonRoot || !existsSync(pythonRoot)) return 0;
   let removed = 0;
+  // Windows layout (python.exe, Lib/, DLLs/, tcl/): `lib` IS the stdlib on a
+  // case-insensitive disk, so the POSIX lib/ pruning below must never touch it — it used
+  // to delete threading.py, sqlite3 and friends.
+  const windowsLayout =
+    existsSync(join(pythonRoot, "python.exe")) || existsSync(join(pythonRoot, "Lib", "os.py"));
+  if (windowsLayout) {
+    const stdlib = join(pythonRoot, "Lib");
+    const drop = [
+      join(pythonRoot, "include"),
+      join(pythonRoot, "tcl"),
+      ...["idlelib", "tkinter", "turtledemo", "turtle.py", "test", "lib2to3"].map((name) =>
+        join(stdlib, name),
+      ),
+    ];
+    for (const path of drop) {
+      if (!existsSync(path)) continue;
+      rmSync(path, { recursive: true, force: true });
+      removed += 1;
+    }
+    return removed;
+  }
   const drop = [
     join(pythonRoot, "include"),
     join(pythonRoot, "share"),
@@ -822,7 +863,8 @@ async function fetchOne(target, versions, force) {
         prev.node === versions.node &&
         prev.python === versions.python &&
         (prev.git ?? undefined) === (gitMeta ? versions.git : undefined) &&
-        prev.pruned === true
+        prev.pruned === true &&
+        prev.pruneRev === PYTHON_PRUNE_REV
       ) {
         console.log(`[fetch-runtimes] ${target.key} already at pinned versions (pruned)`);
         return { platformDir, nodeDest, pythonDest, manifestPath };
@@ -928,6 +970,14 @@ async function fetchOne(target, versions, force) {
   try {
     const pyV = execFileSync(pyBin, ["--version"], { encoding: "utf8" }).trim();
     console.log(`[fetch-runtimes] python smoke ${pyV}`);
+    // Pruning must leave a usable stdlib (pip, venv, logging all need threading).
+    execFileSync(pyBin, ["-c", `import ${PYTHON_REQUIRED_MODULES.join(", ")}`], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    console.log(
+      `[fetch-runtimes] python stdlib smoke ok (${PYTHON_REQUIRED_MODULES.length} modules)`,
+    );
   } catch (error) {
     const detail = error instanceof Error ? error.message : String(error);
     throw new Error(`Bundled python failed smoke test: ${detail}`);
@@ -963,6 +1013,7 @@ async function fetchOne(target, versions, force) {
     arch: target.arch,
     key: target.key,
     pruned: true,
+    pruneRev: PYTHON_PRUNE_REV,
     nodeBytes,
     pythonBytes: pyBytes,
     // First launch progress («Готовлю приложение… N%») counts unpacked files against these.

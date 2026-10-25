@@ -207,7 +207,11 @@ export async function runPackagedSmoke() {
   writeFileSync(join(workspace, "README.md"), "smoke\n");
 
   const gateway = await startGateway(key, [
-    { tool: "git --version && python3 -c 'print(40+2)' && echo token=${GH_TOKEN:-none}" },
+    {
+      tool:
+        "git --version && python3 -c 'print(40+2)' && echo token=${GH_TOKEN:-none} && " +
+        "node -e 'console.log(\"NODE_AT=\" + process.execPath)'",
+    },
     { text: "done" },
   ]);
   const env = { ...process.env };
@@ -224,6 +228,10 @@ export async function runPackagedSmoke() {
     PRSLOY_NO_UPDATE: "1",
     GH_TOKEN: planted,
   });
+  // Local repro of slow Windows unpacks (host spawned before runtimes are ready).
+  if (process.env.PRSLOY_SMOKE_UNPACK_DELAY_MS) {
+    env.PRSLOY_TEST_UNPACK_DELAY_MS = process.env.PRSLOY_SMOKE_UNPACK_DELAY_MS;
+  }
 
   const output = [];
   const t0 = Date.now();
@@ -322,6 +330,13 @@ export async function runPackagedSmoke() {
     report.checks.bashRanGit = /git version/u.test(toolText);
     report.checks.python3Shim = /\\n42|\b42\b/u.test(toolText);
     report.checks.harnessHeader = /\[exit 0 ·/u.test(toolText);
+    // The host may spawn mid-unpack: its PATH must already lead to the bundled node.
+    // The first NODE_AT= is the command itself (tool-call arguments); the output is a path.
+    const nodeAt = [...toolText.matchAll(/NODE_AT=(.*?)(?:\\n|")/gu)]
+      .map((m) => m[1].replaceAll("\\\\", "/"))
+      .find((p) => /^([A-Za-z]:)?\/\w/u.test(p));
+    report.nodeAt = nodeAt ?? null;
+    report.checks.bundledNodeOnPath = Boolean(nodeAt?.includes("/runtimes/"));
     report.checks.agentEnvScrubbed = toolText.includes("token=none") && !toolText.includes(planted);
     report.checks.keyNotInToolOutput = !toolText.includes(key);
   } catch (error) {

@@ -2058,7 +2058,6 @@ interface ActiveHost {
   stopping: boolean;
   stderr: string;
   /** PRSLOY RuntimeBoot generation at spawn (stale PATH when runtimes became ready later). */
-  runtimeGeneration?: number;
 }
 
 type PendingWaiter = {
@@ -2133,7 +2132,9 @@ const LAUNCH_ENV: NodeJS.ProcessEnv = { ...process.env };
 
 function processEnvironment(): Record<string, string> {
   // Re-augment on each spawn: ensurePiCli may prepend npm global bin after install.
-  const launch = augmentEnvPath({ ...LAUNCH_ENV, ...pickLivePathEnv() });
+  // Managed Node/Python first: common user bins (/usr/local/bin, Program Files\nodejs)
+  // would otherwise shadow the bundled runtimes.
+  const launch = augmentEnvPath({ ...LAUNCH_ENV, ...pickLivePathEnv() }, runtimeBoot.binDirs());
   const base = Object.fromEntries(
     Object.entries(launch).filter((entry): entry is [string, string] => entry[1] !== undefined),
   );
@@ -2880,10 +2881,6 @@ class HostSupervisor {
         prompt: message,
         ...(this.#snapshot?.sessionId ? { sessionId: this.#snapshot.sessionId } : {}),
       });
-      // Spawned before Node/Python were unpacked → its tools lack them on PATH: respawn.
-      if (this.#host && this.#host.runtimeGeneration !== runtimeBoot.generation()) {
-        await this.restartWithFreshEnv();
-      }
     }
     const boundHost = this.#host;
     const command: HostCommand = {
@@ -3961,7 +3958,6 @@ class HostSupervisor {
       ignoreMessages: false,
       stopping: false,
       stderr: "",
-      runtimeGeneration: runtimeBoot.generation(),
     };
     this.#host = host;
 
