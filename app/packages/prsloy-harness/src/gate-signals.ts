@@ -7,7 +7,7 @@ import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 
 export const TEST_FILE =
-  /(?:^|\/)(?:tests?|__tests__|spec)\/|(?:^|\/)test_[^/]*\.py$|_test\.py$|\.(?:test|spec)\.[cm]?[jt]sx?$|(?:^|\/)test\.[cm]?[jt]s$|(?:^|\/)conftest\.py$|(?:^|\/)(?:pytest|tox)\.ini$|(?:^|\/)(?:jest|vitest)\.config\.|(?:^|\/)\.mocharc/;
+  /(?:^|\/)(?:tests?|__tests__|spec)\/|(?:^|\/)test_[^/]*\.py$|_test\.py$|\.(?:test|spec)\.[cm]?[jt]sx?$|(?:^|\/)test\.[cm]?[jt]s$|(?:^|\/)tests?\.py$|(?:^|\/)conftest\.py$|(?:^|\/)(?:pytest|tox)\.ini$|(?:^|\/)(?:jest|vitest)\.config\.|(?:^|\/)\.mocharc/;
 
 const SKIP_MARK =
   /\.(?:skip|only)\s*\(|\b(?:xit|xdescribe|xtest)\s*\(|@pytest\.mark\.(?:skip|xfail)|@unittest\.skip|\bpytest\.skip\s*\(/;
