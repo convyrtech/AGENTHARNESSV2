@@ -1,6 +1,6 @@
 // Общее для проверок замера: поиск файлов, запуск с замером времени, открытие страницы в браузере.
 import { spawnSync } from "node:child_process";
-import { existsSync, readdirSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { createRequire } from "node:module";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -93,4 +93,21 @@ export async function openPage(file, inspect) {
   } finally {
     await browser.close();
   }
+}
+
+/** Все записи памяти (обо мне и по всем проектам) в папке памяти агента задачи. */
+export function memoryEntries(memoryDir) {
+  const out = [];
+  const read = (path) => {
+    try {
+      return JSON.parse(readFileSync(path, "utf8")).entries ?? [];
+    } catch {
+      return [];
+    }
+  };
+  out.push(...read(join(memoryDir, "user.json")));
+  const projects = join(memoryDir, "projects");
+  if (existsSync(projects))
+    for (const key of readdirSync(projects)) out.push(...read(join(projects, key, "project.json")));
+  return out;
 }

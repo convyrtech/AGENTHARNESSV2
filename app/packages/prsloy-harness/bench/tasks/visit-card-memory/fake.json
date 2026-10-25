@@ -1,0 +1,46 @@
+{
+  "sessions": [
+    [
+      {
+        "toolCalls": [
+          {
+            "name": "memory",
+            "arguments": {
+              "action": "remember",
+              "scope": "user",
+              "text": "На сайтах — только русские слова, без английских",
+              "quote": "без английских слов на сайте"
+            }
+          },
+          {
+            "name": "write",
+            "arguments": {
+              "path": "index.html",
+              "content": "<!doctype html>\n<html lang=\"ru\"><head><meta charset=\"utf-8\"><title>Фотограф Анна</title></head>\n<body>\n<h1>Фотограф Анна</h1>\n<p>Снимаю свадьбы и портреты.</p>\n</body></html>\n"
+            }
+          }
+        ]
+      },
+      { "text": "Готово: визитка в index.html, всё по-русски." }
+    ],
+    [
+      {
+        "toolCalls": [
+          {
+            "name": "edit",
+            "arguments": {
+              "path": "index.html",
+              "edits": [
+                {
+                  "oldText": "<p>Снимаю свадьбы и портреты.</p>",
+                  "newText": "<p>Снимаю свадьбы и портреты.</p>\n<h2>Контакты</h2>\n<p>Телефон: +7 999 123-45-67</p>\n<p>Почта: <a href=\"mailto:anna@example.ru\">anna@example.ru</a></p>"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      { "text": "Добавил раздел «Контакты»." }
+    ]
+  ]
+}

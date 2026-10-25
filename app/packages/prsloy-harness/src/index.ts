@@ -11,6 +11,8 @@ import { installFindReady } from "./find-ready.ts";
 import { installReliability } from "./reliability.ts";
 import { installReusePrompt } from "./reuse-prompt.ts";
 import { installLessons } from "./lessons.ts";
+import { installMemory } from "./memory.ts";
+import { memoryDirFor } from "./memory-store.ts";
 import { installSecretScrub } from "./secret-scrub.ts";
 import { installStopGate } from "./stop-gate.ts";
 import { installArgRepair } from "./arg-repair.ts";
@@ -31,6 +33,7 @@ export { repairToolCall } from "./arg-repair.ts";
 export { harnessStats } from "./stats.ts";
 export { learningDir, recordEvent } from "./learning-log.ts";
 export { installReusePrompt } from "./reuse-prompt.ts";
+export { MemoryStore, memoryDirFor, MEMORY_LIMITS } from "./memory-store.ts";
 export { detectToolLeak, stripToolMarkup } from "./tool-leak.ts";
 export {
   evidenceInDiff,
@@ -83,8 +86,20 @@ export function createPrsloyHarness(options: HarnessOptions = {}): (pi: Extensio
     budget?.installWarning();
     if (on("reusePrompt")) installReusePrompt(pi, opts);
     // После разделов «поиск готового» и «пользователь не программист»: свои разделы идут в порядке установки.
+    // Память (S4) — раньше уроков: раздел prsloy_memory идёт перед prsloy_lessons, бюджет у них общий.
+    const memory =
+      opts.profile === "code" && on("memory")
+        ? installMemory(pi, {
+            dir: opts.memoryDir ?? memoryDirFor(undefined),
+            settingsPath: opts.settingsPath,
+          })
+        : undefined;
     if (opts.profile === "code" && on("lessons"))
-      installLessons(pi, { lessonsPath: opts.lessonsPath, settingsPath: opts.settingsPath });
+      installLessons(pi, {
+        lessonsPath: opts.lessonsPath,
+        settingsPath: opts.settingsPath,
+        ...(memory ? { memorySection: memory.section } : {}),
+      });
     if (on("findReady")) installFindReady(pi, opts, opts.findReady);
     // Раньше стоп-гейта: сорванный вызов инструмента — сначала повтор, проверки проекта потом.
     if (on("toolLeak")) installToolLeak(pi);

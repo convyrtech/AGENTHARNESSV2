@@ -83,7 +83,8 @@ interface TaskDef {
   id: string;
   dir: string;
   title: string;
-  prompt: string;
+  /** Сессии задачи по порядку: одна или несколько (двухсессионные задачи памяти). */
+  prompts: string[];
 }
 
 export function listTasks(only?: string[]): TaskDef[] {
@@ -94,9 +95,15 @@ export function listTasks(only?: string[]): TaskDef[] {
     .map((id) => {
       const def = JSON.parse(readFileSync(join(TASKS_DIR, id, "task.json"), "utf8")) as {
         title: string;
-        prompt: string;
+        prompt?: string;
+        prompts?: string[];
       };
-      return { id, dir: join(TASKS_DIR, id), ...def };
+      return {
+        id,
+        dir: join(TASKS_DIR, id),
+        title: def.title,
+        prompts: def.prompts ?? (def.prompt ? [def.prompt] : []),
+      };
     });
 }
 
@@ -150,10 +157,17 @@ export function countInterventions(
   return out;
 }
 
+/** Заготовки фейковой модели: список ответов (одна сессия) или {sessions: [[...], [...]]}. */
+function fakeReplies(task: TaskDef): ScriptedReply[][] {
+  const raw = JSON.parse(readFileSync(join(task.dir, "fake.json"), "utf8")) as
+    | ScriptedReply[]
+    | { sessions: ScriptedReply[][] };
+  return Array.isArray(raw) ? [raw] : raw.sessions;
+}
+
 function fakeScript(
-  task: TaskDef,
+  replies: ScriptedReply[],
 ): (request: { messages: { role: string; content?: unknown }[] }) => ScriptedReply {
-  const replies = JSON.parse(readFileSync(join(task.dir, "fake.json"), "utf8")) as ScriptedReply[];
   let next = 0;
   return (request) => {
     const last = request.messages.findLast((m) => m.role === "user");
@@ -163,30 +177,23 @@ function fakeScript(
   };
 }
 
+interface SessionRun {
+  messages: MessageLike[];
+  stats: Record<string, number>;
+  costUsd: number;
+  asked: number;
+  error?: string;
+}
+
 async function runTask(task: TaskDef, opts: BenchOptions): Promise<TaskResult> {
   const work = join(opts.outDir, "work");
   mkdirSync(work, { recursive: true });
   const ws = mkdtempSync(join(work, `${task.id}-`));
   const original = join(task.dir, "workspace");
   if (existsSync(original)) cpSync(original, ws, { recursive: true });
+  // Одна папка агента на все сессии задачи: память и уроки переживают сессию, как у пользователя.
   const agentDir = mkdtempSync(join(work, `${task.id}-agent-`));
-
-  let server: ScriptedOpenAiServer | undefined;
-  let baseUrl = opts.baseUrl;
-  if (opts.fake) {
-    server = new ScriptedOpenAiServer(fakeScript(task));
-    await server.start();
-    baseUrl = server.baseUrl;
-  }
-  if (!baseUrl) throw new Error("нужен --base-url или --fake");
-  writeFileSync(
-    join(agentDir, "models.json"),
-    JSON.stringify(
-      { providers: { [PRSLOY_PROVIDER_ID]: buildPrsloyModelsJsonProvider(baseUrl) } },
-      null,
-      2,
-    ),
-  );
+  const memoryDir = join(agentDir, "prsloy-memory");
   // Флаги — тем же файлом, что пишет приложение.
   const settingsPath = join(agentDir, "prsloy-harness.json");
   writeFileSync(
@@ -200,83 +207,122 @@ async function runTask(task: TaskDef, opts: BenchOptions): Promise<TaskResult> {
   );
   const slash = opts.model.indexOf("/");
   const model = { provider: opts.model.slice(0, slash), id: opts.model.slice(slash + 1) };
+  const scripts = opts.fake ? fakeReplies(task) : [];
 
-  // Как в приложении: граница записи первой, потом харнесс; «выкл» — голый Pi с тем же системным промптом.
-  const extensionFactories = [
-    createWriteBoundary(),
-    opts.harness
-      ? createPrsloyHarness({
-          outputDir: join(opts.outDir, "harness"),
-          learningDir: join(opts.outDir, "learning"),
-          settingsPath,
-        })
-      : (pi: ExtensionAPI) =>
-          installReusePrompt(pi, resolveOptions({ profile: "code", settingsPath })),
-  ];
-  let handle: ZenoRuntimeHandle | undefined;
-  let asked = 0;
-  const started = Date.now();
-  let error: string | undefined;
-  try {
-    handle = await createPixRuntime({
-      cwd: ws,
-      agentDir,
-      model,
-      runtimeApiKeys: { [PRSLOY_PROVIDER_ID]: opts.key ?? "fake" },
-      extensionFactories,
-      persistSession: true,
-      sessionDir: join(opts.outDir, "sessions", task.id),
-      projectTrusted: true,
-      onExtensionUiRequest: (request) => {
-        if (request.method !== "select" && request.method !== "confirm") return;
-        asked += 1;
-        const yes = opts.allowOutside === true;
-        handle?.respondExtensionUi({
-          runtimeId: request.runtimeId,
-          requestId: request.requestId,
-          ok: true,
-          value: request.method === "confirm" ? yes : yes ? ANSWER_YES : ANSWER_NO,
-        });
-      },
-    });
-    const session = handle.runtime.session;
-    let timer: NodeJS.Timeout | undefined;
-    const timedOut = await Promise.race([
-      session.prompt(task.prompt).then(() => false),
-      new Promise<boolean>((resolve) => {
-        timer = setTimeout(() => resolve(true), opts.timeoutSec * 1000);
-      }),
-    ]);
-    if (timer) clearTimeout(timer);
-    if (timedOut) {
-      error = `не уложилась в ${opts.timeoutSec} с`;
-      await session.abort();
+  async function runSession(prompt: string, index: number): Promise<SessionRun> {
+    let server: ScriptedOpenAiServer | undefined;
+    let baseUrl = opts.baseUrl;
+    if (opts.fake) {
+      server = new ScriptedOpenAiServer(fakeScript(scripts[index] ?? []));
+      await server.start();
+      baseUrl = server.baseUrl;
     }
-  } catch (e) {
-    error = e instanceof Error ? e.message : String(e);
+    if (!baseUrl) throw new Error("нужен --base-url или --fake");
+    writeFileSync(
+      join(agentDir, "models.json"),
+      JSON.stringify(
+        { providers: { [PRSLOY_PROVIDER_ID]: buildPrsloyModelsJsonProvider(baseUrl) } },
+        null,
+        2,
+      ),
+    );
+    // Как в приложении: граница записи первой, потом харнесс; «выкл» — голый Pi с тем же системным промптом.
+    const extensionFactories = [
+      createWriteBoundary(),
+      opts.harness
+        ? createPrsloyHarness({
+            outputDir: join(opts.outDir, "harness"),
+            learningDir: join(opts.outDir, "learning"),
+            memoryDir,
+            settingsPath,
+          })
+        : (pi: ExtensionAPI) =>
+            installReusePrompt(pi, resolveOptions({ profile: "code", settingsPath })),
+    ];
+    let handle: ZenoRuntimeHandle | undefined;
+    let asked = 0;
+    let error: string | undefined;
+    try {
+      handle = await createPixRuntime({
+        cwd: ws,
+        agentDir,
+        model,
+        runtimeApiKeys: { [PRSLOY_PROVIDER_ID]: opts.key ?? "fake" },
+        extensionFactories,
+        persistSession: true,
+        sessionDir: join(opts.outDir, "sessions", task.id),
+        projectTrusted: true,
+        onExtensionUiRequest: (request) => {
+          if (request.method !== "select" && request.method !== "confirm") return;
+          asked += 1;
+          const yes = opts.allowOutside === true;
+          handle?.respondExtensionUi({
+            runtimeId: request.runtimeId,
+            requestId: request.requestId,
+            ok: true,
+            value: request.method === "confirm" ? yes : yes ? ANSWER_YES : ANSWER_NO,
+          });
+        },
+      });
+      const session = handle.runtime.session;
+      let timer: NodeJS.Timeout | undefined;
+      const timedOut = await Promise.race([
+        session.prompt(prompt).then(() => false),
+        new Promise<boolean>((resolve) => {
+          timer = setTimeout(() => resolve(true), opts.timeoutSec * 1000);
+        }),
+      ]);
+      if (timer) clearTimeout(timer);
+      if (timedOut) {
+        error = `не уложилась в ${opts.timeoutSec} с`;
+        await session.abort();
+      }
+    } catch (e) {
+      error = e instanceof Error ? e.message : String(e);
+    }
+    const session = handle?.runtime.session;
+    const run: SessionRun = {
+      messages: (session?.messages ?? []) as unknown as MessageLike[],
+      stats: session ? harnessStats(session.sessionId) : {},
+      costUsd: session?.getSessionStats().cost ?? 0,
+      asked,
+      ...(error ? { error } : {}),
+    };
+    await handle?.dispose().catch(() => undefined);
+    await server?.stop();
+    return run;
+  }
+
+  const started = Date.now();
+  const runs: SessionRun[] = [];
+  for (const [i, prompt] of task.prompts.entries()) {
+    runs.push(await runSession(prompt, i));
+    if (runs.at(-1)?.error) break;
   }
   const seconds = Math.round((Date.now() - started) / 100) / 10;
-  const session = handle?.runtime.session;
-  const messages = (session?.messages ?? []) as unknown as MessageLike[];
-  const interventions = countInterventions(
-    messages,
-    session ? harnessStats(session.sessionId) : {},
-  );
+  const messages = runs.flatMap((r) => r.messages);
+  const stats: Record<string, number> = {};
+  for (const r of runs)
+    for (const [k, v] of Object.entries(r.stats)) stats[k] = (stats[k] ?? 0) + v;
+  const interventions = countInterventions(messages, stats);
+  const asked = runs.reduce((n, r) => n + r.asked, 0);
   if (asked) interventions.askedOutside = asked;
+  const error = runs.find((r) => r.error)?.error;
   const toolCalls = messages
     .filter((m) => m.role === "assistant" && Array.isArray(m.content))
     .reduce(
       (n, m) => n + (m.content as { type: string }[]).filter((p) => p.type === "toolCall").length,
       0,
     );
-  const costUsd = session?.getSessionStats().cost ?? 0;
+  const costUsd = runs.reduce((n, r) => n + r.costUsd, 0);
+  const last = runs.at(-1)?.messages ?? [];
   const answer = textOf(
-    [...messages].reverse().find((m) => m.role === "assistant" && textOf(m).trim()) ?? {
+    [...last].reverse().find((m) => m.role === "assistant" && textOf(m).trim()) ?? {
       role: "x",
     },
   );
-  await handle?.dispose().catch(() => undefined);
-  await server?.stop();
+  // Карточки, которые видел человек (память, бюджет, ревью…) — для проверок «отказ показан».
+  const cards = messages.filter((m) => m.role === "custom" && m.display).map((m) => textOf(m));
 
   let ok: boolean | null = false;
   let note = "";
@@ -287,6 +333,8 @@ async function runTask(task: TaskDef, opts: BenchOptions): Promise<TaskResult> {
         original: string;
         answer: string;
         reply: AnswerMetrics;
+        cards: string[];
+        memoryDir: string;
       }) => Promise<{ ok: boolean | null; note: string }>;
     };
     ({ ok, note } = await check.default({
@@ -294,6 +342,8 @@ async function runTask(task: TaskDef, opts: BenchOptions): Promise<TaskResult> {
       original,
       answer,
       reply: answerMetrics(answer, null),
+      cards,
+      memoryDir,
     }));
   } catch (e) {
     note = `проверка упала: ${e instanceof Error ? e.message : String(e)}`;
