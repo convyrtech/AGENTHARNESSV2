@@ -4,6 +4,18 @@
 import type { featuresZh } from "./features.zh.ts";
 
 export const featuresRu: Record<keyof typeof featuresZh, string> = {
+  "settings.pet.color.black": "Чёрный",
+  "settings.pet.color.white": "Белый",
+  "settings.pet.color.brown": "Коричневый",
+  "settings.pet.color.red": "Красный",
+  "settings.pet.color.orange": "Оранжевый",
+  "settings.pet.color.yellow": "Жёлтый",
+  "settings.pet.color.green": "Зелёный",
+  "settings.pet.color.cyan": "Бирюзовый",
+  "settings.pet.color.blue": "Синий",
+  "settings.pet.color.violet": "Фиолетовый",
+  "settings.pet.color.magenta": "Розовый",
+  "settings.pet.color.gray": "Серый",
   "features.search.group": "Чаты",
   "features.search.untitled": "Чат без названия",
   "features.search.matches": "совпадений: {count}",
@@ -46,6 +58,10 @@ export const featuresRu: Record<keyof typeof featuresZh, string> = {
   "features.pick.hint": "Нажмите на место, которое надо поменять. Esc — отмена.",
   "features.pick.picked": "Выбрано: {what}. Напишите внизу, что поменять.",
   "features.pick.block.title": "Место на странице {page}",
+  "features.pick.block.file": "Файл: {file}, строка {line}",
+  "features.pick.block.fileNear":
+    "Файл: {file}, строка {line} (элемент создал скрипт, это ближайший родитель)",
+  "features.pick.block.nth": "Таких на странице {of}, выбран {nth}-й",
   "features.pick.block.element": "Элемент",
   "features.pick.block.text": "Текст",
   "features.pick.block.code": "Код",

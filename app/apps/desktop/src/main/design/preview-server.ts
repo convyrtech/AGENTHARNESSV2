@@ -6,6 +6,7 @@ import { createReadStream, existsSync, readdirSync, readFileSync, statSync } fro
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { join, relative, sep } from "node:path";
+import { decodePage, tagSource } from "../preview-bridge/source-tags.ts";
 import { insideRoot, mimeFor } from "./paths.ts";
 
 export type PreviewServer = { url: string; root: string; close(): Promise<void> };
@@ -31,6 +32,11 @@ export function startPreviewServer(
     hideDotfiles?: boolean;
     /** Script the «Код» preview adds to every HTML page (errors, «Выбрать на странице»). */
     inject?: string;
+    /**
+     * With `inject`: mark every element of a served page with `data-pl="<file>:<line>:<col>"`
+     * (`preview-bridge/source-tags.ts`) so a pick names the place in the source.
+     */
+    tagSource?: boolean;
   } = {},
 ): Promise<PreviewServer> {
   const server: Server = createServer((req, res) => {
@@ -61,12 +67,15 @@ export function startPreviewServer(
       return;
     }
     let target = rel ? insideRoot(root, rel) : root;
+    /** The served file's path as the page names it, for `data-pl`. */
+    let servedRel = rel;
     if (target && existsSync(target) && statSync(target).isDirectory()) {
       if (rel && !pathname.endsWith("/")) {
         res.writeHead(301, { Location: `${pathname}/` }).end();
         return;
       }
       target = insideRoot(root, join(rel, "index.html"));
+      servedRel = rel ? `${rel.replace(/\/+$/u, "")}/index.html` : "index.html";
     }
     if (!target || !existsSync(target) || !statSync(target).isFile()) {
       res.writeHead(404, { "Content-Type": "text/plain; charset=utf-8" }).end("Not found");
@@ -74,8 +83,10 @@ export function startPreviewServer(
     }
     const type = mimeFor(target);
     if (options.inject !== undefined && type.startsWith("text/html")) {
-      // latin1 maps bytes 1:1, so a page in any encoding keeps its bytes; the tag is ASCII.
-      const body = Buffer.from(injectBridgeTag(readFileSync(target, "latin1")), "latin1");
+      // UTF-8 stays UTF-8; any other encoding is kept byte for byte (latin1). Tags are ASCII.
+      const page = decodePage(readFileSync(target));
+      const html = options.tagSource ? tagSource(page.text, servedRel) : page.text;
+      const body = Buffer.from(injectBridgeTag(html), page.encoding);
       res.writeHead(200, {
         "Content-Type": type,
         "Content-Length": body.length,

@@ -4,6 +4,18 @@
 import type { featuresZh } from "./features.zh.ts";
 
 export const featuresEn: Record<keyof typeof featuresZh, string> = {
+  "settings.pet.color.black": "Black",
+  "settings.pet.color.white": "White",
+  "settings.pet.color.brown": "Brown",
+  "settings.pet.color.red": "Red",
+  "settings.pet.color.orange": "Orange",
+  "settings.pet.color.yellow": "Yellow",
+  "settings.pet.color.green": "Green",
+  "settings.pet.color.cyan": "Cyan",
+  "settings.pet.color.blue": "Blue",
+  "settings.pet.color.violet": "Violet",
+  "settings.pet.color.magenta": "Magenta",
+  "settings.pet.color.gray": "Gray",
   "features.search.group": "Chats",
   "features.search.untitled": "Untitled chat",
   "features.search.matches": "{count} matches",
@@ -46,6 +58,10 @@ export const featuresEn: Record<keyof typeof featuresZh, string> = {
   "features.pick.hint": "Click the place on the page to change. Esc cancels.",
   "features.pick.picked": "Picked: {what}. Write below what to change.",
   "features.pick.block.title": "Place on page {page}",
+  "features.pick.block.file": "File: {file}, line {line}",
+  "features.pick.block.fileNear":
+    "File: {file}, line {line} (a script made the element; this is its nearest parent)",
+  "features.pick.block.nth": "There are {of} like it on the page; this is number {nth}",
   "features.pick.block.element": "Element",
   "features.pick.block.text": "Text",
   "features.pick.block.code": "Code",

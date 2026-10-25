@@ -3,6 +3,18 @@
  * into the locale table; `zh` is the key source.
  */
 export const featuresZh = {
+  "settings.pet.color.black": "黑色",
+  "settings.pet.color.white": "白色",
+  "settings.pet.color.brown": "棕色",
+  "settings.pet.color.red": "红色",
+  "settings.pet.color.orange": "橙色",
+  "settings.pet.color.yellow": "黄色",
+  "settings.pet.color.green": "绿色",
+  "settings.pet.color.cyan": "青色",
+  "settings.pet.color.blue": "蓝色",
+  "settings.pet.color.violet": "紫色",
+  "settings.pet.color.magenta": "品红",
+  "settings.pet.color.gray": "灰色",
   "features.search.group": "聊天",
   "features.search.untitled": "未命名聊天",
   "features.search.matches": "{count} 处匹配",
@@ -44,6 +56,9 @@ export const featuresZh = {
   "features.pick.hint": "点击页面上要修改的地方。Esc 取消。",
   "features.pick.picked": "已选择：{what}。在下方写下要修改什么。",
   "features.pick.block.title": "页面 {page} 上的位置",
+  "features.pick.block.file": "文件：{file}，第 {line} 行",
+  "features.pick.block.fileNear": "文件：{file}，第 {line} 行（元素由脚本生成，这是最近的父元素）",
+  "features.pick.block.nth": "页面上有 {of} 个相同的，选中第 {nth} 个",
   "features.pick.block.element": "元素",
   "features.pick.block.text": "文字",
   "features.pick.block.code": "代码",

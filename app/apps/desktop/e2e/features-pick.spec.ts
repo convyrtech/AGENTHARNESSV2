@@ -49,6 +49,9 @@ test("pick an element in the preview and the composer gets its exact place", asy
     const input = page.getByTestId("prompt-input");
     await expect(input).toHaveValue(/\[Место на странице index\.html\]/);
     const draft = await input.inputValue();
+    // parse5 marks the served page: the exact file and line of the button.
+    expect(draft).toContain("Файл: index.html, строка 8");
+    expect(draft).not.toContain("data-pl");
     expect(draft).toContain("Текст: Записаться");
     expect(draft).toContain('Код: `<button class="cta">Записаться</button>`');
     expect(draft.trimEnd().endsWith("Что поменять здесь:")).toBe(true);
