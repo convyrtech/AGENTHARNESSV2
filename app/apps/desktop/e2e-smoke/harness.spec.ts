@@ -9,8 +9,9 @@
  *   4. `taskkill /IM bash.exe /F` → blocked with the hint
  *   5. write of a broken .js → post-edit syntax line (node --check via Electron as node)
  *   6. `python -m http.server Q &` left running → port Q free after the app quits
- * Artifacts: smoke-out/harness-requests.jsonl (every request the model got), session JSONL
- * files, harness-results.json.
+ * Step 0 only records python in the agent's bash. Content checks are soft: every step runs and
+ * reports. Artifacts: smoke-out/harness-requests.jsonl (every request the model got), session
+ * JSONL files, harness-results.json, harness-bg-logs/ (registry process output).
  *
  * Self-contained on purpose (own launcher and fake model): helpers.ts launch() pins
  * ZENO_TOOLS=read,bash and a one-call FakeOpenAiServer. Local run without an installed app:
@@ -267,14 +268,18 @@ async function step(n: number): Promise<string> {
   return result;
 }
 
-test.describe.configure({ mode: "serial" });
-
 test.beforeAll(async () => {
   if (!process.env.SMOKE_DEV_APP) await beforeAllSmoke();
   else await mkdir(outDir, { recursive: true });
   state.serverPort = await freePort();
   state.leftPort = await freePort();
   await launchApp({
+    0: {
+      name: "bash",
+      arguments: {
+        command: `command -v ${PY} python python3 py; ${PY} --version; ${PY} -c "import http.server, sys; print(sys.executable)"; echo PATH=$PATH`,
+      },
+    },
     1: {
       name: "bash",
       arguments: {
@@ -314,59 +319,73 @@ test.afterAll(async () => {
   for (const file of new Set(sessions)) {
     await copyFile(file, join(outDir, "harness-sessions", basename(file))).catch(() => undefined);
   }
+  // Логи фоновых процессов реестра (вывод сервера, если он упал).
+  const bgLogs = findFiles(join(tmpdir(), "prsloy-harness"), ".log", 3);
+  await mkdir(join(outDir, "harness-bg-logs"), { recursive: true });
+  for (const file of bgLogs) {
+    const name = `${basename(join(file, ".."))}-${basename(file)}`;
+    await copyFile(file, join(outDir, "harness-bg-logs", name)).catch(() => undefined);
+  }
   await writeMetrics({
     harness: { sessions: sessions.length, results: Object.keys(state.results) },
   });
 });
 
-test("1: `(python -m http.server &)` goes to the harness registry", async () => {
-  const result = await step(1);
-  expect(result).toMatch(/^\s*\[exit 0 · /);
-  expect(result).toContain("200");
-  expect(result).toContain("запущен через реестр харнесса");
-  expect(result).toMatch(new RegExp(`порт ${state.serverPort}`));
-});
+test("harness on the installed app: steps 0–6", async () => {
+  await test.step("0: python in the agent's bash (diagnostics only)", async () => {
+    const result = await step(0);
+    test.info().annotations.push({ type: "python", description: result.slice(0, 2000) });
+  });
 
-test("2: pkill -f is routed through the registry, the shell survives", async () => {
-  const result = await step(2);
-  expect(result).toMatch(/^\s*\[exit 0 · /);
-  expect(result).toContain("shell-alive");
-  expect(result).toContain("выполнено через реестр: остановлены bg1");
-  await expect.poll(() => portAnswers(state.serverPort), { timeout: 15_000 }).toBe(false);
-});
+  await test.step("1: `(python -m http.server &)` goes to the harness registry", async () => {
+    const result = await step(1);
+    expect.soft(result).toMatch(/^\s*\[exit 0 · /);
+    expect.soft(result).toContain("200");
+    expect.soft(result).toContain("запущен через реестр харнесса");
+    expect.soft(result).toMatch(new RegExp(`порт ${state.serverPort}`));
+  });
 
-test("3: a hanging command hits the harness bash timeout", async () => {
-  const started = Date.now();
-  const result = await step(3);
-  expect(result).toContain("before-hang");
-  expect(result).not.toContain("never");
-  expect(result).toContain(`[Процесс остановлен по таймауту ${BASH_TIMEOUT_SEC} с.]`);
-  expect(Date.now() - started).toBeLessThan(55_000);
-});
+  await test.step("2: pkill -f is routed through the registry, the shell survives", async () => {
+    const result = await step(2);
+    expect.soft(result).toMatch(/^\s*\[exit 0 · /);
+    expect.soft(result).toContain("shell-alive");
+    expect.soft(result).toContain("выполнено через реестр: остановлены bg1");
+    await expect.poll(() => portAnswers(state.serverPort), { timeout: 15_000 }).toBe(false);
+  });
 
-test("4: taskkill of bash.exe is blocked with the hint", async () => {
-  const result = await step(4);
-  expect(result).toContain("«taskkill /IM bash.exe /F» не выполнено");
-  expect(result).toContain("process action=stop");
-});
+  await test.step("3: a hanging command hits the harness bash timeout", async () => {
+    const started = Date.now();
+    const result = await step(3);
+    expect.soft(result).toContain("before-hang");
+    expect.soft(result).not.toContain("never");
+    expect.soft(result).toContain(`[Процесс остановлен по таймауту ${BASH_TIMEOUT_SEC} с.]`);
+    expect.soft(Date.now() - started).toBeLessThan(55_000);
+  });
 
-test("5: a broken .js write gets the post-edit syntax line", async () => {
-  const result = await step(5);
-  expect(result).toContain("[Проверка синтаксиса (node --check): ОШИБКА в broken.js");
-  expect(result).toContain("SyntaxError");
-  await shot(state.page!, "harness-steps");
-});
+  await test.step("4: taskkill of bash.exe is blocked with the hint", async () => {
+    const result = await step(4);
+    expect.soft(result).toContain("«taskkill /IM bash.exe /F» не выполнено");
+    expect.soft(result).toContain("process action=stop");
+  });
 
-test("6: a background server left running dies with the app", async () => {
-  const result = await step(6);
-  expect(result).toContain("запущен через реестр харнесса");
-  await expect.poll(() => portAnswers(state.leftPort), { timeout: 15_000 }).toBe(true);
-  const proc = state.app!.process();
-  await Promise.race([
-    state.app!.close().catch(() => undefined),
-    new Promise((r) => setTimeout(r, 30_000)),
-  ]);
-  if (proc.exitCode === null) proc.kill();
-  state.app = undefined; // afterAll не трогает закрытое приложение
-  await expect.poll(() => portAnswers(state.leftPort), { timeout: 20_000 }).toBe(false);
+  await test.step("5: a broken .js write gets the post-edit syntax line", async () => {
+    const result = await step(5);
+    expect.soft(result).toContain("[Проверка синтаксиса (node --check): ОШИБКА в broken.js");
+    expect.soft(result).toContain("SyntaxError");
+    await shot(state.page!, "harness-steps");
+  });
+
+  await test.step("6: a background server left running dies with the app", async () => {
+    const result = await step(6);
+    expect.soft(result).toContain("запущен через реестр харнесса");
+    await expect.poll(() => portAnswers(state.leftPort), { timeout: 15_000 }).toBe(true);
+    const proc = state.app!.process();
+    await Promise.race([
+      state.app!.close().catch(() => undefined),
+      new Promise((r) => setTimeout(r, 30_000)),
+    ]);
+    if (proc.exitCode === null) proc.kill();
+    state.app = undefined; // afterAll не трогает закрытое приложение
+    await expect.poll(() => portAnswers(state.leftPort), { timeout: 20_000 }).toBe(false);
+  });
 });

@@ -141,7 +141,9 @@ export function installBashTimeout(pi: ExtensionAPI, opts: ResolvedOptions): Pro
       const started = await registry.start(job.command, cwdBefore(command, job.start, cwd) ?? cwd);
       ranges.push({ start: job.start, end: job.end + 1, text: ":;" });
       notes.push(
-        `Сервер «${job.raw} &» запущен через реестр харнесса (он закроется с сессией): ${describeProcess(started)}. Логи и остановка: тул process.`,
+        started.exitCode === undefined
+          ? `Сервер «${job.raw} &» запущен через реестр харнесса (он закроется с сессией): ${describeProcess(started)}. Логи и остановка: тул process.`
+          : `Сервер «${job.raw} &» запущен через реестр харнесса, но сразу завершился (код ${started.exitCode}). Его вывод:\n${started.output.trim().slice(-2000) || "(пусто)"}\n${describeProcess(started)}`,
       );
     }
     if (ranges.length === 0) return { command, notes };

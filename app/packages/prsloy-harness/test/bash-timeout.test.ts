@@ -203,6 +203,23 @@ describe("servers via & and kill commands", () => {
     },
   );
 
+  it("a backgrounded server that dies at once reports its exit code and output", async () => {
+    const dir = await project();
+    const { pi } = setup(dir);
+    try {
+      await writeFile(
+        join(dir, "bad-server.js"),
+        'console.error("EADDRINUSE: port taken"); process.exit(3);',
+      );
+      await pi.toolCall("bash", { command: "node bad-server.js &" }, "d2");
+      const result = await pi.toolResult({ toolName: "bash", toolCallId: "d2", text: "" });
+      expect(result.text).toContain("сразу завершился (код 3)");
+      expect(result.text).toContain("EADDRINUSE: port taken");
+    } finally {
+      await pi.emit("session_shutdown", {});
+    }
+  });
+
   it("leaves ordinary background jobs alone", async () => {
     const { pi, registry } = setup();
     const input: Record<string, unknown> = { command: "sleep 1 & sleep 1 & wait" };
