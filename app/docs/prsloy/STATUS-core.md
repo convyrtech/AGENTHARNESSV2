@@ -649,6 +649,89 @@ e2e `long-chat-compaction`, 150 ходов. Fake-модели дана цена,
 
 Проверено после rebase на main: `pnpm check`, unit 1061, full e2e 46 passed (+ 1 skipped — замер).
 
+## Находки живого стенда: граница записи и чтения
+
+### 28. Вопрос висел до таймаута
+
+Причина — в мосте UI расширений (`packages/agent-runtime/src/extension-ui-bridge.ts`). Диалог
+попадал в список ожидания только после отправки запроса. Стенд (`bench/run.ts`) отвечает «Нет»
+синхронно, прямо из `onExtensionUiRequest`, поэтому ответ не находил диалог. Ход висел до
+600 с, потом приходило «Operation aborted». В приложении рендерер отвечает асинхронно, поэтому
+там этого не было видно.
+
+- Диалог теперь регистрируется до запроса. Тест — ответ из `onRequest`. Без исправления он висит
+  30 с, с ним проходит.
+- `createPixRuntime` без `onExtensionUiRequest` не подключает UI: для расширений `hasUI` = false.
+  Граница сразу отказывает строкой «Запись вне папки проекта запрещена. Работай внутри проекта или
+  во временной папке.».
+- Тест `write-boundary-headless`, настоящая сессия pi с fake-моделью:
+  - без UI — отказ меньше чем за 1 с;
+  - синхронное «Нет» — услышано, меньше 1 с;
+  - запись во временную папку — без вопроса.
+
+### 29. `/tmp` и временная папка
+
+`mkdir -p /tmp/u` и вызовы `curl` на `/tmp` у меня не спрашивались: `os.tmpdir()` на Linux —
+`/tmp`. Сессию стенда я не видел, поэтому закрыл все варианты сразу:
+
+- `/tmp` разрешён всегда, даже если `TMPDIR` указывает в другое место;
+- разрешены значения `TMPDIR`, `TMP`, `TEMP`;
+- в bash разворачиваются `$TMPDIR`, `${TMPDIR}`, `$TMP`, `$TEMP`, `%TEMP%`, `%TMP%`,
+  `$env:TEMP`;
+- на Windows `/tmp` в Git Bash — это `%TEMP%`, `/c/Users/<u>/AppData/Local/Temp` тоже
+  распознаётся;
+- инструмент `write` с путём `/tmp/x` на Windows по-прежнему спрашивает: pi пишет его в `C:\tmp\x`,
+  это не системная временная папка.
+
+Тесты в `private-paths.test.ts`, блок «system temp dir», в Linux- и Windows-формах.
+
+### 30. Чтение личных данных запрещено
+
+`agent-host/private-paths.ts` подключён к той же границе и проверяется первым. Чтение
+запрещается без вопроса и даже после «Разрешать в этом разговоре». Модель получает «Это личные
+данные пользователя, их читать нельзя.».
+
+- Что под запретом:
+  - вся `userData` приложения (`%APPDATA%\PRSLOY`): `agent/sessions`, `auth.json`,
+    `models.json`, `settings.json`, `prsloy-memory`, `prsloy/` (state и зашифрованный ключ),
+    логи, снимки;
+  - `~/.ssh`, `~/.aws`, `~/.config/gcloud`, `~/.docker/config.json`, `~/.npmrc`,
+    `~/.git-credentials`, `~/.netrc` и `_netrc`;
+  - профили Chrome, Edge, Яндекс.Браузера, Firefox: `%LOCALAPPDATA%\…\User Data`,
+    `Mozilla\Firefox\Profiles` в Local и Roaming, Linux- и macOS-пути;
+  - Telegram: `%APPDATA%\Telegram Desktop\tdata`, `~/.local/share/TelegramDesktop`.
+- Исключения внутри `userData` — то, что агенту нужно: `runtimes` (Node/Python/Git), `agent-shims`,
+  `agent/bin`, `agent/skills`, `agent/prompts`, `design`. Проект «Дизайна», лежащий в `userData`,
+  остаётся его собственным.
+- Как проверяется:
+  - инструменты pi `read`, `grep`, `find`, `ls` — по `path`;
+  - bash — каждое слово команды, неважно какой: cat, type, Get-Content, ls, grep, cp, tar, curl
+    `--data-binary=@…`. Учитываются `cd` перед ним и пути из `<`;
+  - рекурсивная команда или glob по папке, где лежит личное, тоже под запретом: `grep -r x ~`,
+    `ls ~/.s*`, `Get-ChildItem -Recurse C:\Users\Иван`;
+  - если путь не разобрать (`$(…)`, неизвестная переменная), команда судится по именам в ней.
+- Остальное чтение вне проекта не тронуто: `cp ~/Загрузки/отчёт.pdf .`, `ls ..`, `ls -la ~`,
+  `cat /etc/hosts`, `.npmrc` в самом проекте.
+- Тесты — каждая категория в Linux-, Windows- (`C:\…`, `%VAR%`, `$env:VAR`) и Git Bash-формах
+  (`/c/Users/…`, `$HOME`, `~`). Расширение отказывает даже после «разрешать всё».
+- Стенд теперь передаёт границе свою папку агента (`createWriteBoundary({ agentDir })`).
+
+### 31. «Откатить ход» в журнале обучения
+
+После `prsloy:undo-turn` main дописывает в `prsloy-learning/events.jsonl` (`PRSLOY_LEARN_DIR`
+или папка агента) строку:
+
+```
+{"kind":"turn.undo","ts":"…","session":"…","project":"<sha256(realpath)[:16]>"}
+```
+
+- Путей и текстов в ней нет. Ротация та же: 5 МБ, затем `.1`. `LEARNING_MAX_BYTES` и
+  `projectKey` берутся из `@prsloy/harness`.
+- Тесты:
+  - IPC: после отката в журнале ровно эта строка с полями `kind`, `project`, `session`, `ts`, без
+    пути и промпта;
+  - ротация.
+
 ## Как проверено (Linux, без ключа шлюза)
 
 - `pnpm check` чистый. `pnpm test` (корень) зелёный:

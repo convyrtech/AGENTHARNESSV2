@@ -34,7 +34,7 @@ export { detectPseudoToolCall } from "./loop-detector.ts";
 export { scrubSecrets } from "./secret-scrub.ts";
 export { repairToolCall } from "./arg-repair.ts";
 export { harnessStats } from "./stats.ts";
-export { learningDir, recordEvent } from "./learning-log.ts";
+export { LEARNING_MAX_BYTES, learningDir, projectKey, recordEvent } from "./learning-log.ts";
 export { installReusePrompt } from "./reuse-prompt.ts";
 export { MemoryStore, memoryDirFor, MEMORY_LIMITS } from "./memory-store.ts";
 export { detectToolLeak, stripToolMarkup } from "./tool-leak.ts";
