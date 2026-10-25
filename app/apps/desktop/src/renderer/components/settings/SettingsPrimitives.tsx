@@ -198,6 +198,11 @@ export function SettingsRow(props: {
   control: ReactNode;
   testId?: string;
   last?: boolean;
+  /**
+   * A wide control (a field with a button) that may wrap onto a second line in a narrow window
+   * instead of pushing the title under it or out of the row.
+   */
+  wrapControl?: boolean;
 }) {
   const withDescription = hasSettingsDescription(props.description);
   return (
@@ -207,6 +212,7 @@ export function SettingsRow(props: {
         "settings-row",
         !withDescription && "settings-row-compact",
         props.last && "settings-row-last",
+        props.wrapControl && "settings-row-wrap",
       )}
       data-testid={props.testId}
     >
@@ -218,7 +224,8 @@ export function SettingsRow(props: {
       </FieldContent>
       <div
         className={cn(
-          "settings-row-control shrink-0",
+          "settings-row-control",
+          props.wrapControl ? "min-w-0" : "shrink-0",
           withDescription && "settings-row-control-multiline",
         )}
       >

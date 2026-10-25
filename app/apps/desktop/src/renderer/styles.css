@@ -1586,6 +1586,12 @@ html[data-custom-window-controls="true"] .page-header {
   box-shadow: none;
   box-sizing: border-box;
 }
+/* The prompt field draws no ring of its own (the mirror layer needs it bare): the card shows focus. */
+.composer-card:has(textarea[data-testid="prompt-input"]:focus-visible),
+.composer-card:has(textarea[data-testid="prompt-input"]:focus) {
+  border-color: var(--ring);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ring) 28%, transparent);
+}
 .composer-card-with-protrusion {
   border-top-left-radius: var(--radius-field);
   border-top-right-radius: var(--radius-field);
@@ -5956,6 +5962,15 @@ textarea.models-scoped-patterns-input[data-slot="textarea"] {
 }
 .settings-row-control {
   @apply flex items-center;
+}
+/* A wrapping control takes the room the title leaves; the title keeps room for its words. */
+.settings-row-wrap .settings-row-copy {
+  flex: 0 1 auto;
+  min-width: 7.5rem;
+}
+.settings-row-wrap .settings-row-control {
+  flex: 1 1 0;
+  justify-content: flex-end;
 }
 .settings-row-control-multiline {
   @apply pt-0.5;

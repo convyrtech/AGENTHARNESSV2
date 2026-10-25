@@ -195,10 +195,11 @@ export function AccountSection(props: { tr: Tr }) {
           <SettingsRow
             title={tr("prsloy.settings.baseUrl")}
             description={message("url")}
+            wrapControl
             control={
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center justify-end gap-2">
                 <SettingsInput
-                  className="w-56"
+                  className="w-56 max-w-full"
                   spellCheck={false}
                   value={urlDraft}
                   data-testid="settings-account-url"

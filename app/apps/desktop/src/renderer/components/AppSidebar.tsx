@@ -45,6 +45,7 @@ import {
   titlebarControlTopPx,
   titlebarLeadingGutterPx,
 } from "../lib/desktop-chrome.ts";
+import { hostStatusLabel } from "../lib/host-status.ts";
 import { t, type Locale, type MessageKey } from "../lib/i18n.ts";
 import { SHELL_SIDEBAR } from "../lib/layout.ts";
 import { clampSidebarWidth, SIDEBAR_COLLAPSED_WIDTH } from "../lib/sidebar-prefs.ts";
@@ -247,7 +248,7 @@ export function AppSidebar(props: AppSidebarProps) {
 
       {/* Keep status probe available while rail is fully tucked away. */}
       {props.collapsed ? (
-        <span className="sr-only" data-testid="host-status" data-state={props.hostPillState}>
+        <span hidden data-testid="host-status" data-state={props.hostPillState}>
           {props.status}
         </span>
       ) : null}
@@ -475,16 +476,19 @@ function ProductRail(
               {tr("dev.developer")}
             </summary>
             <div className="space-y-1 px-1.5 pb-2">
+              {/* Tests read the raw service string from the hidden probe; people read this. */}
+              <span hidden data-testid="host-status" data-state={props.hostPillState}>
+                {props.status}
+              </span>
               <span
                 className={cn(
-                  "mb-1 block max-w-full truncate rounded-full px-2 py-0.5 text-[10px] font-medium",
+                  "mb-1 block max-w-full truncate rounded-full px-2 py-0.5 text-[12px] font-medium",
                   hostPillClass(props.hostPillState),
                 )}
-                data-testid="host-status"
-                data-state={props.hostPillState}
-                title={props.status}
+                data-testid="host-status-pill"
+                title={hostStatusLabel(props.status, props.locale)}
               >
-                {props.status}
+                {hostStatusLabel(props.status, props.locale)}
               </span>
               <div className="flex flex-wrap gap-0.5">
                 <QuietBtn
@@ -527,7 +531,7 @@ function ProductRail(
             </div>
           </details>
         ) : (
-          <span className="sr-only" data-testid="host-status" data-state={props.hostPillState}>
+          <span hidden data-testid="host-status" data-state={props.hostPillState}>
             {props.status}
           </span>
         )}
