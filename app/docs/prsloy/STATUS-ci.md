@@ -19,7 +19,8 @@
      переключатель в приложение не добавлялся**, безопасность не ослаблена;
    - проверки: главное окно → распаковка рантаймов (`userData/runtimes/node/node.exe`, `python/python.exe`) →
      Agent Host ready → ответ на сообщение → вызов `bash` через агента. Команда `echo PRSLOY_SMOKE_$((6*7))`:
-     ответ `42` доказывает, что команду выполнил настоящий shell;
+     ответ `42` доказывает, что команду выполнил настоящий shell. Результат обязан начинаться с заголовка
+     харнесса `[exit N · …]`;
    - скриншоты, `*-main.log` (stdout/stderr main), `*-renderer.log`, `metrics.json`, `install.json`,
      `bash-*.json`, копия userData без рантаймов — в артефакте `prsloy-win-smoke`. Сводка цифр — в Summary job;
    - падение, вылет или таймаут (10 мин на тест, 30 мин на job) красят job.
@@ -105,4 +106,5 @@ GIT_ROOT=C:\Users\runneradmin\AppData\Local\Temp\prsloy-smoke-clean-…\userData
   (bash: `PRSLOY_SMOKE_42`, `/bin/bash`).
 - CI, `desktop-windows` на `desktop/ci`, все зелёные. Исследование: 40144577288, 40145410772, 40146190949,
   40146870805, 40147775976 (MinGit vs PortableGit). На интегрированном `main`, со строгим clean-bash:
-  **40149024243**. Артефакты `prsloy-win-x64` (установщик) и `prsloy-win-smoke` (скриншоты, логи, json) — 14 дней.
+  40149024243 и 40149932681 (`main` с ru UI и first-run). Smoke-прогон:
+  https://github.com/convyrtech/AGENTHARNESSV2/actions/runs/40149932681 (финальный — см. ниже). Артефакты `prsloy-win-x64` (установщик) и `prsloy-win-smoke` (скриншоты, логи, json) — 14 дней.

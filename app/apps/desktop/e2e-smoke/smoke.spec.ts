@@ -26,6 +26,8 @@ const exe = process.env.PRSLOY_EXE ?? "";
 const outDir = resolve(process.env.SMOKE_OUT ?? "smoke-out");
 const strictCleanBash = process.env.SMOKE_STRICT_CLEAN_BASH === "1";
 const MARKER = "PRSLOY_SMOKE_42";
+// Harness bash wrapper prefixes every result: `[exit 0 · 0,3 с · 349 Б]`.
+const HARNESS_HEADER = /^\s*\[exit \d+/;
 // $((6*7)) proves a real POSIX shell evaluated the command, not just echoed it.
 const BASH_COMMAND = "echo PRSLOY_SMOKE_$((6*7)); echo SHELL=$0; uname -a || ver";
 
@@ -305,6 +307,7 @@ test("installed app: window, runtimes, host, reply, bash tool", async () => {
       .poll(async () => page.getByTestId("timeline").innerText(), { timeout: 30_000 })
       .toContain("Tool result received");
     expect(bash.result, `bash tool result:\n${bash.result}`).toContain(MARKER);
+    expect(bash.result, `bash tool result:\n${bash.result}`).toMatch(HARNESS_HEADER);
   } finally {
     if (launched) await shot(launched.page, "99-runner-final");
     await close(launched);
@@ -330,6 +333,7 @@ test("clean Windows (system Git hidden): bash tool via bundled Git", async () =>
       if (!bash.ok) test.info().annotations.push({ type: "clean-bash", description: report });
       return;
     }
+    expect(bash.result, report).toMatch(HARNESS_HEADER);
     expect(bash.result, report).toContain(MARKER);
     expect(bash.result, report).toContain("bashisms=b");
     expect(bash.result, report).toMatch(/git version \d/);
