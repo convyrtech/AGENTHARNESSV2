@@ -3,6 +3,8 @@
 // Windows с обратными слэшами в Git Bash. Pi проверяет аргументы до хука tool_call, поэтому чиним раньше —
 // в message_end ответа ассистента: Pi подменяет сообщение на месте, и цикл выполняет уже исправленные вызовы.
 // Что не починилось — после ошибки валидации одна подсказка с правильной формой вызова.
+import { readFileSync } from "node:fs";
+import { isAbsolute, join } from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { bumpStat } from "./stats.ts";
 import { recordEvent } from "./learning-log.ts";
@@ -30,7 +32,8 @@ export type RepairKind =
   | "wrapper"
   | "number-string"
   | "windows-path"
-  | "windows-command";
+  | "windows-command"
+  | "provider-oi";
 
 const WRAPPER_KEYS = ["arguments", "parameters", "args", "input"];
 const PATH_KEYS = new Set(["path", "file_path", "filePath", "cwd", "dir", "directory"]);
@@ -207,6 +210,49 @@ export function repairToolCall(
   };
 }
 
+/**
+ * Канал kimi-k3.1-pro на шлюзе переписывает «OpenAI» в «[OI]» внутри аргументов вызовов (проба шлюза 4/4, DIARY 24.10:
+ * «[OI]-формат», «[OI] SDK»; в тексте ответа слово целое). Код пользователя с `import openai` портился бы на записи.
+ * Только kimi и только этот токен. У edit старый текст не трогаем, если файл уже содержит «[OI]» (записан до
+ * починки): иначе oldText перестанет совпадать.
+ */
+export const PROVIDER_OI = "[OI]";
+export const KIMI_MODEL = /kimi/i;
+
+export function restoreProviderOi(
+  call: ToolCallPart,
+  cwd: string | undefined,
+): { call: ToolCallPart; n: number } | undefined {
+  if (!isObject(call.arguments) || !JSON.stringify(call.arguments).includes(PROVIDER_OI))
+    return undefined;
+  const args = call.arguments;
+  let keepOld = false;
+  if (call.name === "edit" && typeof args.path === "string" && cwd) {
+    try {
+      keepOld = readFileSync(
+        isAbsolute(args.path) ? args.path : join(cwd, args.path),
+        "utf8",
+      ).includes(PROVIDER_OI);
+    } catch {
+      keepOld = false;
+    }
+  }
+  let n = 0;
+  const walk = (v: unknown, key?: string): unknown => {
+    if (typeof v === "string") {
+      if (keepOld && key === "oldText") return v;
+      const parts = v.split(PROVIDER_OI);
+      n += parts.length - 1;
+      return parts.join("OpenAI");
+    }
+    if (Array.isArray(v)) return v.map((x) => walk(x, key));
+    if (isObject(v)) return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, walk(x, k)]));
+    return v;
+  };
+  const fixed = walk(args);
+  return n ? { call: { ...call, arguments: fixed }, n } : undefined;
+}
+
 /** Правильная форма вызова из схемы: `{"path": "<строка>", "offset": <число>}`. */
 export function callShape(name: string, schema: JsonSchema | undefined): string {
   const props = schema?.properties ?? {};
@@ -246,6 +292,8 @@ interface MessageLike {
   content?: unknown;
   toolName?: string;
   isError?: boolean;
+  model?: string;
+  responseModel?: string;
 }
 
 export function installArgRepair(pi: ExtensionAPI): void {
@@ -273,17 +321,28 @@ export function installArgRepair(pi: ExtensionAPI): void {
 
     if (message.role === "assistant" && Array.isArray(message.content)) {
       let changed = false;
+      const kimi = KIMI_MODEL.test(`${message.model ?? ""} ${message.responseModel ?? ""}`);
       const content = (message.content as { type: string }[]).map((part) => {
         if (part.type !== "toolCall") return part;
-        const call = part as unknown as ToolCallPart;
+        const original = part as unknown as ToolCallPart;
+        let call = original;
         const repaired = repairToolCall(call, schemaOf(call.name));
-        if (!repaired) return part;
-        changed = true;
-        for (const kind of repaired.kinds) {
-          bumpStat(session, `repair:${kind}`);
-          recordEvent(ctx, { kind: "repair", tool: call.name, sig: `repair:${kind}` });
+        if (repaired) {
+          changed = true;
+          call = repaired.call;
+          for (const kind of repaired.kinds) {
+            bumpStat(session, `repair:${kind}`);
+            recordEvent(ctx, { kind: "repair", tool: call.name, sig: `repair:${kind}` });
+          }
         }
-        return repaired.call;
+        const oi = kimi ? restoreProviderOi(call, ctx.cwd) : undefined;
+        if (oi) {
+          changed = true;
+          call = oi.call;
+          bumpStat(session, "repair:provider-oi");
+          recordEvent(ctx, { kind: "repair", tool: call.name, sig: "repair:provider-oi", n: oi.n });
+        }
+        return call === original ? part : call;
       });
       return changed
         ? { message: { ...event.message, content } as typeof event.message }
