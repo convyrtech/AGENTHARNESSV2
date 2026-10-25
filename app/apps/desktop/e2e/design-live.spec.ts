@@ -249,6 +249,21 @@ test("a full turn on the real tools: sheet and videos, choice «A», the page", 
       .toEqual([true, true, true]);
     await expect(card.getByTestId("design-image")).toHaveCount(1);
     await shot(page, "videos");
+    // diagnostics for the poster: the mp4 files themselves and the card without native controls
+    const dir = process.env.DESIGN_LIVE_SHOTS || test.info().outputDir;
+    for (const k of ["A", "B", "C"]) {
+      copyFileSync(
+        join(ws(l), "design", "landing", "01-cands", `${k}.mp4`),
+        join(dir, `design-${WIN ? "windows" : "live"}-${k}.mp4`),
+      );
+    }
+    await videos.evaluateAll((els: HTMLVideoElement[]) =>
+      els.forEach((el) => (el.controls = false)),
+    );
+    await shot(page, "videos-nocontrols");
+    await videos.evaluateAll((els: HTMLVideoElement[]) =>
+      els.forEach((el) => (el.controls = true)),
+    );
 
     // the agent shell ran python3 from the app's shim: the venv's interpreter, full stdlib
     const probe = readFileSync(join(piHome(l), "live-probe.txt"), "utf8");
