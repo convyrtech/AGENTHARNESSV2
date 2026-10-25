@@ -1,0 +1,14 @@
+[
+  {
+    "toolCalls": [
+      {
+        "name": "write",
+        "arguments": {
+          "path": "index.html",
+          "content": "<!doctype html>\n<html lang=\"ru\">\n<head><meta charset=\"utf-8\"><title>У Тони — меню</title></head>\n<body>\n<h1>Пиццерия «У Тони»</h1>\n<ul>\n<li>Маргарита — 450 ₽</li>\n<li>Пепперони — 550 ₽</li>\n<li>Четыре сыра — 600 ₽</li>\n</ul>\n</body>\n</html>\n"
+        }
+      }
+    ]
+  },
+  { "text": "Готово: меню лежит в index.html — откройте этот файл, и увидите три пиццы с ценами." }
+]

@@ -30,7 +30,15 @@ interface ToolResultMessage {
   content: { type: string; text?: string }[];
 }
 
-async function startSession(script: Script, load: { factory?: HarnessOptions; path?: string }) {
+async function startSession(
+  script: Script,
+  load: {
+    factory?: HarnessOptions;
+    path?: string;
+    /** До загрузки ресурсов: AGENTS.md, скиллы, флаги. */
+    prepare?: (dirs: { root: string; agentDir: string; cwd: string }) => Promise<void>;
+  },
+) {
   const root = await mkdtemp(join(tmpdir(), "prsloy-int-"));
   const agentDir = join(root, "agent");
   const cwd = join(root, "project");
@@ -84,12 +92,18 @@ async function startSession(script: Script, load: { factory?: HarnessOptions; pa
     ...(load.factory
       ? {
           extensionFactories: [
-            createPrsloyHarness({ outputDir: join(root, "out"), ...load.factory }),
+            createPrsloyHarness({
+              outputDir: join(root, "out"),
+              // Флаги приложения (prsloy-harness.json): нет файла — всё по умолчанию.
+              settingsPath: join(root, "flags.json"),
+              ...load.factory,
+            }),
           ],
         }
       : {}),
     ...(load.path ? { additionalExtensionPaths: [load.path] } : {}),
   });
+  await load.prepare?.({ root, agentDir, cwd });
   await resourceLoader.reload();
   const { session } = await createAgentSession({
     cwd,
@@ -528,6 +542,53 @@ describe("integration: lessons (S3) in a real session", () => {
       lessons: Record<string, { shown: number; helped: number; hurt: number }>;
     };
     expect(counters.lessons["T-tip-ls"]).toEqual({ shown: 1, helped: 1, hurt: 0 });
+  }, 60_000);
+});
+
+describe("integration: PRSLOY code prompt (research/17) in a real session", () => {
+  const prepare =
+    (prompt: "pi" | "prsloy") => async (d: { root: string; agentDir: string; cwd: string }) => {
+      await writeFile(join(d.root, "flags.json"), JSON.stringify({ prompt }));
+      await writeFile(join(d.cwd, "AGENTS.md"), "Project rule: use tabs for indentation.\n");
+      await mkdir(join(d.agentDir, "skills", "csv-report"), { recursive: true });
+      await writeFile(
+        join(d.agentDir, "skills", "csv-report", "SKILL.md"),
+        "---\nname: csv-report\ndescription: Summarize a CSV file into a short report.\n---\n\nRead the CSV, sum by month.\n",
+      );
+    };
+
+  it("prompt: prsloy — our preamble replaces Pi's; AGENTS.md, skills and cwd stay; turn 1 = turn 5 byte for byte", async () => {
+    const { session, server, cwd } = await startSession(() => ({ text: "Готово." }), {
+      factory: {},
+      prepare: prepare("prsloy"),
+    });
+    for (let i = 1; i <= 5; i++) await session.prompt(`шаг ${i}`);
+    const system = (i: number) => (server.requests[i]!.messages[0] as { content: string }).content;
+    const first = system(0);
+    expect(first.startsWith("You are the coding agent of PRSLOY, a Windows desktop app.")).toBe(
+      true,
+    );
+    expect(first).toContain("Project rule: use tabs for indentation.");
+    expect(first).toContain("csv-report");
+    expect(first).toContain(`<cwd>\n${cwd}\n</cwd>`);
+    expect(first).not.toContain("<docs>");
+    expect(first).not.toContain("operating inside pi");
+    expect(first).not.toContain("Use bash for file operations like ls, rg");
+    expect(first).not.toContain("<prsloy_reuse_first>");
+    expect(system(4)).toBe(first);
+  }, 60_000);
+
+  it("prompt: pi (the default) — Pi's preamble plus our two sections, as before", async () => {
+    const { session, server } = await startSession(() => ({ text: "Готово." }), {
+      factory: {},
+      prepare: prepare("pi"),
+    });
+    await session.prompt("привет");
+    const first = (server.requests[0]!.messages[0] as { content: string }).content;
+    expect(first).toContain("operating inside pi");
+    expect(first).toContain("<prsloy_reuse_first>");
+    expect(first).toContain("<prsloy_casual_user>");
+    expect(first).not.toContain("You are the coding agent of PRSLOY");
   }, 60_000);
 });
 

@@ -25,6 +25,7 @@ import {
 } from "../../../apps/desktop/src/shared/prsloy-config.ts";
 import { createPrsloyHarness, harnessStats, installReusePrompt } from "../src/index.ts";
 import { resolveOptions } from "../src/options.ts";
+import { type AnswerMetrics, answerMetrics } from "./lib/answer-metrics.ts";
 import { closeSharedProxy } from "../src/reliability.ts";
 import {
   messageText,
@@ -53,6 +54,10 @@ export interface BenchOptions {
   lessons?: boolean;
   /** Память (флаг "memory"). По умолчанию вкл. */
   memory?: boolean;
+  /** Системный промпт «Кода»: pi (база Pi + разделы) или prsloy (research/17 §9). По умолчанию pi. */
+  prompt?: "pi" | "prsloy";
+  /** Дельта промпта под модель (qwen, opus). По умолчанию выкл. */
+  delta?: boolean;
   log?: (line: string) => void;
 }
 
@@ -66,6 +71,10 @@ export interface TaskResult {
   toolCalls: number;
   costUsd: number;
   interventions: Record<string, number>;
+  /** Казуал-метрики финального ответа (research/17 §11.3). */
+  reply: AnswerMetrics;
+  /** Доля закэшированных токенов промпта по метрикам прокси (null — нет данных: харнесс выкл). */
+  cacheShare: number | null;
   answer: string;
   error?: string;
 }
@@ -182,7 +191,12 @@ async function runTask(task: TaskDef, opts: BenchOptions): Promise<TaskResult> {
   const settingsPath = join(agentDir, "prsloy-harness.json");
   writeFileSync(
     settingsPath,
-    JSON.stringify({ lessons: opts.lessons !== false, memory: opts.memory !== false }),
+    JSON.stringify({
+      lessons: opts.lessons !== false,
+      memory: opts.memory !== false,
+      prompt: opts.prompt ?? "pi",
+      promptDelta: opts.delta === true,
+    }),
   );
   const slash = opts.model.indexOf("/");
   const model = { provider: opts.model.slice(0, slash), id: opts.model.slice(slash + 1) };
@@ -196,7 +210,8 @@ async function runTask(task: TaskDef, opts: BenchOptions): Promise<TaskResult> {
           learningDir: join(opts.outDir, "learning"),
           settingsPath,
         })
-      : (pi: ExtensionAPI) => installReusePrompt(pi, resolveOptions({ profile: "code" })),
+      : (pi: ExtensionAPI) =>
+          installReusePrompt(pi, resolveOptions({ profile: "code", settingsPath })),
   ];
   let handle: ZenoRuntimeHandle | undefined;
   let asked = 0;
@@ -271,21 +286,30 @@ async function runTask(task: TaskDef, opts: BenchOptions): Promise<TaskResult> {
         ws: string;
         original: string;
         answer: string;
+        reply: AnswerMetrics;
       }) => Promise<{ ok: boolean | null; note: string }>;
     };
-    ({ ok, note } = await check.default({ ws, original, answer }));
+    ({ ok, note } = await check.default({
+      ws,
+      original,
+      answer,
+      reply: answerMetrics(answer, null),
+    }));
   } catch (e) {
     note = `проверка упала: ${e instanceof Error ? e.message : String(e)}`;
   }
+  const finalOk = error && ok === null ? false : ok;
   return {
     id: task.id,
     title: task.title,
-    ok: error && ok === null ? false : ok,
+    ok: finalOk,
     note,
     seconds,
     toolCalls,
     costUsd,
     interventions,
+    reply: answerMetrics(answer, finalOk),
+    cacheShare: cacheShareOf(join(opts.outDir, "sessions", task.id, "prsloy-proxy.jsonl")),
     answer: answer.slice(0, 600),
     ...(error ? { error } : {}),
   };
@@ -297,6 +321,8 @@ export interface BenchReport {
     harness: boolean;
     lessons: boolean;
     memory: boolean;
+    prompt: "pi" | "prsloy";
+    delta: boolean;
     fake: boolean;
     date: string;
     gateway: string;
@@ -336,6 +362,8 @@ export async function runBench(opts: BenchOptions): Promise<BenchReport> {
       harness: opts.harness,
       lessons: opts.lessons !== false,
       memory: opts.memory !== false,
+      prompt: opts.prompt ?? "pi",
+      delta: opts.delta === true,
       fake: opts.fake === true,
       date: new Date().toISOString(),
       gateway: opts.fake ? "fake" : new URL(opts.baseUrl ?? "http://unknown").host,
@@ -353,6 +381,27 @@ export async function runBench(opts: BenchOptions): Promise<BenchReport> {
   };
 }
 
+function sumOf(results: TaskResult[], f: (r: TaskResult) => number): number {
+  return results.reduce((n, r) => n + f(r), 0);
+}
+
+/** Доля кэша: cached / prompt по всем вызовам задачи в метриках прокси (research/17 §11.3). */
+export function cacheShareOf(metricsPath: string): number | null {
+  let prompt = 0;
+  let cached = 0;
+  try {
+    for (const line of readFileSync(metricsPath, "utf8").split("\n")) {
+      if (!line.trim()) continue;
+      const m = JSON.parse(line) as { prompt?: number; cached?: number };
+      prompt += m.prompt ?? 0;
+      cached += m.cached ?? 0;
+    }
+  } catch {
+    return null;
+  }
+  return prompt > 0 ? cached / prompt : null;
+}
+
 export function reportMarkdown(report: BenchReport): string {
   const { meta, results, totals } = report;
   const rows = results.map((r) => {
@@ -360,18 +409,22 @@ export function reportMarkdown(report: BenchReport): string {
     const iv = Object.entries(r.interventions)
       .map(([k, n]) => `${k} ${n}`)
       .join(", ");
-    return `| ${r.id} | ${mark} ${r.note.replace(/\|/g, "/")}${r.error ? ` (${r.error})` : ""} | ${r.seconds} | ${r.toolCalls} | ${r.costUsd.toFixed(4)} | ${iv || "—"} |`;
+    const a = r.reply;
+    const reply = `${a.russian ? "ru" : "НЕ ru"}, команд ${a.commandsToUser}, ?${a.questions}${a.questions && a.recommends ? "+реком." : ""}, строк ${a.lines}, жарг. ${a.jargon}${a.falseDone ? ", ЛОЖНОЕ «готово»" : ""}`;
+    const cache = r.cacheShare === null ? "—" : `${Math.round(r.cacheShare * 100)}%`;
+    return `| ${r.id} | ${mark} ${r.note.replace(/\|/g, "/")}${r.error ? ` (${r.error})` : ""} | ${r.seconds} | ${r.toolCalls} | ${r.costUsd.toFixed(4)} | ${cache} | ${reply} | ${iv || "—"} |`;
   });
   return [
-    `# Замер: ${meta.model}, харнесс ${meta.harness ? "вкл" : "выкл"}, уроки ${meta.lessons ? "вкл" : "выкл"}, память ${meta.memory ? "вкл" : "выкл"}${meta.fake ? " (фейковая модель)" : ""}`,
+    `# Замер: ${meta.model}, харнесс ${meta.harness ? "вкл" : "выкл"}, промпт ${meta.prompt}${meta.delta ? "+дельта" : ""}, уроки ${meta.lessons ? "вкл" : "выкл"}, память ${meta.memory ? "вкл" : "выкл"}${meta.fake ? " (фейковая модель)" : ""}`,
     "",
     `${meta.date} · шлюз ${meta.gateway} · таймаут задачи ${meta.timeoutSec} с`,
     "",
-    "| Задача | Проверка | Время, с | Вызовов | $ | Вмешательства харнесса |",
-    "| --- | --- | --- | --- | --- | --- |",
+    "| Задача | Проверка | Время, с | Вызовов | $ | Кэш | Ответ | Вмешательства харнесса |",
+    "| --- | --- | --- | --- | --- | --- | --- | --- |",
     ...rows,
     "",
     `Итого: прошло ${totals.passed} из ${results.length}${totals.skipped ? `, не проверено ${totals.skipped}` : ""}; ${totals.seconds} с; вызовов ${totals.toolCalls}; $${totals.costUsd.toFixed(4)}.`,
+    `Ответы: по-русски ${results.filter((r) => r.reply.russian).length} из ${results.length}; команд пользователю ${sumOf(results, (r) => r.reply.commandsToUser)}; ложных «готово» ${results.filter((r) => r.reply.falseDone).length}; длинных (>8 строк или >800 симв.) ${results.filter((r) => !r.reply.short).length}; жаргон ${sumOf(results, (r) => r.reply.jargon)}.`,
     "",
   ].join("\n");
 }

@@ -4,6 +4,8 @@
 // доля проверенных библиотек 67% → 94%. Текст правила — дословно из эксперимента, плюс проверка
 // существования пакета (slopsquatting, там же).
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { PRSLOY_CODE_PROMPT, modelDelta } from "./code-prompt.ts";
+import { readFlags } from "./flags.ts";
 import type { ResolvedOptions } from "./options.ts";
 
 export const REUSE_SECTION = [
@@ -19,11 +21,46 @@ export const CASUAL_USER_SECTION = [
   "To show a page, give the file path (the app makes paths clickable), or start the preview yourself with bash_background and give the http://127.0.0.1:<port> link.",
 ].join("\n");
 
+interface PromptChoice {
+  custom: string | undefined;
+  delta: string | undefined;
+}
+
+/**
+ * Промпт «Кода». Флаг "prompt" в prsloy-harness.json: "pi" (по умолчанию) — база Pi плюс два раздела выше;
+ * "prsloy" — свой промпт (research/17 §9) через customPrompt, разделы уже внутри него. Выбор замораживается на сессию
+ * (смена флага — со следующей сессии): промпт весь сеанс байт-в-байт тот же (кэш).
+ */
 export function installReusePrompt(pi: ExtensionAPI, opts: ResolvedOptions): void {
   if (opts.profile !== "code") return;
-  pi.on("before_agent_start", (event) => {
+  const chosen = new Map<string, PromptChoice>();
+  pi.on("before_agent_start", (event, ctx) => {
+    let session = "";
+    try {
+      session = ctx.sessionManager.getSessionId();
+    } catch {
+      // без сессии — общий выбор
+    }
+    let choice = chosen.get(session);
+    if (!choice) {
+      const flags = readFlags(opts.settingsPath);
+      choice =
+        flags.prompt === "prsloy"
+          ? {
+              custom: PRSLOY_CODE_PROMPT,
+              delta: flags.promptDelta ? modelDelta(ctx.model?.id) : undefined,
+            }
+          : { custom: undefined, delta: undefined };
+      chosen.set(session, choice);
+    }
+    const o = event.systemPromptOptions;
+    if (choice.custom) {
+      o.customPrompt = choice.custom;
+      if (choice.delta) o.sections.prsloy_model = choice.delta;
+      return;
+    }
     // Один и тот же текст на каждый ход: префикс промпта не меняется, кэш не ломается (ADR-1).
-    event.systemPromptOptions.sections.prsloy_reuse_first = REUSE_SECTION;
-    event.systemPromptOptions.sections.prsloy_casual_user = CASUAL_USER_SECTION;
+    o.sections.prsloy_reuse_first = REUSE_SECTION;
+    o.sections.prsloy_casual_user = CASUAL_USER_SECTION;
   });
 }

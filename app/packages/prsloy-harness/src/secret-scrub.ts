@@ -33,6 +33,8 @@ const RULES: SecretRule[] = [
   },
   { kind: "Slack-токен", pattern: /\bxox[abprs]-[A-Za-z0-9-]{10,}/g },
   { kind: "Google-ключ", pattern: /\bAIza[0-9A-Za-z_-]{35}\b/g },
+  // Токен бота от @BotFather: id бота, двоеточие, 35 знаков (research/19; кнопка-пример «Бот для Telegram»).
+  { kind: "токен Telegram-бота", pattern: /\b\d{8,10}:[A-Za-z0-9_-]{35}\b/g },
 ];
 
 export interface ScrubResult {
