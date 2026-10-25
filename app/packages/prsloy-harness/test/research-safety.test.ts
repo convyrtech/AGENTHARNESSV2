@@ -3,6 +3,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { beforeEach, describe, expect, it } from "vite-plus/test";
+import { guardQuery } from "../src/research/query-guard.ts";
 import {
   freeSearch,
   githubRepo,
@@ -376,5 +377,37 @@ describe("free search heuristics (review #23, item 6)", () => {
       expect(githubRepo(q), q).toBeUndefined();
     expect(githubRepo("latest release vitejs/vite")).toEqual({ owner: "vitejs", repo: "vite" });
     expect(githubRepo("https://github.com/a/b")).toEqual({ owner: "a", repo: "b" });
+  });
+});
+
+describe("the year guard strips only a year that stands alone as a date (review #23, item 7)", () => {
+  const TODAY = new Date("2026-10-25T12:00:00Z");
+  it("names and codes keep their numbers", () => {
+    for (const q of [
+      "ERROR 2002 (HY000): Can't connect to local MySQL server",
+      "tsconfig target es2020",
+      "Windows Server 2019 end of support",
+      "Visual Studio 2022 C++ build tools",
+      "Office 2016 activation",
+      "ошибка 2003 при подключении",
+      "ECMAScript2015 modules",
+      "iso 9001 2015 checklist",
+    ])
+      expect(guardQuery(q, TODAY).removed, q).toEqual([]);
+  });
+
+  it("Russian past-tense words are understood (\\b after Cyrillic never matched)", () => {
+    expect(guardQuery("какой был МРОТ 2020", TODAY).removed).toEqual([]);
+    expect(guardQuery("какая была ставка 2019", TODAY).removed).toEqual([]);
+    // «вопрос 2019» — не «с 2019»
+    expect(guardQuery("вопрос 2019 налоги", TODAY).removed).toEqual([2019]);
+  });
+
+  it("a habit year is still removed", () => {
+    expect(guardQuery("тарифы Brave Search API 2024", TODAY)).toEqual({
+      query: "тарифы Brave Search API",
+      removed: [2024],
+    });
+    expect(guardQuery("лучшие ноутбуки (2023)", TODAY).removed).toEqual([2023]);
   });
 });
