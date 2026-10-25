@@ -132,7 +132,7 @@ jobs:
           SMOKE_REPORT: main
         # smoke: test-mode launches (runner + clean Windows); firstrun: product mode (key gate,
         # PRSLOY provider, update check behind a dead proxy).
-        run: pnpm exec playwright test -c playwright.smoke.config.ts smoke.spec.ts firstrun.spec.ts
+        run: pnpm exec playwright test -c playwright.smoke.config.ts smoke.spec.ts firstrun.spec.ts harness.spec.ts
       # Reinstall into the Cyrillic profile (NSIS replaces the first install) and run the app from there.
       - name: Silent install into a Cyrillic profile
         if: success() || failure()

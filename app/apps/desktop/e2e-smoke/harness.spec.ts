@@ -1,0 +1,372 @@
+/**
+ * prsloy-harness on the installed app (Windows: PortableGit bash, taskkill, Electron as node).
+ *
+ * A scripted fake model makes one tool call per prompt («harness step N»), and each test
+ * checks the tool result text the app sent back to the model:
+ *   1. `(python -m http.server P > srv.log 2>&1 &) && sleep 2 && curl …` → 200, server in the registry
+ *   2. `pkill -f "http.server P"` → stopped via the registry, port free, the shell alive
+ *   3. a command that hangs past the bash timeout (PRSLOY_BASH_TIMEOUT_SEC=5) → harness timeout note
+ *   4. `taskkill /IM bash.exe /F` → blocked with the hint
+ *   5. write of a broken .js → post-edit syntax line (node --check via Electron as node)
+ *   6. `python -m http.server Q &` left running → port Q free after the app quits
+ * Artifacts: smoke-out/harness-requests.jsonl (every request the model got), session JSONL
+ * files, harness-results.json.
+ *
+ * Self-contained on purpose (own launcher and fake model): helpers.ts launch() pins
+ * ZENO_TOOLS=read,bash and a one-call FakeOpenAiServer. Local run without an installed app:
+ * SMOKE_DEV_APP=<apps/desktop> (built) uses the dev Electron binary.
+ */
+import { expect, test, type Page } from "@playwright/test";
+import { _electron as electron, type ElectronApplication } from "playwright";
+import { once } from "node:events";
+import { existsSync, readdirSync, statSync } from "node:fs";
+import { appendFile, copyFile, mkdir, mkdtemp, writeFile } from "node:fs/promises";
+import { createServer, type Server, type ServerResponse } from "node:http";
+import { createRequire } from "node:module";
+import { createServer as createNetServer } from "node:net";
+import { tmpdir } from "node:os";
+import { basename, join } from "node:path";
+import { beforeAllSmoke, exe, outDir, send, shot, startHost, writeMetrics } from "./helpers.ts";
+
+const PY = process.platform === "win32" ? "python" : "python3";
+const BASH_TIMEOUT_SEC = 5;
+
+interface ChatMessage {
+  role?: string;
+  content?: unknown;
+}
+
+function messageText(message: ChatMessage | undefined): string {
+  if (!message) return "";
+  if (typeof message.content === "string") return message.content;
+  if (!Array.isArray(message.content)) return "";
+  return message.content.map((p: { text?: string }) => p.text ?? "").join("");
+}
+
+type Step = { name: string; arguments: Record<string, unknown> };
+
+/** OpenAI-compatible stream: «harness step N» → tool call N; after its result → short text. */
+class ScriptedModel {
+  readonly requests: { messages?: ChatMessage[] }[] = [];
+  #server: Server;
+  baseUrl = "";
+
+  constructor(private readonly steps: Record<number, Step>) {
+    this.#server = createServer((req, res) => {
+      let body = "";
+      req.on("data", (d) => (body += String(d)));
+      req.on("end", () => this.#reply(req.url ?? "", body, res));
+    });
+  }
+
+  async start(): Promise<void> {
+    this.#server.listen(0, "127.0.0.1");
+    await once(this.#server, "listening");
+    const address = this.#server.address();
+    if (!address || typeof address === "string") throw new Error("no address");
+    this.baseUrl = `http://127.0.0.1:${address.port}/v1`;
+  }
+
+  async stop(): Promise<void> {
+    this.#server.closeAllConnections();
+    this.#server.close();
+  }
+
+  /** Tool result text the app sent back for step N. */
+  resultOf(step: number): string | undefined {
+    for (const request of [...this.requests].reverse()) {
+      const messages = request.messages ?? [];
+      const lastUser = messages.findLastIndex((m) => m.role === "user");
+      if (!messageText(messages[lastUser]).includes(`harness step ${step}`)) continue;
+      const tool = messages.slice(lastUser + 1).find((m) => m.role === "tool");
+      if (tool) return messageText(tool);
+    }
+    return undefined;
+  }
+
+  #reply(url: string, body: string, res: ServerResponse): void {
+    if (!url.endsWith("/chat/completions")) {
+      res.writeHead(404).end();
+      return;
+    }
+    const parsed = JSON.parse(body || "{}") as { messages?: ChatMessage[] };
+    this.requests.push(parsed);
+    const messages = parsed.messages ?? [];
+    const lastUser = messages.findLastIndex((m) => m.role === "user");
+    const match = /harness step (\d+)/.exec(messageText(messages[lastUser]));
+    const answered = messages.slice(lastUser + 1).some((m) => m.role === "tool");
+    const step = match && !answered ? this.steps[Number(match[1])] : undefined;
+
+    res.writeHead(200, { "content-type": "text/event-stream", "cache-control": "no-cache" });
+    const chunk = (delta: Record<string, unknown>, finish: string | null = null) =>
+      res.write(
+        `data: ${JSON.stringify({
+          id: "chatcmpl-harness-smoke",
+          object: "chat.completion.chunk",
+          created: 1,
+          model: "zeno-fake",
+          choices: [{ index: 0, delta, finish_reason: finish }],
+          ...(finish
+            ? { usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 } }
+            : {}),
+        })}\n\n`,
+      );
+    chunk({ role: "assistant", content: "" });
+    if (step) {
+      chunk({
+        tool_calls: [
+          {
+            index: 0,
+            id: `call_harness_${match?.[1]}_${this.requests.length}`,
+            type: "function",
+            function: { name: step.name, arguments: JSON.stringify(step.arguments) },
+          },
+        ],
+      });
+      chunk({}, "tool_calls");
+    } else {
+      chunk({ content: "Готово." });
+      chunk({}, "stop");
+    }
+    res.end("data: [DONE]\n\n");
+  }
+}
+
+async function freePort(): Promise<number> {
+  const server = createNetServer();
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  const address = server.address();
+  const port = typeof address === "object" && address ? address.port : 0;
+  server.close();
+  await once(server, "close");
+  return port;
+}
+
+async function portAnswers(port: number): Promise<boolean> {
+  try {
+    const res = await fetch(`http://127.0.0.1:${port}/`, { signal: AbortSignal.timeout(3000) });
+    return res.status > 0;
+  } catch {
+    return false;
+  }
+}
+
+function findFiles(dir: string, ext: string, depth = 6): string[] {
+  if (depth < 0 || !existsSync(dir)) return [];
+  const out: string[] = [];
+  for (const name of readdirSync(dir)) {
+    const path = join(dir, name);
+    try {
+      if (statSync(path).isDirectory()) out.push(...findFiles(path, ext, depth - 1));
+      else if (name.endsWith(ext)) out.push(path);
+    } catch {
+      // unreadable entry
+    }
+  }
+  return out;
+}
+
+const state: {
+  app?: ElectronApplication | undefined;
+  page?: Page;
+  model?: ScriptedModel;
+  root?: string;
+  userData?: string;
+  workspace?: string;
+  serverPort: number;
+  leftPort: number;
+  results: Record<string, string | undefined>;
+} = { serverPort: 0, leftPort: 0, results: {} };
+
+async function launchApp(steps: Record<number, Step>): Promise<void> {
+  const root = await mkdtemp(join(tmpdir(), "prsloy-smoke-harness-"));
+  const agentDir = join(root, "smoke-pi-agent");
+  const userData = join(root, "userData");
+  const workspace = join(root, "workspace");
+  await Promise.all([agentDir, userData, workspace].map((d) => mkdir(d, { recursive: true })));
+  const model = new ScriptedModel(steps);
+  await model.start();
+  await writeFile(
+    join(agentDir, "models.json"),
+    JSON.stringify({
+      providers: {
+        "zeno-fake": {
+          baseUrl: model.baseUrl,
+          apiKey: "test-key-not-secret",
+          api: "openai-completions",
+          models: [
+            {
+              id: "zeno-fake",
+              name: "Fake Model",
+              reasoning: false,
+              input: ["text"],
+              cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+              contextWindow: 16384,
+              maxTokens: 1024,
+              compat: { supportsUsageInStreaming: true },
+            },
+          ],
+        },
+      },
+    }),
+  );
+
+  const env: Record<string, string> = {};
+  for (const [key, value] of Object.entries(process.env)) {
+    // Never hand runner credentials to the app under test.
+    if (value === undefined || /TOKEN|SECRET|PASSWORD|^AWS_|^CSC_|^ACTIONS_/i.test(key)) continue;
+    env[key] = value;
+  }
+  delete env.ELECTRON_RUN_AS_NODE;
+  if (process.platform !== "win32") env.HOME = join(root, "home");
+  Object.assign(env, {
+    PI_CODING_AGENT_DIR: agentDir,
+    ZENO_WORKSPACE: workspace,
+    ZENO_MODEL_PROVIDER: "zeno-fake",
+    ZENO_MODEL_ID: "zeno-fake",
+    ZENO_TOOLS: "read,bash,write,edit,bash_background,process",
+    ZENO_ENABLE_TEST_COMMANDS: "1",
+    ZENO_NO_AUTO_RESUME: "1",
+    PRSLOY_BASH_TIMEOUT_SEC: String(BASH_TIMEOUT_SEC),
+  });
+
+  const devApp = process.env.SMOKE_DEV_APP;
+  const executablePath = devApp
+    ? (createRequire(import.meta.url)("electron") as unknown as string)
+    : exe;
+  const mainLog = join(outDir, "harness-main.log");
+  const app = await electron.launch({
+    executablePath,
+    args: [...(devApp ? [devApp] : []), `--user-data-dir=${userData}`],
+    cwd: workspace,
+    env,
+    timeout: 120_000,
+  });
+  app.process().stdout?.on("data", (d) => void appendFile(mainLog, d));
+  app.process().stderr?.on("data", (d) => void appendFile(mainLog, d));
+  const page = await app.firstWindow({ timeout: 120_000 });
+  page.on(
+    "console",
+    (m) => void appendFile(join(outDir, "harness-renderer.log"), `[${m.type()}] ${m.text()}\n`),
+  );
+  await page.waitForSelector('[data-testid="zeno-app"][data-bootstrap-ready="true"]', {
+    timeout: 180_000,
+  });
+  Object.assign(state, { app, page, model, root, userData, workspace });
+}
+
+async function step(n: number): Promise<string> {
+  const { page, model } = state;
+  if (!page || !model) throw new Error("app not launched");
+  await send(page, `harness step ${n}`);
+  await expect.poll(() => model.resultOf(n), { timeout: 60_000 }).not.toBeUndefined();
+  const result = model.resultOf(n) ?? "";
+  state.results[`step${n}`] = result;
+  await writeFile(join(outDir, "harness-results.json"), JSON.stringify(state.results, null, 2));
+  return result;
+}
+
+test.describe.configure({ mode: "serial" });
+
+test.beforeAll(async () => {
+  if (!process.env.SMOKE_DEV_APP) await beforeAllSmoke();
+  else await mkdir(outDir, { recursive: true });
+  state.serverPort = await freePort();
+  state.leftPort = await freePort();
+  await launchApp({
+    1: {
+      name: "bash",
+      arguments: {
+        command: `(${PY} -m http.server ${state.serverPort} > srv.log 2>&1 &) && sleep 2 && curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:${state.serverPort}/`,
+      },
+    },
+    2: {
+      name: "bash",
+      arguments: { command: `pkill -f "http.server ${state.serverPort}"; echo shell-alive` },
+    },
+    3: { name: "bash", arguments: { command: "echo before-hang; sleep 60; echo never" } },
+    4: { name: "bash", arguments: { command: "taskkill /IM bash.exe /F" } },
+    5: { name: "write", arguments: { path: "broken.js", content: "const a = ;\n" } },
+    6: { name: "bash", arguments: { command: `${PY} -m http.server ${state.leftPort} &` } },
+  });
+  await startHost(state.page!);
+});
+
+test.afterAll(async () => {
+  const { app, model, root, userData } = state;
+  const proc = app?.process();
+  await Promise.race([
+    app?.close().catch(() => undefined),
+    new Promise((r) => setTimeout(r, 30_000)),
+  ]);
+  if (proc && proc.exitCode === null) proc.kill();
+  if (model) {
+    await writeFile(
+      join(outDir, "harness-requests.jsonl"),
+      model.requests.map((r) => JSON.stringify(r)).join("\n") + "\n",
+    );
+    await model.stop();
+  }
+  // Session transcripts (pi JSONL) wherever the app keeps them for this run.
+  const sessions = [root, userData].flatMap((dir) => (dir ? findFiles(dir, ".jsonl") : []));
+  await mkdir(join(outDir, "harness-sessions"), { recursive: true });
+  for (const file of new Set(sessions)) {
+    await copyFile(file, join(outDir, "harness-sessions", basename(file))).catch(() => undefined);
+  }
+  await writeMetrics({
+    harness: { sessions: sessions.length, results: Object.keys(state.results) },
+  });
+});
+
+test("1: `(python -m http.server &)` goes to the harness registry", async () => {
+  const result = await step(1);
+  expect(result).toMatch(/^\s*\[exit 0 · /);
+  expect(result).toContain("200");
+  expect(result).toContain("запущен через реестр харнесса");
+  expect(result).toMatch(new RegExp(`порт ${state.serverPort}`));
+});
+
+test("2: pkill -f is routed through the registry, the shell survives", async () => {
+  const result = await step(2);
+  expect(result).toMatch(/^\s*\[exit 0 · /);
+  expect(result).toContain("shell-alive");
+  expect(result).toContain("выполнено через реестр: остановлены bg1");
+  await expect.poll(() => portAnswers(state.serverPort), { timeout: 15_000 }).toBe(false);
+});
+
+test("3: a hanging command hits the harness bash timeout", async () => {
+  const started = Date.now();
+  const result = await step(3);
+  expect(result).toContain("before-hang");
+  expect(result).not.toContain("never");
+  expect(result).toContain(`[Процесс остановлен по таймауту ${BASH_TIMEOUT_SEC} с.]`);
+  expect(Date.now() - started).toBeLessThan(55_000);
+});
+
+test("4: taskkill of bash.exe is blocked with the hint", async () => {
+  const result = await step(4);
+  expect(result).toContain("«taskkill /IM bash.exe /F» не выполнено");
+  expect(result).toContain("process action=stop");
+});
+
+test("5: a broken .js write gets the post-edit syntax line", async () => {
+  const result = await step(5);
+  expect(result).toContain("[Проверка синтаксиса (node --check): ОШИБКА в broken.js");
+  expect(result).toContain("SyntaxError");
+  await shot(state.page!, "harness-steps");
+});
+
+test("6: a background server left running dies with the app", async () => {
+  const result = await step(6);
+  expect(result).toContain("запущен через реестр харнесса");
+  await expect.poll(() => portAnswers(state.leftPort), { timeout: 15_000 }).toBe(true);
+  const proc = state.app!.process();
+  await Promise.race([
+    state.app!.close().catch(() => undefined),
+    new Promise((r) => setTimeout(r, 30_000)),
+  ]);
+  if (proc.exitCode === null) proc.kill();
+  state.app = undefined; // afterAll не трогает закрытое приложение
+  await expect.poll(() => portAnswers(state.leftPort), { timeout: 20_000 }).toBe(false);
+});
