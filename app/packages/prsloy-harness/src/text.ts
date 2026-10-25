@@ -92,6 +92,21 @@ export async function showCard(
   }
 }
 
+/** Скрытая заметка модели в хвост истории (без нового хода): префикс промпта и кэш не меняются. */
+export async function hiddenNote(
+  pi: Pick<ExtensionAPI, "sendMessage">,
+  customType: string,
+  content: string,
+): Promise<void> {
+  try {
+    await Promise.resolve(
+      pi.sendMessage({ customType, content, display: false }, { triggerTurn: false }),
+    );
+  } catch {
+    // заметка — не повод ронять ход
+  }
+}
+
 export function headTail(text: string, limit: number, headShare = 0.35): string {
   if (byteLength(text) <= limit) return text;
   const head = headBytes(text, Math.floor(limit * headShare));
