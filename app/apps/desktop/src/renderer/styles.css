@@ -6604,6 +6604,16 @@ textarea.models-scoped-patterns-input[data-slot="textarea"] {
   border-left: 1px solid var(--border);
   background: var(--canvas);
 }
+/* Narrow window (a 125–150 % laptop): beside the chat would squeeze both; cover it instead. */
+@media (max-width: 1180px) {
+  .code-preview-panel {
+    position: absolute;
+    inset: 0;
+    z-index: 5;
+    width: auto;
+    border-left: 0;
+  }
+}
 .code-preview-head {
   display: flex;
   align-items: center;

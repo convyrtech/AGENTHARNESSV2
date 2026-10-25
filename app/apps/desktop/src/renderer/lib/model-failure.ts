@@ -16,8 +16,13 @@ export type FailureAction = "retry" | "topUp" | "changeKey";
 const MODEL_MISSING =
   /model_not_found|model[^\n]{0,60}(does not exist|not found|not available|unavailable|unsupported)|no such model/iu;
 
+/** The reliability proxy gave up after attempts that each lost the connection: a drop, not a 502. */
+const PROXY_DROPS =
+  /attempts failed[\s\S]*(fetch failed|ECONNRESET|socket hang up|terminated|other side closed)/iu;
+
 export function failureKind(code: string | undefined, text: string): FailureKind {
   if (MODEL_MISSING.test(text)) return "model";
+  if (PROXY_DROPS.test(text)) return "network";
   switch (code) {
     case "no_balance":
       return "balance";

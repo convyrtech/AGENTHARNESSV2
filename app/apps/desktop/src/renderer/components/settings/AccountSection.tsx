@@ -198,7 +198,7 @@ export function AccountSection(props: { tr: Tr }) {
             control={
               <div className="flex items-center gap-2">
                 <SettingsInput
-                  className="w-72"
+                  className="w-56"
                   spellCheck={false}
                   value={urlDraft}
                   data-testid="settings-account-url"

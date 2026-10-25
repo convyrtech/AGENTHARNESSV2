@@ -11,6 +11,13 @@ describe("failureKind", () => {
     expect(failureKind("server", "500")).toBe("server");
   });
 
+  it("a proxy that gave up after lost connections is a drop, whatever the 502 says", () => {
+    const text =
+      '502: {"message":"prsloy proxy: all 3 attempts failed","attempts":[{"n":1,"err":"TypeError: fetch failed"}]}';
+    expect(failureKind("server", text)).toBe("network");
+    expect(failureKind("server", "502 Bad Gateway")).toBe("server");
+  });
+
   it("reads a missing model from the text (no code for it yet)", () => {
     expect(failureKind("unknown", "404 The model `kimi-k9` does not exist")).toBe("model");
     expect(failureKind(undefined, '{"error":{"code":"model_not_found"}}')).toBe("model");
