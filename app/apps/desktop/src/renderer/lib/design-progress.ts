@@ -25,6 +25,7 @@ const GATE_DOING: Readonly<Record<string, MessageKey>> = {
   "6": "design.doing.build",
   "7": "design.doing.check",
   "8": "design.doing.publish",
+  edit: "design.doing.edit",
 };
 
 export function doingKey(gate: string | undefined): MessageKey {

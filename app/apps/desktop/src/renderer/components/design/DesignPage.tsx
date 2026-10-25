@@ -4,6 +4,7 @@
  * shows the current step; at the end the built page opens in a sandboxed preview.
  */
 import type {
+  DesignEditPin,
   DesignFile,
   DesignOptionGroup,
   DesignSetupProgress,
@@ -16,6 +17,7 @@ import {
   FolderOpen,
   Loader2,
   Paperclip,
+  Pencil,
   RotateCcw,
   Send,
   SlidersHorizontal,
@@ -23,6 +25,8 @@ import {
   X,
 } from "lucide-react";
 import { ImagePreviewDialog } from "../ContentPreviewDialog.tsx";
+import { addPin, type EditPin, pinsToSend } from "../../lib/design-edit.ts";
+import { EditPanel } from "./EditPanel.tsx";
 import { TokenPanel } from "./TokenPanel.tsx";
 import { type PreviewDevice, PreviewDeviceSwitch, PreviewStage } from "../PreviewFrame.tsx";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -31,6 +35,8 @@ import {
   answerText,
   type DesignItem,
   type DesignView,
+  editAnswer,
+  editOptions,
   EMPTY_DESIGN_VIEW,
   foldDesign,
   harnessNow,
@@ -141,6 +147,20 @@ export function DesignPage({ locale, projectPath }: Props) {
     [api, projectPath],
   );
 
+  // «Править» → «Применить»: an error stays in the edit panel, next to the marks it is about
+  const edit = useCallback(
+    async (pins: DesignEditPin[]) => {
+      try {
+        await api.edit(projectPath, pins);
+      } catch (error) {
+        throw new Error(
+          unwrapRemoteIpcError(error instanceof Error ? error.message : String(error)),
+        );
+      }
+    },
+    [api, projectPath],
+  );
+
   const submit = useCallback(() => {
     const text = draft.trim();
     if (!text && picked.length === 0) return;
@@ -213,6 +233,7 @@ export function DesignPage({ locale, projectPath }: Props) {
               running={view.running}
               projectPath={projectPath}
               tr={tr}
+              onEdit={edit}
               onAnswer={(text) => {
                 // files attached before a button answer go with it
                 setPicked([]);
@@ -451,6 +472,7 @@ function StreamItem({
   projectPath,
   tr,
   onAnswer,
+  onEdit,
   onRetry,
   onContinue,
 }: {
@@ -461,17 +483,22 @@ function StreamItem({
   projectPath: string | undefined;
   tr: Tr;
   onAnswer: (text: string) => void;
+  onEdit: (pins: DesignEditPin[]) => Promise<void>;
   onRetry: () => void;
   onContinue: () => void;
 }) {
   const live = isLast && !running;
   switch (item.kind) {
-    case "user":
+    case "user": {
+      // run.py's buttons after an edit are keys; the owner sees what he pressed
+      const pressed = editAnswer(item.text);
       return (
         <div className="flex flex-col items-end gap-1" data-testid="design-user">
           {item.text ? (
             <p className="max-w-[80%] rounded-2xl bg-secondary px-4 py-2 whitespace-pre-wrap text-secondary-foreground">
-              {item.text}
+              {pressed
+                ? tr(pressed === "keep" ? "design.edit.keep" : "design.edit.revert")
+                : item.text}
             </p>
           ) : null}
           {item.files.length > 0 ? (
@@ -482,6 +509,7 @@ function StreamItem({
           ) : null}
         </div>
       );
+    }
     case "owner": {
       const text = ownerText(item.text, item.files, item.options);
       const media = item.files.filter((f) => f.kind === "image" || f.kind === "video");
@@ -547,7 +575,14 @@ function StreamItem({
         </div>
       );
     case "done":
-      return <DoneCard projectPath={projectPath} tr={tr} locale={locale} />;
+      // after an edit the stream has several: the page and its controls only under the last one
+      return isLast ? (
+        <DoneCard projectPath={projectPath} tr={tr} locale={locale} live={live} onEdit={onEdit} />
+      ) : (
+        <p className="text-sm text-muted-foreground" data-testid="design-done-past">
+          {tr("design.done")}
+        </p>
+      );
   }
 }
 
@@ -611,14 +646,17 @@ function OwnerChoices({
             {tr("design.answer")}
           </Button>
         ) : null}
-        <Button
-          variant="secondary"
-          size="sm"
-          data-testid="design-recommend"
-          onClick={() => onAnswer(RECOMMEND_ANSWER)}
-        >
-          {tr("design.recommend")}
-        </Button>
+        {/* after an edit run.py takes only its own two keys: «как рекомендуешь» would start a step */}
+        {editOptions(groups) ? null : (
+          <Button
+            variant="secondary"
+            size="sm"
+            data-testid="design-recommend"
+            onClick={() => onAnswer(RECOMMEND_ANSWER)}
+          >
+            {tr("design.recommend")}
+          </Button>
+        )}
       </div>
     </div>
   );
@@ -680,10 +718,14 @@ function DoneCard({
   projectPath,
   tr,
   locale,
+  live,
+  onEdit,
 }: {
   projectPath: string | undefined;
   tr: Tr;
   locale: Locale;
+  live: boolean;
+  onEdit: (pins: DesignEditPin[]) => Promise<void>;
 }) {
   const api = window.zeno.design;
   const [url, setUrl] = useState<string | null | undefined>();
@@ -700,19 +742,55 @@ function DoneCard({
   const [device, setDevice] = useState<PreviewDevice>("desktop");
   const [saved, setSaved] = useState(false);
   const [tweaking, setTweaking] = useState(false);
+  // «Править»: the page from the inspecting server, marks and the owner's words
+  const [editing, setEditing] = useState(false);
+  const [editUrl, setEditUrl] = useState<string>();
+  const [picking, setPicking] = useState(false);
+  const [pins, setPins] = useState<EditPin[]>([]);
+  useEffect(() => {
+    if (!editing || editUrl) return;
+    let alive = true;
+    void api
+      .preview(projectPath, true)
+      .then((r) => alive && setEditUrl(r?.url))
+      .catch(() => alive && setEditing(false));
+    return () => {
+      alive = false;
+    };
+  }, [api, projectPath, editing, editUrl]);
+  const startEdit = (on: boolean) => {
+    setEditing(on);
+    setPicking(on);
+    setPins([]);
+    if (on) setTweaking(false);
+  };
   // «Настроить» shows values by reloading the page main serves with them
   const [shown, setShown] = useState(0);
+  const shownUrl = editing ? editUrl : url;
   const frame = useMemo(
     () =>
-      url ? (
+      shownUrl ? (
         <PreviewStage
           locale={locale}
-          url={shown ? `${url}?v=${shown}` : url}
+          url={shown ? `${shownUrl}?v=${shown}` : shownUrl}
           device={device}
           testId="design-preview"
+          {...(editing
+            ? {
+                bridge: {
+                  picking,
+                  onMessage: (m) => {
+                    if (m.type === "picked") {
+                      setPins((all) => addPin(all, m));
+                      setPicking(false);
+                    } else if (m.type === "pick-cancel") setPicking(false);
+                  },
+                },
+              }
+            : {})}
         />
       ) : null,
-    [url, locale, device, shown],
+    [shownUrl, locale, device, shown, editing, picking],
   );
   return (
     <div className="flex flex-col gap-3" data-testid="design-done">
@@ -742,10 +820,25 @@ function DoneCard({
               size="sm"
               aria-pressed={tweaking}
               data-testid="design-tweak-open"
-              onClick={() => setTweaking((v) => !v)}
+              onClick={() => {
+                setTweaking((v) => !v);
+                if (editing) startEdit(false);
+              }}
             >
               <SlidersHorizontal />
               {tr("design.tweak")}
+            </Button>
+          ) : null}
+          {url && live ? (
+            <Button
+              variant={editing ? "secondary" : "outline"}
+              size="sm"
+              aria-pressed={editing}
+              data-testid="design-edit-open"
+              onClick={() => startEdit(!editing)}
+            >
+              <Pencil />
+              {tr("design.edit")}
             </Button>
           ) : null}
           {url ? (
@@ -781,6 +874,20 @@ function DoneCard({
           tr={tr}
           onPreview={() => setShown((n) => n + 1)}
           onClose={() => setTweaking(false)}
+        />
+      ) : null}
+      {editing && url ? (
+        <EditPanel
+          pins={pins}
+          picking={picking}
+          tr={tr}
+          onPick={() => setPicking(true)}
+          onChange={setPins}
+          onApply={async () => {
+            await onEdit(pinsToSend(pins, device === "phone" ? 390 : 1440));
+            startEdit(false);
+          }}
+          onCancel={() => startEdit(false)}
         />
       ) : null}
       {frame}

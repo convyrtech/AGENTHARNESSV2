@@ -138,7 +138,9 @@ const api: ZenoDesktopApi = {
       ipcRenderer.invoke("prsloy:design:say", projectPath, text, fileTokens, retry === true),
     cancel: (projectPath) => ipcRenderer.invoke("prsloy:design:cancel", projectPath),
     pickFiles: () => ipcRenderer.invoke("prsloy:design:pick-files"),
-    preview: (projectPath) => ipcRenderer.invoke("prsloy:design:preview", projectPath),
+    preview: (projectPath, edit) =>
+      ipcRenderer.invoke("prsloy:design:preview", projectPath, edit === true),
+    edit: (projectPath, pins) => ipcRenderer.invoke("prsloy:design:edit", projectPath, pins),
     openFolder: (projectPath) => ipcRenderer.invoke("prsloy:design:open-folder", projectPath),
     exportZip: (projectPath) => ipcRenderer.invoke("prsloy:design:export-zip", projectPath),
     openInBrowser: (projectPath) =>

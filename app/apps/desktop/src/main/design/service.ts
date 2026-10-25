@@ -39,6 +39,7 @@ import {
   shell,
 } from "electron";
 import type {
+  DesignEditPin,
   DesignEvent,
   DesignToken,
   DesignSetupProgress,
@@ -61,6 +62,8 @@ import {
   workspaceFor,
   workspaceId,
 } from "./paths.ts";
+import { PREVIEW_BRIDGE_SCRIPT } from "../preview-bridge/index.ts";
+import { editPayload, editPins, editSummary } from "./edit-pins.ts";
 import { findEntry, type PreviewServer, startPreviewServer } from "./preview-server.ts";
 import { importPipeline } from "./pipeline-import.ts";
 import { killTree, killTreeNow, treeSpawnOptions } from "./proc.ts";
@@ -112,6 +115,8 @@ export class DesignService {
   readonly #runs = new Map<string, Run>();
   readonly #workspaces = new Map<string, string>();
   readonly #previews = new Map<string, PreviewServer>();
+  /** «Править»: the same `site/` with the inspector and source marks, only while editing. */
+  readonly #editPreviews = new Map<string, PreviewServer>();
   readonly #picked = new Map<string, string>();
   #proxy: { child: ChildProcess; url: string; upstream: string } | undefined;
   #proxyStarting: Promise<string> | undefined;
@@ -563,6 +568,7 @@ export class DesignService {
     text: string,
     fileTokens: string[],
     retry = false,
+    edit?: DesignEditPin[],
   ): Promise<void> {
     const ws = this.workspace(projectPath);
     if (!this.available()) throw new Error(UNAVAILABLE);
@@ -593,7 +599,7 @@ export class DesignService {
       });
     }
     // «бренд по адресу сайта»: the owner named his site and its brand is not measured yet (no model)
-    const site = text ? siteUrl(text) : undefined;
+    const site = text && !edit ? siteUrl(text) : undefined;
     if (
       site &&
       !existsSync(join(ws, "materials", "brand.json")) &&
@@ -602,7 +608,13 @@ export class DesignService {
       const go = await this.#probeBrand(ws, site, env);
       if (!go) return;
     }
-    const args = [join(this.#harness, "run.py"), "say", ws, text];
+    const args = [join(this.#harness, "run.py"), "say", ws];
+    if (edit) {
+      // a file, not argv: the owner's words with quotes survive Windows command lines as they are
+      const pinsFile = join(state.dir, "edit-pins.json");
+      writeFileSync(pinsFile, JSON.stringify(editPayload(edit)), { mode: 0o600 });
+      args.push("--edit", pinsFile);
+    } else args.push(text);
     if (retry) args.push("--retry");
     if (files.length) args.push("--files", ...files);
     const child = this.#python(args, ws, env);
@@ -641,6 +653,13 @@ export class DesignService {
     });
   }
 
+  /** «Применить» in «Править»: the pinned places → one edit turn of the harness. */
+  async edit(projectPath: string | undefined, raw: unknown): Promise<void> {
+    const pins = editPins(raw);
+    if (pins.length === 0) throw new Error("Отметьте место на странице и напишите, что поменять");
+    await this.say(projectPath, editSummary(pins), [], false, pins);
+  }
+
   cancel(projectPath: string | undefined): void {
     const run = this.#runs.get(this.workspace(projectPath));
     if (!run) return;
@@ -662,17 +681,20 @@ export class DesignService {
     });
   }
 
-  async preview(projectPath: string | undefined): Promise<{ url: string } | null> {
+  async preview(projectPath: string | undefined, edit = false): Promise<{ url: string } | null> {
     const ws = this.workspace(projectPath);
     const site = join(ws, "site");
     const entry = existsSync(site) ? findEntry(site, DESIGN_PAGE) : undefined;
     if (entry === undefined) return null;
-    let server = this.#previews.get(ws);
+    const servers = edit ? this.#editPreviews : this.#previews;
+    let server = servers.get(ws);
     if (!server) {
       server = await startPreviewServer(site, {
         extraHead: () => overrideStyle(this.#tweaks.get(ws) ?? {}),
+        // the inspector only while the owner edits: the plain preview stays the page as built
+        ...(edit ? { inject: PREVIEW_BRIDGE_SCRIPT, tagSource: true } : {}),
       });
-      this.#previews.set(ws, server);
+      servers.set(ws, server);
     }
     return { url: server.url + entry };
   }
@@ -788,7 +810,7 @@ export class DesignService {
       killTreeNow(run.child);
     }
     if (this.#proxy) killTreeNow(this.#proxy.child);
-    for (const s of this.#previews.values()) void s.close();
+    for (const s of [...this.#previews.values(), ...this.#editPreviews.values()]) void s.close();
   }
 }
 
@@ -850,7 +872,11 @@ export function registerDesignIpc(deps: DesignServiceDeps): DesignService {
   );
   ipcMain.handle(
     "prsloy:design:preview",
-    guard((p: unknown) => svc.preview(projectArg(p))),
+    guard((p: unknown, edit: unknown) => svc.preview(projectArg(p), edit === true)),
+  );
+  ipcMain.handle(
+    "prsloy:design:edit",
+    guard((p: unknown, pins: unknown) => svc.edit(projectArg(p), pins)),
   );
   ipcMain.handle(
     "prsloy:design:open-folder",

@@ -140,6 +140,7 @@ describe.skipIf(!python3 || process.platform === "win32")("design IPC", () => {
     expect([...handlers.keys()].sort()).toEqual(
       [
         "cancel",
+        "edit",
         "export-zip",
         "import-tools",
         "open-folder",
@@ -263,6 +264,52 @@ describe.skipIf(!python3 || process.platform === "win32")("design IPC", () => {
     const zip = readFileSync(savePath);
     expect(zip.readUInt32LE(0)).toBe(0x04034b50);
     expect(zip.includes(Buffer.from("site/landing/index.html"))).toBe(true);
+  });
+
+  it("«Править»: the inspector only on the edit preview, pins through a file, keep/revert", async () => {
+    const plain = (await call("prsloy:design:preview", project)) as { url: string };
+    expect(await (await fetch(plain.url)).text()).not.toContain("data-pl=");
+    const edit = (await call("prsloy:design:preview", project, true)) as { url: string };
+    expect(edit.url).not.toBe(plain.url);
+    const tagged = await (await fetch(edit.url)).text();
+    expect(tagged).toContain('<script src="/__prsloy/bridge.js">');
+    expect(tagged).toMatch(/<h1 [^>]*data-pl="landing\/index\.html:1:\d+"/);
+
+    await expect(call("prsloy:design:edit", project, [{ selector: "h1" }])).rejects.toThrow(
+      "Отметьте место",
+    );
+    sent.length = 0;
+    const pin = {
+      selector: "main > h1",
+      nth: 1,
+      of: 1,
+      tag: "h1",
+      text: "Зерно",
+      outerHTMLShort: "<h1>Зерно</h1>",
+      file: "landing/index.html",
+      line: 1,
+      request: 'крупнее, "как в макете"',
+      width: 390,
+    };
+    await call("prsloy:design:edit", project, [pin]);
+    const msgs = await eventsUntil((m) => m.event.ev === "exit");
+    expect(msgs.map((m) => m.event.ev)).toEqual(["user", "stage", "tool", "owner", "exit"]);
+    expect(msgs[0]!.event).toMatchObject({ text: '«Зерно» — крупнее, "как в макете"' });
+    const ws = join(project, "prsloy-design");
+    const pins = JSON.parse(
+      readFileSync(join(ws, "design", "landing", "artifacts", "edit", "01", "pins.json"), "utf8"),
+    ) as Record<string, unknown>[];
+    const { tag: _tag, ...sent_ } = pin;
+    expect(pins).toEqual([{ ...sent_, file: "site/landing/index.html" }]);
+    const owner = msgs.find((m) => m.event.ev === "owner")!.event as { files: { path: string }[] };
+    expect(owner.files[0]!.path).toBe("design/landing/artifacts/edit/01/sheet-390.png");
+    const page = join(ws, "site", "landing", "index.html");
+    expect(readFileSync(page, "utf8")).toContain("font-size:96px");
+
+    sent.length = 0;
+    await call("prsloy:design:say", project, "edit:revert:1", []);
+    await eventsUntil((m) => m.event.ev === "exit");
+    expect(readFileSync(page, "utf8")).toContain("font-size:64px");
   });
 
   it("app quit stops the proxy it started", async () => {

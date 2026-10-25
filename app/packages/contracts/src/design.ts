@@ -98,6 +98,24 @@ export type DesignToken = {
 };
 export type DesignTokenResult = { ok: true } | { ok: false; error: string };
 
+/**
+ * «Править»: one place the owner pinned on the built page and what to change there. The place is
+ * what the preview inspector reported (`PreviewPick`); `width` is the preview width it was seen at.
+ */
+export type DesignEditPin = {
+  selector: string;
+  nth: number;
+  of: number;
+  tag: string;
+  text: string;
+  outerHTMLShort: string;
+  /** Served file relative to `site/` and its 1-based line, when the inspector knows them. */
+  file?: string;
+  line?: number;
+  request: string;
+  width: number;
+};
+
 export interface DesignApi {
   status(projectPath: string | undefined): Promise<DesignStatus>;
   /** Install Python tools once; progress arrives through onSetup. */
@@ -115,8 +133,13 @@ export interface DesignApi {
   cancel(projectPath: string | undefined): Promise<void>;
   /** Native file picker; returns opaque tokens main accepts in `say`, plus display names. */
   pickFiles(): Promise<{ token: string; name: string }[]>;
-  /** Start (or reuse) the static server over `site/`; resolves to the page URL. */
-  preview(projectPath: string | undefined): Promise<{ url: string } | null>;
+  /**
+   * Start (or reuse) the static server over `site/`; resolves to the page URL. `edit` serves it
+   * with the inspector («Править»: pick places on the page), a separate server.
+   */
+  preview(projectPath: string | undefined, edit?: boolean): Promise<{ url: string } | null>;
+  /** «Применить»: the pinned places and the owner's words → one harness edit turn (onEvent). */
+  edit(projectPath: string | undefined, pins: DesignEditPin[]): Promise<void>;
   openFolder(projectPath: string | undefined): Promise<void>;
   /** The built page in the system browser (main opens only its own loopback preview address). */
   openInBrowser(projectPath: string | undefined): Promise<void>;

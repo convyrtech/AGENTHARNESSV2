@@ -424,11 +424,71 @@ test("owner leads a landing page from request to preview", async () => {
     expect(readFileSync(pageFile, "utf8")).toContain("--accent:#2b211b");
     await expect.poll(() => rootVar("--radius")).toBe("20px");
 
+    // «Править»: mark a place on the page, say what to change, the harness answers with before/after
+    const preview = page.frameLocator('[data-testid="design-preview"]');
+    await expect(preview.locator("[data-pl]")).toHaveCount(0);
+    await page.getByTestId("design-edit-open").click();
+    const edit = page.getByTestId("design-edit");
+    await expect(edit.getByTestId("design-edit-hint")).toBeVisible();
+    await expect(preview.locator("h1[data-pl]")).toHaveCount(1);
+    await preview.locator("h1").click();
+    await expect(edit.getByTestId("design-edit-place-1")).toHaveText("«Зерно»");
+    await expect(edit.getByTestId("design-edit-apply")).toBeDisabled();
+    // a second mark, then taken back
+    await edit.getByTestId("design-edit-pick").click();
+    await preview.locator("p.k").click();
+    await expect(edit.getByTestId("design-edit-place-2")).toHaveText("«КОФЕЙНЯ»");
+    await edit.getByTestId("design-edit-remove-2").click();
+    await expect(edit.getByTestId("design-edit-place-2")).toHaveCount(0);
+    await edit.getByTestId("design-edit-request-1").fill("крупнее, как вывеска");
+    await shot(page, "edit");
+    await edit.getByTestId("design-edit-apply").click();
+    await expect(edit).toHaveCount(0);
+    await expect(page.getByTestId("design-user").last()).toHaveText(
+      "«Зерно» — крупнее, как вывеска",
+    );
+    const result = page.getByTestId("design-owner").last();
+    await expect(result).toContainText("Сделал заголовок крупнее.");
+    await expect(result.getByTestId("design-image")).toHaveCount(1);
+    await expect(result.getByTestId("design-recommend")).toHaveCount(0);
+    expect(readFileSync(pageFile, "utf8")).toContain("font-size:96px");
+    const pins = JSON.parse(
+      readFileSync(
+        join(
+          documents,
+          "PRSLOY",
+          "prsloy-design",
+          "design",
+          "landing",
+          "artifacts",
+          "edit",
+          "01",
+          "pins.json",
+        ),
+        "utf8",
+      ),
+    ) as { selector: string; file: string; line: number; request: string; width: number }[];
+    expect(pins).toHaveLength(1);
+    expect(pins[0]).toMatchObject({
+      file: "site/landing/index.html",
+      line: 1,
+      request: "крупнее, как вывеска",
+      width: 1440,
+    });
+    await shot(page, "edit-result");
+    // «Вернуть как было»: the page from the copy before the edit; the owner sees the button's words
+    await result.getByTestId("design-option-edit:revert:1").click();
+    await expect(page.getByTestId("design-user").last()).toHaveText("Вернуть как было");
+    await expect(page.getByTestId("design-done")).toBeVisible();
+    await expect(page.getByTestId("design-done-past")).toHaveCount(1);
+    expect(readFileSync(pageFile, "utf8")).toContain("font-size:64px");
+    await expect(preview.locator("[data-pl]")).toHaveCount(0);
+
     // the stream survives leaving and reopening the tab
     await page.getByTestId("nav-settings").click();
     await page.getByTestId("settings-back").click();
     await page.getByTestId("nav-design").click();
-    await expect(page.getByTestId("design-owner")).toHaveCount(2);
+    await expect(page.getByTestId("design-owner")).toHaveCount(3);
     await expect(page.getByTestId("design-done")).toBeVisible();
 
     // stop a long turn

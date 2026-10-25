@@ -270,6 +270,17 @@ export function ownerText(text: string, files: DesignFile[], groups: DesignOptio
     .trim();
 }
 
+/** run.py's buttons after an edit («edit:keep:N» / «edit:revert:N»): which one the owner pressed. */
+export function editAnswer(text: string): "keep" | "revert" | undefined {
+  return /^edit:(keep|revert):\d+$/u.exec(text.trim())?.[1] as "keep" | "revert" | undefined;
+}
+
+/** The choice run.py offers after an edit: only its «edit:…» keys. */
+export function editOptions(groups: DesignOptionGroup[]): boolean {
+  const options = groups.flatMap((g) => g.options);
+  return options.length > 0 && options.every((o) => /^edit:(keep|revert):\d+$/u.test(o.key));
+}
+
 /** The engine's «как рекомендуешь»: closes every open choice with the agent's recommendation. */
 export const RECOMMEND_ANSWER = "как рекомендуешь";
 
