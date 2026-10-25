@@ -29,7 +29,19 @@
      return dt.datetime.fromtimestamp(t, dt.timezone.utc)
  
  
-@@ -779,6 +795,10 @@
+@@ -588,6 +604,11 @@
+                            voice_dir=self.root / voice if meaningful(voice) and not is_none(voice) else None)
+         self.unverified = []
+         update_baseline(self)
++        # birth of every artifact the owner answers is registered on each run, as soon as it exists: registering
++        # it only when a choice is first checked takes the mtime of a later edit (E9: «а а а» came «before» 0a)
++        for name in set(ANSWERS_TO.values()):
++            if (self.dir / name).exists():
++                born(self.dir / name)
+ 
+     def f(self, name):
+         return self.fields.get(name, "")
+@@ -779,6 +800,10 @@
      if t is None:
          return pr + ["нет 01-teardown.md"], hint
      wow = [rows for head, rows in tables(t) if any("вау" in h.lower() for h in head)]
@@ -40,7 +52,7 @@
      rows = [r for rows in wow for r in rows if any(re.search(r"берём|берем|нет", c, re.I) for c in r)]
      if len(rows) < 3:
          pr.append(f"в таблице «что даёт вау» строк с решением «берём/нет» {len(rows)}, нужно ≥ 3")
-@@ -1201,7 +1221,7 @@
+@@ -1201,7 +1226,7 @@
      return made
  
  
