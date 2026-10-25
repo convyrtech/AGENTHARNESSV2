@@ -1,14 +1,25 @@
 /**
  * PRSLOY first run: «Вставьте ключ PRSLOY» → «Выберите папку проекта» → the app.
- * Functional shell only; the ui stream owns the look (reuses existing ui/ primitives).
+ * Paper page, the PRSLOY wordmark, one field and one button per step.
  */
 import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { Folder } from "lucide-react";
 import type { PrsloyState } from "@zeno/contracts";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { t } from "@/lib/i18n";
 import { cleanPastedKey, firstRunStep, gatewayErrorKey } from "@/lib/prsloy-first-run";
 import { useShellStore } from "@/store/shell-store";
+
+/** Where people buy and copy their key. */
+export const PRSLOY_KEY_URL = "https://prsloy.online";
+
+const MAX_RECENT = 5;
+
+function folderName(path: string): string {
+  const parts = path.split(/[\\/]+/u).filter(Boolean);
+  return parts[parts.length - 1] ?? path;
+}
 
 export function FirstRunGate({ children }: { children: ReactNode }) {
   const locale = useShellStore((s) => s.locale);
@@ -17,6 +28,7 @@ export function FirstRunGate({ children }: { children: ReactNode }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
   const [bypass, setBypass] = useState(false);
+  const [recent, setRecent] = useState<string[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -33,6 +45,22 @@ export function FirstRunGate({ children }: { children: ReactNode }) {
       cancelled = true;
     };
   }, []);
+
+  const step = bypass ? "done" : firstRunStep(state);
+
+  useEffect(() => {
+    if (step !== "folder") return;
+    let cancelled = false;
+    Promise.resolve()
+      .then(() => window.zeno.workspace.listRecent())
+      .then((paths) => {
+        if (!cancelled) setRecent(paths.slice(0, MAX_RECENT));
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [step]);
 
   const submitKey = useCallback(
     async (event: FormEvent) => {
@@ -58,64 +86,103 @@ export function FirstRunGate({ children }: { children: ReactNode }) {
     [busy, key, locale],
   );
 
-  const pickFolder = useCallback(async () => {
-    if (busy) return;
-    setBusy(true);
-    setError(undefined);
-    try {
-      const folder = await window.zeno.workspace.pickFolder();
-      if (!folder) return;
-      await window.zeno.workspace.openPath(folder);
-      setState(await window.zeno.prsloy.getState());
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
-    } finally {
-      setBusy(false);
-    }
-  }, [busy]);
+  const openFolder = useCallback(
+    async (choose: () => Promise<string | undefined | null>) => {
+      if (busy) return;
+      setBusy(true);
+      setError(undefined);
+      try {
+        const folder = await choose();
+        if (!folder) return;
+        await window.zeno.workspace.openPath(folder);
+        setState(await window.zeno.prsloy.getState());
+      } catch (cause) {
+        setError(cause instanceof Error ? cause.message : String(cause));
+      } finally {
+        setBusy(false);
+      }
+    },
+    [busy],
+  );
 
-  const step = bypass ? "done" : firstRunStep(state);
   if (step === "done") return <>{children}</>;
   if (step === "loading") return <div className="h-screen w-screen bg-background" />;
 
   return (
-    <div className="flex h-screen w-screen items-center justify-center bg-background p-6">
-      <div className="flex w-full max-w-sm flex-col gap-3" data-testid={`prsloy-first-run-${step}`}>
+    <div className="prsloy-first-run">
+      <div className="drag-region prsloy-first-run-drag" aria-hidden />
+      <div className="prsloy-first-run-card" data-testid={`prsloy-first-run-${step}`}>
+        <div className="brand-wordmark prsloy-first-run-wordmark">PRSLOY</div>
         {step === "key" ? (
-          <form className="flex flex-col gap-3" onSubmit={(event) => void submitKey(event)}>
-            <h1 className="text-lg font-medium">{t(locale, "prsloy.firstRun.keyTitle")}</h1>
+          <form className="prsloy-first-run-form" onSubmit={(event) => void submitKey(event)}>
+            <h1 className="prsloy-first-run-title">{t(locale, "prsloy.firstRun.keyTitle")}</h1>
             <Input
               autoFocus
               type="password"
               autoComplete="off"
               spellCheck={false}
               value={key}
+              className="h-10"
               placeholder={t(locale, "prsloy.firstRun.keyPlaceholder")}
+              aria-label={t(locale, "prsloy.firstRun.keyTitle")}
               aria-invalid={error ? true : undefined}
               onChange={(event) => setKey(event.target.value)}
               disabled={busy}
             />
-            <Button type="submit" disabled={busy || !cleanPastedKey(key)}>
+            <Button type="submit" className="h-10" disabled={busy || !cleanPastedKey(key)}>
               {busy
                 ? t(locale, "prsloy.firstRun.keyChecking")
                 : t(locale, "prsloy.firstRun.keySubmit")}
             </Button>
+            <button
+              type="button"
+              className="prsloy-first-run-link"
+              data-testid="prsloy-key-link"
+              onClick={() =>
+                void window.zeno.workspace.openExternal(PRSLOY_KEY_URL).catch(() => undefined)
+              }
+            >
+              {t(locale, "prsloy.firstRun.keyWhere")}
+            </button>
           </form>
         ) : (
-          <>
-            <h1 className="text-lg font-medium">{t(locale, "prsloy.firstRun.folderTitle")}</h1>
-            <Button disabled={busy} onClick={() => void pickFolder()}>
+          <div className="prsloy-first-run-form">
+            <h1 className="prsloy-first-run-title">{t(locale, "prsloy.firstRun.folderTitle")}</h1>
+            <Button
+              className="h-10"
+              data-testid="prsloy-folder-pick"
+              disabled={busy}
+              onClick={() => void openFolder(() => window.zeno.workspace.pickFolder())}
+            >
               {t(locale, "prsloy.firstRun.folderPick")}
             </Button>
-            {state?.keyMemoryOnly ? (
-              <p className="text-sm text-muted-foreground">
-                {t(locale, "prsloy.firstRun.keyMemoryOnly")}
-              </p>
+            {recent.length > 0 ? (
+              <div className="prsloy-first-run-recent" data-testid="prsloy-folder-recent">
+                <p className="prsloy-first-run-recent-label">
+                  {t(locale, "prsloy.firstRun.folderRecent")}
+                </p>
+                {recent.map((path) => (
+                  <button
+                    key={path}
+                    type="button"
+                    className="prsloy-first-run-recent-item"
+                    title={path}
+                    disabled={busy}
+                    onClick={() => void openFolder(async () => path)}
+                  >
+                    <Folder className="size-4 shrink-0 opacity-70" strokeWidth={1.75} />
+                    <span className="truncate">{folderName(path)}</span>
+                  </button>
+                ))}
+              </div>
             ) : null}
-          </>
+            {state?.keyMemoryOnly ? (
+              <p className="prsloy-first-run-note">{t(locale, "prsloy.firstRun.keyMemoryOnly")}</p>
+            ) : null}
+          </div>
         )}
         {error ? (
-          <p role="alert" className="text-sm text-destructive">
+          <p role="alert" className="prsloy-first-run-error">
             {error}
           </p>
         ) : null}

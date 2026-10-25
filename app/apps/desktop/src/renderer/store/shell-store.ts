@@ -89,6 +89,7 @@ export type { ThemePreference, ResolvedColorMode };
 /** Implemented settings sections only (no stub / coming-soon nav). */
 export type SettingsSection =
   | "general"
+  | "account"
   | "appearance"
   | "terminal"
   | "runtimes"

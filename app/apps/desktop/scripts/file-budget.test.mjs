@@ -45,9 +45,11 @@ const FROZEN = {
   "main/index.ts": 5753,
   // 4605 → 4534: the MCP servers list became `components/McpServersSection.tsx`.
   // 4534 → 4476: `ResourcesPage` moved to its own component, paying for the casual-mode gates.
-  "renderer/main.tsx": 4476,
+  // 4476 → 4469: core moved the render root to `components/prsloy/render-root.tsx`.
+  "renderer/main.tsx": 4469,
   // 5163 → 5109: `EnvironmentSection` moved out, paying for the ru option and casual prefs.
-  "renderer/components/settings/SettingsPage.tsx": 5109,
+  // 5109 → 5062: `BehaviorSection` moved out, paying for the «Аккаунт» route.
+  "renderer/components/settings/SettingsPage.tsx": 5062,
   // 2194 → 1811: the composer's menu rows moved to `components/ComposerMenus.tsx` and its
   // suggestion helpers to `components/ComposerSuggestMenus.tsx`, which paid for the composer's
   // right-click menu. Banked rather than left as slack, per the note above.

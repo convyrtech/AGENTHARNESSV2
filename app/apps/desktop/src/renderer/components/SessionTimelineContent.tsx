@@ -1,5 +1,5 @@
 import type { HostEvent } from "@zeno/contracts";
-import { useMemo, type ReactNode, type Ref } from "react";
+import { Fragment, useMemo, type ReactNode, type Ref } from "react";
 import {
   MessageScroller,
   MessageScrollerContent,
@@ -17,6 +17,9 @@ import {
 import { ConversationMinimap } from "./ConversationMinimap.tsx";
 import { TimelineLiveStatus, TimelineProcessBlock, TimelineRow } from "./TimelineRow.tsx";
 import type { Locale } from "@/lib/i18n";
+import { matchTurnSnapshots, timelineTurns } from "@/lib/turn-undo";
+import { useTurnSnapshots } from "../hooks/useTurnSnapshots.ts";
+import { TurnUndoAction } from "./TurnUndoAction.tsx";
 
 type UserTimelineItem = Extract<TimelineItem, { kind: "user" }>;
 type AssistantTimelineItem = Extract<TimelineItem, { kind: "assistant" }>;
@@ -111,6 +114,18 @@ export function SessionTimelineContent(props: SessionTimelineContentProps) {
     [items, events, running, waiting],
   );
   const hasActivity = items.length > 0;
+  // «Откатить» after each finished turn that changed files, keyed by the turn's last block.
+  const snapshots = useTurnSnapshots(running, `${sessionKey}:${items.length}`);
+  const undoAfterBlock = useMemo(() => {
+    const turns = timelineTurns(blocks, running).filter((turn) => turn.changedFiles);
+    const matched = matchTurnSnapshots(turns, snapshots);
+    const byBlock = new Map<number, string>();
+    for (const turn of turns) {
+      const snapshotId = matched.get(turn.userId);
+      if (snapshotId) byBlock.set(turn.lastBlockIndex, snapshotId);
+    }
+    return byBlock;
+  }, [blocks, running, snapshots]);
   const showLiveStatus =
     liveActivity != null && !processBlockCoversLiveActivity(blocks, liveActivity);
 
@@ -125,41 +140,53 @@ export function SessionTimelineContent(props: SessionTimelineContentProps) {
     >
       {hasActivity ? (
         <>
-          {blocks.map((block) => {
+          {blocks.map((block, index) => {
             const messageId = block.type === "process" ? block.id : block.item.id;
+            const undoSnapshotId = undoAfterBlock.get(index);
             return (
-              <MessageScrollerItem
-                key={messageId}
-                messageId={messageId}
-                scrollAnchor={false}
-                className="w-full"
-              >
-                {block.type === "process" ? (
-                  <TimelineProcessBlock
-                    locale={locale}
-                    items={block.items}
-                    open={block.open}
-                    running={running}
-                    waiting={waiting}
-                    {...(block.open && liveActivity?.phase
-                      ? { livePhase: liveActivity.phase }
-                      : {})}
-                    {...(block.startedAt ? { startedAt: block.startedAt } : {})}
-                    {...(block.endedAt ? { endedAt: block.endedAt } : {})}
-                    {...(block.durationLabel ? { durationLabel: block.durationLabel } : {})}
-                    {...(props.workspacePath ? { workspacePath: props.workspacePath } : {})}
-                  />
-                ) : (
-                  <TimelineRow
-                    item={block.item}
-                    locale={locale}
-                    editingLocked={editingLocked}
-                    {...(props.workspacePath ? { workspacePath: props.workspacePath } : {})}
-                    {...(props.onEditUser ? { onEditUser: props.onEditUser } : {})}
-                    {...(props.onForkAssistant ? { onForkAssistant: props.onForkAssistant } : {})}
-                  />
-                )}
-              </MessageScrollerItem>
+              <Fragment key={messageId}>
+                <MessageScrollerItem messageId={messageId} scrollAnchor={false} className="w-full">
+                  {block.type === "process" ? (
+                    <TimelineProcessBlock
+                      locale={locale}
+                      items={block.items}
+                      open={block.open}
+                      running={running}
+                      waiting={waiting}
+                      {...(block.open && liveActivity?.phase
+                        ? { livePhase: liveActivity.phase }
+                        : {})}
+                      {...(block.startedAt ? { startedAt: block.startedAt } : {})}
+                      {...(block.endedAt ? { endedAt: block.endedAt } : {})}
+                      {...(block.durationLabel ? { durationLabel: block.durationLabel } : {})}
+                      {...(props.workspacePath ? { workspacePath: props.workspacePath } : {})}
+                    />
+                  ) : (
+                    <TimelineRow
+                      item={block.item}
+                      locale={locale}
+                      editingLocked={editingLocked}
+                      {...(props.workspacePath ? { workspacePath: props.workspacePath } : {})}
+                      {...(props.onEditUser ? { onEditUser: props.onEditUser } : {})}
+                      {...(props.onForkAssistant ? { onForkAssistant: props.onForkAssistant } : {})}
+                    />
+                  )}
+                </MessageScrollerItem>
+                {undoSnapshotId ? (
+                  <MessageScrollerItem
+                    messageId={`${messageId}:undo`}
+                    scrollAnchor={false}
+                    className="w-full"
+                  >
+                    <TurnUndoAction
+                      key={undoSnapshotId}
+                      locale={locale}
+                      snapshotId={undoSnapshotId}
+                      disabled={running}
+                    />
+                  </MessageScrollerItem>
+                ) : null}
+              </Fragment>
             );
           })}
           {showLiveStatus && liveActivity ? (

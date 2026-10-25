@@ -6513,3 +6513,129 @@ textarea.models-scoped-patterns-input[data-slot="textarea"] {
 .cost-chip-sep {
   opacity: 0.5;
 }
+
+/* «Откатить» under a finished turn: quiet until hovered, result in the same line. */
+.turn-undo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  margin: -6px 0 18px;
+  min-height: 28px;
+  font-size: 12px;
+  color: var(--muted-foreground);
+}
+.turn-undo-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 8px;
+  margin-left: -8px;
+  border-radius: var(--radius-sm);
+  color: var(--muted-foreground);
+  cursor: pointer;
+  transition:
+    background-color 0.15s,
+    color 0.15s;
+}
+.turn-undo-btn:hover:not(:disabled) {
+  background: var(--hover-fill);
+  color: var(--foreground);
+}
+.turn-undo-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+.turn-undo-result {
+  color: var(--foreground);
+}
+.turn-undo-error {
+  color: var(--destructive);
+}
+
+/* PRSLOY first run: paper page, wordmark, one field and one button per step. */
+.prsloy-first-run {
+  position: relative;
+  display: flex;
+  height: 100vh;
+  width: 100vw;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: var(--background);
+  color: var(--foreground);
+}
+.prsloy-first-run-drag {
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 46px;
+}
+.prsloy-first-run-card {
+  display: flex;
+  width: 100%;
+  max-width: 360px;
+  flex-direction: column;
+  gap: 20px;
+}
+.prsloy-first-run-wordmark {
+  font-size: 44px;
+  line-height: 1;
+  color: var(--foreground);
+  text-align: center;
+}
+.prsloy-first-run-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.prsloy-first-run-title {
+  margin: 0 0 4px;
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 500;
+  text-align: center;
+}
+.prsloy-first-run-link {
+  align-self: center;
+  font-size: 13px;
+  color: var(--link);
+  cursor: pointer;
+}
+.prsloy-first-run-link:hover {
+  text-decoration: underline;
+}
+.prsloy-first-run-recent {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 8px;
+}
+.prsloy-first-run-recent-label {
+  margin: 0 0 4px;
+  font-size: 12px;
+  color: var(--muted-foreground);
+}
+.prsloy-first-run-recent-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 34px;
+  padding: 0 10px;
+  border-radius: var(--radius-sm);
+  text-align: left;
+  cursor: pointer;
+}
+.prsloy-first-run-recent-item:hover:not(:disabled) {
+  background: var(--hover-fill);
+}
+.prsloy-first-run-note,
+.prsloy-first-run-error {
+  margin: 0;
+  font-size: 13px;
+  text-align: center;
+  color: var(--muted-foreground);
+}
+.prsloy-first-run-error {
+  color: var(--destructive);
+}

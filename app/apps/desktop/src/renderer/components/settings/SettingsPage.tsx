@@ -62,12 +62,6 @@ import {
   type ShortcutOverrides,
 } from "../../lib/shortcuts.ts";
 import {
-  loadConfirmArchive,
-  loadConfirmDelete,
-  saveConfirmArchive,
-  saveConfirmDelete,
-} from "../../lib/behavior-prefs.ts";
-import {
   listInstalledTerminalFonts,
   matchTerminalFontChoiceId,
   SYSTEM_TERMINAL_FONT_ID,
@@ -158,6 +152,8 @@ import {
 } from "./SettingsPrimitives.tsx";
 import { PetSection } from "./PetSection.tsx";
 import { EnvironmentSection } from "./EnvironmentSection.tsx";
+import { BehaviorSection } from "./BehaviorSection.tsx";
+import { AccountSection } from "./AccountSection.tsx";
 import { CasualPrefsBlock } from "./CasualPrefsBlock.tsx";
 
 export interface SettingsPageProps {
@@ -218,6 +214,8 @@ export function SettingsPage(props: SettingsPageProps) {
       <div className="settings-page-body">
         {props.section === "general" ? (
           <GeneralSection {...props} tr={tr} />
+        ) : props.section === "account" ? (
+          <AccountSection tr={tr} />
         ) : props.section === "pi" ? (
           <PiSdkSection locale={props.locale} />
         ) : props.section === "appearance" ? (
@@ -227,7 +225,7 @@ export function SettingsPage(props: SettingsPageProps) {
         ) : props.section === "runtimes" ? (
           <RuntimesSection locale={props.locale} />
         ) : props.section === "behavior" ? (
-          <BehaviorSection {...props} tr={tr} />
+          <BehaviorSection tr={tr} />
         ) : props.section === "pet" ? (
           <PetSection tr={tr} />
         ) : props.section === "environment" ? (
@@ -1443,51 +1441,6 @@ function GitSection(
             onChange={(e) => setPrefs((current) => ({ ...current, customPr: e.target.value }))}
           />
         </div>
-      </SettingsSectionBlock>
-    </SettingsPageShell>
-  );
-}
-
-function BehaviorSection(
-  props: SettingsPageProps & { tr: (key: MessageKey, vars?: Record<string, string>) => string },
-) {
-  const { tr } = props;
-  const [confirmDelete, setConfirmDelete] = useState(loadConfirmDelete);
-  const [confirmArchive, setConfirmArchive] = useState(loadConfirmArchive);
-  return (
-    <SettingsPageShell title={tr("section.behavior")} testId="settings-behavior">
-      <SettingsSectionBlock label={tr("settings.behavior")} testId="settings-behavior-options">
-        <SettingsRow
-          title={tr("settings.confirmDelete")}
-          description={tr("settings.confirmDeleteHint")}
-          control={
-            <SettingsToggle
-              checked={confirmDelete}
-              onChange={(next) => {
-                setConfirmDelete(next);
-                saveConfirmDelete(next);
-              }}
-              testId="settings-confirm-delete"
-              aria-label={tr("settings.confirmDelete")}
-            />
-          }
-        />
-        <SettingsRow
-          title={tr("settings.confirmArchive")}
-          description={tr("settings.confirmArchiveHint")}
-          control={
-            <SettingsToggle
-              checked={confirmArchive}
-              onChange={(next) => {
-                setConfirmArchive(next);
-                saveConfirmArchive(next);
-              }}
-              testId="settings-confirm-archive"
-              aria-label={tr("settings.confirmArchive")}
-            />
-          }
-          last
-        />
       </SettingsSectionBlock>
     </SettingsPageShell>
   );

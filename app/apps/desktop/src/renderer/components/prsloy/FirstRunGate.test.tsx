@@ -27,6 +27,8 @@ function mockZeno(overrides: Record<string, unknown> = {}) {
     workspace: {
       pickFolder: vi.fn().mockResolvedValue("/home/u/site"),
       openPath: vi.fn().mockResolvedValue({}),
+      listRecent: vi.fn().mockResolvedValue([]),
+      openExternal: vi.fn().mockResolvedValue(undefined),
     },
   };
   (window as unknown as { zeno: unknown }).zeno = api;
@@ -58,7 +60,7 @@ describe("FirstRunGate", () => {
     expect(screen.queryByText("APP")).toBeNull();
 
     api.prsloy.getState.mockResolvedValue({ ...fresh, hasKey: true, needsWorkspace: false });
-    fireEvent.click(screen.getByRole("button"));
+    fireEvent.click(screen.getByTestId("prsloy-folder-pick"));
     await screen.findByText("APP");
     expect(api.workspace.openPath).toHaveBeenCalledWith("/home/u/site");
   });
@@ -79,5 +81,31 @@ describe("FirstRunGate", () => {
       </FirstRunGate>,
     );
     await waitFor(() => expect(screen.getByText("APP2")).toBeTruthy());
+  });
+
+  it("links to where keys are sold and offers recent folders", async () => {
+    const api = mockZeno();
+    render(
+      <FirstRunGate>
+        <div>APP</div>
+      </FirstRunGate>,
+    );
+    fireEvent.click(await screen.findByTestId("prsloy-key-link"));
+    expect(api.workspace.openExternal).toHaveBeenCalledWith("https://prsloy.online");
+    cleanup();
+
+    const withKey = mockZeno({
+      getState: vi.fn().mockResolvedValue({ ...fresh, hasKey: true }),
+    });
+    withKey.workspace.listRecent.mockResolvedValue(["/home/u/zerno", "C:\\Users\\u\\shop"]);
+    render(
+      <FirstRunGate>
+        <div>APP</div>
+      </FirstRunGate>,
+    );
+    await screen.findByTestId("prsloy-folder-recent");
+    expect(screen.getByText("shop")).toBeTruthy();
+    fireEvent.click(screen.getByText("zerno"));
+    await waitFor(() => expect(withKey.workspace.openPath).toHaveBeenCalledWith("/home/u/zerno"));
   });
 });
