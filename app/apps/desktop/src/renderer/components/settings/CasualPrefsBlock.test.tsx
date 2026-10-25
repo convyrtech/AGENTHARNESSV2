@@ -16,7 +16,7 @@ describe("CasualPrefsBlock: «Проверка второй моделью»", (
     const toggle = screen.getByTestId("settings-second-opinion");
     await waitFor(() => expect(toggle.getAttribute("aria-checked")).toBe("true"));
     fireEvent.click(toggle);
-    expect(set).toHaveBeenCalledWith({ secondOpinion: false });
+    await waitFor(() => expect(set).toHaveBeenCalledWith({ secondOpinion: false }));
     await waitFor(() => expect(toggle.getAttribute("aria-checked")).toBe("false"));
   });
 });
