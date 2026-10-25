@@ -294,7 +294,7 @@ const FREEZE = `() => { const s = document.createElement("style"); s.textContent
 
 /**
  * `off-window` ci писался для окна приложения, которое не прокручивается. Страница пользователя прокручивается
- * вниз: блок ниже первого экрана — норма. Считаем только то, что вылезло вбок. С `scrollsY: true` (ci @ 2b1c5ad)
+ * вниз: блок ниже первого экрана — норма. Считаем только то, что вылезло вбок. С `scrollsY: true` (ci @ 4cf754c)
  * так считает сам `lintLayout`; фильтр — для версии пакета без опции, убрать вместе с подключением пакета.
  */
 export function belowTheFold(i: Pick<PageIssue, "rule" | "box" | "width">): boolean {
