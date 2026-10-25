@@ -162,9 +162,12 @@ export function installResearch(
   // Флаг — в начале каждого хода: включили или выключили в приложении — инструменты появляются или уходят.
   pi.on("before_agent_start", () => {
     const active = pi.getActiveTools();
-    const has = TOOLS.every((t) => active.includes(t));
     const want = enabled();
-    if (want === has) return undefined;
+    // включено — оба на месте; выключено — ни одного (один оставшийся тоже убираем)
+    const settled = want
+      ? TOOLS.every((t) => active.includes(t))
+      : !TOOLS.some((t) => active.includes(t));
+    if (settled) return undefined;
     pi.setActiveTools(
       want
         ? [...active.filter((t) => !TOOLS.includes(t)), ...TOOLS]
