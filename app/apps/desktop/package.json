@@ -33,6 +33,7 @@
     "@axe-core/playwright": "catalog:",
     "@playwright/test": "catalog:",
     "@prsloy/harness": "workspace:*",
+    "@prsloy/session-import": "workspace:*",
     "@shadcn/react": "catalog:",
     "@tailwindcss/vite": "catalog:",
     "@testing-library/jest-dom": "catalog:",
