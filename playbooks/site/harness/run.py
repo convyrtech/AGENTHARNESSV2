@@ -36,6 +36,12 @@ PROXY = ["--proxy", os.environ["HARNESS_PROXY"]] if os.environ.get("HARNESS_PROX
 SHIMS = ("claude", "codex", "gemini", "aider", "cursor-agent", "opencode", "qwen", "kimi")
 ENDS_OK = "ЭТАП ГОТОВ"
 TO_OWNER = "ВЛАДЕЛЬЦУ:"
+# разметка вызова инструментов, утёкшая в текст: DeepSeek V4 (DSML), DeepSeek V3, Qwen/Hermes, Kimi
+TOOL_LEAK = re.compile(r"｜\s*DSML\s*｜|<｜tool▁calls?▁(?:begin|end)｜>|<｜tool▁sep｜>|</?tool_call>"
+                       r"|<\|tool_calls?_(?:section_)?(?:begin|end)\|>")
+LEAK_NUDGE = ("Твой последний вызов инструмента не дошёл: он пришёл текстом. Повтори его обычным вызовом "
+              "инструмента, без рассуждений в ответе.")
+LEAK_RETRIES = 2
 
 
 def emit(**ev):
@@ -303,20 +309,43 @@ def brief(ws, gate, fl, cfg, notes):
     return "\n".join(lines)
 
 
+def leaked(final, thinking):
+    """Вызов инструмента пришёл текстом (E9 A/B: DeepSeek, 3 сессии из 22 на шаге 7): stop без toolCall, в тексте
+    закрывающие теги своей разметки инструментов, текст дословно повторяет рассуждение. Pi считает ход законченным."""
+    return bool(TOOL_LEAK.search(final)) or (len(final) > 1000 and final.strip() == (thinking or "").strip())
+
+
 def run_stage(ws, gate, prompt, model, cfg, session):
     """Одна сессия Pi с бюджетом и детекторами петель. Возвращает (final_text, stats)."""
+    t0 = time.time()
+    st = {"calls": 0, "in": 0, "out": 0, "cached": 0, "cost": 0.0, "edits_since_check": 0, "killed": None,
+          "leaks": 0}
+    seen = {}
+    deadline = t0 + cfg["max_minutes"] * 60
+    while True:
+        final, thinking = _pi_once(ws, prompt, model, cfg, session, st, seen, deadline)
+        if st["killed"] or st.get("error") or not leaked(final, thinking) or st["leaks"] >= LEAK_RETRIES:
+            break
+        # та же сессия: контекст в кэше, повтор дешевле свежей сессии шага
+        st["leaks"] += 1
+        emit(ev="note", text="модель отдала вызов инструмента текстом, прошу повторить")
+        prompt = LEAK_NUDGE
+    if st["leaks"] and leaked(final, thinking):
+        final = ""                                  # мусор разметки не идёт ни владельцу, ни в «ЭТАП ГОТОВ»
+    st["seconds"] = round(time.time() - t0)
+    return final.strip(), st
+
+
+def _pi_once(ws, prompt, model, cfg, session, st, seen, deadline):
     # задание идёт файлом (@file): длинный многострочный текст в командной строке ломается на Windows
-    bf = session.with_name(session.stem + f"-{int(time.time())}.brief.md")
+    bf = session.with_name(session.stem + f"-{time.time_ns()}.brief.md")
     bf.write_text(prompt, encoding="utf-8")
     args = [*PI, "--mode", "json", "--model", model, "--session", str(session), "@" + str(bf),
             "Выполни задание харнесса из файла выше."]
-    t0 = time.time()
-    st = {"calls": 0, "in": 0, "out": 0, "cached": 0, "cost": 0.0, "edits_since_check": 0, "killed": None}
-    seen, final = {}, ""
+    final, thinking = "", ""
     p = subprocess.Popen(args, cwd=ws.root, env=ws.env(), stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
                          stderr=subprocess.STDOUT, text=True, encoding="utf-8", errors="replace")
     log = open(session.with_suffix(".events.jsonl"), "a", encoding="utf-8")
-    deadline = t0 + cfg["max_minutes"] * 60
     for ln in p.stdout:
         log.write(ln)
         if time.time() > deadline:
@@ -335,9 +364,12 @@ def run_stage(ws, gate, prompt, model, cfg, session):
         st["out"] += u.get("output", 0) or 0
         st["cached"] += u.get("cacheRead", 0) or 0
         st["cost"] += (u.get("cost") or {}).get("total", 0) or 0
+        final = thinking = ""                       # итог хода — только последнее сообщение ассистента
         for b in m.get("content") or []:
             if b.get("type") == "text" and b.get("text"):
                 final = b["text"]
+            if b.get("type") == "thinking":
+                thinking = b.get("thinking") or ""
             if b.get("type") != "toolCall":
                 continue
             st["calls"] += 1
@@ -363,8 +395,7 @@ def run_stage(ws, gate, prompt, model, cfg, session):
             p.kill()
     p.wait()
     log.close()
-    st["seconds"] = round(time.time() - t0)
-    return final.strip(), st
+    return final, thinking
 
 
 # ---------- say: owner message → stages until the next question ----------
