@@ -152,7 +152,7 @@ require function`. Причина — мой импорт `signal-exit@3` (Commo
 - `postcss` (тоже CommonJS) в бандле не грузится (`require("fs")`): проверка CSS переходит на встроенную
   проверку комментариев, строк и скобок. Чтобы работали все CommonJS-зависимости хоста, ядру стоит добавить в
   `vite.agent.config.ts` баннер `import { createRequire } from "node:module"; const require =
-  createRequire(import.meta.url);` — файл не мой, не трогал.
+createRequire(import.meta.url);` — файл не мой, не трогал.
 - Новый тест `test/host-bundle.test.ts` собирает пакет так же, как хост (ESM, внешние — только Pi и модули Node),
   и запускает его в чистом Node: загрузка, все практики, проверка CSS.
 
@@ -162,14 +162,14 @@ require function`. Причина — мой импорт `signal-exit@3` (Commo
 одновызовный `FakeOpenAiServer`). Модель на каждое «harness step N» делает один вызов; проверяется текст
 результата тула, который приложение вернуло модели:
 
-| Шаг | Вызов | Ожидание |
-|---|---|---|
-| 1 | `(python -m http.server P > srv.log 2>&1 &) && sleep 2 && curl … http://127.0.0.1:P/` | `[exit 0`, `200`, «запущен через реестр харнесса», `порт P` |
-| 2 | `pkill -f "http.server P"; echo shell-alive` | `[exit 0`, `shell-alive`, «выполнено через реестр: остановлены bg1», порт P свободен |
-| 3 | `echo before-hang; sleep 60; echo never` при `PRSLOY_BASH_TIMEOUT_SEC=5` | `before-hang`, без `never`, «[Процесс остановлен по таймауту 5 с.]» |
-| 4 | `taskkill /IM bash.exe /F` | «не выполнено» и подсказка `process action=stop` |
-| 5 | `write broken.js` с `const a = ;` | «[Проверка синтаксиса (node --check): ОШИБКА в broken.js», `SyntaxError` (node — сам PRSLOY.exe с `ELECTRON_RUN_AS_NODE=1`) |
-| 6 | `python -m http.server Q &`, затем выход из приложения | порт Q отвечал, после выхода свободен |
+| Шаг | Вызов                                                                                 | Ожидание                                                                                                                    |
+| --- | ------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| 1   | `(python -m http.server P > srv.log 2>&1 &) && sleep 2 && curl … http://127.0.0.1:P/` | `[exit 0`, `200`, «запущен через реестр харнесса», `порт P`                                                                 |
+| 2   | `pkill -f "http.server P"; echo shell-alive`                                          | `[exit 0`, `shell-alive`, «выполнено через реестр: остановлены bg1», порт P свободен                                        |
+| 3   | `echo before-hang; sleep 60; echo never` при `PRSLOY_BASH_TIMEOUT_SEC=5`              | `before-hang`, без `never`, «[Процесс остановлен по таймауту 5 с.]»                                                         |
+| 4   | `taskkill /IM bash.exe /F`                                                            | «не выполнено» и подсказка `process action=stop`                                                                            |
+| 5   | `write broken.js` с `const a = ;`                                                     | «[Проверка синтаксиса (node --check): ОШИБКА в broken.js», `SyntaxError` (node — сам PRSLOY.exe с `ELECTRON_RUN_AS_NODE=1`) |
+| 6   | `python -m http.server Q &`, затем выход из приложения                                | порт Q отвечал, после выхода свободен                                                                                       |
 
 Артефакты в `smoke-out/` (их уже выгружает шаг `prsloy-win-smoke`): `harness-requests.jsonl` (все запросы к
 модели), `harness-sessions/*.jsonl` (сессия pi), `harness-results.json`, `harness-steps.png`, логи main/renderer.
