@@ -10,12 +10,7 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { isAbsolute, join } from "node:path";
 import { MemoryStore, memoryDirFor } from "@prsloy/harness";
-import type {
-  PrsloyMemoryChange,
-  PrsloyMemoryEntry,
-  PrsloyMemoryForgotten,
-  PrsloyMemoryList,
-} from "@zeno/contracts";
+import type { MemoryForgottenItem, MemoryItem, MemorySnapshot } from "@zeno/contracts";
 import type { IpcMainLike } from "./ipc.ts";
 import { workspaceKey } from "./turn-snapshots.ts";
 
@@ -64,7 +59,7 @@ function idOf(raw: unknown): string {
 const FORGOTTEN_MAX = 20;
 
 /** Tombstones of the user file and this project's file, with the text the journal kept. */
-function forgottenOf(store: MemoryStore, workspace: string): PrsloyMemoryForgotten[] {
+function forgottenOf(store: MemoryStore, workspace: string): MemoryForgottenItem[] {
   const texts = new Map<string, string>();
   try {
     for (const line of readFileSync(join(store.dir, "journal.jsonl"), "utf8").split("\n")) {
@@ -94,7 +89,7 @@ function forgottenOf(store: MemoryStore, workspace: string): PrsloyMemoryForgott
       return [];
     }
   };
-  const out: PrsloyMemoryForgotten[] = [];
+  const out: MemoryForgottenItem[] = [];
   for (const [scope, path] of [
     ["user", join(store.dir, "user.json")],
     ["project", join(store.dir, "projects", workspaceKey(workspace), "project.json")],
@@ -109,11 +104,9 @@ function forgottenOf(store: MemoryStore, workspace: string): PrsloyMemoryForgott
   return out.sort((a, b) => b.forgotten.localeCompare(a.forgotten)).slice(0, FORGOTTEN_MAX);
 }
 
-function list(store: MemoryStore, workspace: string): PrsloyMemoryList {
-  const view = (scope: "user" | "project"): PrsloyMemoryEntry[] =>
-    store
-      .entries(scope, workspace)
-      .map((e) => ({ id: e.id, text: e.text, scope, created: e.created }));
+function list(store: MemoryStore, workspace: string): MemorySnapshot {
+  const view = (scope: "user" | "project"): MemoryItem[] =>
+    store.entries(scope, workspace).map((e) => ({ id: e.id, text: e.text, created: e.created }));
   const digest = store.digest(workspace);
   return {
     user: view("user"),
@@ -165,25 +158,25 @@ export function registerPrsloyMemoryIpc(ipcMain: IpcMainLike, deps: PrsloyMemory
 
   ipcMain.handle(
     PRSLOY_MEMORY_IPC.forget,
-    async (_event, rawId, rawWorkspace): Promise<PrsloyMemoryChange> => {
+    async (_event, rawId, rawWorkspace): Promise<MemorySnapshot> => {
       const id = idOf(rawId);
       const workspace = workspaceOf(rawWorkspace, deps);
       const s = store();
       const entry = s.forget(id, workspace);
       if (entry) await note(entry.text);
-      return { ok: Boolean(entry), list: list(s, workspace) };
+      return list(s, workspace);
     },
   );
 
-  ipcMain.handle(PRSLOY_MEMORY_IPC.restore, (_event, rawId, rawWorkspace): PrsloyMemoryChange => {
+  ipcMain.handle(PRSLOY_MEMORY_IPC.restore, (_event, rawId, rawWorkspace): MemorySnapshot => {
     const id = idOf(rawId);
     const workspace = workspaceOf(rawWorkspace, deps);
     const s = store();
-    const entry = s.restore(id, workspace);
-    return { ok: Boolean(entry), list: list(s, workspace) };
+    s.restore(id, workspace);
+    return list(s, workspace);
   });
 
-  ipcMain.handle(PRSLOY_MEMORY_IPC.forgetAll, async (): Promise<PrsloyMemoryChange> => {
+  ipcMain.handle(PRSLOY_MEMORY_IPC.forgetAll, async (): Promise<MemorySnapshot> => {
     const s = store();
     const workspace = workspaceOf(undefined, deps);
     const had = s.entries("user", workspace).length + s.entries("project", workspace).length;
@@ -193,6 +186,6 @@ export function registerPrsloyMemoryIpc(ipcMain: IpcMainLike, deps: PrsloyMemory
       if (s.entries("project", path).length || s.digest(path)) s.forgetAll(path);
     }
     if (had) await noteAll();
-    return { ok: true, list: list(s, workspace) };
+    return list(s, workspace);
   });
 }
