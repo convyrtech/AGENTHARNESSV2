@@ -3,6 +3,7 @@ import {
   PROJECT_THREADS_PAGE,
   getVisibleThreadCount,
   hasThreadMessages,
+  threadDisplayTitle,
   isArchivedProject,
   isPinnedProject,
   isUnreadThread,
@@ -298,5 +299,16 @@ describe("light delete vs permanent delete", () => {
     permanentlyDeleteThread("gone");
     permanentlyDeleteThread("gone");
     expect(loadPurgedThreads().filter((id) => id === "gone")).toHaveLength(1);
+  });
+});
+
+describe("threadDisplayTitle", () => {
+  it("never shows the host's «(no messages)»: a chat holding only a card reads «Новый чат»", () => {
+    expect(threadDisplayTitle("s1", {}, "(no messages)", "Новый чат")).toBe("Новый чат");
+    expect(threadDisplayTitle("s1", {}, "Сделай сайт", "Новый чат")).toBe("Сделай сайт");
+    expect(threadDisplayTitle("s1", { s1: "Мой бот" }, "(no messages)", "Новый чат")).toBe(
+      "Мой бот",
+    );
+    expect(threadDisplayTitle("s1", {}, "(no messages)")).toBe("(no messages)");
   });
 });
