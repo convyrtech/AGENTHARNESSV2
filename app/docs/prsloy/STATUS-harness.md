@@ -800,7 +800,7 @@ i18n во все локали (дорожка ui).
 
 ## Этап 10 · S6 — сводка «прошлый раз»
 
-По `research/18-memory-self-learning.md` §6.1 (a), §6.3 (`digest`), §9.1 (`agent_settled`). Поверх S4.
+По `research/18-memory-self-learning.md` §6.1 (a), §6.3 (`digest`), §9.1 (`agent_settled`). Поверх S4. Сводка — часть памяти: при `"memory"` выкл. (так по умолчанию до S5) не пишется и не показывается.
 
 - `src/digest.ts`: на `agent_settled` код (без LLM) пишет в `project.json` сводку сессии: что правили (по
   `edit`/`write` и по теневому git хода — видны и правки через bash), какое превью работает (живые процессы

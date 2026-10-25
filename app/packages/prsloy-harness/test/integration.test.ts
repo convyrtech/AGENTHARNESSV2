@@ -675,6 +675,9 @@ describe("integration: digest «прошлый раз» (S6) in a real session",
   it("files edited by write and by bash — written on agent_settled, in the next session's memory section", async () => {
     const memoryDir = await mkdtemp(join(tmpdir(), "prsloy-digest-int-"));
     cleanup.push(() => rm(memoryDir, { recursive: true, force: true }));
+    // Сводка живёт в памяти, а память по умолчанию выключена (до S5).
+    const settingsPath = join(memoryDir, "prsloy-harness.json");
+    await writeFile(settingsPath, JSON.stringify({ memory: true }));
     const first = await startSession(
       (_req, index) =>
         [
@@ -688,7 +691,7 @@ describe("integration: digest «прошлый раз» (S6) in a real session",
           },
           { text: "Готово." },
         ][index] ?? { text: "?" },
-      { factory: { memoryDir } },
+      { factory: { memoryDir, settingsPath } },
     );
     await first.session.prompt("сделай страницу");
     const project = (await readdir(join(memoryDir, "projects")))[0]!;
