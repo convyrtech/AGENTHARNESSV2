@@ -121,7 +121,7 @@ def lab(root):
     h = root / "playbooks" / "site" / "harness"
     h.mkdir(parents=True)
     (root / "playbooks" / "site" / "motion").mkdir()
-    for f in ("run.py", "baseline.py", "simulate.py", "abreport.py", "stages.json", "AGENTS.md", "check.py", "moves.py",
+    for f in ("run.py", "baseline.py", "simulate.py", "abreport.py", "stages.json", "AGENTS.md", "check.py", "brand_check.py", "moves.py",
               "owner-e8p.json"):
         shutil.copyfile(HARNESS / f, h / f)
     (h / "judge.py").write_text(STUB_JUDGE, encoding="utf-8")

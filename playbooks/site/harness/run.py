@@ -164,9 +164,9 @@ def init(a):
     if cat.exists() and not (ws.root / "etalons").exists():
         shutil.copytree(cat, ws.root / "etalons", ignore=shutil.ignore_patterns("*.mp4", "frames*", "__pycache__"))
     shutil.copyfile(HERE / "AGENTS.md", ws.root / "AGENTS.md")
-    for f in ("check.py", "second_opinion.py"):                 # служебные: в состоянии харнесса
+    for f in ("check.py", "brand_check.py", "second_opinion.py"):  # служебные: в состоянии харнесса
         shutil.copyfile(HERE / f, ws.h / f)
-    for f in ("moves.py", "check.py"):                           # инструменты агента: в его папке
+    for f in ("moves.py", "check.py", "brand_check.py"):        # инструменты агента: в его папке
         shutil.copyfile(HERE / f, ws.tools / f)
     for name in SHIMS:                                   # чужие ИИ-программы первыми на PATH: блок в коде, не в промпте
         msg = "запрещено харнессом: другие ИИ-программы запускать нельзя (аккаунт и деньги владельца)"
