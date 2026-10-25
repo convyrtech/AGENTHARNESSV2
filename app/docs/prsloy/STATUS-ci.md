@@ -1,5 +1,91 @@
 # STATUS: дорожка ci (W0 + W5)
 
+## Этап 6: выпуск одной кнопкой
+
+Прогон (dry run на `desktop/ci`, version=0.1.0-alpha.7): https://github.com/convyrtech/AGENTHARNESSV2/actions/runs/40182468274 — зелёный: plan (`dispatch-dry`) → package 0.1.0-alpha.7 → smoke windows-latest и windows-2022 → update-e2e 3/3 (включая «newest release has no assets yet: A skips it and still finds B»); release и unpublish пропущены, как и положено вне main.
+
+По дороге: one-click проверка «не по-русски» срабатывала на «PRSLOY 0.1.0-alpha.7» (латиница в версии) — версия теперь вырезается перед проверкой (`oneclick-install.ps1`).
+
+### 1. Кнопка: `workflow_dispatch` с `version`
+
+Новый job `plan` (ubuntu) решает, что это за прогон, и отдаёт `mode/version/tag/publish`.
+
+- **Run workflow на `main` с `version`:**
+  - проверка формата `^\d+\.\d+\.\d+-(alpha|beta)\.\d+$`; ведущая «v» снимается;
+  - если тег `v<version>` или релиз уже есть — ошибка сразу, до сборки;
+  - дальше: `package` с этой версией → `smoke` (windows-latest и windows-2022) → `update-e2e` → `release`;
+  - `release` идёт только если все три зелёные (неявный `success()`). Сначала он проверяет, что в артефакте есть
+    `latest.yml` с этой версией, exe и blockmap;
+  - softprops создаёт тег `v<version>` на `github.sha` и **сразу опубликованный** пре-релиз (`draft: false`,
+    `prerelease: true`) со всеми файлами;
+  - если что-то упало — release-job пропущен: нет ни тега, ни релиза.
+- **Run workflow с другой ветки** — `dispatch-dry`: те же сборка и проверки с этой версией, без выпуска. Так кнопка
+  проверена на `desktop/ci`.
+- **Без `version`** — как раньше, только сборка и проверки.
+- **Повторный запуск:** тег и релиз, созданные release-job от `GITHUB_TOKEN`, наш workflow не запускают. В документации
+  GitHub («Triggering a workflow from a workflow»): «events triggered by the GITHUB_TOKEN, with the exception of
+  workflow_dispatch and repository_dispatch, will not create a new workflow run». `push` тега и `release: published`
+  сюда входят. Защиты сверх этого не нужно. На случай, если кто-то сменит токен на PAT, она всё равно есть: `plan`
+  видит существующий релиз и для `push` тега выбирает `skip`.
+
+### 2. Старые пути
+
+- **`push` тега `v*`:**
+  - если релиза ещё нет — `tag-release`: сборка → проверки → релиз с файлами (как раньше);
+  - если релиз уже есть (тег создал UI-релиз) — `skip`: файлы прикрепляет прогон `release: published`;
+  - `concurrency.group` теперь включает `event_name`, поэтому два прогона одного UI-релиза друг друга не отменяют.
+- **`release: published` (UI):**
+  - в summary стоит предупреждение (и `::warning`): «Обновления у пользователей не работают, пока этот прогон не
+    прикрепит файлы»;
+  - если прогон упал, job `unpublish` (`always()`, если `release` не `success`) проверяет ассеты. Если `latest.yml`
+    нет, он вызывает `gh api -X PATCH …/releases/<id> -F draft=true`. Тогда релиз уходит из `releases.atom` и не
+    держит обновления;
+  - флаг `-F`, а не `-f`: `-F` шлёт JSON `true`, а `-f` — строку `"true"`.
+  - Права: у job стоит `permissions: contents: write`. По документации REST «Update a release» этого достаточно для
+    fine-grained/GITHUB_TOKEN: «Contents» repository permissions (write).
+- Тег не semver с «v» → `plan` падает с понятной ошибкой. Для UI-релиза это тоже ведёт в `unpublish`.
+
+### 3. Защита в приложении: релиз без файлов пропускается
+
+Источник electron-updater 6.8.9 `GitHubProvider.getLatestVersion()` берёт **первый** semver-тег из `releases.atom`,
+без запасного варианта. Если у этого тега нет `latest.yml`, он бросает `ERR_UPDATER_CHANNEL_FILE_NOT_FOUND`. До
+следующего полного релиза обновлений нет ни у кого.
+
+Это оказалось просто, сделано:
+
+- `src/main/update-provider.ts` — подкласс настоящего `GitHubProvider`. Он подключается через
+  `{ provider: "custom", updateProvider }` (providerFactory 6.8.9). Как работает:
+  - на `ERR_UPDATER_CHANNEL_FILE_NOT_FOUND` он берёт тег из URL ошибки и запоминает его;
+  - в `httpRequest` для `.atom` он выбрасывает записи запомненных тегов и повторяет проверку;
+  - пропускает не больше 3 релизов за проверку и каждую проверку начинает заново (релиз, получивший файлы, снова
+    виден);
+  - другие ошибки не глотает;
+  - каналы, URL загрузки и диапазоны остаются кодом `GitHubProvider`.
+- `auto-update.ts`: реальный путь `load()` ставит этот провайдер. Фид прежний: `convyrtech/AGENTHARNESSV2`,
+  prerelease; петлевой host только под `PRSLOY_E2E=1`.
+- Юнит-тесты `update-provider.test.ts`:
+  - откат к новейшему полному релизу;
+  - полный первый релиз (один запрос atom);
+  - ограниченный отказ;
+  - чужие ошибки не глотаются.
+- **update-e2e, сценарий (c)** теперь «новый тег без файлов: A его пропускает и всё равно находит B». Условия:
+  - сверху пустой `v0.1.0-alpha.92`, под ним B `v0.1.0-alpha.91`;
+  - ожидается «Обновление готово»;
+  - в журнале запросов: `/download/v0.1.0-alpha.92/latest.yml 404`, `/download/v0.1.0-alpha.91/latest.yml 302`,
+    ровно два `releases.atom`;
+  - в логе приложения: `release v0.1.0-alpha.92 has no update files yet`.
+- Итог: пустой первый тег (alpha.1 из UI) больше не блокирует обновления у тех, у кого уже стоит сборка с этим кодом.
+  У сборок до него поведение старое, поэтому alpha.2+ — только кнопкой.
+
+### 4. Инструкция
+
+`app/docs/prsloy/RELEASE-HOWTO.md` — 5 строк для владельца: Actions → desktop-windows → Run workflow → main,
+version → Run.
+
+### Готово
+
+ready to merge.
+
 ## Этап 5: настоящий путь GitHub, Windows 2022, состав установщика
 
 Прогон: https://github.com/convyrtech/AGENTHARNESSV2/actions/runs/40177012147 — зелёный: package; smoke на

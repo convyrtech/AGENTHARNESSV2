@@ -397,16 +397,14 @@ test("good update: detect, download, «Обновление готово — п�
   }
 });
 
-test("newest release has no assets yet: the check fails quietly, A keeps running", async () => {
+test("newest release has no assets yet: A skips it and still finds B", async () => {
   test.skip(process.platform !== "win32", "Windows only");
-  // What a user sees while a release is published but CI has not attached latest.yml yet.
-  // GitHubProvider takes the first semver entry of the atom and does not fall back to older
-  // releases: ERR_UPDATER_CHANNEL_FILE_NOT_FOUND until the assets are there.
+  // A release published before CI attached latest.yml (or a failed build). Plain GitHubProvider
+  // stops at it (ERR_UPDATER_CHANNEL_FILE_NOT_FOUND, no fallback); the app's provider subclass
+  // (update-provider.ts) drops that entry from the atom and finds the newest complete release.
+  const empty = `v${versionB.replace(/\d+$/, "92")}`;
   const feed = await startGitHub(
-    releases(
-      { tag: `v${versionB.replace(/\d+$/, "92")}`, dir: null },
-      { tag: `v${versionB}`, dir: feedGood },
-    ),
+    releases({ tag: empty, dir: null }, { tag: `v${versionB}`, dir: feedGood }),
   );
   const gateway = await startGateway();
   let launched: Launched | undefined;
@@ -415,29 +413,23 @@ test("newest release has no assets yet: the check fails quietly, A keeps running
     gateway.setUpstream(launched.fakeModel.baseUrl);
     await passFirstRun(launched);
     const { page } = launched;
-    await expect
-      .poll(() => feed.hits.some((h) => h.path.endsWith("/latest.yml")), { timeout: 120_000 })
-      .toBe(true);
-    // No retry loop: stay a while and count requests.
-    await page.waitForTimeout(20_000);
+    await expect(page.locator(READY)).toBeVisible({ timeout: 300_000 });
+    const readyMs = Date.now() - launched.t0;
     const mainLog = await readFile(launched.mainLog, "utf8").catch(() => "");
-    const error = /ERR_UPDATER_\w+|Cannot find latest\.yml[^\n]*/.exec(mainLog)?.[0] ?? null;
-    const version = await launched.app.evaluate(({ app }) => app.getVersion());
-    const ready = await page.locator(READY).isVisible();
-    await page.getByTestId("prompt-input").fill("работаю дальше");
-    await expect(page.getByTestId("prompt-input")).toHaveValue("работаю дальше");
-    await shot(page, "34-update-noassets");
+    const skipped = /release (\S+) has no update files yet/.exec(mainLog)?.[1] ?? null;
+    await shot(page, "34-update-noassets-skipped");
     const summary = summarize(feed.hits);
-    await writeMetrics({
-      updateNoAssets: { feed: summary, error, versionAfter: version, readyShown: ready },
-    });
-    expect(summary.github.filter((h) => h === ".atom 200").length, "one check, no loop").toBe(1);
-    expect(summary.github.some((h) => h.includes(`/download/v${versionB}/`))).toBe(false);
-    expect(error, "updater error in the log").toMatch(
-      /CHANNEL_FILE_NOT_FOUND|Cannot find latest\.yml/,
+    await writeMetrics({ updateNoAssets: { feed: summary, skipped, readyMs } });
+    expect(summary.github, summary.github.join("\n")).toContain(
+      `/download/${empty}/latest.yml 404`,
     );
-    expect(ready).toBe(false);
-    expect(version).toBe(versionA);
+    expect(summary.github, summary.github.join("\n")).toContain(
+      `/download/v${versionB}/latest.yml 302`,
+    );
+    expect(summary.github.filter((h) => h === ".atom 200").length, "one re-read of the feed").toBe(
+      2,
+    );
+    expect(skipped).toBe(empty);
     expect(launched.pageErrors, launched.pageErrors.join("\n\n")).toEqual([]);
   } finally {
     await close(launched);
