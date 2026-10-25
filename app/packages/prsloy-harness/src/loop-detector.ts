@@ -105,7 +105,9 @@ export function installLoopDetector(pi: ExtensionAPI, opts: ResolvedOptions): vo
   let lastAssistantStop: string | undefined;
   // Подряд упавшая та же команда bash (тот же код выхода); успешная правка или успешный bash обрывают серию.
   let failStreak: { key: string; n: number } | undefined;
-  let stopNext = false;
+  // После третьего одинакового падения: 1 — следующий вызов блокируется без остановки (модель ещё может честно
+  // ответить текстом), 2 — дальше любой вызов останавливает ход с карточкой.
+  let stopLevel = 0;
 
   pi.on("before_agent_start", (event) => {
     if (event.messageType !== "user") return;
@@ -115,7 +117,7 @@ export function installLoopDetector(pi: ExtensionAPI, opts: ResolvedOptions): vo
     pseudoNudges = 0;
     lengthStops = 0;
     failStreak = undefined;
-    stopNext = false;
+    stopLevel = 0;
   });
 
   pi.on("message_end", (event) => {
@@ -126,8 +128,13 @@ export function installLoopDetector(pi: ExtensionAPI, opts: ResolvedOptions): vo
   pi.on("tool_call", async (event, ctx) => {
     if (event.parentToolCallId) return undefined;
     // Третье одинаковое падение уже было, а модель снова зовёт инструмент: жёсткая остановка, честная карточка.
-    if (stopNext) {
-      stopNext = false;
+    if (stopLevel === 1) {
+      stopLevel = 2;
+      recordEvent(ctx, { kind: "loop.warn", tool: event.toolName, sig: "loop:same-fail" });
+      return { block: true, reason: SAME_FAIL_NOTE };
+    }
+    if (stopLevel === 2) {
+      stopLevel = 0;
       recordEvent(ctx, { kind: "loop.stop", tool: event.toolName, sig: "loop:same-fail" });
       await showCard(pi, "prsloy-harness.loop", SAME_FAIL_CARD);
       return { block: true, terminate: true, reason: SAME_FAIL_NOTE };
@@ -165,10 +172,11 @@ export function installLoopDetector(pi: ExtensionAPI, opts: ResolvedOptions): vo
       failStreak.n >= SAME_FAIL_STOP - 1 &&
       failStreak.key.startsWith(`${command.replace(/\s+/g, " ").trim()}\u0000`)
     ) {
+      // Это и есть третье падение (как выполненное с заметкой): дальше — тот же порядок, один отказ, потом стоп.
       keyById.delete(event.toolCallId);
-      recordEvent(ctx, { kind: "loop.stop", tool: "bash", sig: "loop:same-fail" });
-      await showCard(pi, "prsloy-harness.loop", SAME_FAIL_CARD);
-      return { block: true, terminate: true, reason: SAME_FAIL_NOTE };
+      stopLevel = 1;
+      recordEvent(ctx, { kind: "loop.warn", tool: "bash", sig: "loop:same-fail" });
+      return { block: true, reason: SAME_FAIL_NOTE };
     }
     if (looping && record.count >= opts.loopAbortAt) {
       keyById.delete(event.toolCallId);
@@ -212,7 +220,7 @@ export function installLoopDetector(pi: ExtensionAPI, opts: ResolvedOptions): vo
         const key = `${command.replace(/\s+/g, " ").trim()}\u0000${exitCodeOf(contentText(event.content))}`;
         failStreak = failStreak?.key === key ? { key, n: failStreak.n + 1 } : { key, n: 1 };
         if (failStreak.n === SAME_FAIL_STOP) {
-          stopNext = true;
+          stopLevel = 1;
           note = SAME_FAIL_NOTE;
         }
       }

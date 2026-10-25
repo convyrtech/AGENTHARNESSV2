@@ -41,7 +41,7 @@ describe("loop detector", () => {
     expect(pi.aborted).toBe(1);
   });
 
-  it("3 identical failing bash calls (same command, same exit code) stop the turn with an honest line and card", async () => {
+  it("3 identical failing bash calls (same command, same exit code) block, then stop the turn with an honest line and card", async () => {
     const pi = setup();
     await pi.userPrompt();
     const fail = (out: string, code = 1, command = "npm install") =>
@@ -51,9 +51,13 @@ describe("loop detector", () => {
     expect((await fail("try 2 ETIMEDOUT")).result?.modified).toBe(false);
     const third = await fail("try 3 ETIMEDOUT");
     expect(third.result?.text).toContain(SAME_FAIL_NOTE);
-    // Модель всё равно зовёт инструмент — жёсткая остановка и карточка.
+    // Модель всё равно зовёт инструмент: первый вызов блокируется (ещё можно честно ответить текстом)…
     const next = await pi.call("read", { path: "package.json" }, "{}");
-    expect(next.blocked).toMatchObject({ block: true, terminate: true, reason: SAME_FAIL_NOTE });
+    expect(next.blocked).toEqual({ block: true, reason: SAME_FAIL_NOTE });
+    expect(pi.sent).toEqual([]);
+    // …второй — жёсткая остановка хода и карточка.
+    const last = await pi.call("bash", { command: "npm install" }, "x");
+    expect(last.blocked).toMatchObject({ block: true, terminate: true, reason: SAME_FAIL_NOTE });
     expect(pi.sent.map((m) => [m.customType, m.content])).toEqual([
       ["prsloy-harness.loop", SAME_FAIL_CARD],
     ]);
@@ -79,7 +83,10 @@ describe("loop detector", () => {
     await red();
     await red();
     const third = await red();
-    expect(third.blocked).toMatchObject({ block: true, terminate: true, reason: SAME_FAIL_NOTE });
+    expect(third.blocked).toEqual({ block: true, reason: SAME_FAIL_NOTE });
+    expect((await red()).blocked).toEqual({ block: true, reason: SAME_FAIL_NOTE });
+    expect(same.sent).toHaveLength(0);
+    expect((await red()).blocked).toMatchObject({ block: true, terminate: true });
     expect(same.sent).toHaveLength(1);
   });
 
