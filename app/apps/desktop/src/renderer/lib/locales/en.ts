@@ -1574,6 +1574,7 @@ export const en = {
   "progress.elapsed.minutes": "{n} min",
   "progress.elapsed.hours": "{h} h {m} min",
   "progress.stop": "Stop",
+  "progress.slowHint": "The model is answering slowly — you can wait or press «Stop»",
   "prsloy.setup.app": "Preparing the app… {percent}%",
   "prsloy.setup.tools":
     "Preparing the agent's tools… {percent}%. The first reply starts by itself when this is done.",
@@ -1605,7 +1606,8 @@ export const en = {
   "failure.model.server": "or check the server address",
   "failure.busy.title": "The model is overloaded right now",
   "failure.busy.hint": "Wait a minute and try again",
-  "failure.slow.title": "The model took too long to answer",
+  "failure.slow.title": "The model is taking too long to answer",
+  "failure.slow.hint": "Try again or switch to «Faster»",
   "failure.server.title": "The model answered with an error",
   "failure.action.topUp": "Top up",
   "failure.action.changeKey": "Change key",

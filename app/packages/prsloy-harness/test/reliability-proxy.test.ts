@@ -138,6 +138,21 @@ describe("reliability proxy: retries before the first useful delta", () => {
     expect(Date.now() - started).toBeLessThan(2_500);
   });
 
+  it("a model silent through every attempt is «Модель долго не отвечает», not a dropped connection", async () => {
+    const { gateway, base } = await setup(() => ({ kind: "stall", ms: 3_000 }), {
+      ttftMs: 200,
+      attempts: 2,
+    });
+    const { text } = await chat(base);
+    const { data } = events(text);
+    const error = JSON.parse(data.at(-2) ?? "{}") as {
+      error?: { message?: string; code?: string };
+    };
+    expect(error.error?.message).toBe("Модель долго не отвечает: нет ответа после 2 попыток");
+    expect(error.error?.code).toBe("prsloy_model_slow");
+    expect(gateway.requests).toHaveLength(2);
+  });
+
   it("429, 5xx, 200-with-error-body and an empty stream are all retried", async () => {
     const script: Behaviour[] = [
       { kind: "status", status: 429 },

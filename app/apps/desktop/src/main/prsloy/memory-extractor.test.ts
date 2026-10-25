@@ -139,11 +139,15 @@ describe("memory extractor probe (M-sp)", () => {
     expect(existsSync(join(agentDir, "prsloy-memory", "extractor.jsonl"))).toBe(true);
   });
 
-  it("model: qwen while deepseek meters no input; the fast preset otherwise", () => {
-    expect(extractorModel(["deepseek-v4.1-flash-1017", "qwen3.8-max"])).toBe("qwen3.8-max");
+  it("model: kimi, then deepseek; never qwen while either is served; the fast preset otherwise", () => {
+    const all = ["qwen3.8-max", "deepseek-v4.1-flash-1017", "kimi-k3.1-pro"];
+    expect(extractorModel(all)).toBe("kimi-k3.1-pro");
+    expect(extractorModel(["deepseek-v4.1-flash-1017", "qwen3.8-max"])).toBe(
+      "deepseek-v4.1-flash-1017",
+    );
     expect(extractorModel(["deepseek-v4.1-flash-1017"])).toBe("deepseek-v4.1-flash-1017");
     expect(extractorModel(["claude-opus-5-5", "gpt-image-2"])).toBe("claude-opus-5-5");
-    expect(extractorModel(undefined)).toBe("qwen3.8-max");
+    expect(extractorModel(undefined)).toBe("kimi-k3.1-pro");
   });
 });
 

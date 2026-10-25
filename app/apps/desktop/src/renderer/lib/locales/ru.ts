@@ -1555,6 +1555,7 @@ export const ru = {
   "progress.elapsed.minutes": "{n} мин",
   "progress.elapsed.hours": "{h} ч {m} мин",
   "progress.stop": "Остановить",
+  "progress.slowHint": "Модель отвечает медленно — можно подождать или нажать «Остановить»",
   "prsloy.setup.app": "Готовлю приложение… {percent}%",
   "prsloy.setup.tools":
     "Готовлю инструменты для агента… {percent}%. Первый ответ начнётся сам, как только закончу.",
@@ -1586,7 +1587,8 @@ export const ru = {
   "failure.model.server": "или проверьте адрес сервера",
   "failure.busy.title": "Модель сейчас перегружена",
   "failure.busy.hint": "Подождите минуту и повторите",
-  "failure.slow.title": "Модель слишком долго не отвечала",
+  "failure.slow.title": "Модель долго не отвечает",
+  "failure.slow.hint": "Повторите или переключитесь на «Быстрее»",
   "failure.server.title": "Модель ответила ошибкой",
   "failure.action.topUp": "Пополнить",
   "failure.action.changeKey": "Изменить ключ",
