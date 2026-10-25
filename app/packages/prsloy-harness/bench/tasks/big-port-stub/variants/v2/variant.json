@@ -1,0 +1,6 @@
+{
+  "prompt": "Перенеси, пожалуйста, этот журнал оценок с Python на JavaScript — вывод должен быть тот же.",
+  "params": {
+    "script": "gradebook.py"
+  }
+}

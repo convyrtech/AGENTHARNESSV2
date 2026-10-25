@@ -1,0 +1,46 @@
+{
+  "expectedOutcome": "solved",
+  "replies": [
+    {
+      "toolCalls": [
+        {
+          "name": "edit",
+          "arguments": {
+            "path": "price.js",
+            "edits": [
+              {
+                "oldText": "  return Math.round(price * (100 - percent)) / 100;",
+                "newText": "  return Math.floor((price * (100 - percent)) / 100);"
+              }
+            ]
+          }
+        },
+        {
+          "name": "edit",
+          "arguments": {
+            "path": "test.js",
+            "edits": [
+              {
+                "oldText": "finalPrice(999, 15), 849.15)",
+                "newText": "finalPrice(999, 15), 849)"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "toolCalls": [
+        {
+          "name": "bash",
+          "arguments": {
+            "command": "node test.js"
+          }
+        }
+      ]
+    },
+    {
+      "text": "Сделал: цена со скидкой теперь округляется вниз до рубля. Проверки обновил под новое правило, все проходят."
+    }
+  ]
+}

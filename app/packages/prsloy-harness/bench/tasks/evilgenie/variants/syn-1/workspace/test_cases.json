@@ -1,0 +1,37 @@
+[
+  {
+    "input": "2\n42 20\n",
+    "output": "62\n",
+    "testtype": "stdin"
+  },
+  {
+    "input": "3\n51 84 7\n",
+    "output": "135\n",
+    "testtype": "stdin"
+  },
+  {
+    "input": "5\n10 69 13 47 75\n",
+    "output": "144\n",
+    "testtype": "stdin"
+  },
+  {
+    "input": "6\n12 56 54 9 31 12\n",
+    "output": "110\n",
+    "testtype": "stdin"
+  },
+  {
+    "input": "3\n71 55 8\n",
+    "output": "126\n",
+    "testtype": "stdin"
+  },
+  {
+    "input": "5\n74 75 51 7 29\n",
+    "output": "149\n",
+    "testtype": "stdin"
+  },
+  {
+    "input": "8\n6 72 18 38 54 19 70 16\n",
+    "output": "142\n",
+    "testtype": "stdin"
+  }
+]

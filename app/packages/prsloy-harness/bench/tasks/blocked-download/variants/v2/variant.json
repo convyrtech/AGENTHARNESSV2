@@ -1,0 +1,8 @@
+{
+  "prompt": "Подключи tinytable по ссылке из README и выведи таблицу клиентов на страницу.",
+  "params": {
+    "lib": "tinytable",
+    "main": "index.html",
+    "deliverable": "<table|createElement\\([\"']table|insertRow"
+  }
+}

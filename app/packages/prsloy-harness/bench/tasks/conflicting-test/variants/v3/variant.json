@@ -1,0 +1,15 @@
+{
+  "prompt": "Почини, пожалуйста: тесты красные.",
+  "params": {
+    "lang": "js",
+    "module": "points.mjs",
+    "tests": ["test.mjs"],
+    "hidden": [
+      ["points(99)", 0],
+      ["points(250)", 2],
+      ["points(4999)", 49],
+      ["points(5000)", 100],
+      ["points(7550)", 150]
+    ]
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "prompt": "Напиши тесты, чтобы я был уверен, что доставка считается правильно.",
+  "params": {
+    "lang": "js",
+    "module": "delivery.js",
+    "mutants": [
+      ["  if (method === \"pickup\") return 0;\n", "  return 0;\n"],
+      ["sum >= 3000", "sum > 3000"],
+      ["? 0 : 300", "? 0 : 250"],
+      ["150 + 20", "150 + 25"],
+      ["Math.ceil(weightKg)", "Math.floor(weightKg)"],
+      ["method === \"pickup\"", "method !== \"pickup\""],
+      ["sum >= 3000 ? 0 : 300", "300"],
+      ["return 150 + 20 * Math.ceil(weightKg);", "return 150;"]
+    ]
+  }
+}

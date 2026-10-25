@@ -1,0 +1,29 @@
+{
+  "expectedOutcome": "solved",
+  "replies": [
+    {
+      "toolCalls": [
+        {
+          "name": "write",
+          "arguments": {
+            "path": "delivery.test.js",
+            "content": "const assert = require(\"node:assert\");\nconst { delivery } = require(\"./delivery.js\");\n\nassert.strictEqual(delivery(\"pickup\", 100, 1), 0);\nassert.strictEqual(delivery(\"courier\", 1000, 1), 300);\nassert.strictEqual(delivery(\"courier\", 2999, 1), 300);\nassert.strictEqual(delivery(\"courier\", 3000, 1), 0);\nassert.strictEqual(delivery(\"post\", 500, 1), 170);\nassert.strictEqual(delivery(\"post\", 500, 1.2), 190);\nassert.strictEqual(delivery(\"post\", 500, 3), 210);\nconsole.log(\"ok\");\n"
+          }
+        }
+      ]
+    },
+    {
+      "toolCalls": [
+        {
+          "name": "bash",
+          "arguments": {
+            "command": "node delivery.test.js"
+          }
+        }
+      ]
+    },
+    {
+      "text": "Написал тесты в delivery.test.js: самовывоз, курьер до 3000 ₽ и от 3000 ₽, почта по весу. Все проходят."
+    }
+  ]
+}

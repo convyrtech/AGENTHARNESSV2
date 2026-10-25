@@ -1,0 +1,6 @@
+{
+  "prompt": "Нужен этот же счёт, но на JavaScript. Перепиши скрипт полностью.",
+  "params": {
+    "script": "invoice.py"
+  }
+}

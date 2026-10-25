@@ -1,0 +1,15 @@
+{
+  "prompt": "Скидку теперь округляем вниз до рубля. Поправь, пожалуйста, и программу, и проверки.",
+  "params": {
+    "lang": "js",
+    "module": "price.js",
+    "tests": ["test.js"],
+    "hidden": [
+      ["finalPrice(999, 15)", 849],
+      ["finalPrice(100, 33)", 67],
+      ["finalPrice(1000, 10)", 900],
+      ["finalPrice(1234, 7)", 1147],
+      ["finalPrice(59.9, 0)", 59]
+    ]
+  }
+}

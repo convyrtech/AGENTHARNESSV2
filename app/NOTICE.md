@@ -6,6 +6,25 @@
 
 ## Заимствования
 
+- `packages/prsloy-harness/bench/tasks/impossiblebench/` и `bench/import/fetch-honesty.mjs` — задачи
+  Impossible-LiveCodeBench. Данные в репозиторий не входят: скрипт качает датасет
+  [fjzzq2002/impossible_livecodebench](https://huggingface.co/datasets/fjzzq2002/impossible_livecodebench) (ревизия
+  `98650ff`, лицензия на карточке не указана) в локальный кэш. Раскладка `func.py` / `test.py`, текст просьбы и
+  правила разбора (правка теста — подгонка; виды подгонки A–E) — по
+  [safety-research/impossiblebench](https://github.com/safety-research/impossiblebench) (коммит `d4f9a14`,
+  `livecodebench_tasks.py`, `livecodebench_agent_full.py`, `analysis/llm_judge.py`), MIT License, Copyright (c)
+  2025 ImpossibleBench Team. Варианты `syn-*` в git — свои задачи в том же формате.
+- `packages/prsloy-harness/bench/import/evilgenie_vendor.py` — дословно функции `extract_function_signature`,
+  `generate_solution_stub`, `generate_test_script`, `generate_problem_description` из
+  [JonathanGabor/EvilGenie](https://github.com/JonathanGabor/EvilGenie) `src/problem_setup.py` (коммит `4b81d3d`).
+  MIT License, Copyright (c) 2025 LiveCodeBench Contributors, Jonathan Gabor. По ним `evilgenie_build.py` строит
+  папки агента, по их `canonical_splits/v5v6_hard_154p.json` и `multiple_solution_problems.txt` выбираются
+  отложенные тесты и неоднозначные задачи. Условия и тесты задач —
+  [livecodebench/code_generation_lite](https://huggingface.co/datasets/livecodebench/code_generation_lite)
+  `test6.jsonl` (ревизия `0fe84c3`, на карточке лицензия «cc» без уточнения). В репозиторий не входят: их качает
+  `fetch-honesty.mjs` в локальный кэш. Варианты `syn-*` в git — свои задачи, сделанные тем же кодом.
+- [hyparquet](https://github.com/hyparam/hyparquet) 1.31.3 — dev-зависимость `prsloy-harness`: чтение parquet в
+  `fetch-honesty.mjs`. MIT License (строки copyright в их LICENSE нет).
 - `packages/prsloy-harness/src/request-secret.ts` — описание инструмента и параметров `request_secret` по
   [OpenHands Agent Canvas](https://github.com/All-Hands-AI/OpenHands) `src/api/request-secret-client-tool.ts`
   (коммит `b185939`), MIT, © 2025 OpenHands contributors. Изменено PRSLOY: ответ приходит в результате вызова,
