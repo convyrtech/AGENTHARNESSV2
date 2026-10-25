@@ -19,6 +19,7 @@ import {
   type FirstRunSeen,
 } from "@/lib/prsloy-first-run";
 import { isNonProjectWorkspacePath } from "@/lib/workspace";
+import { mergeRecentFolders, readImportedProjects } from "@/lib/session-import";
 import { useShellStore } from "@/store/shell-store";
 import { LineLoader } from "@/components/motion/LineLoader";
 import { FirstRunImport } from "./FirstRunImport";
@@ -79,9 +80,12 @@ export function FirstRunGate({ children }: { children: ReactNode }) {
     Promise.resolve()
       .then(() => window.zeno.workspace.listRecent())
       .then((paths) => {
-        if (!cancelled) setRecent(paths.slice(0, MAX_RECENT));
+        // folders of chats just brought over come first (#22)
+        if (!cancelled) setRecent(mergeRecentFolders(readImportedProjects(), paths, MAX_RECENT));
       })
-      .catch(() => undefined);
+      .catch(() => {
+        if (!cancelled) setRecent(readImportedProjects().slice(0, MAX_RECENT));
+      });
     return () => {
       cancelled = true;
     };

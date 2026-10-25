@@ -4,6 +4,7 @@
 
 import { designRu } from "./design.ru.ts";
 import { featuresRu } from "./features.ru.ts";
+import { importRu } from "./import.ru.ts";
 
 export const ru = {
   "app.name": "PRSLOY",
@@ -11,6 +12,7 @@ export const ru = {
   "timeline.minimap": "Карта чата",
   ...designRu,
   ...featuresRu,
+  ...importRu,
   "timeline.minimapUser": "Ваше сообщение",
   "timeline.minimapAssistant": "Ответ агента",
   "timeline.toolRunning": "Выполняется",

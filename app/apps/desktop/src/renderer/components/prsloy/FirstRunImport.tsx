@@ -1,13 +1,10 @@
 /**
- * First-run step «import» between the key and the folder: chats from other agents (Claude Code, Codex, Pi). Owned by ui, #22 I1.
- * Placeholder until then: passes at once.
+ * First-run step «import» between the key and the folder (#22 I1): chats from other agents
+ * (Claude Code, Codex, Pi). Passes by itself when there is nothing to bring over.
  */
-import { useEffect } from "react";
 import type { FirstRunStepProps } from "@/lib/prsloy-first-run";
+import { ImportChats } from "./ImportChats";
 
-export function FirstRunImport({ onDone }: FirstRunStepProps) {
-  useEffect(() => {
-    onDone();
-  }, [onDone]);
-  return null;
+export function FirstRunImport({ locale, onDone }: FirstRunStepProps) {
+  return <ImportChats locale={locale} mode="first-run" onDone={onDone} />;
 }
