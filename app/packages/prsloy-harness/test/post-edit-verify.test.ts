@@ -1,4 +1,4 @@
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vite-plus/test";
@@ -86,7 +86,30 @@ describe("checkers", () => {
     expect(
       await check("tsconfig.json", '{\n  // comment\n  "a": "http://x", /* b */\n}\n'),
     ).toMatchObject({ ok: true });
-    expect(stripJsonc('{"u": "a//b", /*x*/ "v": [1,],}')).toBe('{"u": "a//b",  "v": [1]}');
+    const src = '{"u": "a//b,]", /*x*/ "v": [1,],}';
+    const stripped = stripJsonc(src);
+    expect(stripped).toHaveLength(src.length);
+    expect(JSON.parse(stripped)).toEqual({ u: "a//b,]", v: [1] });
+  });
+
+  it("devcontainer, eslintrc, biome and .vscode configs allow comments; line numbers stay right", async () => {
+    const commented = '{\n  // comment\n  "a": 1,\n}\n';
+    for (const name of [
+      "devcontainer.json",
+      ".eslintrc.json",
+      "biome.json",
+      "turbo.json",
+      "tsconfig.app.build.json",
+    ]) {
+      expect(await check(name, commented)).toMatchObject({ ok: true });
+    }
+    const dir = await tempDir();
+    await mkdir(join(dir, ".vscode"));
+    expect(await checkFile(join(dir, ".vscode", "settings.json"), commented)).toMatchObject({
+      ok: true,
+    });
+    const bad = await check("tsconfig.json", '{\n  /* long\n  comment */\n  "a": 1\n  "b": 2\n}\n');
+    expect(bad?.message).toContain("строка 5");
   });
 
   it("python compile without writing __pycache__", async () => {
@@ -138,6 +161,14 @@ describe("checkHtml", () => {
     expect(r.message).toContain("не закрыт <section> (строка 2) до </div> (строка 4)");
     expect(r.message).toContain("лишний </main> (строка 5)");
     expect(checkHtml("<div><span>x</span>").message).toContain("не закрыт <div> (строка 1)");
+  });
+
+  it("«/>» on a normal tag does not close it; on script it is an error; in svg it is fine", () => {
+    expect(checkHtml('<script src="a.js"/>\n<p>x</p>').message).toContain(
+      "<script …/> не закрывается",
+    );
+    expect(checkHtml('<div id="app"/>\n<p>x</p>').message).toContain("не закрыт <div> (строка 1)");
+    expect(checkHtml('<svg><circle r="1"/><path d="M0"/></svg>').ok).toBe(true);
   });
 });
 

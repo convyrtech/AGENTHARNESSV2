@@ -2,15 +2,15 @@
 // Источник: ADR-6, research/06-harness2.md — «инструкцию модель может пропустить, строку в результате тула — нет»
 // (verify-скрипт 43 → 78).
 import { readFile } from "node:fs/promises";
-import { isAbsolute, resolve } from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { checkFile, type CheckerEnv } from "./checkers.ts";
 import type { ResolvedOptions } from "./options.ts";
 import { appendText, keepStructured } from "./text.ts";
 
+import { resolveToolPath } from "./paths.ts";
+
 export function resolvePath(cwd: string, path: string): string {
-  const clean = path.startsWith("@") ? path.slice(1) : path;
-  return isAbsolute(clean) ? clean : resolve(cwd, clean);
+  return resolveToolPath(path, cwd);
 }
 
 export function installPostEditVerify(

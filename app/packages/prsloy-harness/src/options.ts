@@ -29,6 +29,8 @@ export interface HarnessOptions {
   pythonPath?: string;
   /** Node для `node --check`. По умолчанию текущий процесс (Electron с ELECTRON_RUN_AS_NODE=1). */
   nodePath?: string;
+  /** Путь к bash, как `shellPath` в настройках Pi. Нужен фоновым процессам, если Git Bash не на месте. */
+  shellPath?: string;
   /** Окружение фоновых процессов. По умолчанию копия process.env без ключей машины. */
   backgroundEnv?: () => NodeJS.ProcessEnv;
   /** Выключить отдельные практики. */
@@ -58,6 +60,7 @@ export interface ResolvedOptions {
   outputDir: string;
   pythonPath: string | undefined;
   nodePath: string | undefined;
+  shellPath: string | undefined;
   backgroundEnv: () => NodeJS.ProcessEnv;
   disable: Partial<Record<PracticeName, boolean>>;
 }
@@ -96,6 +99,7 @@ export function resolveOptions(options: HarnessOptions = {}): ResolvedOptions {
     outputDir: options.outputDir ?? join(tmpdir(), "prsloy-harness"),
     pythonPath: options.pythonPath ?? process.env.PRSLOY_PYTHON,
     nodePath: options.nodePath,
+    shellPath: options.shellPath,
     backgroundEnv: options.backgroundEnv ?? (() => sanitizedEnv()),
     disable: options.disable ?? {},
   };

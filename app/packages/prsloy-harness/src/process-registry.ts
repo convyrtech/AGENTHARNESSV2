@@ -22,33 +22,71 @@ interface Entry extends BackgroundProcess {
 }
 
 const PORT_PATTERNS = [
-  /\b(?:localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1?\]|::):(\d{2,5})\b/g,
+  /(?:\blocalhost|\b127\.0\.0\.1|\b0\.0\.0\.0|\[::1?\]):(\d{2,5})\b/g,
   /\bport\s*[:=]?\s*(\d{2,5})\b/gi,
 ];
 
 export function detectPorts(text: string): number[] {
   const found = new Set<number>();
-  for (const pattern of PORT_PATTERNS) {
-    for (const match of text.matchAll(pattern)) {
-      const port = Number(match[1]);
-      if (port >= 80 && port <= 65535) found.add(port);
+  for (const line of text.split("\n")) {
+    // «Port 3000 is in use, trying another one…» — этот порт как раз не наш.
+    if (/in use|already used|EADDRINUSE/i.test(line)) continue;
+    for (const pattern of PORT_PATTERNS) {
+      for (const match of line.matchAll(pattern)) {
+        const port = Number(match[1]);
+        if (port >= 80 && port <= 65535) found.add(port);
+      }
     }
   }
   return [...found];
 }
 
-/** Долгоживущие команды: dev-серверы и вотчеры. Они никогда не завершаются сами. */
-const SERVER_COMMAND =
-  /(^|[;&|]\s*|\s)(?:(?:npm|pnpm|yarn|bun)\s+(?:run\s+)?(?:dev|start|serve|preview|watch)\b|npx\s+(?:-y\s+)?(?:serve|http-server|live-server|vite(?!\s+build))\b|vite(?:\s+(?:dev|serve|preview))?\s*$|next\s+(?:dev|start)\b|python[0-9.]*\s+-m\s+http\.server\b|http-server\b|live-server\b|uvicorn\b|flask\s+run\b|gunicorn\b|php\s+-S\b|rails\s+s(?:erver)?\b|webpack(?:-dev-server|\s+serve)\b|\S*\s--watch\b|nodemon\b)/;
+/**
+ * Долгоживущие команды: dev-серверы и вотчеры. Проверяем только начало каждой команды в цепочке
+ * (после `&&`, `;`, `|`), чтобы `npm i -D vite` или `grep uvicorn` не считались сервером.
+ */
+const SERVER_START: RegExp[] = [
+  /^(?:npm|pnpm|yarn|bun)\s+(?:run\s+)?(?:dev|start|serve|preview|watch)(?:\s|$)/,
+  /^(?:vite)(?!\s+(?:build|optimize))(?:\s|$)/,
+  /^(?:serve|http-server|live-server|nodemon|uvicorn|gunicorn|hypercorn|webpack-dev-server)(?:\s|$)/,
+  /^next\s+(?:dev|start)(?:\s|$)/,
+  /^python[0-9.]*\s+(?:-[uB]\s+)*(?:-m\s+http\.server|manage\.py\s+runserver)(?:\s|$)/,
+  /^flask\s+run(?:\s|$)/,
+  /^php\s+-S(?:\s|$)/,
+  /^(?:bin\/)?rails\s+s(?:erver)?(?:\s|$)/,
+  /^webpack\s+(?:serve|--watch)(?:\s|$)/,
+  /^docker(?:\s+compose|-compose)\s+up(?![^|;&]*\s(?:-d|--detach)\b)(?:\s|$)/,
+  /^cargo\s+watch(?:\s|$)/,
+];
+const WATCH_FLAG = /\s--watch(?![=\s]*false)(?:[=\s]|$)/;
+/** Команды, которые только смотрят или ставят пакеты, даже если в них есть имя сервера. */
+const INSPECT_WORD = /^(?:cat|less|head|tail|grep|rg|which|where|type|echo|man|ls)$/;
+const PACKAGE_OP =
+  /^(?:npm|pnpm|yarn|bun|pip3?|uv|poetry)\s+(?:i|install|add|ci|remove|rm|uninstall|ls|list|view|info|why)(?:\s|$)/;
+
+function commandSegments(command: string): string[] {
+  return command
+    .split(/&&|\|\||;|\||\n/)
+    .map((part) =>
+      part
+        .trim()
+        .replace(/^(?:[A-Za-z_][A-Za-z0-9_]*=\S*\s+)+/, "") // FOO=1 cmd
+        .replace(/^(?:npx|pnpx|bunx|pnpm\s+dlx|pnpm\s+exec|yarn\s+dlx)\s+(?:-y\s+|--yes\s+)?/, ""),
+    )
+    .filter(Boolean);
+}
 
 export function looksLikeServer(command: string): boolean {
   const trimmed = command.trim();
   if (/&\s*$/.test(trimmed)) return false; // модель уже сама отправила в фон
   if (/^timeout\s/.test(trimmed)) return false; // модель сама ограничила время
-  return SERVER_COMMAND.test(trimmed);
+  return commandSegments(trimmed).some((segment) => {
+    if (INSPECT_WORD.test(segment.split(/\s+/)[0] ?? "") || PACKAGE_OP.test(segment)) return false;
+    return SERVER_START.some((pattern) => pattern.test(segment)) || WATCH_FLAG.test(segment);
+  });
 }
 
-function killTree(pid: number): void {
+function killTree(pid: number, signal: "SIGTERM" | "SIGKILL" = "SIGTERM"): void {
   try {
     if (process.platform === "win32") {
       spawnSync("taskkill", ["/pid", String(pid), "/T", "/F"], {
@@ -56,7 +94,7 @@ function killTree(pid: number): void {
         windowsHide: true,
       });
     } else {
-      process.kill(-pid, "SIGTERM");
+      process.kill(-pid, signal);
     }
   } catch {
     try {
@@ -67,6 +105,17 @@ function killTree(pid: number): void {
   }
 }
 
+/** Живые реестры процесса: если Pi упадёт или выйдет без session_shutdown, фон всё равно гасится. */
+const liveRegistries = new Set<ProcessRegistry>();
+let exitHookInstalled = false;
+function installExitHook(): void {
+  if (exitHookInstalled) return;
+  exitHookInstalled = true;
+  process.once("exit", () => {
+    for (const registry of liveRegistries) registry.killAllNow();
+  });
+}
+
 export class ProcessRegistry {
   readonly #entries = new Map<string, Entry>();
   #next = 1;
@@ -74,7 +123,12 @@ export class ProcessRegistry {
   constructor(
     private readonly logDir: string,
     private readonly env: () => NodeJS.ProcessEnv,
-  ) {}
+    /** Путь к bash из настроек Pi (`shellPath`), иначе поиск как у bash-тула Pi. */
+    private readonly shellPath: () => string | undefined = () => undefined,
+  ) {
+    liveRegistries.add(this);
+    installExitHook();
+  }
 
   /** Запускает команду в фоне и ждёт первые `waitMs` (или пока не появится порт). */
   async start(
@@ -86,7 +140,7 @@ export class ProcessRegistry {
     const id = `bg${this.#next++}`;
     const logPath = join(this.logDir, `${id}.log`);
     const log = createWriteStream(logPath);
-    const shell = getShellConfig();
+    const shell = getShellConfig(this.shellPath());
     const viaStdin = shell.commandTransport === "stdin";
     const child = spawn(shell.shell, viaStdin ? shell.args : [...shell.args, command], {
       cwd,
@@ -168,17 +222,40 @@ export class ProcessRegistry {
     }
   }
 
-  stop(id: string): boolean {
+  /** SIGTERM, до 2 с ожидания, потом SIGKILL — чтобы порт точно освободился до ответа модели. */
+  async stop(id: string): Promise<BackgroundProcess | undefined> {
     const entry = this.#entries.get(id);
-    if (!entry) return false;
-    if (entry.exitCode === undefined && entry.pid) killTree(entry.pid);
-    return true;
+    if (!entry) return undefined;
+    await this.#stopEntry(entry);
+    return this.#public(entry);
   }
 
-  stopAll(): void {
+  async stopAll(): Promise<void> {
+    await Promise.all([...this.#entries.values()].map((entry) => this.#stopEntry(entry)));
+    liveRegistries.delete(this);
+  }
+
+  /** Синхронно, для process.on("exit"). */
+  killAllNow(): void {
     for (const entry of this.#entries.values()) {
-      if (entry.exitCode === undefined && entry.pid) killTree(entry.pid);
+      if (entry.exitCode === undefined && entry.pid) killTree(entry.pid, "SIGKILL");
     }
+  }
+
+  async #stopEntry(entry: Entry): Promise<void> {
+    if (entry.exitCode !== undefined || !entry.pid) return;
+    killTree(entry.pid, "SIGTERM");
+    if (await this.#waitExit(entry, 2000)) return;
+    killTree(entry.pid, "SIGKILL");
+    await this.#waitExit(entry, 1000);
+  }
+
+  async #waitExit(entry: Entry, ms: number): Promise<boolean> {
+    const deadline = Date.now() + ms;
+    while (entry.exitCode === undefined && Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+    return entry.exitCode !== undefined;
   }
 
   #public(entry: Entry): BackgroundProcess {

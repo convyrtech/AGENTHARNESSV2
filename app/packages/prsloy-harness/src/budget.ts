@@ -82,7 +82,7 @@ const STOP_REASON =
 export function installBudget(
   pi: ExtensionAPI,
   opts: ResolvedOptions,
-): { state: () => BudgetState } {
+): { state: () => BudgetState; installWarning: () => void } {
   let state = freshState();
 
   const ratio = () =>
@@ -119,22 +119,15 @@ export function installBudget(
     return undefined;
   });
 
-  pi.on("tool_result", (event) => {
-    if (event.parentToolCallId || state.warned || ratio() < opts.budgetWarnRatio) return undefined;
-    state.warned = true;
-    const note =
-      `[Бюджет задачи: ${Math.round(ratio() * 100)}% — вызовов ${state.toolCalls}/${opts.maxToolCalls}, ` +
-      `${money(state.costUsd)} из ${money(opts.maxCostUsd)}. Заканчивай главное, без лишних шагов.]`;
-    return { content: appendText(event.content, note), ...keepStructured(event) };
-  });
-
-  pi.on("agent_before_settle", () => {
+  pi.on("agent_before_settle", (event) => {
     if (!state.exhausted || state.blockedAfterStop === 0) return undefined;
     const summary = budgetSummary(state, opts);
     state.blockedAfterStop = 0;
     const data = { ...state, filesChanged: [...state.filesChanged] };
     return {
+      // Pi заменяет список записей тем, что вернул обработчик: чужие записи сохраняем.
       entries: [
+        ...event.entries,
         { type: "custom", customType: "prsloy-harness.budget", data },
         {
           type: "custom_message",
@@ -146,5 +139,21 @@ export function installBudget(
     };
   });
 
-  return { state: () => state };
+  /**
+   * Предупреждение о бюджете дописывается отдельным обработчиком, который ставится после обрезки вывода:
+   * иначе read сверх 30 КБ отрезал бы строку, а флаг «предупредили» уже стоял бы.
+   */
+  const installWarning = () => {
+    pi.on("tool_result", (event) => {
+      if (event.parentToolCallId || state.warned || ratio() < opts.budgetWarnRatio)
+        return undefined;
+      state.warned = true;
+      const note =
+        `[Бюджет задачи: ${Math.round(ratio() * 100)}% — вызовов ${state.toolCalls}/${opts.maxToolCalls}, ` +
+        `${money(state.costUsd)} из ${money(opts.maxCostUsd)}. Заканчивай главное, без лишних шагов.]`;
+      return { content: appendText(event.content, note), ...keepStructured(event) };
+    });
+  };
+
+  return { state: () => state, installWarning };
 }

@@ -181,30 +181,48 @@ export async function checkTs(
   }
 }
 
-const JSONC_NAME = /^(?:tsconfig|jsconfig)(?:\.[\w-]+)?\.json$|\.jsonc$/i;
+/** Конфиги, где комментарии и висячие запятые разрешены (JSONC). */
+const JSONC_NAME =
+  /^(?:(?:tsconfig|jsconfig)(?:\.[\w-]+)*\.json|devcontainer\.json|\.devcontainer\.json|\.eslintrc(?:\.json)?|\.babelrc(?:\.json)?|\.swcrc|biome\.json|turbo\.json|deno\.json|nx\.json|project\.json|.*\.code-workspace|.*\.jsonc)$/i;
+const JSONC_DIR = /[\\/]\.(?:vscode|devcontainer|zed)[\\/]/;
 
-/** Убирает комментарии и висячие запятые, не трогая строки. */
+/**
+ * Убирает комментарии и висячие запятые, не трогая строки. Вырезанное заменяется пробелами
+ * (переводы строк остаются), чтобы позиция ошибки JSON.parse указывала на ту же строку исходника.
+ */
 export function stripJsonc(text: string): string {
-  let out = "";
+  const out: string[] = [];
+  const blank = (chunk: string) => chunk.replace(/[^\n]/g, " ");
+  let lastSignificant = -1;
   let i = 0;
   while (i < text.length) {
-    const ch = text[i];
+    const ch = text[i] ?? "";
     if (ch === '"') {
       let j = i + 1;
       while (j < text.length && text[j] !== '"') j += text[j] === "\\" ? 2 : 1;
-      out += text.slice(i, j + 1);
+      out.push(text.slice(i, j + 1));
+      lastSignificant = out.length - 1;
       i = j + 1;
     } else if (ch === "/" && text[i + 1] === "/") {
-      while (i < text.length && text[i] !== "\n") i++;
+      const end = text.indexOf("\n", i);
+      const stop = end < 0 ? text.length : end;
+      out.push(blank(text.slice(i, stop)));
+      i = stop;
     } else if (ch === "/" && text[i + 1] === "*") {
       const end = text.indexOf("*/", i + 2);
-      i = end < 0 ? text.length : end + 2;
+      const stop = end < 0 ? text.length : end + 2;
+      out.push(blank(text.slice(i, stop)));
+      i = stop;
     } else {
-      out += ch;
+      if ((ch === "}" || ch === "]") && lastSignificant >= 0 && out[lastSignificant] === ",") {
+        out[lastSignificant] = " ";
+      }
+      out.push(ch);
+      if (!/\s/.test(ch)) lastSignificant = out.length - 1;
       i++;
     }
   }
-  return out.replace(/,(\s*[}\]])/g, "$1");
+  return out.join("");
 }
 
 function lineOf(text: string, index: number): number {
@@ -213,7 +231,7 @@ function lineOf(text: string, index: number): number {
 
 export function checkJson(path: string, source: string): CheckResult {
   const text = source.replace(/^\uFEFF/, "");
-  const jsonc = JSONC_NAME.test(basename(path)) || /[\\/]\.vscode[\\/]/.test(path);
+  const jsonc = JSONC_NAME.test(basename(path)) || JSONC_DIR.test(path);
   try {
     JSON.parse(jsonc ? stripJsonc(text) : text);
     return { ok: true, tool: "JSON.parse" };
@@ -302,6 +320,7 @@ const OPTIONAL_CLOSE = new Set([
   "caption",
 ]);
 const RAW_TEXT = new Set(["script", "style", "textarea", "title"]);
+const FOREIGN = new Set(["svg", "math"]);
 
 const TAG =
   /<(\/?)([a-zA-Z][\w:-]*)((?:\s+[^\s"'>/=]+(?:\s*=\s*(?:"[^"]*"|'[^']*'|[^\s"'=<>`]+))?)*)\s*(\/?)>/g;
@@ -322,7 +341,14 @@ export function checkHtml(source: string): CheckResult {
     const selfClosing = match[4] === "/";
     const line = lineOf(text, match.index);
     if (!closing) {
-      if (VOID_TAGS.has(name) || selfClosing) continue;
+      if (VOID_TAGS.has(name)) continue;
+      // В HTML «/>» у обычного тега ничего не закрывает; в svg/math закрывает.
+      const foreign = stack.some((open) => FOREIGN.has(open.name)) || FOREIGN.has(name);
+      if (selfClosing && foreign) continue;
+      if (selfClosing && RAW_TEXT.has(name)) {
+        problems.push(`<${name} …/> не закрывается в HTML — нужен </${name}> (строка ${line})`);
+        continue;
+      }
       if (RAW_TEXT.has(name)) {
         const end = text.toLowerCase().indexOf(`</${name}`, TAG.lastIndex);
         if (end < 0) {

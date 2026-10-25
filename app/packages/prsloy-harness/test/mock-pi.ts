@@ -151,16 +151,17 @@ export class MockPi {
   }
 
   /** Как turn_end/agent_before_settle: записи копятся, continue — от любого обработчика. */
+  /** Как runner.emitBoundary: каждый обработчик видит записи предыдущих и возвращает полный список. */
   async boundary(name: "turn_end" | "agent_before_settle", event: Record<string, unknown> = {}) {
-    const entries: unknown[] = [];
+    let entries: unknown[] = event.entries ? [...(event.entries as unknown[])] : [];
     let cont = false;
     for (const handler of this.handlers.get(name) ?? []) {
       const result = (await handler(
-        { type: name, entries, continue: cont, ...event },
+        { type: name, ...event, entries, continue: cont },
         this.ctx,
       )) as { entries?: unknown[]; continue?: boolean } | undefined;
-      if (result?.entries) entries.push(...result.entries);
-      if (result?.continue) cont = true;
+      if (result?.entries !== undefined) entries = result.entries;
+      if (result?.continue !== undefined) cont = result.continue;
     }
     return { entries, continue: cont };
   }

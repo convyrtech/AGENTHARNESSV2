@@ -7,6 +7,8 @@ import type { ResolvedOptions } from "./options.ts";
 import { contentText, stableStringify } from "./text.ts";
 
 interface CallRecord {
+  /** Номер «эпохи» файлов: после успешной правки старые счётчики не действуют. */
+  epoch: number;
   count: number;
   lastResult: string | undefined;
   /** Сколько раз подряд вызов вернул тот же результат. */
@@ -23,10 +25,21 @@ const PSEUDO_MARKERS: RegExp[] = [
   /\[TOOL_CALLS\]/, // Mistral
 ];
 
+/** Код в ответе — это объяснение, а не вызов: блоки ``` и `inline` не проверяем. */
+function stripCode(text: string): string {
+  return text.replace(/```[\s\S]*?(?:```|$)/g, " ").replace(/`[^`\n]*`/g, " ");
+}
+
+/** Pi дописывает к обрезанному выводу уникальный путь временного файла — для сравнения его убираем. */
+const PI_FULL_OUTPUT = /\[Showing [^\]]*Full output: [^\]]*\]|полностью: [^\]]*\]/g;
+
+const MUTATING_TOOLS = new Set(["edit", "write"]);
+
 export function detectPseudoToolCall(
-  text: string,
+  raw: string,
   toolNames: readonly string[],
 ): string | undefined {
+  const text = stripCode(raw);
   for (const marker of PSEUDO_MARKERS) {
     const match = marker.exec(text);
     if (match) return match[0];
@@ -38,6 +51,14 @@ export function detectPseudoToolCall(
     );
     const match = json.exec(text);
     if (match) return match[0];
+    // Вызов в блоке ```json — частый псевдовызов дешёвых моделей. Но блок внутри длинного объяснения —
+    // это пример, а не вызов: считаем, только если прозы вокруг почти нет.
+    const fenced = /```[\w-]*\s*([\s\S]*?)```/.exec(raw);
+    const prose = text.replace(/\s+/g, " ").trim();
+    if (fenced?.[1] && prose.length <= 200) {
+      const inFence = json.exec(fenced[1]);
+      if (inFence) return inFence[0];
+    }
   }
   return undefined;
 }
@@ -60,6 +81,7 @@ export const LENGTH_NOTE =
 
 export function installLoopDetector(pi: ExtensionAPI, opts: ResolvedOptions): void {
   let calls = new Map<string, CallRecord>();
+  let epoch = 0;
   const keyById = new Map<string, string>();
   let pseudoNudges = 0;
   let lengthStops = 0;
@@ -92,7 +114,11 @@ export function installLoopDetector(pi: ExtensionAPI, opts: ResolvedOptions): vo
     }
     const key = `${event.toolName}\u0000${stableStringify(event.input)}`;
     keyById.set(event.toolCallId, key);
-    const record = calls.get(key) ?? { count: 0, lastResult: undefined, sameResults: 0 };
+    let record = calls.get(key);
+    if (!record || record.epoch !== epoch) {
+      // Файлы с тех пор менялись: повтор того же вызова — проверка правки, а не петля.
+      record = { epoch, count: 0, lastResult: undefined, sameResults: 0 };
+    }
     record.count += 1;
     calls.set(key, record);
     // Петля — только когда исполненный вызов уже дважды дал один и тот же результат.
@@ -118,12 +144,15 @@ export function installLoopDetector(pi: ExtensionAPI, opts: ResolvedOptions): vo
   });
 
   pi.on("tool_result", (event) => {
+    if (MUTATING_TOOLS.has(event.toolName) && !event.isError) epoch += 1;
     const key = keyById.get(event.toolCallId);
     if (!key) return undefined;
     keyById.delete(event.toolCallId);
     const record = calls.get(key);
     if (!record) return undefined;
-    const result = hash(`${event.isError ? "E" : "O"}${contentText(event.content)}`);
+    const result = hash(
+      `${event.isError ? "E" : "O"}${contentText(event.content).replace(PI_FULL_OUTPUT, "")}`,
+    );
     if (record.lastResult === result) record.sameResults += 1;
     else {
       // Результат изменился (например, после правки файла) — это уже не петля.
@@ -141,8 +170,10 @@ export function installLoopDetector(pi: ExtensionAPI, opts: ResolvedOptions): vo
     if (message.stopReason === "length" && hasCalls) {
       lengthStops += 1;
       if (lengthStops === 2) {
+        // Pi заменяет список записей тем, что вернул обработчик (runner.emitBoundary): чужие сохраняем.
         return {
           entries: [
+            ...event.entries,
             {
               type: "custom_message",
               customType: "prsloy-harness",
@@ -162,6 +193,7 @@ export function installLoopDetector(pi: ExtensionAPI, opts: ResolvedOptions): vo
     pseudoNudges += 1;
     return {
       entries: [
+        ...event.entries,
         {
           type: "custom_message",
           customType: "prsloy-harness",

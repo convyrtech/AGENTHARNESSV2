@@ -2,7 +2,7 @@
 // Источник: ADR-5 (research/00-synthesis.md; research/02-claude-code-anthropic.md, 03-codex-openai.md).
 // Pi уже режет bash до последних 2000 строк / 50 КБ и сохраняет полный вывод во временный файл,
 // read — до первых 2000 строк / 50 КБ. Здесь только недостающее: 30 КБ, начало+конец, заголовок.
-import { mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { closeSync, mkdirSync, openSync, readSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { ExtensionAPI, ToolResultEvent } from "@earendil-works/pi-coding-agent";
 import type { ResolvedOptions } from "./options.ts";
@@ -31,11 +31,43 @@ interface ShellStructured {
   full_output_path?: string;
 }
 
-function readIfExists(path: string): string | undefined {
+/**
+ * Начало и конец файла без чтения целиком: вывод команды бывает в сотни мегабайт.
+ * Возвращает undefined, если файл не прочитать.
+ */
+export function readHeadTail(
+  path: string,
+  size: number,
+  limit: number,
+  headShare = 0.35,
+): { text: string; cut: boolean } | undefined {
+  let fd: number | undefined;
   try {
-    return readFileSync(path, "utf8");
+    fd = openSync(path, "r");
+    if (size <= limit) {
+      const buf = Buffer.alloc(size);
+      readSync(fd, buf, 0, size, 0);
+      return { text: buf.toString("utf8"), cut: false };
+    }
+    const headLen = Math.floor(limit * headShare);
+    const tailLen = Math.floor(limit * (1 - headShare));
+    const headBuf = Buffer.alloc(headLen);
+    const tailBuf = Buffer.alloc(tailLen);
+    readSync(fd, headBuf, 0, headLen, 0);
+    readSync(fd, tailBuf, 0, tailLen, size - tailLen);
+    // Края буферов режут UTF-8 посреди символа и строки посередине — выравниваем по переводам строк.
+    let head = headBuf.toString("utf8").replace(/\uFFFD+$/, "");
+    const headNl = head.lastIndexOf("\n");
+    if (headNl > head.length / 2) head = head.slice(0, headNl);
+    let tail = tailBuf.toString("utf8").replace(/^\uFFFD+/, "");
+    const tailNl = tail.indexOf("\n");
+    if (tailNl >= 0 && tailNl < tail.length / 2) tail = tail.slice(tailNl + 1);
+    const omitted = Math.max(0, size - byteLength(head) - byteLength(tail));
+    return { text: `${head}\n\n… [пропущено ${formatBytes(omitted)}] …\n\n${tail}`, cut: true };
   } catch {
     return undefined;
+  } finally {
+    if (fd !== undefined) closeSync(fd);
   }
 }
 
@@ -90,18 +122,21 @@ export function installToolOutput(pi: ExtensionAPI, opts: ResolvedOptions): void
       body = text.slice(0, piCut.index);
       status = text.slice(piCut.index + piCut[0].length).trim();
     }
-    const full = fullPath ? readIfExists(fullPath) : undefined;
-    const originalBytes =
-      (fullPath ? sizeOf(fullPath) : undefined) ?? byteLength(structured?.output ?? body);
+    const fullSize = fullPath ? sizeOf(fullPath) : undefined;
+    const originalBytes = fullSize ?? byteLength(structured?.output ?? body);
 
     let cut = false;
     let spillPath = fullPath;
-    if (full !== undefined && byteLength(full) > opts.inlineLimitBytes) {
+    const fromFile =
+      fullPath && fullSize !== undefined
+        ? readHeadTail(fullPath, fullSize, opts.inlineLimitBytes)
+        : undefined;
+    if (fromFile?.cut) {
       // Pi оставил только хвост; при ошибке причина часто в начале — показываем оба конца.
-      body = headTail(full, opts.inlineLimitBytes);
+      body = fromFile.text;
       cut = true;
-    } else if (full !== undefined && piCut) {
-      body = full;
+    } else if (fromFile && piCut) {
+      body = fromFile.text;
     } else if (byteLength(body) > opts.inlineLimitBytes) {
       const source =
         structured?.output && byteLength(structured.output) > byteLength(body)

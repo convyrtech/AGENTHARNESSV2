@@ -132,6 +132,13 @@ describe("looksLikeServer", () => {
     "next dev",
     "tsc --watch",
     "npx serve dist",
+    "npx -y vite --port 3000",
+    "FOO=1 npm run dev",
+    "python manage.py runserver",
+    "bin/rails s",
+    "docker compose up",
+    "cargo watch -x run",
+    "vitest --watch",
   ])("server: %s", (command) => {
     expect(looksLikeServer(command)).toBe(true);
   });
@@ -155,5 +162,9 @@ describe("detectPorts", () => {
     expect(detectPorts("  ➜  Local:   http://localhost:5173/")).toEqual([5173]);
     expect(detectPorts("Serving HTTP on 0.0.0.0 port 8000 (http://0.0.0.0:8000/)")).toEqual([8000]);
     expect(detectPorts("no port here, version 1.2.3")).toEqual([]);
+    expect(
+      detectPorts("Port 3000 is in use, trying another one...\n  Local: http://localhost:3001/"),
+    ).toEqual([3001]);
+    expect(detectPorts("listening on http://[::1]:8080")).toEqual([8080]);
   });
 });

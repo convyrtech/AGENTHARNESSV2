@@ -9,6 +9,7 @@ function setup(
 ) {
   const pi = new MockPi(process.cwd(), model);
   const budget = installBudget(pi.api, resolveOptions(options));
+  budget.installWarning();
   return { pi, budget };
 }
 

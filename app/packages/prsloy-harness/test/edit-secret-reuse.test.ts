@@ -99,6 +99,31 @@ describe("secret scrub", () => {
     );
   });
 
+  it("catches cut-off private keys and Stripe keys", () => {
+    const cut = "-----BEGIN RSA PRIVATE KEY-----\nMIIEpAIBAAKCAQEA1234";
+    expect(scrubSecrets(`head:\n${cut}`).text).toBe("head:\n[СКРЫТО: приватный ключ]");
+    // Собираем на лету: настоящий по форме ключ в репозитории заблокирует push protection GitHub.
+    const stripe = ["sk", "live", "51Habcdefghijklmnopqrstuv"].join("_");
+    expect(scrubSecrets(`STRIPE_SECRET_KEY=${stripe}`).count).toBe(1);
+    expect(scrubSecrets('<div class="sk-folding-cube-container-wrapper">').count).toBe(0);
+  });
+
+  it("blocks writing the placeholder back into a file", async () => {
+    const pi = new MockPi();
+    installSecretScrub(pi.api);
+    const write = await pi.toolCall("write", {
+      path: ".env",
+      content: "OPENAI_API_KEY=[СКРЫТО: sk-ключ]\nDEBUG=1\n",
+    });
+    expect(write?.block).toBe(true);
+    expect(write?.reason).toContain("в настоящем файле на этом месте ключ");
+    const edit = await pi.toolCall("edit", {
+      path: ".env",
+      edits: [{ oldText: "DEBUG=1", newText: "DEBUG=0" }],
+    });
+    expect(edit).toBeUndefined();
+  });
+
   it("does not touch ordinary text", () => {
     const text =
       "sk-learn is a library; task-1234; AKIA; git sha 4f9c2e1d8b7a6f5e4d3c2b1a0f9e8d7c6b5a4f3e";

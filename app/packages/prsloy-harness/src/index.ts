@@ -20,18 +20,20 @@ export { looksLikeServer, detectPorts } from "./process-registry.ts";
 
 /**
  * Порядок важен. tool_call: бюджет и петли блокируют до того, как bash что-то запустит.
- * tool_result идут цепочкой в том же порядке; секреты — последними, чтобы чистить итоговый текст.
+ * tool_result идут цепочкой в том же порядке; предупреждение бюджета — после обрезки вывода,
+ * секреты — последними, чтобы чистить итоговый текст.
  */
 export function createPrsloyHarness(options: HarnessOptions = {}): (pi: ExtensionAPI) => void {
   return (pi: ExtensionAPI) => {
     const opts = resolveOptions(options);
     const on = (name: keyof typeof opts.disable) => !opts.disable[name];
-    if (on("budget")) installBudget(pi, opts);
+    const budget = on("budget") ? installBudget(pi, opts) : undefined;
     if (on("loopDetector")) installLoopDetector(pi, opts);
     if (on("bashTimeout")) installBashTimeout(pi, opts);
     if (on("toolOutput")) installToolOutput(pi, opts);
     if (on("editRobustness")) installEditRobustness(pi, opts);
     if (on("postEditVerify")) installPostEditVerify(pi, opts);
+    budget?.installWarning();
     if (on("reusePrompt")) installReusePrompt(pi, opts);
     if (on("secretScrub")) installSecretScrub(pi);
   };

@@ -23,6 +23,14 @@ export function installBashTimeout(pi: ExtensionAPI, opts: ResolvedOptions): Pro
   const registry = new ProcessRegistry(
     join(opts.outputDir, `bg-${process.pid}-${Date.now().toString(36)}`),
     opts.backgroundEnv,
+    () => {
+      if (opts.shellPath) return opts.shellPath;
+      try {
+        return pi.getSettings().shellPath;
+      } catch {
+        return undefined;
+      }
+    },
   );
 
   pi.on("tool_call", async (event, ctx) => {
@@ -125,11 +133,12 @@ export function installBashTimeout(pi: ExtensionAPI, opts: ResolvedOptions): Pro
           `Нет процесса ${params.id ?? "(id не указан)"}. Список: process action=list.`,
         );
       if (params.action === "stop") {
-        registry.stop(params.id);
-        return {
-          content: [{ type: "text", text: `${params.id} остановлен.` }],
-          details: undefined,
-        };
+        const stopped = await registry.stop(params.id);
+        const text =
+          stopped && stopped.exitCode !== undefined
+            ? `${params.id} остановлен.`
+            : `${params.id} не удалось остановить: процесс ещё работает (pid ${stopped?.pid ?? "?"}).`;
+        return { content: [{ type: "text", text }], details: undefined };
       }
       return {
         content: [
@@ -140,8 +149,8 @@ export function installBashTimeout(pi: ExtensionAPI, opts: ResolvedOptions): Pro
     },
   });
 
-  pi.on("session_shutdown", () => {
-    registry.stopAll();
+  pi.on("session_shutdown", async () => {
+    await registry.stopAll();
   });
 
   return registry;

@@ -56,6 +56,44 @@ describe("loop detector", () => {
     expect((await pi.call("bash", input, "0 failing")).blocked?.block).toBe(true);
   });
 
+  it("after a successful edit the same command runs again (checking the fix is not a loop)", async () => {
+    const pi = setup();
+    const input = { command: "npm test" };
+    await pi.call("bash", input, "1 failing");
+    await pi.call("bash", input, "1 failing");
+    expect((await pi.call("bash", input, "1 failing")).blocked?.block).toBe(true);
+    await pi.call("edit", { path: "src/x.ts", edits: [] }, "Edited");
+    expect((await pi.call("bash", input, "0 failing")).blocked).toBeUndefined();
+    // Неудачная правка файлы не меняет — счёт не сбрасывается.
+    const pi2 = setup();
+    await pi2.call("bash", input, "1 failing");
+    await pi2.call("bash", input, "1 failing");
+    await pi2.call("edit", { path: "src/x.ts", edits: [] }, "Could not find", true);
+    expect((await pi2.call("bash", input, "1 failing")).blocked?.block).toBe(true);
+  });
+
+  it("ignores Pi's unique temp-file path when comparing results", async () => {
+    const pi = setup();
+    const out = (n: number) =>
+      `tail\n\n[Showing lines 1-2000 of 9000. Full output: /tmp/pi-bash-${n}.log]`;
+    await pi.call("bash", { command: "make" }, out(1));
+    await pi.call("bash", { command: "make" }, out(2));
+    expect((await pi.call("bash", { command: "make" }, out(3))).blocked?.block).toBe(true);
+  });
+
+  it("keeps entries proposed by other extensions at turn_end", async () => {
+    const pi = setup();
+    const other = { type: "custom", customType: "host", data: 1 };
+    const message = {
+      role: "assistant",
+      stopReason: "stop",
+      content: [{ type: "text", text: "<tool_call>{}</tool_call>" }],
+    };
+    const result = await pi.boundary("turn_end", { message, toolResults: [], entries: [other] });
+    expect(result.entries[0]).toEqual(other);
+    expect(result.entries).toHaveLength(2);
+  });
+
   it("different args are different calls", async () => {
     const pi = setup();
     for (let i = 0; i < 6; i++) {
@@ -155,6 +193,17 @@ describe("detectPseudoToolCall", () => {
     ['```json\n{"name": "bash", "arguments": {"command": "ls"}}\n```'],
   ])("detects %s", (text) => {
     expect(detectPseudoToolCall(text, tools)).toBeDefined();
+  });
+
+  it("does not flag markers inside code or a fenced example in a long explanation", () => {
+    expect(
+      detectPseudoToolCall(
+        "Qwen оборачивает вызов в `<tool_call>`, а Mistral — в `[TOOL_CALLS]`.",
+        tools,
+      ),
+    ).toBeUndefined();
+    const explanation = `${"Вот как выглядит вызов в протоколе Hermes, его парсит сервер. ".repeat(5)}\n\`\`\`\n<tool_call>\n{"name": "bash", "arguments": {}}\n</tool_call>\n\`\`\``;
+    expect(detectPseudoToolCall(explanation, tools)).toBeUndefined();
   });
 
   it("does not flag JSON about unknown tools or prose", () => {

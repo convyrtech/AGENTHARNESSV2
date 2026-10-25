@@ -14,9 +14,12 @@ const RULES: SecretRule[] = [
   {
     kind: "приватный ключ",
     pattern:
-      /-----BEGIN [A-Z0-9 ]*PRIVATE KEY(?: BLOCK)?-----[\s\S]*?-----END [A-Z0-9 ]*PRIVATE KEY(?: BLOCK)?-----/g,
+      // Конец блока может быть отрезан (head, обрезка вывода) — тогда вырезаем до конца текста.
+      /-----BEGIN [A-Z0-9 ]*PRIVATE KEY(?: BLOCK)?-----[\s\S]*?(?:-----END [A-Z0-9 ]*PRIVATE KEY(?: BLOCK)?-----|$)/g,
   },
-  { kind: "sk-ключ", pattern: /\bsk-(?:proj-|ant-|or-v1-|live-|test-)?[A-Za-z0-9_-]{20,}/g },
+  // Цифра обязательна: у ключей она есть всегда, у CSS-классов вроде sk-folding-cube — нет.
+  { kind: "sk-ключ", pattern: /\bsk-(?=[A-Za-z0-9_-]*\d)[A-Za-z0-9_-]{20,}/g },
+  { kind: "Stripe-ключ", pattern: /\b[sr]k_(?:live|test)_[A-Za-z0-9]{20,}/g },
   {
     kind: "GitHub-токен",
     pattern: /\b(?:gh[pousr]_[A-Za-z0-9]{36,}|github_pat_[A-Za-z0-9_]{22,})\b/g,
@@ -80,11 +83,30 @@ function scrubJson(value: unknown): { value: unknown; count: number } {
 }
 
 export function scrubNote(count: number, kinds: string[]): string {
-  return `[Скрыто секретов: ${count} (${kinds.join(", ")}). Модели они не показываются. Если ключ нужен программе — бери его из переменной окружения, не вставляй в код.]`;
+  return `[Скрыто секретов: ${count} (${kinds.join(", ")}). Модели они не показываются. Строки с «[СКРЫТО…]» не переписывай и не вставляй в файлы — в настоящем файле там ключ; правь вокруг них через edit. Если ключ нужен программе — бери его из переменной окружения.]`;
 }
+
+export const PLACEHOLDER_WRITE_NOTE =
+  "В новом тексте есть «[СКРЫТО: …]» — это заглушка, которую видишь только ты; в настоящем файле на этом месте ключ. Запись не выполнена. Не трогай строки с ключами: правь остальное через edit с oldText без этих строк.";
 
 /** Регистрировать последним: tool_result-обработчики идут цепочкой, этот видит итоговый текст. */
 export function installSecretScrub(pi: ExtensionAPI): void {
+  // Модель видит файл с заглушками; если она перепишет его как видит, ключ пользователя сотрётся.
+  pi.on("tool_call", (event) => {
+    if (event.toolName !== "write" && event.toolName !== "edit") return undefined;
+    const input = event.input as { content?: unknown; edits?: unknown };
+    const texts = [
+      input.content,
+      ...(Array.isArray(input.edits)
+        ? input.edits.map((e: { newText?: unknown }) => e?.newText)
+        : []),
+    ];
+    if (texts.some((t) => typeof t === "string" && t.includes("[СКРЫТО: "))) {
+      return { block: true, reason: PLACEHOLDER_WRITE_NOTE };
+    }
+    return undefined;
+  });
+
   pi.on("tool_result", (event) => {
     const text = contentText(event.content);
     const scrubbed = scrubSecrets(text);
