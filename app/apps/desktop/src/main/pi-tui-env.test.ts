@@ -13,6 +13,43 @@ afterEach(() => {
 });
 
 describe("pi-tui-env", () => {
+  it("drops machine secrets like the Agent Host env (the TUI's bash inherits it)", () => {
+    const env = buildPiTuiEnv({
+      HOME: "/home/u",
+      PATH: "/usr/bin",
+      GH_TOKEN: "ghp_x",
+      GITHUB_TOKEN: "ghp_y",
+      AWS_SECRET_ACCESS_KEY: "aws",
+      AWS_PROFILE: "prod",
+      OPENAI_API_KEY: "sk-o",
+      ANTHROPIC_API_KEY: "sk-a",
+      AZURE_CLIENT_SECRET: "az",
+      GOOGLE_APPLICATION_CREDENTIALS: "/k.json",
+      NPM_TOKEN: "npm",
+      DB_PASSWORD: "pw",
+      PRSLOY_GATEWAY_KEY: "sk-gw",
+      LANG: "ru_RU.UTF-8",
+    });
+    for (const name of [
+      "GH_TOKEN",
+      "GITHUB_TOKEN",
+      "AWS_SECRET_ACCESS_KEY",
+      "AWS_PROFILE",
+      "OPENAI_API_KEY",
+      "ANTHROPIC_API_KEY",
+      "AZURE_CLIENT_SECRET",
+      "GOOGLE_APPLICATION_CREDENTIALS",
+      "NPM_TOKEN",
+      "DB_PASSWORD",
+      "PRSLOY_GATEWAY_KEY",
+    ]) {
+      expect(env[name], name).toBeUndefined();
+    }
+    expect(env.LANG).toBe("ru_RU.UTF-8");
+    expect(env[PI_CODING_AGENT_DIR_ENV]).toBeTruthy();
+    expect(env.PATH).toContain("/usr/bin");
+  });
+
   it("pins PI_CODING_AGENT_DIR so managed fd/rg share one bin dir", () => {
     const env = buildPiTuiEnv({
       USERPROFILE: "C:\\Users\\test",
