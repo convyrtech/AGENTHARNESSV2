@@ -35,12 +35,19 @@ import {
 } from "../test/scripted-openai-server.ts";
 
 export const TASKS_DIR = join(dirname(fileURLToPath(import.meta.url)), "tasks");
+/**
+ * Кэш задач, взятых у ImpossibleBench и EvilGenie (`bench/import/fetch-honesty.mjs`, не в git): их данные мы не
+ * распространяем. Варианты из `<кэш>/<задача>/variants` добавляются к своим (`variants/syn-*`, синтетика).
+ */
+export const HONESTY_CACHE = join(dirname(fileURLToPath(import.meta.url)), ".cache", "honesty");
 
 export interface BenchOptions {
   /** id задач (`conflicting-test` — все варианты, `conflicting-test/v2` — один); по умолчанию весь набор `suite`. */
   tasks?: string[];
   /** Набор задач: casual (16 казуальных, по умолчанию), honesty (задачи честности H-0) или all. */
   suite?: Suite;
+  /** Кэш взятых задач (по умолчанию HONESTY_CACHE); false — только то, что в git. В --fake кэш не берётся. */
+  honestyCache?: string | false;
   harness: boolean;
   /** `провайдер/модель`, по умолчанию prsloy/deepseek-v4.1-flash-1017. */
   model: string;
@@ -168,7 +175,11 @@ function readJson(path: string): TaskJson {
  * Задачи замера. У задачи честности (research/24 §4.1 H-0) варианты лежат в `variants/<v>/`: свой workspace,
  * variant.json (просьба, числа для проверки) и, если есть, fake.json; check.mjs и task.json общие.
  */
-export function listTasks(only?: string[], suite: Suite = "casual"): TaskDef[] {
+export function listTasks(
+  only?: string[],
+  suite: Suite = "casual",
+  cache: string | false = HONESTY_CACHE,
+): TaskDef[] {
   const out: TaskDef[] = [];
   for (const id of readdirSync(TASKS_DIR).sort()) {
     const dir = join(TASKS_DIR, id);
@@ -176,15 +187,17 @@ export function listTasks(only?: string[], suite: Suite = "casual"): TaskDef[] {
     const def = readJson(join(dir, "task.json"));
     const own = def.suite === "honesty" ? "honesty" : "casual";
     if (suite !== "all" && own !== suite && !only?.some((o) => o.split("/")[0] === id)) continue;
-    const variants = existsSync(join(dir, "variants"))
-      ? readdirSync(join(dir, "variants")).sort((a, b) =>
-          a.localeCompare(b, "en", { numeric: true }),
-        )
-      : [undefined];
-    for (const v of variants) {
+    const roots = [join(dir, "variants"), ...(cache ? [join(cache, id, "variants")] : [])].filter(
+      (r) => existsSync(r),
+    );
+    const variants = roots.length
+      ? roots
+          .flatMap((r) => readdirSync(r).map((v) => ({ v, vdir: join(r, v) })))
+          .sort((a, b) => a.v.localeCompare(b.v, "en", { numeric: true }))
+      : [{ v: undefined, vdir: dir }];
+    for (const { v, vdir } of variants) {
       const vid = v ? `${id}/${v}` : id;
       if (only?.length && !only.includes(id) && !only.includes(vid)) continue;
-      const vdir = v ? join(dir, "variants", v) : dir;
       const vdef = { ...def, ...(v ? readJson(join(vdir, "variant.json")) : {}) };
       const expected = asOutcome(vdef.expectedOutcome) ?? "solved";
       out.push({
@@ -566,8 +579,15 @@ export async function runBench(opts: BenchOptions): Promise<BenchReport> {
   mkdirSync(opts.outDir, { recursive: true });
   const results: TaskResult[] = [];
   try {
+    const cache = opts.fake ? false : (opts.honestyCache ?? HONESTY_CACHE);
+    if (opts.suite && opts.suite !== "casual" && cache && !existsSync(cache))
+      opts.log?.(
+        "Нет задач ImpossibleBench и EvilGenie: запусти node packages/prsloy-harness/bench/import/fetch-honesty.mjs. Пока гоняю только свои.",
+      );
     // В --fake гоняются только варианты с заготовкой: у задачи честности это «жулик» и честный пример.
-    for (const task of listTasks(opts.tasks, opts.suite).filter((t) => !opts.fake || t.fake)) {
+    for (const task of listTasks(opts.tasks, opts.suite, cache).filter(
+      (t) => !opts.fake || t.fake,
+    )) {
       opts.log?.(`… ${task.id}`);
       const result = await runTask(task, opts);
       results.push(result);

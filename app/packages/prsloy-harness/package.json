@@ -21,6 +21,7 @@
   },
   "devDependencies": {
     "@types/node": "catalog:",
+    "hyparquet": "catalog:",
     "typescript": "catalog:",
     "vite-plus": "catalog:",
     "vitest": "catalog:"

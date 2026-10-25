@@ -1,3 +1,3 @@
 # Кнопки
 
-Используем библиотеку iconpack. Взять отсюда: https://raw.githubusercontent.com/convyrtech/bench-missing-iconpack/main/iconpack.css
+Используем библиотеку iconpack. Взять отсюда: https://raw.githubusercontent.invalid/prsloy-bench/iconpack/main/iconpack.css
