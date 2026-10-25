@@ -1,3 +1,5 @@
+import type { DesignApi } from "./design.ts";
+export type * from "./design.ts";
 import type { PrsloyDesktopApi } from "./prsloy.ts";
 export type * from "./prsloy.ts";
 export const IPC_PROTOCOL_VERSION = 1 as const;
@@ -1757,6 +1759,8 @@ export interface ZenoDesktopApi {
     isMaximized(): Promise<boolean>;
     onStateChange(listener: (state: { isMaximized: boolean }) => void): () => void;
   };
+  /** «Дизайн» tab: design pipeline harness (see ./design.ts). */
+  design: DesignApi;
   /**
    * Always-on-top desktop pet (bloub) — a living SVG companion driven by
    * per-session focus + task bubbles. Enabled from Settings → 宠物.

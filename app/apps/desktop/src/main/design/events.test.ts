@@ -1,0 +1,85 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { describe, expect, it } from "vite-plus/test";
+import { fileKind, LineSplitter, parseHarnessLine } from "./events.ts";
+
+const RECORDED = join(import.meta.dirname, "../../../e2e/design/recorded.jsonl");
+const noFiles = () => undefined;
+
+describe("LineSplitter", () => {
+  it("keeps a partial line until its newline arrives", () => {
+    const s = new LineSplitter();
+    expect(s.push('{"ev":"no')).toEqual([]);
+    expect(s.push('te","text":"a"}\n{"ev"')).toEqual(['{"ev":"note","text":"a"}']);
+    expect(s.push(':"done"}\r\n\n')).toEqual(['{"ev":"done"}']);
+    expect(s.flush()).toEqual([]);
+  });
+
+  it("returns the unterminated tail on flush", () => {
+    const s = new LineSplitter();
+    s.push('{"ev":"done"}');
+    expect(s.flush()).toEqual(['{"ev":"done"}']);
+  });
+});
+
+describe("parseHarnessLine", () => {
+  it("parses every event of a real run.py log (stage, tool, owner, stuck)", () => {
+    const lines = readFileSync(RECORDED, "utf8").trim().split("\n");
+    const kinds = new Set<string>();
+    for (const line of lines) {
+      const rec = JSON.parse(line) as { event: unknown };
+      const ev = parseHarnessLine(JSON.stringify(rec.event), (p) =>
+        p.startsWith("{WS}/") ? { path: p.slice(5), url: `x:${p}`, kind: fileKind(p) } : undefined,
+      );
+      expect(ev, line).toBeDefined();
+      kinds.add(ev!.ev);
+    }
+    expect([...kinds].sort()).toEqual(["owner", "stage", "stuck", "tool"]);
+  });
+
+  it("maps owner files through the workspace guard and drops outsiders", () => {
+    const ev = parseHarnessLine(
+      JSON.stringify({
+        ev: "owner",
+        text: "Какое берём?",
+        files: ["/ws/design/a.png", "/etc/passwd", "/ws/design/a.png", 7],
+        options: [{ key: "A", label: "Тёплое" }, { key: "", label: "x" }, "bad"],
+      }),
+      (p) => (p.startsWith("/ws/") ? { path: p.slice(4), url: "u", kind: fileKind(p) } : undefined),
+    );
+    expect(ev).toEqual({
+      ev: "owner",
+      text: "Какое берём?",
+      files: [{ path: "design/a.png", url: "u", kind: "image" }],
+      options: [{ key: "A", label: "Тёплое" }],
+    });
+  });
+
+  it("drops non-events and clamps long fields", () => {
+    expect(parseHarnessLine("Traceback (most recent call last):", noFiles)).toBeUndefined();
+    expect(parseHarnessLine('{"ws": "/x", "page": "landing"}', noFiles)).toBeUndefined();
+    expect(parseHarnessLine("[1,2]", noFiles)).toBeUndefined();
+    const ev = parseHarnessLine(
+      JSON.stringify({ ev: "note", text: "я".repeat(10_000), t: 5 }),
+      noFiles,
+    );
+    expect(ev?.ev === "note" && ev.text.length).toBe(4000);
+    expect(ev?.t).toBe(5);
+    expect(parseHarnessLine('{"ev":"stage","gate":"2","attempt":"x"}', noFiles)).toEqual({
+      ev: "stage",
+      gate: "2",
+      title: "",
+      model: "",
+      attempt: 1,
+    });
+  });
+});
+
+describe("fileKind", () => {
+  it("classifies what the owner card can show", () => {
+    expect(fileKind("a/B.PNG")).toBe("image");
+    expect(fileKind("v.webm")).toBe("video");
+    expect(fileKind("site/index.html")).toBe("page");
+    expect(fileKind("notes.md")).toBe("other");
+  });
+});

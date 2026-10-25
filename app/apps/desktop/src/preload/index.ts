@@ -1,6 +1,8 @@
 import { contextBridge, ipcRenderer, webUtils } from "electron";
 import type {
   AppUpdateStatus,
+  DesignEventMessage,
+  DesignSetupProgress,
   HostEvent,
   PiCliProgressEvent,
   ZenoDesktopApi,
@@ -106,6 +108,28 @@ const api: ZenoDesktopApi = {
       const handler = (_event: Electron.IpcRendererEvent, command: PetCommand) => listener(command);
       ipcRenderer.on("zeno:pet:command", handler);
       return () => ipcRenderer.removeListener("zeno:pet:command", handler);
+    },
+  },
+  design: {
+    status: (projectPath) => ipcRenderer.invoke("prsloy:design:status", projectPath),
+    setup: () => ipcRenderer.invoke("prsloy:design:setup"),
+    say: (projectPath, text, fileTokens, retry) =>
+      ipcRenderer.invoke("prsloy:design:say", projectPath, text, fileTokens, retry === true),
+    cancel: (projectPath) => ipcRenderer.invoke("prsloy:design:cancel", projectPath),
+    pickFiles: () => ipcRenderer.invoke("prsloy:design:pick-files"),
+    preview: (projectPath) => ipcRenderer.invoke("prsloy:design:preview", projectPath),
+    openFolder: (projectPath) => ipcRenderer.invoke("prsloy:design:open-folder", projectPath),
+    onEvent(listener) {
+      const handler = (_event: Electron.IpcRendererEvent, message: DesignEventMessage) =>
+        listener(message);
+      ipcRenderer.on("prsloy:design:event", handler);
+      return () => ipcRenderer.removeListener("prsloy:design:event", handler);
+    },
+    onSetup(listener) {
+      const handler = (_event: Electron.IpcRendererEvent, progress: DesignSetupProgress) =>
+        listener(progress);
+      ipcRenderer.on("prsloy:design:setup", handler);
+      return () => ipcRenderer.removeListener("prsloy:design:setup", handler);
     },
   },
   pi: {

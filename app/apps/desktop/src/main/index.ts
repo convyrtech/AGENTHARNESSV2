@@ -153,13 +153,10 @@ import {
 } from "./workspace-paths.ts";
 import { augmentEnvPath } from "./shell-path.ts";
 import { ThemeLibrary } from "./theme-library.ts";
+import { APP_SCHEMES } from "./app-schemes.ts";
+import { installDesign } from "./design/wire.ts";
 
-protocol.registerSchemesAsPrivileged([
-  {
-    scheme: "zeno-theme",
-    privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true },
-  },
-]);
+protocol.registerSchemesAsPrivileged(APP_SCHEMES);
 
 /**
  * WorkBuddy-style managed runtimes:
@@ -4729,6 +4726,8 @@ void app
         return new Response("Not found", { status: 404 });
       }
     });
+    const designPiCli = () => ensurePiCliExtracted().then(() => resolveBuiltinSdkCached().cliPath);
+    installDesign(currentDirectory, () => mainWindow, assertTrustedSender, designPiCli, prsloy);
     // App-channel proxy before any network from Chromium / main.
     await applyAppSessionProxy();
     // Default Electron File/Edit/View/Window menu is English-only and not product chrome.
