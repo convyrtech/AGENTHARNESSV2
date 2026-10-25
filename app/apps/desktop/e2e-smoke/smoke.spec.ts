@@ -18,10 +18,11 @@
 import { expect, test } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync } from "node:fs";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { MockGatewayServer } from "@zeno/test-utils";
+import { concurrentMemoryWrites } from "../../../packages/prsloy-harness/src/memory-lock-check.ts";
 import {
   BASH_COMMAND,
   HARNESS_HEADER,
@@ -129,6 +130,49 @@ test("installed app: window, runtimes, host, reply, bash tool", async () => {
     expect(launched.pageErrors, launched.pageErrors.join("\n\n")).toEqual([]);
   } finally {
     if (launched) await shot(launched.page, "99-runner-final");
+    await close(launched);
+  }
+});
+
+// ── Memory (research/24 M-sp): files under a lock, a model call outside the turn ──
+
+test("memory files: four processes writing at once lose nothing (lock, rename retry)", async () => {
+  const root = await mkdtemp(join(tmpdir(), "prsloy-smoke-mem-"));
+  const result = await concurrentMemoryWrites({
+    dir: join(root, "prsloy-memory"),
+    cwd: join(root, "мой проект"),
+  });
+  await writeMetrics({ memoryLock: result });
+  expect(result.failures).toEqual([]);
+  expect(result.entries).toBe(result.expected);
+  expect(result.remembered).toBe(result.expected);
+});
+
+test("memory extractor: one call outside the turn after leaving a chat (installed app)", async () => {
+  let launched: Launched | undefined;
+  try {
+    launched = await launch("extractor", {
+      env: {
+        PRSLOY_MEMORY_EXTRACTOR: "probe",
+        PRSLOY_MEMORY_EXTRACTOR_PROVIDER: "zeno-fake",
+        PRSLOY_MEMORY_EXTRACTOR_MODEL: "zeno-fake",
+      },
+    });
+    const { page } = launched;
+    await startHost(page);
+    await send(page, "Привет! Ответь одной фразой.");
+    await expect
+      .poll(async () => page.getByTestId("timeline").innerText(), { timeout: 60_000 })
+      .toContain("Zeno fake model response");
+    await page.evaluate(() => window.zeno.session.create());
+    const journal = join(launched.root, "smoke-pi-agent", "prsloy-memory", "extractor.jsonl");
+    await expect.poll(() => existsSync(journal), { timeout: 60_000 }).toBe(true);
+    const line = JSON.parse((await readFile(journal, "utf8")).trim().split("\n")[0]!);
+    await writeMetrics({ extractorProbe: line });
+    expect(line).toMatchObject({ kind: "probe", model: "zeno-fake", ok: true, status: 200 });
+    expect(line.input).toBeGreaterThan(0);
+  } finally {
+    if (launched) await shot(launched.page, "99-extractor-final");
     await close(launched);
   }
 });

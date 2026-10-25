@@ -154,6 +154,7 @@ import {
 } from "./prsloy/hardening.ts";
 import { RuntimeBoot } from "./prsloy/runtime-boot.ts";
 import { prepareTurn, registerPrsloyIpc } from "./prsloy/ipc.ts";
+import { emitSessionLeft } from "./prsloy/session-left.ts";
 import { CRASH_RESTART_DELAY_MS, nextCrashRestart } from "./prsloy/crash-restart.ts";
 import {
   isConversationWorkspacePath,
@@ -4187,7 +4188,10 @@ class HostSupervisor {
   #acceptSnapshot(snapshot: HostSnapshot): void {
     this.#snapshot = snapshot;
     this.#lastSequence = snapshot.sequence;
-    if (snapshot.sessionFile) this.#sessionFile = snapshot.sessionFile;
+    if (snapshot.sessionFile && snapshot.sessionFile !== this.#sessionFile) {
+      if (this.#sessionFile) emitSessionLeft(this.#sessionFile);
+      this.#sessionFile = snapshot.sessionFile;
+    }
   }
 
   #request(command: HostCommand): Promise<HostEvent> {

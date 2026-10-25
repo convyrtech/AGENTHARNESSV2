@@ -5,11 +5,16 @@
 import { createHash, randomBytes } from "node:crypto";
 import {
   appendFileSync,
+  closeSync,
   existsSync,
   mkdirSync,
+  openSync,
   readFileSync,
   renameSync,
+  statSync,
+  unlinkSync,
   writeFileSync,
+  writeSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -99,11 +104,98 @@ function readJson<T>(path: string, fallback: T): T {
   }
 }
 
+const sleepSync = (ms: number) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+/** Windows: antivirus, the indexer or another process holding the file for a moment. */
+const BUSY = new Set(["EPERM", "EBUSY", "EACCES"]);
+const errorCode = (error: unknown) => (error as NodeJS.ErrnoException | undefined)?.code ?? "";
+
+/** rename с повтором: на Windows замена файла, который кто-то держит открытым, на миг падает с EPERM/EBUSY. */
+export function renameWithRetry(from: string, to: string, attempts = 20): void {
+  for (let i = 0; ; i++) {
+    try {
+      renameSync(from, to);
+      return;
+    } catch (error) {
+      if (!BUSY.has(errorCode(error)) || i >= attempts - 1) throw error;
+      sleepSync(10 + i * 10);
+    }
+  }
+}
+
 function writeAtomic(path: string, value: unknown, raw?: string): void {
   mkdirSync(dirname(path), { recursive: true });
   const tmp = `${path}.tmp-${process.pid}-${randomBytes(3).toString("hex")}`;
   writeFileSync(tmp, raw ?? `${JSON.stringify(value, null, 2)}\n`);
-  renameSync(tmp, path);
+  try {
+    renameWithRetry(tmp, path);
+  } catch (error) {
+    try {
+      unlinkSync(tmp);
+    } catch {
+      // уже нет
+    }
+    throw error;
+  }
+}
+
+/** Замок старше этого — от упавшего процесса. */
+const LOCK_STALE_MS = 10_000;
+const LOCK_WAIT_MS = 15_000;
+const held = new Map<string, number>();
+
+/**
+ * Одна запись в папку памяти за раз: харнесс в агент-хосте и main (панель «Память», экстрактор) пишут одни
+ * файлы. Замок — `.lock` (создание с `wx`), внутри процесса повторный вход разрешён.
+ */
+export function withMemoryLock<T>(dir: string, fn: () => T): T {
+  const depth = held.get(dir) ?? 0;
+  if (depth > 0) {
+    held.set(dir, depth + 1);
+    try {
+      return fn();
+    } finally {
+      held.set(dir, depth);
+    }
+  }
+  mkdirSync(dir, { recursive: true });
+  const lock = join(dir, ".lock");
+  const deadline = Date.now() + LOCK_WAIT_MS;
+  for (;;) {
+    try {
+      const fd = openSync(lock, "wx");
+      writeSync(fd, `${process.pid} ${new Date().toISOString()}\n`);
+      closeSync(fd);
+      break;
+    } catch (error) {
+      if (errorCode(error) !== "EEXIST" && !BUSY.has(errorCode(error))) throw error;
+      let stale = Date.now() > deadline;
+      try {
+        stale ||= Date.now() - statSync(lock).mtimeMs > LOCK_STALE_MS;
+      } catch {
+        continue; // снят, пока смотрели
+      }
+      if (stale) {
+        try {
+          unlinkSync(lock);
+        } catch {
+          // снял кто-то другой
+        }
+        continue;
+      }
+      sleepSync(5 + Math.floor(Math.random() * 20));
+    }
+  }
+  held.set(dir, 1);
+  try {
+    return fn();
+  } finally {
+    held.delete(dir);
+    try {
+      unlinkSync(lock);
+    } catch {
+      // уже снят
+    }
+  }
 }
 
 export type AddResult =
@@ -160,6 +252,10 @@ export class MemoryStore {
   }
 
   #read(scope: MemoryScope, cwd: string): ProjectFile {
+    return this.#migrate(scope, cwd, this.#readRaw(scope, cwd));
+  }
+
+  #readRaw(scope: MemoryScope, cwd: string): ProjectFile {
     let file: ProjectFile;
     if (scope === "user") {
       const f = readJson<UserFile>(this.#userPath(), { version: 1, entries: [], tombstones: [] });
@@ -178,15 +274,25 @@ export class MemoryStore {
         tombstones: f.tombstones ?? [],
       };
     }
-    return this.#migrate(scope, cwd, file);
+    return file;
   }
 
   /**
    * v1-записи писались без проверки связи text ↔ quote: при первом чтении их перепроверяют теми же правилами.
    * Не прошедшие уходят из раздела в `quarantined` (видно в журнале), остальные остаются как были.
    */
-  #migrate(scope: MemoryScope, cwd: string, file: ProjectFile): ProjectFile {
-    if (file.rules === RULES || (!file.entries.length && !file.tombstones.length)) return file;
+  #migrate(scope: MemoryScope, cwd: string, read: ProjectFile): ProjectFile {
+    const needed = (f: ProjectFile) =>
+      f.rules !== RULES && (f.entries.length > 0 || f.tombstones.length > 0);
+    if (!needed(read)) return read;
+    // Под замком и по свежему чтению: другой процесс мог дописать запись между чтениями.
+    return withMemoryLock(this.dir, () => {
+      const file = this.#readRaw(scope, cwd);
+      return needed(file) ? this.#migrateNow(scope, cwd, file) : file;
+    });
+  }
+
+  #migrateNow(scope: MemoryScope, cwd: string, file: ProjectFile): ProjectFile {
     const now = new Date().toISOString();
     const kept: MemoryEntry[] = [];
     const quarantined: QuarantinedEntry[] = [...(file.quarantined ?? [])];
@@ -233,7 +339,7 @@ export class MemoryStore {
   #journal(line: Record<string, unknown>): void {
     try {
       mkdirSync(this.dir, { recursive: true });
-      this.compactJournal();
+      this.#compactJournal({});
       appendFileSync(
         join(this.dir, "journal.jsonl"),
         `${JSON.stringify({ ts: new Date().toISOString(), ...line })}\n`,
@@ -248,6 +354,10 @@ export class MemoryStore {
    * сразу во всём журнале («Забыть всё»). Возвращает, сколько строк переписано.
    */
   compactJournal(options: { now?: Date; all?: boolean } = {}): number {
+    return withMemoryLock(this.dir, () => this.#compactJournal(options));
+  }
+
+  #compactJournal(options: { now?: Date; all?: boolean }): number {
     const path = join(this.dir, "journal.jsonl");
     if (!existsSync(path)) return 0;
     const cutoff = (options.now ?? new Date()).getTime() - JOURNAL_TEXT_DAYS * 86_400_000;
@@ -284,6 +394,14 @@ export class MemoryStore {
   }
 
   add(
+    scope: MemoryScope,
+    cwd: string,
+    input: { text: string; quote: string; session?: string | undefined },
+  ): AddResult {
+    return withMemoryLock(this.dir, () => this.#add(scope, cwd, input));
+  }
+
+  #add(
     scope: MemoryScope,
     cwd: string,
     input: { text: string; quote: string; session?: string | undefined },
@@ -352,6 +470,10 @@ export class MemoryStore {
 
   /** Забыть по id (в обоих местах); запись уходит в tombstones. */
   forget(id: string, cwd: string): MemoryEntry | undefined {
+    return withMemoryLock(this.dir, () => this.#forget(id, cwd));
+  }
+
+  #forget(id: string, cwd: string): MemoryEntry | undefined {
     for (const scope of ["user", "project"] as const) {
       const file = this.#read(scope, cwd);
       const entry = file.entries.find((e) => e.id === id);
@@ -367,6 +489,10 @@ export class MemoryStore {
 
   /** «Вернуть» после «Забыть»: из журнала, если запись ещё в tombstones. */
   restore(id: string, cwd: string): MemoryEntry | undefined {
+    return withMemoryLock(this.dir, () => this.#restore(id, cwd));
+  }
+
+  #restore(id: string, cwd: string): MemoryEntry | undefined {
     let found: { scope: MemoryScope; entry: MemoryEntry } | undefined;
     try {
       for (const line of readFileSync(join(this.dir, "journal.jsonl"), "utf8").split("\n")) {
@@ -404,6 +530,10 @@ export class MemoryStore {
 
   /** Сводка «прошлый раз» (S6): пишет только код харнесса. */
   setDigest(cwd: string, text: string): void {
+    withMemoryLock(this.dir, () => this.#setDigest(cwd, text));
+  }
+
+  #setDigest(cwd: string, text: string): void {
     const file = this.#read("project", cwd);
     const trimmed = text.replace(/\s+$/, "").slice(0, MEMORY_LIMITS.digestChars);
     if (file.digest?.text === trimmed) return;
@@ -415,6 +545,10 @@ export class MemoryStore {
 
   /** «Забыть всё» из панели «Память». */
   forgetAll(cwd: string): void {
+    withMemoryLock(this.dir, () => this.#forgetAll(cwd));
+  }
+
+  #forgetAll(cwd: string): void {
     for (const scope of ["user", "project"] as const) {
       const file = this.#read(scope, cwd);
       for (const e of file.entries) file.tombstones.push(tombstoneFor(e));
@@ -431,6 +565,6 @@ export class MemoryStore {
       if (scope === "project") delete file.digest;
       this.#write(scope, cwd, file);
     }
-    this.compactJournal({ all: true });
+    this.#compactJournal({ all: true });
   }
 }
