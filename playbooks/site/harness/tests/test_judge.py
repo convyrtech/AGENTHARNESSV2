@@ -105,6 +105,7 @@ class Stand:
         self.page = root / "design" / "landing"
         (self.page / "artifacts" / "visual-gate").mkdir(parents=True)
         (self.page / "index.html").write_text("<h1>Сайт</h1>", encoding="utf-8")
+        (self.page / "FACTS.md").write_text("| Обещание | Статус | Доказательство |\n", encoding="utf-8")
         os.utime(self.page / "index.html", (1, 1))
         Image.new("RGB", (40, 80), "white").save(self.page / "artifacts" / "visual-gate" / "contact-chromium-390.png")
         self.tdir = root / "harness-state"
@@ -178,6 +179,7 @@ class JudgeRun(unittest.TestCase):
             self.assertEqual((out["verdict"], out["model_verdict"], out["yes"], out["no"]), ("FAIL", "FAIL", 10, ["Q5", "Q7"]))
             self.assertEqual(out["cost"], 0.01)
             self.assertIn("- Q1. Смысл понятен", m.prompt_text(0))
+            self.assertIn("### FACTS.md\n| Обещание", m.prompt_text(0))   # Q5 сверяет числа с FACTS
             code, out = self.s.run(m)
             self.assertEqual(code, 0, out)
             self.assertEqual((out["verdict"], out["yes"], out["asked"]), ("PASS", 12, ["Q5", "Q7"]))

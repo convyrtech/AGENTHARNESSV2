@@ -101,7 +101,7 @@ prev = page / "artifacts" / "judge" / "JUDGE.md"
 prompt = (body + f"\n\nЭто раунд {n}. В ответе строка «РАУНД: {n}»." +
           ("" if canon_imgs else " Листа канона нет: строку «КАНОН» не пиши.") +
           "\n\nСнимки (картинки приложены в этом порядке):\n" + "\n".join(f"- {s}" for s in shots) +
-          doc("02-brand.md") + doc("04-motion.md") + doc("MESSAGE.md"))
+          doc("02-brand.md") + doc("04-motion.md") + doc("MESSAGE.md") + doc("FACTS.md"))
 if n > 1 and prev.exists():
     prompt += ("\n\n### Твой прошлый отчёт (колонку «Статус» правил исполнитель)\n" + prev.read_text(encoding="utf-8")[:12000] +
                ("\n\nПроверь по новым снимкам, что из прошлых находок исправлено на самом деле. Новых находок не ищи, "
