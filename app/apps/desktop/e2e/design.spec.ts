@@ -88,8 +88,8 @@ async function launch(opts: { toolsReady: boolean }): Promise<Launched> {
   return { app, page, root };
 }
 
-async function shot(page: Page, name: string) {
-  await page.waitForTimeout(250);
+async function shot(page: Page, name: string, settleMs = 250) {
+  await page.waitForTimeout(settleMs);
   await page.screenshot({ path: join(SCREENS, `design-${name}.png`) });
 }
 
@@ -173,7 +173,7 @@ test("owner leads a landing page from request to preview", async () => {
     await expect(page.getByTestId("design-progress-step")).toContainText("1");
     await expect(page.getByTestId("design-ticker")).toHaveText(/\w/);
     await expect(page.getByTestId("design-stop")).toBeVisible();
-    await shot(page, "progress");
+    await shot(page, "progress", 0);
     await expect(page.getByTestId("design-stuck")).toBeVisible({ timeout: 30_000 });
     await expect(page.getByTestId("design-progress")).toHaveCount(0);
     await shot(page, "stuck");
@@ -197,6 +197,7 @@ test("owner leads a landing page from request to preview", async () => {
 
     // the stream survives leaving and reopening the tab
     await page.getByTestId("nav-settings").click();
+    await page.getByTestId("settings-back").click();
     await page.getByTestId("nav-design").click();
     await expect(page.getByTestId("design-owner")).toHaveCount(2);
     await expect(page.getByTestId("design-done")).toBeVisible();
