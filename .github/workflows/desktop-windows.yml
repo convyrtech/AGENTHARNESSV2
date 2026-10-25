@@ -8,6 +8,8 @@ on:
     branches: [main]
     paths: ["app/**", ".github/workflows/desktop-windows.yml"]
     tags: ["v*"]
+  release:
+    types: [published]
   workflow_dispatch:
 
 concurrency:
