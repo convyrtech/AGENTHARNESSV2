@@ -11,5 +11,7 @@ test("gateway unreachable: message.failed carries code network", async ({ page, 
   await page.getByTestId("send-prompt").click();
   await expect
     .poll(async () => page.getByTestId("event-log").first().innerText(), { timeout: 90_000 })
-    .toMatch(/message\.failed[\s\S]*"code":\s*"network"|"code":\s*"network"[\s\S]*message\.failed/u);
+    .toMatch(
+      /message\.failed[\s\S]*"code":\s*"network"|"code":\s*"network"[\s\S]*message\.failed/u,
+    );
 });

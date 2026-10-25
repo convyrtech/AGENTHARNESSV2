@@ -1,13 +1,13 @@
-# PRSLOY Desktop (app/, форк Zeno): установщик Windows на каждый push в app/ и релиз по тегу desktop-v*.
+# PRSLOY Desktop (app/, форк Zeno): установщик Windows на каждый push в app/ и релиз по тегу v*.
 # Push в main → артефакт prsloy-win-x64 (exe + latest.yml) на 14 дней.
-# Тег desktop-v0.1.0-alpha.1 → GitHub Release с exe + latest.yml (фид автообновления electron-updater).
+# Тег v0.1.0-alpha.1 → GitHub Release с exe + latest.yml (фид автообновления electron-updater: тег должен быть semver с «v»).
 name: desktop-windows
 
 on:
   push:
-    branches: [main, desktop/ci]
+    branches: [main]
     paths: ["app/**", ".github/workflows/desktop-windows.yml"]
-    tags: ["desktop-v*"]
+    tags: ["v*"]
   workflow_dispatch:
 
 concurrency:
@@ -42,7 +42,7 @@ jobs:
         if: github.ref_type == 'tag'
         shell: bash
         run: |
-          VERSION="${GITHUB_REF_NAME#desktop-v}"
+          VERSION="${GITHUB_REF_NAME#v}"
           node -e "const f='./apps/desktop/package.json';const p=require(f);p.version='${VERSION}';require('fs').writeFileSync(f,JSON.stringify(p,null,2)+'\n')"
       - name: Install
         run: pnpm install --frozen-lockfile

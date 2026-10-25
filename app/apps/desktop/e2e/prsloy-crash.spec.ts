@@ -4,9 +4,7 @@ import { expect, startHost, test } from "./fixtures.ts";
  * PRSLOY: an Agent Host crash restarts the host by itself on the same session file and
  * says so once («Агент перезапущен после сбоя — разговор сохранён»).
  */
-test("host crash → automatic restart on the same session + one quiet notice", async ({
-  page,
-}) => {
+test("host crash → automatic restart on the same session + one quiet notice", async ({ page }) => {
   await startHost(page);
   await page.getByTestId("prompt-input").fill("Before the crash.");
   await page.getByTestId("send-prompt").click();
