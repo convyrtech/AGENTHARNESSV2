@@ -1,0 +1,4 @@
+{
+  "$comment": "Temporary exceptions for layout-lint.spec.ts. Each: rule, selector (as in the report), screen (or \"*\"), reason, until (YYYY-MM-DD; expired entries fail). Goal: empty.",
+  "exceptions": []
+}
