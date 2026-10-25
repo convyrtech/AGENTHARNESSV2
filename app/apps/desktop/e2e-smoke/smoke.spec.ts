@@ -342,27 +342,46 @@ test("clean Windows (Git Bash hidden): bash tool", async () => {
   }
 });
 
-// MinGit has no bash.exe (only usr\bin\sh.exe, which is MSYS bash), so a PATH lookup for
-// bash.exe falls through to C:\Windows\System32\bash.exe (WSL launcher). Point Pi at sh.exe.
-test("clean Windows + MinGit sh.exe as shellPath: bash tool (fix candidate)", async () => {
-  test.skip(process.platform !== "win32" || !mingitDir, "needs SMOKE_MINGIT_DIR on Windows");
-  let launched: Launched | undefined;
-  try {
-    launched = await launch("mingit", {
-      hideGitBash: true,
-      prependPath: [join(mingitDir, "cmd")],
-      shellPath: join(mingitDir, "usr", "bin", "sh.exe"),
-      bashCommand: `${BASH_COMMAND}; echo BASH_VERSION=$BASH_VERSION; [[ 1 == 1 ]] && arr=(a b) && echo "bashisms=\${arr[1]}"; git --version; ls /usr/bin | head -40 | tr "\\n" " "`,
-    });
-    await startHost(launched.page);
-    const bash = await runBashTurn(launched, "mingit");
-    if (!bash.ok) {
-      test
-        .info()
-        .annotations.push({ type: "mingit-bash", description: bash.result.slice(0, 2000) });
+// Fix candidates for clean Windows (system Git hidden, Pi pointed at a shipped shell via
+// settings.json shellPath). MinGit has no bash.exe — only usr\bin\sh.exe (MSYS bash) — and a
+// PATH lookup for bash.exe falls through to C:\Windows\System32\bash.exe (WSL launcher).
+const AGENT_COMMAND =
+  `${BASH_COMMAND}; echo BASH_VERSION=$BASH_VERSION; [[ 1 == 1 ]] && arr=(a b) && echo "bashisms=\${arr[1]}"; ` +
+  `git --version; ls / | head -5 | tr "\\n" " "; echo; grep -c . fixture.txt; sed -n 1p fixture.txt; ` +
+  `awk "BEGIN{print 6*7}"; find . -maxdepth 1 -name "*.txt"; which python node`;
+const shellCandidates = [
+  { label: "mingit", dir: mingitDir, shell: ["usr", "bin", "sh.exe"] },
+  {
+    label: "portablegit",
+    dir: process.env.SMOKE_PORTABLEGIT_DIR ?? "",
+    shell: ["bin", "bash.exe"],
+  },
+];
+for (const candidate of shellCandidates) {
+  test(`clean Windows + ${candidate.label} as shellPath: bash tool (fix candidate)`, async () => {
+    test.skip(
+      process.platform !== "win32" || !candidate.dir,
+      `needs ${candidate.label} on Windows`,
+    );
+    let launched: Launched | undefined;
+    try {
+      launched = await launch(candidate.label, {
+        hideGitBash: true,
+        prependPath: [join(candidate.dir, "cmd")],
+        shellPath: join(candidate.dir, ...candidate.shell),
+        bashCommand: AGENT_COMMAND,
+      });
+      await startHost(launched.page);
+      const bash = await runBashTurn(launched, candidate.label);
+      if (!bash.ok) {
+        test.info().annotations.push({
+          type: `${candidate.label}-bash`,
+          description: bash.result.slice(0, 2000),
+        });
+      }
+    } finally {
+      if (launched) await shot(launched.page, `99-${candidate.label}-final`);
+      await close(launched);
     }
-  } finally {
-    if (launched) await shot(launched.page, "99-mingit-final");
-    await close(launched);
-  }
-});
+  });
+}
