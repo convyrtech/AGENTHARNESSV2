@@ -85,10 +85,19 @@ function envProfile(): HarnessProfile | undefined {
   return PROFILES.find((profile) => profile === value);
 }
 
+/**
+ * Таймаут bash из PRSLOY_BASH_TIMEOUT_SEC (секунды). Нужен там, где настроек нет: загрузка по пути и
+ * smoke-проверка установленного приложения с коротким таймаутом.
+ */
+function envBashTimeout(): number | undefined {
+  const value = Number(process.env.PRSLOY_BASH_TIMEOUT_SEC);
+  return Number.isFinite(value) && value > 0 ? value : undefined;
+}
+
 export function resolveOptions(options: HarnessOptions = {}): ResolvedOptions {
   return {
     profile: options.profile ?? envProfile() ?? "code",
-    bashTimeoutSec: options.bashTimeoutSec ?? 120,
+    bashTimeoutSec: options.bashTimeoutSec ?? envBashTimeout() ?? 120,
     bashMaxTimeoutSec: options.bashMaxTimeoutSec ?? 600,
     loopWarnAt: options.loopWarnAt ?? 3,
     loopAbortAt: options.loopAbortAt ?? 5,

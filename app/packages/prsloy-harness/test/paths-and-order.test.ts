@@ -42,3 +42,20 @@ describe("handler order in createPrsloyHarness", () => {
     expect(result?.text).toContain("Дальше: read с offset=");
   });
 });
+
+describe("options from env (loading by path, smoke)", () => {
+  it("PRSLOY_BASH_TIMEOUT_SEC sets the default bash timeout; explicit options win", async () => {
+    const { resolveOptions } = await import("../src/options.ts");
+    const before = process.env.PRSLOY_BASH_TIMEOUT_SEC;
+    try {
+      process.env.PRSLOY_BASH_TIMEOUT_SEC = "5";
+      expect(resolveOptions().bashTimeoutSec).toBe(5);
+      expect(resolveOptions({ bashTimeoutSec: 30 }).bashTimeoutSec).toBe(30);
+      process.env.PRSLOY_BASH_TIMEOUT_SEC = "nope";
+      expect(resolveOptions().bashTimeoutSec).toBe(120);
+    } finally {
+      if (before === undefined) delete process.env.PRSLOY_BASH_TIMEOUT_SEC;
+      else process.env.PRSLOY_BASH_TIMEOUT_SEC = before;
+    }
+  });
+});
