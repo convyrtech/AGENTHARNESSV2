@@ -218,9 +218,10 @@ git ищет пути от корня внешнего репо. В прилож
 
 ## Этап 3: шаг 1 — наборы приёмов вместо чужих роликов
 
-**Готово к слиянию (ready to merge)** — после зелёного `design-windows` на этой ветке (числа ниже).
+**Готово к слиянию (ready to merge).**
 
 ### Что сделано
+
 - **`playbooks/site/harness/moves.py`** (stdlib + Pillow + Playwright, как `moves_sheet.py`).
   - **`candidates --page design/<p>`:**
     - токены из `02-brand.md` (`--paper/--ink/--accent…`), иначе из палитры материалов: `palette.py` по
@@ -251,11 +252,13 @@ git ищет пути от корня внешнего репо. В прилож
 - **Второе мнение на шаге 1:** `distinct` остаётся. `no_empty` и `no_broken` теперь **проверяются**:
   кадры — наши, а жалоба живого прогона была на почти пустой кадр.
 - **Приложение:** в инструменты дизайна добавлен `imageio-ffmpeg==0.6.0` (ffmpeg для видео, у владельца
-  его нет; колесо win_amd64 — 31 МБ). Текст первого захода — WINDOWS_NUMBERS.
+  его нет; колесо win_amd64 — 31 МБ). Текст первого захода по замеру windows-latest: «скачаю ~90 МБ, на диске ~300 МБ» (venv 302 МБ, установка 18 с).
 
 ### Отличие от задания
+
 Наборы по умолчанию из задания нарушают его же правило «ровно один главный приём»: в B
 (slotLift + stamp + morph) главного нет, в C (director + trailDot + lineWord) их три. Поэтому:
+
 - A — ringHead + odometer + stepsRail, как в задании;
 - B «Выдача с печатью» — lineWord + slotLift + stamp;
 - C «Тропа к кнопке» — trailDot + morph.
@@ -263,6 +266,7 @@ git ищет пути от корня внешнего репо. В прилож
 Общих приёмов между наборами нет. director и shutter агент может взять в своём `packs.json`.
 
 ### Как проверено (этап 3)
+
 - `playbooks/site/harness/tests/test_moves.py`: 8 тестов.
   - Правила наборов, слова (ключи совпадают с `data-w` демо), токены из палитры и из `02-brand.md`.
   - С `MOVES_PIPELINE` (пропатченная копия пайплайна) — весь шаг 1 в «Иван Петров/сайт»: `run.py init` →
@@ -271,7 +275,7 @@ git ищет пути от корня внешнего репо. В прилож
 - **Лист для PRSLOY** (токены кабинета, слова PRSLOY): `screens/design-moves-candidates.png`.
   Видео: A 41 КБ, B 30 КБ, C 18 КБ (700 px, 3,7–5,3 с).
 - `design-smoke.mts` (Linux): 11/11, включая `moves.py` candidates + pick и юнит-тесты харнесса.
-- `design-windows`: WINDOWS_RESULT
+- `design-windows` на windows-latest: 11/11 ok, run 40153955792 (`e60ac6e`). Edge 155 + imageio-ffmpeg: `moves.py candidates` 47 с, видео 41/27/19 КБ; `pick` 5 с, 21 кадр; юнит-тесты харнесса ok; venv 302 МБ, установка 18 с.
 - `pnpm check` — pass; `pnpm test` (desktop) — 844 теста.
 
 ## Не сделано / нужно от других

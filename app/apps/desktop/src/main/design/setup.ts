@@ -23,12 +23,12 @@ export const DESIGN_PACKAGES = [
   "imageio-ffmpeg==0.6.0",
 ] as const;
 /**
- * Measured on windows-latest (design-windows.yml): win_amd64 cp312 wheels download 59 MB
- * (playwright ≈ 39 with its driver, numpy ≈ 13, pillow ≈ 7, fonttools + deps ≈ 3); the venv
- * takes 214 MB on disk; the whole setup ran in 18 s on the runner's network.
+ * Measured on windows-latest (design-windows.yml): win_amd64 cp312 wheels download 90 MB
+ * (playwright ≈ 39 with its driver, imageio-ffmpeg ≈ 31, numpy ≈ 13, pillow ≈ 7, fonttools + deps ≈ 3);
+ * the venv takes 302 MB on disk; the whole setup ran in 18 s on the runner's network.
  */
-export const DESIGN_SETUP_MB = 60;
-export const DESIGN_DISK_MB = 215;
+export const DESIGN_SETUP_MB = 90;
+export const DESIGN_DISK_MB = 300;
 const STAMP = "tools.json";
 
 export type ToolsStamp = { packages: string[]; python: string };
