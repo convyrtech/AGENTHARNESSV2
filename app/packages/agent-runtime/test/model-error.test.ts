@@ -100,12 +100,34 @@ describe("classifyModelError on pi's real failures", () => {
       [401, '{"error":{"message":"invalid api key"}}', "auth"],
       [402, '{"error":{"message":"insufficient balance"}}', "no_balance"],
       [429, '{"error":{"message":"rate limited"}}', "rate_limit"],
+      [
+        404,
+        '{"error":{"message":"The model `qwen9` does not exist","type":"invalid_request_error","code":"model_not_found"}}',
+        "model_unavailable",
+      ],
       [502, "<html>bad gateway</html>", "server"],
     ];
     for (const [status, body, code] of cases) {
       const { text } = await piErrorFor(json(status, body));
       expect(classifyModelError(text, "error"), text).toBe(code);
     }
+  });
+
+  it("a wrong base URL (plain 404 Not Found) is not mistaken for a key problem", async () => {
+    const { text } = await piErrorFor((_req, res) => {
+      res.writeHead(404, { "content-type": "text/plain" });
+      res.end("Not Found");
+    });
+    const code = classifyModelError(text, "error");
+    expect(code, text).not.toBe("auth");
+    expect(code, text).toBe("model_unavailable");
+  });
+
+  it("model errors in a 400/200-ish body are recognised by text", () => {
+    expect(classifyModelError("400 no such model: kimi-x", "error")).toBe("model_unavailable");
+    expect(classifyModelError("model not available on this gateway", "error")).toBe(
+      "model_unavailable",
+    );
   });
 
   it("covers aborts, timeouts and unknown text", () => {

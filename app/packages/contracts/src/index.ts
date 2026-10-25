@@ -343,6 +343,7 @@ export type RuntimeEvent =
         | "auth"
         | "no_balance"
         | "rate_limit"
+        | "model_unavailable"
         | "server"
         | "aborted"
         | "unknown";
@@ -2754,6 +2755,7 @@ function isRuntimeEvent(value: unknown): value is RuntimeEvent {
               "auth",
               "no_balance",
               "rate_limit",
+              "model_unavailable",
               "server",
               "aborted",
               "unknown",

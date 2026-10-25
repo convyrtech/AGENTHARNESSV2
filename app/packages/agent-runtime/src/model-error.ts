@@ -12,6 +12,8 @@ export type ModelErrorCode =
   | "auth"
   | "no_balance"
   | "rate_limit"
+  /** The gateway doesn't know / doesn't serve the requested model (404, model_not_found). */
+  | "model_unavailable"
   | "server"
   | "aborted"
   | "unknown";
@@ -28,12 +30,16 @@ export function classifyModelError(
     if (code === 401 || code === 403) return "auth";
     if (code === 402) return "no_balance";
     if (code === 429) return "rate_limit";
+    if (code === 404) return "model_unavailable";
     if (code === 408 || code === 504) return "timeout";
     if (code >= 500) return "server";
   }
   if (/insufficient (balance|funds|quota)|out of credits|balance/iu.test(text)) return "no_balance";
   if (/invalid api key|unauthori[sz]ed|forbidden/iu.test(text)) return "auth";
   if (/rate.?limit|too many requests/iu.test(text)) return "rate_limit";
+  if (/model_not_found|does not exist|no such model|model (is )?not available/iu.test(text)) {
+    return "model_unavailable";
+  }
   if (/timed? ?out|timeout|ETIMEDOUT/iu.test(text)) return "timeout";
   if (
     /^connection error|^terminated$|связь с моделью оборвалась|prsloy_stream_interrupted|ECONNREFUSED|ECONNRESET|ENOTFOUND|EAI_AGAIN|socket hang up|fetch failed|network|getaddrinfo|other side closed/iu.test(

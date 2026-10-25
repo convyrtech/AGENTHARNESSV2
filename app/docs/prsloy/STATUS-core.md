@@ -508,6 +508,14 @@ add/delete`, `dd of=`, `mkfs`, `diskpart`, `bcdedit`.
 - Харнесс экспортирует `resolveToolPath`: одна строка в `@prsloy/harness/src/index.ts`, чтобы
   пути разрешались одинаково.
 
+### 23. Код ошибки `model_unavailable`
+
+- `message.failed.code: "model_unavailable"` (agent-runtime `classifyModelError`, contracts,
+  валидатор): HTTP 404, `model_not_found`, «does not exist», «no such model», «model not
+  available». Тесты: 404 с телом в стиле a6 → `model_unavailable`; голый 404 «Not Found»
+  (неверный base URL) → тоже `model_unavailable`, не `auth`. Неверный base URL ловит ещё
+  проверка ключа (`/v1/models`) при вводе.
+
 ## Как проверено (Linux, без ключа шлюза)
 
 - `pnpm check` чистый. `pnpm test` (корень) зелёный:
