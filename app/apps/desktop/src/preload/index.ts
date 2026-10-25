@@ -36,6 +36,7 @@ const api: ZenoDesktopApi = {
     setBaseUrl: (baseUrl) => ipcRenderer.invoke("prsloy:set-base-url", baseUrl),
     listTurns: (options) => ipcRenderer.invoke("prsloy:list-turns", options),
     undoTurn: (snapshotId) => ipcRenderer.invoke("prsloy:undo-turn", snapshotId),
+    saveSupportReport: () => ipcRenderer.invoke("prsloy:support-report"),
   },
   app: {
     getRuntime: () => ipcRenderer.invoke("zeno:app:get-runtime"),

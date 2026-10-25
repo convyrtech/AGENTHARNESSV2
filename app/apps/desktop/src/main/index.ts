@@ -1,5 +1,6 @@
 // First: userData → <appData>/PRSLOY (one-time move of the old profile) before any getPath.
 import "./prsloy/user-data-electron.ts";
+import { SUPPORT_LOG_DIR } from "./prsloy/support/startup.ts";
 import {
   IPC_PROTOCOL_VERSION,
   type ExtensionUiResponse,
@@ -66,7 +67,6 @@ import {
   existsSync,
   mkdirSync,
   lstatSync,
-  statSync,
   readdirSync,
 } from "node:fs";
 import { homedir } from "node:os";
@@ -144,11 +144,12 @@ import {
   type BundledRuntimePrefs,
 } from "./bundled-runtimes.ts";
 import { electronFetch, initPrsloy, logStartupTiming } from "./prsloy/electron.ts";
+import { saveSupportReport, SUPPORT_REPORT_IPC } from "./prsloy/support/electron.ts";
 import {
   guardIpcMain,
   isAppNavigation,
   type IpcLike,
-  openPathAction,
+  openFileSafely,
   permissionAllowed,
 } from "./prsloy/hardening.ts";
 import { RuntimeBoot } from "./prsloy/runtime-boot.ts";
@@ -4829,6 +4830,15 @@ void app
       return saved;
     });
     ipcMain.handle("zeno:proxy:discover-local", () => discoverLocalProxies());
+    ipcMain.handle(SUPPORT_REPORT_IPC, () =>
+      saveSupportReport({
+        ctx: prsloy,
+        logDir: SUPPORT_LOG_DIR,
+        piVersion: () => resolveBuiltinSdkCached().version,
+        appScale: () => loadDesktopPrefs().appScale,
+        runtimes: () => ({ boot: runtimeBoot.state(), bundled: getActiveBundledRuntimeStatus() }),
+      }),
+    );
     registerPrsloyIpc(ipcMain, {
       ctx: prsloy,
       fetch: electronFetch,
@@ -5171,24 +5181,7 @@ void app
     ipcMain.handle("zeno:workspace:open-file", async (event, path: string) => {
       assertTrustedSender(event);
       if (typeof path !== "string" || !path.trim()) throw new Error("Invalid file path");
-      // Agent replies link files: an executable or script is shown in its folder, not run.
-      let info: { isDirectory: boolean; isExecutableFile: boolean } | undefined;
-      try {
-        const stat = statSync(path);
-        info = {
-          isDirectory: stat.isDirectory(),
-          isExecutableFile:
-            process.platform !== "win32" && stat.isFile() && (stat.mode & 0o111) !== 0,
-        };
-      } catch {
-        info = undefined;
-      }
-      if (openPathAction(path, info) === "reveal") {
-        shell.showItemInFolder(path);
-        return;
-      }
-      const error = await shell.openPath(path);
-      if (error) throw new Error(error);
+      await openFileSafely(path, shell);
     });
     ipcMain.handle("zeno:workspace:open-external", async (event, url: string) => {
       assertTrustedSender(event);

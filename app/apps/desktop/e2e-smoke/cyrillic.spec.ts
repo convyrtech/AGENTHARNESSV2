@@ -17,6 +17,7 @@ import { existsSync } from "node:fs";
 import { mkdtemp, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { readZip } from "../src/main/prsloy/support/read-zip.ts";
 import {
   HARNESS_HEADER,
   beforeAllSmoke,
@@ -137,6 +138,18 @@ test("Cyrillic profile + project: runtimes, Git, bash cd, python3 привет, 
         .then((state) => state.gitSetup.status)
         .catch((error: unknown) => `getState failed: ${String(error)}`);
       ru.check("PortableGit unpacked", gitStatus === "ready", String(gitStatus));
+    }
+    // Support report (stage 7): saved locally, the profile name never inside it.
+    const saved = await page.evaluate(() => window.zeno.prsloy.saveSupportReport());
+    expect(saved.ok, JSON.stringify(saved)).toBe(true);
+    if (saved.ok) {
+      const files = readZip(await readFile(saved.path));
+      const all = Buffer.concat([...files.values()]);
+      await writeMetrics({ supportReport: { name: saved.name, files: [...files.keys()] } });
+      expect([...files.keys()]).toContain("report.json");
+      for (const leak of ["Иван", "Петров"]) {
+        expect(all.includes(Buffer.from(leak, "utf8")), `${leak} in the report`).toBe(false);
+      }
     }
     ru.check(
       "no renderer errors",

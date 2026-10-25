@@ -11,6 +11,7 @@
  * - Opening files: executables and scripts are revealed in the folder, never launched —
  *   a file link in an agent reply must not run code on click.
  */
+import { statSync } from "node:fs";
 import { extname } from "node:path";
 
 /** Same page (ignoring query/hash) as the one the window was loaded with. */
@@ -64,6 +65,30 @@ export function openPathAction(
   if (options.isDirectory) return "open";
   if (options.isExecutableFile) return "reveal";
   return EXECUTABLE_EXTENSIONS.has(extname(path).toLowerCase()) ? "reveal" : "open";
+}
+
+/** Open a file the way the user expects, but reveal executables instead of running them. */
+export async function openFileSafely(
+  path: string,
+  shell: { openPath(path: string): Promise<string>; showItemInFolder(path: string): void },
+  platform: NodeJS.Platform = process.platform,
+): Promise<void> {
+  let info: { isDirectory: boolean; isExecutableFile: boolean } | undefined;
+  try {
+    const stat = statSync(path);
+    info = {
+      isDirectory: stat.isDirectory(),
+      isExecutableFile: platform !== "win32" && stat.isFile() && (stat.mode & 0o111) !== 0,
+    };
+  } catch {
+    info = undefined;
+  }
+  if (openPathAction(path, info) === "reveal") {
+    shell.showItemInFolder(path);
+    return;
+  }
+  const error = await shell.openPath(path);
+  if (error) throw new Error(error);
 }
 
 type IpcListener = (event: unknown, ...args: unknown[]) => unknown;

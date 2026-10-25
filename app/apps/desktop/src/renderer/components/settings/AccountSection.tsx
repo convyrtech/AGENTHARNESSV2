@@ -9,6 +9,7 @@ import type { MessageKey } from "../../lib/i18n.ts";
 import { normalizeRubPerUsd, saveCasualPrefs } from "../../lib/casual-prefs.ts";
 import { cleanPastedKey, gatewayErrorKey } from "../../lib/prsloy-first-run.ts";
 import { useCasualPrefs } from "../../hooks/useCasualPrefs.ts";
+import { SupportReportRow } from "../prsloy/SupportReportRow.tsx";
 import {
   SettingsButton,
   SettingsInput,
@@ -242,6 +243,9 @@ export function AccountSection(props: { tr: Tr }) {
       ) : null}
       <SettingsSectionBlock label={tr("prsloy.settings.money")} testId="settings-account-money">
         <RubRateRow tr={tr} />
+      </SettingsSectionBlock>
+      <SettingsSectionBlock label={tr("prsloy.support.group")} testId="settings-account-support">
+        <SupportReportRow tr={tr} />
       </SettingsSectionBlock>
     </SettingsPageShell>
   );
