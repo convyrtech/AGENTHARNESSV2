@@ -4,6 +4,21 @@
 import type { featuresZh } from "./features.zh.ts";
 
 export const featuresEn: Record<keyof typeof featuresZh, string> = {
+  "features.history.open": "Version history",
+  "features.history.title": "Version history",
+  "features.history.hint":
+    "The project's files are saved before every request. Go back to how they were before any of them.",
+  "features.history.empty": "No versions yet: they appear after the first request.",
+  "features.history.loading": "Loading…",
+  "features.history.beforeUndo": "Before an undo",
+  "features.history.noText": "(no text)",
+  "features.history.today": "today {time}",
+  "features.history.yesterday": "yesterday {time}",
+  "features.history.restore": "Restore",
+  "features.history.confirmTitle": "Go back to this version?",
+  "features.history.confirmMessage":
+    "Files return to how they were before “{what}”. The current state is kept in the history, so you can come back.",
+  "features.history.close": "Close",
   "features.zip.action": "Download archive",
   "features.zip.saved": "Archive saved: {name}",
   "features.zip.empty": "There are no files in the project to pack.",

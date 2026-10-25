@@ -4,6 +4,21 @@
 import type { featuresZh } from "./features.zh.ts";
 
 export const featuresRu: Record<keyof typeof featuresZh, string> = {
+  "features.history.open": "История версий",
+  "features.history.title": "История версий",
+  "features.history.hint":
+    "Перед каждой просьбой файлы проекта сохраняются. Можно вернуть их как были до любой из них.",
+  "features.history.empty": "Версий пока нет: они появятся после первой просьбы.",
+  "features.history.loading": "Загружаю…",
+  "features.history.beforeUndo": "Перед откатом",
+  "features.history.noText": "(без текста)",
+  "features.history.today": "сегодня {time}",
+  "features.history.yesterday": "вчера {time}",
+  "features.history.restore": "Вернуть",
+  "features.history.confirmTitle": "Вернуть эту версию?",
+  "features.history.confirmMessage":
+    "Файлы станут как до «{what}». Нынешнее состояние останется в истории — его тоже можно вернуть.",
+  "features.history.close": "Закрыть",
   "features.zip.action": "Скачать архив",
   "features.zip.saved": "Архив сохранён: {name}",
   "features.zip.empty": "В проекте нет файлов для архива.",

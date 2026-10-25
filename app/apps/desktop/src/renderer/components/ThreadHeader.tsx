@@ -6,6 +6,7 @@ import type { SessionThreadSummary } from "@zeno/contracts";
 import {
   Archive,
   Copy,
+  History,
   Layers,
   MessageSquare,
   MoreHorizontal,
@@ -44,6 +45,7 @@ import { useCasualPrefs } from "../hooks/useCasualPrefs.ts";
 import { anchorFromEvent, FloatingMenu, type AnchorRect } from "./FloatingMenu.tsx";
 import { ConfirmDialog } from "./ConfirmDialog.tsx";
 import { RenameDialog } from "./RenameDialog.tsx";
+import { VersionHistoryDialog } from "./VersionHistoryDialog.tsx";
 
 /** @deprecated use notifyThreadPrefsChanged from project-prefs — re-export for callers. */
 export { notifyThreadPrefsChanged };
@@ -81,6 +83,8 @@ export function ThreadHeader(props: {
   const [aliases, setAliases] = useState(loadThreadAliases);
   const [renameOpen, setRenameOpen] = useState(false);
   const [archiveConfirmOpen, setArchiveConfirmOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const running = useShellStore((s) => s.running);
 
   const threadId = props.thread?.id ?? props.sessionId;
   const pinned = threadId ? isPinnedThread(threadId, pinnedIds) : false;
@@ -378,6 +382,18 @@ export function ThreadHeader(props: {
         testId="thread-header-context-menu"
         minWidth={200}
       >
+        {props.thread?.cwd || props.workspacePath ? (
+          <MenuItem
+            icon={<History className="size-3.5" strokeWidth={1.75} />}
+            label={tr("features.history.open")}
+            onClick={() => {
+              closeMenu();
+              // Defer so the menu's unmount does not swallow the dialog's focus.
+              window.setTimeout(() => setHistoryOpen(true), 0);
+            }}
+            testId="thread-header-history"
+          />
+        ) : null}
         <MenuItem
           icon={
             pinned ? (
@@ -443,6 +459,12 @@ export function ThreadHeader(props: {
         testId="thread-header-rename-dialog"
         onConfirm={handleRenameConfirm}
         onCancel={() => setRenameOpen(false)}
+      />
+      <VersionHistoryDialog
+        locale={props.locale}
+        open={historyOpen}
+        running={running}
+        onClose={() => setHistoryOpen(false)}
       />
     </>
   );

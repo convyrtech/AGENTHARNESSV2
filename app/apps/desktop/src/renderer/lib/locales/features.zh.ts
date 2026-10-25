@@ -3,6 +3,20 @@
  * into the locale table; `zh` is the key source.
  */
 export const featuresZh = {
+  "features.history.open": "版本历史",
+  "features.history.title": "版本历史",
+  "features.history.hint": "每次请求前都会保存项目文件。可以回到任意一次请求之前的状态。",
+  "features.history.empty": "还没有版本：第一次请求之后就会出现。",
+  "features.history.loading": "正在加载…",
+  "features.history.beforeUndo": "撤销之前",
+  "features.history.noText": "（无文字）",
+  "features.history.today": "今天 {time}",
+  "features.history.yesterday": "昨天 {time}",
+  "features.history.restore": "恢复",
+  "features.history.confirmTitle": "恢复到这个版本？",
+  "features.history.confirmMessage":
+    "文件将恢复到「{what}」之前的样子。当前状态会保存在历史中，可以再恢复。",
+  "features.history.close": "关闭",
   "features.zip.action": "下载压缩包",
   "features.zip.saved": "压缩包已保存：{name}",
   "features.zip.empty": "项目里没有可打包的文件。",
