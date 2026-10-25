@@ -17,7 +17,9 @@ import {
   lstatSync,
   mkdirSync,
   readFileSync,
+  linkSync,
   readdirSync,
+  renameSync,
   rmSync,
   statSync,
   symlinkSync,
@@ -132,6 +134,61 @@ export function searchToolsDistMeta(target, versions) {
     });
   }
   return out;
+}
+
+/**
+ * Replace byte-identical files with hard links (git's builtins under libexec/git-core are
+ * ~100 copies of the same binaries once the 7z SFX materializes them). tar then stores
+ * each link once and recreates it on extract, which shrinks git.tar.gz a lot.
+ * @param {string} root
+ * @param {number} [minBytes]
+ * @returns {number} bytes saved
+ */
+export function dedupeIdenticalFiles(root, minBytes = 64 * 1024) {
+  if (!root || !existsSync(root)) return 0;
+  /** @type {Map<number, string[]>} */
+  const bySize = new Map();
+  const stack = [root];
+  while (stack.length) {
+    const dir = stack.pop();
+    if (!dir) continue;
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const full = join(dir, entry.name);
+      if (entry.isDirectory()) stack.push(full);
+      else if (entry.isFile()) {
+        const { size } = statSync(full);
+        if (size < minBytes) continue;
+        const list = bySize.get(size) ?? [];
+        list.push(full);
+        bySize.set(size, list);
+      }
+    }
+  }
+  let saved = 0;
+  for (const [size, paths] of bySize) {
+    if (paths.length < 2) continue;
+    /** @type {Map<string, string>} */
+    const firstByHash = new Map();
+    for (const path of paths) {
+      const hash = createHash("sha256").update(readFileSync(path)).digest("hex");
+      const first = firstByHash.get(hash);
+      if (!first) {
+        firstByHash.set(hash, path);
+        continue;
+      }
+      if (statSync(first).ino === statSync(path).ino && statSync(path).ino !== 0) continue;
+      const tmp = `${path}.dedupe-tmp`;
+      try {
+        linkSync(first, tmp);
+        rmSync(path, { force: true });
+        renameSync(tmp, path);
+        saved += size;
+      } catch {
+        rmSync(tmp, { force: true });
+      }
+    }
+  }
+  return saved;
 }
 
 /**
@@ -812,8 +869,9 @@ async function fetchOne(target, versions, force) {
     extractSevenZipSfx(gitArchive, gitDest);
     const before = dirSizeBytes(gitDest);
     pruneGitRuntime(gitDest);
+    const deduped = dedupeIdenticalFiles(gitDest);
     console.log(
-      `[fetch-runtimes] git ${versions.git} sha256=${sha256File(gitArchive)} extracted=${formatMb(before)} pruned=${formatMb(dirSizeBytes(gitDest))}`,
+      `[fetch-runtimes] git ${versions.git} sha256=${sha256File(gitArchive)} extracted=${formatMb(before)} pruned=${formatMb(dirSizeBytes(gitDest))} hardlinked=${formatMb(deduped)}`,
     );
     if (!existsSync(join(gitDest, "bin", "bash.exe"))) {
       throw new Error(`PortableGit bash.exe missing after extract (${gitDest})`);
@@ -1013,6 +1071,29 @@ function materializeCurrent(platformDir) {
   console.log(`[fetch-runtimes] materialised ${current} (copy)`);
 }
 
+/**
+ * Windows host: unpack the shipped git.tar.gz exactly like first launch does (System32
+ * bsdtar) and run its bash, so a broken archive (e.g. hard links) fails the build.
+ * @param {string} platformDir
+ */
+function verifyGitArchiveRoundTrip(platformDir) {
+  const archive = join(platformDir, "archives", "git.tar.gz");
+  if (process.platform !== "win32" || !existsSync(archive)) return;
+  const dest = join(tmpdir(), `zeno-git-roundtrip-${Date.now()}`);
+  mkdirSync(dest, { recursive: true });
+  try {
+    runTar(["-xzf", archive, "-C", dest], { stdio: "ignore" });
+    const out = execFileSync(
+      join(dest, "git", "bin", "bash.exe"),
+      ["-c", "git --version && echo roundtrip-ok"],
+      { encoding: "utf8" },
+    ).trim();
+    console.log(`[fetch-runtimes] git archive round trip: ${out.replace(/\s+/g, " ")}`);
+  } finally {
+    rmSync(dest, { recursive: true, force: true });
+  }
+}
+
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   const versions = loadVersions();
@@ -1022,6 +1103,7 @@ async function main() {
   );
   const result = await fetchOne(target, versions, args.force);
   materializeCurrent(result.platformDir);
+  verifyGitArchiveRoundTrip(result.platformDir);
   console.log("[fetch-runtimes] done");
 }
 

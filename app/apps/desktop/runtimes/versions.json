@@ -5,5 +5,6 @@
   "git": "2.51.0",
   "gitTag": "v2.51.0.windows.1",
   "ripgrep": "14.1.1",
-  "fd": "10.2.0"
+  "fd": "10.2.0",
+  "gitSha256": "a09b275d51ed3e829128e04cf4168fb54896cf6234bb30fecb8dc96a2bd321fa"
 }

@@ -2,11 +2,20 @@
  * Unit tests for fetch-runtimes pure helpers + prune (no network).
  * Run: node apps/desktop/scripts/fetch-runtimes.test.mjs
  */
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync, existsSync } from "node:fs";
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+  existsSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import {
+  dedupeIdenticalFiles,
   gitDistMeta,
   loadVersions,
   nodeDistMeta,
@@ -303,6 +312,35 @@ function assertEqual(actual, expected, message) {
     assertEqual(man.archives?.git, "archives/git.tar.gz", "manifest git archive path");
     assertEqual(man.archives?.tools, "archives/tools.tar.gz", "manifest tools archive path");
     assertEqual(man.archives?.python, undefined, "no python archive without python/");
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+}
+
+// ── dedupeIdenticalFiles hard-links identical big files only ───────────────
+{
+  const root = mkdtempSync(join(tmpdir(), "zeno-dedupe-"));
+  try {
+    const big = "x".repeat(100 * 1024);
+    mkdirSync(join(root, "a"), { recursive: true });
+    writeFileSync(join(root, "git.exe"), big);
+    writeFileSync(join(root, "a", "git-add.exe"), big);
+    writeFileSync(join(root, "a", "other.exe"), "y".repeat(100 * 1024));
+    writeFileSync(join(root, "small1"), "s");
+    writeFileSync(join(root, "small2"), "s");
+    const saved = dedupeIdenticalFiles(root);
+    assertEqual(saved, 100 * 1024, "dedupe saved bytes");
+    assertEqual(
+      statSync(join(root, "git.exe")).ino,
+      statSync(join(root, "a", "git-add.exe")).ino,
+      "identical files share an inode",
+    );
+    assert(
+      statSync(join(root, "a", "other.exe")).ino !== statSync(join(root, "git.exe")).ino,
+      "different content untouched",
+    );
+    assertEqual(readFileSync(join(root, "a", "git-add.exe"), "utf8"), big, "content intact");
+    assertEqual(dedupeIdenticalFiles(root), 0, "second pass is a no-op");
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
