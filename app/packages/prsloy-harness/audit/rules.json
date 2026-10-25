@@ -22,12 +22,13 @@
     },
     {
       "id": "materials-raster",
-      "title": "скриншот из материалов владельца вставлен в страницу вместо своей вёрстки",
+      "title": "скриншот из материалов владельца вставлен в страницу картинкой вместо своей вёрстки",
       "surface": "design",
       "class": "K3",
       "type": "write-forbid",
       "path": "\\.html?$",
-      "pattern": "materials/[^\"')\\s]+\\.(?:png|jpe?g|webp)"
+      "pattern": "(?:src|href|srcset)\\s*=\\s*[\"'][^\"']*materials/[^\"']+\\.(?:png|jpe?g|webp)[\"']|url\\(\\s*[\"']?[^)\"']*materials/[^)\"']+\\.(?:png|jpe?g|webp)",
+      "copiedFrom": "materials/"
     }
   ]
 }
