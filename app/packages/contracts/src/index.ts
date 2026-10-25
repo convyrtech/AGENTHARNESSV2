@@ -6,6 +6,7 @@ import type { FeaturesApi } from "./features.ts";
 export type * from "./features.ts";
 import type { MemoryApi } from "./memory.ts";
 export type * from "./memory.ts";
+export type * from "./honesty.ts";
 import type { PrsloyDesktopApi } from "./prsloy.ts";
 export type * from "./prsloy.ts";
 export const IPC_PROTOCOL_VERSION = 1 as const;
