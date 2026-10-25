@@ -27,6 +27,8 @@ PY = sys.executable
 STEPS = '[("0a", "0a"), ("1", "1"), ("2a", "2a"), ("3", "3"), ("5", "5s"), ("5", "5"), ("6", None), ("7", None), ("8", "8")]'
 
 STUB_FLOW = '''import json, sys
+for _s in (sys.stdout, sys.stderr):  # Windows: cp1252 pipe under -I
+    _s.reconfigure(encoding="utf-8", errors="replace")
 from pathlib import Path
 STEPS = %s
 a = sys.argv[1:]
@@ -37,7 +39,7 @@ if "--init" in a:
                                     "- Материалы владельца: ?\\n- Эталон:\\n", encoding="utf-8")
     print("flow: init")
     sys.exit(0)
-st = json.loads((page / "stub.json").read_text()) if (page / "stub.json").exists() else {"idx": 0}
+st = json.loads((page / "stub.json").read_text(encoding="utf-8")) if (page / "stub.json").exists() else {"idx": 0}
 i = st["idx"]
 if i >= len(STEPS):
     res = {"exit": 0, "done": [g for g, _ in STEPS]}
@@ -51,6 +53,8 @@ sys.exit(res["exit"])
 ''' % STEPS
 
 STUB_PI = '''import json, sys
+for _s in (sys.stdout, sys.stderr):
+    _s.reconfigure(encoding="utf-8", errors="replace")
 from pathlib import Path
 STEPS = %s
 a = sys.argv[1:]
@@ -61,11 +65,11 @@ with open(session, "a", encoding="utf-8") as f:
     f.write(json.dumps({"model": model, "prompt": text[:300]}, ensure_ascii=False) + "\\n")
 page = Path.cwd() / "design" / "landing"
 stf = page / "stub.json"
-st = json.loads(stf.read_text()) if stf.exists() else {"idx": 0}
+st = json.loads(stf.read_text(encoding="utf-8")) if stf.exists() else {"idx": 0}
 st.setdefault("asked", -1); st.setdefault("asked_n", 0); st.setdefault("repeated", [])
 n = len((Path.cwd() / "owner" / "messages.jsonl").read_text(encoding="utf-8").splitlines())
 rf = Path(__file__).with_name("repeat.txt")
-repeat = rf.read_text().strip() if rf.exists() else ""
+repeat = rf.read_text(encoding="utf-8").strip() if rf.exists() else ""
 final = ""
 while st["idx"] < len(STEPS):
     i = st["idx"]
@@ -85,7 +89,7 @@ while st["idx"] < len(STEPS):
         final = "гейт зелёный, осталась судья\\nЭТАП ГОТОВ"
         break
     st["idx"] += 1
-stf.write_text(json.dumps(st))
+stf.write_text(json.dumps(st), encoding="utf-8")
 call = {"type": "toolCall", "name": "bash", "arguments": {"command": "python3 -I design-pipeline/tools/flow.py #%%d" %% st["idx"]}}
 msg = {"role": "assistant", "content": [call, {"type": "text", "text": final}],
        "usage": {"input": 1000, "output": 100, "cacheRead": 0, "cost": {"total": 0.002}}}
@@ -93,6 +97,8 @@ print(json.dumps({"type": "message_end", "message": msg}, ensure_ascii=False))
 ''' % STEPS
 
 STUB_JUDGE = '''import sys
+for _s in (sys.stdout, sys.stderr):
+    _s.reconfigure(encoding="utf-8", errors="replace")
 from pathlib import Path
 a = sys.argv[1:]
 page = Path(a[a.index("--page") + 1])
@@ -183,7 +189,7 @@ class AB(unittest.TestCase):
 
     def test_orchestrator_run_follows_the_script(self):
         self.check_run(self.run_ws, self.run_rec, "run")
-        ledger = [json.loads(x) for x in (self.run_rec / "state" / "ledger.jsonl").read_text().splitlines()]
+        ledger = [json.loads(x) for x in (self.run_rec / "state" / "ledger.jsonl").read_text(encoding="utf-8").splitlines()]
         self.assertIn("judge", {r["kind"] for r in ledger})
         sessions = list((self.run_rec / "state" / "sessions").glob("*.jsonl"))
         self.assertGreater(len([s for s in sessions if not s.name.endswith(".events.jsonl")]), 5)  # fresh session per step
@@ -193,7 +199,7 @@ class AB(unittest.TestCase):
         sess = self.base_rec / "state" / "sessions"
         self.assertEqual(sorted(p.name for p in sess.glob("*.jsonl")), ["baseline.events.jsonl", "baseline.jsonl"])
         runs = [json.loads(x) for x in (sess / "baseline.jsonl").read_text(encoding="utf-8").splitlines()]
-        ledger = [json.loads(x) for x in (self.base_rec / "state" / "ledger.jsonl").read_text().splitlines()]
+        ledger = [json.loads(x) for x in (self.base_rec / "state" / "ledger.jsonl").read_text(encoding="utf-8").splitlines()]
         self.assertEqual(len(runs), sum(1 for r in ledger if r["kind"] in ("stage", "fix")))
         self.assertEqual({r["model"] for r in runs}, {"a6p/kimi-k3.1-pro"})
         self.assertIn("Ты ведёшь страницу design/landing целиком в этой сессии", runs[0]["prompt"])
@@ -230,7 +236,8 @@ class AB(unittest.TestCase):
         run = json.loads((rec / "run.json").read_text(encoding="utf-8"))
         self.assertEqual((run["stop"], run["turns"]), ("лимит ходов 3", 3))
         bad = subprocess.run([PY, str(self.h / "simulate.py"), "--driver", "run", "--ws", str(ws), "--record",
-                              str(ws / "rec"), "--pipeline", str(self.pipe)], capture_output=True, text=True)
+                              str(ws / "rec"), "--pipeline", str(self.pipe)], capture_output=True, text=True,
+                             encoding="utf-8")
         self.assertNotEqual(bad.returncode, 0)
         self.assertIn("агент увидит", bad.stderr)
 

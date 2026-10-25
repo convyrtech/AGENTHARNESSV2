@@ -374,6 +374,8 @@ const unit = run(py, ["-m", "unittest", "discover", "-s", join(HARNESS, "tests")
   env: harnessEnv,
 });
 check(unit.code === 0, `harness unit tests (${unit.out.trim().split("\n").slice(-3).join(" ")})`);
+// the summary line says only how many failed: the tracebacks go to the log
+if (unit.code !== 0) console.log(unit.out.trim().split("\n").slice(-120).join("\n"));
 
 report.failures = failures;
 writeFileSync(join(out, "design-smoke.json"), `${JSON.stringify(report, null, 2)}\n`);
