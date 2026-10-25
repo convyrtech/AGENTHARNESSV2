@@ -26,6 +26,19 @@ const PORT_PATTERNS = [
   /\bport\s*[:=]?\s*(\d{2,5})\b/gi,
 ];
 
+/**
+ * Смертельная строка в выводе запуска (порт занят, трассировка Python, необработанная ошибка Node): программа
+ * упала или работает сломанной. Первая такая строка или undefined.
+ */
+const FATAL_LINE =
+  /EADDRINUSE|address already in use|Traceback \(most recent call last\)|^\s*(?:Uncaught\s+)?(?:[A-Z]\w*)?(?:Error|Exception)(?:\s*\[\w+\])?:\s|^\s*node:internal\b|Segmentation fault|panicked at/im;
+
+export function fatalLine(output: string): string | undefined {
+  for (const line of output.split("\n"))
+    if (FATAL_LINE.test(line)) return line.trim().slice(0, 200);
+  return undefined;
+}
+
 export function detectPorts(text: string): number[] {
   const found = new Set<number>();
   for (const line of text.split("\n")) {

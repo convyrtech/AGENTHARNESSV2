@@ -5,6 +5,7 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import {
   describeProcess,
+  fatalLine,
   killPid,
   looksLikeServer,
   pidsListeningOn,
@@ -28,6 +29,9 @@ import { callSignature, recordEvent } from "./learning-log.ts";
 import { intervene } from "./lessons.ts";
 
 const SHELL_TOOLS = new Set(["bash", "powershell"]);
+/** Сколько ещё ждать после первого вывода фонового процесса, прежде чем сказать «работает». */
+export const BACKGROUND_GRACE_MS = 1_000;
+
 const TIMEOUT_LINE = /Command timed out after (\d+(?:\.\d+)?) seconds/;
 
 export function timeoutNote(seconds: string | number, maxSec: number): string {
@@ -259,8 +263,16 @@ export function installBashTimeout(pi: ExtensionAPI, opts: ResolvedOptions): Pro
     }),
     async execute(_id, params, _signal, _onUpdate, ctx) {
       const waitMs = Math.min(Math.max(params.wait_seconds ?? 4, 0.5), 30) * 1000;
-      const started = await registry.start(params.command, ctx.cwd, waitMs);
+      let started = await registry.start(params.command, ctx.cwd, waitMs);
+      // Порт в выводе будит раньше, а «address already in use» приходит следом: короткая пауза и ещё один взгляд,
+      // жив ли процесс (статус хода не скажет «запускал — работает» про упавший сервер).
+      if (started.exitCode === undefined) {
+        await new Promise((r) => setTimeout(r, BACKGROUND_GRACE_MS));
+        const now = registry.get(started.id);
+        if (now) started = { ...now, output: registry.logs(started.id) ?? started.output };
+      }
       const out = started.output.trim();
+      const fatal = fatalLine(out);
       return {
         content: [
           {
@@ -273,6 +285,9 @@ export function installBashTimeout(pi: ExtensionAPI, opts: ResolvedOptions): Pro
           pid: started.pid,
           ports: started.ports,
           logPath: started.logPath,
+          alive: started.exitCode === undefined,
+          ...(started.exitCode === undefined ? {} : { exitCode: started.exitCode }),
+          ...(fatal ? { fatal } : {}),
         },
       };
     },

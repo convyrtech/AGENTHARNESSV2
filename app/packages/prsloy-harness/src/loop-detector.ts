@@ -5,7 +5,7 @@ import { createHash } from "node:crypto";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { detectToolLeak } from "./tool-leak.ts";
 import type { ResolvedOptions } from "./options.ts";
-import { contentText, stableStringify } from "./text.ts";
+import { appendText, contentText, keepStructured, showCard, stableStringify } from "./text.ts";
 import { callSignature, recordEvent } from "./learning-log.ts";
 import { intervene } from "./lessons.ts";
 
@@ -82,6 +82,20 @@ export const PSEUDO_CALL_NOTE =
 export const LENGTH_NOTE =
   "Ответ дважды обрезан по длине, вызовы тулов из него не выполнены. Делай меньше за один вызов: создай файл коротким каркасом через write, потом дописывай частями через edit.";
 
+/** Сколько одинаковых падений bash подряд (та же команда, тот же код) — и ход останавливается. */
+export const SAME_FAIL_STOP = 3;
+
+export const SAME_FAIL_NOTE =
+  "[Эта команда упала 3 раза подряд с тем же кодом. Повтор не поможет: больше ничего не запускай. Коротко напиши пользователю, что не получилось, что ты видишь в ошибке и что нужно от него.]";
+
+export const SAME_FAIL_CARD =
+  "Одна и та же команда трижды упала с той же ошибкой — остановил, чтобы не тратить попытки";
+
+/** Код выхода из текста ошибки bash Pi («Command exited with code 1»); без него — просто «ошибка». */
+function exitCodeOf(text: string): string {
+  return /exited with code (\d+)/i.exec(text)?.[1] ?? /код (\d+)/.exec(text)?.[1] ?? "error";
+}
+
 export function installLoopDetector(pi: ExtensionAPI, opts: ResolvedOptions): void {
   let calls = new Map<string, CallRecord>();
   let epoch = 0;
@@ -89,6 +103,9 @@ export function installLoopDetector(pi: ExtensionAPI, opts: ResolvedOptions): vo
   let pseudoNudges = 0;
   let lengthStops = 0;
   let lastAssistantStop: string | undefined;
+  // Подряд упавшая та же команда bash (тот же код выхода); успешная правка или успешный bash обрывают серию.
+  let failStreak: { key: string; n: number } | undefined;
+  let stopNext = false;
 
   pi.on("before_agent_start", (event) => {
     if (event.messageType !== "user") return;
@@ -97,6 +114,8 @@ export function installLoopDetector(pi: ExtensionAPI, opts: ResolvedOptions): vo
     keyById.clear();
     pseudoNudges = 0;
     lengthStops = 0;
+    failStreak = undefined;
+    stopNext = false;
   });
 
   pi.on("message_end", (event) => {
@@ -104,8 +123,15 @@ export function installLoopDetector(pi: ExtensionAPI, opts: ResolvedOptions): vo
     if (message.role === "assistant") lastAssistantStop = message.stopReason;
   });
 
-  pi.on("tool_call", (event, ctx) => {
+  pi.on("tool_call", async (event, ctx) => {
     if (event.parentToolCallId) return undefined;
+    // Третье одинаковое падение уже было, а модель снова зовёт инструмент: жёсткая остановка, честная карточка.
+    if (stopNext) {
+      stopNext = false;
+      recordEvent(ctx, { kind: "loop.stop", tool: event.toolName, sig: "loop:same-fail" });
+      await showCard(pi, "prsloy-harness.loop", SAME_FAIL_CARD);
+      return { block: true, terminate: true, reason: SAME_FAIL_NOTE };
+    }
     // Pi 1.4 сам не исполняет вызовы из ответа, обрезанного по length (agent-loop.js
     // failToolCallsFromTruncatedMessage). Здесь — страховка на случай, если путь изменится.
     if (lastAssistantStop === "length") {
@@ -128,6 +154,22 @@ export function installLoopDetector(pi: ExtensionAPI, opts: ResolvedOptions): vo
     // Петля — только когда исполненный вызов уже дважды дал один и тот же результат.
     // Заблокированные вызовы в tool_result не попадают, поэтому count растёт, а sameResults — нет.
     const looping = record.sameResults >= opts.loopWarnAt - 2;
+    // Та же упавшая команда bash в третий раз, а вывод совпал с прошлым (петля заблокировала бы её без
+    // остановки): это и есть третье одинаковое падение — останавливаем ход сразу.
+    const command = (event.input as { command?: unknown }).command;
+    if (
+      looping &&
+      event.toolName === "bash" &&
+      typeof command === "string" &&
+      failStreak &&
+      failStreak.n >= SAME_FAIL_STOP - 1 &&
+      failStreak.key.startsWith(`${command.replace(/\s+/g, " ").trim()}\u0000`)
+    ) {
+      keyById.delete(event.toolCallId);
+      recordEvent(ctx, { kind: "loop.stop", tool: "bash", sig: "loop:same-fail" });
+      await showCard(pi, "prsloy-harness.loop", SAME_FAIL_CARD);
+      return { block: true, terminate: true, reason: SAME_FAIL_NOTE };
+    }
     if (looping && record.count >= opts.loopAbortAt) {
       keyById.delete(event.toolCallId);
       if (record.count > opts.loopAbortAt) ctx.abort();
@@ -158,12 +200,30 @@ export function installLoopDetector(pi: ExtensionAPI, opts: ResolvedOptions): vo
   });
 
   pi.on("tool_result", (event) => {
-    if (MUTATING_TOOLS.has(event.toolName) && !event.isError) epoch += 1;
+    if (MUTATING_TOOLS.has(event.toolName) && !event.isError) {
+      epoch += 1;
+      failStreak = undefined;
+    }
+    let note: string | undefined;
+    if (event.toolName === "bash") {
+      const command = (event.input as { command?: unknown }).command;
+      if (!event.isError || typeof command !== "string") failStreak = undefined;
+      else {
+        const key = `${command.replace(/\s+/g, " ").trim()}\u0000${exitCodeOf(contentText(event.content))}`;
+        failStreak = failStreak?.key === key ? { key, n: failStreak.n + 1 } : { key, n: 1 };
+        if (failStreak.n === SAME_FAIL_STOP) {
+          stopNext = true;
+          note = SAME_FAIL_NOTE;
+        }
+      }
+    }
+    const withNote = () =>
+      note ? { content: appendText(event.content, note), ...keepStructured(event) } : undefined;
     const key = keyById.get(event.toolCallId);
-    if (!key) return undefined;
+    if (!key) return withNote();
     keyById.delete(event.toolCallId);
     const record = calls.get(key);
-    if (!record) return undefined;
+    if (!record) return withNote();
     const result = hash(
       `${event.isError ? "E" : "O"}${contentText(event.content).replace(PI_FULL_OUTPUT, "")}`,
     );
@@ -174,7 +234,7 @@ export function installLoopDetector(pi: ExtensionAPI, opts: ResolvedOptions): vo
       record.sameResults = 0;
       record.count = 1;
     }
-    return undefined;
+    return withNote();
   });
 
   pi.on("turn_end", (event, ctx) => {

@@ -15,6 +15,7 @@ import { installRequestSecret } from "./request-secret.ts";
 import { installSkills } from "./skills.ts";
 import { installAutoMemory } from "./memory-auto.ts";
 import { installClaimCheck } from "./claim-check.ts";
+import { installInstallOffline } from "./install-offline.ts";
 import { createHonesty, installHonestExit } from "./honest-exit.ts";
 import { createTurnStatus, installTurnStatus } from "./turn-status.ts";
 import { readFlags } from "./flags.ts";
@@ -134,6 +135,7 @@ export function createPrsloyHarness(options: HarnessOptions = {}): (pi: Extensio
     if (on("skills")) installSkills(pi, opts, { dir: opts.skillsDir, files: opts.skillFiles });
     // Раньше стоп-гейта: сорванный вызов инструмента — сначала повтор, проверки проекта потом.
     if (on("toolLeak")) installToolLeak(pi);
+    if (on("installOffline")) installInstallOffline(pi, opts);
     // Честный выход и страж старых тестов (research/24 §4, H-1): за флагами honestExit / testGuard, по умолчанию
     // выкл. Состояние сообщения общее у report_blocker и гейта: принятый блокер снимает возвраты «почини».
     const honesty = opts.profile === "code" && on("honestExit") ? createHonesty() : undefined;
