@@ -343,7 +343,8 @@ jobs:
   # releases from a local GitHub look-alike (releases.atom + 302 to an objects host) that the real
   # GitHubProvider reaches through a test-only loopback host (auto-update.ts resolveUpdateFeed).
   # Tampered B is refused, a good B installs and relaunches, a newer tag without assets fails
-  # quietly, a non-semver tag is skipped.
+  # quietly, a non-semver tag is skipped. Last: the newest public GitHub release updates to B and
+  # keeps the key, the project, the chats and the memory in %APPDATA%\PRSLOY.
   update-e2e:
     needs: plan
     if: needs.plan.outputs.mode != 'skip'
@@ -416,6 +417,36 @@ jobs:
           "UPDATE_RELEASE_A=$a" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
           "UPDATE_FEED_GOOD=$good" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
           "UPDATE_FEED_BAD=$bad" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
+      # What users have installed: the newest published release with update files. The last
+      # update test installs it, uses it (key, project, chat, memory) and updates it to B.
+      - name: Previous public release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $releases = gh api "repos/$env:GITHUB_REPOSITORY/releases?per_page=30" | ConvertFrom-Json
+          $pub = $releases | Where-Object {
+            -not $_.draft -and $_.tag_name -match '^v\d+\.\d+\.\d+-(alpha|beta)\.\d+$' -and
+            ($_.assets.name -contains 'latest.yml') -and ($_.assets.name -match '-win-x64\.exe$')
+          } | Sort-Object { [datetime]$_.published_at } -Descending | Select-Object -First 1
+          if (-not $pub) { throw 'no published release with latest.yml and a Windows installer' }
+          $version = $pub.tag_name.TrimStart('v')
+          $dir = Join-Path $env:RUNNER_TEMP "upd\public-$version"
+          New-Item -ItemType Directory -Force $dir | Out-Null
+          gh release download $pub.tag_name -R $env:GITHUB_REPOSITORY -D $dir -p 'latest.yml' -p '*-win-x64.exe' -p '*-win-x64.exe.blockmap'
+          if ($LASTEXITCODE -ne 0) { throw "gh release download $($pub.tag_name) failed" }
+          $setup = Get-ChildItem $dir -Filter '*-win-x64.exe' | Select-Object -First 1
+          # B's feed + the public release's blockmap (the base of its differential download).
+          $feed = Join-Path $env:RUNNER_TEMP 'feed-public'
+          New-Item -ItemType Directory -Force $feed | Out-Null
+          Copy-Item (Join-Path $env:RUNNER_TEMP "upd\$env:UPDATE_VERSION_B\*") $feed
+          Copy-Item "$dir\*.blockmap" $feed
+          Get-ChildItem $dir, $feed | Select-Object Name, Length | Format-Table | Out-String | Write-Host
+          "UPDATE_PUBLIC_VERSION=$version" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
+          "UPDATE_PUBLIC_INSTALLER=$($setup.FullName)" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
+          "UPDATE_RELEASE_PUBLIC=$dir" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
+          "UPDATE_FEED_PUBLIC=$feed" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
       - name: Update e2e
         working-directory: app/apps/desktop
         env:
