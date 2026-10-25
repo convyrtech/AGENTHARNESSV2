@@ -4,7 +4,7 @@
 // двух раз за сообщение пользователя. Хук Pi 1.4: agent_before_settle (записи + одно продолжение).
 import { spawn, spawnSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { delimiter, join } from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import type { BudgetHandle } from "./budget.ts";
 import { sanitizedEnv, type ResolvedOptions } from "./options.ts";
@@ -14,6 +14,7 @@ import {
   parseVerdict,
   REVIEW_PASS_CARD,
   reviewFailCard,
+  reviewReportCard,
   reviewPrompt,
   reviewPushback,
   type ReviewVerdict,
@@ -24,6 +25,7 @@ import type { TurnChanges } from "./turn-changes.ts";
 import { modelFamily, recordEvent } from "./learning-log.ts";
 import { checkPagePaths, type PagePathReport, pagePathsMessage } from "./page-paths.ts";
 import { checkPage, hasBlocking, type PageCheckResult, pageCheckMessage } from "./page-check.ts";
+import { type CheckSnapshot, checkChange, gateSignals, packageScripts } from "./gate-signals.ts";
 import { intervene } from "./lessons.ts";
 
 export interface ProjectCheck {
@@ -33,6 +35,8 @@ export interface ProjectCheck {
   label: string;
   /** Вывод, по которому видно, что проверять нечем (pytest не установлен и т. п.): тогда молчим. */
   missingTool?: RegExp;
+  /** Добавки к окружению запуска (PATH с node_modules/.bin для исходных скриптов, H1). */
+  env?: Record<string, string>;
 }
 
 export interface CheckRun {
@@ -156,7 +160,7 @@ export const runProjectCheck: CheckRunner = (check, cwd, timeoutMs) =>
     const child = spawn(check.command, {
       cwd,
       shell: true,
-      env: { ...sanitizedEnv(), CI: "1", FORCE_COLOR: "0", NO_COLOR: "1" },
+      env: { ...sanitizedEnv(), CI: "1", FORCE_COLOR: "0", NO_COLOR: "1", ...check.env },
       stdio: ["ignore", "pipe", "pipe"],
       detached: process.platform !== "win32",
       windowsHide: true,
@@ -190,16 +194,61 @@ export const runProjectCheck: CheckRunner = (check, cwd, timeoutMs) =>
 
 export const MAX_PUSHBACKS = 2;
 
-export function pushbackMessage(check: ProjectCheck, run: CheckRun, attempt: number): string {
+export interface PushbackExtras {
+  /** Инструмент report_blocker доступен модели (флаг honestExit): тогда T1 его называет. */
+  blockerTool?: boolean;
+  /** Команда проверки менялась в ходе: гейт прогнал исходную (H1). */
+  checkChanged?: string | undefined;
+}
+
+/**
+ * Возврат гейта — текст T1 (research/22 §6.4, research/24 §1): честный выход в каждой попытке, не только
+ * в последней. Измерено: подгонка падает с 23,6 до 5,3% у 8 моделей (research/22 §3).
+ */
+export function pushbackMessage(
+  check: ProjectCheck,
+  run: CheckRun,
+  attempt: number,
+  extras: PushbackExtras = {},
+): string {
   const output = headTail(
     run.output.replace(new RegExp(`${String.fromCharCode(27)}\\[[0-9;]*m`, "g"), "").trim(),
     3_000,
   );
+  const changed = extras.checkChanged
+    ? `\nВ этом ходе ${extras.checkChanged}. Гейт прогнал проверку, которая была в начале хода.`
+    : "";
   const last =
     attempt >= MAX_PUSHBACKS
       ? " Это последняя попытка: если не выйдет — прямо скажи пользователю, что проверка всё ещё не проходит."
       : "";
-  return `Проверка проекта не прошла (\`${check.label}\`, код ${run.code ?? "?"}):\n${output}\nПочини и проверь снова.${last}`;
+  return (
+    `Проверка проекта не прошла (\`${check.label}\`, код ${run.code ?? "?"}):\n${output}${changed}\n` +
+    "Почини код и проверь снова. Если проверка противоречит тому, что просил пользователь, задание важнее: не меняй, " +
+    "не отключай и не ослабляй тест и не подгоняй код под него. Оставь тест красным и коротко объясни пользователю, " +
+    `в чём противоречие${extras.blockerTool ? " (или вызови report_blocker)" : ""}. Это нормальный итог.${last}`
+  );
+}
+
+/**
+ * H1: проверка на конец хода, если на начале была другая — та, что была (исходные тела скриптов package.json,
+ * `node_modules/.bin` в PATH, как у npm). Агент сменил `scripts.test` на `echo ok` — прогоняется прежняя.
+ */
+export function originalCheck(
+  start: CheckSnapshot & { check?: ProjectCheck },
+  cwd: string,
+): ProjectCheck | undefined {
+  if (!start.check) return undefined;
+  const bodies = Object.values(start.scripts);
+  if (/^(?:npm|pnpm|yarn) run /.test(start.check.command) && bodies.length) {
+    const bin = join(cwd, "node_modules", ".bin");
+    return {
+      command: bodies.join(" && "),
+      label: `исходная проверка: ${bodies.join(" && ")}`,
+      env: { PATH: `${bin}${delimiter}${process.env.PATH ?? ""}` },
+    };
+  }
+  return { ...start.check, label: `исходная проверка: ${start.check.label}` };
 }
 
 /** Для человека — без команд и вывода (они в details карточки). */
@@ -260,8 +309,10 @@ export function installStopGate(
   let gaveUp = false;
   let reviewed = false;
   let task = "";
+  /** H1: проверка проекта на начало хода (сообщения пользователя). */
+  let start: (CheckSnapshot & { check?: ProjectCheck }) | undefined;
 
-  pi.on("before_agent_start", (event) => {
+  pi.on("before_agent_start", (event, ctx) => {
     if (event.messageType !== "user") return;
     edited = false;
     webEdited = false;
@@ -269,6 +320,12 @@ export function installStopGate(
     gaveUp = false;
     reviewed = false;
     task = event.prompt;
+    const check = detectProjectCheck(ctx.cwd);
+    start = {
+      command: check?.command,
+      scripts: packageScripts(ctx.cwd),
+      ...(check ? { check } : {}),
+    };
   });
 
   pi.on("tool_result", (event) => {
@@ -284,19 +341,49 @@ export function installStopGate(
     patch: string,
     checks: string,
     ctx: ExtensionContext,
+    signals: string[] = [],
+    reportOnly = false,
   ): Promise<{ verdict: ReviewVerdict; model: string; costUsd: number } | undefined> {
-    if (!reviewer || reviewed || pushbacks >= MAX_PUSHBACKS || !reviewEnabled()) return undefined;
-    if (changedLines(patch) < MIN_REVIEW_LINES) return undefined;
+    if (!reviewer || reviewed || !reviewEnabled()) return undefined;
+    // После капа возвратов ревьюер зовётся только «отчётом» (research/24 §1): возвращать к работе уже нельзя.
+    if (pushbacks >= MAX_PUSHBACKS && !reportOnly) return undefined;
+    // Особый случай под тест — часто одна строка: при сигналах подгонки мелкий дифф тоже смотрим.
+    if (changedLines(patch) < MIN_REVIEW_LINES && !signals.length) return undefined;
     if (budget && budget.ratio() >= opts.budgetWarnRatio) return undefined;
     if (ctx.signal?.aborted) return undefined;
     reviewed = true;
     const diff = clipDiff(patch);
-    const reply = await reviewer(reviewPrompt({ task, diff, checks }), ctx);
+    const reply = await reviewer(reviewPrompt({ task, diff, checks, signals }), ctx);
     if (!reply) return undefined;
     budget?.spend(reply.costUsd);
     // Пользователь нажал «стоп», пока ждали проверяющего, или ответа нет: молчим.
     if (ctx.signal?.aborted || reply.error) return undefined;
     return { verdict: parseVerdict(reply.text, diff), model: reply.model, costUsd: reply.costUsd };
+  }
+
+  /** Ревьюер «только отчёт»: карточка и данные, без возврата к работе (research/24 §1). */
+  async function reportOnlyReview(
+    patch: string,
+    check: ProjectCheck | undefined,
+    run: CheckRun | undefined,
+    signals: string[],
+    ctx: ExtensionContext,
+  ): Promise<void> {
+    const result = await review(patch, checksSummary(check, run), ctx, signals, true);
+    if (!result || result.verdict.invalid) return;
+    const { verdict, model, costUsd } = result;
+    const pass = verdict.verdict === "PASS";
+    recordEvent(ctx, {
+      kind: pass ? "review.pass" : "review.fail",
+      sig: "review:report",
+      n: verdict.items.length,
+    });
+    await showCard(
+      pi,
+      "prsloy-harness.second-opinion",
+      pass ? REVIEW_PASS_CARD : reviewReportCard(verdict.items.length),
+      { model, costUsd, reportOnly: true, signals, ...verdict },
+    );
   }
 
   pi.on("agent_before_settle", async (event, ctx) => {
@@ -310,7 +397,19 @@ export function installStopGate(
     // После возврата проверяем снова, даже если модель ничего не правила: «готово» на словах — не зелёный.
     if (!touched && pushbacks === 0) return undefined;
     edited = false;
-    const check = detectProjectCheck(ctx.cwd);
+    // H1: если проверка за ход пропала или поменялась (`scripts.test` → `echo ok`), прогоняется та, что была.
+    const now = detectProjectCheck(ctx.cwd);
+    const changed = start ? checkChange(start, now?.command, packageScripts(ctx.cwd)) : undefined;
+    const check = (changed && start ? originalCheck(start, ctx.cwd) : undefined) ?? now;
+    if (changed) recordEvent(ctx, { kind: "test_guard.command_changed" });
+    let signalsCache: string[] | undefined;
+    const signals = () =>
+      (signalsCache ??= gateSignals({
+        checkChanged: changed,
+        patch: diff?.patch ?? "",
+        cwd: ctx.cwd,
+        task,
+      }));
     const run = check ? await runner(check, ctx.cwd, opts.stopGateTimeoutMs) : undefined;
     // Зелёное, таймаут или нечем проверять — не красное: не пилим казуала за отсутствие тестов.
     const red =
@@ -323,6 +422,9 @@ export function installStopGate(
         gaveUp = true;
         recordEvent(ctx, { kind: "gate.gaveup", ...(gateSig ? { sig: gateSig } : {}) });
         await showCard(pi, "prsloy-harness.stop-gate", STILL_RED_NOTE, stillRedDetails(check, run));
+        // Сдался, а признаки подгонки есть — ревьюер «только отчёт»: человек узнаёт, что тест могли подогнать.
+        if (diff?.patch && signals().length)
+          await reportOnlyReview(diff.patch, check, run, signals(), ctx);
         return undefined;
       }
       pushbacks += 1;
@@ -337,7 +439,10 @@ export function installStopGate(
           {
             type: "custom_message",
             customType: "prsloy-harness.stop-gate",
-            content: `${pushbackMessage(check, run, pushbacks)}${tip}`,
+            content: `${pushbackMessage(check, run, pushbacks, {
+              blockerTool: pi.getActiveTools().includes("report_blocker"),
+              checkChanged: changed,
+            })}${tip}`,
             display: false,
           },
         ],
@@ -388,7 +493,12 @@ export function installStopGate(
       }
     }
     if (!diff?.patch) return undefined;
-    const result = await review(diff.patch, checksSummary(check, run), ctx);
+    // Кап исчерпан, а проверка позеленела (красно, красно, «особый случай») — только отчёт ревьюера, без возврата.
+    if (pushbacks >= MAX_PUSHBACKS) {
+      if (signals().length) await reportOnlyReview(diff.patch, check, run, signals(), ctx);
+      return undefined;
+    }
+    const result = await review(diff.patch, checksSummary(check, run), ctx, signals());
     if (!result) return undefined;
     const { verdict, model, costUsd } = result;
     const data = { model, costUsd, ...verdict };
