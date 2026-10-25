@@ -160,11 +160,23 @@ jobs:
           $exe = Join-Path $target 'PRSLOY.exe'
           if (-not (Test-Path $exe)) { throw "no $exe after install" }
           "DESIGN_LIVE_EXE=$exe" >> $env:GITHUB_ENV
-      - name: Live «Дизайн» on the installed app (first-use setup, full turn, close mid-turn, stuck → retry)
+      - name: Live «Дизайн» on the installed app (wrong zip, no network → retry, first-use setup measured, full turn, close mid-turn, stuck → retry)
         working-directory: app/apps/desktop
         env:
           DESIGN_LIVE_SHOTS: ${{ runner.temp }}\design-live-installed
         run: npx playwright test e2e/design-live.spec.ts --reporter=list --trace=retain-on-failure
+      # the owner's first use, measured: time to the tools, the phases he sees, longest still stretch, disk
+      - name: First-use summary
+        if: always()
+        shell: pwsh
+        run: |
+          $f = "${{ runner.temp }}\design-live-installed\firstuse.json"
+          if (Test-Path $f) {
+            "### «Дизайн», first use on the installed app`n``````json" | Out-File -Append -Encoding utf8 $env:GITHUB_STEP_SUMMARY
+            Get-Content $f -Encoding utf8 | Out-File -Append -Encoding utf8 $env:GITHUB_STEP_SUMMARY
+            "``````" | Out-File -Append -Encoding utf8 $env:GITHUB_STEP_SUMMARY
+            Get-Content $f -Encoding utf8
+          }
       - uses: actions/upload-artifact@v4
         if: always()
         with:
