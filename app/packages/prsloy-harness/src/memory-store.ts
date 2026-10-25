@@ -42,7 +42,9 @@ export type MemoryKind = "profile" | "preference" | "decision" | "correction";
 /** Где пользователь это сказал (до трёх, новые в конце). */
 export interface MemoryEvidence {
   quote: string;
+  /** Источник (research/27 §2): сессия и сообщение пользователя, откуда цитата. */
   session?: string;
+  message?: string;
   at: string;
 }
 
@@ -244,18 +246,34 @@ export function withMemoryLock<T>(dir: string, fn: () => T): T {
 
 export type AddResult =
   /** `replaced` — прежняя запись с обратным смыслом: пользователь передумал, последнее слово главнее. */
-  | { ok: true; opId: string; entry: MemoryEntry; replaced?: MemoryEntry }
+  | {
+      ok: true;
+      opId: string;
+      entry: MemoryEntry;
+      replaced?: MemoryEntry;
+      /** Переполнение: вытеснены слабые автоматические записи (в «Было», kind "expired"). */
+      evicted?: MemoryEntry[];
+    }
   /** Дубль усиливает запись, что уже есть (reinforce): strength, lastSeen, evidence. */
   | { ok: false; reason: "duplicate"; opId: string; entry: MemoryEntry }
   /** `pinned` — автоматическая запись не вытесняет закреплённую: только карточка (§3.4 п. 9). */
-  | { ok: false; reason: "forgotten" | "too_long" | "full" | "pinned" };
+  | { ok: false; reason: "forgotten" | "too_long" | "full" | "pinned" }
+  /** `replace: false` и есть запись с обратным смыслом: решает пользователь. */
+  | { ok: false; reason: "conflict"; existing: MemoryEntry };
 
 export interface AddInput {
   text: string;
   quote: string;
   session?: string | undefined;
+  /** id сообщения пользователя в сессии, откуда цитата. */
+  message?: string | undefined;
   origin?: MemoryEntry["origin"];
   kind?: MemoryKind;
+  /**
+   * false — не заменять запись с обратным смыслом, а вернуть `conflict` (инструмент в ходе: менять уже
+   * запомненное агенту нельзя, только через подтверждение пользователя, research/27 §2).
+   */
+  replace?: boolean;
 }
 
 /** Строка «Было» для панели: обе области, новые первыми. */
@@ -265,6 +283,34 @@ export interface MemoryHistoryView extends MemoryHistoryItem {
 
 /** Кандидаты экстрактора в тени (M-3): слова пользователя, поэтому тот же срок, что у текстов журнала. */
 export const CANDIDATES_FILE = "candidates.jsonl";
+
+/**
+ * Изменения, которые инструмент в ходе предложил, а решает пользователь (research/27 §2): «забыть» и замена уже
+ * запомненного. Живут сутки; тексты — поэтому стираются вместе с памятью.
+ */
+export const PENDING_FILE = "pending.json";
+const PENDING_HOURS = 24;
+
+export type PendingChange =
+  | { id: string; at: string; action: "forget"; scope: MemoryScope; target: string; text: string }
+  | {
+      id: string;
+      at: string;
+      action: "replace";
+      scope: MemoryScope;
+      target: string;
+      before: string;
+      input: AddInput;
+    };
+
+/** Дни, когда пользователь работал (§3.5): забывание считает их, а не календарь. */
+export const ACTIVE_DAYS_FILE = "active-days.json";
+const ACTIVE_DAYS_MAX = 400;
+/** Авто-предпочтение живёт 30 активных дней на единицу strength, не дольше 180 (§3.5). */
+export const EXPIRE_DAYS_PER_STRENGTH = 30;
+export const EXPIRE_DAYS_MAX = 180;
+
+const dayOf = (iso: string) => iso.slice(0, 10);
 
 /** «Было» с «Вернуть» живёт 90 дней (§3.5). */
 export const HISTORY_DAYS = 90;
@@ -500,6 +546,7 @@ export class MemoryStore {
     const evidence: MemoryEvidence = {
       quote,
       ...(input.session ? { session: input.session } : {}),
+      ...(input.message ? { message: input.message } : {}),
       at: now,
     };
     // Дубль — то же по основам и с той же полярностью: запись усиливается (reinforce).
@@ -544,13 +591,30 @@ export class MemoryStore {
     const pos = file.entries.findIndex((e) => relation(sig, signature(e.text)) === "contradicts");
     const replaced = pos >= 0 ? file.entries[pos] : undefined;
     if (replaced?.pinned && input.origin === "auto") return { ok: false, reason: "pinned" };
+    if (replaced && input.replace === false)
+      return { ok: false, reason: "conflict", existing: replaced };
     if (replaced) file.entries = file.entries.filter((e) => e.id !== replaced.id);
     const limits = scope === "user" ? MEMORY_LIMITS.user : MEMORY_LIMITS.project;
-    const used =
+    const used = () =>
       file.entries.reduce((n, e) => n + e.text.length, 0) +
       (scope === "project" ? (file.digest?.text.length ?? 0) : 0);
-    if (file.entries.length >= limits.entries || used + text.length > limits.chars)
-      return { ok: false, reason: "full" };
+    const fits = () => file.entries.length < limits.entries && used() + text.length <= limits.chars;
+    // Переполнение (§3.5): вытесняются слабые автоматические записи — по strength, затем по давности.
+    const evicted: { entry: MemoryEntry; pos: number }[] = [];
+    while (!fits()) {
+      const weakest = file.entries
+        .map((e, i) => ({ e, i }))
+        .filter(({ e }) => e.origin === "auto" && !e.pinned)
+        .sort(
+          (a, b) =>
+            (a.e.strength ?? 1) - (b.e.strength ?? 1) ||
+            (a.e.lastSeen ?? a.e.created).localeCompare(b.e.lastSeen ?? b.e.created),
+        )[0];
+      if (!weakest) break;
+      evicted.push({ entry: weakest.e, pos: weakest.i });
+      file.entries.splice(weakest.i, 1);
+    }
+    if (!fits()) return { ok: false, reason: "full" };
     const origin = input.origin ?? "user";
     const entry: MemoryEntry = {
       id: `${scope === "user" ? "u" : "p"}-${randomBytes(2).toString("hex")}`,
@@ -571,7 +635,29 @@ export class MemoryStore {
         ...(file.history ?? []),
         { opId, kind: "replaced", entry: replaced, now: entry, pos, at: now },
       ];
+    const evictOps = evicted.map((x) => ({ ...x, opId: newOpId() }));
+    if (evictOps.length)
+      file.history = [
+        ...(file.history ?? []),
+        ...evictOps.map((x) => ({
+          opId: x.opId,
+          kind: "expired" as const,
+          entry: x.entry,
+          pos: x.pos,
+          at: now,
+        })),
+      ];
     this.#write(scope, cwd, file);
+    for (const x of evictOps)
+      this.#journal({
+        op: "evict",
+        opId: x.opId,
+        scope,
+        id: x.entry.id,
+        before: x.entry,
+        after: null,
+        origin: "system",
+      });
     if (replaced) {
       this.#journal({
         op: "supersede",
@@ -593,7 +679,13 @@ export class MemoryStore {
         origin,
       });
     }
-    return replaced ? { ok: true, opId, entry, replaced } : { ok: true, opId, entry };
+    return {
+      ok: true,
+      opId,
+      entry,
+      ...(replaced ? { replaced } : {}),
+      ...(evicted.length ? { evicted: evicted.map((x) => x.entry) } : {}),
+    };
   }
 
   /** Забыть по id (в обоих местах); запись уходит в tombstones. */
@@ -729,6 +821,7 @@ export class MemoryStore {
       this.#write(scope, cwd, file);
     }
     rmSync(join(this.dir, CANDIDATES_FILE), { force: true });
+    rmSync(join(this.dir, PENDING_FILE), { force: true });
     this.#compactJournal({ all: true });
   }
 
@@ -758,6 +851,189 @@ export class MemoryStore {
       }
       const added = lines.map((l) => JSON.stringify({ ts: now.toISOString(), ...l }));
       writeAtomic(path, null, `${[...kept, ...added].join("\n")}\n`);
+    });
+  }
+
+  #pending(now = Date.now()): PendingChange[] {
+    const raw = readJson<{ items?: PendingChange[] }>(join(this.dir, PENDING_FILE), {});
+    const cutoff = now - PENDING_HOURS * 3_600_000;
+    return (raw.items ?? []).filter((p) => Date.parse(p.at) >= cutoff);
+  }
+
+  /** Отложить изменение до ответа пользователя; вернуть его id для карточки. */
+  propose(
+    change:
+      | { action: "forget"; scope: MemoryScope; target: string; text: string }
+      | { action: "replace"; scope: MemoryScope; target: string; before: string; input: AddInput },
+  ): string {
+    return withMemoryLock(this.dir, () => {
+      const id = `cf-${randomBytes(6).toString("hex")}`;
+      const items = [...this.#pending(), { ...change, id, at: new Date().toISOString() }];
+      writeAtomic(join(this.dir, PENDING_FILE), { items } as { items: PendingChange[] });
+      return id;
+    });
+  }
+
+  /**
+   * Ответ пользователя на карточку. yes — изменение применяется (забыть / заменить), no — нет; в обоих случаях
+   * оно уходит из ожидания. Неизвестный или просроченный id — undefined.
+   */
+  confirm(
+    id: string,
+    yes: boolean,
+    cwd: string,
+  ): { change: PendingChange; applied?: MemoryEntry | AddResult } | undefined {
+    return withMemoryLock(this.dir, () => {
+      const items = this.#pending();
+      const change = items.find((p) => p.id === id);
+      if (!change) return undefined;
+      writeAtomic(join(this.dir, PENDING_FILE), { items: items.filter((p) => p.id !== id) });
+      if (!yes) return { change };
+      if (change.action === "forget") {
+        const entry = this.#forget(change.target, cwd);
+        return entry ? { change, applied: entry } : { change };
+      }
+      return { change, applied: this.#add(change.scope, cwd, { ...change.input, replace: true }) };
+    });
+  }
+
+  /** Отметить сегодняшний день как рабочий (старт сессии). */
+  touchActiveDay(now = new Date()): void {
+    withMemoryLock(this.dir, () => {
+      const days = this.#activeDays();
+      const today = dayOf(now.toISOString());
+      if (days.includes(today)) return;
+      writeAtomic(join(this.dir, ACTIVE_DAYS_FILE), {
+        days: [...days, today].sort().slice(-ACTIVE_DAYS_MAX),
+      });
+    });
+  }
+
+  #activeDays(): string[] {
+    const raw = readJson<{ days?: unknown }>(join(this.dir, ACTIVE_DAYS_FILE), {});
+    return Array.isArray(raw.days)
+      ? raw.days.filter((d): d is string => typeof d === "string")
+      : [];
+  }
+
+  /** Сколько рабочих дней прошло после этой даты (сам день не считается). */
+  activeDaysSince(iso: string): number {
+    const day = dayOf(iso);
+    return this.#activeDays().filter((d) => d > day).length;
+  }
+
+  /**
+   * Забывание кодом (M-4, §3.5): автоматические `preference` и `correction` без упоминания дольше 30 × strength
+   * активных дней (потолок 180) уходят в «Было» (kind "expired", «Вернуть» по opId). Закреплённое, записанное по
+   * просьбе пользователя, `profile` и `decision` по времени не исчезают. Возвращает ушедшие записи.
+   */
+  expire(cwd: string): MemoryEntry[] {
+    return withMemoryLock(this.dir, () => {
+      const out: MemoryEntry[] = [];
+      const now = new Date().toISOString();
+      for (const scope of ["user", "project"] as const) {
+        const file = this.#read(scope, cwd);
+        const keep: MemoryEntry[] = [];
+        const gone: { entry: MemoryEntry; pos: number; opId: string }[] = [];
+        file.entries.forEach((e, pos) => {
+          const kind = e.kind ?? "preference";
+          const byTime =
+            e.origin === "auto" && !e.pinned && (kind === "preference" || kind === "correction");
+          const limit = Math.min(EXPIRE_DAYS_PER_STRENGTH * (e.strength ?? 1), EXPIRE_DAYS_MAX);
+          if (byTime && this.activeDaysSince(e.lastSeen ?? e.created) > limit)
+            gone.push({ entry: e, pos, opId: newOpId() });
+          else keep.push(e);
+        });
+        if (!gone.length) continue;
+        file.entries = keep;
+        file.history = [
+          ...(file.history ?? []),
+          ...gone.map((g) => ({
+            opId: g.opId,
+            kind: "expired" as const,
+            entry: g.entry,
+            pos: g.pos,
+            at: now,
+          })),
+        ];
+        this.#write(scope, cwd, file);
+        for (const g of gone) {
+          this.#journal({
+            op: "expire",
+            opId: g.opId,
+            scope,
+            id: g.entry.id,
+            before: g.entry,
+            after: null,
+            origin: "system",
+          });
+          out.push(g.entry);
+        }
+      }
+      return out;
+    });
+  }
+
+  /**
+   * «Забыть всё, что выучено из этого чата» (research/27 §2): записи, у которых все цитаты из этой сессии,
+   * забываются (tombstone, «Вернуть» по opId из журнала); у записей, подтверждённых и в других чатах, уходят
+   * только цитаты этой сессии и столько же strength.
+   */
+  forgetSource(
+    session: string,
+    cwd: string,
+  ): { forgotten: MemoryEntry[]; weakened: MemoryEntry[] } {
+    return withMemoryLock(this.dir, () => {
+      const forgotten: MemoryEntry[] = [];
+      const weakened: MemoryEntry[] = [];
+      for (const scope of ["user", "project"] as const) {
+        const file = this.#read(scope, cwd);
+        const sessionsOf = (e: MemoryEntry) =>
+          e.evidence?.length ? e.evidence.map((x) => x.session) : [e.session];
+        const ids = file.entries.filter((e) => sessionsOf(e).includes(session)).map((e) => e.id);
+        for (const id of ids) {
+          const pos = file.entries.findIndex((e) => e.id === id);
+          const before = file.entries[pos]!;
+          if (sessionsOf(before).every((s) => s === session)) {
+            file.entries.splice(pos, 1);
+            file.tombstones.push(tombstoneFor(before));
+            this.#journal({
+              op: "forget",
+              opId: newOpId(),
+              scope,
+              id,
+              pos,
+              before,
+              after: null,
+              origin: "user",
+              source: session,
+            });
+            forgotten.push(before);
+          } else {
+            const evidence = (before.evidence ?? []).filter((x) => x.session !== session);
+            const removed = (before.evidence?.length ?? 0) - evidence.length;
+            const after: MemoryEntry = {
+              ...before,
+              evidence,
+              strength: Math.max(1, (before.strength ?? 1) - removed),
+            };
+            file.entries[pos] = after;
+            this.#journal({
+              op: "unlearn",
+              opId: newOpId(),
+              scope,
+              id,
+              before,
+              after,
+              origin: "user",
+              source: session,
+            });
+            weakened.push(after);
+          }
+        }
+        if (ids.length) this.#write(scope, cwd, file);
+      }
+      return { forgotten, weakened };
     });
   }
 
@@ -886,6 +1162,7 @@ export class MemoryStore {
         });
       }
       rmSync(join(this.dir, CANDIDATES_FILE), { force: true });
+      rmSync(join(this.dir, PENDING_FILE), { force: true });
       this.#compactJournal({ all: true });
     });
   }

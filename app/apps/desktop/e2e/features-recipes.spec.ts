@@ -35,6 +35,11 @@ test("a recipe: card → form → new project with the starter → the filled re
     const before = launched.fakeModel.requests.length;
     await dialog.getByTestId("recipe-start").click();
     await expect(dialog).toBeHidden();
+    // The new project's host comes up first («Agent Host ready»), then the request goes out: wait for
+    // the model to get it, not just for a settled host.
+    await expect
+      .poll(() => JSON.stringify(launched.fakeModel.requests.slice(before)), { timeout: 60_000 })
+      .toContain("Что делает бот: Принимает заказы на торты.");
     await waitSettled(page);
     const project = join(documents, "PRSLOY", "Бот");
     expect(existsSync(join(project, "bot.py"))).toBe(true);

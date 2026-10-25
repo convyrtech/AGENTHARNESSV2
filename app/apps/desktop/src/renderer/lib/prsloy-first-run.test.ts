@@ -11,6 +11,7 @@ import {
   readFirstRunSeen,
 } from "./prsloy-first-run.ts";
 import { t } from "./i18n.ts";
+import { SEARCH_READY } from "../../shared/search-ready.ts";
 
 const base: PrsloyState = {
   hasKey: false,
@@ -30,10 +31,16 @@ describe("prsloy first run", () => {
     expect(firstRunStep(undefined)).toBe("loading");
     expect(firstRunStep(base)).toBe("key");
     expect(firstRunStep({ ...base, hasKey: true })).toBe("import");
-    expect(firstRunStep({ ...base, hasKey: true }, { import: true })).toBe("search");
+    expect(firstRunStep({ ...base, hasKey: true }, { import: true }, true)).toBe("search");
     expect(firstRunStep({ ...base, hasKey: true }, seen)).toBe("folder");
     expect(firstRunStep({ ...base, hasKey: true, needsWorkspace: false }, seen)).toBe("done");
     expect(firstRunStep({ ...base, firstRunBypass: true })).toBe("done");
+  });
+
+  it("skips the search step until SEARCH_READY (#23)", () => {
+    expect(SEARCH_READY).toBe(false);
+    expect(firstRunStep({ ...base, hasKey: true }, { import: true })).toBe("folder");
+    expect(firstRunStep({ ...base, hasKey: true }, { import: true }, false)).toBe("folder");
   });
 
   it("does not stop people who already have a project with the optional steps", () => {

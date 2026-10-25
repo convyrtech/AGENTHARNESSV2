@@ -1,0 +1,21 @@
+{
+  "sessionId": "0a1b2c3d-1111-4222-8333-944455556666",
+  "projectHash": "1025dd102e034f7731723f55446c04652d124e132bfd078d3b53283c90f0db9b",
+  "startTime": "2026-10-22T10:00:00.000Z",
+  "lastUpdated": "2026-10-22T10:03:00.000Z",
+  "messages": [
+    {
+      "id": "a",
+      "timestamp": "2026-10-22T10:00:00.000Z",
+      "type": "user",
+      "content": [{ "text": "Напиши телеграм-бота" }]
+    },
+    {
+      "id": "b",
+      "timestamp": "2026-10-22T10:03:00.000Z",
+      "type": "gemini",
+      "content": [{ "text": "Готово: bot.py" }],
+      "model": "gemini-2.5-pro"
+    }
+  ]
+}

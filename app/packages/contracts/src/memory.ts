@@ -15,6 +15,8 @@ export type MemoryItem = {
   origin?: "user" | "auto";
   quote?: string;
   pinned?: boolean;
+  /** Where it was learned (research/27 §2): the session id, for «Забыть всё из этого чата». */
+  sessions?: string[];
 };
 
 /** «Было» (research/24 §3.6): replaced, expired or forgotten, with «Вернуть» by the journal `opId`. */
@@ -87,4 +89,25 @@ export interface MemoryApi {
    * with this journal `opId` byte for byte. Contract from the plumbing PR (§2); main's handler — core.
    */
   revert(opId: string, workspace?: string): Promise<MemorySnapshot>;
+  /**
+   * The answer to a `prsloy-memory.confirm` card (research/27 §2): the agent's tool only proposes «forget» or
+   * «replace»; yes applies it, no drops it. Core, #14.
+   */
+  confirm?(confirmId: string, yes: boolean, workspace?: string): Promise<MemorySnapshot>;
+  /** «Забыть всё, что выучено из этого чата»: entries learned only there go, others lose its quotes. Core, #14. */
+  forgetSource?(session: string, workspace?: string): Promise<MemorySnapshot>;
 }
+
+/** `prsloy-memory.confirm` card details: the tool asked, the user decides (`MemoryApi.confirm`). */
+export type MemoryConfirmCardDetails = {
+  confirmId: string;
+  action: "forget" | "replace";
+  scope: "user" | "project";
+  /** The entry it is about. */
+  id: string;
+  /** forget: its text. */
+  text?: string;
+  /** replace: what is remembered and what the user said now. */
+  before?: string;
+  after?: string;
+};

@@ -4,7 +4,13 @@
  * the keys main gave it, never by path: main reads nothing the scan did not find.
  */
 
-export type ImportToolId = "claude-code" | "codex" | "pi-cli";
+export type ImportToolId =
+  | "claude-code"
+  | "codex"
+  | "pi-cli"
+  | "opencode"
+  | "gemini"
+  | "cursor-agent";
 
 export type ImportToolCount = { chats: number; projects: number; recent: number };
 
@@ -26,6 +32,8 @@ export interface ImportScanResult {
   chats: ImportChatSummary[];
   /** Keys ticked by default: the last 30 days, not imported yet, at most 50. */
   selected: string[];
+  /** Tools whose chats could not be read at all (an unknown database format, a broken file). */
+  unreadable?: ImportToolId[];
 }
 
 export type ImportSkipReason =

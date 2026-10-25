@@ -8,6 +8,7 @@ import {
   BLOCKED_CLI_MESSAGE,
   buildPrsloyHostEnv,
   GATEWAY_KEY_HANDOFF_ENV,
+  splitHostHandoff,
   isSecretEnvName,
   prependPath,
   scrubSecretEnv,
@@ -160,5 +161,29 @@ describe.skipIf(process.platform === "win32")("shims (real shell)", () => {
     expect(readFileSync(join(shimsDir, "python3.cmd"), "utf8")).toContain(
       '"C:\\Users\\u\\AppData\\Roaming\\PRSLOY\\runtimes\\python\\python.exe" %*',
     );
+  });
+});
+
+describe("host handoff (parentPort, not env)", () => {
+  it("takes the key and the search config out of the spawn env into the message", () => {
+    const { env, handoff } = splitHostHandoff({
+      PATH: "/bin",
+      [GATEWAY_KEY_HANDOFF_ENV]: " sk-live ",
+      PRSLOY_SEARCH_HANDOFF: JSON.stringify({ search: { provider: "tavily", key: "tvly-x" } }),
+    });
+    expect(env).toEqual({ PATH: "/bin" });
+    expect(handoff).toEqual({
+      type: "prsloy.handoff",
+      gatewayKey: "sk-live",
+      search: { search: { provider: "tavily", key: "tvly-x" } },
+    });
+    expect(JSON.stringify(env)).not.toMatch(/sk-live|tvly-x/u);
+  });
+
+  it("no key, broken search JSON: an empty handoff, still sent", () => {
+    expect(splitHostHandoff({ PRSLOY_SEARCH_HANDOFF: "{nope" })).toEqual({
+      env: {},
+      handoff: { type: "prsloy.handoff" },
+    });
   });
 });

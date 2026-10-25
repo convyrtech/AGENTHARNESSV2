@@ -4,6 +4,7 @@ import type { ImportChatSummary, ImportScanResult } from "@zeno/contracts";
 import { t } from "./i18n.ts";
 import {
   countText,
+  expandIfImported,
   IMPORT_MAX_CHATS,
   importKeys,
   importToolRows,
@@ -28,7 +29,18 @@ function chat(key: string, overrides: Partial<ImportChatSummary> = {}): ImportCh
 
 function scan(chats: ImportChatSummary[], selected: string[]): ImportScanResult {
   const zero = { chats: 0, projects: 0, recent: 0 };
-  return { counts: { "claude-code": zero, codex: zero, "pi-cli": zero }, chats, selected };
+  return {
+    counts: {
+      "claude-code": zero,
+      codex: zero,
+      "pi-cli": zero,
+      opencode: zero,
+      gemini: zero,
+      "cursor-agent": zero,
+    },
+    chats,
+    selected,
+  };
 }
 
 describe("session-import helpers", () => {
@@ -94,5 +106,17 @@ describe("session-import helpers", () => {
     expect(mergeRecentFolders(["/b", "/a"], ["/a", "/z"], 3)).toEqual(["/b", "/a", "/z"]);
     localStorage.setItem("prsloy.import.projects", "{oops");
     expect(readImportedProjects()).toEqual([]);
+  });
+
+  it("opens the sidebar card of a project chats were brought into", () => {
+    localStorage.clear();
+    saveImportedProjects(["C:\\Проекты\\сайт"]);
+    expect(expandIfImported("C:\\Проекты\\другой")).toBe(false);
+    expect(localStorage.getItem("zeno.projects.expanded")).toBeNull();
+    expect(expandIfImported("C:\\Проекты\\сайт")).toBe(true);
+    expect(JSON.parse(localStorage.getItem("zeno.projects.expanded")!)).toHaveLength(1);
+    // already open: stays open (toggling twice would close it)
+    expect(expandIfImported("C:\\Проекты\\сайт")).toBe(true);
+    expect(JSON.parse(localStorage.getItem("zeno.projects.expanded")!)).toHaveLength(1);
   });
 });

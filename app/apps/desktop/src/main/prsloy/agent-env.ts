@@ -7,6 +7,11 @@
  *   `python3` / `python` point at the bundled interpreter
  * - pi is pinned to the isolated agent home, offline for its own downloads
  */
+import {
+  HOST_HANDOFF_TYPE,
+  type HostHandoffMessage,
+  parseSearchHandoff,
+} from "../../shared/host-handoff.ts";
 import { chmodSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -142,6 +147,27 @@ export const GATEWAY_KEY_HANDOFF_ENV = "PRSLOY_GATEWAY_KEY";
  * channel (review #23, item 5); a stale value in the user's own env is still removed.
  */
 export const SEARCH_HANDOFF_ENV = "PRSLOY_SEARCH_HANDOFF";
+
+/**
+ * Before the fork: take the gateway key and the search config out of the host's env and into the
+ * handoff message main posts over parentPort (shared/host-handoff.ts). The spawn env of the host
+ * never carries them, so no tool process can read them from /proc/<ppid>/environ.
+ */
+export function splitHostHandoff(env: Record<string, string>): {
+  env: Record<string, string>;
+  handoff: HostHandoffMessage;
+} {
+  const { [GATEWAY_KEY_HANDOFF_ENV]: key, [SEARCH_HANDOFF_ENV]: search, ...rest } = env;
+  const parsed = parseSearchHandoff(search);
+  return {
+    env: rest,
+    handoff: {
+      type: HOST_HANDOFF_TYPE,
+      ...(key?.trim() ? { gatewayKey: key.trim() } : {}),
+      ...(parsed ? { search: parsed } : {}),
+    },
+  };
+}
 
 export function buildPrsloyHostEnv(
   base: Record<string, string | undefined>,

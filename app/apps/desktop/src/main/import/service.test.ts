@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from "vite-plus/test";
 import { mkdir, readdir, writeFile } from "node:fs/promises";
+import { DatabaseSync } from "node:sqlite";
 import { join } from "node:path";
 import { realpathSync } from "node:fs";
 import { cleanTemp, fakeMachine } from "../../../../../packages/session-import/test/helpers.ts";
@@ -90,5 +91,17 @@ describe("SessionImportService", () => {
       provider: PRSLOY_PROVIDER_ID,
       modelId: "kimi-k3.1-pro",
     });
+  });
+
+  it("reports a source it could not read instead of failing the scan", async () => {
+    const { machine, svc } = await service();
+    expect((await svc.scan(NOW)).unreadable).toEqual([]);
+    await mkdir(machine.roots.opencodeData, { recursive: true });
+    const db = new DatabaseSync(join(machine.roots.opencodeData, "opencode.db"));
+    db.exec("CREATE TABLE session_v9 (id TEXT)");
+    db.close();
+    const scan = await svc.scan(NOW);
+    expect(scan.unreadable).toEqual(["opencode"]);
+    expect(scan.chats).toHaveLength(5);
   });
 });

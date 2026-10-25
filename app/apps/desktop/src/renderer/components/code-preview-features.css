@@ -378,3 +378,52 @@
 .memory-auto-intro > span {
   flex: 1;
 }
+
+/* Settings → «Поиск в интернете» (issue #23). */
+.web-search-hint,
+.web-search-status {
+  display: block;
+}
+.web-search-status {
+  margin-top: 2px;
+}
+.web-search-status[data-ok="false"] {
+  color: var(--destructive);
+}
+.web-search-actions,
+.web-search-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+}
+.web-search-actions > :first-child {
+  margin-left: -10px;
+}
+.web-search-active {
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--muted-foreground);
+  white-space: nowrap;
+}
+.web-search-footnote {
+  margin-top: 8px;
+}
+.web-search-models,
+.web-search-models-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 6px;
+}
+.web-search-model {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.web-search-model-name {
+  min-width: 12rem;
+}

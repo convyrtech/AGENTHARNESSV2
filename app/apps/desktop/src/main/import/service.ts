@@ -105,6 +105,7 @@ export class SessionImportService {
         alreadyImported: c.alreadyImported === true,
       })),
       selected: result.selected,
+      unreadable: [...new Set(result.skipped.map((skip) => skip.tool))],
     };
   }
 

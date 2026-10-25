@@ -19,7 +19,7 @@ import {
   type FirstRunSeen,
 } from "@/lib/prsloy-first-run";
 import { isNonProjectWorkspacePath } from "@/lib/workspace";
-import { mergeRecentFolders, readImportedProjects } from "@/lib/session-import";
+import { expandIfImported, mergeRecentFolders, readImportedProjects } from "@/lib/session-import";
 import { useShellStore } from "@/store/shell-store";
 import { LineLoader } from "@/components/motion/LineLoader";
 import { FirstRunImport } from "./FirstRunImport";
@@ -136,6 +136,8 @@ export function FirstRunGate({ children }: { children: ReactNode }) {
         setState(next);
         if (next.needsWorkspace) {
           setError(t(locale, "prsloy.firstRun.folderFailed", { path: folder }));
+        } else {
+          expandIfImported(folder);
         }
       } catch (cause) {
         setError(cause instanceof Error ? cause.message : String(cause));

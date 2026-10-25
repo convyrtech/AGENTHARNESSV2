@@ -154,8 +154,8 @@ describe("memory: the tool", () => {
     expect(existsSync(join(dir, "projects", projectKey(cwd), "project.json"))).toBe(true);
   });
 
-  it("forget: hidden note for the model, card «Забыл.», the same text does not come back by itself", async () => {
-    const { pi, call } = setup();
+  it("forget from the tool: a confirm card, nothing forgotten until the user says yes (research/27 §2)", async () => {
+    const { pi, call, handle } = setup();
     await pi.userPrompt("Обращайся ко мне на ты, пожалуйста");
     const saved = await call({
       action: "remember",
@@ -164,20 +164,55 @@ describe("memory: the tool", () => {
     });
     const id = saved.details?.id;
     const r = await call({ action: "forget", id });
-    expect(r.content[0]!.text).toContain("Забыл.");
-    expect(pi.sent.slice(1).map((m) => [m.customType, m.display])).toEqual([
-      ["prsloy-memory.forgot", false],
-      ["prsloy-memory.forgot", true],
+    expect(r.content[0]!.text).toBe(MEMORY_TEXT.asked);
+    const card = pi.sent.at(-1)!;
+    expect([card.customType, card.display, String(card.content)]).toEqual([
+      "prsloy-memory.confirm",
+      true,
+      "Забыть «Обращаться на ты»?",
     ]);
-    expect(String(pi.sent[1]!.content)).toBe(
-      "Пользователь попросил забыть: «Обращаться на ты». Больше не учитывай.",
-    );
+    const details = card.details as { confirmId: string; action: string; id: string };
+    expect(details).toMatchObject({ action: "forget", id, scope: "user" });
+    // Still remembered: the tool cannot change it by itself.
+    expect(handle.store.entries("user", pi.ctx.cwd).map((e) => e.id)).toEqual([id]);
+    // The user says yes → forgotten, and the same text does not come back by itself.
+    expect(handle.store.confirm(details.confirmId, true, pi.ctx.cwd)?.applied).toMatchObject({
+      id,
+    });
+    expect(handle.store.entries("user", pi.ctx.cwd)).toEqual([]);
     const again = await call({
       action: "remember",
       text: "Обращаться на ты",
       quote: "Обращайся ко мне на ты",
     });
     expect(again.content[0]!.text).toContain("просил это забыть");
+    // Used up: a second answer does nothing.
+    expect(handle.store.confirm(details.confirmId, true, pi.ctx.cwd)).toBeUndefined();
+  });
+
+  it("a contradicting remember from the tool asks instead of replacing", async () => {
+    const { pi, call, handle } = setup();
+    await pi.userPrompt("Люблю тёмные сайты");
+    await call({ action: "remember", text: "Любит тёмные сайты", quote: "Люблю тёмные сайты" });
+    await pi.userPrompt("Я больше не люблю тёмные сайты");
+    const r = await call({
+      action: "remember",
+      text: "Не любит тёмные сайты",
+      quote: "больше не люблю тёмные сайты",
+    });
+    expect(r.content[0]!.text).toBe(MEMORY_TEXT.asked);
+    expect(String(pi.sent.at(-1)!.content)).toBe(
+      "Раньше: «Любит тёмные сайты». Теперь: «Не любит тёмные сайты»?",
+    );
+    expect(handle.store.entries("user", pi.ctx.cwd).map((e) => e.text)).toEqual([
+      "Любит тёмные сайты",
+    ]);
+    const { confirmId } = pi.sent.at(-1)!.details as { confirmId: string };
+    const yes = handle.store.confirm(confirmId, true, pi.ctx.cwd);
+    expect(yes?.applied).toMatchObject({ ok: true, replaced: { text: "Любит тёмные сайты" } });
+    expect(handle.store.entries("user", pi.ctx.cwd).map((e) => e.text)).toEqual([
+      "Не любит тёмные сайты",
+    ]);
   });
 
   it("off by default (no flag) — the tool refuses and there is no section", async () => {
