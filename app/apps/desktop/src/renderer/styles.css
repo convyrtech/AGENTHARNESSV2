@@ -5895,6 +5895,10 @@ textarea.models-scoped-patterns-input[data-slot="textarea"] {
   border-bottom: none;
   padding: 0.85rem 1rem;
 }
+/* Rows that ask for centring get it: this unlayered rule otherwise beats Tailwind's `items-center`. */
+.settings-row.items-center {
+  align-items: center;
+}
 .settings-row:not(.settings-row-last):not(:last-child)::after {
   content: "";
   position: absolute;
@@ -6600,6 +6604,16 @@ textarea.models-scoped-patterns-input[data-slot="textarea"] {
   border-left: 1px solid var(--border);
   background: var(--canvas);
 }
+/* Narrow window (a 125–150 % laptop): beside the chat would squeeze both; cover it instead. */
+@media (max-width: 1180px) {
+  .code-preview-panel {
+    position: absolute;
+    inset: 0;
+    z-index: 5;
+    width: auto;
+    border-left: 0;
+  }
+}
 .code-preview-head {
   display: flex;
   align-items: center;
@@ -6779,15 +6793,17 @@ textarea.models-scoped-patterns-input[data-slot="textarea"] {
 /* Empty chat: example tasks that fill the composer. */
 .example-chips {
   display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
+  flex-direction: column;
+  align-items: center;
   gap: 8px;
   margin-top: 24px;
-  max-width: 560px;
+  max-width: 100%;
 }
 .example-chip {
-  height: 34px;
-  padding: 0 14px;
+  max-width: 100%;
+  min-height: 34px;
+  padding: 6px 16px;
+  text-align: center;
   border: 1px solid var(--border);
   border-radius: 9999px;
   background: var(--card);
@@ -6853,6 +6869,38 @@ textarea.models-scoped-patterns-input[data-slot="textarea"] {
   font-size: 12px;
   color: var(--muted-foreground);
   cursor: pointer;
+}
+/* A harness card is a note, not an error: the same shape in the quiet card colours. */
+.harness-card {
+  border-color: var(--border);
+  background: var(--card);
+}
+.harness-card .model-failure-head {
+  color: var(--muted-foreground);
+}
+.harness-card-remarks {
+  margin: 0 0 0 24px;
+  padding-left: 18px;
+  font-size: 13px;
+  line-height: 1.5;
+  list-style: decimal;
+}
+.harness-card-remarks code {
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+.model-failure-hint {
+  margin: 4px 0 0 24px;
+  font-size: 13px;
+  color: var(--muted-foreground);
+}
+.model-failure-hint + .model-failure-hint {
+  margin-top: 0;
+}
+.model-retry-note {
+  margin: 0 0 12px;
+  font-size: 13px;
+  color: var(--muted-foreground);
 }
 .model-failure-detail {
   margin: 0;

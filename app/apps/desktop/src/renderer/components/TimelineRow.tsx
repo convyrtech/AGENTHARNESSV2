@@ -84,7 +84,14 @@ import {
 } from "../lib/timeline.ts";
 import { cn } from "../lib/utils.ts";
 import { useCasualPrefs } from "../hooks/useCasualPrefs.ts";
-import { isModelFailure, isModelOnlyNote, localizedSystemTitle } from "../lib/system-notices.ts";
+import { harnessCardKind, isHarnessData } from "../lib/harness-card.ts";
+import { HarnessCard } from "./HarnessCard.tsx";
+import {
+  isHostCrash,
+  isModelFailure,
+  isModelOnlyNote,
+  localizedSystemTitle,
+} from "../lib/system-notices.ts";
 import { ModelFailureCard } from "./ModelFailureCard.tsx";
 
 /** Tick wall-clock once per second while `active` so elapsed labels stay live. */
@@ -798,14 +805,51 @@ export const TimelineRow = memo(function TimelineRow(props: {
   // Extension custom message/entry use the same generic serializable fallback
   // (no TUI renderer factories); content is still sanitized Markdown.
   if (isModelOnlyNote(item)) return null;
+  if (isHostCrash(item)) {
+    return (
+      <ModelFailureCard
+        locale={props.locale}
+        kind="crash"
+        detail={item.text}
+        onRetry={props.onRetry}
+        disabled={props.editingLocked}
+      />
+    );
+  }
   if (isModelFailure(item)) {
     return (
       <ModelFailureCard
         locale={props.locale}
         detail={item.text}
+        code={item.code}
         onRetry={props.onRetry}
         disabled={props.editingLocked}
       />
+    );
+  }
+  const harness = item.extension ? harnessCardKind(item.title) : undefined;
+  if (harness) {
+    if (isHarnessData(item.text)) return null;
+    return (
+      <HarnessCard
+        locale={props.locale}
+        kind={harness}
+        text={item.text}
+        details={item.details}
+        onRetry={props.onRetry}
+        disabled={props.editingLocked}
+      />
+    );
+  }
+  // pi's automatic retry: one quiet line (the raw reason in its tooltip).
+  if (item.title === "Retry" && item.attempt !== undefined) {
+    return (
+      <p className="model-retry-note" data-testid="model-retry" title={item.text}>
+        {t(props.locale, "system.retrying", {
+          attempt: String(item.attempt),
+          max: String(item.maxAttempts ?? item.attempt),
+        })}
+      </p>
     );
   }
   const extension = item.extension === true;

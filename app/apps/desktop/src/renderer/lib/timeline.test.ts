@@ -2,6 +2,7 @@ import type { HostEvent, RuntimeEvent } from "@zeno/contracts";
 import type { TimelineItem } from "./timeline.ts";
 import { IPC_PROTOCOL_VERSION } from "@zeno/contracts";
 import { describe, expect, it } from "vite-plus/test";
+import { isHostCrash } from "./system-notices.ts";
 import {
   buildTimelineBlocks,
   deriveLiveActivity,
@@ -30,6 +31,47 @@ function runtimeEvent(sequence: number, event: RuntimeEvent): HostEvent {
 }
 
 describe("runtime timeline", () => {
+  it("a host crash becomes the crash row the failure card renders", () => {
+    const [item] = projectEventsToTimeline(
+      [{ type: "host.crashed", message: "Agent Host exited with code 1: file:///x" } as HostEvent],
+      [],
+    );
+    expect(item).toMatchObject({ kind: "system", title: "Agent Host crashed", tone: "error" });
+    expect(item?.kind === "system" && isHostCrash(item)).toBe(true);
+  });
+
+  it("a custom message from history is the same row as live", () => {
+    const [card] = historyToTimeline([
+      {
+        role: "system",
+        text: "Проверила вторая модель: замечаний нет",
+        customType: "prsloy-harness.second-opinion",
+        title: "prsloy-harness.second-opinion",
+      },
+    ]);
+    expect(card).toMatchObject({
+      kind: "system",
+      title: "prsloy-harness.second-opinion",
+      text: "Проверила вторая модель: замечаний нет",
+      extension: true,
+    });
+  });
+
+  it("an older history's «[type] text» custom row gets its type back", () => {
+    const items = historyToTimeline([
+      { role: "system", text: "[prsloy-harness.budget] Задача остановлена: исчерпан лимит" },
+      { role: "system", text: "Обычная заметка" },
+    ]);
+    expect(items[0]).toMatchObject({
+      kind: "system",
+      title: "prsloy-harness.budget",
+      text: "Задача остановлена: исчерпан лимит",
+      extension: true,
+    });
+    expect(items[1]).toMatchObject({ kind: "system", text: "Обычная заметка" });
+    expect(items[1]).not.toHaveProperty("extension");
+  });
+
   it("takes pi's stored text at message end when the deltas lost a character", () => {
     const timeline = projectEventsToTimeline(
       [

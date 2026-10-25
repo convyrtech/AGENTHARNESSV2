@@ -22,6 +22,8 @@ import { useTurnSnapshots } from "../hooks/useTurnSnapshots.ts";
 import { TurnUndoAction } from "./TurnUndoAction.tsx";
 import { TurnPreviewAction } from "./TurnPreviewAction.tsx";
 import { previewTargetsByBlock } from "@/lib/turn-preview";
+import { withoutRetryNoise } from "@/lib/model-failure";
+import { useCasualPrefs } from "../hooks/useCasualPrefs.ts";
 
 type UserTimelineItem = Extract<TimelineItem, { kind: "user" }>;
 type AssistantTimelineItem = Extract<TimelineItem, { kind: "assistant" }>;
@@ -114,7 +116,11 @@ export function SessionTimelineContent(props: SessionTimelineContentProps) {
     footer,
     testId = "timeline",
   } = props;
-  const blocks = useMemo(() => buildTimelineBlocks(items), [items]);
+  const { developerMode } = useCasualPrefs();
+  const blocks = useMemo(
+    () => buildTimelineBlocks(developerMode ? items : withoutRetryNoise(items)),
+    [items, developerMode],
+  );
   const liveActivity = useMemo(
     () => deriveLiveActivity({ items, events, running, waiting }),
     [items, events, running, waiting],
@@ -210,6 +216,7 @@ export function SessionTimelineContent(props: SessionTimelineContentProps) {
                         locale={locale}
                         target={previewTarget}
                         workspacePath={props.sessionCwd || props.workspacePath}
+                        snapshotId={undoSnapshotId}
                       />
                     ) : null}
                   </MessageScrollerItem>

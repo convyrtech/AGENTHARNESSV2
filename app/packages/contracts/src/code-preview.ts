@@ -15,3 +15,14 @@ export interface CodePreviewApi {
   /** «Открыть в браузере»: the file in the default app, or the server URL in the browser. */
   openExternal(target: CodePreviewTarget, workspacePath: string | undefined): Promise<boolean>;
 }
+
+/** The owner's switches for the PRSLOY harness (`prsloy-harness.json` in the agent folder). */
+export type HarnessFlags = {
+  /** Another model family reviews the turn's changes (default on). */
+  secondOpinion: boolean;
+};
+
+export interface HarnessFlagsApi {
+  get(): Promise<HarnessFlags>;
+  set(patch: HarnessFlags): Promise<HarnessFlags>;
+}

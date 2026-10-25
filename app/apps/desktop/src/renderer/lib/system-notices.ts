@@ -6,6 +6,10 @@ import { t, type Locale, type MessageKey } from "./i18n.ts";
 
 /** The projection's title for a model turn that failed (not stopped by the user). */
 export const RESPONSE_FAILED_TITLE = "Response failed";
+/** The projection's title for an Agent Host crash (`host.crashed`). */
+export const HOST_CRASHED_TITLE = "Agent Host crashed";
+/** The projection's note after the host came back (`host.restarted`). */
+export const HOST_RESTARTED_TEXT = "Agent Host restarted";
 
 const TITLE_KEYS: Readonly<Record<string, MessageKey>> = {
   [RESPONSE_FAILED_TITLE]: "system.responseFailed",
@@ -13,7 +17,7 @@ const TITLE_KEYS: Readonly<Record<string, MessageKey>> = {
   "Response pending": "system.responsePending",
   "Response deferred": "system.responseDeferred",
   Retry: "system.retry",
-  "Agent Host crashed": "system.hostCrashed",
+  [HOST_CRASHED_TITLE]: "system.hostCrashed",
 };
 
 export function localizedSystemTitle(locale: Locale, title: string): string {
@@ -23,6 +27,10 @@ export function localizedSystemTitle(locale: Locale, title: string): string {
 
 export function isModelFailure(item: { title?: string; tone?: string }): boolean {
   return item.tone === "error" && item.title === RESPONSE_FAILED_TITLE;
+}
+
+export function isHostCrash(item: { title?: string }): boolean {
+  return item.title === HOST_CRASHED_TITLE;
 }
 
 /**

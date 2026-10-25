@@ -38,29 +38,18 @@ describe("previewTargetOfTool", () => {
     ).toEqual({ kind: "server", port: 5173 });
   });
 
-  it("falls back to the registry line in bash output (blocked server or `cmd &`)", () => {
-    const blocked =
-      "Команда похожа на сервер, поэтому запущена в фоне, чтобы bash не завис.\n" +
-      "p2: работает, pid 4242, порт 8000, лог /tmp/p2.log\n  $ python3 -m http.server 8000";
-    expect(previewTargetOfTool(tool("bash", { status: "error", output: blocked }))).toEqual({
-      kind: "server",
-      port: 8000,
-    });
-    const rewritten =
-      "ok\n[Сервер «npm run dev &» запущен через реестр харнесса (он закроется с сессией): " +
-      "p3: работает, pid 7, порт 3000, лог /x\n  $ npm run dev. Логи и остановка: тул process.]";
-    expect(previewTargetOfTool(tool("bash", { output: rewritten }))).toEqual({
-      kind: "server",
-      port: 3000,
-    });
-  });
-
-  it("does not take a server that already exited or reports no port", () => {
+  it("takes the port from details on a server-like bash too, never from the text", () => {
     expect(
       previewTargetOfTool(
-        tool("bash", { output: "p4: завершён (код 1), pid 9, порт 8000, лог /x" }),
+        tool("bash", { status: "error", details: { id: "p2", ports: [8000], prsloyServer: true } }),
       ),
+    ).toEqual({ kind: "server", port: 8000 });
+    expect(
+      previewTargetOfTool(tool("bash", { output: "p3: работает, pid 7, порт 3000, лог /x" })),
     ).toBeUndefined();
+  });
+
+  it("does not take a server that reports no port", () => {
     expect(
       previewTargetOfTool(tool("bash_background", { details: { ports: [] } })),
     ).toBeUndefined();

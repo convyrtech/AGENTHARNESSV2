@@ -32,10 +32,10 @@ export function CostChip(props: { locale: Locale }) {
   if (sessionUsd <= 0) return null;
   const rub = (usd: number) => formatRub(usdToRub(usd, rubPerUsd), props.locale);
   const sessionLabel = t(props.locale, "cost.session", { amount: rub(sessionUsd) });
-  // pi adds a reply's cost when the reply ends, so a running turn grows in steps; until its
-  // first reply lands there is nothing to show yet, not «ход 0,00 ₽».
+  // pi adds a reply's cost when the reply ends, so a running turn grows in steps. A turn that
+  // has cost nothing (not replied yet, or failed before any reply) shows no «ход 0,00 ₽».
   const turnLabel =
-    turnUsd !== undefined && !(running && turnUsd <= 0)
+    turnUsd !== undefined && turnUsd > 0
       ? t(props.locale, "cost.turn", { amount: rub(turnUsd) })
       : undefined;
 

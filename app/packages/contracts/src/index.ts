@@ -1,4 +1,4 @@
-import type { CodePreviewApi } from "./code-preview.ts";
+import type { CodePreviewApi, HarnessFlagsApi } from "./code-preview.ts";
 import type { DesignApi } from "./design.ts";
 export type * from "./code-preview.ts";
 export type * from "./design.ts";
@@ -1802,6 +1802,8 @@ export interface ZenoDesktopApi {
   design: DesignApi;
   /** «Код» tab: in-app preview of a written page or a local server (see ./code-preview.ts). */
   codePreview: CodePreviewApi;
+  /** Settings → «Проверка второй моделью» and other harness switches. */
+  harnessFlags: HarnessFlagsApi;
   /**
    * Always-on-top desktop pet (bloub) — a living SVG companion driven by
    * per-session focus + task bubbles. Enabled from Settings → 宠物.

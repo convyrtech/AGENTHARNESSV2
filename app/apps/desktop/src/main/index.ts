@@ -168,6 +168,7 @@ import { ThemeLibrary } from "./theme-library.ts";
 import { APP_SCHEMES } from "./app-schemes.ts";
 import { installDesign } from "./design/wire.ts";
 import { installCodePreview } from "./code-preview.ts";
+import { installHarnessFlags } from "./harness-flags.ts";
 
 protocol.registerSchemesAsPrivileged(APP_SCHEMES);
 
@@ -1353,7 +1354,7 @@ interface DesktopPrefs {
 }
 
 const WINDOW_MIN_WIDTH = 760;
-const WINDOW_MIN_HEIGHT = 560;
+const WINDOW_MIN_HEIGHT = 480;
 const APP_SCALE_DEFAULT = 100;
 const APP_SCALE_MIN = 80;
 const APP_SCALE_MAX = 150;
@@ -4749,6 +4750,7 @@ void app
     const designPiCli = () => ensurePiCliExtracted().then(() => resolveBuiltinSdkCached().cliPath);
     installDesign(currentDirectory, () => mainWindow, assertTrustedSender, designPiCli, prsloy);
     installCodePreview(assertTrustedSender);
+    installHarnessFlags(assertTrustedSender);
     // App-channel proxy before any network from Chromium / main.
     await applyAppSessionProxy();
     // Default Electron File/Edit/View/Window menu is English-only and not product chrome.

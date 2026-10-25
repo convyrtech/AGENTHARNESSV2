@@ -1,14 +1,15 @@
 /**
- * Empty chat, casual mode: three example tasks. A click puts the text in the composer and
- * focuses it; nothing is sent.
+ * Empty chat, casual mode: four example tasks, one per line. A click puts the text in the
+ * composer and focuses it; nothing is sent. The chat's first message replaces the empty state.
  */
 import { t, type Locale, type MessageKey } from "../lib/i18n.ts";
 import { useCasualPrefs } from "../hooks/useCasualPrefs.ts";
 
 const EXAMPLES: readonly MessageKey[] = [
   "empty.example.site",
+  "empty.example.sheet",
+  "empty.example.bot",
   "empty.example.explore",
-  "empty.example.fix",
 ];
 
 export function ExampleTaskChips(props: { locale: Locale; onPick: (text: string) => void }) {

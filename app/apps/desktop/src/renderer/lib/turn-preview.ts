@@ -1,17 +1,11 @@
 /**
  * «Открыть превью» under a finished «Код» turn: the page it wrote or edited (`.html`), or a
- * local server the harness registry started. A server wins over a file, since it is what
+ * local server the harness registry started (its `details.ports`). A server wins over a file, since it is what
  * serves the site; within a kind the latest one wins.
  */
 import type { CodePreviewTarget } from "@zeno/contracts";
 import { classifyToolName } from "./process-activity.ts";
 import type { TimelineBlock, TimelineItem } from "./timeline.ts";
-
-/**
- * The registry's own line (`describeProcess` in prsloy-harness), used where the tool result
- * has no structured `details`: a blocked server-like `bash` and a rewritten `cmd &`.
- */
-const REGISTRY_LINE = /(?:^|\s)[\w.-]+: работает, pid \d+, порт (\d+)/mu;
 
 function validPort(value: unknown): number | undefined {
   return typeof value === "number" && Number.isInteger(value) && value >= 1 && value <= 65535
@@ -23,10 +17,10 @@ export function previewTargetOfTool(item: TimelineItem): CodePreviewTarget | und
   if (item.kind !== "tool" || item.status === "running") return undefined;
   const kind = classifyToolName(item.toolName);
   if (kind === "run") {
+    // The harness puts the registry's ports in `details` on every path that starts a server
+    // (bash_background, a server-like bash, a rewritten `cmd &`).
     const ports = (item.details as { ports?: unknown } | undefined)?.ports;
-    const fromDetails = Array.isArray(ports) ? validPort(ports[0]) : undefined;
-    const fromText = validPort(Number(REGISTRY_LINE.exec(item.output ?? "")?.[1]));
-    const port = fromDetails ?? fromText;
+    const port = Array.isArray(ports) ? validPort(ports[0]) : undefined;
     return port ? { kind: "server", port } : undefined;
   }
   if ((kind === "write" || kind === "edit") && item.status === "completed") {

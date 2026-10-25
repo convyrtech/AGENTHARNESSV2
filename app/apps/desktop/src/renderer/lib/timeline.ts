@@ -1,3 +1,4 @@
+import { HOST_CRASHED_TITLE, HOST_RESTARTED_TEXT } from "./system-notices.ts";
 import type { HostEvent, SessionHistoryMessage, ZenoRunState } from "@zeno/contracts";
 import { localeTag, type Locale } from "./i18n.ts";
 import { hideToolLeaks } from "./tool-markup.ts";
@@ -47,6 +48,13 @@ export type TimelineItem =
       timestamp?: string;
       /** True when projected from extension custom message/entry (generic fallback). */
       extension?: boolean;
+      /** Failed turn: the host's stable failure category (`message.failed.code`). */
+      code?: string;
+      /** pi's automatic retry: which attempt of how many. */
+      attempt?: number;
+      maxAttempts?: number;
+      /** Extension custom message `details` (the harness review's remarks). */
+      details?: unknown;
     };
 
 /**
@@ -220,11 +228,20 @@ export function historyToTimeline(history: SessionHistoryMessage[]): TimelineIte
       });
       continue;
     }
+    // A custom message (harness card, extension note): the same row as live `custom.message`.
+    // Older history flattened it to «[customType] text»; read that too.
+    const legacy =
+      item.customType || item.title ? undefined : /^\[([\w.-]+)\] ?([\s\S]*)$/u.exec(item.text);
+    const customType = item.customType ?? legacy?.[1];
     items.push({
       id: `history-system-${index}`,
       kind: "system",
-      text: item.text,
-      ...(item.title ? { title: item.title } : {}),
+      text: legacy ? (legacy[2] ?? "") : item.text,
+      ...(customType
+        ? { title: customType, extension: true }
+        : item.title
+          ? { title: item.title }
+          : {}),
       ...(item.timestamp ? { timestamp: item.timestamp } : {}),
     });
   }
@@ -316,6 +333,7 @@ export function projectEventsToTimeline(
           id: `system-fail-${items.length}`,
           kind: "system",
           text: runtimeEvent.message,
+          ...(runtimeEvent.code ? { code: runtimeEvent.code } : {}),
           title:
             runtimeEvent.reason === "aborted"
               ? "Response stopped"
@@ -337,6 +355,8 @@ export function projectEventsToTimeline(
           kind: "system",
           title: "Retry",
           text: `Retry ${runtimeEvent.attempt}/${runtimeEvent.maxAttempts} in ${runtimeEvent.delayMs}ms — ${runtimeEvent.errorMessage}`,
+          attempt: runtimeEvent.attempt,
+          maxAttempts: runtimeEvent.maxAttempts,
           tone: "info",
           timestamp: now(),
         });
@@ -427,6 +447,7 @@ export function projectEventsToTimeline(
           kind: "system",
           title: runtimeEvent.customType,
           text: runtimeEvent.content || summarizeData(runtimeEvent.details),
+          ...(runtimeEvent.details !== undefined ? { details: runtimeEvent.details } : {}),
           tone: "info",
           timestamp: now(),
           extension: true,
@@ -449,7 +470,7 @@ export function projectEventsToTimeline(
         id: `crash-${items.length}`,
         kind: "system",
         text: event.message,
-        title: "Agent Host crashed",
+        title: HOST_CRASHED_TITLE,
         tone: "error",
         timestamp: now(),
       });
@@ -458,7 +479,7 @@ export function projectEventsToTimeline(
       items.push({
         id: `restart-${items.length}`,
         kind: "system",
-        text: "Agent Host restarted",
+        text: HOST_RESTARTED_TEXT,
         tone: "info",
         timestamp: now(),
       });
