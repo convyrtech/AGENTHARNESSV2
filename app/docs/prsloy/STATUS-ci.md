@@ -22,6 +22,16 @@ smoke `firstrun.spec.ts` → metrics.json `firstCommand`, в main-логе `turn
 - Не делали (решение дирижёра): ход до venv (ранний `pip install` попал бы в базовый Python) и распаковку в
   установщике (+12 с установки и безголовый режим в main).
 
+## Разборщик: «пишет вне папки проекта» (D10, forbidden:outside)
+
+- Живой стенд: агент сделал `cd /tmp && npm install jsdom`, и в /tmp остался package.json. Раньше D10 ловил только
+  глобальную установку (`-g`, apt, pip без venv). Теперь `forbidden:outside` (K10, пока shadow): write/edit по
+  абсолютному пути вне cwd сессии; bash `cd <снаружи>`, а дальше в том же вызове установка или создание файлов;
+  `--prefix/--target/-C <снаружи>`. Пути Windows сравниваются без учёта регистра и вида слешей; `cd` наружу, чтобы
+  посмотреть (`ls`), — не находка.
+- На фейковом стенде (19 сессий) новых находок нет. Ночные прогоны на main e309fea вручную: desktop-audit
+  40237121046 ✓, desktop-first-hour 40237122504 ✓ (скрипта features на main ещё нет — notice, зелёный).
+
 ## Первый час новичка каждую ночь (desktop-first-hour.yml)
 
 - Workflow для features (STATUS-features, этап 8): 01:43 UTC, `apps/desktop/scripts/first-hour-nightly.mjs` —
