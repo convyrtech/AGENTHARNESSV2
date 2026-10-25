@@ -30,6 +30,9 @@ WIN = os.name == "nt"
 # failed on Windows (Edge lives in Program Files (x86)). Python upper-cases Windows env names.
 SAFE = ("PATH", "HOME", "USERPROFILE", "APPDATA", "LOCALAPPDATA", "SYSTEMROOT", "COMSPEC", "PATHEXT", "TEMP", "TMP",
         "PROGRAMFILES", "PROGRAMFILES(X86)", "PROGRAMW6432",
+        # системные переменные Windows без секретов: без WINDIR/SYSTEMDRIVE часть программ (cmd, Edge) ведёт себя странно
+        "WINDIR", "SYSTEMDRIVE", "PROGRAMDATA", "ALLUSERSPROFILE", "PUBLIC", "HOMEDRIVE", "HOMEPATH", "USERNAME",
+        "NUMBER_OF_PROCESSORS", "PROCESSOR_ARCHITECTURE", "OS",
         "LANG", "LC_ALL", "TERM", "TMPDIR", "PLAYWRIGHT_BROWSERS_PATH", "PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD",
         "HTTPS_PROXY", "HTTP_PROXY", "NO_PROXY", "https_proxy", "http_proxy", "no_proxy", "SSL_CERT_FILE",
         "REQUESTS_CA_BUNDLE", "NODE_EXTRA_CA_CERTS", "CURL_CA_BUNDLE", "PI_CODING_AGENT_DIR",
@@ -89,6 +92,9 @@ class WS:
         env = {k: v for k, v in os.environ.items() if k in SAFE}
         env["PATH"] = str(self.h / "bin") + os.pathsep + env.get("PATH", "")
         env["FLOW_TRANSCRIPTS"] = str(self.h / "tx")
+        # Python агента (не под -I) печатает в трубу UTF-8: иначе на Windows cp1252 и падение на «Иван Петров»
+        env["PYTHONUTF8"] = "1"
+        env["PYTHONIOENCODING"] = "utf-8"
         return env
 
 
