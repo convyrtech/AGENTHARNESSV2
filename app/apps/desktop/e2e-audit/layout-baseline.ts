@@ -1,5 +1,5 @@
 /** Baseline of temporary layout-lint exceptions (layout-baseline.json) and the report table. */
-import type { LayoutRule, LayoutViolation } from "./layout-rules.ts";
+import type { LayoutRule, LayoutViolation } from "@zeno/layout-rules";
 
 export type BaselineEntry = {
   rule: LayoutRule;

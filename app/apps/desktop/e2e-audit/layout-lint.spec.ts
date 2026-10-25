@@ -29,7 +29,7 @@ import { fileURLToPath } from "node:url";
 import { zipDirectory } from "../src/main/design/zip.ts";
 import { excuse, parseBaseline, type Finding } from "./layout-baseline.ts";
 import { GOOD_KEY, mockGateway } from "./layout-gateway.ts";
-import { lintLayout, type Box, type LayoutViolation } from "./layout-rules.ts";
+import { lintLayout, type Box, type LayoutViolation } from "@zeno/layout-rules";
 
 const require = createRequire(import.meta.url);
 const electronBinary = require("electron") as string;

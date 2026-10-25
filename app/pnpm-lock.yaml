@@ -394,6 +394,9 @@ importers:
       '@zeno/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      '@zeno/layout-rules':
+        specifier: workspace:*
+        version: link:../../packages/layout-rules
       '@zeno/test-utils':
         specifier: workspace:*
         version: link:../../packages/test-utils
@@ -543,6 +546,21 @@ importers:
 
   packages/contracts:
     devDependencies:
+      typescript:
+        specifier: 'catalog:'
+        version: 6.0.2
+      vite-plus:
+        specifier: 'catalog:'
+        version: 0.2.4(@opentelemetry/api@1.9.0)(@types/node@26.1.1)(@voidzero-dev/vite-plus-core@0.2.4(@types/node@26.1.1)(esbuild@0.28.2)(jiti@2.7.0)(typescript@6.0.2)(yaml@2.9.0))(esbuild@0.28.2)(jiti@2.7.0)(jsdom@30.0.1(@noble/hashes@2.2.0))(typescript@6.0.2)(yaml@2.9.0)
+      vitest:
+        specifier: 'catalog:'
+        version: 4.1.10(@opentelemetry/api@1.9.0)(@types/node@26.1.1)(@vitest/browser-preview@4.1.10)(@voidzero-dev/vite-plus-core@0.2.4(@types/node@26.1.1)(esbuild@0.28.2)(jiti@2.7.0)(typescript@6.0.2)(yaml@2.9.0))(jsdom@30.0.1(@noble/hashes@2.2.0))
+
+  packages/layout-rules:
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 26.1.1
       typescript:
         specifier: 'catalog:'
         version: 6.0.2
