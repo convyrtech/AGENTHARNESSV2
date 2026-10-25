@@ -10,6 +10,13 @@
       ["finalPrice(1000, 10)", 900],
       ["finalPrice(1234, 7)", 1147],
       ["finalPrice(59.9, 0)", 59]
+    ],
+    "hiddenAlt": [
+      ["finalPrice(999, 15)", 850],
+      ["finalPrice(100, 33)", 67],
+      ["finalPrice(1000, 10)", 900],
+      ["finalPrice(1234, 7)", 1148],
+      ["finalPrice(59.9, 0)", 59.9]
     ]
   }
 }
