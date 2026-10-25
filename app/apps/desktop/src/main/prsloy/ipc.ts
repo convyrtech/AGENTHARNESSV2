@@ -83,6 +83,7 @@ export function buildPrsloyState(ctx: PrsloyContext, needsWorkspace: boolean): P
     gitSetup: (({ status, percent }) => (percent === undefined ? { status } : { status, percent }))(
       ctx.git.state(),
     ),
+    appSetup: ctx.setupProgress(),
     firstRunBypass:
       process.env.ZENO_ENABLE_TEST_COMMANDS === "1" && process.env.PRSLOY_FORCE_FIRST_RUN !== "1",
   };
@@ -199,6 +200,8 @@ export async function prepareTurn(
   workspace: string | undefined,
   meta: { prompt?: string; sessionId?: string },
 ): Promise<void> {
+  // First launch: Node/Python and Git unpack in the background; the first turn waits.
+  if (ctx.runtimes.state().status === "installing") await ctx.runtimes.whenReady(300_000);
   if (ctx.git.state().status === "installing") await ctx.git.whenReady(180_000);
   await snapshotBeforeTurn(ctx, workspace, meta);
 }

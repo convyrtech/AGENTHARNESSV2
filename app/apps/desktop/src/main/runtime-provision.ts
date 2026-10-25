@@ -7,8 +7,16 @@
  * Dev: expanded apps/desktop/runtimes/current/{node,python} is used when present
  * (no extract) so `pnpm runtimes:fetch` stays zero-friction.
  */
-import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { execFileSync, spawn } from "node:child_process";
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  renameSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -454,4 +462,177 @@ export function listVendorArchiveNames(vendorRoot: string): string[] {
   } catch {
     return [];
   }
+}
+
+// ── PRSLOY: window first — decide cheaply at startup, extract in the background ──────
+
+export type ProvisionPlan =
+  | { kind: "ready"; layout: ProvisionedRuntimeLayout }
+  | { kind: "extract"; vendor: VendorRuntimeLayout; userRoot: string }
+  | { kind: "none" };
+
+type ProvisionOptions = Parameters<typeof ensureProvisionedRuntimes>[0];
+
+/**
+ * Cheap startup decision (existsSync + small JSON reads only): runtimes already usable
+ * (current stamp, or the expanded dev tree) → "ready"; packaged archives that still need
+ * unpacking → "extract" (do it with provisionRuntimesAsync after the window is up).
+ */
+export function planProvisionedRuntimes(options: ProvisionOptions): ProvisionPlan {
+  const vendor = resolveVendorRuntimeLayout({
+    ...(options.resourcesPath ? { resourcesPath: options.resourcesPath } : {}),
+    ...(options.mainModuleUrl ? { mainModuleUrl: options.mainModuleUrl } : {}),
+    ...(options.explicitVendorRoot ? { explicitVendorRoot: options.explicitVendorRoot } : {}),
+  });
+  if (!vendor) return { kind: "none" };
+  const userRoot = userRuntimesRoot(options.userDataPath);
+  const stamp = readProvisionStamp(options.userDataPath);
+  if (vendor.archives && (vendor.archives.node || vendor.archives.python)) {
+    if (isProvisionStampCurrent(stamp, vendor, userRoot)) {
+      const roots = rootsFromRuntimeRoot(userRoot);
+      if (roots) {
+        return {
+          kind: "ready",
+          layout: {
+            roots,
+            npmPrefix: npmPrefixDir(options.userDataPath),
+            pythonVenv: pythonVenvDir(options.userDataPath),
+            provisioned: true,
+            source: "userData",
+          },
+        };
+      }
+    }
+    return { kind: "extract", vendor, userRoot };
+  }
+  if (vendor.expanded) {
+    return {
+      kind: "ready",
+      layout: {
+        roots: vendor.expanded,
+        npmPrefix: npmPrefixDir(options.userDataPath),
+        pythonVenv: pythonVenvDir(options.userDataPath),
+        provisioned: false,
+        source: "vendor-expanded",
+      },
+    };
+  }
+  return { kind: "none" };
+}
+
+function runAsync(command: string, args: string[], timeoutMs: number): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const child = spawn(command, args, { stdio: "ignore", windowsHide: true });
+    const timer = setTimeout(() => {
+      child.kill();
+      reject(new Error(`${command} timed out`));
+    }, timeoutMs);
+    child.once("error", (error) => {
+      clearTimeout(timer);
+      reject(error);
+    });
+    child.once("exit", (code) => {
+      clearTimeout(timer);
+      if (code === 0) resolve();
+      else reject(new Error(`${command} ${args[0] ?? ""} exited with ${code}`));
+    });
+  });
+}
+
+function countFilesUnder(root: string): number {
+  let count = 0;
+  const stack = [root];
+  while (stack.length) {
+    const dir = stack.pop();
+    if (!dir) continue;
+    let entries;
+    try {
+      entries = readdirSync(dir, { withFileTypes: true });
+    } catch {
+      continue;
+    }
+    for (const entry of entries) {
+      if (entry.isDirectory()) stack.push(join(dir, entry.name));
+      else count += 1;
+    }
+  }
+  return count;
+}
+
+/**
+ * Unpack the shipped archives without blocking the main process: into a staging dir,
+ * then rename node/ python/ tools/ into place and write the stamp last. An interrupted
+ * run (app closed, uninstall) leaves the old tree or nothing — never a half tree with a
+ * current stamp. `onProgress(done, total)` counts unpacked files (total from manifest).
+ */
+export async function provisionRuntimesAsync(
+  options: ProvisionOptions & {
+    plan: Extract<ProvisionPlan, { kind: "extract" }>;
+    onProgress?: (done: number, total: number | undefined) => void;
+    pollMs?: number;
+  },
+): Promise<ProvisionedRuntimeLayout | undefined> {
+  const { vendor, userRoot } = options.plan;
+  const archives = vendor.archives;
+  if (!archives) return undefined;
+  const manifest = archives.manifest as BundledRuntimeManifest & {
+    nodeFiles?: number;
+    pythonFiles?: number;
+  };
+  const total =
+    manifest.nodeFiles && manifest.pythonFiles
+      ? manifest.nodeFiles + manifest.pythonFiles
+      : undefined;
+  // A stale stamp must never vouch for a tree that is being replaced.
+  rmSync(provisionStampPath(options.userDataPath), { force: true });
+  const staging = join(userRoot, `.staging-${process.pid}`);
+  rmSync(staging, { recursive: true, force: true });
+  mkdirSync(staging, { recursive: true });
+  const timer = setInterval(
+    () => options.onProgress?.(countFilesUnder(staging), total),
+    options.pollMs ?? 1000,
+  );
+  try {
+    for (const archive of [archives.node, archives.python, archives.tools]) {
+      if (archive) await runAsync(resolveTarBinary(), ["-xzf", archive, "-C", staging], 600_000);
+    }
+    for (const name of ["node", "python", "tools"]) {
+      const from = join(staging, name);
+      if (!existsSync(from)) continue;
+      rmSync(join(userRoot, name), { recursive: true, force: true });
+      renameSync(from, join(userRoot, name));
+    }
+  } finally {
+    clearInterval(timer);
+    rmSync(staging, { recursive: true, force: true });
+  }
+  options.onProgress?.(total ?? 1, total ?? 1);
+
+  const manSrc = join(vendor.vendorRoot, "manifest.json");
+  if (existsSync(manSrc)) writeFileSync(join(userRoot, "manifest.json"), readFileSync(manSrc));
+  const roots = rootsFromRuntimeRoot(userRoot);
+  if (!roots) return undefined;
+
+  const npmPrefix = npmPrefixDir(options.userDataPath);
+  const pythonVenv = pythonVenvDir(options.userDataPath);
+  mkdirSync(join(npmPrefix, "bin"), { recursive: true });
+  mkdirSync(join(npmPrefix, "lib"), { recursive: true });
+  const pyBin = getBundledPythonExecutable(roots.pythonRoot);
+  if (!options.skipVenv && pyBin) {
+    try {
+      rmSync(pythonVenv, { recursive: true, force: true });
+      await runAsync(pyBin, ["-m", "venv", pythonVenv], 180_000);
+    } catch (error) {
+      console.warn("[zeno] python venv create failed:", error);
+    }
+  }
+  const stamp: ProvisionStamp = {
+    provisionedAt: new Date().toISOString(),
+    ...(manifest.node ? { node: manifest.node } : {}),
+    ...(manifest.python ? { python: manifest.python } : {}),
+    ...(manifest.pythonReleaseTag ? { pythonReleaseTag: manifest.pythonReleaseTag } : {}),
+    ...(manifest.key ? { key: manifest.key } : {}),
+  };
+  writeFileSync(provisionStampPath(options.userDataPath), `${JSON.stringify(stamp, null, 2)}\n`);
+  return { roots, npmPrefix, pythonVenv, provisioned: true, source: "userData" };
 }

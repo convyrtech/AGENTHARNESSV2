@@ -13,15 +13,29 @@ import {
 import { resolveVendorRuntimeLayout } from "../runtime-provision.ts";
 import { bootstrapPrsloy, pickPythonExecutable, type PrsloyContext } from "./context.ts";
 import type { FetchLike } from "./gateway-check.ts";
+import type { RuntimeBoot } from "./runtime-boot.ts";
 
-export function initPrsloy(mainModuleUrl: string): PrsloyContext {
+/** `[prsloy-timing] <phase> <ms since process start>`; packaged-smoke reads these lines. */
+export function logStartupTiming(phase: string): void {
+  console.log(`[prsloy-timing] ${phase} ${Math.round(performance.now())}`);
+}
+
+function currentPythonExecutable(): string | undefined {
+  const status = getActiveBundledRuntimeStatus();
+  return pickPythonExecutable({
+    platform: process.platform,
+    pythonVenv: status.pythonVenv,
+    bundledPython: status.python?.path,
+  });
+}
+
+export function initPrsloy(mainModuleUrl: string, runtimes?: RuntimeBoot): PrsloyContext {
   let userDataPath: string;
   try {
     userDataPath = app.getPath("userData");
   } catch {
     userDataPath = join(homedir(), ".prsloy-fallback");
   }
-  const status = getActiveBundledRuntimeStatus();
   const roots = getActiveBundledRuntimeRoots();
   const resourcesPath =
     typeof process.resourcesPath === "string" ? process.resourcesPath : undefined;
@@ -34,12 +48,9 @@ export function initPrsloy(mainModuleUrl: string): PrsloyContext {
     resourcesPath,
     mainModuleUrl,
     runtimesRoot: roots?.root,
-    pythonExecutable: pickPythonExecutable({
-      platform: process.platform,
-      pythonVenv: status.pythonVenv,
-      bundledPython: status.python?.path,
-    }),
+    pythonExecutable: currentPythonExecutable(),
     cipher: safeStorage,
+    ...(runtimes ? { runtimes } : {}),
     ...(vendor?.archives?.git
       ? {
           gitArchive: {
@@ -53,6 +64,11 @@ export function initPrsloy(mainModuleUrl: string): PrsloyContext {
       if (state.status !== "installing")
         console.log(`[prsloy] PortableGit: ${state.status}`, state.error ?? "");
     },
+  });
+  // Node/Python unpacked after the window: re-point python shims and rg/fd.
+  runtimes?.onChange((state) => {
+    if (state.status === "ready") ctx.refreshRuntimes(currentPythonExecutable());
+    else if (state.status === "failed") console.warn("[prsloy] runtimes failed:", state.error);
   });
   // Unpack PortableGit in the background on first launch; the first turn waits for it.
   void ctx.git.ensure();

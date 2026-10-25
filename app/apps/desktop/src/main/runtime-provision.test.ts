@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vite-plus/test";
@@ -12,7 +12,11 @@ import {
   isProvisionStampCurrent,
   listVendorArchiveNames,
   npmPrefixDir,
+  planProvisionedRuntimes,
+  provisionRuntimesAsync,
+  provisionStampPath,
   pythonVenvDir,
+  readProvisionStamp,
   resolveTarBinary,
   resolveVendorRuntimeLayout,
   userRuntimesRoot,
@@ -267,6 +271,64 @@ describe("PRSLOY: tools archive + PortableGit SFX (Windows layout)", () => {
           userRoot,
         ),
       ).toBe(false);
+    } finally {
+      rmSync(vendorRoot, { recursive: true, force: true });
+      rmSync(userData, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("PRSLOY window first: plan + background unpack", () => {
+  it("plans extract on first launch, unpacks async with progress, then plans ready", async () => {
+    const { vendorRoot, userData } = makeVendorWithArchives();
+    try {
+      rmSync(join(vendorRoot, "node"), { recursive: true, force: true });
+      rmSync(join(vendorRoot, "python"), { recursive: true, force: true });
+      const options = { userDataPath: userData, explicitVendorRoot: vendorRoot, skipVenv: true };
+      const plan = planProvisionedRuntimes(options);
+      expect(plan.kind).toBe("extract");
+      if (plan.kind !== "extract") return;
+      // Planning never touches the disk beyond reads.
+      expect(existsSync(join(userRuntimesRoot(userData), "node"))).toBe(false);
+
+      const progress: number[] = [];
+      const layout = await provisionRuntimesAsync({
+        ...options,
+        plan,
+        pollMs: 5,
+        onProgress: (done) => progress.push(done),
+      });
+      expect(layout?.source).toBe("userData");
+      expect(existsSync(join(userRuntimesRoot(userData), "node", "bin", "node"))).toBe(true);
+      expect(progress.length).toBeGreaterThan(0);
+      expect(readProvisionStamp(userData)?.node).toBe("22.19.0");
+      // No staging leftovers.
+      const leftovers = readdirSync(userRuntimesRoot(userData)).filter((n) =>
+        n.startsWith(".staging"),
+      );
+      expect(leftovers).toEqual([]);
+
+      expect(planProvisionedRuntimes(options).kind).toBe("ready");
+    } finally {
+      rmSync(vendorRoot, { recursive: true, force: true });
+      rmSync(userData, { recursive: true, force: true });
+    }
+  });
+
+  it("a failed unpack leaves no stamp, so the next launch extracts again", async () => {
+    const { vendorRoot, userData } = makeVendorWithArchives();
+    try {
+      rmSync(join(vendorRoot, "node"), { recursive: true, force: true });
+      rmSync(join(vendorRoot, "python"), { recursive: true, force: true });
+      const options = { userDataPath: userData, explicitVendorRoot: vendorRoot, skipVenv: true };
+      mkdirSync(userRuntimesRoot(userData), { recursive: true });
+      writeFileSync(provisionStampPath(userData), JSON.stringify({ node: "old" }));
+      writeFileSync(join(vendorRoot, "archives", "python.tar.gz"), "not a tarball");
+      const plan = planProvisionedRuntimes(options);
+      if (plan.kind !== "extract") throw new Error(`expected extract, got ${plan.kind}`);
+      await expect(provisionRuntimesAsync({ ...options, plan })).rejects.toThrow();
+      expect(existsSync(provisionStampPath(userData))).toBe(false);
+      expect(planProvisionedRuntimes(options).kind).toBe("extract");
     } finally {
       rmSync(vendorRoot, { recursive: true, force: true });
       rmSync(userData, { recursive: true, force: true });

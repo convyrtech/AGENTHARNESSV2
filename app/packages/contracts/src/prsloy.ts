@@ -36,6 +36,8 @@ export interface PrsloyState {
    * background. "absent" elsewhere.
    */
   gitSetup: { status: "absent" | "installing" | "ready" | "failed"; percent?: number };
+  /** First launch: Node/Python + Git unpack combined into one percentage. */
+  appSetup?: { status: "absent" | "installing" | "ready" | "failed"; percent?: number };
 }
 
 export type PrsloyKeyResult =

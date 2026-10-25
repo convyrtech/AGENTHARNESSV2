@@ -23,6 +23,53 @@ import { chooseGitBinary, chooseWindowsShellPath } from "./windows-shell.ts";
 
 export type PrsloyState = { baseUrl: string; migrations?: string[] };
 
+/** The slice of RuntimeBoot the context needs (absent outside the Electron app). */
+export type RuntimesLike = {
+  state(): { status: "absent" | "installing" | "ready" | "failed"; done?: number; total?: number };
+  whenReady(timeoutMs: number): Promise<boolean>;
+};
+
+const NO_RUNTIMES: RuntimesLike = {
+  state: () => ({ status: "absent" }),
+  whenReady: async () => true,
+};
+
+/**
+ * Combine Node/Python unpack (files) and Git unpack (percent) into one number, weighted by
+ * their file counts. Ready parts count as done; absent parts are left out.
+ */
+export function combineSetupProgress(
+  runtimes: { status: string; done?: number; total?: number },
+  git: { status: string; percent?: number },
+  gitFiles: number | undefined,
+): { status: "absent" | "installing" | "ready" | "failed"; percent?: number } {
+  const parts: { weight: number; percent: number }[] = [];
+  const statuses = [runtimes.status, git.status];
+  if (statuses.includes("failed")) return { status: "failed" };
+  if (!statuses.includes("installing")) {
+    return statuses.includes("ready") ? { status: "ready" } : { status: "absent" };
+  }
+  if (runtimes.status === "installing" || runtimes.status === "ready") {
+    const weight = runtimes.total ?? 10_000;
+    const pct =
+      runtimes.status === "ready"
+        ? 100
+        : runtimes.total
+          ? Math.min(99, ((runtimes.done ?? 0) / runtimes.total) * 100)
+          : 0;
+    parts.push({ weight, percent: pct });
+  }
+  if (git.status === "installing" || git.status === "ready") {
+    parts.push({
+      weight: gitFiles ?? 9_000,
+      percent: git.status === "ready" ? 100 : (git.percent ?? 0),
+    });
+  }
+  const totalWeight = parts.reduce((sum, p) => sum + p.weight, 0);
+  const percent = parts.reduce((sum, p) => sum + p.percent * p.weight, 0) / totalWeight;
+  return { status: "installing", percent: Math.min(99, Math.floor(percent)) };
+}
+
 export type PrsloyContext = {
   paths: PrsloyHomePaths;
   agentDir: string;
@@ -36,6 +83,12 @@ export type PrsloyContext = {
   gitBinary(): string;
   /** PortableGit unpacked in the background on first launch (Windows). */
   git: GitRuntime;
+  /** Node/Python unpacked in the background on first launch (window first). */
+  runtimes: RuntimesLike;
+  /** Re-point python shims / rg+fd once the runtimes are unpacked. */
+  refreshRuntimes(pythonExecutable: string | undefined): void;
+  /** One first-launch progress value for «Готовлю приложение… N%». */
+  setupProgress(): { status: "absent" | "installing" | "ready" | "failed"; percent?: number };
   keyStore: PrsloyKeyStore;
   snapshots: TurnSnapshots;
   getState(): PrsloyState;
@@ -97,6 +150,7 @@ export function bootstrapPrsloy(options: {
   /** Shipped PortableGit self-extractor (Windows packaged builds). */
   gitArchive?: { path: string; version?: string | undefined; files?: number | undefined };
   onGitSetup?: (state: GitSetupState) => void;
+  runtimes?: RuntimesLike;
   env?: NodeJS.ProcessEnv;
   platform?: NodeJS.Platform;
 }): PrsloyContext {
@@ -121,7 +175,6 @@ export function bootstrapPrsloy(options: {
 
   const runtimesRoot = options.runtimesRoot ?? join(options.userDataPath, "runtimes");
   const bundledGitRoot = join(runtimesRoot, "git");
-  installSearchTools(join(runtimesRoot, "tools"), agentDir);
   let shellPath: string | undefined;
   let shellSource: PrsloyContext["shellSource"];
   // Re-run when PortableGit finishes unpacking: bundled bash wins over a system Git.
@@ -143,15 +196,15 @@ export function bootstrapPrsloy(options: {
     writeState(statePath, state);
   }
   refreshShell();
-  try {
-    writeAgentShims({
-      shimsDir: paths.shimsDir,
-      pythonExecutable: options.pythonExecutable,
-      platform,
-    });
-  } catch (error) {
-    console.warn("[prsloy] writing agent shims failed:", error);
-  }
+  const refreshRuntimes = (pythonExecutable: string | undefined) => {
+    installSearchTools(join(runtimesRoot, "tools"), agentDir);
+    try {
+      writeAgentShims({ shimsDir: paths.shimsDir, pythonExecutable, platform });
+    } catch (error) {
+      console.warn("[prsloy] writing agent shims failed:", error);
+    }
+  };
+  refreshRuntimes(options.pythonExecutable);
 
   const harnessEnabled = env.PRSLOY_HARNESS !== "0";
   const keyStore = new PrsloyKeyStore(join(paths.stateDir, "gateway-key.bin"), options.cipher);
@@ -180,6 +233,14 @@ export function bootstrapPrsloy(options: {
     },
     gitBinary,
     git,
+    runtimes: options.runtimes ?? NO_RUNTIMES,
+    refreshRuntimes,
+    setupProgress: () =>
+      combineSetupProgress(
+        (options.runtimes ?? NO_RUNTIMES).state(),
+        git.state(),
+        options.gitArchive?.files,
+      ),
     keyStore,
     snapshots,
     getState: () => ({ ...state }),

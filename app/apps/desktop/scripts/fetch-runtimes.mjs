@@ -965,6 +965,9 @@ async function fetchOne(target, versions, force) {
     pruned: true,
     nodeBytes,
     pythonBytes: pyBytes,
+    // First launch progress («Готовлю приложение… N%») counts unpacked files against these.
+    nodeFiles: countFiles(nodeDest),
+    pythonFiles: countFiles(pythonDest),
     ...(gitMeta ? { git: versions.git, gitBytes, gitFiles } : {}),
     ...(toolMetas.length
       ? {

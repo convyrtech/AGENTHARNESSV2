@@ -12,7 +12,7 @@ import {
   cleanPastedKey,
   firstRunStep,
   gatewayErrorKey,
-  gitSetupPercent,
+  appSetupPercent,
 } from "@/lib/prsloy-first-run";
 import { isNonProjectWorkspacePath } from "@/lib/workspace";
 import { useShellStore } from "@/store/shell-store";
@@ -126,10 +126,10 @@ export function FirstRunGate({ children }: { children: ReactNode }) {
     [busy, locale],
   );
 
-  // While bundled Git unpacks (Windows first launch) refresh its percentage quietly.
-  const gitPercent = gitSetupPercent(state);
+  // While runtimes unpack (first launch) refresh the percentage quietly.
+  const setupPercent = appSetupPercent(state);
   useEffect(() => {
-    if (gitPercent === undefined) return;
+    if (setupPercent === undefined) return;
     const timer = setInterval(() => {
       window.zeno.prsloy
         .getState()
@@ -137,7 +137,7 @@ export function FirstRunGate({ children }: { children: ReactNode }) {
         .catch(() => undefined);
     }, 1500);
     return () => clearInterval(timer);
-  }, [gitPercent === undefined]);
+  }, [setupPercent === undefined]);
 
   if (step === "done") return <>{children}</>;
   if (step === "loading") return <div className="h-screen w-screen bg-background" />;
@@ -251,9 +251,9 @@ export function FirstRunGate({ children }: { children: ReactNode }) {
             ) : null}
           </div>
         )}
-        {gitPercent !== undefined ? (
-          <p className="prsloy-first-run-note" data-testid="prsloy-git-setup">
-            {t(locale, "prsloy.setup.git", { percent: gitPercent })}
+        {setupPercent !== undefined ? (
+          <p className="prsloy-first-run-note" data-testid="prsloy-app-setup">
+            {t(locale, "prsloy.setup.app", { percent: setupPercent })}
           </p>
         ) : null}
       </div>

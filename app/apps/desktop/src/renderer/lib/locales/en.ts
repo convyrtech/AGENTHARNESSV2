@@ -1511,7 +1511,7 @@ export const en = {
   "empty.example.site": "Make a simple business-card website",
   "empty.example.explore": "Figure out what is in this folder",
   "empty.example.fix": "Find and fix a bug",
-  "prsloy.setup.git": "Preparing the command environment… {percent}%",
+  "prsloy.setup.app": "Preparing the app… {percent}%",
   "prsloy.update.ready": "Update ready — restart",
   "prsloy.update.dismiss": "Hide",
   "prsloy.firstRun.folderRefused": "This is the app's own scratch folder — choose another one",

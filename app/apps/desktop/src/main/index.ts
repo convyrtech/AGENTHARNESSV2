@@ -134,14 +134,13 @@ import { listOpenTargets, openInApp } from "./open-targets.ts";
 import { checkExternalUrl } from "./external-url.ts";
 import {
   applyManagedRuntimeToProcessEnv,
-  captureManagedPathBase,
   configureBundledRuntimes,
   getActiveBundledRuntimeStatus,
   normalizeBundledRuntimePrefs,
   type BundledRuntimePrefs,
 } from "./bundled-runtimes.ts";
-import { ensureProvisionedRuntimes } from "./runtime-provision.ts";
-import { electronFetch, initPrsloy } from "./prsloy/electron.ts";
+import { electronFetch, initPrsloy, logStartupTiming } from "./prsloy/electron.ts";
+import { RuntimeBoot } from "./prsloy/runtime-boot.ts";
 import { prepareTurn, registerPrsloyIpc } from "./prsloy/ipc.ts";
 import { CRASH_RESTART_DELAY_MS, nextCrashRestart } from "./prsloy/crash-restart.ts";
 import {
@@ -164,60 +163,28 @@ protocol.registerSchemesAsPrivileged(APP_SCHEMES);
  * archives in Resources → extract to userData → PATH + npm prefix + python venv.
  * Default ON. Safe before app.ready (userData/resourcesPath available in Electron main).
  */
-function bootstrapBundledRuntimesAndPath(): void {
-  // Snapshot host PATH before any managed prepend so toggles can rebuild cleanly.
-  captureManagedPathBase(process.env);
-
+function bootstrapBundledRuntimesAndPath(): RuntimeBoot {
   let prefs = normalizeBundledRuntimePrefs(undefined);
   try {
     prefs = normalizeBundledRuntimePrefs(loadDesktopPrefs().bundledRuntimes);
   } catch {
     // Prefs may be unavailable in unit-test hosts; keep defaults.
   }
-
   let userDataPath: string | undefined;
   try {
     userDataPath = app.getPath("userData");
   } catch {
     userDataPath = undefined;
   }
-
-  const provisionOpts: {
-    userDataPath: string;
-    resourcesPath?: string;
-    mainModuleUrl?: string;
-  } = {
+  const boot = new RuntimeBoot({
     userDataPath: userDataPath || join(homedir(), ".zeno-runtimes-fallback"),
+    resourcesPath: typeof process.resourcesPath === "string" ? process.resourcesPath : undefined,
     mainModuleUrl: import.meta.url,
-  };
-  if (typeof process.resourcesPath === "string" && process.resourcesPath) {
-    provisionOpts.resourcesPath = process.resourcesPath;
-  }
-
-  let roots;
-  let isolation: { npmPrefix?: string; pythonVenv?: string; source?: string } | undefined;
-
-  try {
-    const provisioned = ensureProvisionedRuntimes(provisionOpts);
-    if (provisioned) {
-      roots = provisioned.roots;
-      isolation = {
-        npmPrefix: provisioned.npmPrefix,
-        pythonVenv: provisioned.pythonVenv,
-        source: provisioned.source,
-      };
-    }
-  } catch (error) {
-    console.warn("[zeno] runtime provision failed:", error);
-  }
-
-  configureBundledRuntimes({
-    roots,
     prefs,
-    ...(isolation ? { isolation } : {}),
   });
-  // PATH + NODE_BINARY + isolation env, gated by prefs (OFF → clean host).
-  applyManagedRuntimeToProcessEnv(process.env);
+  // Already provisioned / dev tree: PATH + NODE_BINARY + isolation env now (cheap checks only).
+  boot.startSync();
+  return boot;
 }
 
 // Signal the dev watch launcher (scripts/watch.mjs) that the main bundle has
@@ -227,10 +194,11 @@ process.stdout.write("[zeno:main-ready]\n");
 
 // Prefs helpers below are function declarations (hoisted). Configure bundled
 // runtimes + PATH before LAUNCH_ENV snapshots / child spawns.
-bootstrapBundledRuntimesAndPath();
+/** PRSLOY window first: Node/Python unpack in the background on first launch. */
+const runtimeBoot = bootstrapBundledRuntimesAndPath();
 
 // PRSLOY: isolated pi home under userData, gateway provider, shims, clean agent env.
-const prsloy = initPrsloy(import.meta.url);
+const prsloy = initPrsloy(import.meta.url, runtimeBoot);
 
 /** Embedded pi TUI (terminal mode) — exclusive with host chat prompts. */
 const piTuiGuard = new PiTuiExclusiveGuard();
@@ -2089,6 +2057,8 @@ interface ActiveHost {
   ignoreMessages: boolean;
   stopping: boolean;
   stderr: string;
+  /** PRSLOY RuntimeBoot generation at spawn (stale PATH when runtimes became ready later). */
+  runtimeGeneration?: number;
 }
 
 type PendingWaiter = {
@@ -2910,6 +2880,10 @@ class HostSupervisor {
         prompt: message,
         ...(this.#snapshot?.sessionId ? { sessionId: this.#snapshot.sessionId } : {}),
       });
+      // Spawned before Node/Python were unpacked → its tools lack them on PATH: respawn.
+      if (this.#host && this.#host.runtimeGeneration !== runtimeBoot.generation()) {
+        await this.restartWithFreshEnv();
+      }
     }
     const boundHost = this.#host;
     const command: HostCommand = {
@@ -3987,6 +3961,7 @@ class HostSupervisor {
       ignoreMessages: false,
       stopping: false,
       stderr: "",
+      runtimeGeneration: runtimeBoot.generation(),
     };
     this.#host = host;
 
@@ -4738,7 +4713,6 @@ void app
   .then(async () => {
     // Name + About/Dock icon (must be after ready for About panel iconPath on some builds).
     applyAppBranding();
-    void ensurePiCliExtracted();
     themeLibrary = new ThemeLibrary(app.getPath("userData"));
     protocol.handle("zeno-theme", async (request) => {
       try {
@@ -5048,6 +5022,10 @@ void app
     }
 
     await createWindow();
+    logStartupTiming("window");
+    // After the window: first-launch unpack of Node/Python, pi CLI copy out of asar.
+    void runtimeBoot.startBackground().then(() => logStartupTiming("runtimes"));
+    setTimeout(() => void ensurePiCliExtracted(), 0);
     const bootPetPrefs = loadDesktopPrefs().pet ?? PET_PREFS_FALLBACK;
     if (bootPetPrefs.enabled && bootPetPrefs.visible) void createPetWindow();
 

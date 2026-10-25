@@ -28,10 +28,14 @@ export function gatewayErrorKey(code: PrsloyGatewayErrorCode | undefined): Messa
   return (code && ERROR_KEYS[code]) || "prsloy.error.server";
 }
 
-/** Progress line while bundled Git unpacks on first launch; undefined when not installing. */
-export function gitSetupPercent(state: PrsloyState | undefined): string | undefined {
-  if (state?.gitSetup?.status !== "installing") return undefined;
-  return String(state.gitSetup.percent ?? 0);
+/**
+ * «Готовлю приложение… N%» while runtimes (Node/Python/Git) unpack on first launch;
+ * undefined when nothing is installing.
+ */
+export function appSetupPercent(state: PrsloyState | undefined): string | undefined {
+  const setup = state?.appSetup ?? state?.gitSetup;
+  if (setup?.status !== "installing") return undefined;
+  return String(setup.percent ?? 0);
 }
 
 /** Strip whitespace and invisible characters people paste along with a key. */

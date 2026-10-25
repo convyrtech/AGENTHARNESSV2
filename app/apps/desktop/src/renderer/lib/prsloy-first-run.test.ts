@@ -4,7 +4,7 @@ import {
   cleanPastedKey,
   firstRunStep,
   gatewayErrorKey,
-  gitSetupPercent,
+  appSetupPercent,
 } from "./prsloy-first-run.ts";
 import { t } from "./i18n.ts";
 
@@ -46,11 +46,19 @@ describe("prsloy first run", () => {
   });
 
   it("shows git setup progress only while installing", () => {
-    expect(gitSetupPercent(base)).toBeUndefined();
-    expect(gitSetupPercent({ ...base, gitSetup: { status: "installing", percent: 42 } })).toBe(
+    expect(appSetupPercent(base)).toBeUndefined();
+    expect(appSetupPercent({ ...base, gitSetup: { status: "installing", percent: 42 } })).toBe(
       "42",
     );
-    expect(gitSetupPercent({ ...base, gitSetup: { status: "installing" } })).toBe("0");
+    expect(appSetupPercent({ ...base, gitSetup: { status: "installing" } })).toBe("0");
+    expect(
+      appSetupPercent({
+        ...base,
+        gitSetup: { status: "installing", percent: 90 },
+        appSetup: { status: "installing", percent: 7 },
+      }),
+    ).toBe("7");
+    expect(appSetupPercent({ ...base, appSetup: { status: "ready" } })).toBeUndefined();
   });
 
   it("cleans pasted keys", () => {
