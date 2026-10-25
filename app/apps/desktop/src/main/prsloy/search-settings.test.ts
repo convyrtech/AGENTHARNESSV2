@@ -233,8 +233,13 @@ describe("0 keys in the agent's env (issue #23, review item 5)", () => {
     const flags = join(resolvePrsloyAgentDir(userData, {}), "prsloy-harness.json");
     writeFileSync(flags, JSON.stringify({ webTools: true }));
     expect(ctx.searchForHost()?.search).toEqual({ provider: "brave", key: SECRET });
+    expect(ctx.hostStartFields("/w")).toMatchObject({
+      cwd: "/w",
+      search: { search: { provider: "brave" } },
+    });
     writeFileSync(flags, JSON.stringify({ webTools: false }));
     expect(ctx.searchForHost()).toBeUndefined();
+    expect(ctx.hostStartFields("/w")).toEqual({ cwd: "/w" });
   });
 
   it("host.start carries search only in a valid shape", () => {

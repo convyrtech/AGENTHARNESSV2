@@ -118,6 +118,8 @@ export type PrsloyContext = {
    * otherwise no search key leaves main at all.
    */
   searchForHost(): PrsloySearchHandoff | undefined;
+  /** `cwd` and, while `webTools` is on, `search` for `host.start` (keys over the message channel, never env). */
+  hostStartFields(cwd: string): { cwd: string; search?: PrsloySearchHandoff };
   /**
    * The «Дизайн» venv's python once its tools are installed (design/wire.ts sets this):
    * the harness opens the user's pages in a browser with it (PRSLOY_DESIGN_PYTHON).
@@ -308,6 +310,10 @@ export function bootstrapPrsloy(options: {
       return readFlags(join(agentDir, "prsloy-harness.json")).webTools
         ? search.handoff(state.baseUrl)
         : undefined;
+    },
+    hostStartFields(cwd) {
+      const search = this.searchForHost();
+      return search ? { cwd, search } : { cwd };
     },
     hostEnv(base) {
       const env = buildPrsloyHostEnv(base, {
