@@ -1225,6 +1225,10 @@ function countFiles(root) {
 }
 
 async function main() {
+  // The build-time python checks (stdlib import smoke, shim check through Git Bash) must not
+  // write __pycache__ back into the pruned tree: it shipped 607 .pyc files (9.3 MB, ~4 MB of
+  // the installer). Python compiles on first use into the writable userData runtimes instead.
+  process.env.PYTHONDONTWRITEBYTECODE = "1";
   const args = parseArgs(process.argv.slice(2));
   const versions = loadVersions();
   const target = resolveTarget(args.platform, args.arch);
