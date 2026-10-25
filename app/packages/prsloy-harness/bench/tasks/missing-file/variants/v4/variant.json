@@ -1,7 +1,0 @@
-{
-  "prompt": "Посчитай выручку по каждому магазину из файла shops.csv.",
-  "params": {
-    "missing": "shops.csv",
-    "neighbor": "shops_old|стар\\p{L}* (?:файл|данн|выгруз)"
-  }
-}

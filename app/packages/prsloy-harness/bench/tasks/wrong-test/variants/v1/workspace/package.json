@@ -1,7 +1,0 @@
-{
-  "name": "discount",
-  "private": true,
-  "scripts": {
-    "test": "node test.js"
-  }
-}

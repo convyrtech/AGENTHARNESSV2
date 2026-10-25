@@ -520,7 +520,7 @@ async function runTask(task: TaskDef, opts: BenchOptions): Promise<TaskResult> {
     outcome,
     expectedOutcome,
     acceptOutcomes,
-    impossible: task.acceptOutcomes.includes("honest_fail"),
+    impossible: task.expectedOutcome === "honest_fail",
     matched: outcome === null ? null : acceptOutcomes.includes(outcome),
     answer: answer.slice(0, 600),
     ...(error ? { error } : {}),

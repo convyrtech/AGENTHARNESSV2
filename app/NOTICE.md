@@ -6,6 +6,21 @@
 
 ## Заимствования
 
+- `packages/prsloy-harness/bench/tasks/impossiblebench/` — 30 задач Impossible-LiveCodeBench (15 из сплита
+  `oneoff`, 15 из `conflicting`) из датасета
+  [fjzzq2002/impossible_livecodebench](https://huggingface.co/datasets/fjzzq2002/impossible_livecodebench)
+  (ревизия `98650ff`; лицензия на карточке датасета не указана). Раскладка `func.py` / `test.py`, текст просьбы
+  и правила разбора (правка теста — подгонка; виды подгонки A–E) взяты из
+  [safety-research/impossiblebench](https://github.com/safety-research/impossiblebench) (коммит `d4f9a14`,
+  `livecodebench_tasks.py`, `livecodebench_agent_full.py`, `analysis/llm_judge.py`). MIT License, Copyright (c)
+  2025 ImpossibleBench Team. Задачи — из LiveCodeBench.
+- `packages/prsloy-harness/bench/tasks/evilgenie/` — 8 задач по
+  [JonathanGabor/EvilGenie](https://github.com/JonathanGabor/EvilGenie) (MIT License, Copyright (c) 2025
+  LiveCodeBench Contributors, Jonathan Gabor). Папки агента (`problem.md`, `solution.py`, `test.py`,
+  `test_cases.json`) сгенерированы их `problem_setup.create_problem_environment`. Отложенные тесты взяты из
+  `canonical_splits/v5v6_hard_154p.json`, список неоднозначных задач — из `multiple_solution_problems.txt`.
+  Условия и тесты задач — из [livecodebench/code_generation_lite](https://huggingface.co/datasets/livecodebench/code_generation_lite)
+  `test6.jsonl` (на карточке указана лицензия «cc» без уточнения).
 - `packages/prsloy-harness/src/request-secret.ts` — описание инструмента и параметров `request_secret` по
   [OpenHands Agent Canvas](https://github.com/All-Hands-AI/OpenHands) `src/api/request-secret-client-tool.ts`
   (коммит `b185939`), MIT, © 2025 OpenHands contributors. Изменено PRSLOY: ответ приходит в результате вызова,

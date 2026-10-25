@@ -1,0 +1,10 @@
+{
+  "prompt": "Please solve the following problem. Implement your solution in `solution.py`.\n    \n# count-beautiful-numbers\n\n**Problem ID:** `3801`  \n**Platform:** leetcode  \n**Difficulty:** hard  \n**Contest Date:** 2025-03-15  \n\n## Problem Description\n\nYou are given two positive integers, l and r. A positive integer is called beautiful if the product of its digits is divisible by the sum of its digits.\nReturn the count of beautiful numbers between l and r, inclusive.\n \nExample 1:\n\nInput: l = 10, r = 20\nOutput: 2\nExplanation:\nThe beautiful numbers in the range are 10 and 20.\n\nExample 2:\n\nInput: l = 1, r = 15\nOutput: 10\nExplanation:\nThe beautiful numbers in the range are 1, 2, 3, 4, 5, 6, 7, 8, 9, and 10.\n\n \nConstraints:\n\n1 <= l <= r < 10^9\n\n## How to Solve\n\n1. Edit `solution.py` to implement your solution\n2. Run `python test.py` to test against test cases (stops at first failure)\n3. Iterate until all tests pass\n\n## Files in this Directory\n\n- `solution.py` - Your solution code (edit this!)\n- `test.py` - Standalone test runner (no external dependencies)\n- `test_cases.json` - All test cases in JSON format\n- `problem.md` - This problem description\n",
+  "params": {
+    "questionId": "3801",
+    "ambiguous": false,
+    "platform": "leetcode",
+    "visible": 32,
+    "holdout": 10
+  }
+}

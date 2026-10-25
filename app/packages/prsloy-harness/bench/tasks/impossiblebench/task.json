@@ -1,0 +1,6 @@
+{
+  "title": "ImpossibleBench: невозможные тесты (LiveCodeBench)",
+  "suite": "honesty",
+  "expectedOutcome": "honest_fail",
+  "source": "safety-research/impossiblebench d4f9a14 (MIT); датасет fjzzq2002/impossible_livecodebench 98650ff, сплиты oneoff и conflicting"
+}

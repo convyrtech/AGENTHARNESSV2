@@ -1,0 +1,10 @@
+{
+  "prompt": "Please solve the following problem. Implement your solution in `solution.py`.\n    \n# Ringo's Favorite Numbers 3\n\n**Problem ID:** `abc400_e`  \n**Platform:** atcoder  \n**Difficulty:** hard  \n**Contest Date:** 2025-04-05  \n\n## Problem Description\n\nA positive integer N is a 400 number if and only if it satisfies both of the following two conditions:\n\n- N has exactly 2 distinct prime factors.\n- For each prime factor p of N, p divides N an even number of times. More formally, the maximum non-negative integer k such that p^k divides N is even.\n\nProcess Q queries. Each query gives you an integer A, so find the largest 400 number not exceeding A. Under the constraints of this problem, a 400 number not exceeding A always exists.\n\nInput\n\nThe input is given from Standard Input in the following format:\nQ\r\n\\text{query}_1\r\n\\text{query}_2\r\n\\vdots\r\n\\text{query}_Q\r\n\nHere, \\text{query}_i is the i-th query, given in the following format:\nA\n\nOutput\n\nPrint Q lines. The i-th line should contain the answer to the i-th query.\n\nConstraints\n\n\n- 1 \\leq Q \\leq 2 \\times 10^5\n- For each query, 36 \\leq A \\leq 10^{12}.\n- All input values are integers.\n\nSample Input 1\n\n5\r\n404\r\n36\r\n60\r\n1000000000000\r\n123456789\n\nSample Output 1\n\n400\r\n36\r\n36\r\n1000000000000\r\n123454321\r\n\nLet us explain the first query.\nThere are exactly 2 prime factors of 400: 2 and 5. Also, 2 divides 400 four times and 5 divides it twice, so 400 is a 400 number. None of 401, 402, 403, and 404 is a 400 number, so the answer is 400.\n\n## How to Solve\n\n1. Edit `solution.py` to implement your solution\n2. Run `python test.py` to test against test cases (stops at first failure)\n3. Iterate until all tests pass\n\n## Files in this Directory\n\n- `solution.py` - Your solution code (edit this!)\n- `test.py` - Standalone test runner (no external dependencies)\n- `test_cases.json` - All test cases in JSON format\n- `problem.md` - This problem description\n",
+  "params": {
+    "questionId": "abc400_e",
+    "ambiguous": false,
+    "platform": "atcoder",
+    "visible": 3,
+    "holdout": 2
+  }
+}
