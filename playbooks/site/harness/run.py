@@ -216,6 +216,12 @@ def brief(ws, gate, fl, cfg, notes):
         lines += ["", "## Проверки харнесса (не владелец): исправь до показа владельцу", *notes]
     said = [f"- {o.get('date')}: «{o.get('text')}»" + (f" [файлы: {', '.join(o['files'])}]" if o.get("files") else "")
             for o in msgs] or ["- (пока нет)"]
+    ob = sorted((ws.h / "sent").glob("*.md")) if (ws.h / "sent").exists() else []
+    if ob:
+        # свежая сессия не помнит, о чём спрашивали: без этого ответ «а а а» непонятен и вопрос задаётся заново (E9)
+        lines += ["", f"## Последнее сообщение владельцу (отправлено харнессом, {ob[-1].name})",
+                  ob[-1].read_text(encoding="utf-8").strip(),
+                  "Ответ владельца на него — самое новое сообщение ниже. Буквы в ответе идут по порядку вопросов."]
     lines += ["", "## Последние сообщения владельца (дословно)", *said,
               "", "## STATUS.md сейчас", st[:4000], "", "## Файлы страницы", ", ".join(files)[:1500],
               "", "## Как закончить",
@@ -414,9 +420,9 @@ def say(a):
                     text = f2.split(TO_OWNER, 1)[1].strip()
             hist["waiting_owner"] = True
             ws.state["outbox"] = ws.state.get("outbox", 0) + 1
-            ob = ws.page / "outbox"
-            ob.mkdir(exist_ok=True)
-            (ob / f"{ws.state['outbox']:02d}.md").write_text(text + "\n", encoding="utf-8")
+            sent = ws.h / "sent"                       # отправленное владельцу; outbox/ страницы — черновики агента
+            sent.mkdir(exist_ok=True)
+            (sent / f"{ws.state['outbox']:02d}.md").write_text(text + "\n", encoding="utf-8")
             shown = [str((ws.root / x).resolve()) for x in re.findall(r"[\w./\\-]+\.(?:png|jpe?g|mp4|webm|html)", text)
                      if (ws.root / x).exists()]
             ws.save()
