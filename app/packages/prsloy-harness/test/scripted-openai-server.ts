@@ -18,7 +18,8 @@ export interface ScriptedReply {
   /** Рассуждение (`reasoning_content`, как у DeepSeek). */
   reasoning?: string;
   text?: string;
-  toolCalls?: { name: string; arguments: Record<string, unknown> }[];
+  /** `raw` — текст аргументов как есть (битый JSON для проверки ремонта). */
+  toolCalls?: { name: string; arguments: Record<string, unknown>; raw?: string }[];
   finishReason?: "stop" | "tool_calls" | "length";
 }
 
@@ -36,7 +37,11 @@ export class ScriptedOpenAiServer {
   #server: Server;
   #baseUrl: string | undefined;
 
-  constructor(private readonly script: Script) {
+  // Без parameter property: сервер грузится и через `node` со снятием типов (scripts/bench.mts --fake).
+  private readonly script: Script;
+
+  constructor(script: Script) {
+    this.script = script;
     this.#server = createServer((request, response) => {
       void this.#handle(request, response);
     });
@@ -101,7 +106,7 @@ export class ScriptedOpenAiServer {
             index: i,
             id: `call_${this.requests.length}_${i}`,
             type: "function",
-            function: { name: call.name, arguments: JSON.stringify(call.arguments) },
+            function: { name: call.name, arguments: call.raw ?? JSON.stringify(call.arguments) },
           },
         ],
       });

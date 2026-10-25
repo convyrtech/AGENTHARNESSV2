@@ -12,6 +12,7 @@ import { installReliability } from "./reliability.ts";
 import { installReusePrompt } from "./reuse-prompt.ts";
 import { installSecretScrub } from "./secret-scrub.ts";
 import { installStopGate } from "./stop-gate.ts";
+import { installArgRepair } from "./arg-repair.ts";
 import { installToolLeak } from "./tool-leak.ts";
 import { installToolOutput } from "./tool-output.ts";
 import { modelReviewer, secondOpinionFlag } from "./reviewer.ts";
@@ -24,6 +25,9 @@ export { checkFile } from "./checkers.ts";
 export { FindReady, formatResult as formatFindReady } from "./find-ready.ts";
 export { detectPseudoToolCall } from "./loop-detector.ts";
 export { scrubSecrets } from "./secret-scrub.ts";
+export { repairToolCall } from "./arg-repair.ts";
+export { harnessStats } from "./stats.ts";
+export { installReusePrompt } from "./reuse-prompt.ts";
 export { detectToolLeak, stripToolMarkup } from "./tool-leak.ts";
 export {
   evidenceInDiff,
@@ -52,6 +56,8 @@ export function createPrsloyHarness(options: HarnessOptions = {}): (pi: Extensio
   return (pi: ExtensionAPI) => {
     const opts = resolveOptions(options);
     const on = (name: keyof typeof opts.disable) => !opts.disable[name];
+    // Самым первым: вызовы с битыми аргументами чинятся до валидации Pi и до всех хуков ниже.
+    if (on("argRepair")) installArgRepair(pi);
     const codeGate = opts.profile === "code" && on("stopGate");
     // Первым: снимок начала хода ложится до того, как bash или фоновый процесс что-то поменяют.
     const changes =

@@ -1,0 +1,5 @@
+{"type": "session"}
+{"type": "message", "message": {"role": "assistant", "content": [{"type": "toolCall", "id": "a", "name": "read", "arguments": {}}, {"type": "toolCall", "id": "b", "name": "bash", "arguments": {}}, {"type": "toolCall", "id": "c", "name": "read", "arguments": {}}]}}
+{"type": "message", "message": {"role": "toolResult", "toolCallId": "a", "isError": true, "content": [{"type": "text", "text": "Invalid arguments for tool \"read\": Tool arguments must be a JSON object\n\nReceived arguments:\n\"{\\\"path\\\":\\\"a.txt\\\"}\""}]}}
+{"type": "message", "message": {"role": "toolResult", "toolCallId": "b", "isError": true, "content": [{"type": "text", "text": "Validation failed for tool \"bash\":\n  - command: required\n\nReceived arguments:\n{\n  \"arguments\": {\"command\": \"ls\"}\n}"}]}}
+{"type": "message", "message": {"role": "toolResult", "toolCallId": "c", "isError": true, "content": [{"type": "text", "text": "Validation failed for tool \"read\":\n  - path: required\n\nReceived arguments:\n{\"file\": \"a.txt\"}"}]}}
