@@ -22,6 +22,7 @@
   "4":  {"start": 1, "max_calls": 40, "max_minutes": 15, "pipeline": "Шаг 4.",
          "note": "Приёмы движения берёшь из design-pipeline/motion/VOCAB.md (2–3 приёма, одно правило-метафора), готовые компоненты motion.js. Раздел «## Фирменный приём» обязателен."},
   "5":  {"start": 1, "max_calls": 90, "max_minutes": 40, "pipeline": "Шаг 5.",
+         "parallel": false, "parallel_variants": 3, "parallel_minutes": 8,
          "note": "Движение ставишь готовыми компонентами design-pipeline/motion (motion.js, motion.css, токены бренда), не пишешь своё с нуля. Растровых картинок интерфейса нет."},
   "6":  {"start": 1, "max_calls": 90, "max_minutes": 40, "pipeline": "Шаг 6."},
   "7":  {"start": 0, "max_calls": 70, "max_minutes": 30, "pipeline": "Шаг 7.",

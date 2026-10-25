@@ -14,6 +14,15 @@ import {
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { projectKey } from "./learning-log.ts";
+import { looksLikeThreat, looksSensitive } from "./memory-checks.ts";
+import {
+  type HashedSignature,
+  hashedSignature,
+  matchesForgotten,
+  relation,
+  signature,
+  textMatchesQuote,
+} from "./memory-match.ts";
 
 export type MemoryScope = "user" | "project";
 
@@ -32,6 +41,15 @@ export interface Tombstone {
   id: string;
   textHash: string;
   forgotten: string;
+  /** M-0: хэши основ и их полярность — пересказ забытого тоже не возвращается. */
+  stems?: HashedSignature["stems"];
+  negations?: HashedSignature["negations"];
+}
+
+/** Запись, которая не прошла перепроверку правилами M-0 (писалась через старую дыру). */
+export interface QuarantinedEntry extends MemoryEntry {
+  reason: "not-linked" | "secret" | "threat";
+  quarantined: string;
 }
 
 export interface Digest {
@@ -44,6 +62,9 @@ interface UserFile {
   version: 1;
   entries: MemoryEntry[];
   tombstones: Tombstone[];
+  /** Какими правилами записи уже перепроверены ("m0"). */
+  rules?: string;
+  quarantined?: QuarantinedEntry[];
 }
 
 interface ProjectFile extends UserFile {
@@ -78,16 +99,50 @@ function readJson<T>(path: string, fallback: T): T {
   }
 }
 
-function writeAtomic(path: string, value: unknown): void {
+function writeAtomic(path: string, value: unknown, raw?: string): void {
   mkdirSync(dirname(path), { recursive: true });
   const tmp = `${path}.tmp-${process.pid}-${randomBytes(3).toString("hex")}`;
-  writeFileSync(tmp, `${JSON.stringify(value, null, 2)}\n`);
+  writeFileSync(tmp, raw ?? `${JSON.stringify(value, null, 2)}\n`);
   renameSync(tmp, path);
 }
 
 export type AddResult =
-  | { ok: true; entry: MemoryEntry }
+  /** `replaced` — прежняя запись с обратным смыслом: пользователь передумал, последнее слово главнее. */
+  | { ok: true; entry: MemoryEntry; replaced?: MemoryEntry }
   | { ok: false; reason: "duplicate" | "forgotten" | "too_long" | "full" };
+
+/** Текст в журнале живёт 30 дней, потом остаются хэши (research/24 §1). */
+export const JOURNAL_TEXT_DAYS = 30;
+const RULES = "m0";
+
+function tombstoneFor(entry: MemoryEntry, now = new Date()): Tombstone {
+  const sig = hashedSignature(entry.text);
+  return {
+    id: entry.id,
+    textHash: textHash(entry.text),
+    forgotten: now.toISOString(),
+    stems: sig.stems,
+    negations: sig.negations,
+  };
+}
+
+/** Запись без текста: то, что остаётся в журнале после срока или после «Забыть всё». */
+function hashedEntry(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(hashedEntry);
+  if (!value || typeof value !== "object") return value;
+  const e = value as Record<string, unknown>;
+  if (typeof e.text !== "string") return value;
+  const { text, quote: _quote, ...rest } = e;
+  return { ...rest, textHash: textHash(text) };
+}
+
+/** Перепроверка старой записи теми же правилами, что и новой. */
+function recheck(entry: MemoryEntry): QuarantinedEntry["reason"] | undefined {
+  if (looksSensitive(entry.text, entry.quote ?? "")) return "secret";
+  if (looksLikeThreat(entry.text) || looksLikeThreat(entry.quote ?? "")) return "threat";
+  if (!textMatchesQuote(entry.text, entry.quote ?? "")) return "not-linked";
+  return undefined;
+}
 
 export class MemoryStore {
   readonly dir: string;
@@ -105,20 +160,70 @@ export class MemoryStore {
   }
 
   #read(scope: MemoryScope, cwd: string): ProjectFile {
+    let file: ProjectFile;
     if (scope === "user") {
       const f = readJson<UserFile>(this.#userPath(), { version: 1, entries: [], tombstones: [] });
-      return { path: "", ...f, entries: f.entries ?? [], tombstones: f.tombstones ?? [] };
+      file = { path: "", ...f, entries: f.entries ?? [], tombstones: f.tombstones ?? [] };
+    } else {
+      const f = readJson<ProjectFile>(this.#projectPath(cwd), {
+        version: 1,
+        path: cwd,
+        entries: [],
+        tombstones: [],
+      });
+      file = {
+        ...f,
+        path: f.path || cwd,
+        entries: f.entries ?? [],
+        tombstones: f.tombstones ?? [],
+      };
     }
-    const f = readJson<ProjectFile>(this.#projectPath(cwd), {
-      version: 1,
-      path: cwd,
-      entries: [],
-      tombstones: [],
-    });
-    return { ...f, path: f.path || cwd, entries: f.entries ?? [], tombstones: f.tombstones ?? [] };
+    return this.#migrate(scope, cwd, file);
   }
 
-  #write(scope: MemoryScope, cwd: string, file: ProjectFile): void {
+  /**
+   * v1-записи писались без проверки связи text ↔ quote: при первом чтении их перепроверяют теми же правилами.
+   * Не прошедшие уходят из раздела в `quarantined` (видно в журнале), остальные остаются как были.
+   */
+  #migrate(scope: MemoryScope, cwd: string, file: ProjectFile): ProjectFile {
+    if (file.rules === RULES || (!file.entries.length && !file.tombstones.length)) return file;
+    const now = new Date().toISOString();
+    const kept: MemoryEntry[] = [];
+    const quarantined: QuarantinedEntry[] = [...(file.quarantined ?? [])];
+    for (const entry of file.entries) {
+      const reason = recheck(entry);
+      if (!reason) {
+        kept.push(entry);
+        continue;
+      }
+      quarantined.push({ ...entry, reason, quarantined: now });
+      this.#journal({
+        op: "quarantine",
+        scope,
+        id: entry.id,
+        before: entry,
+        after: null,
+        origin: "system",
+        reason,
+      });
+    }
+    const next: ProjectFile = {
+      ...file,
+      entries: kept,
+      rules: RULES,
+      ...(quarantined.length ? { quarantined } : {}),
+    };
+    try {
+      this.#write(scope, cwd, next);
+    } catch {
+      // нет прав на запись — перепроверим в следующий раз, в раздел всё равно не попадёт
+    }
+    return next;
+  }
+
+  #write(scope: MemoryScope, cwd: string, rawFile: ProjectFile): void {
+    // Всё, что пишет этот код, уже прошло проверки M-0.
+    const file = { ...rawFile, rules: RULES };
     if (scope === "user") {
       const { path: _path, digest: _digest, ...user } = file;
       writeAtomic(this.#userPath(), user);
@@ -128,6 +233,7 @@ export class MemoryStore {
   #journal(line: Record<string, unknown>): void {
     try {
       mkdirSync(this.dir, { recursive: true });
+      this.compactJournal();
       appendFileSync(
         join(this.dir, "journal.jsonl"),
         `${JSON.stringify({ ts: new Date().toISOString(), ...line })}\n`,
@@ -135,6 +241,38 @@ export class MemoryStore {
     } catch {
       // журнал — не повод терять запись
     }
+  }
+
+  /**
+   * Тексты записей в журнале — не дольше JOURNAL_TEXT_DAYS дней, потом только хэши. `all` — стереть тексты
+   * сразу во всём журнале («Забыть всё»). Возвращает, сколько строк переписано.
+   */
+  compactJournal(options: { now?: Date; all?: boolean } = {}): number {
+    const path = join(this.dir, "journal.jsonl");
+    if (!existsSync(path)) return 0;
+    const cutoff = (options.now ?? new Date()).getTime() - JOURNAL_TEXT_DAYS * 86_400_000;
+    let changed = 0;
+    const lines = readFileSync(path, "utf8")
+      .split("\n")
+      .filter((l) => l.trim())
+      .map((line) => {
+        try {
+          const j = JSON.parse(line) as Record<string, unknown>;
+          const old = typeof j.ts === "string" ? Date.parse(j.ts) < cutoff : false;
+          if (!options.all && !old) return line;
+          const next = JSON.stringify({
+            ...j,
+            before: hashedEntry(j.before),
+            after: hashedEntry(j.after),
+          });
+          if (next !== line) changed += 1;
+          return next;
+        } catch {
+          return line;
+        }
+      });
+    if (changed) writeAtomic(path, null, `${lines.join("\n")}\n`);
+    return changed;
   }
 
   entries(scope: MemoryScope, cwd: string): MemoryEntry[] {
@@ -154,10 +292,26 @@ export class MemoryStore {
     if (text.length > MEMORY_LIMITS.entryChars) return { ok: false, reason: "too_long" };
     const file = this.#read(scope, cwd);
     const hash = textHash(text);
-    if (file.entries.some((e) => textHash(e.text) === hash))
+    const sig = signature(text);
+    // Дубль — то же по основам и с той же полярностью.
+    if (
+      file.entries.some(
+        (e) => textHash(e.text) === hash || relation(sig, signature(e.text)) === "same",
+      )
+    )
       return { ok: false, reason: "duplicate" };
-    // То, что пользователь просил забыть, само не возвращается.
-    if (file.tombstones.some((t) => t.textHash === hash)) return { ok: false, reason: "forgotten" };
+    // Забытое само не возвращается, и пересказом тоже. Обратная полярность — не то же самое.
+    if (
+      file.tombstones.some((t) =>
+        t.stems && t.negations
+          ? matchesForgotten(text, { stems: t.stems, negations: t.negations })
+          : t.textHash === hash,
+      )
+    )
+      return { ok: false, reason: "forgotten" };
+    // Противоречие: пользователь передумал. Прежняя запись уходит, новая встаёт на её место.
+    const replaced = file.entries.find((e) => relation(sig, signature(e.text)) === "contradicts");
+    if (replaced) file.entries = file.entries.filter((e) => e.id !== replaced.id);
     const limits = scope === "user" ? MEMORY_LIMITS.user : MEMORY_LIMITS.project;
     const used =
       file.entries.reduce((n, e) => n + e.text.length, 0) +
@@ -174,15 +328,26 @@ export class MemoryStore {
     };
     file.entries.push(entry);
     this.#write(scope, cwd, file);
-    this.#journal({
-      op: "remember",
-      scope,
-      id: entry.id,
-      before: null,
-      after: entry,
-      origin: "user",
-    });
-    return { ok: true, entry };
+    if (replaced) {
+      this.#journal({
+        op: "supersede",
+        scope,
+        id: replaced.id,
+        before: replaced,
+        after: entry,
+        origin: "user",
+      });
+    } else {
+      this.#journal({
+        op: "remember",
+        scope,
+        id: entry.id,
+        before: null,
+        after: entry,
+        origin: "user",
+      });
+    }
+    return replaced ? { ok: true, entry, replaced } : { ok: true, entry };
   }
 
   /** Забыть по id (в обоих местах); запись уходит в tombstones. */
@@ -192,11 +357,7 @@ export class MemoryStore {
       const entry = file.entries.find((e) => e.id === id);
       if (!entry) continue;
       file.entries = file.entries.filter((e) => e.id !== id);
-      file.tombstones.push({
-        id,
-        textHash: textHash(entry.text),
-        forgotten: new Date().toISOString(),
-      });
+      file.tombstones.push(tombstoneFor(entry));
       this.#write(scope, cwd, file);
       this.#journal({ op: "forget", scope, id, before: entry, after: null, origin: "user" });
       return entry;
@@ -222,7 +383,8 @@ export class MemoryStore {
     } catch {
       return undefined;
     }
-    if (!found) return undefined;
+    // После срока в журнале только хэш: вернуть нечего.
+    if (!found || typeof found.entry.text !== "string") return undefined;
     const file = this.#read(found.scope, cwd);
     if (!file.tombstones.some((t) => t.id === id) || file.entries.some((e) => e.id === id))
       return undefined;
@@ -255,16 +417,20 @@ export class MemoryStore {
   forgetAll(cwd: string): void {
     for (const scope of ["user", "project"] as const) {
       const file = this.#read(scope, cwd);
-      for (const e of file.entries)
-        file.tombstones.push({
-          id: e.id,
-          textHash: textHash(e.text),
-          forgotten: new Date().toISOString(),
-        });
-      this.#journal({ op: "forget-all", scope, before: file.entries, after: [], origin: "user" });
+      for (const e of file.entries) file.tombstones.push(tombstoneFor(e));
+      // В журнале — только хэши: «Забыть всё» стирает тексты сразу.
+      this.#journal({
+        op: "forget-all",
+        scope,
+        before: hashedEntry(file.entries),
+        after: [],
+        origin: "user",
+      });
       file.entries = [];
+      delete file.quarantined;
       if (scope === "project") delete file.digest;
       this.#write(scope, cwd, file);
     }
+    this.compactJournal({ all: true });
   }
 }

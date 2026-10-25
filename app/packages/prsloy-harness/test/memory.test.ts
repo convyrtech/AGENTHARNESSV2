@@ -79,12 +79,12 @@ describe("memory: checks (§6.4)", () => {
 describe("memory: the tool", () => {
   it("remembers the user's words: file, journal, card «Запомнил: …», live list in the result", async () => {
     const { pi, dir, call } = setup();
-    await pi.userPrompt("Сделай сайт. Пиши проще, без умных слов, пожалуйста");
+    await pi.userPrompt("Сделай сайт. Отвечай коротко, без терминов, пожалуйста");
     const r = await call({
       action: "remember",
       scope: "user",
       text: "Отвечать коротко, без терминов",
-      quote: "пиши проще, без умных слов",
+      quote: "отвечай коротко, без терминов",
     });
     expect(r.isError).toBeFalsy();
     expect(r.content[0]!.text).toContain("Запомнил: Отвечать коротко, без терминов");
@@ -94,7 +94,7 @@ describe("memory: the tool", () => {
     const user = JSON.parse(readFileSync(join(dir, "user.json"), "utf8")) as {
       entries: { quote: string }[];
     };
-    expect(user.entries[0]!.quote).toBe("пиши проще, без умных слов");
+    expect(user.entries[0]!.quote).toBe("отвечай коротко, без терминов");
     expect(readFileSync(join(dir, "journal.jsonl"), "utf8")).toContain('"op":"remember"');
   });
 
@@ -126,7 +126,11 @@ describe("memory: the tool", () => {
 
   it("limits: ≤160 characters per entry, ≤12 entries about the user, then «Память заполнена»", async () => {
     const { pi, call } = setup();
-    const facts = Array.from({ length: 13 }, (_, i) => `Факт номер ${i} про меня`);
+    // Different facts (by word stems, not only by number).
+    const facts = [
+      "кошек", "собак", "горы", "море", "кофе", "джаз", "футбол", "шахматы", "театр", "весну",
+      "лыжи", "грибы", "поезда",
+    ].map((what) => `Люблю ${what}`); // prettier-ignore
     await pi.userPrompt(facts.join(". "));
     for (const f of facts.slice(0, 12))
       expect((await call({ action: "remember", text: f, quote: f })).isError).toBeFalsy();
@@ -139,14 +143,14 @@ describe("memory: the tool", () => {
 
   it("project scope: «Запомнил для этого проекта», file under projects/<hash>", async () => {
     const { pi, dir, cwd, call } = setup();
-    await pi.userPrompt("Не надо никаких npm, сайт простой");
+    await pi.userPrompt("Не надо никаких npm, сайт на чистом HTML и CSS");
     const r = await call({
       action: "remember",
       scope: "project",
-      text: "Сайт без сборщиков: чистый HTML и CSS",
-      quote: "не надо никаких npm",
+      text: "Сайт без npm: чистый HTML и CSS",
+      quote: "Не надо никаких npm, сайт на чистом HTML и CSS",
     });
-    expect(r.content[0]!.text).toContain("Запомнил для этого проекта: Сайт без сборщиков");
+    expect(r.content[0]!.text).toContain("Запомнил для этого проекта: Сайт без npm");
     expect(existsSync(join(dir, "projects", projectKey(cwd), "project.json"))).toBe(true);
   });
 
@@ -201,12 +205,12 @@ describe("memory: the prompt section (cache)", () => {
   it("frozen for the session: a new entry shows up only in the next session", async () => {
     const { pi, call, sections } = setup();
     await pi.emit("session_start", {});
-    await pi.userPrompt("Пиши проще, без умных слов");
+    await pi.userPrompt("Отвечай коротко, без умных слов");
     expect((await sections()).prsloy_memory).toBeUndefined();
     await call({
       action: "remember",
       text: "Отвечать коротко",
-      quote: "Пиши проще, без умных слов",
+      quote: "Отвечай коротко, без умных слов",
     });
     expect((await sections()).prsloy_memory).toBeUndefined();
     await pi.emit("session_start", {});
@@ -216,10 +220,15 @@ describe("memory: the prompt section (cache)", () => {
   it("memory at its limits plus lessons stay within 3 800 characters", () => {
     const store = new MemoryStore(join(root, "full"));
     const cwd = join(root, "full-project");
+    // Distinct by stems (identical ones would be merged as duplicates).
+    const words = "альфа бета гамма дельта эпсилон дзета омега тета йота каппа лямбда сигма".split(
+      " ",
+    );
     for (let i = 0; i < MEMORY_LIMITS.user.entries; i++)
-      store.add("user", cwd, { text: `Предпочтение ${i} ${"а".repeat(80)}`, quote: "q" });
+      store.add("user", cwd, { text: `Предпочтение ${words[i]} ${".".repeat(70)}`, quote: "q" });
     for (let i = 0; i < MEMORY_LIMITS.project.entries; i++)
-      store.add("project", cwd, { text: `Решение ${i} ${"б".repeat(150)}`, quote: "q" });
+      store.add("project", cwd, { text: `Решение ${words[i]} ${".".repeat(140)}`, quote: "q" });
+    expect(store.entries("user", cwd)).toHaveLength(MEMORY_LIMITS.user.entries);
     store.setDigest(cwd, `Прошлый раз: ${"в".repeat(600)}`);
     const memory = memorySection(store, cwd);
     const fitted = fitPromptBudget({ memory, lessons: `Notes\n- ${"l".repeat(780)}` });
@@ -234,7 +243,7 @@ describe("memory: the prompt section (cache)", () => {
     const cwd = join(root, "restore-project");
     const added = store.add("user", cwd, {
       text: "Писать по-русски",
-      quote: "по-русски, пожалуйста",
+      quote: "пиши по-русски, пожалуйста",
     });
     if (!added.ok) throw new Error("not added");
     store.forget(added.entry.id, cwd);

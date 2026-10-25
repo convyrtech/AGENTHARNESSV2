@@ -39,5 +39,17 @@ class Marks(unittest.TestCase):
         self.assertEqual(vm(["a6p/qwen3.8-max"], 0), "a6p/qwen3.8-max")   # без зрения в лестнице — как было
 
 
+    def test_the_real_ladder_with_kimi_in_the_gateway(self):
+        # 2026-10-25 12:54: kimi-k3.1-pro is in the gateway's /v1/models again — marks go to Kimi, not Opus
+        cfg = json.loads((HERE / "stages.json").read_text(encoding="utf-8"))
+        cfg = self.g["fit_ladder"](cfg, ["deepseek-v4.1-flash-1017", "kimi-k3.1-pro", "qwen3.8-max", "claude-opus-5-5"])
+        start = cfg["defaults"].get("start", 0)
+        self.assertEqual(self.g["vision_model"](cfg["ladder"], start), "a6p/kimi-k3.1-pro")
+        # without Kimi in the gateway: Opus
+        cfg = json.loads((HERE / "stages.json").read_text(encoding="utf-8"))
+        cfg = self.g["fit_ladder"](cfg, ["qwen3.8-max", "claude-opus-5-5"])
+        self.assertEqual(self.g["vision_model"](cfg["ladder"], 0), "a6p/claude-opus-5-5")
+
+
 if __name__ == "__main__":
     unittest.main()

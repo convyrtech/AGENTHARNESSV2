@@ -7,7 +7,8 @@ harness tools run on the venv (moves.py with Edge, check.py, flow.py).
 
 The step comes from the harness brief («Шаг 1 «…»»), against the stub pipeline's steps:
   0  fill the passport → ЭТАП ГОТОВ
-  1  words → moves.py candidates (sheet + three mp4) → ВЛАДЕЛЬЦУ with the sheet and videos;
+  1  words → moves.py candidates (sheet + three mp4) → ask_owner (or ВЛАДЕЛЬЦУ for an older run.py) with the sheet
+     and videos;
      after the owner's answer: «ВЫБОР 1» in his words → moves.py pick → ЭТАП ГОТОВ
   2  04-motion.md + site/landing/index.html → check.py → ЭТАП ГОТОВ
   edit (run.py say --edit, «Править»): the heading in the accent colour, nothing else → ЭТАП ГОТОВ;
@@ -69,6 +70,26 @@ def write(rel, text):
     p = WS / rel
     p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text(text, encoding="utf-8")
+
+
+def ask_owner(message, prompt, options, recommended):
+    """Like Pi with run.py's ask_owner.ts: the call goes out, the tool accepts it (its details are the checked
+    question) and the session ends. Without the extension in argv (an older run.py) — the old «ВЛАДЕЛЬЦУ:» text."""
+    args = sys.argv[1:]
+    if not ("-e" in args and args[args.index("-e") + 1].endswith("ask_owner.ts")
+            and Path(args[args.index("-e") + 1]).is_file()):
+        lines = [f"{k}. {o}" + (" (рекомендую)" if o == recommended else "") for k, o in zip("ABCD", options)]
+        finish("ВЛАДЕЛЬЦУ:\n" + message + "\n" + "\n".join(lines))
+    call = {"message": message, "questions": [{"type": "text-options", "prompt": prompt, "options": options,
+                                               "recommended": recommended}]}
+    say([{"type": "toolCall", "id": f"ask{os.getpid()}", "name": "ask_owner", "arguments": call}])
+    details = {"message": message, "questions": [{"type": "text-options", "prompt": prompt, "options": [
+        {"key": k, "label": o, "recommended": o == recommended} for k, o in zip("ABCD", options)]}]}
+    print(json.dumps({"type": "tool_execution_end", "toolCallId": f"ask{os.getpid()}", "toolName": "ask_owner",
+                      "result": {"content": [{"type": "text", "text": "Вопрос ушёл владельцу."}], "details": details,
+                                 "terminate": True}, "isError": False}, ensure_ascii=False), flush=True)
+    print(json.dumps({"type": "agent_end"}), flush=True)
+    sys.exit(0)
 
 
 def finish(text):
@@ -161,9 +182,10 @@ def main():
         bash("python3 -I harness/moves.py candidates --page design/landing")
         state["asked1"] = len(msgs)
         STATE.write_text(json.dumps(state), encoding="utf-8")
-        finish("ВЛАДЕЛЬЦУ:\nТри варианта движения в ваших цветах: design/landing/01-candidates.png\n"
-               "Видео: design/landing/01-cands/A.mp4 design/landing/01-cands/B.mp4 design/landing/01-cands/C.mp4\n"
-               "A. Кольцо и счётчик (рекомендую)\nB. Выдача с печатью\nC. Тропа к кнопке")
+        ask_owner("Три варианта движения в ваших цветах: design/landing/01-candidates.png\n"
+                  "Видео: design/landing/01-cands/A.mp4 design/landing/01-cands/B.mp4 design/landing/01-cands/C.mp4",
+                  "Какое движение берём?", ["Кольцо и счётчик", "Выдача с печатью", "Тропа к кнопке"],
+                  "Кольцо и счётчик")
 
     if gate == "2":
         # the colours of materials/brand.json (brand_probe on the owner's site): check.py holds the page to them
