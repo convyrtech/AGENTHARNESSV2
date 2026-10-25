@@ -450,6 +450,7 @@ def run_stage(ws, gate, prompt, model, cfg, session):
 
 def _pi_once(ws, prompt, model, cfg, session, st, seen, deadline):
     # задание идёт файлом (@file): длинный многострочный текст в командной строке ломается на Windows
+    session.parent.mkdir(parents=True, exist_ok=True)
     bf = session.with_name(session.stem + f"-{time.time_ns()}.brief.md")
     bf.write_text(prompt, encoding="utf-8")
     args = [*PI, "--mode", "json", "--model", model, "--session", str(session), "@" + str(bf),
@@ -579,8 +580,141 @@ def options_of(text):
     return [g for g in groups if g["options"]][:3] or inline_options(text)
 
 
+# ---------- правка владельца на готовой странице (research/20 §1–2) ----------
+EDIT_CFG = {"max_calls": 30, "max_minutes": 10, "same_call_limit": 3, "edits_without_check": 15}
+
+
+def shoot(ws, html, out, width, targets_file, boxes_out):
+    r = subprocess.run([PY, "-I", str(HERE / "edit_check.py"), "shoot", "--html", str(html), "--out", str(out),
+                        "--width", str(width), "--targets", str(targets_file), "--boxes-out", str(boxes_out)],
+                       cwd=ws.root, env={**os.environ, **ws.env()}, capture_output=True, text=True, encoding="utf-8")
+    return r.returncode == 0
+
+
+def compare_shots(ws, d, w):
+    r = subprocess.run([PY, "-I", str(HERE / "edit_check.py"), "compare", "--before", str(d / f"before-{w}.png"),
+                        "--after", str(d / f"after-{w}.png"), "--boxes", str(d / f"before-{w}.json"),
+                        "--boxes-after", str(d / f"after-{w}.json"), "--out", str(d / f"diff-{w}.json"),
+                        "--sheet", str(d / f"sheet-{w}.png")],
+                       cwd=ws.root, capture_output=True, text=True, encoding="utf-8")
+    try:
+        return json.loads((d / f"diff-{w}.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {"ok": False, "error": (r.stderr or r.stdout)[-300:]}
+
+
+def edit_brief(ws, pins, extra=""):
+    page = ws.state["page"]
+    lines = [f"[харнесс] Правка владельца на готовой странице site/{page}/ (оформление — design/{page}/). Это не шаг "
+             "пайплайна: STATUS.md, DECISIONS.md и артефакты шагов не меняешь, flow.py не запускаешь.", "",
+             "## Что поменять"]
+    for i, pin in enumerate(pins, 1):
+        where = pin.get("selector", "?")
+        if pin.get("of", 1) and pin.get("of", 1) > 1:
+            where += f" (номер {pin.get('nth', 1)} из {pin['of']})"
+        if pin.get("file"):
+            where += f", файл {pin['file']}" + (f", строка {pin['line']}" if pin.get("line") else "")
+        lines += [f"{i}. Место: {where}", f"   Текст элемента: «{(pin.get('text') or '')[:200]}»",
+                  f"   Фрагмент: {(pin.get('outerHTMLShort') or '')[:600]}",
+                  f"   Владелец: «{pin.get('request', '')}»"]
+    lines += ["", "## Правила",
+              "- Меняй только эти места. Остальная страница должна остаться как была: харнесс сравнит снимки до и после.",
+              "- Числа и обещания — только из FACTS.md. Движение — готовыми компонентами design-pipeline/motion. "
+              "Растровых картинок интерфейса нет.",
+              "- Не понял, что именно хочет владелец, — сделай самый вероятный вариант и скажи об этом одной строкой.",
+              *([extra] if extra else []), "", "## Как закончить",
+              f"Одна строка для владельца простыми словами, что сделано. Последней строкой «{ENDS_OK}»."]
+    return "\n".join(lines)
+
+
+def edit_turn(ws, payload):
+    pins = payload.get("pins") or []
+    if not pins:
+        emit(ev="stuck", text="правка: не выбрано ни одного места на странице")
+        return
+    page = ws.state["page"]
+    site = ws.root / "site" / page
+    html = site / "index.html"
+    if not html.exists():
+        emit(ev="stuck", text="правка: страницы ещё нет, сначала её нужно собрать")
+        return
+    ws.state["edits"] = n = ws.state.get("edits", 0) + 1
+    ws.save()
+    d = ws.page / "artifacts" / "edit" / f"{n:02d}"
+    d.mkdir(parents=True, exist_ok=True)
+    (d / "pins.json").write_text(json.dumps(pins, ensure_ascii=False, indent=1), encoding="utf-8")
+    shutil.copytree(site, d / "site-before", dirs_exist_ok=True)       # «Вернуть как было»
+    targets = d / "targets.json"
+    targets.write_text(json.dumps([{"selector": p.get("selector", "body"), "nth": p.get("nth", 1)} for p in pins],
+                                  ensure_ascii=False), encoding="utf-8")
+    widths = sorted({int(p.get("width") or 1440) for p in pins})[:2]
+    shots = all(shoot(ws, html, d / f"before-{w}.png", w, targets, d / f"before-{w}.json") for w in widths)
+    hc_before = set(harness_check(ws).splitlines())          # правка отвечает только за новые провалы проверки
+    model = CFG["ladder"][min(1, len(CFG["ladder"]) - 1)]          # вкус: вторая ступень (Kimi, где она есть)
+    cfg = {**CFG["defaults"], **EDIT_CFG}
+    sess = ws.h / "sessions" / f"edit-{n:02d}.jsonl"
+    emit(ev="stage", gate="edit", title="Правка на странице", model=model, attempt=1)
+    final, st = run_stage(ws, "edit", edit_brief(ws, pins), model, cfg, sess)
+    ws.ledger(kind="edit", n=n, model=model, **st)
+    diffs = {}
+    for attempt in range(2):
+        hc = "\n".join(x for x in harness_check(ws).splitlines() if x not in hc_before and x.startswith("FAIL"))
+        if shots:
+            for w in widths:
+                shoot(ws, html, d / f"after-{w}.png", w, targets, d / f"after-{w}.json")
+                diffs[w] = compare_shots(ws, d, w)
+        bad = [w for w, x in diffs.items() if not x.get("ok")]
+        if attempt or (not bad and not hc):
+            break
+        why = [f"на ширине {w} изменилось и другое: " + ", ".join(
+            f"<{b.get('tag')}{' #' + b['id'] if b.get('id') else ''}> ({b.get('why')})" for b in diffs[w].get(
+                "blocks_changed", [])[:4]) for w in bad]
+        fix = ("[харнесс] Проверка правки: " + "; ".join(why + ([hc.strip()] if hc else [])) +
+               ". Верни остальное как было, меняй только выбранные места, и снова закончи «" + ENDS_OK + "».")
+        final, s2 = run_stage(ws, "edit", fix, model, cfg, sess)
+        ws.ledger(kind="edit_fix", n=n, model=model, **s2)
+    said = [ln for ln in final.splitlines() if ln.strip() and ENDS_OK not in ln]
+    ok = shots and diffs and all(x.get("ok") for x in diffs.values()) and not hc
+    w0 = widths[0]
+    sheet = d / f"sheet-{w0}.png"
+    text = (said[-1] if said else "Поправил выбранные места.") + "\n" + f"Было / стало: {sheet.relative_to(ws.root)}"
+    if shots and not ok:
+        text += "\nИзменилось и что-то кроме выбранного — посмотрите внимательно."
+    opts = [{"q": "", "options": [{"key": f"edit:keep:{n}", "label": "Оставить", "recommended": bool(ok)},
+                                  {"key": f"edit:revert:{n}", "label": "Вернуть как было", "recommended": not ok}]}]
+    ws.ledger(kind="edit_done", n=n, ok=bool(ok), diffs={str(k): v.get("ratio") for k, v in diffs.items()})
+    emit(ev="owner", text=text, files=[str(sheet.resolve())] if sheet.exists() else [], options=opts)
+
+
+def edit_answer(ws, text):
+    """Кнопки после правки: edit:keep:N — оставить; edit:revert:N — вернуть папку страницы из копии до правки."""
+    m = re.fullmatch(r"edit:(keep|revert):(\d+)", text.strip())
+    if not m:
+        return False
+    n = int(m.group(2))
+    if m.group(1) == "revert":
+        src = ws.page / "artifacts" / "edit" / f"{n:02d}" / "site-before"
+        site = ws.root / "site" / ws.state["page"]
+        if src.is_dir():
+            shutil.rmtree(site, ignore_errors=True)
+            shutil.copytree(src, site)
+            ws.ledger(kind="edit_revert", n=n)
+            emit(ev="done", text="Вернул страницу как было до правки.")
+        else:
+            emit(ev="stuck", text="правка: копии до правки нет, вернуть нечего")
+    else:
+        ws.ledger(kind="edit_keep", n=n)
+        emit(ev="done", text="Оставил правку.")
+    return True
+
+
 def say(a):
     ws = WS(a.ws)
+    if getattr(a, "edit", None):
+        src = Path(a.edit)
+        return edit_turn(ws, json.loads(src.read_text(encoding="utf-8") if src.exists() else a.edit))
+    if a.text and edit_answer(ws, a.text):
+        return
     files = []
     for f in a.files or []:
         dst = ws.root / "materials" / Path(f).name
@@ -773,6 +907,8 @@ if __name__ == "__main__":
     i.add_argument("--materials"); i.add_argument("--pipeline")
     s = sp.add_parser("say"); s.add_argument("ws"); s.add_argument("text", nargs="?", default="")
     s.add_argument("--files", nargs="*"); s.add_argument("--retry", action="store_true")
+    s.add_argument("--edit", help="правка на готовой странице: JSON {pins:[{selector,nth,of,text,outerHTMLShort,file,"
+                                  "line,request,width}]} или путь к файлу с ним")
     t = sp.add_parser("status"); t.add_argument("ws")
     a = ap.parse_args()
     {"init": init, "say": say, "status": status}[a.cmd](a)
