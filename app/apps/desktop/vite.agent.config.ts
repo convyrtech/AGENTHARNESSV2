@@ -41,6 +41,12 @@ export default defineConfig({
       formats: ["es"],
       fileName: (_format, entryName) => `${entryName}.mjs`,
     },
-    rollupOptions: { external },
+    rollupOptions: {
+      external,
+      // Node platform: rolldown's `__require` for bundled CommonJS deps comes from
+      // createRequire(import.meta.url) instead of a shim that throws in ESM (signal-exit
+      // crashed the host on `require("assert")`; postcss could not `require("fs")`).
+      platform: "node",
+    },
   },
 });
