@@ -4855,6 +4855,7 @@ void app
       appendSessionNote: async (customType, text) => {
         await supervisor?.appendSessionNote(customType, text);
       },
+      onModelsChanged: async () => void (await supervisor?.refreshModelCatalog()),
     });
     ipcMain.handle("zeno:window:minimize", () => {
       if (mainWindow && !mainWindow.isDestroyed()) mainWindow.minimize();

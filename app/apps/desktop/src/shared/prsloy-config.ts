@@ -64,6 +64,14 @@ export const PRSLOY_PROVIDER_COMPAT: PrsloyCompat = {
 };
 
 /**
+ * One output limit for every model (owner's decision; the gateway took 32k, 64k and 128k
+ * for all of them). A gateway that still answers 400 about it gets the next value down,
+ * silently, from the agent host (agent-host/prsloy-fetch.ts).
+ */
+export const PRSLOY_MAX_TOKENS = 128_000;
+export const PRSLOY_MAX_TOKENS_FALLBACK: readonly number[] = [64_000, 32_000];
+
+/**
  * Model catalog. Reasoning content is replayed verbatim by pi (the thinking block keeps
  * the source field name as its signature); DeepSeek and Kimi also need an empty
  * `reasoning_content` on assistant turns that had none, or they answer 400 with tools.
@@ -75,7 +83,7 @@ export const PRSLOY_MODELS: readonly PrsloyModelDef[] = [
     reasoning: true,
     input: ["text", "image"],
     contextWindow: 128_000,
-    maxTokens: 64_000,
+    maxTokens: PRSLOY_MAX_TOKENS,
     compat: {
       thinkingFormat: "deepseek",
       supportsReasoningEffort: true,
@@ -88,7 +96,7 @@ export const PRSLOY_MODELS: readonly PrsloyModelDef[] = [
     reasoning: true,
     input: ["text", "image"],
     contextWindow: 256_000,
-    maxTokens: 32_000,
+    maxTokens: PRSLOY_MAX_TOKENS,
     compat: {
       thinkingFormat: "openai",
       supportsReasoningEffort: true,
@@ -104,7 +112,7 @@ export const PRSLOY_MODELS: readonly PrsloyModelDef[] = [
     reasoning: true,
     input: ["text", "image"],
     contextWindow: 256_000,
-    maxTokens: 32_000,
+    maxTokens: PRSLOY_MAX_TOKENS,
     compat: {
       thinkingFormat: "qwen",
       supportsReasoningEffort: true,
@@ -121,12 +129,73 @@ export const PRSLOY_MODELS: readonly PrsloyModelDef[] = [
     reasoning: false,
     input: ["text", "image"],
     contextWindow: 200_000,
-    maxTokens: 32_000,
+    maxTokens: PRSLOY_MAX_TOKENS,
     compat: {
       supportsReasoningEffort: false,
     },
   },
+  // Served by the gateway (2026-10-25). No effort for them either: same rule as Opus.
+  {
+    id: "claude-fable-5",
+    name: "Claude Fable 5",
+    reasoning: false,
+    input: ["text", "image"],
+    contextWindow: 200_000,
+    maxTokens: PRSLOY_MAX_TOKENS,
+    compat: { supportsReasoningEffort: false },
+  },
+  {
+    id: "gpt-6.1-sol",
+    name: "GPT-6.1 Sol",
+    reasoning: false,
+    input: ["text", "image"],
+    contextWindow: 400_000,
+    maxTokens: PRSLOY_MAX_TOKENS,
+    compat: { supportsReasoningEffort: false },
+  },
+  {
+    id: "grok-4.7",
+    name: "Grok 4.7",
+    reasoning: false,
+    input: ["text", "image"],
+    contextWindow: 256_000,
+    maxTokens: PRSLOY_MAX_TOKENS,
+    compat: { supportsReasoningEffort: false },
+  },
 ];
+
+/** Image generators the gateway lists next to chat models: no `chat/completions`. */
+const IMAGE_MODEL =
+  /(^|[-_/])(image|img)([-_.]|$)|^(gpt-image|dall-e|nano-banana|imagen|flux|midjourney|seedream|recraft|stable-diffusion|sdxl?)/iu;
+
+export function isPrsloyChatModelId(id: string): boolean {
+  return !IMAGE_MODEL.test(id);
+}
+
+/**
+ * The models to offer: the catalog filtered to what the gateway serves (`/v1/models`),
+ * plus chat models it serves that the catalog doesn't know yet (provider defaults, no
+ * price). Without a list (not checked yet, or a gateway without `/models`) the catalog.
+ */
+export function prsloyAvailableModels(available?: readonly string[]): PrsloyModelDef[] {
+  if (!available) return [...PRSLOY_MODELS];
+  const served = new Set(available.filter(isPrsloyChatModelId));
+  const known = PRSLOY_MODELS.filter((model) => served.has(model.id));
+  const unknown = [...served]
+    .filter((id) => !PRSLOY_MODELS.some((model) => model.id === id))
+    .map(
+      (id): PrsloyModelDef => ({
+        id,
+        name: id,
+        reasoning: false,
+        input: ["text"],
+        contextWindow: 128_000,
+        maxTokens: PRSLOY_MAX_TOKENS,
+        compat: {},
+      }),
+    );
+  return [...known, ...unknown];
+}
 
 /**
  * Gateway prices, USD per 1M tokens (measured gateway cost for now). `cacheRead` is 10% of
@@ -141,6 +210,11 @@ export const PRSLOY_PRICES_USD_PER_M: Readonly<
   "kimi-k3.1-pro": { input: 0.041, output: 0.204, cacheRead: 0.0041 },
   "qwen3.8-max": { input: 0.036, output: 0.108, cacheRead: 0.0036 },
   "claude-opus-5-5": { input: 0.096, output: 0.48, cacheRead: 0.0096 },
+  // Measured gateway range $0.015–0.077 / $0.077–0.385 (8 suppliers, REPORT-2026-10-22):
+  // the upper end, so the ruble cost is never understated.
+  "gpt-6.1-sol": { input: 0.077, output: 0.385, cacheRead: 0.0077 },
+  // claude-fable-5, grok-4.7: no gateway price measured yet → unpriced (no ruble cost),
+  // not the vendors' list prices (those are ~40× the gateway's, STATUS-core).
 };
 
 /** One knob for the owner to move from cost to retail pricing. */
@@ -177,19 +251,60 @@ export const PRSLOY_SPEED_MODES: Readonly<
 
 export const PRSLOY_DEFAULT_SPEED_MODE: PrsloySpeedMode = "fast";
 
-export function prsloyModelForSpeed(mode: PrsloySpeedMode): { provider: string; id: string } {
-  return { provider: PRSLOY_PROVIDER_ID, id: PRSLOY_SPEED_MODES[mode].modelId };
+/**
+ * Owner's rule «лучший результат за минимум денег»: each preset is the first model of its
+ * list the gateway serves. The first entry is PRSLOY_SPEED_MODES' model.
+ */
+export const PRSLOY_SPEED_PREFERENCE: Readonly<Record<PrsloySpeedMode, readonly string[]>> = {
+  fast: ["deepseek-v4.1-flash-1017", "qwen3.8-max", "grok-4.7", "claude-opus-5-5"],
+  quality: ["kimi-k3.1-pro", "claude-opus-5-5", "qwen3.8-max", "gpt-6.1-sol"],
+};
+
+/** The preset's model id for what the gateway serves (`undefined` list = not known yet). */
+export function prsloySpeedModelId(mode: PrsloySpeedMode, available?: readonly string[]): string {
+  const list = PRSLOY_SPEED_PREFERENCE[mode];
+  if (!available) return list[0]!;
+  const served = new Set(available);
+  return list.find((id) => served.has(id)) ?? available.find(isPrsloyChatModelId) ?? list[0]!;
+}
+
+export function prsloyModelForSpeed(
+  mode: PrsloySpeedMode,
+  available?: readonly string[],
+): { provider: string; id: string } {
+  return { provider: PRSLOY_PROVIDER_ID, id: prsloySpeedModelId(mode, available) };
 }
 
 /** Reverse lookup for the toggle state; undefined when the model is not a preset. */
 export function prsloySpeedForModel(
   model: { provider: string; id: string } | undefined,
+  available?: readonly string[],
 ): PrsloySpeedMode | undefined {
   if (!model || model.provider !== PRSLOY_PROVIDER_ID) return undefined;
-  for (const mode of Object.keys(PRSLOY_SPEED_MODES) as PrsloySpeedMode[]) {
-    if (PRSLOY_SPEED_MODES[mode].modelId === model.id) return mode;
+  for (const mode of Object.keys(PRSLOY_SPEED_PREFERENCE) as PrsloySpeedMode[]) {
+    if (prsloySpeedModelId(mode, available) === model.id) return mode;
   }
   return undefined;
+}
+
+/**
+ * Where to go when `from` stops being served mid-session: the next served model of the
+ * preset list it belongs to (fast first), else the fast preset.
+ */
+export function prsloyFallbackModelId(
+  from: string,
+  available: readonly string[],
+): string | undefined {
+  const served = new Set(available.filter((id) => id !== from && isPrsloyChatModelId(id)));
+  for (const mode of ["fast", "quality"] as const) {
+    const list = PRSLOY_SPEED_PREFERENCE[mode];
+    const at = list.indexOf(from);
+    if (at < 0) continue;
+    const next = list.slice(at + 1).find((id) => served.has(id));
+    if (next) return next;
+  }
+  const fast = PRSLOY_SPEED_PREFERENCE.fast.find((id) => served.has(id));
+  return fast ?? [...served][0];
 }
 
 /**
@@ -220,13 +335,16 @@ export function normalizePrsloyBaseUrl(raw: string | undefined | null): string |
  * The `providers.prsloy` block for pi `models.json`. No `apiKey`: the key never touches
  * disk in plain text; the agent host sets it as a pi runtime key.
  */
-export function buildPrsloyModelsJsonProvider(baseUrl: string): Record<string, unknown> {
+export function buildPrsloyModelsJsonProvider(
+  baseUrl: string,
+  available?: readonly string[],
+): Record<string, unknown> {
   return {
     name: "PRSLOY",
     baseUrl,
     api: "openai-completions",
     compat: { ...PRSLOY_PROVIDER_COMPAT },
-    models: PRSLOY_MODELS.map((model) => ({
+    models: prsloyAvailableModels(available).map((model) => ({
       id: model.id,
       name: model.name,
       reasoning: model.reasoning,

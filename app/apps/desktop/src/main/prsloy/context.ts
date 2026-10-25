@@ -21,7 +21,12 @@ import { GitRuntime, isInstallerGit, type GitSetupState } from "./runtime-git.ts
 import { TurnSnapshots } from "./turn-snapshots.ts";
 import { chooseGitBinary, chooseWindowsShellPath } from "./windows-shell.ts";
 
-export type PrsloyState = { baseUrl: string; migrations?: string[] };
+export type PrsloyState = {
+  baseUrl: string;
+  migrations?: string[];
+  /** Chat + image model ids the gateway's `/v1/models` listed, and when. */
+  models?: { ids: string[]; checkedAt: string };
+};
 
 /** The slice of RuntimeBoot the context needs (absent outside the Electron app). */
 export type RuntimesLike = {
@@ -94,6 +99,13 @@ export type PrsloyContext = {
   getState(): PrsloyState;
   /** Persist + rewrite models.json. Returns the normalized URL. */
   setBaseUrl(raw: string): string;
+  /**
+   * What the gateway's `/v1/models` serves now: kept in state.json, models.json narrowed to
+   * it, a default model it no longer serves replaced. True when models.json changed.
+   */
+  setAvailableModels(ids: readonly string[], now?: Date): boolean;
+  /** Last known list (undefined: never checked, or a gateway without `/models`). */
+  availableModels(): string[] | undefined;
   /** Agent Host env: scrubbed, shims first, pinned home, key handoff. */
   hostEnv(base: Record<string, string | undefined>): Record<string, string>;
 };
@@ -102,10 +114,15 @@ function readState(path: string): PrsloyState {
   try {
     const parsed = JSON.parse(readFileSync(path, "utf8")) as Partial<PrsloyState>;
     const baseUrl = normalizePrsloyBaseUrl(parsed.baseUrl) ?? PRSLOY_DEFAULT_BASE_URL;
+    const models = parsed.models;
+    const ids = Array.isArray(models?.ids) ? models.ids.filter((m) => typeof m === "string") : [];
     return {
       baseUrl,
       ...(Array.isArray(parsed.migrations)
         ? { migrations: parsed.migrations.filter((m) => typeof m === "string") }
+        : {}),
+      ...(ids.length && typeof models?.checkedAt === "string"
+        ? { models: { ids, checkedAt: models.checkedAt } }
         : {}),
     };
   } catch {
@@ -188,14 +205,14 @@ export function bootstrapPrsloy(options: {
     const chosen = chooseWindowsShellPath({ bundledGitRoot, env });
     shellPath = chosen.shellPath;
     shellSource = chosen.source;
-    ensurePrsloySettings(agentDir, { shellPath });
+    ensurePrsloySettings(agentDir, { shellPath, available: state.models?.ids });
   };
   const gitBinary = () => chooseGitBinary({ platform, bundledGitRoot, env });
 
-  ensurePrsloyModelsJson(agentDir, state.baseUrl);
+  ensurePrsloyModelsJson(agentDir, state.baseUrl, state.models?.ids);
   const MCP_MIGRATION = "no-auto-mcp-adapter";
   const dropAutoMcpAdapter = !state.migrations?.includes(MCP_MIGRATION);
-  ensurePrsloySettings(agentDir, { shellPath, dropAutoMcpAdapter });
+  ensurePrsloySettings(agentDir, { shellPath, dropAutoMcpAdapter, available: state.models?.ids });
   if (dropAutoMcpAdapter) {
     state = { ...state, migrations: [...(state.migrations ?? []), MCP_MIGRATION] };
     writeState(statePath, state);
@@ -253,11 +270,23 @@ export function bootstrapPrsloy(options: {
     setBaseUrl(raw) {
       const baseUrl = normalizePrsloyBaseUrl(raw);
       if (!baseUrl) throw new Error("Invalid gateway URL");
-      state = { ...state, baseUrl };
+      // Another gateway serves other models: forget the old list until it is checked.
+      const { models: _old, ...rest } = state;
+      state = baseUrl === state.baseUrl ? state : { ...rest, baseUrl };
       writeState(statePath, state);
-      ensurePrsloyModelsJson(agentDir, baseUrl);
+      ensurePrsloyModelsJson(agentDir, baseUrl, state.models?.ids);
       return baseUrl;
     },
+    setAvailableModels(rawIds, now = new Date()) {
+      const ids = [...new Set(rawIds.filter((id) => typeof id === "string" && id))];
+      if (ids.length === 0) return false;
+      state = { ...state, models: { ids, checkedAt: now.toISOString() } };
+      writeState(statePath, state);
+      const changed = ensurePrsloyModelsJson(agentDir, state.baseUrl, ids);
+      ensurePrsloySettings(agentDir, { shellPath, available: ids });
+      return changed;
+    },
+    availableModels: () => (state.models ? [...state.models.ids] : undefined),
     hostEnv(base) {
       return buildPrsloyHostEnv(base, {
         agentDir,

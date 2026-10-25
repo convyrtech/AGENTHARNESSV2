@@ -20,7 +20,7 @@ export function ModelTierSwitch(props: {
   disabled?: boolean;
   onModelChange: (provider: string, id: string) => void;
 }) {
-  const active = tierForModel(props.modelValue);
+  const active = tierForModel(props.modelValue, props.modelOptions);
 
   function pick(tier: ModelTier) {
     if (tier === active) return;

@@ -12,13 +12,18 @@ import {
   prsloySpeedForModel,
 } from "./prsloy-config.ts";
 
+const UNMEASURED = ["claude-fable-5", "grok-4.7"];
+
 describe("prsloy config", () => {
-  it("ships the four gateway models", () => {
+  it("knows the gateway's chat models", () => {
     expect(PRSLOY_MODELS.map((m) => m.id)).toEqual([
       "deepseek-v4.1-flash-1017",
       "kimi-k3.1-pro",
       "qwen3.8-max",
       "claude-opus-5-5",
+      "claude-fable-5",
+      "gpt-6.1-sol",
+      "grok-4.7",
     ]);
   });
 
@@ -75,10 +80,16 @@ describe("prsloy config", () => {
     expect(byId["claude-opus-5-5"]!.compat.supportsReasoningEffort).toBe(false);
   });
 
-  it("prices every catalog model; cache read is 10% of input", () => {
+  it("prices every measured model; cache read is 10% of input", () => {
     for (const model of PRSLOY_MODELS) {
-      const price = PRSLOY_PRICES_USD_PER_M[model.id]!;
+      const price = PRSLOY_PRICES_USD_PER_M[model.id];
+      // No gateway price measured yet: unpriced on purpose (STATUS-core).
+      if (UNMEASURED.includes(model.id)) {
+        expect(price, model.id).toBeUndefined();
+        continue;
+      }
       expect(price, model.id).toBeDefined();
+      if (!price) continue;
       // A missing cacheRead bills cache hits as full input (DIARY E9: $1.73 shown vs $0.41).
       expect(price.cacheRead, model.id).toBeCloseTo(price.input / 10, 10);
     }
@@ -110,7 +121,7 @@ describe("model prices", () => {
     };
     for (const model of provider.models) {
       expect(model.cost).toEqual(prsloyModelCost(model.id));
-      expect(model.cost).not.toEqual(PRSLOY_UNPRICED);
+      if (!UNMEASURED.includes(model.id)) expect(model.cost).not.toEqual(PRSLOY_UNPRICED);
     }
     expect(PRSLOY_UNPRICED).toEqual({ input: 0, output: 0, cacheRead: 0, cacheWrite: 0 });
   });

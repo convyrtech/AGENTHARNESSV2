@@ -7,11 +7,13 @@
 import {
   PRSLOY_PROVIDER_ID,
   PRSLOY_SPEED_MODES,
+  prsloySpeedModelId,
   type PrsloySpeedMode,
 } from "../../shared/prsloy-config.ts";
 
 export type ModelTier = PrsloySpeedMode;
 
+/** Each tier's first choice; the one actually used depends on what the gateway serves. */
 export const MODEL_TIERS: Readonly<Record<ModelTier, string>> = {
   fast: PRSLOY_SPEED_MODES.fast.modelId,
   quality: PRSLOY_SPEED_MODES.quality.modelId,
@@ -23,10 +25,23 @@ export const MODEL_TIER_ORDER: readonly ModelTier[] = ["fast", "quality"];
 
 export type TierModelOption = { provider: string; id: string };
 
+/**
+ * The tier's model for the host's model list: the first of its preference list the
+ * PRSLOY provider offers (the host lists only what the gateway serves). Without PRSLOY
+ * entries, the tier's first choice.
+ */
+export function tierModelId(tier: ModelTier, options: readonly TierModelOption[] = []): string {
+  const served = options.filter((o) => o.provider === MODEL_TIER_PROVIDER).map((o) => o.id);
+  return prsloySpeedModelId(tier, served.length ? served : undefined);
+}
+
 /** Which tier the active `provider/id` model belongs to, if any. */
-export function tierForModel(modelValue: string): ModelTier | undefined {
+export function tierForModel(
+  modelValue: string,
+  options: readonly TierModelOption[] = [],
+): ModelTier | undefined {
   const id = modelValue.slice(modelValue.indexOf("/") + 1);
-  return MODEL_TIER_ORDER.find((tier) => MODEL_TIERS[tier] === id);
+  return MODEL_TIER_ORDER.find((tier) => tierModelId(tier, options) === id);
 }
 
 /**
@@ -37,7 +52,7 @@ export function modelForTier(
   tier: ModelTier,
   options: readonly TierModelOption[],
 ): TierModelOption {
-  const id = MODEL_TIERS[tier];
+  const id = tierModelId(tier, options);
   const matches = options.filter((option) => option.id === id);
   return (
     matches.find((option) => option.provider === MODEL_TIER_PROVIDER) ??

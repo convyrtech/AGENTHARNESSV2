@@ -14,6 +14,7 @@ import type { PrsloyContext } from "./context.ts";
 import { checkPrsloyKey, type FetchLike } from "./gateway-check.ts";
 import { maskKey } from "./key-store.ts";
 import { recordTurnUndo } from "./learning-undo.ts";
+import { startPrsloyModelRefresh } from "./model-list.ts";
 import type { TurnRecord } from "./turn-snapshots.ts";
 
 export const PRSLOY_IPC = {
@@ -42,6 +43,10 @@ export type PrsloyIpcDeps = {
   isAgentBusy(): boolean;
   /** Tell the model (next turn) what an undo changed; best effort. */
   appendSessionNote?(customType: string, text: string): Promise<void>;
+  /** models.json changed (the gateway's model list): the host reloads its catalog. */
+  onModelsChanged?(): Promise<void>;
+  /** Startup + hourly `/v1/models` refresh; off in unit tests that don't want it. */
+  refreshModels?: boolean;
 };
 
 export const UNDO_NOTE_CUSTOM_TYPE = "prsloy.undo";
@@ -108,6 +113,14 @@ export function registerPrsloyIpc(ipcMain: IpcMainLike, deps: PrsloyIpcDeps): vo
 
   ipcMain.handle(PRSLOY_IPC.getState, () => state());
 
+  if (deps.refreshModels !== false) {
+    startPrsloyModelRefresh({
+      ctx,
+      fetch: deps.fetch,
+      onChanged: () => deps.onModelsChanged?.(),
+    });
+  }
+
   ipcMain.handle(
     PRSLOY_IPC.setKey,
     async (_event, rawKey, rawBaseUrl): Promise<PrsloyKeyResult> => {
@@ -127,6 +140,7 @@ export function registerPrsloyIpc(ipcMain: IpcMainLike, deps: PrsloyIpcDeps): vo
       const check = await checkPrsloyKey({ baseUrl, apiKey: key, fetch: deps.fetch });
       if (!check.ok) return check;
       if (baseUrl !== ctx.getState().baseUrl) ctx.setBaseUrl(baseUrl);
+      if (check.via === "models") ctx.setAvailableModels(check.modelIds);
       ctx.keyStore.write(key);
       await deps.restartHost();
       return { ok: true, state: state(), modelIds: check.modelIds };
@@ -147,12 +161,15 @@ export function registerPrsloyIpc(ipcMain: IpcMainLike, deps: PrsloyIpcDeps): vo
     if (!baseUrl) return { ok: false, code: "bad_url" };
     const key = ctx.keyStore.read();
     let modelIds: string[] = [];
+    let listed = false;
     if (key) {
       const check = await checkPrsloyKey({ baseUrl, apiKey: key, fetch: deps.fetch });
       if (!check.ok) return check;
       modelIds = check.modelIds;
+      listed = check.via === "models";
     }
     ctx.setBaseUrl(baseUrl);
+    if (listed) ctx.setAvailableModels(modelIds);
     await deps.restartHost();
     return { ok: true, state: state(), modelIds };
   });
