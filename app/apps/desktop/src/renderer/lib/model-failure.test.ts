@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vite-plus/test";
-import { failureAction, failureHintKey, failureKind, withoutRetryNoise } from "./model-failure.ts";
+import {
+  failureAction,
+  failureActionLabelKey,
+  failureHintKey,
+  failureKind,
+  withoutRetryNoise,
+} from "./model-failure.ts";
 
 describe("failureKind", () => {
   it("follows the host's code", () => {
@@ -39,6 +45,9 @@ describe("failureKind", () => {
     for (const kind of ["network", "model", "busy", "slow", "server"] as const) {
       expect(failureAction(kind)).toBe("retry");
     }
+    expect(failureActionLabelKey("crash")).toBe("failure.action.retryLast");
+    expect(failureActionLabelKey("network")).toBe("system.retry.action");
+    expect(failureActionLabelKey("balance")).toBe("failure.action.topUp");
     expect(failureHintKey("network")).toBeUndefined();
     expect(failureHintKey("model")).toBe("failure.model.hint");
   });
@@ -64,6 +73,11 @@ describe("withoutRetryNoise", () => {
       user,
       fail,
     ]);
+  });
+
+  it("drops the host's «restarted» note (the crash card says it)", () => {
+    const restarted = { kind: "system", text: "Agent Host restarted", tone: "info" };
+    expect(withoutRetryNoise([user, restarted, reply])).toEqual([user, reply]);
   });
 
   it("leaves other turns alone", () => {

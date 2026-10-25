@@ -8,10 +8,11 @@ import { ChevronRight, CircleAlert, KeyRound, RotateCcw, Wallet } from "lucide-r
 import { t, type Locale } from "../lib/i18n.ts";
 import {
   failureAction,
-  failureActionKey,
+  failureActionLabelKey,
   failureHintKey,
   failureKind,
   failureTitleKey,
+  type FailureKind,
 } from "../lib/model-failure.ts";
 import { useShellStore } from "../store/shell-store.ts";
 import { cn } from "../lib/utils.ts";
@@ -22,12 +23,14 @@ export function ModelFailureCard(props: {
   detail: string;
   /** The host's failure category (`message.failed.code`), when the event carried one. */
   code?: string | undefined;
+  /** Set when the row already says what failed (an Agent Host crash). */
+  kind?: FailureKind | undefined;
   /** Resend this turn's prompt; absent when there is none to resend. */
   onRetry?: (() => void) | undefined;
   disabled?: boolean | undefined;
 }) {
   const [open, setOpen] = useState(false);
-  const kind = failureKind(props.code, props.detail);
+  const kind = props.kind ?? failureKind(props.code, props.detail);
   const action = failureAction(kind);
   const title = t(props.locale, failureTitleKey(kind));
   const hintKey = failureHintKey(kind);
@@ -78,7 +81,7 @@ export function ModelFailureCard(props: {
             onClick={run}
           >
             <Icon className="size-3.5" strokeWidth={1.75} />
-            {t(props.locale, failureActionKey(action))}
+            {t(props.locale, failureActionLabelKey(kind))}
           </button>
         ) : null}
       </div>

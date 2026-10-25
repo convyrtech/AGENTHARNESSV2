@@ -86,7 +86,12 @@ import { cn } from "../lib/utils.ts";
 import { useCasualPrefs } from "../hooks/useCasualPrefs.ts";
 import { harnessCardKind, isHarnessData } from "../lib/harness-card.ts";
 import { HarnessCard } from "./HarnessCard.tsx";
-import { isModelFailure, isModelOnlyNote, localizedSystemTitle } from "../lib/system-notices.ts";
+import {
+  isHostCrash,
+  isModelFailure,
+  isModelOnlyNote,
+  localizedSystemTitle,
+} from "../lib/system-notices.ts";
 import { ModelFailureCard } from "./ModelFailureCard.tsx";
 
 /** Tick wall-clock once per second while `active` so elapsed labels stay live. */
@@ -800,6 +805,17 @@ export const TimelineRow = memo(function TimelineRow(props: {
   // Extension custom message/entry use the same generic serializable fallback
   // (no TUI renderer factories); content is still sanitized Markdown.
   if (isModelOnlyNote(item)) return null;
+  if (isHostCrash(item)) {
+    return (
+      <ModelFailureCard
+        locale={props.locale}
+        kind="crash"
+        detail={item.text}
+        onRetry={props.onRetry}
+        disabled={props.editingLocked}
+      />
+    );
+  }
   if (isModelFailure(item)) {
     return (
       <ModelFailureCard

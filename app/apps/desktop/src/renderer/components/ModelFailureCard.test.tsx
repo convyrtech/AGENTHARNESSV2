@@ -85,4 +85,16 @@ describe("ModelFailureCard", () => {
       "или проверьте адрес сервера",
     );
   });
+
+  it("agent host crash: says the conversation is safe and resends the last request", () => {
+    const onRetry = vi.fn();
+    const raw = "Agent Host exited with code 1: file:///app/dist/agent-host/agent-host-app.mjs";
+    render(<ModelFailureCard locale="ru" kind="crash" detail={raw} onRetry={onRetry} />);
+    expect(screen.getByText("Агент неожиданно остановился. Разговор сохранён.")).toBeTruthy();
+    expect(screen.queryByText(raw)).toBeNull();
+    fireEvent.click(screen.getByText("Повторить последний запрос"));
+    expect(onRetry).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByText("Подробности"));
+    expect(screen.getByText(raw)).toBeTruthy();
+  });
 });

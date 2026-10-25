@@ -6,9 +6,18 @@
  * from that text as a fallback.
  */
 import type { MessageKey } from "./i18n.ts";
-import { RESPONSE_FAILED_TITLE } from "./system-notices.ts";
+import { HOST_RESTARTED_TEXT, RESPONSE_FAILED_TITLE } from "./system-notices.ts";
 
-export type FailureKind = "network" | "balance" | "key" | "model" | "busy" | "slow" | "server";
+export type FailureKind =
+  | "network"
+  | "balance"
+  | "key"
+  | "model"
+  | "busy"
+  | "slow"
+  | "server"
+  /** The Agent Host crashed and restarted itself; the conversation is kept. */
+  | "crash";
 
 /** What the card's one button does. */
 export type FailureAction = "retry" | "topUp" | "changeKey";
@@ -66,6 +75,11 @@ export function failureAction(kind: FailureKind): FailureAction {
   return "retry";
 }
 
+/** The button's words: after a crash it resends the last request, said as such. */
+export function failureActionLabelKey(kind: FailureKind): MessageKey {
+  return kind === "crash" ? "failure.action.retryLast" : failureActionKey(failureAction(kind));
+}
+
 export function failureActionKey(action: FailureAction): MessageKey {
   return action === "topUp"
     ? "failure.action.topUp"
@@ -74,7 +88,7 @@ export function failureActionKey(action: FailureAction): MessageKey {
       : "system.retry.action";
 }
 
-type Item = { kind: string; title?: string; tone?: string; attempt?: number };
+type Item = { kind: string; title?: string; tone?: string; attempt?: number; text?: string };
 
 const isRetryNote = (item: Item) => item.kind === "system" && item.title === "Retry";
 const isFailure = (item: Item) =>
@@ -84,11 +98,13 @@ const isFailure = (item: Item) =>
  * Casual timeline: pi's automatic retries are one quiet line, not a stack of error cards.
  * Within a turn, a failure that a retry followed is dropped (the retry superseded it), the
  * «retry gave up» note is dropped (the final failure card says it), and a «trying again»
- * line stays only while it is the turn's latest row.
+ * line stays only while it is the turn's latest row. The host's «restarted» note goes too:
+ * the crash card and the restart banner already say it.
  */
 export function withoutRetryNoise<T extends Item>(items: readonly T[]): T[] {
   const out: T[] = [];
   items.forEach((item, index) => {
+    if (item.kind === "system" && item.text === HOST_RESTARTED_TEXT) return;
     if (!isRetryNote(item) && !isFailure(item)) {
       out.push(item);
       return;

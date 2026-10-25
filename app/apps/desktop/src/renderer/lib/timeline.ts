@@ -1,3 +1,4 @@
+import { HOST_CRASHED_TITLE, HOST_RESTARTED_TEXT } from "./system-notices.ts";
 import type { HostEvent, SessionHistoryMessage, ZenoRunState } from "@zeno/contracts";
 import { localeTag, type Locale } from "./i18n.ts";
 import { hideToolLeaks } from "./tool-markup.ts";
@@ -466,7 +467,7 @@ export function projectEventsToTimeline(
         id: `crash-${items.length}`,
         kind: "system",
         text: event.message,
-        title: "Agent Host crashed",
+        title: HOST_CRASHED_TITLE,
         tone: "error",
         timestamp: now(),
       });
@@ -475,7 +476,7 @@ export function projectEventsToTimeline(
       items.push({
         id: `restart-${items.length}`,
         kind: "system",
-        text: "Agent Host restarted",
+        text: HOST_RESTARTED_TEXT,
         tone: "info",
         timestamp: now(),
       });

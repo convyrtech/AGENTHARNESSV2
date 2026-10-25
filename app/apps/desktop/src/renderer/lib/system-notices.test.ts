@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vite-plus/test";
-import { isModelFailure, isModelOnlyNote, localizedSystemTitle } from "./system-notices.ts";
+import {
+  isModelFailure,
+  isModelOnlyNote,
+  localizedSystemTitle,
+  isHostCrash,
+} from "./system-notices.ts";
 
 describe("system notices", () => {
   it("says a failed response in plain Russian", () => {
@@ -22,5 +27,12 @@ describe("system notices", () => {
     expect(isModelOnlyNote({ extension: true, title: "prsloy.undo" })).toBe(true);
     expect(isModelOnlyNote({ extension: false, title: "prsloy.undo" })).toBe(false);
     expect(isModelOnlyNote({ extension: true, title: "my-extension" })).toBe(false);
+  });
+});
+
+describe("host crash rows", () => {
+  it("are recognised by the projection's title", () => {
+    expect(isHostCrash({ title: "Agent Host crashed" })).toBe(true);
+    expect(isHostCrash({ title: "Response failed" })).toBe(false);
   });
 });

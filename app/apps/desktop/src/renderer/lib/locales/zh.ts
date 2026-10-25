@@ -1524,6 +1524,8 @@ export const zh = {
   "failure.server.title": "模型返回了错误",
   "failure.action.topUp": "充值",
   "failure.action.changeKey": "更换密钥",
+  "failure.crash.title": "代理意外停止了。对话已保存。",
+  "failure.action.retryLast": "重试上一个请求",
   "harness.budget.title": "已停止：任务超出限额",
   "harness.budget.body": "已完成的部分已保存。输入「继续」完成剩下的。",
   "harness.stopGate.title": "项目检查仍未通过",

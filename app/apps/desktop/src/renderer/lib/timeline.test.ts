@@ -2,6 +2,7 @@ import type { HostEvent, RuntimeEvent } from "@zeno/contracts";
 import type { TimelineItem } from "./timeline.ts";
 import { IPC_PROTOCOL_VERSION } from "@zeno/contracts";
 import { describe, expect, it } from "vite-plus/test";
+import { isHostCrash } from "./system-notices.ts";
 import {
   buildTimelineBlocks,
   deriveLiveActivity,
@@ -30,6 +31,15 @@ function runtimeEvent(sequence: number, event: RuntimeEvent): HostEvent {
 }
 
 describe("runtime timeline", () => {
+  it("a host crash becomes the crash row the failure card renders", () => {
+    const [item] = projectEventsToTimeline(
+      [{ type: "host.crashed", message: "Agent Host exited with code 1: file:///x" } as HostEvent],
+      [],
+    );
+    expect(item).toMatchObject({ kind: "system", title: "Agent Host crashed", tone: "error" });
+    expect(item?.kind === "system" && isHostCrash(item)).toBe(true);
+  });
+
   it("a custom message from history gets its type back, as live", () => {
     const items = historyToTimeline([
       { role: "system", text: "[prsloy-harness.budget] Задача остановлена: исчерпан лимит" },

@@ -1536,6 +1536,8 @@ export const ru = {
   "failure.server.title": "Модель ответила ошибкой",
   "failure.action.topUp": "Пополнить",
   "failure.action.changeKey": "Изменить ключ",
+  "failure.crash.title": "Агент неожиданно остановился. Разговор сохранён.",
+  "failure.action.retryLast": "Повторить последний запрос",
   "harness.budget.title": "Остановился: задача вышла за лимит",
   "harness.budget.body": "Сделанное сохранено. Напишите «продолжай», чтобы доделать.",
   "harness.stopGate.title": "Проверка проекта не проходит",

@@ -1555,6 +1555,8 @@ export const en = {
   "failure.server.title": "The model answered with an error",
   "failure.action.topUp": "Top up",
   "failure.action.changeKey": "Change key",
+  "failure.crash.title": "The agent stopped unexpectedly. The conversation is saved.",
+  "failure.action.retryLast": "Retry the last request",
   "harness.budget.title": "Stopped: the task hit its limit",
   "harness.budget.body": "What's done is saved. Write «continue» to finish.",
   "harness.stopGate.title": "The project check still fails",
