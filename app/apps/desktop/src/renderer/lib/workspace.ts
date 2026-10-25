@@ -42,7 +42,7 @@ export function isEphemeralWorkspacePath(path: string): boolean {
  */
 export function isAutoDefaultWorkspacePath(path: string): boolean {
   const normalized = path.replace(/\\/g, "/").replace(/\/+$/, "");
-  return /\/Zeno\/\d{4}-\d{2}-\d{2}(-\d+)?$/i.test(normalized);
+  return /\/(?:Zeno|PRSLOY)\/\d{4}-\d{2}-\d{2}(-\d+)?$/i.test(normalized);
 }
 
 /**

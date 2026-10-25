@@ -143,6 +143,14 @@ import {
 import { ensureProvisionedRuntimes } from "./runtime-provision.ts";
 import { electronFetch, initPrsloy } from "./prsloy/electron.ts";
 import { registerPrsloyIpc, snapshotBeforeTurn } from "./prsloy/ipc.ts";
+import {
+  isConversationWorkspacePath,
+  isNonProjectWorkspacePath,
+  durableWorkspacePath,
+  localDateFolderName,
+  ensureDefaultWorkspacePath,
+  ensureConversationWorkspacePath,
+} from "./workspace-paths.ts";
 import { augmentEnvPath } from "./shell-path.ts";
 import { ThemeLibrary } from "./theme-library.ts";
 
@@ -1388,99 +1396,6 @@ export type GitPrefs = {
 
 function prefsPath(): string {
   return join(app.getPath("userData"), "zeno-desktop.json");
-}
-
-function isEphemeralWorkspacePath(path: string): boolean {
-  const normalized = path.replace(/\\/g, "/").toLowerCase();
-  return (
-    normalized.includes("/tmp/") ||
-    normalized.includes("/var/folders/") ||
-    normalized.includes("/zeno-e2e-") ||
-    normalized.includes("/zeno-fake-") ||
-    normalized.includes("/zeno-test-") ||
-    normalized.includes("/zeno-p0") ||
-    normalized.includes("/fork-probe") ||
-    normalized.includes("/recent-ws-") ||
-    normalized.includes("/other-workspace") ||
-    /\/t\/zeno-/.test(normalized)
-  );
-}
-
-/**
- * Auto scratch from ensureDefault: …/Zeno/YYYY-MM-DD[ -N].
- * Not a user project — must not land in recent/last or the sidebar 项目 list.
- */
-function isAutoDefaultWorkspacePath(path: string): boolean {
-  const normalized = path.replace(/\\/g, "/").replace(/\/+$/, "");
-  return /\/Zeno\/\d{4}-\d{2}-\d{2}(-\d+)?$/i.test(normalized);
-}
-
-/** Pure-conversation home: …/Zeno/conversations[/…] — never a sidebar project. */
-function isConversationWorkspacePath(path: string): boolean {
-  const normalized = path.replace(/\\/g, "/").replace(/\/+$/, "");
-  return /\/Zeno\/conversations(?:\/|$)/i.test(normalized);
-}
-
-function isNonProjectWorkspacePath(path: string): boolean {
-  return (
-    isEphemeralWorkspacePath(path) ||
-    isAutoDefaultWorkspacePath(path) ||
-    isConversationWorkspacePath(path)
-  );
-}
-
-function durableWorkspacePath(cwd: string | undefined): string | undefined {
-  if (!cwd || typeof cwd !== "string") return undefined;
-  if (isNonProjectWorkspacePath(cwd)) return undefined;
-  try {
-    if (!existsSync(cwd)) return undefined;
-  } catch {
-    return undefined;
-  }
-  return cwd;
-}
-
-/** Local calendar date as YYYY-MM-DD (no timezone suffix). */
-function localDateFolderName(date = new Date()): string {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, "0");
-  const d = String(date.getDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
-}
-
-/**
- * Default project root: Documents/Zeno/<YYYY-MM-DD>.
- * Reuses today's folder when it already exists as a directory.
- */
-function ensureDefaultWorkspacePath(): string {
-  const root = join(app.getPath("documents"), "PRSLOY");
-  mkdirSync(root, { recursive: true });
-  const base = localDateFolderName();
-  const path = join(root, base);
-  if (!existsSync(path)) {
-    mkdirSync(path, { recursive: true });
-    return path;
-  }
-  try {
-    if (lstatSync(path).isDirectory()) return path;
-  } catch {
-    // fall through to a unique suffix
-  }
-  let n = 2;
-  while (existsSync(join(root, `${base}-${n}`))) n += 1;
-  const unique = join(root, `${base}-${n}`);
-  mkdirSync(unique, { recursive: true });
-  return unique;
-}
-
-/**
- * Global「新建会话」home — pure conversations, never listed as a project.
- * Documents/Zeno/conversations
- */
-function ensureConversationWorkspacePath(): string {
-  const path = join(app.getPath("documents"), "PRSLOY", "conversations");
-  mkdirSync(path, { recursive: true });
-  return path;
 }
 
 function saveDesktopPrefs(prefs: DesktopPrefs): void {
