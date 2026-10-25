@@ -422,6 +422,79 @@ describe("integration: broken tool arguments are repaired before Pi validates th
   }, 30_000);
 });
 
+describe("integration: learning log (S0) in a real session", () => {
+  it("writes kinds, signatures and turn.end — never the prompt text or the project path", async () => {
+    const learningDir = await mkdtemp(join(tmpdir(), "prsloy-learn-int-"));
+    cleanup.push(() => rm(learningDir, { recursive: true, force: true }));
+    const ls = { name: "bash", arguments: { command: "ls -la" } };
+    const { session, cwd } = await startSession(
+      (_req, index) =>
+        [
+          {
+            toolCalls: [
+              {
+                name: "read",
+                arguments: {},
+                raw: JSON.stringify(JSON.stringify({ path: "a.txt" })),
+              },
+            ],
+          },
+          { toolCalls: [ls] },
+          { toolCalls: [ls] },
+          { toolCalls: [ls] },
+          {
+            toolCalls: [
+              {
+                name: "write",
+                arguments: { path: "sum.js", content: "exports.sum = (a, b) => a - b;\n" },
+              },
+            ],
+          },
+          { text: "Готово." },
+          {
+            toolCalls: [
+              {
+                name: "write",
+                arguments: { path: "sum.js", content: "exports.sum = (a, b) => a + b;\n" },
+              },
+            ],
+          },
+          { text: "Исправил." },
+        ][index] ?? { text: "?" },
+      { factory: { learningDir } },
+    );
+    await writeFile(join(cwd, "a.txt"), "x\n");
+    await writeFile(
+      join(cwd, "package.json"),
+      JSON.stringify({ scripts: { test: "node test.js" } }),
+    );
+    await writeFile(
+      join(cwd, "test.js"),
+      'if (require("./sum.js").sum(2, 2) !== 4) { console.error("FAIL"); process.exit(1); }\n',
+    );
+    await session.prompt("Сделай калькулятор для Анны Петровой");
+    const raw = await readFile(join(learningDir, "events.jsonl"), "utf8");
+    const events = raw
+      .trim()
+      .split("\n")
+      .map((l) => JSON.parse(l) as { kind: string; sig?: string; outcome?: string; n?: number });
+    expect(events.map((e) => e.kind)).toEqual([
+      "repair",
+      "loop.warn",
+      "gate.red",
+      "gate.green",
+      "turn.end",
+    ]);
+    expect(events[0]).toMatchObject({ sig: "repair:json-string" });
+    expect(events[1]).toMatchObject({ sig: "bash:ls" });
+    expect(events[2]).toMatchObject({ sig: "gate:npm", n: 1 });
+    expect(events.at(-1)).toMatchObject({ kind: "turn.end", outcome: "green", n: 6 });
+    expect(raw).not.toContain("Анн");
+    expect(raw).not.toContain(cwd);
+    expect(raw).not.toContain("sum.js");
+  }, 60_000);
+});
+
 describe("integration: stop gate «до зелёного» in a real session", () => {
   async function npmProject(cwd: string) {
     await writeFile(

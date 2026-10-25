@@ -5,6 +5,7 @@
 // Что не починилось — после ошибки валидации одна подсказка с правильной формой вызова.
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { bumpStat } from "./stats.ts";
+import { recordEvent } from "./learning-log.ts";
 
 interface JsonSchema {
   type?: string | string[];
@@ -277,7 +278,10 @@ export function installArgRepair(pi: ExtensionAPI): void {
         const repaired = repairToolCall(call, schemaOf(call.name));
         if (!repaired) return part;
         changed = true;
-        for (const kind of repaired.kinds) bumpStat(session, `repair:${kind}`);
+        for (const kind of repaired.kinds) {
+          bumpStat(session, `repair:${kind}`);
+          recordEvent(ctx, { kind: "repair", tool: call.name, sig: `repair:${kind}` });
+        }
         return repaired.call;
       });
       return changed
@@ -291,6 +295,7 @@ export function installArgRepair(pi: ExtensionAPI): void {
       const name = VALIDATION_ERROR.exec(text)?.[1];
       if (!name) return undefined;
       bumpStat(session, "validation-error");
+      recordEvent(ctx, { kind: "validation.error", tool: name });
       // Одна подсказка на инструмент за сообщение пользователя.
       if (hinted.has(name)) return undefined;
       hinted.add(name);

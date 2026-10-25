@@ -6,6 +6,7 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { detectToolLeak } from "./tool-leak.ts";
 import type { ResolvedOptions } from "./options.ts";
 import { contentText, stableStringify } from "./text.ts";
+import { callSignature, recordEvent } from "./learning-log.ts";
 
 interface CallRecord {
   /** Номер «эпохи» файлов: после успешной правки старые счётчики не действуют. */
@@ -107,6 +108,7 @@ export function installLoopDetector(pi: ExtensionAPI, opts: ResolvedOptions): vo
     // Pi 1.4 сам не исполняет вызовы из ответа, обрезанного по length (agent-loop.js
     // failToolCallsFromTruncatedMessage). Здесь — страховка на случай, если путь изменится.
     if (lastAssistantStop === "length") {
+      recordEvent(ctx, { kind: "length.block", tool: event.toolName });
       return {
         block: true,
         reason:
@@ -128,6 +130,11 @@ export function installLoopDetector(pi: ExtensionAPI, opts: ResolvedOptions): vo
     if (looping && record.count >= opts.loopAbortAt) {
       keyById.delete(event.toolCallId);
       if (record.count > opts.loopAbortAt) ctx.abort();
+      recordEvent(ctx, {
+        kind: "loop.stop",
+        tool: event.toolName,
+        sig: callSignature(event.toolName, event.input),
+      });
       return {
         block: true,
         terminate: true,
@@ -136,6 +143,11 @@ export function installLoopDetector(pi: ExtensionAPI, opts: ResolvedOptions): vo
     }
     if (looping && record.count >= opts.loopWarnAt) {
       keyById.delete(event.toolCallId);
+      recordEvent(ctx, {
+        kind: "loop.warn",
+        tool: event.toolName,
+        sig: callSignature(event.toolName, event.input),
+      });
       return {
         block: true,
         reason: `Этот вызов уже был ${record.count - 1} ${plural(record.count - 1)} с тем же результатом. Сделай другое: перечитай условие задачи, посмотри файл или лог, который ещё не смотрел, или смени подход. Повтор не поможет.`,
@@ -164,13 +176,14 @@ export function installLoopDetector(pi: ExtensionAPI, opts: ResolvedOptions): vo
     return undefined;
   });
 
-  pi.on("turn_end", (event) => {
+  pi.on("turn_end", (event, ctx) => {
     const message = event.message;
     if (message.role !== "assistant") return undefined;
     const hasCalls = message.content.some((part) => part.type === "toolCall");
     if (message.stopReason === "length" && hasCalls) {
       lengthStops += 1;
       if (lengthStops === 2) {
+        recordEvent(ctx, { kind: "length.stop" });
         // Pi заменяет список записей тем, что вернул обработчик (runner.emitBoundary): чужие сохраняем.
         return {
           entries: [
@@ -197,6 +210,7 @@ export function installLoopDetector(pi: ExtensionAPI, opts: ResolvedOptions): vo
     const marker = detectPseudoToolCall(text, toolNames);
     if (!marker || pseudoNudges >= 2) return undefined;
     pseudoNudges += 1;
+    recordEvent(ctx, { kind: "pseudo.call" });
     return {
       entries: [
         ...event.entries,

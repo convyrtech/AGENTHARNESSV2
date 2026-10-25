@@ -602,3 +602,34 @@ cd app && PRSLOY_GATEWAY_KEY=… node packages/prsloy-harness/scripts/review-liv
 `pnpm check` чисто; `pnpm test` exit 0 (harness 252, agent-runtime 120, desktop 1013).
 
 **Этап 9: ready to merge** — ветка `desktop/harness`.
+
+## Этап 10 · S0 — журнал событий для уроков
+
+По `research/18-memory-self-learning.md` §6.2, §6.3, §10 (S0). Поведение агента не меняется.
+
+- `src/learning-log.ts`: `recordEvent(ctx, {kind, tool?, sig?, n?, outcome?})` — одна строка JSON в
+  `$PI_CODING_AGENT_DIR/prsloy-learning/events.jsonl` (в приложении — `%APPDATA%\PRSLOY\agent\prsloy-learning\`;
+  `PRSLOY_LEARN_DIR` или опция `learningDir` — другое место). Ротация на 5 МБ в `events.jsonl.1`. Вся строка
+  проходит `scrubSecrets`. Ошибка записи молча пропускается.
+- В строке: `ts`, `surface: "code"`, `app` (если задан `PRSLOY_APP_VERSION`), `session`, `project` —
+  sha256(realpath)[:16] как у теневых снимков ядра, `model` — семейство без поставщика и номера сборки
+  (`deepseek-v4.1-flash`), `profile`, вид и поля события. **Нет** текста пользователя, путей, содержимого файлов:
+  подпись — имя программы без папки и `.exe` (`bash:python3`), у менеджеров пакетов ещё подкоманда (`bash:npm test`),
+  у файловых инструментов только расширение (`write:.html`).
+- Виды — рядом с каждым вмешательством (custom_message, карточкой, счётчиком): `loop.warn`, `loop.stop`,
+  `length.block`, `length.stop`, `pseudo.call` (петли и псевдовызовы); `budget.warn`, `budget.stop`;
+  `bash.timeout`, `server.bg`, `shell.block` (серверы, `pkill`/`taskkill`); `secret.placeholder`;
+  `gate.green`, `gate.red` (n — номер возврата), `gate.gaveup`; `review.pass`/`review.fail` (n — замечаний,
+  подпись — семейство проверяющего); `leak` (подпись — `markup` или `duplicate-thinking`), `leak.gaveup`;
+  `repair` (подпись — вид ремонта), `validation.error`.
+- `turn.end` на `agent_settled`: `outcome` — `aborted` (стоп пользователя), `budget`, `red` (гейт сдался или
+  остался красным, утечка не прошла), `error` (ход кончился ошибкой), иначе `green`; `n` — вызовов за ход.
+  `undo` («Откатить ход») — событие ядра, в харнессе его нет: нужен хук или запись от ядра (передать core).
+- Выключить: `disable: { learningLog: true }`.
+
+Как проверено: `test/learning-log.test.ts` (6) — подписи без путей и текста (кириллица, `C:\…`, `FOO=1`, кавычки),
+семейство модели, строка без cwd и с вычищенным ключом, ротация, выключение и папка, куда нельзя писать (не
+бросает), итог хода. `test/integration.test.ts`, настоящая сессия: ремонт аргументов → петля на третьем `ls` →
+красный стоп-гейт → починка → зелёный → `turn.end green`, `n` 6; в файле нет ни слов из запроса пользователя, ни
+пути проекта, ни имён файлов. `pnpm check` чисто; `pnpm test` exit 0 (harness 259, agent-runtime 121, desktop 1020;
+первый прогон дал два таймаута 5 с в agent-runtime под нагрузкой машины, повтор — зелёный).

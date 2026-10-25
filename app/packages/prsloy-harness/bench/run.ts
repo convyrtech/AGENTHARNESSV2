@@ -179,7 +179,10 @@ async function runTask(task: TaskDef, opts: BenchOptions): Promise<TaskResult> {
   const extensionFactories = [
     createWriteBoundary(),
     opts.harness
-      ? createPrsloyHarness({ outputDir: join(opts.outDir, "harness") })
+      ? createPrsloyHarness({
+          outputDir: join(opts.outDir, "harness"),
+          learningDir: join(opts.outDir, "learning"),
+        })
       : (pi: ExtensionAPI) => installReusePrompt(pi, resolveOptions({ profile: "code" })),
   ];
   let handle: ZenoRuntimeHandle | undefined;
