@@ -458,17 +458,19 @@ export function findings(scope: string, strict: boolean) {
 
 const UNINSTALLER_PROCESSES = ["Au_.exe", "Un_A.exe"];
 
-function uninstallerRunning(): boolean {
+function running(names: readonly string[]): string[] {
   try {
     const out = execFileSync("tasklist", ["/FO", "CSV", "/NH"], {
       encoding: "utf8",
       windowsHide: true,
     });
-    return UNINSTALLER_PROCESSES.some((name) => out.includes(`"${name}"`));
+    return names.filter((name) => out.toLowerCase().includes(`"${name.toLowerCase()}"`));
   } catch {
-    return false;
+    return [];
   }
 }
+
+const uninstallerRunning = () => running(UNINSTALLER_PROCESSES).length > 0;
 
 async function pollUntil(check: () => boolean, timeoutMs: number): Promise<boolean> {
   const end = Date.now() + timeoutMs;
@@ -479,12 +481,36 @@ async function pollUntil(check: () => boolean, timeoutMs: number): Promise<boole
   return check();
 }
 
-/** Run the uninstaller and wait for its %TEMP% copy to finish and the install folder to go. */
+/**
+ * Run the uninstaller and wait for its %TEMP% copy to finish and the install folder to go.
+ * First the app from the previous step must be gone: a PRSLOY.exe (main, the agent host, a
+ * helper) still running keeps the exe locked, and the uninstaller then removes everything but
+ * it (#32, windows-2022). Ours are the test's own app: after 60 s they are ended.
+ */
 export async function uninstallAndWait(
   installDir: string,
   exe: string,
-): Promise<{ ms: number; exeGone: boolean; processGone: boolean; dirGone: boolean }> {
+): Promise<{
+  ms: number;
+  appWasRunning: boolean;
+  appKilled: boolean;
+  exeGone: boolean;
+  processGone: boolean;
+  dirGone: boolean;
+  left?: string[];
+}> {
   const t = Date.now();
+  const appWasRunning = running(["PRSLOY.exe"]).length > 0;
+  let appKilled = false;
+  if (!(await pollUntil(() => running(["PRSLOY.exe"]).length === 0, 60_000))) {
+    try {
+      execFileSync("taskkill", ["/F", "/T", "/IM", "PRSLOY.exe"], { windowsHide: true });
+    } catch {
+      // gone meanwhile
+    }
+    appKilled = true;
+    await pollUntil(() => running(["PRSLOY.exe"]).length === 0, 15_000);
+  }
   execFileSync(join(installDir, "Uninstall PRSLOY.exe"), ["/S"], {
     windowsHide: true,
     timeout: 120_000,
@@ -492,7 +518,18 @@ export async function uninstallAndWait(
   const exeGone = await pollUntil(() => !existsSync(exe), 120_000);
   const processGone = await pollUntil(() => !uninstallerRunning(), 180_000);
   const dirGone = await pollUntil(() => !existsSync(installDir), 30_000);
-  return { ms: Date.now() - t, exeGone, processGone, dirGone };
+  console.log(
+    `[smoke] uninstall: app running before ${appWasRunning}, killed ${appKilled}, exe gone ${exeGone}, uninstaller gone ${processGone}, folder gone ${dirGone}`,
+  );
+  return {
+    ms: Date.now() - t,
+    appWasRunning,
+    appKilled,
+    exeGone,
+    processGone,
+    dirGone,
+    ...(exeGone ? {} : { left: [...running(["PRSLOY.exe", ...UNINSTALLER_PROCESSES])] }),
+  };
 }
 
 /**
