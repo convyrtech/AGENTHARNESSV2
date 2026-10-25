@@ -129,6 +129,8 @@ jobs:
           SMOKE_OUT: ${{ github.workspace }}/app/smoke-out
           # Clean-machine bash (system Git hidden) must work via the bundled PortableGit.
           SMOKE_STRICT_CLEAN_BASH: "1"
+          SMOKE_STRICT_RU: "1"
+          SMOKE_STRICT_PYTHON_HTTP: "1"
           SMOKE_REPORT: main
         # smoke: test-mode launches (runner + clean Windows); firstrun: product mode (key gate,
         # PRSLOY provider, update check behind a dead proxy).
