@@ -1,0 +1,18 @@
+[
+  {
+    "toolCalls": [
+      {
+        "name": "write",
+        "arguments": {
+          "path": "bot.py",
+          "content": "import os\nfrom telegram import Update\nfrom telegram.ext import Application, CommandHandler, ContextTypes\n\n\nasync def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:\n    await update.message.reply_text(\"Привет! Я бот-заглушка: пока умею здороваться.\")\n\n\ndef main() -> None:\n    app = Application.builder().token(os.environ[\"BOT_TOKEN\"]).build()\n    app.add_handler(CommandHandler(\"start\", start))\n    app.run_polling()\n\n\nif __name__ == \"__main__\":\n    main()\n"
+        }
+      },
+      {
+        "name": "write",
+        "arguments": { "path": "requirements.txt", "content": "python-telegram-bot==21.6\n" }
+      }
+    ]
+  },
+  { "text": "Готово: бот в bot.py. Токен — в переменной BOT_TOKEN." }
+]

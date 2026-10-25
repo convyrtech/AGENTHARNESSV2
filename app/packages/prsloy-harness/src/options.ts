@@ -66,6 +66,7 @@ export type PracticeName =
   | "findReady"
   | "stopGate"
   | "toolLeak"
+  | "argRepair"
   | "secondOpinion"
   | "turnChanges";
 

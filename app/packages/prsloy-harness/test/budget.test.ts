@@ -21,7 +21,7 @@ describe("budget", () => {
     for (let i = 0; i < 9; i++)
       texts.push((await pi.call("read", { path: `f${i}` }, "ok")).result?.text ?? "");
     expect(texts.slice(0, 7).every((t) => t === "ok")).toBe(true);
-    expect(texts[7]).toContain("[Бюджет задачи: 80%");
+    expect(texts[7]).toContain("[Задача израсходовала 80% лимита (шагов 8 из 10)");
     expect(texts[8]).toBe("ok");
   });
 
@@ -46,9 +46,12 @@ describe("budget", () => {
     const message = pi.sent[0] as { content: string; display: boolean; details: unknown };
     expect(message.display).toBe(true);
     expect(message.details).toMatchObject({ exhausted: "calls", toolCalls: 3 });
-    expect(message.content).toContain("исчерпан лимит вызовов тулов (3)");
-    expect(message.content).toContain("изменены файлы: src/app.ts");
-    expect(message.content).toContain("команд запущено: 1");
+    expect(message.content).toBe(
+      "Я остановился: на одну задачу у меня 3 шага, и они закончились. Что успел: изменил src/app.ts. Если нужно доделать, напишите «продолжай».",
+    );
+    // Человеку — ни «тулов», ни долларов; цифры — в details.
+    expect(message.content).not.toMatch(/тул|вызов|\$/);
+    expect(message.details).toMatchObject({ commands: 1 });
     // Итог пишется один раз.
     await pi.boundary("agent_before_settle");
     expect(pi.sent).toHaveLength(1);
@@ -64,7 +67,7 @@ describe("budget", () => {
     const blocked = await pi.toolCall("read", { path: "b" });
     expect(blocked?.block).toBe(true);
     await pi.boundary("agent_before_settle");
-    expect(JSON.stringify(pi.sent)).toContain("лимит денег на задачу ($0.050)");
+    expect(JSON.stringify(pi.sent)).toContain("на эту задачу ушла вся отведённая на неё сумма");
   });
 
   it("falls back to the model cost table when the gateway reports no cost", async () => {

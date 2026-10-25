@@ -3,7 +3,7 @@
 // рабочим деревом = папка проекта; снимок перед ходом (`add -A` + `write-tree`) и в конце, между ними `git diff`.
 // Репозиторий свой, в outputDir: снимок ядра идёт под таймаутом 20 с и может лечь уже посреди хода, а хост
 // не знает ни его папки, ни git-бинаря. Свой `.git` пользователя не трогаем (git пропускает пути `.git`).
-import { execFile } from "node:child_process";
+import { type ChildProcess, execFile } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
 import { lstat, mkdir, writeFile } from "node:fs/promises";
@@ -66,7 +66,18 @@ export class ShadowGit {
     this.#git = git;
   }
 
+  /** Живые процессы git этого репозитория: при закрытии сессии гасим, иначе на Windows git.exe держит файлы. */
+  readonly #children = new Set<ChildProcess>();
+  #stopped = false;
+
+  /** Гасит идущие git и не даёт запустить новые. */
+  stop(): void {
+    this.#stopped = true;
+    for (const child of this.#children) child.kill("SIGKILL");
+  }
+
   #run(args: string[], input?: string): Promise<string> {
+    if (this.#stopped) return Promise.reject(new Error("shadow git stopped"));
     const env: NodeJS.ProcessEnv = {};
     for (const [key, value] of Object.entries(process.env))
       if (!key.toUpperCase().startsWith("GIT_")) env[key] = value;
@@ -95,12 +106,17 @@ export class ShadowGit {
           windowsHide: true,
           maxBuffer: 64 * 1024 * 1024,
           encoding: "utf8",
+          // Зависший git (сетевой диск, блокировка) не держит ход дольше двух минут.
+          timeout: 120_000,
+          killSignal: "SIGKILL",
         },
         (error, stdout, stderr) => {
+          this.#children.delete(child);
           if (error) reject(new Error(`git ${args[0]}: ${String(stderr || error.message).trim()}`));
           else resolvePromise(String(stdout));
         },
       );
+      this.#children.add(child);
       if (input !== undefined) child.stdin?.end(input);
     });
   }
@@ -192,6 +208,14 @@ export class TurnChanges {
   readonly #git: () => string;
   #shadow: ShadowGit | undefined;
   #start: Promise<string | undefined> | undefined;
+  /** Идущие снимки и диффы: ход не считается законченным, пока они не завершились. */
+  readonly #pending = new Set<Promise<unknown>>();
+
+  #track<T>(promise: Promise<T>): Promise<T> {
+    this.#pending.add(promise);
+    void promise.finally(() => this.#pending.delete(promise));
+    return promise;
+  }
 
   /** `root` — где лежат теневые репозитории (по одному на папку проекта). */
   constructor(root: string, git: () => string) {
@@ -202,7 +226,18 @@ export class TurnChanges {
   /** Новое сообщение пользователя: снимаем папку, не задерживая первый запрос к модели. */
   begin(cwd: string): void {
     this.#shadow = new ShadowGit(this.#root, cwd, this.#git);
-    this.#start = this.#shadow.snapshot();
+    this.#start = this.#track(this.#shadow.snapshot());
+  }
+
+  /** Дождаться всех git этого хода (конец хода, в том числе с ошибкой или «стопом»). */
+  async idle(): Promise<void> {
+    while (this.#pending.size > 0) await Promise.allSettled(this.#pending);
+  }
+
+  /** Закрытие сессии: гасим идущий git и ждём, пока процессы выйдут. */
+  async dispose(): Promise<void> {
+    this.#shadow?.stop();
+    await this.idle();
   }
 
   /** Тулы, которые могут менять файлы, ждут снимка начала (не дольше `timeoutMs`). */
@@ -222,9 +257,10 @@ export class TurnChanges {
   async current(): Promise<TurnDiff | undefined> {
     const start = await this.#start;
     if (!start || !this.#shadow) return undefined;
-    const end = await this.#shadow.snapshot();
+    const shadow = this.#shadow;
+    const end = await this.#track(shadow.snapshot());
     if (!end) return undefined;
-    return this.#shadow.diff(start, end);
+    return this.#track(shadow.diff(start, end));
   }
 }
 
@@ -242,6 +278,13 @@ export function installTurnChanges(pi: ExtensionAPI, changes: TurnChanges): void
   pi.on("tool_call", async (event) => {
     if (!READ_ONLY_TOOLS.has(event.toolName)) await changes.ready();
     return undefined;
+  });
+  // Ход кончился как угодно (готово, ошибка, обрыв, «стоп»): снимок начала не должен писать после него.
+  pi.on("agent_settled", async () => {
+    await changes.idle();
+  });
+  pi.on("session_shutdown", async () => {
+    await changes.dispose();
   });
 }
 

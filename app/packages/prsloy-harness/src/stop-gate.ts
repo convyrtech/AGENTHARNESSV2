@@ -198,9 +198,12 @@ export function pushbackMessage(check: ProjectCheck, run: CheckRun, attempt: num
   return `Проверка проекта не прошла (\`${check.label}\`, код ${run.code ?? "?"}):\n${output}\nПочини и проверь снова.${last}`;
 }
 
-export function stillRedNote(check: ProjectCheck, run: CheckRun): string {
-  const output = headTail(run.output.trim(), 1_200);
-  return `Проверка проекта всё ещё не проходит (\`${check.label}\`) — после ${MAX_PUSHBACKS} попыток исправить я остановился.\n${output}`;
+/** Для человека — без команд и вывода (они в details карточки). */
+export const STILL_RED_NOTE =
+  "Проверка проекта всё ещё не проходит. Я дважды пытался исправить и остановился — посмотрите, пожалуйста, или попросите меня попробовать ещё раз.";
+
+export function stillRedDetails(check: ProjectCheck, run: CheckRun) {
+  return { command: check.label, code: run.code, output: headTail(run.output.trim(), 1_200) };
 }
 
 export interface StopGateDeps {
@@ -296,7 +299,7 @@ export function installStopGate(
     if (check && run && red) {
       if (pushbacks >= MAX_PUSHBACKS) {
         gaveUp = true;
-        await showCard(pi, "prsloy-harness.stop-gate", stillRedNote(check, run));
+        await showCard(pi, "prsloy-harness.stop-gate", STILL_RED_NOTE, stillRedDetails(check, run));
         return undefined;
       }
       pushbacks += 1;

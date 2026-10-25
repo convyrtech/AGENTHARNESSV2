@@ -151,12 +151,20 @@ export class ProcessRegistry {
   readonly #entries = new Map<string, Entry>();
   #next = 1;
 
+  // Поля без parameter properties: модуль грузится и через `node` со снятием типов (scripts/bench.mts).
+  private readonly logDir: string;
+  private readonly env: () => NodeJS.ProcessEnv;
+  /** Путь к bash из настроек Pi (`shellPath`), иначе поиск как у bash-тула Pi. */
+  private readonly shellPath: () => string | undefined;
+
   constructor(
-    private readonly logDir: string,
-    private readonly env: () => NodeJS.ProcessEnv,
-    /** Путь к bash из настроек Pi (`shellPath`), иначе поиск как у bash-тула Pi. */
-    private readonly shellPath: () => string | undefined = () => undefined,
+    logDir: string,
+    env: () => NodeJS.ProcessEnv,
+    shellPath: () => string | undefined = () => undefined,
   ) {
+    this.logDir = logDir;
+    this.env = env;
+    this.shellPath = shellPath;
     liveRegistries.add(this);
     installExitHook();
   }

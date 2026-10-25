@@ -38,7 +38,7 @@ describe("handler order in createPrsloyHarness", () => {
     for (let i = 0; i < 3; i++) await pi.call("read", { path: `f${i}` }, "ok");
     const big = Array.from({ length: 3000 }, (_, i) => `line ${i} ${"x".repeat(30)}`).join("\n");
     const { result } = await pi.call("read", { path: "big.txt" }, big);
-    expect(result?.text).toContain("[Бюджет задачи: 80%");
+    expect(result?.text).toContain("[Задача израсходовала 80% лимита");
     expect(result?.text).toContain("Дальше: read с offset=");
   });
 });

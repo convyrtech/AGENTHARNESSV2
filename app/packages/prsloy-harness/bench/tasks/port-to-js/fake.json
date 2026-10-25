@@ -1,0 +1,14 @@
+[
+  {
+    "toolCalls": [
+      {
+        "name": "write",
+        "arguments": {
+          "path": "wordcount.js",
+          "content": "// Пять самых частых слов в text.txt.\nconst fs = require('node:fs');\n\nconst words = fs.readFileSync('text.txt', 'utf8').toLowerCase().match(/[а-яёa-z]+/g) ?? [];\nconst counts = new Map();\nfor (const w of words) counts.set(w, (counts.get(w) ?? 0) + 1);\nconst top = [...counts.entries()].map(([w, c], i) => ({ w, c, i })).sort((a, b) => b.c - a.c || a.i - b.i).slice(0, 5);\nfor (const { w, c } of top) console.log(`${w}: ${c}`);\n"
+        }
+      }
+    ]
+  },
+  { "text": "Готово: wordcount.js делает то же самое." }
+]

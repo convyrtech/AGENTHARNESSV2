@@ -1,7 +1,7 @@
 // Настоящая сессия Pi (createAgentSession) против локального мок-шлюза: практики срабатывают в живом цикле агента.
 import { spawnSync } from "node:child_process";
 import { once } from "node:events";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { createServer as createNetServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -176,13 +176,13 @@ describe("integration: real createAgentSession + mock gateway", () => {
     await session.prompt("делай");
     const results = toolResults();
     expect(results.map((r) => r.isError)).toEqual([false, false, true, true]);
-    expect(textOf(results[2]!)).toContain("Бюджет задачи исчерпан");
+    expect(textOf(results[2]!)).toContain("Лимит шагов задачи исчерпан");
     expect(server.requests).toHaveLength(4);
     const summary = (
       session.messages as unknown as { role: string; customType?: string; content?: unknown }[]
     ).find((m) => m.role === "custom" && m.customType === "prsloy-harness.budget");
     expect(String(summary?.content)).toContain(
-      "Задача остановлена: исчерпан лимит вызовов тулов (2)",
+      "Я остановился: на одну задачу у меня 2 шага, и они закончились.",
     );
   }, 30_000);
 
@@ -377,6 +377,49 @@ describe("integration: real createAgentSession + mock gateway", () => {
     },
     30_000,
   );
+});
+
+describe("integration: broken tool arguments are repaired before Pi validates them", () => {
+  it("JSON in a string, a wrapper, unclosed quotes — all run; what cannot be fixed gets one hint", async () => {
+    const { session, server, cwd, toolResults, textOf } = await startSession(
+      (_req, index) =>
+        index === 0
+          ? {
+              toolCalls: [
+                {
+                  name: "read",
+                  arguments: {},
+                  raw: JSON.stringify(JSON.stringify({ path: "note.txt" })),
+                },
+                {
+                  name: "write",
+                  arguments: {},
+                  raw: '{"arguments": {"path": "out.txt", "content": "ok\\n"}}',
+                },
+                { name: "bash", arguments: {}, raw: '{"command": "echo repaired' },
+                { name: "read", arguments: {}, raw: '{"file": "note.txt"}' },
+                { name: "read", arguments: {}, raw: '{"file": "other.txt"}' },
+              ],
+            }
+          : { text: "Готово." },
+      { factory: {} },
+    );
+    await writeFile(join(cwd, "note.txt"), "привет\n");
+    await session.prompt("сделай");
+    const results = toolResults();
+    expect(results.map((r) => r.isError)).toEqual([false, false, false, true, true]);
+    expect(textOf(results[0]!)).toContain("привет");
+    expect(await readFile(join(cwd, "out.txt"), "utf8")).toBe("ok\n");
+    expect(textOf(results[2]!)).toContain("repaired");
+    // Ошибка валидации осталась, к ней — одна подсказка на инструмент за сообщение.
+    expect(textOf(results[3]!)).toContain('Validation failed for tool "read"');
+    expect(textOf(results[3]!)).toContain('правильная форма вызова — read {"path": "<строка>"}');
+    expect(textOf(results[4]!)).not.toContain("Подсказка харнесса");
+    // Модель видит в истории уже исправленные вызовы.
+    expect(JSON.stringify(server.requests[1]!.messages)).toContain(
+      '{\\"command\\":\\"echo repaired\\"}',
+    );
+  }, 30_000);
 });
 
 describe("integration: stop gate «до зелёного» in a real session", () => {
