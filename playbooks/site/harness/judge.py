@@ -38,6 +38,7 @@ ap.add_argument("--questions", choices=["on", "off"], default="on", help="воп
 a = ap.parse_args()
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import judge_questions as Q  # noqa: E402
+import where_check as W  # noqa: E402
 
 page = Path(a.page).resolve()
 root = page.parent.parent if page.parent.name == "design" else page.parent
@@ -202,6 +203,12 @@ if not answer:
     sys.exit(1)
 model_verdict = re.search(r"(?m)^\s*JUDGE-VERDICT\s*:\s*(\w+)", answer)
 model_verdict = model_verdict.group(1) if model_verdict else None
+# находка считается, только если код нашёл её место на собранной странице (research/28 §4.4, where_check.py)
+rows0, _ = F.judge_lines(answer)
+ok = W.check(page.parent.parent / "site" / page.name / "index.html", [w for _r, w in rows0]) if rows0 else None
+unconfirmed = []
+if ok is not None:
+    answer, unconfirmed = W.split_unconfirmed(answer, rows0, ok)
 qa, no = None, []
 if a.questions == "on":
     # вердикт — кодом: прошлые «да» остаются, неотвеченное — «нет», открытые Blocker/Critical держат FAIL
@@ -246,7 +253,7 @@ for r, _w in rows:
 print(json.dumps({"round": n, "verdict": verdict.group(1) if verdict else None, "model_verdict": model_verdict,
                   "yes": None if qa is None else sum(1 for q in Q.IDS if qa[q]["yes"]), "no": no,
                   "asked": asked, "cost": (usage.get("cost") or {}).get("total") if isinstance(usage.get("cost"), dict)
-                  else usage.get("cost"), "findings": sev,
+                  else usage.get("cost"), "findings": sev, "unconfirmed": len(unconfirmed),
                   "images": [s.name for s in shots], "seconds": round(time.time() - t0),
                   "prompt_tokens": usage.get("prompt_tokens"), "completion_tokens": usage.get("completion_tokens"),
                   "format_problems": problems(answer)}, ensure_ascii=False))
