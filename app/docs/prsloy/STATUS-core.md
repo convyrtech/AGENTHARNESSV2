@@ -921,15 +921,17 @@ e2e `long-chat-compaction`, 150 ходов. Fake-модели дана цена,
 
 ### 42. IPC
 
-`main/prsloy/memory-ipc.ts` подключается из `registerPrsloyIpc`. Методы — в
-`window.zeno.prsloy` и в `PrsloyDesktopApi`:
+`main/prsloy/memory-ipc.ts` подключается из `registerPrsloyIpc`. Контракт —
+`packages/contracts/src/memory.ts` от features (`MemoryApi` / `MemorySnapshot`), в preload —
+`window.zeno.memory`. Каждый вызов возвращает свежий снимок `{user, project, digest?, forgotten}`;
+`forgotten` — что ещё можно вернуть, до 20 записей, новые сверху.
 
-| канал                      | вызов                           | ответ                                |
-| -------------------------- | ------------------------------- | ------------------------------------ |
-| `prsloy:memory-list`       | `memoryList(workspace?)`        | `{user, project, digest?}`           |
-| `prsloy:memory-forget`     | `memoryForget(id, workspace?)`  | `{ok, list}`                         |
-| `prsloy:memory-restore`    | `memoryRestore(id, workspace?)` | `{ok, list}` — «Вернуть»             |
-| `prsloy:memory-forget-all` | `memoryForgetAll()`             | `{ok, list}` — обо мне и все проекты |
+| канал                      | вызов                                        |
+| -------------------------- | -------------------------------------------- |
+| `prsloy:memory-list`       | `memory.list(workspace?)`                    |
+| `prsloy:memory-forget`     | `memory.forget(id, workspace?)`              |
+| `prsloy:memory-restore`    | `memory.restore(id, workspace?)`             |
+| `prsloy:memory-forget-all` | `memory.forgetAll()` — обо мне и все проекты |
 
 - Если `workspace` не передан, берётся открытый проект; без проекта видна только часть «обо мне».
   Путь проверяется: строка, абсолютный, ≤ 4096 символов. `id` проверяется по шаблону `u-…`/`p-…`.

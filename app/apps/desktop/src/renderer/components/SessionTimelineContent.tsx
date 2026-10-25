@@ -39,6 +39,7 @@ import { useTurnSnapshots } from "../hooks/useTurnSnapshots.ts";
 import { TurnUndoAction } from "./TurnUndoAction.tsx";
 import { TurnPreviewAction } from "./TurnPreviewAction.tsx";
 import { NextStepChips } from "./NextStepChips.tsx";
+import { AgentProcesses } from "./AgentProcesses.tsx";
 import { selectNextSteps, withoutNextTag } from "@/lib/next-steps";
 import { previewTargetsByBlock } from "@/lib/turn-preview";
 import { withoutRetryNoise } from "@/lib/model-failure";
@@ -117,7 +118,7 @@ export function SessionTimelineScroller(props: SessionTimelineScrollerProps) {
         defaultScrollPosition="end"
         scrollEdgeThreshold={SESSION_SCROLL_BOTTOM_GAP_PX}
       >
-        <MessageScroller className="size-full min-h-0">
+        <MessageScroller className="timeline-scroller size-full min-h-0">
           <MessageScrollerViewport
             ref={viewportRef}
             className={cn(
@@ -323,6 +324,13 @@ export function SessionTimelineContent(props: SessionTimelineContentProps) {
               <NextStepChips locale={locale} steps={nextSteps} />
             </MessageScrollerItem>
           ) : null}
+          <MessageScrollerItem
+            messageId={`${sessionKey || "chat"}:agent-procs`}
+            scrollAnchor={false}
+            className="w-full"
+          >
+            <AgentProcesses locale={locale} items={items} />
+          </MessageScrollerItem>
           {showLiveStatus && liveActivity ? (
             <MessageScrollerItem
               messageId={`${sessionKey || "live"}:live-status`}

@@ -50,6 +50,13 @@ export type ChatSearchResult = {
   matches: ChatSearchMatch[];
 };
 
+/** A background process the agent started (`bash_background`), as main sees it. */
+export type BackgroundProcStatus = { pid: number; alive: boolean };
+
+export type BackgroundProcStop =
+  | { ok: true }
+  | { ok: false; reason: "not_ours" | "gone" | "still_running" };
+
 export interface FeaturesApi {
   /** «Скачать архив»: the project as a zip wherever the owner saves it; shown in its folder. */
   exportProjectZip(workspacePath: string | undefined): Promise<ProjectZipResult>;
@@ -57,6 +64,12 @@ export interface FeaturesApi {
    * «Снять часть страницы»: a PNG of this rectangle of the app window (CSS pixels), saved
    * with the pasted pictures; the path goes into the composer's attachments.
    */
+  /** Which of these agent processes still run (up to 50). */
+  procStatus(pids: number[]): Promise<BackgroundProcStatus[]>;
+  /** The last 200 lines of a process's log, secrets scrubbed; only the harness's own logs. */
+  procLog(logPath: string): Promise<string | undefined>;
+  /** «Остановить»: the process tree, as the harness's `process stop`; only what our host started. */
+  procStop(pid: number, logPath: string): Promise<BackgroundProcStop>;
   /** Old chats where every word of the query occurs («ё» = «е»), newest first. */
   searchChats(query: string): Promise<ChatSearchResult[]>;
   capturePreview(rect: {

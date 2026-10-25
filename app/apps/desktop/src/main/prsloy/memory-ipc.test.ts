@@ -7,7 +7,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vite-plus/test";
-import type { PrsloyMemoryChange, PrsloyMemoryList } from "@zeno/contracts";
+import type { MemorySnapshot } from "@zeno/contracts";
 import { bootstrapPrsloy } from "./context.ts";
 import { registerPrsloyIpc } from "./ipc.ts";
 import {
@@ -113,48 +113,45 @@ function setup(options: { trusted?: boolean } = {}) {
 describe("memory IPC (S5)", () => {
   it("lists what the agent remembers about the user and the open project", async () => {
     const t = setup();
-    const list = await t.invoke<PrsloyMemoryList>(PRSLOY_MEMORY_IPC.list);
+    const list = await t.invoke<MemorySnapshot>(PRSLOY_MEMORY_IPC.list);
     expect(list.user).toEqual([
       {
         id: "u-aaaa",
         text: "Пиши без англицизмов",
-        scope: "user",
         created: "2026-10-25T10:00:00.000Z",
       },
     ]);
     expect(list.project.map((e) => e.id)).toEqual(["p-bbbb"]);
     expect(list.digest?.text).toBe("Прошлый раз: шапка.");
     // Another project by path; the key is the turn snapshots' workspaceKey.
-    const b = await t.invoke<PrsloyMemoryList>(PRSLOY_MEMORY_IPC.list, t.projectB);
+    const b = await t.invoke<MemorySnapshot>(PRSLOY_MEMORY_IPC.list, t.projectB);
     expect(b.project.map((e) => e.id)).toEqual(["p-cccc"]);
     // No project open: the user part still shows.
     t.closeProject();
-    const none = await t.invoke<PrsloyMemoryList>(PRSLOY_MEMORY_IPC.list);
+    const none = await t.invoke<MemorySnapshot>(PRSLOY_MEMORY_IPC.list);
     expect(none.user).toHaveLength(1);
     expect(none.project).toEqual([]);
   });
 
   it("«Забыть» → tombstone + hidden note for the open session; «Вернуть» brings it back", async () => {
     const t = setup();
-    const forgot = await t.invoke<PrsloyMemoryChange>(PRSLOY_MEMORY_IPC.forget, "p-bbbb");
-    expect(forgot.ok).toBe(true);
-    expect(forgot.list.project).toEqual([]);
+    const forgot = await t.invoke<MemorySnapshot>(PRSLOY_MEMORY_IPC.forget, "p-bbbb");
+    expect(forgot.project).toEqual([]);
     expect(t.notes).toEqual([
       { customType: MEMORY_FORGOT_NOTE_TYPE, text: memoryForgotNote("Сайт для пекарни «Колос»") },
     ]);
     const file = JSON.parse(readFileSync(t.projectFile(t.projectA), "utf8"));
     expect(file.tombstones.map((x: { id: string }) => x.id)).toEqual(["p-bbbb"]);
     // «Вернуть» is on offer with the text.
-    expect(forgot.list.forgotten).toMatchObject([
+    expect(forgot.forgotten).toMatchObject([
       { id: "p-bbbb", text: "Сайт для пекарни «Колос»", scope: "project" },
     ]);
-    const back = await t.invoke<PrsloyMemoryChange>(PRSLOY_MEMORY_IPC.restore, "p-bbbb");
-    expect(back.list.forgotten).toEqual([]);
-    expect(back.ok).toBe(true);
-    expect(back.list.project.map((e) => e.id)).toEqual(["p-bbbb"]);
+    const back = await t.invoke<MemorySnapshot>(PRSLOY_MEMORY_IPC.restore, "p-bbbb");
+    expect(back.forgotten).toEqual([]);
+    expect(back.project.map((e) => e.id)).toEqual(["p-bbbb"]);
     // Unknown id: nothing changes, no note.
-    const missing = await t.invoke<PrsloyMemoryChange>(PRSLOY_MEMORY_IPC.forget, "u-zzzz");
-    expect(missing.ok).toBe(false);
+    const missing = await t.invoke<MemorySnapshot>(PRSLOY_MEMORY_IPC.forget, "u-zzzz");
+    expect(missing.user.map((e) => e.id)).toEqual(["u-aaaa"]);
     expect(t.notes).toHaveLength(1);
     const journal = readFileSync(join(t.dir, "journal.jsonl"), "utf8");
     expect(journal).toContain('"op":"forget"');
@@ -163,9 +160,9 @@ describe("memory IPC (S5)", () => {
 
   it("«Забыть всё» clears the user and every project, one note", async () => {
     const t = setup();
-    const all = await t.invoke<PrsloyMemoryChange>(PRSLOY_MEMORY_IPC.forgetAll);
-    expect(all.list).toEqual({ user: [], project: [], forgotten: [] });
-    const b = await t.invoke<PrsloyMemoryList>(PRSLOY_MEMORY_IPC.list, t.projectB);
+    const all = await t.invoke<MemorySnapshot>(PRSLOY_MEMORY_IPC.forgetAll);
+    expect(all).toEqual({ user: [], project: [], forgotten: [] });
+    const b = await t.invoke<MemorySnapshot>(PRSLOY_MEMORY_IPC.list, t.projectB);
     expect(b).toEqual({ user: [], project: [], forgotten: [] });
     expect(t.notes).toEqual([
       { customType: MEMORY_FORGOT_NOTE_TYPE, text: MEMORY_FORGOT_ALL_NOTE },

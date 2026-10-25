@@ -61,33 +61,6 @@ export interface PrsloyUndoResult {
   removed: string[];
 }
 
-/** One remembered fact (the harness's memory, research/18 §6). */
-export interface PrsloyMemoryEntry {
-  id: string;
-  text: string;
-  scope: "user" | "project";
-  created: string;
-}
-
-/** A forgotten entry that «Вернуть» can still bring back. */
-export interface PrsloyMemoryForgotten {
-  id: string;
-  text: string;
-  scope: "user" | "project";
-  forgotten: string;
-}
-
-/** «Память»: about the user, about this project, and the code-written «last time» digest. */
-export interface PrsloyMemoryList {
-  user: PrsloyMemoryEntry[];
-  project: PrsloyMemoryEntry[];
-  digest?: { text: string; updated: string };
-  /** Restorable: still in tombstones, text from the journal; newest first, up to 20. */
-  forgotten: PrsloyMemoryForgotten[];
-}
-
-export type PrsloyMemoryChange = { ok: boolean; list: PrsloyMemoryList };
-
 export interface PrsloyDesktopApi {
   getState(): Promise<PrsloyState>;
   /** Validate against the gateway, then store encrypted and restart the Agent Host. */
@@ -104,14 +77,6 @@ export interface PrsloyDesktopApi {
    * the desktop and show it in its folder. Nothing is sent anywhere.
    */
   saveSupportReport(): Promise<PrsloySupportReportResult>;
-  /** Memory for the panel; `workspace` defaults to the open project. */
-  memoryList(workspace?: string): Promise<PrsloyMemoryList>;
-  /** «Забыть»: the entry goes to tombstones; an open session is told with a hidden note. */
-  memoryForget(id: string, workspace?: string): Promise<PrsloyMemoryChange>;
-  /** «Вернуть» right after «Забыть». */
-  memoryRestore(id: string, workspace?: string): Promise<PrsloyMemoryChange>;
-  /** «Забыть всё»: about the user and every project. */
-  memoryForgetAll(): Promise<PrsloyMemoryChange>;
 }
 
 export type PrsloySupportReportResult =

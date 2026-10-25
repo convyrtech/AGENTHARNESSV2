@@ -10,6 +10,7 @@ import { app, BrowserWindow, dialog, ipcMain, shell, type IpcMainInvokeEvent } f
 import { previewWorkspace } from "../code-preview-guard.ts";
 import { captureRect } from "./capture-rect.ts";
 import { listProjectFiles, zipName, zipProject } from "./project-zip.ts";
+import { isAlive, mayStop, parentPid, readLogTail, stopTree } from "./processes.ts";
 import { searchChats } from "./session-search.ts";
 
 /** Main exports `PI_CODING_AGENT_DIR` before app ready (prsloy/agent-home.ts). */
@@ -81,6 +82,28 @@ export function installFeatures(assertTrustedSender: (event: IpcMainInvokeEvent)
   ipcMain.handle("prsloy:features:capture-preview", (event, rect: unknown) => {
     assertTrustedSender(event);
     return capturePreview(event, rect);
+  });
+  ipcMain.handle("prsloy:features:proc-status", (event, pids: unknown) => {
+    assertTrustedSender(event);
+    if (!Array.isArray(pids)) return [];
+    return pids
+      .filter((pid): pid is number => Number.isInteger(pid) && pid > 0)
+      .slice(0, 50)
+      .map((pid) => ({ pid, alive: isAlive(pid) }));
+  });
+  ipcMain.handle("prsloy:features:proc-log", (event, logPath: unknown) => {
+    assertTrustedSender(event);
+    return readLogTail(logPath);
+  });
+  ipcMain.handle("prsloy:features:proc-stop", async (event, pid: unknown, logPath: unknown) => {
+    assertTrustedSender(event);
+    const check = mayStop(pid, logPath, {
+      parentOf: parentPid,
+      mainPid: process.pid,
+      alive: isAlive,
+    });
+    if (!check.ok) return check;
+    return (await stopTree(pid as number)) ? { ok: true } : { ok: false, reason: "still_running" };
   });
   ipcMain.handle("prsloy:features:search-chats", (event, query: unknown) => {
     assertTrustedSender(event);
