@@ -73,7 +73,7 @@ export const featuresEn: Record<keyof typeof featuresZh, string> = {
   "features.recipes.no": "No",
   "features.recipes.requiredMark": "required",
   "features.memory.auto.one": "Noticed and remembered: {text}",
-  "features.memory.auto.many": "Remembered {count}",
+  "features.memory.auto.many": "Remembered a few things ({count})",
   "features.memory.auto.show": "Show",
   "features.memory.auto.hide": "Hide",
   "features.memory.pin": "Pin",

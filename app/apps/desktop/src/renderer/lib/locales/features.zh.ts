@@ -67,7 +67,7 @@ export const featuresZh = {
   "features.recipes.no": "否",
   "features.recipes.requiredMark": "必填",
   "features.memory.auto.one": "注意到并记住了：{text}",
-  "features.memory.auto.many": "记住了 {count} 条",
+  "features.memory.auto.many": "记住了几件事（{count} 条）",
   "features.memory.auto.show": "显示",
   "features.memory.auto.hide": "隐藏",
   "features.memory.pin": "固定",

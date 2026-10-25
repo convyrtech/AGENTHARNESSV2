@@ -344,7 +344,7 @@ describe("memory extractor in the shadow (M-3)", () => {
     expect(notes).toEqual([
       {
         type: "prsloy-memory.auto",
-        text: "Заметил и запомнил: Пользователь не программист",
+        text: "Заметил и запомнил «Пользователь не программист»",
         details: {
           items: [
             {
@@ -369,21 +369,21 @@ describe("memory extractor in the shadow (M-3)", () => {
       },
     );
     for (let i = 0; i < 5; i++)
-      await note("prsloy-memory.auto", `Заметил и запомнил: ${i}`, { items: [{ id: `u-${i}` }] });
+      await note("prsloy-memory.auto", `Заметил и запомнил «${i}»`, { items: [{ id: `u-${i}` }] });
     expect(shown.map((x) => x.text)).toEqual([
-      "Заметил и запомнил: 0",
-      "Заметил и запомнил: 1",
-      "Заметил и запомнил: 2",
+      "Заметил и запомнил «0»",
+      "Заметил и запомнил «1»",
+      "Заметил и запомнил «2»",
     ]);
     t += 61 * 60_000;
-    await note("prsloy-memory.auto", "Заметил и запомнил: 5", { items: [{ id: "u-5" }] });
+    await note("prsloy-memory.auto", "Заметил и запомнил «5»", { items: [{ id: "u-5" }] });
     expect(shown.at(-1)).toEqual({
-      text: "Заметил и запомнил: 5 (и ещё 2 — в настройках «Память»)",
+      text: "Заметил и запомнил «5» (и ещё 2 — в настройках «Память»)",
       details: { items: [{ id: "u-5" }], unannounced: 2 },
     });
   });
 
-  it("one card per run: a replacement and a new entry make one «Запомнил 2»", async () => {
+  it("one card per run: a replacement and a new entry make one «Запомнил несколько вещей (2)»", async () => {
     const ops = JSON.stringify({
       ops: [
         {
@@ -439,7 +439,7 @@ describe("memory extractor in the shadow (M-3)", () => {
       note: async (type, text) => void notes.push({ type, text }),
     });
     expect(run.written).toBe(2);
-    expect(notes).toEqual([{ type: "prsloy-memory.auto", text: "Запомнил 2" }]);
+    expect(notes).toEqual([{ type: "prsloy-memory.auto", text: "Запомнил несколько вещей (2)" }]);
   });
 
   it("mode: the env wins; otherwise memory on with autoMemory shadow or true", () => {

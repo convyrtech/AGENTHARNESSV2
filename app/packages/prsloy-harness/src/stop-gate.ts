@@ -25,7 +25,13 @@ import { headTail, showCard } from "./text.ts";
 import type { TurnChanges } from "./turn-changes.ts";
 import { modelFamily, recordEvent } from "./learning-log.ts";
 import { checkPagePaths, type PagePathReport, pagePathsMessage } from "./page-paths.ts";
-import { checkPage, hasBlocking, type PageCheckResult, pageCheckMessage } from "./page-check.ts";
+import {
+  checkPage,
+  hasBlocking,
+  type PageCheckResult,
+  pageCheckMessage,
+  pageFindings,
+} from "./page-check.ts";
 import {
   type CheckSnapshot,
   checkChange,
@@ -35,6 +41,7 @@ import {
 } from "./gate-signals.ts";
 import type { HonestyState } from "./honest-exit.ts";
 import type { TurnStatusState } from "./turn-status.ts";
+import { failToPass, failToPassSignal, weakSignals, weakTests } from "./test-quality.ts";
 import {
   guardPushback,
   oldTestChanges,
@@ -298,6 +305,8 @@ export interface StopGateDeps {
   testGuard?: () => boolean;
   /** Статус хода (H9): гейт пишет свой последний прогон и проверку страницы. */
   turnStatus?: TurnStatusState;
+  /** Полезность новых тестов (H-3, флаг testQuality, читается на каждом ходе): только сигналы. */
+  testQuality?: () => boolean;
 }
 
 /** Правки, после которых стоит открыть страницу в браузере. */
@@ -330,6 +339,7 @@ export function installStopGate(
     honesty,
     testGuard = () => false,
     turnStatus,
+    testQuality = () => false,
   } = typeof deps === "function" ? { runner: deps } : deps;
   /** Блокер принят кодом (research/24 §4.2): возвратов «почини» больше нет, отчёты остаются. */
   const blocked = () => !!honesty?.accepted;
@@ -502,17 +512,33 @@ export function installStopGate(
     if (changed) recordEvent(ctx, { kind: "test_guard.command_changed" });
     const guardOn = testGuard();
     const found = guardOn ? signatures(parsePatch(diff?.patch ?? "")) : [];
+    // Полезность новых тестов (H-3): статика сразу, fail-to-pass — после зелёной проверки (ниже).
+    const qualityOn = testQuality();
+    const weak = qualityOn ? weakTests(diff?.patch ?? "") : [];
+    const qualitySignals = weakSignals(weak);
+    if (weak.length) recordEvent(ctx, { kind: "test_quality.weak", n: weak.length });
+    const weakFiles = new Set(weak.map((w) => w.file));
+    const noteWeak = () => {
+      if (turnStatus) turnStatus.weakTests = [...weakFiles];
+    };
+    noteWeak();
     let signalsCache: string[] | undefined;
+    // Находки проверки страницы с селекторами (нажатия, ссылки, axe, клавиатура) — ревьюеру как факты.
+    let pageSignals: string[] = [];
     const signals = () =>
-      (signalsCache ??= [
-        ...gateSignals({
-          checkChanged: changed,
-          patch: diff?.patch ?? "",
-          cwd: ctx.cwd,
-          task,
-        }),
-        ...signatureSignals(found),
-      ].slice(0, 8));
+      [
+        ...(signalsCache ??= [
+          ...pageSignals,
+          ...gateSignals({
+            checkChanged: changed,
+            patch: diff?.patch ?? "",
+            cwd: ctx.cwd,
+            task,
+          }),
+          ...signatureSignals(found),
+        ]),
+        ...qualitySignals,
+      ].slice(0, 8);
     const run = check ? await runner(check, ctx.cwd, opts.stopGateTimeoutMs) : undefined;
     // Зелёное, таймаут или нечем проверять — не красное: не пилим казуала за отсутствие тестов.
     const red =
@@ -570,6 +596,38 @@ export function installStopGate(
 
     if (check && run && !run.timedOut && !check.missingTool?.test(run.output))
       recordEvent(ctx, { kind: "gate.green", ...(gateSig ? { sig: gateSig } : {}) });
+    // Fail-to-pass (H-3): проверка зелёная — а упали бы новые тесты на коде до хода? Только сигнал.
+    if (
+      qualityOn &&
+      check &&
+      run &&
+      !red &&
+      !run.timedOut &&
+      changes &&
+      diff?.patch &&
+      !ctx.signal?.aborted
+    ) {
+      const f2p = await failToPass({
+        cwd: ctx.cwd,
+        patch: diff.patch,
+        check,
+        fileAtStart: (path) => changes.fileAtStart(path),
+        runner,
+        outputDir: opts.outputDir,
+        timeoutMs: opts.stopGateTimeoutMs,
+      });
+      if (f2p) {
+        recordEvent(ctx, {
+          kind: "test_quality.fail_to_pass",
+          sig: f2p.passOnOld ? "f2p:pass-on-old" : "f2p:ok",
+        });
+        if (f2p.passOnOld) {
+          qualitySignals.push(failToPassSignal(f2p));
+          for (const t of f2p.tests) weakFiles.add(t);
+          noteWeak();
+        }
+      }
+    }
     // Страж старых тестов (H2, H3): проверка зелёная — а не потому ли, что тесты поменяли?
     if (guardOn && diff?.patch) {
       const guard = await guardTurn(diff.patch, check, ctx);
@@ -598,7 +656,12 @@ export function installStopGate(
     webEdited = false;
     if (pageCheck && web && !capped() && !ctx.signal?.aborted) {
       const page = await pageCheck(ctx.cwd);
-      if (turnStatus && page && !page.skipped) turnStatus.page = !hasBlocking(page);
+      if (turnStatus && page && !page.skipped) {
+        turnStatus.page = !hasBlocking(page);
+        turnStatus.pageIssues = pageFindings(page);
+      }
+      if (page && !page.skipped)
+        pageSignals = pageFindings(page).map((l) => `Проверка страницы: ${l}`);
       if (page && !page.skipped && hasBlocking(page)) {
         pushbacks += 1;
         const tip = intervene(ctx, { kind: "gate.page", sig: "gate:page", n: pushbacks });

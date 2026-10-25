@@ -1,6 +1,6 @@
 // Статус хода по фактам (H9; research/24 §4.4–4.5, research/22 §6.4): одна карточка в конце хода, после ответа
 // модели, — `prsloy-harness.turn-status` по контракту ui (apps/desktop renderer/lib/turn-status.ts): content —
-// одна строка по-русски, details — { facts, files? }. Модель её не пишет и не перекрывает: при красной проверке ui
+// одна строка по-русски, details — { facts, files?, page? } (page — находки проверки страницы с селекторами). Модель её не пишет и не перекрывает: при красной проверке ui
 // ставит карточку над ответом. Факты — из того, что видел харнесс: последний прогон гейта, проверка страницы,
 // запуск программы после последней правки, дифф хода (старые тесты, заглушки).
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
@@ -15,8 +15,11 @@ export const TURN_STATUS_TYPE = "prsloy-harness.turn-status";
 
 export type TurnFact =
   | "checks-fail"
+  | "page-fail"
   | "stubs-left"
   | "tests-changed"
+  | "tests-weak"
+  | "page-hints"
   | "checks-pass"
   | "page-ok"
   | "ran-ok"
@@ -26,13 +29,16 @@ export type TurnFact =
 /** Порядок и слова — как в ui: сначала то, что требует внимания. */
 export const TURN_FACT_TEXT: Readonly<Record<TurnFact, string>> = {
   "checks-fail": "Проверки не прошли",
+  "page-fail": "На странице остались ошибки — посмотрите",
   "stubs-left": "Остались заглушки",
   "tests-changed": "Агент поменял старые проверки — посмотрите",
+  "tests-weak": "Новые тесты почти ничего не проверяют — посмотрите",
+  "page-hints": "Есть подсказки по удобству страницы",
   "checks-pass": "Проверки прошли",
   "page-ok": "Страница открылась без ошибок",
   "ran-ok": "Программу запускал — работает",
   "tests-updated": "Проверки обновлены по вашей просьбе",
-  "no-checks": "Нечем проверить",
+  "no-checks": "Проверить нечем — в проекте нет проверок",
 };
 const ORDER = Object.keys(TURN_FACT_TEXT) as TurnFact[];
 
@@ -45,10 +51,14 @@ export interface TurnStatusState {
   hasCheck: boolean;
   /** Проверка страницы в браузере: true — без ошибок, false — с ошибками. */
   page: boolean | undefined;
+  /** Находки сценария на странице с селекторами (pageFindings): нажатия, ссылки, доступность, клавиатура. */
+  pageIssues: string[];
   /** Правки edit/write в этом сообщении. */
   edited: boolean;
   /** Программу запускали после последней правки, и она отработала. */
   ranOk: boolean;
+  /** Слабые новые тесты (H-3, флаг testQuality): файлы. */
+  weakTests: string[];
 }
 
 export function createTurnStatus(): TurnStatusState {
@@ -57,8 +67,10 @@ export function createTurnStatus(): TurnStatusState {
     gate: undefined,
     hasCheck: false,
     page: undefined,
+    pageIssues: [],
     edited: false,
     ranOk: false,
+    weakTests: [],
   };
 }
 
@@ -90,7 +102,7 @@ export function turnFacts(
   state: TurnStatusState,
   patch: string | undefined,
   filesChanged: number,
-): { facts: TurnFact[]; files: string[] } | undefined {
+): { facts: TurnFact[]; files: string[]; page?: string[] } | undefined {
   const edited = state.edited || filesChanged > 0;
   if (!edited && state.gate === undefined) return undefined;
   const facts = new Set<TurnFact>();
@@ -98,13 +110,20 @@ export function turnFacts(
   if (state.gate === "red") facts.add("checks-fail");
   else if (state.gate === "green") facts.add("checks-pass");
   if (state.page === true) facts.add("page-ok");
+  else if (state.page === false) facts.add("page-fail");
+  if (state.page === true && state.pageIssues.length) facts.add("page-hints");
   if (state.ranOk) facts.add("ran-ok");
-  if (edited && !state.hasCheck) facts.add("no-checks");
+  // Страница открылась или программа отработала — это и есть проверка для новичка: «нечем» только если не было ничего.
+  if (edited && !state.hasCheck && state.page !== true && !state.ranOk) facts.add("no-checks");
   if (patch) {
     const tests = oldTestChanges(patch);
     if (tests.length) {
       facts.add(userAskedToChange(state.task) ? "tests-updated" : "tests-changed");
       files.push(...tests.map((t) => t.file));
+    }
+    if (state.weakTests.length) {
+      facts.add("tests-weak");
+      files.push(...state.weakTests);
     }
     const stubs = stubFiles(patch);
     if (stubs.length) {
@@ -113,7 +132,9 @@ export function turnFacts(
     }
   }
   const ordered = ORDER.filter((f) => facts.has(f));
-  return ordered.length ? { facts: ordered, files: [...new Set(files)] } : undefined;
+  if (!ordered.length) return undefined;
+  const page = state.page === undefined ? [] : state.pageIssues;
+  return { facts: ordered, files: [...new Set(files)], ...(page.length ? { page } : {}) };
 }
 
 export function turnStatusLine(facts: TurnFact[]): string {
@@ -158,6 +179,7 @@ export function installTurnStatus(
     await showCard(pi, TURN_STATUS_TYPE, turnStatusLine(result.facts), {
       facts: result.facts,
       ...(result.files.length ? { files: result.files } : {}),
+      ...(result.page ? { page: result.page } : {}),
     });
   });
 }

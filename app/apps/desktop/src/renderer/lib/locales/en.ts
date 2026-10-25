@@ -1570,6 +1570,8 @@ export const en = {
   "progress.elapsed.hours": "{h} h {m} min",
   "progress.stop": "Stop",
   "prsloy.setup.app": "Preparing the app… {percent}%",
+  "prsloy.setup.tools":
+    "Preparing the agent's tools… {percent}%. The first reply starts by itself when this is done.",
   "timeline.showEarlier": "Show earlier messages ({count})",
   "prsloy.support.group": "Support",
   "prsloy.support.title": "Support report",

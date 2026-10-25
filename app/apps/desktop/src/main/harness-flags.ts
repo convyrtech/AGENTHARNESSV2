@@ -45,6 +45,7 @@ export function readHarnessFlags(path: string): HarnessFlags {
     testGuard: raw.testGuard === true,
     claimCheck: raw.claimCheck === true,
     webTools: raw.webTools !== false,
+    testQuality: raw.testQuality === true,
   };
 }
 
@@ -55,6 +56,7 @@ const FLAG_KEYS = [
   "testGuard",
   "claimCheck",
   "webTools",
+  "testQuality",
 ] as const;
 /** Not a boolean: `autoMemory` is "off" | "shadow" | true. */
 const AUTO_MEMORY_VALUES: readonly unknown[] = ["off", "shadow", true];

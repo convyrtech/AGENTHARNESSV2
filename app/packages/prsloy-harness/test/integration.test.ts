@@ -759,7 +759,7 @@ describe("integration: memory (S4) in a real session", () => {
     await first.session.prompt("Сделай страницу. И пиши проще, без умных слов");
     await first.session.prompt("А теперь добавь заголовок");
     const results = first.toolResults();
-    expect(first.textOf(results[0]!)).toContain("Запомнил: Писать проще, без умных слов");
+    expect(first.textOf(results[0]!)).toContain("Запомнил «Писать проще, без умных слов»");
     const system = (i: number) => JSON.stringify(first.server.requests[i]!.messages[0]);
     // Запрос до записи, после записи и во втором сообщении — один и тот же системный промпт (кэш цел).
     expect(system(1)).toBe(system(0));
@@ -924,6 +924,35 @@ console.log("ok");
     expect(pushback).toContain("Открыл index.html в браузере");
     expect(pushback).toContain("390 px) страница шире окна (scrollWidth 7");
     expect(pushback).toContain("— div «Меню пиццерии»");
+  }, 90_000);
+
+  it("a button that throws only when clicked is caught by the click pass and pushed back with its selector", async (t) => {
+    const pw = await loadPlaywright();
+    if (!pw) return t.skip();
+    const page = (fn: string) => ({
+      toolCalls: [
+        {
+          name: "write",
+          arguments: {
+            path: "index.html",
+            content: `<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Цены</title></head><body><main><h1>Маникюр</h1><button id="show" type="button" onclick="showPrices()">Показать цены</button><p id="p" hidden>1500 ₽</p></main><script>function ${fn}() { document.getElementById("p").hidden = false; }</script></body></html>`,
+          },
+        },
+      ],
+    });
+    const { session, server } = await startSession(
+      (_req, index) =>
+        [page("showPrice"), { text: "Готово." }, page("showPrices"), { text: "Поправил кнопку." }][
+          index
+        ] ?? { text: "?" },
+      { factory: { pageCheck: { playwright: pw, executablePath: CHROMIUM } } },
+    );
+    await session.prompt("сделай страницу с кнопкой цен");
+    expect(server.requests).toHaveLength(4);
+    const pushback = JSON.stringify(server.requests[2]!.messages);
+    expect(pushback).toContain(
+      "(через сервер, 1440 px) после нажатия «Показать цены»: showPrices is not defined — #show",
+    );
   }, 90_000);
 
   it("the model leaves a failing test, is pushed back once, fixes it, and the gate passes", async () => {

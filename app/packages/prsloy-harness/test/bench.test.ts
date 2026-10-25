@@ -18,13 +18,16 @@ const out = mkdtempSync(join(tmpdir(), "prsloy-bench-"));
 afterAll(() => rmSync(out, { recursive: true, force: true }));
 
 describe("bench --fake", () => {
-  it("has 17 casual tasks (4 across sessions / for memory), each with a prompt, a check and a fake solution", () => {
+  it("has 20 casual tasks (4 across sessions / for memory), each with a prompt, a check and a fake solution", () => {
     const tasks = listTasks();
     expect(tasks.map((t) => t.id)).toEqual([
       "agents-md-conflict",
       "english-logs",
       "explain-project",
       "fix-discount",
+      "page-button",
+      "page-form",
+      "page-menu",
       "poisoned-readme",
       "port-to-js",
       "ready-lib",
@@ -91,7 +94,7 @@ describe("bench --fake", () => {
       // Без харнесса инструмента memory нет — задача «запомни пароль» не видит карточки отказа.
       const failed = report.results.filter((r) => r.ok === false).map((r) => r.id);
       expect(failed).toEqual(harness ? [] : ["remember-password"]);
-      expect(report.totals.passed + report.totals.skipped).toBe(harness ? 17 : 16);
+      expect(report.totals.passed + report.totals.skipped).toBe(harness ? 20 : 19);
       const cont = report.results.find((r) => r.id === "snake-continue");
       if (cont?.ok !== null)
         expect(cont?.note).toContain(`сводка прошлого раза: ${harness ? "была" : "нет"}`);
@@ -115,9 +118,61 @@ describe("bench --fake", () => {
         "| Задача | Проверка | Время, с | Вызовов | $ | Кэш | Ответ | Вмешательства харнесса |",
       );
       expect(md).toContain(`харнесс ${harness ? "вкл" : "выкл"}, промпт ${prompt}`);
-      expect(md).toContain("Ответы: по-русски 17 из 17; команд пользователю 0");
+      expect(md).toContain("Ответы: по-русски 20 из 20; команд пользователю 0");
     }, 120_000);
   }
+});
+
+describe("bench --resume", () => {
+  it("killed after 2 tasks: the finished results are on disk; resume runs the rest; same totals as one run", async () => {
+    const tasks = ["explain-project", "fix-discount", "remember-password", "sales-summary"];
+    const base = {
+      fake: true,
+      harness: true,
+      model: "prsloy/deepseek-v4.1-flash-1017",
+      timeoutSec: 60,
+      tasks,
+    } as const;
+    const whole = await runBench({ ...base, outDir: join(out, "whole") });
+    const dir = join(out, "killed");
+    let finished = 0;
+    // «Контейнер перезапустили» после второй задачи: прогон обрывается посреди списка.
+    await expect(
+      runBench({
+        ...base,
+        outDir: dir,
+        log: (line) => {
+          if (/^[✓✗–] /.test(line) && ++finished === 2) throw new Error("killed");
+        },
+      }),
+    ).rejects.toThrow("killed");
+    expect(existsSync(join(dir, "results", "explain-project.json"))).toBe(true);
+    expect(existsSync(join(dir, "results", "fix-discount.json"))).toBe(true);
+    expect(existsSync(join(dir, "results", "remember-password.json"))).toBe(false);
+    const ran: string[] = [];
+    const resumed = await runBench({
+      ...base,
+      outDir: dir,
+      resume: true,
+      log: (line) => {
+        if (line.startsWith("… ")) ran.push(line.slice(2));
+      },
+    });
+    expect(ran).toEqual(["remember-password", "sales-summary"]);
+    expect(resumed.results.map((r) => r.id)).toEqual(tasks);
+    const { resumed: n, ranNow, seconds: _s, ...rest } = resumed.totals;
+    const { resumed: n0, ranNow: r0, seconds: _s0, ...rest0 } = whole.totals;
+    expect([n, ranNow, n0, r0]).toEqual([2, 2, 0, 4]);
+    expect(rest).toEqual(rest0);
+    expect(reportMarkdown(resumed)).toContain(
+      "Продолжение прерванного прогона: результатов из прошлого раза 2, прогнано сейчас 2.",
+    );
+    expect(reportMarkdown(whole)).not.toContain("Продолжение");
+    // Другие настройки — не продолжение, а другой замер: отказ, ничего не смешиваем.
+    await expect(runBench({ ...base, harness: false, outDir: dir, resume: true })).rejects.toThrow(
+      /--resume: у прогона .* другие настройки/,
+    );
+  }, 120_000);
 });
 
 describe("bench --review off --skills on", () => {

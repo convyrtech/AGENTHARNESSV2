@@ -1,6 +1,6 @@
 /**
  * Memory v2 cards (research/24 §3.6): what the harness noticed in the owner's words by itself.
- * «Заметил и запомнил: …» · [Забыть] [Закрепить] (several: «Запомнил N» · [Показать]);
+ * «Заметил и запомнил «…»» · [Забыть] [Закрепить] (several: «Запомнил несколько вещей (N)» · [Показать]);
  * «Обновил: было «…», стало «…»» · [Вернуть]; when the replaced entry was pinned, a question:
  * «Раньше вы просили «…». Теперь — «…»?» · [Да, теперь так] [Нет, как раньше]. And the agent's own
  * proposals to forget or replace, which wait for [Да] / [Нет] (research/27 §2).
@@ -73,11 +73,11 @@ function AutoEntry(props: {
   const { tr, item } = props;
   const api = memoryApi();
   const workspace = useShellStore((s) => s.snapshot?.cwd);
-  const [state, setState] = useState<"idle" | "forgot" | "pinned">("idle");
+  const [state, setState] = useState<"idle" | "forgot" | "pinned" | "restored">("idle");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | undefined>();
 
-  async function run(call: () => Promise<unknown>, next: "forgot" | "pinned") {
+  async function run(call: () => Promise<unknown>, next: "forgot" | "pinned" | "restored") {
     setBusy(true);
     setError(undefined);
     try {
@@ -111,9 +111,27 @@ function AutoEntry(props: {
         </ActionButton>
       </>
     ) : state !== "idle" ? (
-      <span className="memory-auto-done" role="status">
-        {tr(state === "forgot" ? "features.memory.card.forgotDone" : "features.memory.pinned")}
-      </span>
+      <>
+        <span className="memory-auto-done" role="status">
+          {tr(
+            state === "forgot"
+              ? "features.memory.card.forgotDone"
+              : state === "restored"
+                ? "features.memory.card.restored"
+                : "features.memory.pinned",
+          )}
+        </span>
+        {/* A mistaken «Забыть» is undone right here, as on the «Запомнил» card. */}
+        {api && state === "forgot" ? (
+          <ActionButton
+            testId="memory-auto-restore"
+            disabled={busy}
+            onClick={() => void run(() => api.restore(item.id, workspace), "restored")}
+          >
+            {tr("features.memory.restore")}
+          </ActionButton>
+        ) : null}
+      </>
     ) : null;
   return (
     <div
@@ -247,7 +265,7 @@ export function MemoryUpdatedCard(props: { locale: Locale; details: unknown; tex
 
 /**
  * research/27 §2: the agent's tool no longer forgets or replaces by itself — it asks. «Забыть «…»?» or
- * «Раньше: «…». Теперь: «…»?» · [Да] [Нет] → `memory.confirm`. Main ignores a second answer and drops a
+ * «Раньше вы просили «…». Теперь — «…»?» · [Да] [Нет] → `memory.confirm`. Main ignores a second answer and drops a
  * proposal after a day; its refusal shows under the card.
  */
 export function MemoryConfirmCard(props: { locale: Locale; details: unknown; text: string }) {

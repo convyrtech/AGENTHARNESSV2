@@ -287,9 +287,16 @@ export async function prepareTurn(
   meta: { prompt?: string; sessionId?: string },
 ): Promise<void> {
   // First launch: Node/Python and Git unpack in the background; the first turn waits.
+  const started = performance.now();
+  const waited =
+    ctx.runtimes.state().status === "installing" || ctx.git.state().status === "installing";
   if (ctx.runtimes.state().status === "installing") await ctx.runtimes.whenReady(300_000);
   if (ctx.git.state().status === "installing") await ctx.git.whenReady(180_000);
+  const ready = performance.now();
   await snapshotBeforeTurn(ctx, workspace, meta);
+  // packaged-smoke reads these: how long the first turn sat behind the unpack and the snapshot.
+  if (waited) console.log(`[prsloy-timing] turn-wait ${Math.round(ready - started)}`);
+  console.log(`[prsloy-timing] turn-snapshot ${Math.round(performance.now() - ready)}`);
 }
 
 /** Snapshot before an agent turn; bounded so a huge folder never delays the prompt long. */

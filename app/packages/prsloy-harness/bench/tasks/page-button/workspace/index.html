@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Маникюр у Светы</title>
+    <style>
+      body {
+        font-family: sans-serif;
+        max-width: 640px;
+        margin: 0 auto;
+        padding: 16px;
+      }
+      #prices {
+        display: none;
+      }
+      #prices.open {
+        display: block;
+      }
+      button {
+        padding: 12px 20px;
+        font-size: 16px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Маникюр у Светы</h1>
+    <p>Аккуратно, быстро, рядом с метро.</p>
+    <button id="show" type="button" onclick="showPrices()">Показать цены</button>
+    <ul id="prices">
+      <li>Маникюр — 1500 ₽</li>
+      <li>Покрытие гель-лаком — 2000 ₽</li>
+      <li>Дизайн одного ногтя — 100 ₽</li>
+    </ul>
+    <script>
+      function showPrice() {
+        document.getElementById("prices").classList.add("open");
+      }
+    </script>
+  </body>
+</html>

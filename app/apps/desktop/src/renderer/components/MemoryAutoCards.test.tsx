@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import { MemoryAutoCard, MemoryConfirmCard, MemoryUpdatedCard } from "./MemoryAutoCards.tsx";
 
 const snap = { user: [], project: [], forgotten: [] };
-const api = { forget: vi.fn(), pin: vi.fn(), revert: vi.fn(), confirm: vi.fn() };
+const api = { forget: vi.fn(), pin: vi.fn(), revert: vi.fn(), confirm: vi.fn(), restore: vi.fn() };
 
 beforeEach(() => {
   for (const fn of Object.values(api)) fn.mockReset().mockResolvedValue(snap);
@@ -24,7 +24,7 @@ describe("«Заметил и запомнил»", () => {
       />,
     );
     expect(screen.getByTestId("memory-card").textContent).toContain(
-      "Заметил и запомнил: Пишет без терминов",
+      "Заметил и запомнил «Пишет без терминов»",
     );
     expect(screen.getByText("Ваши слова: «пиши проще»")).toBeTruthy();
     fireEvent.click(screen.getByTestId("memory-auto-pin"));
@@ -32,7 +32,26 @@ describe("«Заметил и запомнил»", () => {
     expect((await screen.findByRole("status")).textContent).toBe("Закреплено");
   });
 
-  it("several: «Запомнил 2» · [Показать], each with its own buttons", async () => {
+  it("[Забыть] → «Забыл.» · [Вернуть] → «Вернул.»", async () => {
+    render(
+      <MemoryAutoCard
+        locale="ru"
+        text=""
+        details={{
+          items: [{ id: "a-1", scope: "user", text: "Без анимаций", quote: "без анимаций" }],
+        }}
+      />,
+    );
+    fireEvent.click(screen.getByTestId("memory-auto-forget"));
+    await waitFor(() => expect(api.forget).toHaveBeenCalledWith("a-1", undefined));
+    expect((await screen.findByRole("status")).textContent).toBe("Забыл.");
+    fireEvent.click(await screen.findByTestId("memory-auto-restore"));
+    await waitFor(() => expect(api.restore).toHaveBeenCalledWith("a-1", undefined));
+    await waitFor(() => expect(screen.queryByTestId("memory-auto-restore")).toBeNull());
+    expect(screen.getByRole("status").textContent).toBe("Вернул.");
+  });
+
+  it("several: «Запомнил несколько вещей (2)» · [Показать], each with its own buttons", async () => {
     render(
       <MemoryAutoCard
         locale="ru"
@@ -45,7 +64,7 @@ describe("«Заметил и запомнил»", () => {
         }}
       />,
     );
-    expect(screen.getByTestId("memory-card").textContent).toContain("Запомнил 2");
+    expect(screen.getByTestId("memory-card").textContent).toContain("Запомнил несколько вещей (2)");
     expect(screen.queryAllByTestId("memory-auto-entry")).toHaveLength(0);
     fireEvent.click(screen.getByTestId("memory-auto-show"));
     expect(screen.getAllByTestId("memory-auto-entry")).toHaveLength(2);
@@ -117,7 +136,7 @@ describe("the agent asks before it forgets or replaces (research/27 §2)", () =>
     expect(screen.queryByTestId("memory-confirm-yes")).toBeNull();
   });
 
-  it("«Раньше: «…». Теперь: «…»?» · [Нет] → «Оставил как было.»", async () => {
+  it("«Раньше вы просили «…». Теперь — «…»?» · [Нет] → «Оставил как было.»", async () => {
     render(
       <MemoryConfirmCard
         locale="ru"
@@ -132,7 +151,9 @@ describe("the agent asks before it forgets or replaces (research/27 §2)", () =>
         }}
       />,
     );
-    expect(screen.getByTestId("memory-card").textContent).toContain("Раньше: «А». Теперь: «Б»?");
+    expect(screen.getByTestId("memory-card").textContent).toContain(
+      "Раньше вы просили «А». Теперь — «Б»?",
+    );
     fireEvent.click(screen.getByTestId("memory-confirm-no"));
     await waitFor(() => expect(api.confirm).toHaveBeenCalledWith("c2", false, undefined));
     expect((await screen.findByTestId("memory-card")).textContent).toContain("Оставил как было.");

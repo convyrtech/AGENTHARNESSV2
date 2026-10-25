@@ -1,0 +1,72 @@
+# Первый час новичка — каждую ночь (research/28 §5; features, STATUS-features «Этап 8»): пять проходов
+# e2e/features-first-hour.spec.ts на сценарном шлюзе (без ключа, 0 токенов). NOVICE.md («что видит новичок»:
+# прошёл / сломалось где, карточки и ответ на каждом скриншоте) — в summary, скриншоты, seen.jsonl и отчёт
+# Playwright — артефактом на 14 дней. Локально: xvfb-run -a node scripts/first-hour-nightly.mjs --out first-hour-out
+name: desktop-first-hour
+
+on:
+  schedule:
+    # 01:43 UTC (04:43 МСК): после desktop-audit, не на ровном часе.
+    - cron: "43 1 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: desktop-first-hour
+  cancel-in-progress: false
+
+defaults:
+  run:
+    working-directory: app
+
+jobs:
+  first-hour:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+      # The script comes with features (desktop/features): until it is on this ref, say so and stop green.
+      - name: First-hour script present
+        id: script
+        run: |
+          if [ -f apps/desktop/scripts/first-hour-nightly.mjs ]; then echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::apps/desktop/scripts/first-hour-nightly.mjs нет на $GITHUB_REF_NAME — первый час пропущен"
+          fi
+      - uses: pnpm/action-setup@v6
+        if: steps.script.outputs.present == 'true'
+        with:
+          version: 11.15.1
+      - uses: actions/setup-node@v7
+        if: steps.script.outputs.present == 'true'
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: app/pnpm-lock.yaml
+      - if: steps.script.outputs.present == 'true'
+        run: pnpm install --frozen-lockfile
+      - if: steps.script.outputs.present == 'true'
+        run: pnpm electron:install
+      - if: steps.script.outputs.present == 'true'
+        run: pnpm build:desktop
+      # Ubuntu 24.04: AppArmor blocks the unprivileged user namespaces Chromium's sandbox needs
+      - name: Allow Electron's sandbox
+        if: steps.script.outputs.present == 'true'
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+      - name: First hour (fake gateway, no key)
+        if: steps.script.outputs.present == 'true'
+        working-directory: app/apps/desktop
+        run: xvfb-run -a node scripts/first-hour-nightly.mjs --no-build --out "$RUNNER_TEMP/first-hour"
+      - name: Summary
+        if: always() && steps.script.outputs.present == 'true'
+        run: cat "$RUNNER_TEMP/first-hour/NOVICE.md" >> "$GITHUB_STEP_SUMMARY" || true
+      - uses: actions/upload-artifact@v4
+        if: always() && steps.script.outputs.present == 'true'
+        with:
+          name: first-hour-${{ github.run_id }}
+          path: ${{ runner.temp }}/first-hour
+          if-no-files-found: warn
+          retention-days: 14

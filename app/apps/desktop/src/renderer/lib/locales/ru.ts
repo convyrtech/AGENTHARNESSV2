@@ -1551,6 +1551,8 @@ export const ru = {
   "progress.elapsed.hours": "{h} ч {m} мин",
   "progress.stop": "Остановить",
   "prsloy.setup.app": "Готовлю приложение… {percent}%",
+  "prsloy.setup.tools":
+    "Готовлю инструменты для агента… {percent}%. Первый ответ начнётся сам, как только закончу.",
   "timeline.showEarlier": "Показать предыдущие сообщения ({count})",
   "prsloy.support.group": "Поддержка",
   "prsloy.support.title": "Отчёт для поддержки",

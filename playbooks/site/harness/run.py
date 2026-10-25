@@ -43,17 +43,25 @@ def fit_ladder(cfg, available):
         if "start" in st:
             st["start"] = remap(st["start"])
     if cfg.get("judge", {}).get("model") not in available:
-        cfg.setdefault("judge", {})["model"] = keep[-1].split("/", 1)[-1]
+        # зрительная роль — не ниже класса Opus (research/28 §4.4: Kimi K2.5 «видит» различие в 12,8 % одинаковых
+        # пар, Opus — в 0,4 %): самая сильная ступень этого класса, иначе любая модель класса из шлюза, иначе никто
+        strong = [m.split("/", 1)[-1] for m in reversed(keep) if VISUAL_CLASS.search(m)]
+        strong += sorted(m for m in available if VISUAL_CLASS.search(m))
+        cfg.setdefault("judge", {})["model"] = strong[0] if strong else None
     return cfg
 
 
+# Модели для зрительных ролей (судья, пометки владельца на картинке): класс Opus и сопоставимые по замерам DiffSpot /
+# PerceptUI (research/28 §2.2, §4.4). Kimi и qwen сюда не входят, пока калибровка (§4.2) не покажет обратное.
+VISUAL_CLASS = re.compile(r"opus|gpt-6|gpt-5\.[4-9]|gemini-[3-9][\w.-]*-pro", re.I)
 CFG = fit_ladder(CFG, AVAILABLE)
 # A/B шага 5 без правки stages.json: HARNESS_PARALLEL5=1 включает параллельные прототипы, 0 — выключает
 if os.environ.get("HARNESS_PARALLEL5") in ("0", "1"):
     CFG["stages"].setdefault("5", {})["parallel"] = os.environ["HARNESS_PARALLEL5"] == "1"
 # пометки владельца кистью на картинке («Дизайн», research/20 §10): файл marks-*.png; такой ход — модели со зрением
 MARKS = re.compile(r"^marks-.+\.png$", re.I)
-VISION = re.compile(r"kimi|claude|opus", re.I)
+# ход с пометками — зрительная роль: та же планка, что у судьи
+VISION = VISUAL_CLASS
 
 
 def marks_note(files):
@@ -288,8 +296,12 @@ def snapshots_fp(ws):
 
 
 def run_judge(ws):
+    if not CFG["judge"].get("model"):
+        ws.ledger(kind="judge", exit=5, out="no visual-class model")
+        return 5, "нет модели уровня Opus для проверки картинки"
     r = subprocess.run([PY, "-I", str(HERE / "judge.py"), "--page", str(ws.page), "--transcripts", str(ws.h / "tx"),
                         "--pipeline", str(ws.pipe), "--model", CFG["judge"]["model"],
+                        "--max-images", str(CFG["judge"].get("max_images", 3)),
                         "--max-rounds", str(CFG["judge"]["max_rounds"] + ws.state.get("judge_bonus", 0)), *PROXY],
                        cwd=ws.root, capture_output=True, text=True, encoding="utf-8")
     # вердикт полями, а не только хвостом вывода: хвост в 400 знаков режет JSON со списком снимков, а A/B (#21)
@@ -644,6 +656,63 @@ def options_of(text):
             cur["options"].append({"key": o.group(1), "label": o.group(2).strip(),
                                    "recommended": "рекомендую" in o.group(2).lower()})
     return [g for g in groups if g["options"]][:3] or inline_options(text)
+
+
+# ---------- шаг 5: «рекомендую» между A и B — моделью в обеих перестановках (research/28 §4.4) ----------
+PAIR_LETTER = {"a": "a", "а": "a", "b": "b", "б": "b"}
+
+
+def pair_pick(ws):
+    """Какой прототип лучше: pair_pick.py в двух порядках, ответ засчитывается при совпадении. Кэш — по файлам
+    прототипов. {"winner": "a"|"b"|None, ...} или None, когда сравнивать нечего (нет двух прототипов)."""
+    pa, pb = (ws.page / "05-proto" / x / "index.html" for x in "ab")
+    if not (pa.exists() and pb.exists()):
+        return None
+    fp = ":".join(f"{p.stat().st_size}:{int(p.stat().st_mtime)}" for p in (pa, pb))
+    cached = ws.state.get("pair5") or {}
+    if cached.get("fp") == fp:
+        return cached
+    if not CFG["judge"].get("model"):
+        res = {"winner": None, "why": "нет модели уровня Opus"}
+    else:
+        r = subprocess.run([PY, "-I", str(HERE / "pair_pick.py"), "--a", str(pa), "--b", str(pb),
+                            "--brief", str(ws.page / "MESSAGE.md"), "--pipeline", str(ws.pipe),
+                            "--out", str(ws.page / "artifacts" / "pair5"), "--model", CFG["judge"]["model"], *PROXY],
+                           cwd=ws.root, env={**os.environ, **ws.env()}, capture_output=True, text=True,
+                           encoding="utf-8")
+        try:
+            res = json.loads(r.stdout.strip().splitlines()[-1])
+        except (ValueError, IndexError):
+            ws.ledger(kind="pair5", ok=False, out=(r.stdout + r.stderr)[-300:])
+            return None                                   # сбой сравнения: карточку не трогаем
+    res["fp"] = fp
+    ws.state["pair5"] = res
+    ws.save()
+    ws.ledger(kind="pair5", ok=True, winner=res.get("winner"), answers=res.get("answers"))
+    return res
+
+
+def apply_pair_pick(text, options, res):
+    """«(рекомендую)» у A или B — только по выбору, совпавшему в обоих порядках; разошлись — ни у одного, и строка
+    владельцу. Остальные варианты (гибрид и т. п.) не трогаются."""
+    if not res:
+        return text, options
+    win = res.get("winner")
+    lines = []
+    for ln in text.splitlines():
+        m = re.match(r"^(\s*)([A-BА-Б])([.)]\s+)(.*?)(\s*\(рекомендую\))?\s*$", ln)
+        if m:
+            mark = " (рекомендую)" if PAIR_LETTER.get(m.group(2).lower()) == win else ""
+            ln = f"{m.group(1)}{m.group(2)}{m.group(3)}{m.group(4)}{mark}"
+        lines.append(ln)
+    if not win:
+        lines.append("Какой из двух лучше, проверка не решила: выберите сами.")
+    for g in options or []:
+        for o in g.get("options", []):
+            k = PAIR_LETTER.get(str(o.get("key", "")).strip().lower())
+            if k:
+                o["recommended"] = k == win
+    return "\n".join(lines), options
 
 
 # ---------- шаг 5: прототипы параллельно одним вызовом (research/20, вопрос 3; stages.json → 5.parallel) ----------
@@ -1015,6 +1084,10 @@ def say(a):
                 return
             elif code == 4:
                 notes = ["Судья не смотрит старые снимки: перезапусти гейт (команда выше), потом «ЭТАП ГОТОВ»."]
+            elif code == 5:
+                emit(ev="stuck", text="Проверить страницу некому: шлюз не отдаёт модель уровня Opus, а проверку картинки "
+                                      "слабой модели не доверяем. Когда она появится, нажмите «Попробовать ещё раз».")
+                return
             else:
                 emit(ev="stuck", text="судья не ответил: " + out[-200:])
                 return
@@ -1103,6 +1176,8 @@ def say(a):
                     text, options = card = card2
                 elif TO_OWNER in f2:
                     text, options = f2.split(TO_OWNER, 1)[1].strip(), None
+            if gate == "5":
+                text, options = apply_pair_pick(text, options, pair_pick(ws))
             hist["waiting_owner"] = True
             ws.state["outbox"] = ws.state.get("outbox", 0) + 1
             sent = ws.h / "sent"                       # отправленное владельцу; outbox/ страницы — черновики агента

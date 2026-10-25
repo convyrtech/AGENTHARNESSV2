@@ -569,7 +569,7 @@ test("harness on the installed app: steps 0–12", async () => {
 
     await step(10, " (review fake)");
     await expect.poll(() => cards(pass), { timeout: 30_000 }).toBe(1);
-    await expect(review(pass)).toContainText("Проверила вторая модель: замечаний нет");
+    await expect(review(pass)).toContainText("Проверила вторая модель — замечаний нет");
     await step(11, " (review pass)");
     await expect.poll(() => cards(pass), { timeout: 30_000 }).toBe(2);
     expect.soft(await cards(fail)).toBe(1);
