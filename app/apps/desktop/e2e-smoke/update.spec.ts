@@ -72,7 +72,7 @@ function installedProductVersion(): string {
 
 /** Silent per-user install of A (undoes an update a previous test installed on quit). */
 function reinstallA(): string {
-  powershell("Get-Process PRSLOY -ErrorAction SilentlyContinue | Stop-Process -Force");
+  powershell("Get-Process PRSLOY -ErrorAction SilentlyContinue | Stop-Process -Force; exit 0");
   execFileSync(installerA, ["/S", "/currentuser"], { windowsHide: true });
   return installedProductVersion();
 }
@@ -240,7 +240,7 @@ test("good update: detect, download, «Обновление готово — п�
 
     // The relaunched app is not under Playwright: stop it and start the installed exe again
     // on the same profile to ask it which version it is.
-    powershell("Get-Process PRSLOY -ErrorAction SilentlyContinue | Stop-Process -Force");
+    powershell("Get-Process PRSLOY -ErrorAction SilentlyContinue | Stop-Process -Force; exit 0");
     await new Promise((r) => setTimeout(r, 3_000));
     relaunched = await launch("upd-after", {
       testMode: false,
