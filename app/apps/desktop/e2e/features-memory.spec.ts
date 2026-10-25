@@ -19,7 +19,7 @@ test("a memory card in the chat and the «Память» settings", async () => 
       arguments: {
         action: "remember",
         scope: "user",
-        text: "Отвечать коротко, без терминов",
+        text: "Отвечать коротко, без умных слов",
         quote: QUOTE,
       },
     },
@@ -31,22 +31,22 @@ test("a memory card in the chat and the «Память» settings", async () => 
     await sendPrompt(page, `Use the tool: ${QUOTE}`);
     await waitSettled(page);
     const card = page.getByTestId("memory-card");
-    await expect(card).toContainText("Запомнил: Отвечать коротко, без терминов");
+    await expect(card).toContainText("Запомнил: Отвечать коротко, без умных слов");
     await expect(card).toHaveAttribute("data-memory", "saved");
     const saved = JSON.parse(await readFile(join(agentDir, "prsloy-memory", "user.json"), "utf8"));
-    expect(saved.entries[0].text).toBe("Отвечать коротко, без терминов");
+    expect(saved.entries[0].text).toBe("Отвечать коротко, без умных слов");
     await shot(page, "memory-1-card");
 
     await card.getByTestId("memory-card-edit").click();
     await expect(page.getByTestId("prompt-input")).toHaveValue(
-      "Поправь запись в памяти «Отвечать коротко, без терминов»: ",
+      "Поправь запись в памяти «Отвечать коротко, без умных слов»: ",
     );
 
     await page.getByTestId("nav-settings").click();
     await page.getByTestId("settings-nav-memory").click();
     await expect(page.getByTestId("settings-memory")).toContainText("Запоминать, когда я прошу");
     await expect(page.getByTestId("memory-unavailable")).toHaveCount(0);
-    await expect(page.getByTestId("memory-user")).toContainText("Отвечать коротко, без терминов");
+    await expect(page.getByTestId("memory-user")).toContainText("Отвечать коротко, без умных слов");
     const toggle = page.getByTestId("settings-memory-toggle");
     await expect(toggle).toHaveAttribute("aria-checked", "false");
     await shot(page, "memory-2-settings-before");
@@ -59,7 +59,7 @@ test("a memory card in the chat and the «Память» settings", async () => 
     // «Забыть» → gone from «Обо мне», offered in «Забытое», tombstone on disk.
     await page.getByTestId("memory-user-forget").first().click();
     await expect(page.getByTestId("memory-forgotten")).toContainText(
-      "Отвечать коротко, без терминов",
+      "Отвечать коротко, без умных слов",
     );
     await expect(page.getByTestId("memory-user")).not.toContainText("Отвечать коротко");
     const after = JSON.parse(await readFile(join(agentDir, "prsloy-memory", "user.json"), "utf8"));
