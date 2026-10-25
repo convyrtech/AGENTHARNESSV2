@@ -35,6 +35,9 @@ const api: ZenoDesktopApi = {
     forget: (id, workspace) => ipcRenderer.invoke("prsloy:memory-forget", id, workspace),
     restore: (id, workspace) => ipcRenderer.invoke("prsloy:memory-restore", id, workspace),
     forgetAll: () => ipcRenderer.invoke("prsloy:memory-forget-all"),
+    // research/24 §2 «трубы»: handlers in main come with core's memory stages (M-1, M-3b).
+    pin: (id, pinned, workspace) => ipcRenderer.invoke("prsloy:memory-pin", id, pinned, workspace),
+    revert: (opId, workspace) => ipcRenderer.invoke("prsloy:memory-revert", opId, workspace),
   },
   prsloy: {
     getState: () => ipcRenderer.invoke("prsloy:get-state"),

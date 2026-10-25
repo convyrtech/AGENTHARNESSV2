@@ -22,6 +22,17 @@ export type HarnessFlags = {
   secondOpinion: boolean;
   /** «Запоминать, когда я прошу»: the harness's `memory` tool and prompt section (default off). */
   memory: boolean;
+  /**
+   * «Замечать важное само» (research/24 §3, core): "off" (default), "shadow" — the extractor only writes
+   * candidates, nothing reaches the prompt — or true.
+   */
+  autoMemory: "off" | "shadow" | true;
+  /** Honest exit: `report_blocker` and the T1 text in every push-back (research/24 §4.2, default off). */
+  honestExit: boolean;
+  /** Guard of the old tests (research/24 §4.1 H2/H3, default off until the owner decides §4.3). */
+  testGuard: boolean;
+  /** The agent's words checked against its calls (research/24 §4.1 H-2, default off). */
+  claimCheck: boolean;
 };
 
 export interface HarnessFlagsApi {

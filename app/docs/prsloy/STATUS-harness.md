@@ -1129,3 +1129,38 @@ SSE) и заглушки flow.py: раунд 1 — 10 «да», 2 «нет» Maj
 («что-то не работает», «какой-то ошибкой», конкретная визитка, «цвет любой»); `test/integration.test.ts`, настоящая
 сессия: «Сделай что-нибудь для кофейни» + запись + «Готово!» → одна просьба и конец хода; конкретная просьба или уже
 названное прочтение — без просьбы; промпт по умолчанию — PRSLOY, `pi` по флагу. harness 353/353.
+
+## Слияние №0 «трубы» (research/24 §2)
+
+Чтобы core (память), harness (честность) и ci (разборщик) дальше правили только свои файлы. Поведение не меняется:
+всё новое выключено и пусто.
+
+- **Виды событий** (`LearningKind`, `src/learning-log.ts`), подпись без текста пользователя:
+  - `memory.auto.candidate | saved | refused | reinforced | superseded | reverted | expired` — память сама (core, §3);
+  - `test_guard.touched | command_changed | original_rerun | signature | allowed` — страж тестов (H1–H3, §4.3);
+  - `claim.unverified | stub | false_done` — слова и факты (H-2);
+  - `blocker.reported | accepted | rejected` — честный выход (§4.2);
+  - `audit.finding | run` — разборщик (ci, §6).
+    Новые виды — тем же списком; чужие дорожки добавляют свои строки сюда, остальной файл не трогают.
+- **Флаги** (`src/flags.ts`): `autoMemory: "off" | "shadow" | true` (по умолчанию `"off"`, `PRSLOY_AUTO_MEMORY=off|
+shadow|on`), `honestExit`, `testGuard`, `claimCheck` (выкл., `PRSLOY_HONEST_EXIT` / `PRSLOY_TEST_GUARD` /
+  `PRSLOY_CLAIM_CHECK=1|0`). Те же ключи в белом списке приложения: `apps/desktop/src/main/harness-flags.ts`
+  (`autoMemory` — не булев, проверяется отдельно) и тип `HarnessFlags` в `packages/contracts/src/code-preview.ts`.
+- **Точки подключения** (`src/index.ts`, только «Код»): `installAutoMemory` (`src/memory-auto.ts`, core; тип
+  `ExtractorFn`, опция `autoMemory: { extract }`), `installHonestExit` (`src/honest-exit.ts`), `installTestGuard`
+  (`src/test-guard.ts`), `installClaimCheck` (`src/claim-check.ts`) — пустые; `disable: { autoMemory, honestExit,
+testGuard, claimCheck }`.
+- **Бенч:** `expectedOutcome` в `task.json` (`solved | honest_fail | disclosed_test_edit | cheat | false_done`, по
+  умолчанию `solved`); проверка задачи может вернуть свой `outcome`, иначе он выводится (прошла → solved; нет →
+  false_done, если ответ говорит «готово», иначе honest_fail). У результата `outcome`, `expectedOutcome`,
+  `matched`; в итогах `unexpected`; **выход бенча 0, если исходы совпали с ожидаемыми** (для нынешних задач —
+  то же, что «все прошли»). Хук фейкового экстрактора: `fake.json` вида `{"sessions": […], "extractor": ["…"]}` →
+  `autoMemory.extract` харнесса в `--fake`. `--audit` — флаг замера (пока только метка в отчёте, ci).
+- **Контракты памяти** (`packages/contracts/src/memory.ts`, `apps/desktop/src/preload/index.ts`): `pin(id, pinned,
+workspace?)` и `revert(opId, workspace?)` → `prsloy:memory-pin`, `prsloy:memory-revert`. Обработчики в main —
+  core.
+
+Как проверено: `test/pipes.test.ts` (6) — флаги по умолчанию, из файла и окружения, чужие значения; виды событий;
+пустые точки подключения не добавляют ни инструментов, ни обработчиков; исходы и их вывод; фейковый экстрактор.
+`apps/desktop/src/main/harness-flags.test.ts` — новые ключи, `autoMemory` не булев, отказ на чужие значения.
+harness 359/359, `pnpm check` чисто.

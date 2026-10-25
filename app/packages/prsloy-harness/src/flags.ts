@@ -16,7 +16,20 @@ export interface HarnessFlags {
   prompt: "pi" | "prsloy";
   /** Дельта под модель (prsloy_model, research/17 §9.1). По умолчанию выкл. */
   promptDelta: boolean;
+  /**
+   * Память сама, из слов пользователя (research/24 §3, core): "off" — нет; "shadow" — экстрактор пишет только
+   * кандидатов, в промпт ничего; true — записывает. По умолчанию "off".
+   */
+  autoMemory: AutoMemoryMode;
+  /** Честный выход (research/24 §4.2): инструмент report_blocker и текст T1 в возвратах. По умолчанию выкл. */
+  honestExit: boolean;
+  /** Страж старых тестов (research/24 §4.1, H2/H3). По умолчанию выкл. до ответа владельца (§4.3). */
+  testGuard: boolean;
+  /** Сверка слов агента с вызовами (research/24 §4.1, H-2: «проверил», заглушки). По умолчанию выкл. */
+  claimCheck: boolean;
 }
+
+export type AutoMemoryMode = "off" | "shadow" | true;
 
 export function readFlags(settingsPath: string | undefined): HarnessFlags {
   const flags: HarnessFlags = {
@@ -27,6 +40,10 @@ export function readFlags(settingsPath: string | undefined): HarnessFlags {
     memory: false,
     prompt: "prsloy",
     promptDelta: false,
+    autoMemory: "off",
+    honestExit: false,
+    testGuard: false,
+    claimCheck: false,
   };
   if (settingsPath && existsSync(settingsPath)) {
     try {
@@ -37,6 +54,11 @@ export function readFlags(settingsPath: string | undefined): HarnessFlags {
       if (raw.memory === true) flags.memory = true;
       if (raw.prompt === "prsloy" || raw.prompt === "pi") flags.prompt = raw.prompt;
       if (raw.promptDelta === true) flags.promptDelta = true;
+      if (raw.autoMemory === true || raw.autoMemory === "shadow" || raw.autoMemory === "off")
+        flags.autoMemory = raw.autoMemory;
+      if (raw.honestExit === true) flags.honestExit = true;
+      if (raw.testGuard === true) flags.testGuard = true;
+      if (raw.claimCheck === true) flags.claimCheck = true;
       if (Array.isArray(raw.disabledLessons))
         flags.disabledLessons = raw.disabledLessons.filter(
           (x): x is string => typeof x === "string",
@@ -54,5 +76,16 @@ export function readFlags(settingsPath: string | undefined): HarnessFlags {
   if (process.env.PRSLOY_PROMPT === "prsloy" || process.env.PRSLOY_PROMPT === "pi")
     flags.prompt = process.env.PRSLOY_PROMPT;
   if (process.env.PRSLOY_PROMPT_DELTA === "1") flags.promptDelta = true;
+  const auto = process.env.PRSLOY_AUTO_MEMORY;
+  if (auto === "1" || auto === "on") flags.autoMemory = true;
+  else if (auto === "shadow" || auto === "off") flags.autoMemory = auto;
+  for (const [env, key] of [
+    ["PRSLOY_HONEST_EXIT", "honestExit"],
+    ["PRSLOY_TEST_GUARD", "testGuard"],
+    ["PRSLOY_CLAIM_CHECK", "claimCheck"],
+  ] as const) {
+    if (process.env[env] === "1") flags[key] = true;
+    if (process.env[env] === "0") flags[key] = false;
+  }
   return flags;
 }
