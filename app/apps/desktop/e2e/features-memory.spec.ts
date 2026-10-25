@@ -69,3 +69,62 @@ test("a memory card in the chat and the «Память» settings", async () => 
     await closeLaunched(launched);
   }
 });
+
+test("«Забыть» and «Вернуть» from the card and the panel, «Забыть всё», on real files", async () => {
+  const launched = await launchRu({
+    tools: "read,memory",
+    toolCall: {
+      name: "memory",
+      arguments: {
+        action: "remember",
+        scope: "user",
+        text: "Звать меня Аня",
+        quote: "зови меня Аня, пожалуйста",
+      },
+    },
+    env: { PRSLOY_MEMORY: "1" },
+  });
+  const userFile = join(launched.agentDir, "prsloy-memory", "user.json");
+  const onDisk = async () => JSON.parse(await readFile(userFile, "utf8"));
+  try {
+    const { page } = launched;
+    await startHost(page);
+    await sendPrompt(page, "Use the tool: зови меня Аня, пожалуйста");
+    await waitSettled(page);
+    const card = page.getByTestId("memory-card");
+    await expect(card).toContainText("Запомнил: Звать меня Аня");
+
+    // The card: «Забыть» → «Забыл.» [Вернуть] → «Вернул.», each on disk.
+    await card.getByTestId("memory-card-forget").click();
+    await expect(card).toContainText("Забыл.");
+    await expect.poll(async () => (await onDisk()).entries.length).toBe(0);
+    await shot(page, "memory-4-card-forgot");
+    await card.getByTestId("memory-card-restore").click();
+    await expect(card).toContainText("Вернул.");
+    await expect.poll(async () => (await onDisk()).entries.map((e: { text: string }) => e.text)).toEqual([
+      "Звать меня Аня",
+    ]);
+    expect((await onDisk()).tombstones).toEqual([]);
+
+    // The panel: «Забыть» → «Недавно забыто» → «Вернуть».
+    await page.getByTestId("nav-settings").click();
+    await page.getByTestId("settings-nav-memory").click();
+    await expect(page.getByTestId("memory-user")).toContainText("Звать меня Аня");
+    await page.getByTestId("memory-user-forget").click();
+    await expect(page.getByTestId("memory-forgotten")).toContainText("Звать меня Аня");
+    await page.getByTestId("memory-forgotten-restore").click();
+    await expect(page.getByTestId("memory-user")).toContainText("Звать меня Аня");
+    await expect.poll(async () => (await onDisk()).entries.length).toBe(1);
+
+    // «Забыть всё» only after the confirm; then nothing is left.
+    await page.getByTestId("memory-forget-all").click();
+    const confirm = page.getByTestId("memory-forget-all-confirm");
+    await expect(confirm).toContainText("Отменить нельзя");
+    await shot(page, "memory-5-forget-all");
+    await confirm.getByRole("button", { name: "Забыть всё" }).click();
+    await expect(page.getByTestId("memory-user")).toContainText("Пока пусто.");
+    await expect.poll(async () => (await onDisk()).entries.length).toBe(0);
+  } finally {
+    await closeLaunched(launched);
+  }
+});
