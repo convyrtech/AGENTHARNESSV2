@@ -103,24 +103,217 @@ function isoDay(value: string | undefined): string | undefined {
   return Number.isNaN(t) ? undefined : new Date(t).toISOString().slice(0, 10);
 }
 
+/** Больше этого HTML не разбираем: хвост огромной страницы — не текст статьи. */
+export const MAX_HTML_CHARS = 2_000_000;
+/** Тег длиннее — мусор разметки; дальше не ищем его конец. */
+const MAX_TAG = 4096;
+
+/** Содержимое не текст: пропускаем целиком до закрывающего тега. */
+const RAW = new Set([
+  "script",
+  "style",
+  "noscript",
+  "svg",
+  "template",
+  "iframe",
+  "textarea",
+  "title",
+]);
+/** Обвязка страницы: меню, шапка, подвал, формы. */
+const CHROME = new Set(["nav", "header", "footer", "aside", "form"]);
+/** Блоки: после закрытия — перенос строки. */
+const BLOCK = new Set([
+  "p",
+  "div",
+  "li",
+  "h1",
+  "h2",
+  "h3",
+  "h4",
+  "h5",
+  "h6",
+  "tr",
+  "section",
+  "article",
+  "blockquote",
+  "pre",
+  "table",
+  "ul",
+  "ol",
+]);
+
+interface Scan {
+  title: string;
+  /** Текст без обвязки. */
+  text: string;
+  /** Текст первого <article>, иначе первого <main> (если есть). */
+  main: string | undefined;
+  /** Теги <meta …> и <time …> целиком (для даты). */
+  metas: string[];
+  times: string[];
+  /** Содержимое <script type="application/ld+json">. */
+  jsonld: string[];
+}
+
+/**
+ * Разбор HTML за один проход: каждый символ смотрим один раз, поиски конца (`-->`, `>`, `</script`) идут вперёд от
+ * текущего места и не возвращаются. Регулярки с ленивыми `[\s\S]*?` на враждебной странице квадратичны (200 КБ
+ * «<!--» — 21 с), а разбор синхронный — таймаут его не остановит.
+ */
+function scanHtml(input: string): Scan {
+  const html = input.length > MAX_HTML_CHARS ? input.slice(0, MAX_HTML_CHARS) : input;
+  const lower = html.toLowerCase();
+  const out: string[] = [];
+  const metas: string[] = [];
+  const times: string[] = [];
+  const jsonld: string[] = [];
+  let title = "";
+  let chrome = 0;
+  /** Первый <article> и первый <main>: свой буфер и глубина вложенности у каждого. */
+  const cap = {
+    article: {
+      buf: undefined as string[] | undefined,
+      depth: 0,
+      text: undefined as string | undefined,
+    },
+    main: {
+      buf: undefined as string[] | undefined,
+      depth: 0,
+      text: undefined as string | undefined,
+    },
+  };
+  const emit = (t: string) => {
+    if (chrome === 0) out.push(t);
+    cap.article.buf?.push(t);
+    cap.main.buf?.push(t);
+  };
+  let i = 0;
+  const n = html.length;
+  while (i < n) {
+    const lt = html.indexOf("<", i);
+    if (lt === -1) {
+      emit(html.slice(i));
+      break;
+    }
+    if (lt > i) emit(html.slice(i, lt));
+    if (lower.startsWith("<!--", lt)) {
+      const end = html.indexOf("-->", lt + 4);
+      emit(" ");
+      i = end === -1 ? n : end + 3;
+      continue;
+    }
+    const closing = html[lt + 1] === "/";
+    const nameStart = closing ? lt + 2 : lt + 1;
+    let j = nameStart;
+    while (j < n && /[A-Za-z0-9-]/.test(html[j]!)) j++;
+    if (j === nameStart || !/[a-z]/i.test(html[nameStart]!)) {
+      // «<» в тексте, «<!doctype», «<?xml»: не тег текста
+      if (html[lt + 1] === "!" || html[lt + 1] === "?") {
+        const end = html.indexOf(">", lt + 2);
+        i = end === -1 ? n : end + 1;
+      } else {
+        emit("<");
+        i = lt + 1;
+      }
+      continue;
+    }
+    const name = lower.slice(nameStart, j);
+    const gt = html.indexOf(">", j);
+    if (gt === -1 || gt - lt > MAX_TAG) {
+      // незакрытый или гигантский тег: дальше разметки нет
+      i = gt === -1 ? n : gt + 1;
+      continue;
+    }
+    const tag = html.slice(lt, gt + 1);
+    i = gt + 1;
+    if (closing) {
+      if (CHROME.has(name) && chrome > 0) chrome--;
+      if (name === "article" || name === "main") {
+        const c = cap[name];
+        if (c.buf && --c.depth === 0) {
+          c.text = c.buf.join("");
+          c.buf = undefined;
+        }
+      }
+      if (BLOCK.has(name)) emit("\n");
+      else emit(" ");
+      continue;
+    }
+    if (name === "meta") metas.push(tag);
+    if (name === "time") times.push(tag);
+    if (RAW.has(name) && !tag.endsWith("/>")) {
+      const close = lower.indexOf(`</${name}`, i);
+      const body = html.slice(i, close === -1 ? n : close);
+      if (name === "title" && !title) title = body;
+      if (name === "script" && /application\/ld\+json/i.test(tag)) jsonld.push(body);
+      if (close === -1) i = n;
+      else {
+        const end = html.indexOf(">", close);
+        i = end === -1 ? n : end + 1;
+      }
+      emit(" ");
+      continue;
+    }
+    if (CHROME.has(name)) chrome++;
+    if (name === "article" || name === "main") {
+      const c = cap[name];
+      if (c.buf) c.depth++;
+      else if (c.text === undefined) {
+        c.buf = [];
+        c.depth = 1;
+      }
+    }
+    if (name === "br" || name === "hr") emit("\n");
+    else emit(" ");
+  }
+  for (const c of [cap.article, cap.main]) if (c.buf) c.text = c.buf.join("");
+  return {
+    title,
+    text: out.join(""),
+    main: cap.article.text ?? cap.main.text,
+    metas,
+    times,
+    jsonld,
+  };
+}
+
+function tidy(text: string): string {
+  return decodeEntities(text)
+    .split("\n")
+    .map((l) => l.replace(/[ \t\f\v\u00a0]+/g, " ").trim())
+    .filter(Boolean)
+    .join("\n");
+}
+
 /** Дата публикации или изменения со страницы: самая поздняя из явных (статья могла обновиться). */
 export function pageDate(html: string): { date: string; from: PageText["dateFrom"] } | undefined {
+  return dateOf(scanHtml(html));
+}
+
+const META_NAME =
+  /(?:property|name|itemprop)=["'](article:published_time|article:modified_time|og:updated_time|datePublished|dateModified|date|DC\.date|pubdate|publish-date)["']/i;
+
+function dateOf(scan: Scan): { date: string; from: PageText["dateFrom"] } | undefined {
   const found: { date: string; from: NonNullable<PageText["dateFrom"]> }[] = [];
-  const META =
-    /<meta[^>]+(?:property|name|itemprop)=["'](article:published_time|article:modified_time|og:updated_time|datePublished|dateModified|date|DC\.date|pubdate|publish-date)["'][^>]*>/gi;
-  for (const m of html.matchAll(META)) {
-    const content = /content=["']([^"']+)["']/i.exec(m[0])?.[1];
-    const d = isoDay(content);
+  for (const m of scan.metas) {
+    if (!META_NAME.test(m)) continue;
+    const d = isoDay(/content=["']([^"']+)["']/i.exec(m)?.[1]);
     if (d) found.push({ date: d, from: "meta" });
   }
-  for (const m of html.matchAll(/"(datePublished|dateModified)"\s*:\s*"([^"]+)"/g)) {
-    const d = isoDay(m[2]);
-    if (d) found.push({ date: d, from: "jsonld" });
+  for (const block of scan.jsonld) {
+    for (const m of block.matchAll(/"(datePublished|dateModified)"\s*:\s*"([^"]{1,64})"/g)) {
+      const d = isoDay(m[2]);
+      if (d) found.push({ date: d, from: "jsonld" });
+    }
   }
   if (!found.length) {
-    const t = /<time[^>]+datetime=["']([^"']+)["']/i.exec(html)?.[1];
-    const d = isoDay(t);
-    if (d) found.push({ date: d, from: "time" });
+    for (const t of scan.times) {
+      const d = isoDay(/datetime=["']([^"']+)["']/i.exec(t)?.[1]);
+      if (d) {
+        found.push({ date: d, from: "time" });
+        break;
+      }
+    }
   }
   // будущие даты (анонсы, мусор разметки) не считаем
   const today = new Date().toISOString().slice(0, 10);
@@ -130,26 +323,13 @@ export function pageDate(html: string): { date: string; from: PageText["dateFrom
 
 /** Текст HTML-страницы: без скриптов, стилей, меню и подвала; основное — из <article> или <main>, если оно есть. */
 export function htmlToText(html: string): { title: string; text: string } {
-  const title = decodeEntities(/<title[^>]*>([\s\S]*?)<\/title>/i.exec(html)?.[1] ?? "")
-    .replace(/\s+/g, " ")
-    .trim();
-  let body = html.replace(/<!--[\s\S]*?-->/g, " ");
-  body = body.replace(/<(script|style|noscript|svg|template|iframe)\b[\s\S]*?<\/\1>/gi, " ");
-  const main =
-    /<article\b[\s\S]*?<\/article>/i.exec(body)?.[0] ?? /<main\b[\s\S]*?<\/main>/i.exec(body)?.[0];
-  if (main && main.replace(/<[^>]+>/g, "").trim().length >= MIN_TEXT) body = main;
-  else body = body.replace(/<(nav|header|footer|aside|form)\b[\s\S]*?<\/\1>/gi, " ");
-  body = body
-    .replace(/<(br|hr)\b[^>]*>/gi, "\n")
-    .replace(/<\/(p|div|li|h[1-6]|tr|section|article|blockquote|pre|table|ul|ol)>/gi, "\n")
-    .replace(/<(td|th)\b[^>]*>/gi, " ")
-    .replace(/<[^>]+>/g, " ");
-  const text = decodeEntities(body)
-    .split("\n")
-    .map((l) => l.replace(/[ \t\f\v ]+/g, " ").trim())
-    .filter(Boolean)
-    .join("\n");
-  return { title, text };
+  return textOf(scanHtml(html));
+}
+
+function textOf(scan: Scan): { title: string; text: string } {
+  const title = decodeEntities(scan.title).replace(/\s+/g, " ").trim();
+  const main = scan.main !== undefined ? tidy(scan.main) : "";
+  return { title, text: main.length >= MIN_TEXT ? main : tidy(scan.text) };
 }
 
 async function direct(url: string, deps: ReadDeps): Promise<PageText> {
@@ -179,8 +359,9 @@ async function direct(url: string, deps: ReadDeps): Promise<PageText> {
       : buf;
   const raw = decode(bytes, type);
   const isHtml = /html|xml/i.test(type) || /^\s*<(!doctype|html)/i.test(raw);
-  const { title, text } = isHtml ? htmlToText(raw) : { title: "", text: raw.trim() };
-  const fromPage = isHtml ? pageDate(raw) : undefined;
+  const scan = isHtml ? scanHtml(raw) : undefined;
+  const { title, text } = scan ? textOf(scan) : { title: "", text: raw.trim() };
+  const fromPage = scan ? dateOf(scan) : undefined;
   const header = isoDay(res.headers.get("last-modified") ?? undefined);
   const page: PageText = {
     url,
