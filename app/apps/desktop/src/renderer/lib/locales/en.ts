@@ -1439,4 +1439,13 @@ export const en = {
   "auth.usage.resetSoon": "Resetting soon",
   "auth.usage.resetIn": "Resets in {duration}",
   "auth.usage.window": "{duration} window",
+  "casual.section": "Preferences",
+  "casual.rubPerUsd": "Rubles per dollar",
+  "casual.developerMode": "For developers",
+  "casual.developerModeHint": "Terminal, packages, MCP, provider logins and the full model list",
+  "composer.tier.label": "Model",
+  "composer.tier.fast": "Faster",
+  "composer.tier.quality": "Better",
+  "cost.turn": "turn {amount}",
+  "cost.session": "chat {amount}",
 } as const;

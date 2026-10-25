@@ -40,6 +40,7 @@ import {
   type ExtensionUiPortableState,
 } from "../lib/extension-ui-state.ts";
 import { useShellStore } from "../store/shell-store.ts";
+import { useCasualPrefs } from "../hooks/useCasualPrefs.ts";
 import { anchorFromEvent, FloatingMenu, type AnchorRect } from "./FloatingMenu.tsx";
 import { ConfirmDialog } from "./ConfirmDialog.tsx";
 import { RenameDialog } from "./RenameDialog.tsx";
@@ -73,6 +74,7 @@ export function ThreadHeader(props: {
   const setEnvPanelOpen = useShellStore((s) => s.setEnvPanelOpen);
   const contentMode = useShellStore((s) => s.contentMode);
   const toggleContentModePref = useShellStore((s) => s.toggleContentMode);
+  const { developerMode } = useCasualPrefs();
   const [menuOpen, setMenuOpen] = useState(false);
   const [anchor, setAnchor] = useState<AnchorRect | null>(null);
   const [pinnedIds, setPinnedIds] = useState(loadPinnedThreads);
@@ -306,44 +308,46 @@ export function ThreadHeader(props: {
         ) : (
           <div className="min-w-0 flex-1" aria-hidden />
         )}
-        <button
-          type="button"
-          data-testid="thread-content-mode-toggle"
-          className={cn(
-            "no-drag inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg",
-            "cursor-pointer text-[var(--muted-foreground)] hover:bg-[var(--hover-fill)] hover:text-[var(--foreground)]",
-            contentMode === "terminal" && "bg-[var(--accent)] text-[var(--foreground)]",
-            props.contentModeSwitchLocked && "cursor-not-allowed opacity-40",
-          )}
-          title={
-            props.contentModeSwitchLocked
-              ? tr("contentMode.waitForTurn")
-              : contentMode === "terminal"
-                ? tr("contentMode.toggleToChat")
-                : tr("contentMode.toggleToTerminal")
-          }
-          aria-label={
-            props.contentModeSwitchLocked
-              ? tr("contentMode.waitForTurn")
-              : contentMode === "terminal"
-                ? tr("contentMode.toggleToChat")
-                : tr("contentMode.toggleToTerminal")
-          }
-          aria-pressed={contentMode === "terminal"}
-          data-content-mode={contentMode}
-          disabled={props.contentModeSwitchLocked}
-          onClick={() => {
-            if (props.contentModeSwitchLocked) return;
-            if (props.onToggleContentMode) props.onToggleContentMode();
-            else toggleContentModePref();
-          }}
-        >
-          {contentMode === "terminal" ? (
-            <MessageSquare className="size-3.5" strokeWidth={1.75} />
-          ) : (
-            <Terminal className="size-3.5" strokeWidth={1.75} />
-          )}
-        </button>
+        {developerMode || contentMode === "terminal" ? (
+          <button
+            type="button"
+            data-testid="thread-content-mode-toggle"
+            className={cn(
+              "no-drag inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg",
+              "cursor-pointer text-[var(--muted-foreground)] hover:bg-[var(--hover-fill)] hover:text-[var(--foreground)]",
+              contentMode === "terminal" && "bg-[var(--accent)] text-[var(--foreground)]",
+              props.contentModeSwitchLocked && "cursor-not-allowed opacity-40",
+            )}
+            title={
+              props.contentModeSwitchLocked
+                ? tr("contentMode.waitForTurn")
+                : contentMode === "terminal"
+                  ? tr("contentMode.toggleToChat")
+                  : tr("contentMode.toggleToTerminal")
+            }
+            aria-label={
+              props.contentModeSwitchLocked
+                ? tr("contentMode.waitForTurn")
+                : contentMode === "terminal"
+                  ? tr("contentMode.toggleToChat")
+                  : tr("contentMode.toggleToTerminal")
+            }
+            aria-pressed={contentMode === "terminal"}
+            data-content-mode={contentMode}
+            disabled={props.contentModeSwitchLocked}
+            onClick={() => {
+              if (props.contentModeSwitchLocked) return;
+              if (props.onToggleContentMode) props.onToggleContentMode();
+              else toggleContentModePref();
+            }}
+          >
+            {contentMode === "terminal" ? (
+              <MessageSquare className="size-3.5" strokeWidth={1.75} />
+            ) : (
+              <Terminal className="size-3.5" strokeWidth={1.75} />
+            )}
+          </button>
+        ) : null}
         {showEnvToggle ? (
           <button
             type="button"

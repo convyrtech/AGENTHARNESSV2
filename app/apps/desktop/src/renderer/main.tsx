@@ -20,6 +20,8 @@ import {
 } from "react";
 import { createRoot } from "react-dom/client";
 import { flushSync } from "react-dom";
+import { ResourcesPage } from "./components/ResourcesPage.tsx";
+import { loadCasualPrefs } from "./lib/casual-prefs.ts";
 import { ArrowDown } from "lucide-react";
 import { AppSidebar } from "./components/AppSidebar.tsx";
 import { CommandPalette } from "./components/CommandPalette.tsx";
@@ -294,7 +296,12 @@ function App() {
     const targetBusy = sessionFile
       ? useShellStore.getState().isSessionRunning(sessionFile)
       : useShellStore.getState().running;
-    if (desired === "terminal" && !targetBusy && sessionFile?.trim()) {
+    if (
+      desired === "terminal" &&
+      loadCasualPrefs().developerMode &&
+      !targetBusy &&
+      sessionFile?.trim()
+    ) {
       // Warm Ghostty before mounting the surface so WASM startup overlaps the
       // session/layout work instead of delaying the first visible frame.
       preloadPiTuiTerminal();
@@ -1948,6 +1955,7 @@ function App() {
   }
 
   async function openPackages() {
+    if (!loadCasualPrefs().developerMode) return;
     setView("packages");
     setSidebarOpen(false);
     setEcoLoading(true);
@@ -1961,6 +1969,7 @@ function App() {
   }
 
   async function openResources() {
+    if (!loadCasualPrefs().developerMode) return;
     setView("resources");
     setSidebarOpen(false);
     setEcoLoading(true);
@@ -2706,7 +2715,9 @@ function App() {
     switchingSessionRef.current = true;
     const fromMode = useShellStore.getState().contentMode;
     // Best-effort target mode from prefs (sessionPath is the session file).
-    const targetModePref = loadContentModeForSession(sessionPath);
+    const targetModePref = loadCasualPrefs().developerMode
+      ? loadContentModeForSession(sessionPath)
+      : "chat";
     const stayTerminal = fromMode === "terminal" && targetModePref === "terminal";
     const landTerminal = targetModePref === "terminal";
 
@@ -2949,7 +2960,7 @@ function App() {
     }
     if (store.contentMode === "terminal") {
       await leaveTerminalMode();
-    } else {
+    } else if (loadCasualPrefs().developerMode) {
       await enterTerminalMode();
     }
   }
@@ -4450,74 +4461,6 @@ function PackagesPage(props: {
                 onRemove={(name) => void removeMcp(name)}
               />
             </>
-          )}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function ResourcesPage(props: {
-  locale: Locale;
-  resources: ResourceSummary[];
-  loading: boolean;
-  onRefresh: () => void;
-}) {
-  const tr = (key: Parameters<typeof t>[1], vars?: Record<string, string>) =>
-    t(props.locale, key, vars);
-  return (
-    <section className="page" data-testid="resources-page">
-      <header className="page-header">
-        <h1>{tr("resources.title")}</h1>
-        <div className="page-header-actions">
-          <button
-            type="button"
-            className="btn-secondary"
-            data-testid="resources-refresh"
-            onClick={props.onRefresh}
-            disabled={props.loading}
-          >
-            {props.loading ? tr("resources.loading") : tr("resources.refresh")}
-          </button>
-        </div>
-      </header>
-      <div className="page-body">
-        <div className="page-body-inner">
-          {props.resources.length === 0 ? (
-            <div className="empty-panel" data-testid="resources-empty">
-              <h2>{tr("resources.emptyTitle")}</h2>
-              <p>{tr("resources.emptyBody")}</p>
-            </div>
-          ) : (
-            <div className="item-list" data-testid="resources-list">
-              {props.resources.map((item) => (
-                <article key={`${item.kind}:${item.path}:${item.name}`} className="item-card">
-                  <div className="min-w-0">
-                    <div className="title">{item.name}</div>
-                    <div className="meta">
-                      {item.path || "—"}
-                      {item.source ? ` · ${item.source}` : ""}
-                      {item.kind === "context" || item.kind === "system"
-                        ? tr("resources.contextHint")
-                        : ""}
-                    </div>
-                  </div>
-                  <div className="badges flex items-center gap-2">
-                    <span className="chip">{item.kind}</span>
-                    {item.path ? (
-                      <button
-                        type="button"
-                        className="btn-ghost text-xs"
-                        data-testid={`resource-open-${item.kind}-${item.name}`}
-                        onClick={() => void window.zeno.workspace.openFile(item.path)}
-                      >
-                        {tr("resources.open")}
-                      </button>
-                    ) : null}
-                  </div>
-                </article>
-              ))}
-            </div>
           )}
         </div>
       </div>

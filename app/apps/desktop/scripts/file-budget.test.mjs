@@ -44,12 +44,15 @@ const FROZEN = {
   // which also let that logic be tested for the first time. Banked, per the note above.
   "main/index.ts": 5753,
   // 4605 → 4534: the MCP servers list became `components/McpServersSection.tsx`.
-  "renderer/main.tsx": 4534,
-  "renderer/components/settings/SettingsPage.tsx": 5163,
+  // 4534 → 4477: `ResourcesPage` moved to its own component, paying for the casual-mode gates.
+  "renderer/main.tsx": 4477,
+  // 5163 → 5109: `EnvironmentSection` moved out, paying for the ru option and casual prefs.
+  "renderer/components/settings/SettingsPage.tsx": 5109,
   // 2194 → 1811: the composer's menu rows moved to `components/ComposerMenus.tsx` and its
   // suggestion helpers to `components/ComposerSuggestMenus.tsx`, which paid for the composer's
   // right-click menu. Banked rather than left as slack, per the note above.
-  "renderer/components/Composer.tsx": 1811,
+  // 1811 → 1758: `ContextUsageIndicator` moved out, paying for the tier switch and cost chip.
+  "renderer/components/Composer.tsx": 1758,
 };
 
 /** No other source file may reach this. Catches a new God module while it is still small. */

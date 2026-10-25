@@ -1409,4 +1409,13 @@ export const zh = {
   "auth.usage.resetSoon": "即将重置",
   "auth.usage.resetIn": "{duration}后重置",
   "auth.usage.window": "{duration}窗口",
+  "casual.section": "偏好",
+  "casual.rubPerUsd": "卢布兑美元汇率",
+  "casual.developerMode": "开发者模式",
+  "casual.developerModeHint": "终端、插件、MCP、提供商登录与完整模型列表",
+  "composer.tier.label": "模型",
+  "composer.tier.fast": "更快",
+  "composer.tier.quality": "更好",
+  "cost.turn": "本回合 {amount}",
+  "cost.session": "会话 {amount}",
 } as const;

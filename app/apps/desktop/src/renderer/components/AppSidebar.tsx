@@ -49,6 +49,8 @@ import { SHELL_SIDEBAR } from "../lib/layout.ts";
 import { clampSidebarWidth, SIDEBAR_COLLAPSED_WIDTH } from "../lib/sidebar-prefs.ts";
 import { loadGroupMode, type GroupMode } from "../lib/sidebar-organize.ts";
 import { cn } from "../lib/utils.ts";
+import { isSettingsSectionVisible } from "../lib/casual-prefs.ts";
+import { useCasualPrefs } from "../hooks/useCasualPrefs.ts";
 import type { SessionMarker } from "../lib/session-markers.ts";
 import type { SettingsSection, ShellView } from "../store/shell-store.ts";
 import type { ThreadRunState } from "../lib/timeline.ts";
@@ -332,6 +334,7 @@ function ProductRail(
   },
 ) {
   const { tr } = props;
+  const { developerMode } = useCasualPrefs();
   // List layout hides 置顶/项目 rail groups — surface a full-page 项目 manager instead.
   const [groupMode, setGroupMode] = useState<GroupMode>(loadGroupMode);
   useEffect(() => {
@@ -389,25 +392,29 @@ function ProductRail(
             onClick={props.onOpenProjects}
           />
         ) : null}
-        <NavBtn
-          testId="nav-packages"
-          active={props.view === "packages"}
-          icon={<Package className="size-4 shrink-0 opacity-70" strokeWidth={1.75} />}
-          label={tr("nav.packages")}
-          badge={props.mcpBadge ?? String(props.packageCount)}
-          title={
-            props.mcpDetail ? `${tr("nav.packages")} · ${props.mcpDetail}` : tr("nav.packages")
-          }
-          onClick={props.onOpenPackages}
-        />
-        <NavBtn
-          testId="nav-resources"
-          active={props.view === "resources"}
-          icon={<Boxes className="size-4 shrink-0 opacity-70" strokeWidth={1.75} />}
-          label={tr("nav.resources")}
-          badge={String(props.resourceCount)}
-          onClick={props.onOpenResources}
-        />
+        {developerMode ? (
+          <>
+            <NavBtn
+              testId="nav-packages"
+              active={props.view === "packages"}
+              icon={<Package className="size-4 shrink-0 opacity-70" strokeWidth={1.75} />}
+              label={tr("nav.packages")}
+              badge={props.mcpBadge ?? String(props.packageCount)}
+              title={
+                props.mcpDetail ? `${tr("nav.packages")} · ${props.mcpDetail}` : tr("nav.packages")
+              }
+              onClick={props.onOpenPackages}
+            />
+            <NavBtn
+              testId="nav-resources"
+              active={props.view === "resources"}
+              icon={<Boxes className="size-4 shrink-0 opacity-70" strokeWidth={1.75} />}
+              label={tr("nav.resources")}
+              badge={String(props.resourceCount)}
+              onClick={props.onOpenResources}
+            />
+          </>
+        ) : null}
       </nav>
 
       <ProjectList
@@ -528,6 +535,7 @@ function SettingsRail(props: {
   onSection: (section: SettingsSection) => void;
 }) {
   const tr = (key: MessageKey) => t(props.locale, key);
+  const { developerMode } = useCasualPrefs();
   const [query, setQuery] = useState("");
   const q = query.trim().toLowerCase();
 
@@ -701,6 +709,7 @@ function SettingsRail(props: {
     .map((group) => ({
       ...group,
       items: group.items.filter((item) => {
+        if (!isSettingsSectionVisible(item.section, developerMode)) return false;
         if (!q) return true;
         const label = tr(item.labelKey).toLowerCase();
         const groupLabel = tr(group.labelKey).toLowerCase();
@@ -864,6 +873,7 @@ function SidebarUpdateButton(props: {
     canCheck: false,
   });
   const [busy, setBusy] = useState(false);
+  const { developerMode } = useCasualPrefs();
   const phase = sidebarUpdatePhase(status);
   const percent =
     status.percent !== undefined && Number.isFinite(status.percent)
@@ -937,6 +947,9 @@ function SidebarUpdateButton(props: {
             : phase === "downloaded"
               ? tr("nav.update.restartInstall")
               : tr("nav.update.github");
+
+  // Idle, the button is a link to the upstream repository — a developer's concern.
+  if (phase === "github" && !developerMode) return null;
 
   return (
     <button

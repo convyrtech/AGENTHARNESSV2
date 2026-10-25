@@ -43,11 +43,6 @@ import {
 } from "../../lib/i18n.ts";
 import { groupModelsByProvider } from "../../lib/model-groups.ts";
 import type { ServiceTierId } from "../../lib/service-tier.ts";
-import {
-  loadEnvPanelVisibility,
-  setEnvPanelSectionVisible,
-  type EnvPanelSectionId,
-} from "../../lib/env-panel-prefs.ts";
 import { requestMacNotificationPermission } from "../../lib/notification-permission.ts";
 import {
   loadNotificationPrefs,
@@ -162,6 +157,8 @@ import {
   SettingsToggle,
 } from "./SettingsPrimitives.tsx";
 import { PetSection } from "./PetSection.tsx";
+import { EnvironmentSection } from "./EnvironmentSection.tsx";
+import { CasualPrefsBlock } from "./CasualPrefsBlock.tsx";
 
 export interface SettingsPageProps {
   snapshot: HostSnapshot | undefined;
@@ -234,7 +231,7 @@ export function SettingsPage(props: SettingsPageProps) {
         ) : props.section === "pet" ? (
           <PetSection tr={tr} />
         ) : props.section === "environment" ? (
-          <EnvironmentSection {...props} tr={tr} />
+          <EnvironmentSection tr={tr} />
         ) : props.section === "worktree" ? (
           <WorktreeSection {...props} tr={tr} />
         ) : props.section === "git" ? (
@@ -837,59 +834,6 @@ function NotificationsSection(
           onClick={() => void window.zeno.notifications.openSystemSettings()}
         />
       </div>
-    </SettingsPageShell>
-  );
-}
-
-function EnvironmentSection(
-  props: SettingsPageProps & { tr: (key: MessageKey, vars?: Record<string, string>) => string },
-) {
-  const { tr } = props;
-  const [visibility, setVisibility] = useState(loadEnvPanelVisibility);
-
-  function toggle(id: EnvPanelSectionId, on: boolean) {
-    const next = setEnvPanelSectionVisible(id, on);
-    setVisibility(next);
-    window.dispatchEvent(new Event("zeno-env-panel-prefs"));
-  }
-
-  const rows: Array<{ id: EnvPanelSectionId; titleKey: MessageKey; descKey: MessageKey }> = [
-    { id: "changes", titleKey: "env.section.changes", descKey: "env.section.changesDesc" },
-    { id: "cwd", titleKey: "env.section.cwd", descKey: "env.section.cwdDesc" },
-    { id: "branch", titleKey: "env.section.branch", descKey: "env.section.branchDesc" },
-    {
-      id: "gitActions",
-      titleKey: "env.section.gitActions",
-      descKey: "env.section.gitActionsDesc",
-    },
-    { id: "openIn", titleKey: "env.section.openIn", descKey: "env.section.openInDesc" },
-    {
-      id: "localServices",
-      titleKey: "env.section.localServices",
-      descKey: "env.section.localServicesDesc",
-    },
-  ];
-
-  return (
-    <SettingsPageShell title={tr("section.environment")} testId="settings-environment">
-      <SettingsSectionBlock label={tr("env.title")} testId="settings-env-visibility">
-        {rows.map((row, index) => (
-          <SettingsRow
-            key={row.id}
-            title={tr(row.titleKey)}
-            description={tr(row.descKey)}
-            control={
-              <SettingsToggle
-                checked={visibility[row.id]}
-                onChange={(on) => toggle(row.id, on)}
-                testId={`settings-env-${row.id}`}
-                aria-label={tr(row.titleKey)}
-              />
-            }
-            last={index === rows.length - 1}
-          />
-        ))}
-      </SettingsSectionBlock>
     </SettingsPageShell>
   );
 }
@@ -2044,6 +1988,7 @@ function GeneralSection(
 
   return (
     <SettingsPageShell title={tr("section.general")} testId="settings-general">
+      <CasualPrefsBlock tr={tr} />
       <SettingsSectionBlock label={tr("settings.permissions")} testId="settings-permissions">
         <SettingsRow
           title={tr("settings.defaultAccess")}

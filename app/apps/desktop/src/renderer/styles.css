@@ -6467,3 +6467,49 @@ textarea.models-scoped-patterns-input[data-slot="textarea"] {
     @apply absolute inset-y-0 left-0 z-30 w-[min(272px,88vw)] shadow-2xl;
   }
 }
+
+/* Casual composer controls: «Быстрее | Качественнее» and the ruble cost of turn and chat. */
+.model-tier-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 9999px;
+  background: var(--surface-muted);
+}
+.model-tier-option {
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 9999px;
+  font-size: 12px;
+  color: var(--muted-foreground);
+  cursor: pointer;
+  transition:
+    background-color 0.15s,
+    color 0.15s;
+}
+.model-tier-option:hover:not(:disabled) {
+  color: var(--foreground);
+}
+.model-tier-option[data-active="true"] {
+  background: var(--card);
+  color: var(--foreground);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.08);
+}
+.model-tier-option:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+.cost-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 6px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--muted-foreground);
+}
+.cost-chip-sep {
+  opacity: 0.5;
+}

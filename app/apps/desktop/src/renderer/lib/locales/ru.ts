@@ -1431,4 +1431,13 @@ export const ru = {
   "auth.usage.resetSoon": "Скоро сбросится",
   "auth.usage.resetIn": "Сброс через {duration}",
   "auth.usage.window": "Окно {duration}",
+  "casual.section": "Основное",
+  "casual.rubPerUsd": "Курс ₽ за $",
+  "casual.developerMode": "Для разработчиков",
+  "casual.developerModeHint": "Терминал, пакеты, MCP, вход к провайдерам и полный список моделей",
+  "composer.tier.label": "Модель",
+  "composer.tier.fast": "Быстрее",
+  "composer.tier.quality": "Качественнее",
+  "cost.turn": "ход {amount}",
+  "cost.session": "чат {amount}",
 } as const;

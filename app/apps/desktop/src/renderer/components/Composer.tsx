@@ -55,7 +55,10 @@ import {
 } from "./FloatingMenu.tsx";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { ContextUsageIndicator } from "./ContextUsageIndicator.tsx";
+import { CostChip } from "./CostChip.tsx";
+import { ModelTierSwitch } from "./ModelTierSwitch.tsx";
+import { useCasualPrefs } from "../hooks/useCasualPrefs.ts";
 import { ComposerAttachmentList } from "./ComposerAttachmentList.tsx";
 import { ComposerQueueCard } from "./ComposerQueueCard.tsx";
 import { AccessOption, FlyoutRow, MenuRow } from "./ComposerMenus.tsx";
@@ -189,74 +192,6 @@ function accessDesc(locale: Locale, mode: AccessMode): string {
   return t(locale, "composer.access.defaultDesc");
 }
 
-function formatContext(percent: number | undefined, tokens: number | undefined): string {
-  if (percent != null && Number.isFinite(percent)) return `${Math.round(percent)}%`;
-  if (tokens != null && Number.isFinite(tokens) && tokens > 0) {
-    if (tokens >= 1000) return `${(tokens / 1000).toFixed(tokens >= 10_000 ? 0 : 1)}k`;
-    return `${tokens}`;
-  }
-  // No live usage yet — show empty capacity, never a dash.
-  return "0%";
-}
-
-function ContextUsageIndicator(props: {
-  label: string;
-  percent: number | undefined;
-  tokens: number | undefined;
-}) {
-  const rawPercent = props.percent;
-  const hasPercent = rawPercent != null && Number.isFinite(rawPercent);
-  const value = hasPercent ? Math.min(100, Math.max(0, Math.round(rawPercent))) : 0;
-  const detail = formatContext(props.percent, props.tokens);
-  const accessibleLabel = `${props.label}: ${detail}`;
-
-  return (
-    <TooltipProvider delayDuration={200}>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <span
-            className="inline-flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-full text-muted-foreground"
-            data-testid="usage-chip"
-            data-context-percent={value}
-            role="meter"
-            aria-label={accessibleLabel}
-            aria-valuemin={0}
-            aria-valuemax={100}
-            {...(hasPercent ? { "aria-valuenow": value } : {})}
-          >
-            <svg className="size-4" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-              <circle
-                cx="10"
-                cy="10"
-                r="7"
-                stroke="currentColor"
-                strokeWidth="2.25"
-                opacity="0.2"
-              />
-              {value > 0 ? (
-                <circle
-                  cx="10"
-                  cy="10"
-                  r="7"
-                  pathLength="100"
-                  stroke="currentColor"
-                  strokeWidth="2.25"
-                  strokeLinecap="round"
-                  strokeDasharray="100"
-                  strokeDashoffset={100 - value}
-                  transform="rotate(-90 10 10)"
-                />
-              ) : null}
-            </svg>
-            <span className="sr-only">{detail}</span>
-          </span>
-        </TooltipTrigger>
-        <TooltipContent side="top">{accessibleLabel}</TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
-  );
-}
-
 /** Composer prompt: fixed base of 2 lines, grow to 12, then scroll. */
 const COMPOSER_PROMPT_MIN_LINES = 2;
 const COMPOSER_PROMPT_MAX_LINES = 12;
@@ -308,6 +243,7 @@ export function Composer(props: ComposerProps) {
   /** Mirror layer under the transparent textarea for skill / link / @path highlights. */
   const promptHighlightRef = useRef<HTMLDivElement | null>(null);
   /** Which model-submenu flyout is open: thinking | speed */
+  const { developerMode } = useCasualPrefs();
   const [modelFlyout, setModelFlyout] = useState<"thinking" | "speed" | null>(null);
   const modelFlyoutCloseTimer = useRef<number | null>(null);
   const rootRef = useRef<HTMLDivElement | null>(null);
@@ -1106,38 +1042,49 @@ export function Composer(props: ComposerProps) {
 
           {/* Right: context + model + send */}
           <div className="flex shrink-0 items-center gap-1">
-            {props.showContextUsage !== false ? (
+            <CostChip locale={props.locale} />
+            {developerMode && props.showContextUsage !== false ? (
               <ContextUsageIndicator
                 label={tr("composer.context")}
                 percent={props.contextPercent}
                 tokens={props.contextTokens}
               />
             ) : null}
-            <button
-              type="button"
-              data-testid="model-select-wrap"
-              title={
-                thinkingSupported
-                  ? `${modelLabel} ${thinkingLevelLabel(props.locale, props.thinkingLevel)}`
-                  : modelLabel
-              }
-              className={cn(
-                "inline-flex h-8 min-w-0 max-w-[14rem] cursor-pointer items-center gap-2 rounded-full px-2",
-                "text-[12px] text-[var(--muted-foreground)] hover:bg-[var(--hover-fill)] hover:text-[var(--foreground)]",
-                !props.modelOptions.length && !props.modelValue && "opacity-50",
-              )}
-              disabled={props.running}
-              onClick={(e) => openMenu("model", e)}
-            >
-              <span className="min-w-0 truncate" data-testid="model-select-label">
-                {modelLabel}
-              </span>
-              {thinkingSupported ? (
-                <span className="shrink-0 opacity-70" data-testid="model-thinking-label">
-                  {thinkingLevelLabel(props.locale, props.thinkingLevel)}
+            {!developerMode ? (
+              <ModelTierSwitch
+                locale={props.locale}
+                modelValue={props.modelValue}
+                modelOptions={props.modelOptions}
+                disabled={props.running}
+                onModelChange={props.onModelChange}
+              />
+            ) : (
+              <button
+                type="button"
+                data-testid="model-select-wrap"
+                title={
+                  thinkingSupported
+                    ? `${modelLabel} ${thinkingLevelLabel(props.locale, props.thinkingLevel)}`
+                    : modelLabel
+                }
+                className={cn(
+                  "inline-flex h-8 min-w-0 max-w-[14rem] cursor-pointer items-center gap-2 rounded-full px-2",
+                  "text-[12px] text-[var(--muted-foreground)] hover:bg-[var(--hover-fill)] hover:text-[var(--foreground)]",
+                  !props.modelOptions.length && !props.modelValue && "opacity-50",
+                )}
+                disabled={props.running}
+                onClick={(e) => openMenu("model", e)}
+              >
+                <span className="min-w-0 truncate" data-testid="model-select-label">
+                  {modelLabel}
                 </span>
-              ) : null}
-            </button>
+                {thinkingSupported ? (
+                  <span className="shrink-0 opacity-70" data-testid="model-thinking-label">
+                    {thinkingLevelLabel(props.locale, props.thinkingLevel)}
+                  </span>
+                ) : null}
+              </button>
+            )}
             {/* hidden native selects for e2e/compat */}
             <select
               data-testid="model-select"
