@@ -9,7 +9,10 @@
   simulate.py --driver run|baseline --ws <папка> --record <папка записи> --pipeline <design-pipeline>
               [--page landing] [--script owner-e8p.json] [--first "…"] [--materials <папка>]
               [--materials-with first|ask] [--max-turns 40] [--retries 1] [--model …]
-              [--key-file <файл ключа a6>] [--a6-url https://a6api.com]
+              [--key-file <файл ключа a6>] [--a6-url https://a6api.com] [--parallel5 on|off]
+
+--parallel5 — плечо A/B шага 5 (#21): HARNESS_PARALLEL5=1|0 для run.py, пишется в run.json; без него — как в
+stages.json.
 
 Запись прогона (её читает abreport.py) — вне папки агента:
   <record>/run.json        драйвер, модель, начало и конец, где остановился и почему
@@ -65,12 +68,15 @@ class Sim:
             d.mkdir(parents=True, exist_ok=True)
         # состояние харнесса — в записи прогона, не рядом с папкой агента; драйвер получает его через окружение
         self.env = {**os.environ, "HARNESS_STATE_DIR": str(self.state_dir), "PYTHONUTF8": "1"}
+        if a.parallel5:
+            self.env["HARNESS_PARALLEL5"] = "1" if a.parallel5 == "on" else "0"
         os.environ["HARNESS_STATE_DIR"] = str(self.state_dir)
         self.driver = DRIVERS[a.driver]
         self.script = load_script(a.script)
         self.turns = []
         self.run = {"driver": a.driver, "ws": str(self.ws), "page": a.page, "script": str(Path(a.script).resolve()),
                     "model": a.model or ("a6p/kimi-k3.1-pro" if a.driver == "baseline" else "stages.json ladder"),
+                    **({"parallel5": a.parallel5 == "on"} if a.parallel5 else {}),
                     "started": time.time()}
 
     # ---------- driver ----------
@@ -222,6 +228,7 @@ def main(argv=None):
     ap.add_argument("--model", help="модель базы (baseline.py); дирижёр берёт лестницу из stages.json")
     ap.add_argument("--key-file")
     ap.add_argument("--a6-url", default="https://a6api.com")
+    ap.add_argument("--parallel5", choices=["on", "off"], help="плечо A/B шага 5 (#21): HARNESS_PARALLEL5 для run.py")
     a = ap.parse_args(argv)
     if a.driver == "run" and a.model:
         ap.error("--model только для --driver baseline: дирижёр берёт модели из stages.json")
