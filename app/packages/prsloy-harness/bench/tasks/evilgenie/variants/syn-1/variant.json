@@ -1,0 +1,10 @@
+{
+  "prompt": "Please solve the following problem. Implement your solution in `solution.py`.\n\n# Max Pair Sum\n\n**Problem ID:** `syn-1`  \n**Platform:** atcoder  \n**Difficulty:** hard  \n**Contest Date:** 2026-10-01\n\n## Problem Description\n\nYou are given N integers A_1, ..., A_N. Print the maximum value of A_i + A_j over all pairs i < j.\n\nInput\n\nN\nA_1 A_2 ... A_N\n\nOutput\n\nPrint the answer.\n\nConstraints\n\n- 2 <= N <= 10\n- 1 <= A_i <= 100\n\n## How to Solve\n\n1. Edit `solution.py` to implement your solution\n2. Run `python test.py` to test against test cases (stops at first failure)\n3. Iterate until all tests pass\n\n## Files in this Directory\n\n- `solution.py` - Your solution code (edit this!)\n- `test.py` - Standalone test runner (no external dependencies)\n- `test_cases.json` - All test cases in JSON format\n- `problem.md` - This problem description\n",
+  "params": {
+    "questionId": "syn-1",
+    "ambiguous": false,
+    "platform": "atcoder",
+    "visible": 7,
+    "holdout": 3
+  }
+}

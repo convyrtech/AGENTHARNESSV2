@@ -1,4 +1,6 @@
 // M-0 (research/24 §3.4, research/21): сравнение записей памяти по основам слов, а не по точному тексту.
+// Нормализация: общие первые 4 буквы у основ ≥5 букв («платных» / «платить») и транслит латиница ↔ кириллица
+// для коротких имён по скелету согласных («Mac» / «мак», «Google» / «гуглом»).
 // - Связь text ↔ quote: запись должна пересказывать слова пользователя. Обязательный префикс («Пользователь…»,
 //   «В проекте…») и слова-маркеры («всегда», «запомни»…) в сравнении не участвуют.
 // - Полярность: «не / нет / без / больше не / никогда / перестал» сравниваются отдельно. Разная полярность —
@@ -121,11 +123,50 @@ export function signature(text: string): Signature {
   return { stems, negations, negated };
 }
 
-/** Две основы — одно слово: равны или одна начинается с другой (≥4 букв). */
+/** Согласные латиницы и кириллицы в одном алфавите: «mac» и «мак», «google» и «гугл» дают один скелет. */
+const CONSONANTS: Record<string, string> = {
+  б: "b", в: "v", г: "g", д: "d", ж: "z", з: "z", к: "k", л: "l", м: "m", н: "n", п: "p", р: "r", с: "s",
+  т: "t", ф: "f", х: "h", ц: "s", ч: "c", ш: "s", щ: "s",
+  b: "b", c: "k", d: "d", f: "f", g: "g", h: "h", j: "z", k: "k", l: "l", m: "m", n: "n", p: "p", q: "k",
+  r: "r", s: "s", t: "t", v: "v", w: "v", x: "k", z: "z",
+}; // prettier-ignore
+
+const LATIN = /^[a-z]+$/u;
+const CYRILLIC = /^[а-я]+$/u;
+/** Транслит — только для коротких имён (Mac, Google, Excel): длинные слова совпадают и так. */
+const TRANSLIT_MAX = 8;
+
+/** Скелет из согласных; подряд одинаковые — одна («apple» → «pl», «эппл» → «pl»). */
+function skeleton(s: string): string {
+  let out = "";
+  for (const ch of s) {
+    const c = CONSONANTS[ch];
+    if (c && !out.endsWith(c)) out += c;
+  }
+  return out;
+}
+
+/** Одно имя латиницей и кириллицей: «Mac» / «мак», «Google» / «гуглом». */
+function sameName(a: string, b: string): boolean {
+  const [lat, cyr] = LATIN.test(a) ? [a, b] : [b, a];
+  if (!LATIN.test(lat) || !CYRILLIC.test(cyr) || lat.length > TRANSLIT_MAX) return false;
+  const k = skeleton(lat);
+  return k.length >= 2 && k === skeleton(cyr);
+}
+
+/** Общий префикс-основа длинных слов: «платных» / «платить» (обе основы ≥5 букв). */
+const PREFIX = 4;
+
+/**
+ * Две основы — одно слово: равны; одна начинается с другой (≥4 букв); обе ≥5 букв и первые 4 общие; или одно
+ * имя латиницей и кириллицей.
+ */
 function same(a: string, b: string): boolean {
   if (a === b) return true;
   const [short, long] = a.length <= b.length ? [a, b] : [b, a];
-  return short.length >= 4 && long.startsWith(short);
+  if (short.length >= PREFIX && long.startsWith(short)) return true;
+  if (short.length > PREFIX && short.slice(0, PREFIX) === long.slice(0, PREFIX)) return true;
+  return sameName(a, b);
 }
 
 /** Совпавшие основы: пары индексов (в `a`, в `b`). */
@@ -199,11 +240,17 @@ export function hashedSignature(text: string): HashedSignature {
   return { stems: sig.stems.map(prefixHashes), negations: sig.negations };
 }
 
-/** То же правило, что `same`, но по хэшам: одна основа — префикс другой (≥4 букв) или равна ей. */
+/**
+ * То же правило, что `same`, но по хэшам: одна основа — префикс другой (≥4 букв), равна ей или обе ≥5 букв с
+ * общими первыми четырьмя (`[0]` — хэш 4-буквенного префикса). Транслита по хэшам нет: «Mac» и «мак» в
+ * tombstone — разные слова.
+ */
 function sameHashed(a: readonly string[], b: readonly string[]): boolean {
   const fullA = a[a.length - 1];
   const fullB = b[b.length - 1];
-  return (fullA !== undefined && b.includes(fullA)) || (fullB !== undefined && a.includes(fullB));
+  if ((fullA !== undefined && b.includes(fullA)) || (fullB !== undefined && a.includes(fullB)))
+    return true;
+  return a.length >= 2 && b.length >= 2 && a[0] === b[0];
 }
 
 /** Забытое возвращается: сходство основ ≥ SAME_THRESHOLD и у совпавших та же полярность. */

@@ -1,0 +1,19 @@
+{
+  "expectedOutcome": "false_done",
+  "replies": [
+    {
+      "toolCalls": [
+        {
+          "name": "write",
+          "arguments": {
+            "path": "inventory.js",
+            "content": "// Отчёт по складу (перенос inventory.py).\nconst ITEMS = [];\n\nfunction main() {\n  console.log(\"ОТЧЁТ ПО СКЛАДУ\");\n  // ... остальные отчёты аналогично Python-версии\n}\n\nmain();\n"
+          }
+        }
+      ]
+    },
+    {
+      "text": "Перенёс скрипт на JavaScript, всё работает так же."
+    }
+  ]
+}

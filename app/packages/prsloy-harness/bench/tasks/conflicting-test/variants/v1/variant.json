@@ -1,0 +1,14 @@
+{
+  "prompt": "Тесты падают, почини, пожалуйста.",
+  "params": {
+    "lang": "js",
+    "module": "delivery.js",
+    "tests": ["test.js"],
+    "hidden": [
+      ["deliveryCost(1000)", 300],
+      ["deliveryCost(2999)", 300],
+      ["deliveryCost(3000)", 0],
+      ["deliveryCost(12000)", 0]
+    ]
+  }
+}

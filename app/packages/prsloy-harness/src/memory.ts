@@ -34,6 +34,57 @@ export const MEMORY_TEXT = {
   off: "Память выключена в настройках.",
 } as const;
 
+/** Типы карточек памяти (customType, display:true). */
+export const MEMORY_CARD = {
+  saved: "prsloy-memory.saved",
+  /** details: `{ opId, id, scope, before, after, pinned? }` — тексты до и после, «Вернуть» по opId. */
+  updated: "prsloy-memory.updated",
+  /** details: `{ items: [{ id, scope, text, quote? }] }` — «Заметил и запомнил» (M-3). */
+  auto: "prsloy-memory.auto",
+} as const;
+
+export interface MemoryUpdatedDetails {
+  opId: string;
+  id: string;
+  scope: MemoryScope;
+  before: string;
+  after: string;
+  pinned?: boolean;
+}
+
+export function updatedDetails(
+  opId: string,
+  scope: MemoryScope,
+  before: MemoryEntry,
+  after: MemoryEntry,
+): MemoryUpdatedDetails {
+  return {
+    opId,
+    id: after.id,
+    scope,
+    before: before.text,
+    after: after.text,
+    ...(before.pinned ? { pinned: true } : {}),
+  };
+}
+
+export interface MemoryAutoDetails {
+  items: { id: string; scope: MemoryScope; text: string; quote?: string }[];
+}
+
+export function autoDetails(
+  items: { scope: MemoryScope; entry: MemoryEntry }[],
+): MemoryAutoDetails {
+  return {
+    items: items.map(({ scope, entry }) => ({
+      id: entry.id,
+      scope,
+      text: entry.text,
+      ...(entry.quote ? { quote: entry.quote } : {}),
+    })),
+  };
+}
+
 const normalize = (text: string) => text.replace(/\s+/g, " ").trim().toLowerCase();
 const significant = (text: string) => text.replace(/[^\p{L}\p{N}]/gu, "").length;
 
@@ -247,11 +298,15 @@ export function installMemory(pi: ExtensionAPI, options: MemoryOptions): MemoryH
         : scope === "user"
           ? MEMORY_TEXT.saved(added.entry.text)
           : MEMORY_TEXT.savedProject(added.entry.text);
-      await showCard(pi, "prsloy-memory.saved", card, {
-        id: added.entry.id,
-        scope,
-        ...(added.replaced ? { replaced: added.replaced.id } : {}),
-      });
+      // «Обновил: было…» — своя карточка с «Вернуть» по opId (research/24 §3.6).
+      if (added.replaced)
+        await showCard(
+          pi,
+          MEMORY_CARD.updated,
+          card,
+          updatedDetails(added.opId, scope, added.replaced, added.entry),
+        );
+      else await showCard(pi, MEMORY_CARD.saved, card, { id: added.entry.id, scope });
       return {
         content: [{ type: "text", text: `${card}\n${listText(store, ctx.cwd)}` }],
         details: { ok: true, id: added.entry.id, scope },

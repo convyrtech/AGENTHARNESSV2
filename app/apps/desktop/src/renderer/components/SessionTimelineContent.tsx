@@ -43,6 +43,7 @@ import { AgentProcesses } from "./AgentProcesses.tsx";
 import { selectNextSteps, withoutNextTag } from "@/lib/next-steps";
 import { previewTargetsByBlock } from "@/lib/turn-preview";
 import { withoutRetryNoise } from "@/lib/model-failure";
+import { arrangeTurnStatus } from "@/lib/turn-status";
 import { useCasualPrefs } from "../hooks/useCasualPrefs.ts";
 
 type UserTimelineItem = Extract<TimelineItem, { kind: "user" }>;
@@ -175,7 +176,10 @@ export function SessionTimelineContent(props: SessionTimelineContentProps) {
     [locale, items, running],
   );
   const blocks = useMemo(
-    () => buildTimelineBlocks(developerMode ? shownItems : withoutRetryNoise(shownItems)),
+    () =>
+      arrangeTurnStatus(
+        buildTimelineBlocks(developerMode ? shownItems : withoutRetryNoise(shownItems)),
+      ),
     [shownItems, developerMode],
   );
   const start = timelineWindowStart(blocks.length, props.renderLimit ?? Number.POSITIVE_INFINITY);
@@ -272,6 +276,7 @@ export function SessionTimelineContent(props: SessionTimelineContentProps) {
                       {...(block.startedAt ? { startedAt: block.startedAt } : {})}
                       {...(block.endedAt ? { endedAt: block.endedAt } : {})}
                       {...(block.durationLabel ? { durationLabel: block.durationLabel } : {})}
+                      {...(block.checksFailed ? { checksFailed: true } : {})}
                       {...(props.workspacePath ? { workspacePath: props.workspacePath } : {})}
                     />
                   ) : (
@@ -285,6 +290,7 @@ export function SessionTimelineContent(props: SessionTimelineContentProps) {
                       {...(props.onResend && resendText
                         ? { onRetry: () => props.onResend?.(resendText) }
                         : {})}
+                      {...(props.onResend ? { onSend: props.onResend } : {})}
                     />
                   )}
                 </MessageScrollerItem>

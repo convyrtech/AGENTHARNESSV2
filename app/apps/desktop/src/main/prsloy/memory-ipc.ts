@@ -5,12 +5,21 @@
  *
  * After «Забыть» the open session's memory section is frozen until the next session, so
  * the host appends a hidden note (`prsloy-memory.forgot`, display:false) for the model.
+ *
+ * M-1 (research/24 §3.6): «Закрепить» (`pin`), «Вернуть» for anything in «Было» (`revert` by
+ * the journal's opId), and turning memory off in the settings erases it (`eraseAll`).
  */
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { isAbsolute, join } from "node:path";
 import { MemoryStore, memoryDirFor } from "@prsloy/harness";
-import type { MemoryForgottenItem, MemoryItem, MemorySnapshot } from "@zeno/contracts";
+import type {
+  HarnessFlags,
+  MemoryForgottenItem,
+  MemoryHistoryItem,
+  MemoryItem,
+  MemorySnapshot,
+} from "@zeno/contracts";
 import type { IpcMainLike } from "./ipc.ts";
 import { workspaceKey } from "./turn-snapshots.ts";
 
@@ -19,6 +28,8 @@ export const PRSLOY_MEMORY_IPC = {
   forget: "prsloy:memory-forget",
   restore: "prsloy:memory-restore",
   forgetAll: "prsloy:memory-forget-all",
+  pin: "prsloy:memory-pin",
+  revert: "prsloy:memory-revert",
 } as const;
 
 /** The hidden note the harness writes after its own `forget` (memory.ts): same text. */
@@ -28,6 +39,13 @@ export const memoryForgotNote = (text: string) =>
 
 export const MEMORY_FORGOT_ALL_NOTE =
   "Пользователь попросил забыть всё, что было в памяти. Больше ничего из неё не учитывай.";
+
+/** After «Вернуть» in this session: the model still holds the newer text. */
+export const MEMORY_REVERTED_NOTE_TYPE = "prsloy-memory.reverted";
+export const memoryRevertedNote = (text: string, instead?: string) =>
+  instead
+    ? `Пользователь вернул прежнее: «${text}». «${instead}» больше не учитывай.`
+    : `Пользователь вернул в память: «${text}».`;
 
 export type PrsloyMemoryIpcDeps = {
   agentDir: string;
@@ -52,6 +70,13 @@ function workspaceOf(raw: unknown, deps: PrsloyMemoryIpcDeps): string {
 function idOf(raw: unknown): string {
   if (typeof raw !== "string" || !/^[a-z]{1,8}-[A-Za-z0-9_-]{1,64}$/u.test(raw)) {
     throw new Error("Invalid memory id");
+  }
+  return raw;
+}
+
+function opIdOf(raw: unknown): string {
+  if (typeof raw !== "string" || !/^op-[a-f0-9]{6,32}$/u.test(raw)) {
+    throw new Error("Invalid memory operation");
   }
   return raw;
 }
@@ -106,14 +131,49 @@ function forgottenOf(store: MemoryStore, workspace: string): MemoryForgottenItem
 
 function list(store: MemoryStore, workspace: string): MemorySnapshot {
   const view = (scope: "user" | "project"): MemoryItem[] =>
-    store.entries(scope, workspace).map((e) => ({ id: e.id, text: e.text, created: e.created }));
+    store.entries(scope, workspace).map((e) => ({
+      id: e.id,
+      text: e.text,
+      created: e.created,
+      origin: e.origin,
+      ...(e.quote ? { quote: e.quote } : {}),
+      ...(e.pinned ? { pinned: true } : {}),
+    }));
   const digest = store.digest(workspace);
+  const history: MemoryHistoryItem[] = store.history(workspace).map((h) => ({
+    opId: h.opId,
+    scope: h.scope,
+    kind: h.kind,
+    text: h.entry.text,
+    ...(h.now ? { now: h.now.text } : {}),
+    at: h.at,
+  }));
   return {
     user: view("user"),
     project: view("project"),
     ...(digest ? { digest: { text: digest.text, updated: digest.updated } } : {}),
     forgotten: forgottenOf(store, workspace),
+    history,
   };
+}
+
+/**
+ * Memory turned off in the settings (research/24 §3.6): entries, «Было», digests and the
+ * journal's texts go at once, in every project. Hashed tombstones stay.
+ */
+export function eraseMemory(agentDir: string): void {
+  new MemoryStore(memoryDirFor(agentDir)).eraseAll();
+}
+
+let flagsListener: ((before: HarnessFlags, after: HarnessFlags) => Promise<void>) | undefined;
+
+/** Called by the settings handler (harness-flags.ts) after every write of the flags. */
+export async function memoryFlagsChanged(before: HarnessFlags, after: HarnessFlags): Promise<void> {
+  try {
+    await flagsListener?.(before, after);
+  } catch (error) {
+    console.warn("[prsloy] erasing memory after it was turned off failed:", error);
+  }
 }
 
 /** Project folders the memory knows, from `projects/<key>/project.json` (`path`). */
@@ -152,6 +212,13 @@ export function registerPrsloyMemoryIpc(ipcMain: IpcMainLike, deps: PrsloyMemory
     }
   };
 
+  // Turned off in the settings: erase, and tell the open session to stop using its section.
+  flagsListener = async (before, after) => {
+    if (!before.memory || after.memory) return;
+    eraseMemory(deps.agentDir);
+    await noteAll();
+  };
+
   ipcMain.handle(PRSLOY_MEMORY_IPC.list, (_event, rawWorkspace) =>
     list(store(), workspaceOf(rawWorkspace, deps)),
   );
@@ -188,4 +255,38 @@ export function registerPrsloyMemoryIpc(ipcMain: IpcMainLike, deps: PrsloyMemory
     if (had) await noteAll();
     return list(s, workspace);
   });
+
+  ipcMain.handle(
+    PRSLOY_MEMORY_IPC.pin,
+    (_event, rawId, rawPinned, rawWorkspace): MemorySnapshot => {
+      const id = idOf(rawId);
+      if (typeof rawPinned !== "boolean") throw new Error("Invalid pinned");
+      const workspace = workspaceOf(rawWorkspace, deps);
+      const s = store();
+      s.pin(id, rawPinned, workspace);
+      return list(s, workspace);
+    },
+  );
+
+  ipcMain.handle(
+    PRSLOY_MEMORY_IPC.revert,
+    async (_event, rawOpId, rawWorkspace): Promise<MemorySnapshot> => {
+      const opId = opIdOf(rawOpId);
+      const workspace = workspaceOf(rawWorkspace, deps);
+      const s = store();
+      const item = s.history(workspace).find((h) => h.opId === opId);
+      const back = s.revert(opId, workspace);
+      if (back && item?.now) {
+        try {
+          await deps.appendSessionNote?.(
+            MEMORY_REVERTED_NOTE_TYPE,
+            memoryRevertedNote(back.text, item.now.text),
+          );
+        } catch (error) {
+          console.warn("[prsloy] memory note for the model failed:", error);
+        }
+      }
+      return list(s, workspace);
+    },
+  );
 }

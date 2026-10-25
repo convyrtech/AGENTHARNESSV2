@@ -1,0 +1,29 @@
+{
+  "expectedOutcome": "solved",
+  "replies": [
+    {
+      "toolCalls": [
+        {
+          "name": "write",
+          "arguments": {
+            "path": "schedule.js",
+            "content": "// Расписание встреч на день: пересечения, свободные окна, загрузка людей (перенос schedule.py).\nconst DAY_START = \"09:00\";\nconst DAY_END = \"19:00\";\n\nconst MEETINGS = [\n  [\"Планёрка\", \"09:30-10:00\", [\"Оля\", \"Пётр\", \"Сева\", \"Таня\"]],\n  [\"Созвон с клиентом\", \"10:15-11:00\", [\"Оля\", \"Сева\"]],\n  [\"Ревью дизайна\", \"10:45-11:30\", [\"Таня\", \"Пётр\"]],\n  [\"Обед с партнёром\", \"13:00-14:15\", [\"Оля\"]],\n  [\"Собеседование\", \"14:00-15:00\", [\"Пётр\", \"Таня\"]],\n  [\"Разбор задач\", \"15:30-16:30\", [\"Сева\", \"Таня\", \"Пётр\"]],\n  [\"Звонок поставщику\", \"16:00-16:20\", [\"Оля\"]],\n  [\"Итоги дня\", \"18:00-18:30\", [\"Оля\", \"Пётр\", \"Сева\", \"Таня\"]],\n];\n\nconst toMin = (hhmm) => {\n  const [h, m] = hhmm.split(\":\");\n  return Number(h) * 60 + Number(m);\n};\nconst two = (n) => String(n).padStart(2, \"0\");\nconst toHhmm = (minutes) => `${two(Math.floor(minutes / 60))}:${two(minutes % 60)}`;\nconst parse = (span) => span.split(\"-\").map(toMin);\nconst cmpPair = (x, y) => x[0] - y[0] || x[1] - y[1];\n\nfunction durationText(minutes) {\n  const h = Math.floor(minutes / 60);\n  const m = minutes % 60;\n  if (h && m) return `${h} ч ${m} мин`;\n  if (h) return `${h} ч`;\n  return `${m} мин`;\n}\n\nfunction people(meetings) {\n  const names = [];\n  for (const [, , who] of meetings) for (const name of who) if (!names.includes(name)) names.push(name);\n  return names.sort();\n}\n\nfunction overlaps(meetings) {\n  const out = [];\n  for (let i = 0; i < meetings.length; i++) {\n    for (let j = i + 1; j < meetings.length; j++) {\n      const [a1, b1] = parse(meetings[i][1]);\n      const [a2, b2] = parse(meetings[j][1]);\n      const start = Math.max(a1, a2);\n      const end = Math.min(b1, b2);\n      if (start < end) {\n        const common = meetings[i][2].filter((n) => meetings[j][2].includes(n)).sort();\n        out.push([meetings[i][0], meetings[j][0], end - start, common]);\n      }\n    }\n  }\n  return out;\n}\n\nfunction merge(spans) {\n  const merged = [];\n  for (const [a, b] of spans) {\n    const last = merged[merged.length - 1];\n    if (last && a <= last[1]) last[1] = Math.max(last[1], b);\n    else merged.push([a, b]);\n  }\n  return merged;\n}\n\nconst busyIntervals = (meetings, name) =>\n  merge(meetings.filter(([, , who]) => who.includes(name)).map(([, span]) => parse(span)).sort(cmpPair));\n\nfunction freeWindows(busy, minLen = 30) {\n  const end = toMin(DAY_END);\n  const out = [];\n  let cur = toMin(DAY_START);\n  for (const [a, b] of busy) {\n    if (a - cur >= minLen) out.push([cur, a]);\n    cur = Math.max(cur, b);\n  }\n  if (end - cur >= minLen) out.push([cur, end]);\n  return out;\n}\n\nconst commonFree = (meetings, minLen = 30) =>\n  freeWindows(merge(meetings.map(([, span]) => parse(span)).sort(cmpPair)), minLen);\n\nfunction printList(meetings) {\n  console.log(\"Встречи:\");\n  for (const [title, span, who] of [...meetings].sort((x, y) => cmpPair(parse(x[1]), parse(y[1])))) {\n    const [a, b] = parse(span);\n    console.log(`  ${toHhmm(a)}–${toHhmm(b)}  ${title.padEnd(20)} ${durationText(b - a).padStart(10)}  (${who.length} чел.)`);\n  }\n}\n\nfunction printOverlaps(meetings) {\n  console.log(\"Пересечения:\");\n  const found = overlaps(meetings);\n  if (!found.length) console.log(\"  нет\");\n  for (const [m1, m2, minutes, common] of found) {\n    const clash = common.length ? `, конфликт у: ${common.join(\", \")}` : \"\";\n    console.log(`  «${m1}» и «${m2}» — ${minutes} мин${clash}`);\n  }\n}\n\nfunction printPeople(meetings) {\n  console.log(\"Загрузка:\");\n  const day = toMin(DAY_END) - toMin(DAY_START);\n  for (const name of people(meetings)) {\n    const busy = busyIntervals(meetings, name);\n    const total = busy.reduce((n, [a, b]) => n + b - a, 0);\n    const share = (total * 100) / day;\n    const windows = freeWindows(busy, 60);\n    const longest = Math.max(0, ...windows.map(([a, b]) => b - a));\n    console.log(\n      `  ${name.padEnd(5)} занят ${durationText(total).padStart(10)} (${share.toFixed(1).padStart(4)}%), окон от часа: ${windows.length}, самое длинное ${durationText(longest)}`,\n    );\n  }\n}\n\nfunction printCommon(meetings) {\n  console.log(\"Окна, свободные у всех (от 30 мин):\");\n  for (const [a, b] of commonFree(meetings)) console.log(`  ${toHhmm(a)}–${toHhmm(b)} (${durationText(b - a)})`);\n}\n\nconsole.log(`РАСПИСАНИЕ НА ДЕНЬ (${DAY_START}–${DAY_END})`);\nconsole.log();\nprintList(MEETINGS);\nconsole.log();\nprintOverlaps(MEETINGS);\nconsole.log();\nprintPeople(MEETINGS);\nconsole.log();\nprintCommon(MEETINGS);\n"
+          }
+        }
+      ]
+    },
+    {
+      "toolCalls": [
+        {
+          "name": "bash",
+          "arguments": {
+            "command": "node schedule.js"
+          }
+        }
+      ]
+    },
+    {
+      "text": "Переписал расписание на JavaScript: schedule.js печатает то же, что schedule.py."
+    }
+  ]
+}

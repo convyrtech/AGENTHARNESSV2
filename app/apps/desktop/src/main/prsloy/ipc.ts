@@ -14,6 +14,7 @@ import type { PrsloyContext } from "./context.ts";
 import { checkPrsloyKey, type FetchLike } from "./gateway-check.ts";
 import { maskKey } from "./key-store.ts";
 import { recordTurnUndo } from "./learning-undo.ts";
+import { installMemoryExtractor, testProviderEndpoint } from "./memory-extractor.ts";
 import { registerPrsloyMemoryIpc } from "./memory-ipc.ts";
 import { registerPrsloySearchIpc } from "./search-ipc.ts";
 import { startPrsloyModelRefresh } from "./model-list.ts";
@@ -140,6 +141,19 @@ export function registerPrsloyIpc(rawIpcMain: IpcMainLike, deps: PrsloyIpcDeps):
     agentDir: ctx.agentDir,
     getWorkspace: () => deps.getWorkspace(),
     appendSessionNote: async (customType, text) => deps.appendSessionNote?.(customType, text),
+  });
+
+  // M-sp: memory extractor outside the turn, after the user leaves a chat (off by default).
+  const testEndpoint = () =>
+    testProviderEndpoint(ctx.agentDir, process.env.PRSLOY_MEMORY_EXTRACTOR_PROVIDER);
+  installMemoryExtractor({
+    mode: process.env.PRSLOY_MEMORY_EXTRACTOR,
+    agentDir: ctx.agentDir,
+    baseUrl: () => testEndpoint()?.baseUrl ?? ctx.getState().baseUrl,
+    apiKey: () => testEndpoint()?.apiKey ?? ctx.keyStore.read(),
+    availableModels: () => ctx.availableModels(),
+    fetch: deps.fetch,
+    model: process.env.PRSLOY_MEMORY_EXTRACTOR_MODEL,
   });
 
   if (deps.refreshModels !== false) {

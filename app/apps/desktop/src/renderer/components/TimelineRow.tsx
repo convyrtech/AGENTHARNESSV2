@@ -85,8 +85,12 @@ import {
 import { cn } from "../lib/utils.ts";
 import { useCasualPrefs } from "../hooks/useCasualPrefs.ts";
 import { harnessCardKind, isHarnessData } from "../lib/harness-card.ts";
+import { TurnStatusLine } from "./TurnStatusLine.tsx";
+import { isTurnStatusItem, parseTurnStatus } from "../lib/turn-status.ts";
 import { HarnessCard } from "./HarnessCard.tsx";
 import { MemoryCard } from "./MemoryCard.tsx";
+import { BlockerCard } from "./BlockerCard.tsx";
+import { BLOCKER_TYPE } from "../lib/blocker-card.ts";
 import { memoryCardKind } from "../lib/memory.ts";
 import {
   isHostCrash,
@@ -511,6 +515,8 @@ export const TimelineRow = memo(function TimelineRow(props: {
   onForkAssistant?: (item: Extract<TimelineItem, { kind: "assistant" }>) => void | Promise<void>;
   /** Resend the prompt of the turn this failure belongs to. */
   onRetry?: (() => void) | undefined;
+  /** Send a ready answer as the owner's next message («Не получилось» card). */
+  onSend?: ((text: string) => void) | undefined;
   editingLocked?: boolean;
 }) {
   const { item } = props;
@@ -825,6 +831,21 @@ export const TimelineRow = memo(function TimelineRow(props: {
         detail={item.text}
         code={item.code}
         onRetry={props.onRetry}
+        disabled={props.editingLocked}
+      />
+    );
+  }
+  if (isTurnStatusItem(item)) {
+    const status = parseTurnStatus(item.kind === "system" ? item.details : undefined);
+    return status ? <TurnStatusLine locale={props.locale} status={status} /> : null;
+  }
+  if (item.extension && item.title === BLOCKER_TYPE) {
+    return (
+      <BlockerCard
+        locale={props.locale}
+        text={item.text}
+        details={item.details}
+        onSend={props.onSend}
         disabled={props.editingLocked}
       />
     );
@@ -1708,6 +1729,8 @@ export const TimelineProcessBlock = memo(function TimelineProcessBlock(props: {
   /** Fallback when timestamps are missing (history). */
   durationLabel?: string | undefined;
   workspacePath?: string | undefined;
+  /** The turn's checks are red: say how long it worked, not «Готово». */
+  checksFailed?: boolean | undefined;
 }) {
   // Keep ticking while the turn is still open (including “responding” after tools).
   const active = Boolean(props.open && (props.running || props.waiting));
@@ -1722,7 +1745,10 @@ export const TimelineProcessBlock = memo(function TimelineProcessBlock(props: {
     elapsedDurationLabel(props.startedAt, active ? undefined : props.endedAt, now, props.locale) ??
     props.durationLabel;
   const { developerMode } = useCasualPrefs();
-  const label = activityLabel(props.locale, activity, liveDuration, developerMode);
+  const label =
+    props.checksFailed && activity.phase === "processed"
+      ? t(props.locale, "timeline.processedChecksFailed", { duration: liveDuration ?? "" }).trim()
+      : activityLabel(props.locale, activity, liveDuration, developerMode);
 
   // Default-open while the agent is working this turn; force-close when the turn ends.
   const [detailsOpen, setDetailsOpen] = useState(active);

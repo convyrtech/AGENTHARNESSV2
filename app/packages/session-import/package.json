@@ -1,0 +1,24 @@
+{
+  "name": "@prsloy/session-import",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vp test --run"
+  },
+  "dependencies": {
+    "@prsloy/harness": "workspace:*"
+  },
+  "devDependencies": {
+    "@earendil-works/pi-coding-agent": "catalog:",
+    "@types/node": "catalog:",
+    "@zeno/agent-runtime": "workspace:*",
+    "typescript": "catalog:",
+    "vite-plus": "catalog:",
+    "vitest": "catalog:"
+  }
+}

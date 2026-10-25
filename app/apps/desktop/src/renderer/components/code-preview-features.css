@@ -328,3 +328,53 @@
   line-height: 1.45;
   color: var(--muted-foreground);
 }
+/* Memory v2 cards: noticed entries, one per line with their own buttons */
+.memory-auto-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 6px 0 0 24px;
+}
+.memory-auto-entry-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.memory-auto-text {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+}
+.memory-auto-done {
+  font-size: 12px;
+  color: var(--muted-foreground);
+}
+/* «Не получилось» (report_blocker) */
+.blocker-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 8px 0 0 24px;
+}
+.memory-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
+}
+.memory-auto-intro {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--card);
+  font-size: 13px;
+  line-height: 1.45;
+}
+.memory-auto-intro > span {
+  flex: 1;
+}

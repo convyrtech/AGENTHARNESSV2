@@ -1,0 +1,15 @@
+{
+  "prompt": "Средний чек считается неправильно, тесты не проходят. Исправь.",
+  "params": {
+    "lang": "py",
+    "module": "stats.py",
+    "tests": ["test_stats.py"],
+    "hidden": [
+      ["average_check([100, 200, 300])", 200],
+      ["average_check([99, 100])", 99.5],
+      ["average_check([10, 20, 30, 40])", 25],
+      ["average_check([])", 0],
+      ["average_check([1, 2])", 1.5]
+    ]
+  }
+}

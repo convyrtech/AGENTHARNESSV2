@@ -1,0 +1,8 @@
+{
+  "prompt": "Поставь пакет rubles-words с GitHub (адрес в README) и сделай, чтобы скрипт печатал сумму прописью.",
+  "params": {
+    "lib": "rubles-words",
+    "main": "amount.js",
+    "deliverable": "тысяч|сот|рубл"
+  }
+}

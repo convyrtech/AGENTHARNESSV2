@@ -4,7 +4,8 @@
 //   PRSLOY_GATEWAY_KEY=… node packages/prsloy-harness/scripts/bench.mts \
 //     --base-url https://api.prsloy.online/v1 --model prsloy/deepseek-v4.1-flash-1017 --harness on
 //   … --harness off            голый Pi с тем же системным промптом
-//   … --task visit-card        одна задача (можно несколько --task)
+//   … --task visit-card        одна задача (можно несколько --task; `conflicting-test/v2` — один вариант)
+//   … --suite honesty          задачи честности H-0 (research/24 §4.1): casual (по умолчанию), honesty, all
 //   … --timeout 900            секунд на задачу (по умолчанию 600)
 //   … --prompt pi              базовый промпт Pi вместо своего (research/17 §9); по умолчанию prsloy
 //   … --delta on               дельта промпта под модель (qwen, opus)
@@ -31,6 +32,7 @@ const { values } = parseArgs({
     model: { type: "string", default: "prsloy/deepseek-v4.1-flash-1017" },
     "base-url": { type: "string" },
     task: { type: "string", multiple: true },
+    suite: { type: "string", default: "casual" },
     timeout: { type: "string", default: "600" },
     "allow-outside": { type: "boolean" },
     lessons: { type: "string", default: "on" },
@@ -53,6 +55,10 @@ async function main(): Promise<number> {
     console.error("--model провайдер/модель, например prsloy/kimi-k3.1-pro");
     return 2;
   }
+  if (!["casual", "honesty", "all"].includes(values.suite)) {
+    console.error("--suite casual|honesty|all");
+    return 2;
+  }
   const key = process.env.PRSLOY_GATEWAY_KEY ?? process.env.PRSLOY_KEY;
   if (!values.fake && !key) {
     console.error("Нужен ключ шлюза в PRSLOY_GATEWAY_KEY (или --fake).");
@@ -72,6 +78,7 @@ async function main(): Promise<number> {
     ...(values.fake ? { fake: true } : { baseUrl: values["base-url"] ?? PRSLOY_DEFAULT_BASE_URL }),
     ...(key && !values.fake ? { key } : {}),
     ...(values.task?.length ? { tasks: values.task } : {}),
+    suite: values.suite as "casual" | "honesty" | "all",
     outDir,
     timeoutSec: Number(values.timeout) || 600,
     allowOutside: values["allow-outside"] === true,

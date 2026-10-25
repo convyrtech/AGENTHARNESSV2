@@ -259,6 +259,9 @@ catalogs:
     highlight.js:
       specifier: 11.11.1
       version: 11.11.1
+    hyparquet:
+      specifier: 1.31.3
+      version: 1.31.3
     jsdom:
       specifier: ^30.0.1
       version: 30.0.1
@@ -607,6 +610,34 @@ importers:
       '@types/node':
         specifier: 'catalog:'
         version: 26.1.1
+      hyparquet:
+        specifier: 'catalog:'
+        version: 1.31.3
+      typescript:
+        specifier: 'catalog:'
+        version: 6.0.2
+      vite-plus:
+        specifier: 'catalog:'
+        version: 0.2.4(@opentelemetry/api@1.9.0)(@types/node@26.1.1)(@voidzero-dev/vite-plus-core@0.2.4(@types/node@26.1.1)(esbuild@0.28.2)(jiti@2.7.0)(typescript@6.0.2)(yaml@2.9.0))(esbuild@0.28.2)(jiti@2.7.0)(jsdom@30.0.1(@noble/hashes@2.2.0))(typescript@6.0.2)(yaml@2.9.0)
+      vitest:
+        specifier: 'catalog:'
+        version: 4.1.10(@opentelemetry/api@1.9.0)(@types/node@26.1.1)(@vitest/browser-preview@4.1.10)(@voidzero-dev/vite-plus-core@0.2.4(@types/node@26.1.1)(esbuild@0.28.2)(jiti@2.7.0)(typescript@6.0.2)(yaml@2.9.0))(jsdom@30.0.1(@noble/hashes@2.2.0))
+
+  packages/session-import:
+    dependencies:
+      '@prsloy/harness':
+        specifier: workspace:*
+        version: link:../prsloy-harness
+    devDependencies:
+      '@earendil-works/pi-coding-agent':
+        specifier: 'catalog:'
+        version: 1.4.0(@aws-sdk/credential-provider-node@3.972.83)(@smithy/signature-v4@5.7.3)(supports-color@7.2.0)(ws@8.21.0)(zod@4.4.3)
+      '@types/node':
+        specifier: 'catalog:'
+        version: 26.1.1
+      '@zeno/agent-runtime':
+        specifier: workspace:*
+        version: link:../agent-runtime
       typescript:
         specifier: 'catalog:'
         version: 6.0.2
@@ -3536,6 +3567,9 @@ packages:
   https-proxy-agent@9.1.0:
     resolution: {integrity: sha512-ag87y7cJJ9/3+GxFr8Oy4O5faDsGRGnBGsJj/YjOSsSx/5eadKLYTMPlzuR6obgoCDDm0abAAZitXXQkMOPSpA==}
     engines: {node: '>= 20'}
+
+  hyparquet@1.31.3:
+    resolution: {integrity: sha512-qThDJfCrTClFdaIQuQTtFOGp33bkbOyk+y1NrwcC8YZjvr5wxjNdKz7/PUF3xfNd7ZKLsYW+fY6N8dInjjMWJg==}
 
   iconv-lite@0.6.3:
     resolution: {integrity: sha512-4fCk79wshMdzMp2rH06qWrJE4iolqLhCUH+OiuIgU++RB0+94NlDL81atO7GX55uUKueo0txHNtvEyI6D7WdMw==}
@@ -8149,6 +8183,8 @@ snapshots:
     transitivePeerDependencies:
       - kerberos
       - supports-color
+
+  hyparquet@1.31.3: {}
 
   iconv-lite@0.6.3:
     dependencies:

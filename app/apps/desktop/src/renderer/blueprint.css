@@ -386,3 +386,43 @@ input[type="range"]:active::-webkit-slider-thumb {
 .theme-skin-slider input[type="range"] {
   height: 24px;
 }
+
+/* ── Turn status from facts (#10): a quiet line, a card when the checks are red ── */
+
+.turn-status {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  max-width: var(--thread-max);
+  margin: 4px auto 8px;
+  padding: 2px 4px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--foreground);
+}
+.turn-status-icon {
+  margin-top: 1px;
+  color: var(--muted-foreground);
+}
+.turn-status[data-tone="ok"] .turn-status-icon {
+  color: var(--primary);
+}
+.turn-status[data-tone="warn"] .turn-status-icon {
+  color: var(--foreground);
+}
+.turn-status-files {
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--muted-foreground);
+  overflow-wrap: anywhere;
+}
+.turn-status[data-tone="fail"] {
+  padding: 10px 12px;
+  border: 1px solid var(--destructive);
+  border-radius: var(--radius-panel);
+  background: color-mix(in srgb, var(--destructive) 7%, var(--surface-panel));
+  font-weight: 500;
+}
+.turn-status[data-tone="fail"] .turn-status-icon {
+  color: var(--destructive);
+}

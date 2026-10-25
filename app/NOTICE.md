@@ -6,6 +6,25 @@
 
 ## Заимствования
 
+- `packages/prsloy-harness/bench/tasks/impossiblebench/` и `bench/import/fetch-honesty.mjs` — задачи
+  Impossible-LiveCodeBench. Данные в репозиторий не входят: скрипт качает датасет
+  [fjzzq2002/impossible_livecodebench](https://huggingface.co/datasets/fjzzq2002/impossible_livecodebench) (ревизия
+  `98650ff`, лицензия на карточке не указана) в локальный кэш. Раскладка `func.py` / `test.py`, текст просьбы и
+  правила разбора (правка теста — подгонка; виды подгонки A–E) — по
+  [safety-research/impossiblebench](https://github.com/safety-research/impossiblebench) (коммит `d4f9a14`,
+  `livecodebench_tasks.py`, `livecodebench_agent_full.py`, `analysis/llm_judge.py`), MIT License, Copyright (c)
+  2025 ImpossibleBench Team. Варианты `syn-*` в git — свои задачи в том же формате.
+- `packages/prsloy-harness/bench/import/evilgenie_vendor.py` — дословно функции `extract_function_signature`,
+  `generate_solution_stub`, `generate_test_script`, `generate_problem_description` из
+  [JonathanGabor/EvilGenie](https://github.com/JonathanGabor/EvilGenie) `src/problem_setup.py` (коммит `4b81d3d`).
+  MIT License, Copyright (c) 2025 LiveCodeBench Contributors, Jonathan Gabor. По ним `evilgenie_build.py` строит
+  папки агента, по их `canonical_splits/v5v6_hard_154p.json` и `multiple_solution_problems.txt` выбираются
+  отложенные тесты и неоднозначные задачи. Условия и тесты задач —
+  [livecodebench/code_generation_lite](https://huggingface.co/datasets/livecodebench/code_generation_lite)
+  `test6.jsonl` (ревизия `0fe84c3`, на карточке лицензия «cc» без уточнения). В репозиторий не входят: их качает
+  `fetch-honesty.mjs` в локальный кэш. Варианты `syn-*` в git — свои задачи, сделанные тем же кодом.
+- [hyparquet](https://github.com/hyparam/hyparquet) 1.31.3 — dev-зависимость `prsloy-harness`: чтение parquet в
+  `fetch-honesty.mjs`. MIT License (строки copyright в их LICENSE нет).
 - `packages/prsloy-harness/src/request-secret.ts` — описание инструмента и параметров `request_secret` по
   [OpenHands Agent Canvas](https://github.com/All-Hands-AI/OpenHands) `src/api/request-secret-client-tool.ts`
   (коммит `b185939`), MIT, © 2025 OpenHands contributors. Изменено PRSLOY: ответ приходит в результате вызова,
@@ -73,3 +92,17 @@
   (`crates/goose/src/recipe/mod.rs`, Apache License 2.0, Copyright (c) Block, Inc.). Код не копировался.
 - [yaml](https://github.com/eemeli/yaml) 2.9.0 — зависимость, собирается в main (frontmatter рецептов). ISC License,
   Copyright Eemeli Aro.
+- `packages/session-import/src/adapters/claude-code.ts`, `adapters/codex.ts`, `clean.ts` — перенос чатов Claude Code и
+  Codex по образцу TypeScript-адаптеров [cline/cline](https://github.com/cline/cline)
+  (`sdk/packages/core/src/services/session-import/`, коммит `40c5d99`). Apache License 2.0, Copyright 2026 Cline Bot
+  Inc.; текст лицензии — `licenses/cline-Apache-2.0.txt`. Взяты: восстановление активной ветки по `parentUuid`,
+  пропуск `<synthetic>`-моделей, какие записи Codex — слова человека, а какие — подмешанный контекст, самый полный
+  файл на один id, названия из `session_index.jsonl`. Изменено PRSLOY: чтение потоком (и `.jsonl.zst`), только текст
+  с однострочными заметками об инструментах, выводы инструментов и размышления не переносятся, секреты скрываются,
+  папки субагентов пропускаются, запись в обычный файл сессии Pi со сводкой и сменой модели.
+- `packages/session-import/src/title.ts`, `clean.ts`, `ledger.ts`, правила в `adapters/claude-code.ts` — по правилам
+  импорта [openai/codex](https://github.com/openai/codex) (`codex-rs/external-agent-migration/src/sessions/`, коммит
+  `970111f`). Apache License 2.0; текст лицензии — `licenses/codex-Apache-2.0.txt`. Из `NOTICE` Codex: «OpenAI Codex.
+  Copyright 2025 OpenAI.» Взяты: порядок названий (своё → от агента → первая строка, 120 знаков), список служебных
+  обёрток, пропуск `continued-in`, журнал импорта с sha256, по умолчанию 30 дней и не больше 50 чатов. Изменено PRSLOY:
+  перенесено с Rust на TypeScript, обёртки вырезаются в любом месте текста, журнал — свой JSON в папке данных PRSLOY.

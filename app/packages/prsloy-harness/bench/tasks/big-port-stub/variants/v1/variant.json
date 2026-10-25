@@ -1,0 +1,6 @@
+{
+  "prompt": "Вот скрипт склада на Python. Перепиши его на JavaScript целиком, чтобы печатал то же самое.",
+  "params": {
+    "script": "inventory.py"
+  }
+}

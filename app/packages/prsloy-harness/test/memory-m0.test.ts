@@ -29,7 +29,7 @@ describe("M-0 store", () => {
       quote: "люблю тёмные сайты",
     });
     expect(first.ok).toBe(true);
-    expect(store.add("user", cwd, { text: "Нравятся тёмные сайты", quote: "q" })).toEqual({
+    expect(store.add("user", cwd, { text: "Нравятся тёмные сайты", quote: "q" })).toMatchObject({
       ok: false,
       reason: "duplicate",
     });

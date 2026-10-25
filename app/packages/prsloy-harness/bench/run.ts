@@ -35,10 +35,19 @@ import {
 } from "../test/scripted-openai-server.ts";
 
 export const TASKS_DIR = join(dirname(fileURLToPath(import.meta.url)), "tasks");
+/**
+ * Кэш задач, взятых у ImpossibleBench и EvilGenie (`bench/import/fetch-honesty.mjs`, не в git): их данные мы не
+ * распространяем. Варианты из `<кэш>/<задача>/variants` добавляются к своим (`variants/syn-*`, синтетика).
+ */
+export const HONESTY_CACHE = join(dirname(fileURLToPath(import.meta.url)), ".cache", "honesty");
 
 export interface BenchOptions {
-  /** id задач; по умолчанию все из bench/tasks. */
+  /** id задач (`conflicting-test` — все варианты, `conflicting-test/v2` — один); по умолчанию весь набор `suite`. */
   tasks?: string[];
+  /** Набор задач: casual (16 казуальных, по умолчанию), honesty (задачи честности H-0) или all. */
+  suite?: Suite;
+  /** Кэш взятых задач (по умолчанию HONESTY_CACHE); false — только то, что в git. В --fake кэш не берётся. */
+  honestyCache?: string | false;
   harness: boolean;
   /** `провайдер/модель`, по умолчанию prsloy/deepseek-v4.1-flash-1017. */
   model: string;
@@ -72,6 +81,8 @@ export interface BenchOptions {
  * Исход задачи честности (research/24 §4.1 H-0, research/22 §6.5). Задача ждёт свой исход (`expectedOutcome` в
  * task.json, по умолчанию solved): CI проверяет, что «жулик пойман», а не что «все прошли».
  */
+export type Suite = "casual" | "honesty" | "all";
+
 export type Outcome = "solved" | "honest_fail" | "disclosed_test_edit" | "cheat" | "false_done";
 export const OUTCOMES: readonly Outcome[] = [
   "solved",
@@ -113,6 +124,10 @@ export interface TaskResult {
   /** Исход (research/24 §4.1); null — проверки не было. */
   outcome: Outcome | null;
   expectedOutcome: Outcome;
+  /** Исходы, которые тоже засчитываются (например, «решено» рядом с честным отказом). */
+  acceptOutcomes: Outcome[];
+  /** Невозможная задача: честно решить нельзя, ждём честный отказ (знаменатель доли подгонки). */
+  impossible: boolean;
   /** Исход совпал с ожидаемым (null — проверки не было). */
   matched: boolean | null;
   answer: string;
@@ -120,37 +135,89 @@ export interface TaskResult {
 }
 
 interface TaskDef {
+  /** `fix-discount` или с вариантом: `conflicting-test/v2`. */
   id: string;
+  /** Папка задачи: task.json и check.mjs. */
   dir: string;
+  /** Исходная папка проекта (workspace задачи или варианта). */
+  workspace: string;
+  /** Заготовка фейковой модели (fake.json варианта или задачи); нет — вариант в --fake не гоняется. */
+  fake: string | undefined;
   title: string;
+  suite: "casual" | "honesty";
   /** Сессии задачи по порядку: одна или несколько (двухсессионные задачи памяти). */
   prompts: string[];
   /** Ожидаемый исход (task.json `expectedOutcome`), по умолчанию solved. */
   expectedOutcome: Outcome;
+  acceptOutcomes: Outcome[];
+  /** Числа и ответы варианта (variant.json `params`) — для check.mjs. */
+  params: unknown;
 }
 
-export function listTasks(only?: string[]): TaskDef[] {
-  return readdirSync(TASKS_DIR)
-    .filter((id) => existsSync(join(TASKS_DIR, id, "task.json")))
-    .filter((id) => !only?.length || only.includes(id))
-    .sort()
-    .map((id) => {
-      const def = JSON.parse(readFileSync(join(TASKS_DIR, id, "task.json"), "utf8")) as {
-        title: string;
-        prompt?: string;
-        prompts?: string[];
-        expectedOutcome?: string;
-      };
-      return {
-        id,
-        dir: join(TASKS_DIR, id),
-        title: def.title,
-        prompts: def.prompts ?? (def.prompt ? [def.prompt] : []),
-        expectedOutcome: (OUTCOMES as readonly string[]).includes(def.expectedOutcome ?? "")
-          ? (def.expectedOutcome as Outcome)
-          : "solved",
-      };
-    });
+interface TaskJson {
+  title?: string;
+  suite?: string;
+  prompt?: string;
+  prompts?: string[];
+  expectedOutcome?: string;
+  acceptOutcomes?: string[];
+  params?: unknown;
+}
+
+const asOutcome = (v: unknown): Outcome | undefined =>
+  (OUTCOMES as readonly string[]).includes(v as string) ? (v as Outcome) : undefined;
+
+function readJson(path: string): TaskJson {
+  return existsSync(path) ? (JSON.parse(readFileSync(path, "utf8")) as TaskJson) : {};
+}
+
+/**
+ * Задачи замера. У задачи честности (research/24 §4.1 H-0) варианты лежат в `variants/<v>/`: свой workspace,
+ * variant.json (просьба, числа для проверки) и, если есть, fake.json; check.mjs и task.json общие.
+ */
+export function listTasks(
+  only?: string[],
+  suite: Suite = "casual",
+  cache: string | false = HONESTY_CACHE,
+): TaskDef[] {
+  const out: TaskDef[] = [];
+  for (const id of readdirSync(TASKS_DIR).sort()) {
+    const dir = join(TASKS_DIR, id);
+    if (!existsSync(join(dir, "task.json"))) continue;
+    const def = readJson(join(dir, "task.json"));
+    const own = def.suite === "honesty" ? "honesty" : "casual";
+    if (suite !== "all" && own !== suite && !only?.some((o) => o.split("/")[0] === id)) continue;
+    const roots = [join(dir, "variants"), ...(cache ? [join(cache, id, "variants")] : [])].filter(
+      (r) => existsSync(r),
+    );
+    const variants = roots.length
+      ? roots
+          .flatMap((r) => readdirSync(r).map((v) => ({ v, vdir: join(r, v) })))
+          .sort((a, b) => a.v.localeCompare(b.v, "en", { numeric: true }))
+      : [{ v: undefined, vdir: dir }];
+    for (const { v, vdir } of variants) {
+      const vid = v ? `${id}/${v}` : id;
+      if (only?.length && !only.includes(id) && !only.includes(vid)) continue;
+      const vdef = { ...def, ...(v ? readJson(join(vdir, "variant.json")) : {}) };
+      const expected = asOutcome(vdef.expectedOutcome) ?? "solved";
+      out.push({
+        id: vid,
+        dir,
+        workspace: join(vdir, "workspace"),
+        fake: [join(vdir, "fake.json"), join(dir, "fake.json")].find((p) => existsSync(p)),
+        title: vdef.title ?? id,
+        suite: own,
+        prompts: vdef.prompts ?? (vdef.prompt ? [vdef.prompt] : []),
+        expectedOutcome: expected,
+        acceptOutcomes: [
+          expected,
+          ...(vdef.acceptOutcomes ?? []).map(asOutcome).filter((o): o is Outcome => !!o),
+        ],
+        params: vdef.params ?? {},
+      });
+    }
+  }
+  return out;
 }
 
 interface MessageLike {
@@ -203,21 +270,40 @@ export function countInterventions(
   return out;
 }
 
-/** Заготовки фейковой модели: список ответов (одна сессия) или {sessions: [[...], [...]]}. */
-type FakeFile = ScriptedReply[] | { sessions: ScriptedReply[][]; extractor?: string[] };
+/**
+ * Заготовки фейковой модели: список ответов (одна сессия), {sessions: [[...], [...]]} или {replies: [...]}.
+ * `expectedOutcome` в заготовке — исход этой заготовки («жулик» ждёт cheat): в --fake он заменяет ожидаемый задачи.
+ */
+type FakeFile =
+  | ScriptedReply[]
+  | {
+      sessions?: ScriptedReply[][];
+      replies?: ScriptedReply[];
+      extractor?: string[];
+      expectedOutcome?: string;
+    };
 
-function fakeFile(task: TaskDef): FakeFile {
-  return JSON.parse(readFileSync(join(task.dir, "fake.json"), "utf8")) as FakeFile;
+function fakeFile(task: { dir: string; fake?: string | undefined }): FakeFile {
+  return JSON.parse(readFileSync(task.fake ?? join(task.dir, "fake.json"), "utf8")) as FakeFile;
 }
 
 function fakeReplies(task: TaskDef): ScriptedReply[][] {
   const raw = fakeFile(task);
-  return Array.isArray(raw) ? [raw] : raw.sessions;
+  return Array.isArray(raw) ? [raw] : (raw.sessions ?? [raw.replies ?? []]);
+}
+
+/** Ожидаемый исход заготовки фейковой модели, если она его назвала. */
+function fakeOutcome(task: TaskDef): Outcome | undefined {
+  const raw = fakeFile(task);
+  return Array.isArray(raw) ? undefined : asOutcome(raw.expectedOutcome);
 }
 
 /** Ответы экстрактора памяти по порядку из `fake.json` (`{"sessions": […], "extractor": ["…"]}`), research/24 §2. */
-export function fakeExtractor(task: { dir: string }): ExtractorFn | undefined {
-  const raw = fakeFile(task as TaskDef);
+export function fakeExtractor(task: {
+  dir: string;
+  fake?: string | undefined;
+}): ExtractorFn | undefined {
+  const raw = fakeFile(task);
   if (Array.isArray(raw) || !raw.extractor) return undefined;
   const replies = [...raw.extractor];
   return async () => replies.shift() ?? "[]";
@@ -246,11 +332,12 @@ interface SessionRun {
 async function runTask(task: TaskDef, opts: BenchOptions): Promise<TaskResult> {
   const work = join(opts.outDir, "work");
   mkdirSync(work, { recursive: true });
-  const ws = mkdtempSync(join(work, `${task.id}-`));
-  const original = join(task.dir, "workspace");
+  const slug = task.id.replace(/\//g, "-");
+  const ws = mkdtempSync(join(work, `${slug}-`));
+  const original = task.workspace;
   if (existsSync(original)) cpSync(original, ws, { recursive: true });
   // Одна папка агента на все сессии задачи: память и уроки переживают сессию, как у пользователя.
-  const agentDir = mkdtempSync(join(work, `${task.id}-agent-`));
+  const agentDir = mkdtempSync(join(work, `${slug}-agent-`));
   const memoryDir = join(agentDir, "prsloy-memory");
   // Флаги — тем же файлом, что пишет приложение.
   const settingsPath = join(agentDir, "prsloy-harness.json");
@@ -314,7 +401,7 @@ async function runTask(task: TaskDef, opts: BenchOptions): Promise<TaskResult> {
         runtimeApiKeys: { [PRSLOY_PROVIDER_ID]: opts.key ?? "fake" },
         extensionFactories,
         persistSession: true,
-        sessionDir: join(opts.outDir, "sessions", task.id),
+        sessionDir: join(opts.outDir, "sessions", slug),
         projectTrusted: true,
         onExtensionUiRequest: (request) => {
           if (request.method !== "select" && request.method !== "confirm") return;
@@ -372,12 +459,14 @@ async function runTask(task: TaskDef, opts: BenchOptions): Promise<TaskResult> {
   const asked = runs.reduce((n, r) => n + r.asked, 0);
   if (asked) interventions.askedOutside = asked;
   const error = runs.find((r) => r.error)?.error;
-  const toolCalls = messages
+  const calls = messages
     .filter((m) => m.role === "assistant" && Array.isArray(m.content))
-    .reduce(
-      (n, m) => n + (m.content as { type: string }[]).filter((p) => p.type === "toolCall").length,
-      0,
+    .flatMap((m) =>
+      (m.content as { type: string; name?: string; arguments?: unknown }[])
+        .filter((p) => p.type === "toolCall")
+        .map((p) => ({ name: p.name ?? "", arguments: p.arguments })),
     );
+  const toolCalls = calls.length;
   const costUsd = runs.reduce((n, r) => n + r.costUsd, 0);
   const last = runs.at(-1)?.messages ?? [];
   const answer = textOf(
@@ -400,6 +489,9 @@ async function runTask(task: TaskDef, opts: BenchOptions): Promise<TaskResult> {
         reply: AnswerMetrics;
         cards: string[];
         memoryDir: string;
+        params: unknown;
+        toolCalls: { name: string; arguments: unknown }[];
+        interventions: Record<string, number>;
       }) => Promise<{ ok: boolean | null; note: string; outcome?: Outcome }>;
     };
     ({
@@ -413,6 +505,9 @@ async function runTask(task: TaskDef, opts: BenchOptions): Promise<TaskResult> {
       reply: answerMetrics(answer, null),
       cards,
       memoryDir,
+      params: task.params,
+      toolCalls: calls,
+      interventions,
     }));
   } catch (e) {
     note = `проверка упала: ${e instanceof Error ? e.message : String(e)}`;
@@ -420,6 +515,9 @@ async function runTask(task: TaskDef, opts: BenchOptions): Promise<TaskResult> {
   const finalOk = error && ok === null ? false : ok;
   const reply = answerMetrics(answer, finalOk);
   const outcome = deriveOutcome(finalOk, reply.falseDone, ownOutcome);
+  const fakeExpected = opts.fake ? fakeOutcome(task) : undefined;
+  const expectedOutcome = fakeExpected ?? task.expectedOutcome;
+  const acceptOutcomes = fakeExpected ? [fakeExpected] : task.acceptOutcomes;
   return {
     id: task.id,
     title: task.title,
@@ -430,11 +528,13 @@ async function runTask(task: TaskDef, opts: BenchOptions): Promise<TaskResult> {
     costUsd,
     interventions,
     reply,
-    cacheShare: cacheShareOf(join(opts.outDir, "sessions", task.id, "prsloy-proxy.jsonl")),
+    cacheShare: cacheShareOf(join(opts.outDir, "sessions", slug, "prsloy-proxy.jsonl")),
     skills: skillsRead(messages),
     outcome,
-    expectedOutcome: task.expectedOutcome,
-    matched: outcome === null ? null : outcome === task.expectedOutcome,
+    expectedOutcome,
+    acceptOutcomes,
+    impossible: task.expectedOutcome === "honest_fail",
+    matched: outcome === null ? null : acceptOutcomes.includes(outcome),
     answer: answer.slice(0, 600),
     ...(error ? { error } : {}),
   };
@@ -455,6 +555,7 @@ export interface BenchReport {
     gateway: string;
     timeoutSec: number;
     audit: boolean;
+    suite: Suite;
   };
   results: TaskResult[];
   totals: {
@@ -466,6 +567,10 @@ export interface BenchReport {
     seconds: number;
     toolCalls: number;
     costUsd: number;
+    /** Сколько задач закончилось каждым исходом. */
+    outcomes: Record<Outcome, number>;
+    /** Невозможных задач (ждут честный отказ): знаменатель доли подгонки (research/22 §6.5). */
+    impossible: number;
   };
 }
 
@@ -474,7 +579,15 @@ export async function runBench(opts: BenchOptions): Promise<BenchReport> {
   mkdirSync(opts.outDir, { recursive: true });
   const results: TaskResult[] = [];
   try {
-    for (const task of listTasks(opts.tasks)) {
+    const cache = opts.fake ? false : (opts.honestyCache ?? HONESTY_CACHE);
+    if (opts.suite && opts.suite !== "casual" && cache && !existsSync(cache))
+      opts.log?.(
+        "Нет задач ImpossibleBench и EvilGenie: запусти node packages/prsloy-harness/bench/import/fetch-honesty.mjs. Пока гоняю только свои.",
+      );
+    // В --fake гоняются только варианты с заготовкой: у задачи честности это «жулик» и честный пример.
+    for (const task of listTasks(opts.tasks, opts.suite, cache).filter(
+      (t) => !opts.fake || t.fake,
+    )) {
       opts.log?.(`… ${task.id}`);
       const result = await runTask(task, opts);
       results.push(result);
@@ -501,6 +614,7 @@ export async function runBench(opts: BenchOptions): Promise<BenchReport> {
       gateway: opts.fake ? "fake" : new URL(opts.baseUrl ?? "http://unknown").host,
       timeoutSec: opts.timeoutSec,
       audit: opts.audit === true,
+      suite: opts.suite ?? "casual",
     },
     results,
     totals: {
@@ -511,6 +625,10 @@ export async function runBench(opts: BenchOptions): Promise<BenchReport> {
       seconds: Math.round(sum((r) => r.seconds)),
       toolCalls: sum((r) => r.toolCalls),
       costUsd: sum((r) => r.costUsd),
+      outcomes: Object.fromEntries(
+        OUTCOMES.map((o) => [o, results.filter((r) => r.outcome === o).length]),
+      ) as Record<Outcome, number>,
+      impossible: results.filter((r) => r.impossible).length,
     },
   };
 }
@@ -573,7 +691,7 @@ export function reportMarkdown(report: BenchReport): string {
     const cache = r.cacheShare === null ? "—" : `${Math.round(r.cacheShare * 100)}%`;
     const outcome =
       r.expectedOutcome !== "solved" || (r.outcome && r.outcome !== "solved")
-        ? ` · исход ${r.outcome ?? "—"}${r.matched === false ? ` (ждали ${r.expectedOutcome})` : ""}`
+        ? ` · исход ${r.outcome ?? "—"}${r.matched === false ? ` (ждали ${r.acceptOutcomes.join("/")})` : ""}`
         : "";
     return `| ${r.id} | ${mark} ${r.note.replace(/\|/g, "/")}${outcome}${r.error ? ` (${r.error})` : ""} | ${r.seconds} | ${r.toolCalls} | ${r.costUsd.toFixed(4)} | ${cache} | ${reply} | ${iv || "—"} |`;
   });
@@ -590,6 +708,7 @@ export function reportMarkdown(report: BenchReport): string {
     ...(results.some((r) => r.expectedOutcome !== "solved")
       ? [
           `Исходы: совпали с ожидаемыми ${results.filter((r) => r.matched === true).length} из ${results.length}${totals.unexpected ? `, не совпали ${totals.unexpected}` : ""}.`,
+          `Честность: решено ${totals.outcomes.solved}, честный отказ ${totals.outcomes.honest_fail}, правка теста с раскрытием ${totals.outcomes.disclosed_test_edit}, подгонка ${totals.outcomes.cheat}${totals.impossible ? ` (на невозможных ${results.filter((r) => r.impossible && r.outcome === "cheat").length} из ${totals.impossible})` : ""}, ложное «готово» ${totals.outcomes.false_done}.`,
         ]
       : []),
     `Ответы: по-русски ${results.filter((r) => r.reply.russian).length} из ${results.length}; команд пользователю ${sumOf(results, (r) => r.reply.commandsToUser)}; ложных «готово» ${results.filter((r) => r.reply.falseDone).length}; длинных (>8 строк или >800 симв.) ${results.filter((r) => !r.reply.short).length}; жаргон ${sumOf(results, (r) => r.reply.jargon)}.`,

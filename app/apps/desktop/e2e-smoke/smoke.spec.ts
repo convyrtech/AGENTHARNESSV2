@@ -16,12 +16,12 @@
  * metrics.json, bash-*.json.
  */
 import { expect, test } from "@playwright/test";
-import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync } from "node:fs";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { MockGatewayServer } from "@zeno/test-utils";
+import { concurrentMemoryWrites } from "../../../packages/prsloy-harness/src/memory-lock-check.ts";
 import {
   BASH_COMMAND,
   HARNESS_HEADER,
@@ -40,6 +40,8 @@ import {
   startHost,
   writeMetrics,
   type Launched,
+  reinstall,
+  uninstallAndWait,
 } from "./helpers.ts";
 
 const strictCleanBash = process.env.SMOKE_STRICT_CLEAN_BASH === "1";
@@ -129,6 +131,51 @@ test("installed app: window, runtimes, host, reply, bash tool", async () => {
     expect(launched.pageErrors, launched.pageErrors.join("\n\n")).toEqual([]);
   } finally {
     if (launched) await shot(launched.page, "99-runner-final");
+    await close(launched);
+  }
+});
+
+// ── Memory (research/24 M-sp): files under a lock, a model call outside the turn ──
+
+test("memory files: four processes writing at once lose nothing (lock, rename retry)", async () => {
+  const root = await mkdtemp(join(tmpdir(), "prsloy-smoke-mem-"));
+  const result = await concurrentMemoryWrites({
+    dir: join(root, "prsloy-memory"),
+    cwd: join(root, "мой проект"),
+  });
+  await writeMetrics({ memoryLock: result });
+  expect(result.failures).toEqual([]);
+  expect(result.entries).toBe(result.expected);
+  expect(result.remembered).toBe(result.expected);
+});
+
+test("memory extractor: one call outside the turn after leaving a chat (installed app)", async () => {
+  let launched: Launched | undefined;
+  try {
+    launched = await launch("extractor", {
+      env: {
+        PRSLOY_MEMORY_EXTRACTOR: "probe",
+        PRSLOY_MEMORY_EXTRACTOR_PROVIDER: "zeno-fake",
+        PRSLOY_MEMORY_EXTRACTOR_MODEL: "zeno-fake",
+        // The smoke turns saving chats off; leaving a chat means leaving its file (as in the product).
+        ZENO_PERSIST_SESSION: "1",
+      },
+    });
+    const { page } = launched;
+    await startHost(page);
+    await send(page, "Привет! Ответь одной фразой.");
+    await expect
+      .poll(async () => page.getByTestId("timeline").innerText(), { timeout: 60_000 })
+      .toContain("Zeno fake model response");
+    await page.evaluate(() => window.zeno.session.create());
+    const journal = join(launched.root, "smoke-pi-agent", "prsloy-memory", "extractor.jsonl");
+    await expect.poll(() => existsSync(journal), { timeout: 60_000 }).toBe(true);
+    const line = JSON.parse((await readFile(journal, "utf8")).trim().split("\n")[0]!);
+    await writeMetrics({ extractorProbe: line });
+    expect(line).toMatchObject({ kind: "probe", model: "zeno-fake", ok: true, status: 200 });
+    expect(line.input).toBeGreaterThan(0);
+  } finally {
+    if (launched) await shot(launched.page, "99-extractor-final");
     await close(launched);
   }
 });
@@ -304,28 +351,22 @@ test("uninstall → reinstall → launch keeps the profile and projects", async 
 
     // 2. Silent uninstall. NSIS re-launches itself from %TEMP%: wait for the files to go.
     expect(existsSync(uninstaller), `missing ${uninstaller}`).toBe(true);
-    let t = Date.now();
-    execFileSync(uninstaller, ["/S"], { windowsHide: true, timeout: 120_000 });
-    const removed = await waitFor(() => !existsSync(exe), 120_000);
-    expect(removed, `${exe} still present after uninstall`).toBe(true);
-    // The uninstaller deletes the exe first and itself last.
-    await waitFor(() => !existsSync(uninstaller), 120_000);
-    metrics.uninstallMs = Date.now() - t;
+    // The %TEMP% copy deletes the exe first, PortableGit next, the registry key last (#32).
+    const uninstall = await uninstallAndWait(installDir, exe);
+    metrics.uninstall = uninstall;
+    expect(uninstall.exeGone, `${exe} still present after uninstall`).toBe(true);
     metrics.installDirLeftovers = existsSync(installDir) ? readdirSync(installDir) : [];
     // deleteAppDataOnUninstall: false — the profile (key, settings, runtimes) and projects stay.
     expect(existsSync(userData), "userData removed by uninstall").toBe(true);
     expect(existsSync(join(project, "keep.txt")), "user project removed by uninstall").toBe(true);
 
     // 3. Reinstall into the same folder over the kept profile (/D= last and unquoted).
-    t = Date.now();
-    execFileSync(installer!, ["/S", "/currentuser", `/D=${installDir}`], {
-      windowsHide: true,
-      timeout: 300_000,
-    });
+    const install = await reinstall(installer!, installDir);
+    metrics.reinstall = install;
+    expect(install.attempts.at(-1), JSON.stringify(install.attempts)).toMatchObject({ code: 0 });
     expect(await waitFor(() => existsSync(exe), 60_000), `${exe} missing after reinstall`).toBe(
       true,
     );
-    metrics.reinstallMs = Date.now() - t;
 
     // 4. Launch on the kept profile: window, host, a bash turn.
     launched = await launch("reinstalled", { userData: null });

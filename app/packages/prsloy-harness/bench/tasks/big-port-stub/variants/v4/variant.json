@@ -1,0 +1,6 @@
+{
+  "prompt": "Перепиши расписание с Python на JS, чтобы работало так же.",
+  "params": {
+    "script": "schedule.py"
+  }
+}

@@ -10,10 +10,14 @@ import { afterEach, describe, expect, it } from "vite-plus/test";
 import type { MemorySnapshot } from "@zeno/contracts";
 import { bootstrapPrsloy } from "./context.ts";
 import { registerPrsloyIpc } from "./ipc.ts";
+import { MemoryStore } from "@prsloy/harness";
 import {
   MEMORY_FORGOT_ALL_NOTE,
   MEMORY_FORGOT_NOTE_TYPE,
+  MEMORY_REVERTED_NOTE_TYPE,
+  memoryFlagsChanged,
   memoryForgotNote,
+  memoryRevertedNote,
   PRSLOY_MEMORY_IPC,
 } from "./memory-ipc.ts";
 import { workspaceKey } from "./turn-snapshots.ts";
@@ -119,8 +123,11 @@ describe("memory IPC (S5)", () => {
         id: "u-aaaa",
         text: "Пиши без англицизмов",
         created: "2026-10-25T10:00:00.000Z",
+        origin: "user",
+        quote: "Пиши без англицизмов",
       },
     ]);
+    expect(list.history).toEqual([]);
     expect(list.project.map((e) => e.id)).toEqual(["p-bbbb"]);
     expect(list.digest?.text).toBe("Прошлый раз: шапка.");
     // Another project by path; the key is the turn snapshots' workspaceKey.
@@ -161,12 +168,100 @@ describe("memory IPC (S5)", () => {
   it("«Забыть всё» clears the user and every project, one note", async () => {
     const t = setup();
     const all = await t.invoke<MemorySnapshot>(PRSLOY_MEMORY_IPC.forgetAll);
-    expect(all).toEqual({ user: [], project: [], forgotten: [] });
+    expect(all).toEqual({ user: [], project: [], forgotten: [], history: [] });
     const b = await t.invoke<MemorySnapshot>(PRSLOY_MEMORY_IPC.list, t.projectB);
-    expect(b).toEqual({ user: [], project: [], forgotten: [] });
+    expect(b).toEqual({ user: [], project: [], forgotten: [], history: [] });
     expect(t.notes).toEqual([
       { customType: MEMORY_FORGOT_NOTE_TYPE, text: MEMORY_FORGOT_ALL_NOTE },
     ]);
+  });
+
+  it("M-1: «Закрепить» / «Открепить» keeps the entry and marks it", async () => {
+    const t = setup();
+    const pinned = await t.invoke<MemorySnapshot>(PRSLOY_MEMORY_IPC.pin, "u-aaaa", true);
+    expect(pinned.user[0]).toMatchObject({ id: "u-aaaa", pinned: true });
+    const unpinned = await t.invoke<MemorySnapshot>(PRSLOY_MEMORY_IPC.pin, "u-aaaa", false);
+    expect(unpinned.user[0]?.pinned).toBeUndefined();
+    expect(readFileSync(join(t.dir, "journal.jsonl"), "utf8").match(/"op":"pin"/gu)).toHaveLength(
+      2,
+    );
+  });
+
+  it("M-1: «Вернуть» a replaced entry by opId — the old one back in place, a note for the session", async () => {
+    const t = setup();
+    const store = new MemoryStore(t.dir);
+    const before = readFileSync(join(t.dir, "user.json"), "utf8");
+    const entriesBefore = JSON.parse(before).entries;
+    // The user changed their mind: the opposite replaces the old entry.
+    const flip = store.add("user", t.projectA, {
+      text: "Пиши с англицизмами",
+      quote: "пиши с англицизмами",
+    });
+    expect(flip.ok && flip.replaced?.id).toBe("u-aaaa");
+    const list = await t.invoke<MemorySnapshot>(PRSLOY_MEMORY_IPC.list);
+    expect(list.history).toMatchObject([
+      { kind: "replaced", scope: "user", text: "Пиши без англицизмов", now: "Пиши с англицизмами" },
+    ]);
+    const back = await t.invoke<MemorySnapshot>(PRSLOY_MEMORY_IPC.revert, list.history![0]!.opId);
+    expect(back.user.map((e) => e.text)).toEqual(["Пиши без англицизмов"]);
+    expect(back.history).toEqual([]);
+    // Byte for byte: the same entries as before the change.
+    expect(JSON.parse(readFileSync(join(t.dir, "user.json"), "utf8")).entries).toEqual(
+      entriesBefore,
+    );
+    expect(t.notes).toEqual([
+      {
+        customType: MEMORY_REVERTED_NOTE_TYPE,
+        text: memoryRevertedNote("Пиши без англицизмов", "Пиши с англицизмами"),
+      },
+    ]);
+    // Twice: nothing to revert.
+    const again = await t.invoke<MemorySnapshot>(PRSLOY_MEMORY_IPC.revert, list.history![0]!.opId);
+    expect(again.user.map((e) => e.text)).toEqual(["Пиши без англицизмов"]);
+  });
+
+  it("M-1: a forgotten entry is in «Было» and comes back by its opId", async () => {
+    const t = setup();
+    const forgot = await t.invoke<MemorySnapshot>(PRSLOY_MEMORY_IPC.forget, "p-bbbb");
+    expect(forgot.history).toMatchObject([
+      { kind: "forgotten", scope: "project", text: "Сайт для пекарни «Колос»" },
+    ]);
+    const back = await t.invoke<MemorySnapshot>(PRSLOY_MEMORY_IPC.revert, forgot.history![0]!.opId);
+    expect(back.project.map((e) => e.id)).toEqual(["p-bbbb"]);
+    expect(back.history).toEqual([]);
+    expect(back.forgotten).toEqual([]);
+  });
+
+  it("M-1: turning memory off erases entries, digests, history and journal texts everywhere", async () => {
+    const t = setup();
+    await t.invoke(PRSLOY_MEMORY_IPC.forget, "u-aaaa");
+    const flags = {
+      secondOpinion: true,
+      memory: true,
+      autoMemory: "off",
+      honestExit: false,
+      testGuard: false,
+      claimCheck: false,
+    } as const;
+    // Other switches: nothing happens.
+    await memoryFlagsChanged(flags, { ...flags, secondOpinion: false });
+    expect((await t.invoke<MemorySnapshot>(PRSLOY_MEMORY_IPC.list)).project).toHaveLength(1);
+    await memoryFlagsChanged(flags, { ...flags, memory: false });
+    for (const path of [t.projectA, t.projectB]) {
+      const s = await t.invoke<MemorySnapshot>(PRSLOY_MEMORY_IPC.list, path);
+      expect(s).toEqual({ user: [], project: [], forgotten: [], history: [] });
+    }
+    const files = [
+      readFileSync(join(t.dir, "user.json"), "utf8"),
+      readFileSync(t.projectFile(t.projectA), "utf8"),
+      readFileSync(t.projectFile(t.projectB), "utf8"),
+      readFileSync(join(t.dir, "journal.jsonl"), "utf8"),
+    ].join("\n");
+    expect(files).not.toMatch(/англицизм|пекарн|зелён|шапка/u);
+    expect(t.notes.at(-1)).toEqual({
+      customType: MEMORY_FORGOT_NOTE_TYPE,
+      text: MEMORY_FORGOT_ALL_NOTE,
+    });
   });
 
   it("rejects bad input and untrusted senders", async () => {
@@ -178,6 +273,10 @@ describe("memory IPC (S5)", () => {
       /Invalid workspace/,
     );
     await expect(t.invoke(PRSLOY_MEMORY_IPC.list, 42)).rejects.toThrow(/Invalid workspace/);
+    await expect(t.invoke(PRSLOY_MEMORY_IPC.pin, "u-aaaa", "yes")).rejects.toThrow(/pinned/);
+    await expect(t.invoke(PRSLOY_MEMORY_IPC.revert, "u-aaaa")).rejects.toThrow(
+      /Invalid memory operation/,
+    );
     const untrusted = setup({ trusted: false });
     await expect(untrusted.invoke(PRSLOY_MEMORY_IPC.list)).rejects.toThrow(/Untrusted IPC sender/);
     await expect(untrusted.invoke(PRSLOY_MEMORY_IPC.forgetAll)).rejects.toThrow(/Untrusted/);
