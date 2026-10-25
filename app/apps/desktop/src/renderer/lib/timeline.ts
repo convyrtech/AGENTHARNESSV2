@@ -303,6 +303,9 @@ export function projectEventsToTimeline(
         flushThinking();
         assistantBuffer += runtimeEvent.delta;
       } else if (runtimeEvent.type === "message.completed") {
+        // pi's stored text wins over the streamed deltas when they differ.
+        if (runtimeEvent.text && assistantBuffer) assistantBuffer = runtimeEvent.text;
+        if (runtimeEvent.thinking && thinkingBuffer) thinkingBuffer = runtimeEvent.thinking;
         flushMessage();
       } else if (runtimeEvent.type === "message.failed") {
         flushMessage();

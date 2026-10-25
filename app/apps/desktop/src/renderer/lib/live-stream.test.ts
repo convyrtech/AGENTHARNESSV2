@@ -61,6 +61,96 @@ describe("streamed text never loses characters", () => {
   });
 });
 
+describe("message end reconciles with pi's stored text", () => {
+  type Ev = Parameters<typeof applyRuntimeEventToLiveStream>[1];
+  function run(events: Ev[]) {
+    let state = emptyLiveStream();
+    events.forEach((event, i) => {
+      state = applyRuntimeEventToLiveStream(state, event, [], { sequence: i + 1 });
+    });
+    return state.items.map((item) => [item.kind, "text" in item ? item.text : ""]);
+  }
+
+  it("replaces streamed text that lost or doubled a delta", () => {
+    expect(
+      run([
+        { type: "thinking.delta", delta: "Let me" },
+        { type: "message.delta", delta: "Итого: 100 ₽" },
+        {
+          type: "message.completed",
+          reason: "stop",
+          text: "Итого: 1000 ₽",
+          thinking: "Let me look",
+        },
+      ]),
+    ).toEqual([
+      ["thinking", "Let me look"],
+      ["assistant", "Итого: 1000 ₽"],
+    ]);
+  });
+
+  it("keeps the row (same id) and changes nothing when the text matches", () => {
+    let state = emptyLiveStream();
+    state = applyRuntimeEventToLiveStream(state, { type: "message.delta", delta: "Готово." }, [], {
+      sequence: 1,
+    });
+    const before = state.items;
+    state = applyRuntimeEventToLiveStream(
+      state,
+      { type: "message.completed", reason: "stop", text: "Готово." },
+      [],
+      { sequence: 2 },
+    );
+    expect(state.items).toBe(before);
+  });
+
+  it("adds a reply whose deltas never arrived", () => {
+    expect(
+      run([
+        { type: "user.message", content: "Привет" },
+        { type: "message.completed", reason: "stop", text: "Здравствуйте!" },
+      ]),
+    ).toEqual([
+      ["user", "Привет"],
+      ["assistant", "Здравствуйте!"],
+    ]);
+  });
+
+  it("leaves earlier messages, older core events and tool-only replies alone", () => {
+    expect(
+      run([
+        { type: "message.delta", delta: "Первый" },
+        { type: "message.completed", reason: "toolUse", text: "Первый" },
+        { type: "tool.started", toolCallId: "t1", toolName: "bash", args: {} },
+        { type: "message.completed", reason: "toolUse", text: "" },
+        { type: "message.delta", delta: "Второй" },
+        { type: "message.completed", reason: "stop" },
+      ]).filter(([kind]) => kind !== "tool"),
+    ).toEqual([
+      ["assistant", "Первый"],
+      ["assistant", "Второй"],
+    ]);
+  });
+});
+
+describe("message end never rewrites an earlier message", () => {
+  it("leaves a row shared with the previous message as streamed", () => {
+    let state = emptyLiveStream();
+    const events: Parameters<typeof applyRuntimeEventToLiveStream>[1][] = [
+      { type: "message.delta", delta: "Первый. " },
+      { type: "message.completed", reason: "stop", text: "Первый. " },
+      { type: "message.delta", delta: "Второй" },
+      { type: "message.completed", reason: "stop", text: "Второй!" },
+    ];
+    events.forEach((event, i) => {
+      state = applyRuntimeEventToLiveStream(state, event, [], { sequence: i + 1 });
+    });
+    expect(state.items.map((item) => ("text" in item ? item.text : ""))).toEqual([
+      "Первый. Второй",
+    ]);
+  });
+});
+
 describe("a model failure becomes the failure card", () => {
   // The proxy's mid-stream drop (code prsloy_stream_interrupted) reaches pi's errorMessage as
   // «Связь с моделью оборвалась»; it must look exactly like a network drop.

@@ -30,6 +30,17 @@ function runtimeEvent(sequence: number, event: RuntimeEvent): HostEvent {
 }
 
 describe("runtime timeline", () => {
+  it("takes pi's stored text at message end when the deltas lost a character", () => {
+    const timeline = projectEventsToTimeline(
+      [
+        runtimeEvent(1, { type: "message.delta", delta: "Было 800" }),
+        runtimeEvent(2, { type: "message.completed", reason: "stop", text: "Было 8000" }),
+      ],
+      [],
+    );
+    expect(timeline.map((item) => ("text" in item ? item.text : ""))).toEqual(["Было 8000"]);
+  });
+
   it("renders each delivered queued user message in processing order", () => {
     const timeline = projectEventsToTimeline(
       [
