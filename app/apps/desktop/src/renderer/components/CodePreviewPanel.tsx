@@ -3,7 +3,15 @@
  * the «Дизайн» preview, with «Компьютер / Телефон», «Обновить» and «Открыть в браузере».
  */
 import type { CodePreviewResult } from "@zeno/contracts";
-import { CircleAlert, Download, ExternalLink, MousePointerClick, RotateCw, X } from "lucide-react";
+import {
+  CircleAlert,
+  Crop,
+  Download,
+  ExternalLink,
+  MousePointerClick,
+  RotateCw,
+  X,
+} from "lucide-react";
 import { type RefObject, useEffect, useState } from "react";
 import { closeCodePreview, useCodePreview } from "../lib/code-preview-store.ts";
 import { t, type Locale, type MessageKey } from "../lib/i18n.ts";
@@ -18,8 +26,10 @@ import {
   pickedPrompt,
 } from "../lib/preview-bridge.ts";
 import { useShellStore } from "../store/shell-store.ts";
+import { afterPaint, type Rect } from "../lib/preview-capture.ts";
 import { exportProjectZip, type ProjectZipNote } from "../lib/project-zip.ts";
 import { previewTargetLabel } from "../lib/turn-preview.ts";
+import { PreviewCaptureOverlay } from "./PreviewCaptureOverlay.tsx";
 import { type PreviewDevice, PreviewDeviceSwitch, PreviewStage } from "./PreviewFrame.tsx";
 import "./code-preview-features.css";
 
@@ -40,6 +50,8 @@ export function CodePreviewPanel(props: {
   composerRef?: RefObject<HTMLTextAreaElement | null>;
   /** «Починить»: sends the page's errors to the agent, the same way as «Повторить». */
   onSend?: (text: string) => void;
+  /** «Снять часть страницы»: the snapshot's file goes into the composer's attachments. */
+  onAttach?: (paths: string[]) => void;
 }) {
   const preview = useCodePreview();
   const [result, setResult] = useState<CodePreviewResult | undefined>();
@@ -53,6 +65,7 @@ export function CodePreviewPanel(props: {
   const [errorsHidden, setErrorsHidden] = useState(false);
   const [zipNote, setZipNote] = useState<ProjectZipNote>();
   const [zipping, setZipping] = useState(false);
+  const [capturing, setCapturing] = useState(false);
 
   // A new page or a reload starts clean.
   useEffect(() => {
@@ -62,6 +75,7 @@ export function CodePreviewPanel(props: {
     setErrors([]);
     setErrorsHidden(false);
     setZipNote(undefined);
+    setCapturing(false);
   }, [preview, reloads]);
 
   // Esc cancels picking wherever focus is: the frame tells us itself, the app hears it here.
@@ -82,6 +96,20 @@ export function CodePreviewPanel(props: {
       if (!el) return;
       el.focus();
       el.setSelectionRange(el.value.length, el.value.length);
+    });
+  }
+
+  async function capture(rect: Rect) {
+    setCapturing(false);
+    // The frame layer must be gone from the window before main takes the picture.
+    await afterPaint();
+    const result = await window.zeno.features
+      .capturePreview(rect)
+      .catch(() => ({ ok: false as const }));
+    if (result.ok) props.onAttach?.([result.path]);
+    setZipNote({
+      kind: result.ok ? "ok" : "error",
+      text: tr(result.ok ? "features.capture.done" : "features.capture.failed"),
     });
   }
 
@@ -177,11 +205,29 @@ export function CodePreviewPanel(props: {
               data-testid="code-preview-pick"
               onClick={() => {
                 setPickedWhat(undefined);
+                setCapturing(false);
                 setPicking((on) => !on);
               }}
             >
               <MousePointerClick className="size-3.5" strokeWidth={1.75} />
               {tr(picking ? "features.pick.cancel" : "features.pick.start")}
+            </button>
+          ) : null}
+          {props.onAttach ? (
+            <button
+              type="button"
+              className="code-preview-tool"
+              data-active={capturing ? "true" : "false"}
+              aria-pressed={capturing}
+              data-testid="code-preview-capture"
+              onClick={() => {
+                setPicking(false);
+                setZipNote(undefined);
+                setCapturing((on) => !on);
+              }}
+            >
+              <Crop className="size-3.5" strokeWidth={1.75} />
+              {tr(capturing ? "features.capture.cancel" : "features.capture.start")}
             </button>
           ) : null}
           {preview.workspacePath ? (
@@ -264,16 +310,25 @@ export function CodePreviewPanel(props: {
         </div>
       ) : null}
       {result?.ok ? (
-        <PreviewStage
-          key={`${preview.nonce}:${reloads}`}
-          locale={props.locale}
-          url={result.url}
-          device={device}
-          sandbox={CODE_PREVIEW_SANDBOX}
-          testId="code-preview-frame"
-          className="code-preview-stage"
-          bridge={{ picking, onMessage: onBridgeMessage }}
-        />
+        <div className="code-preview-stage-wrap">
+          <PreviewStage
+            key={`${preview.nonce}:${reloads}`}
+            locale={props.locale}
+            url={result.url}
+            device={device}
+            sandbox={CODE_PREVIEW_SANDBOX}
+            testId="code-preview-frame"
+            className="code-preview-stage"
+            bridge={{ picking, onMessage: onBridgeMessage }}
+          />
+          {capturing ? (
+            <PreviewCaptureOverlay
+              hint={tr("features.capture.hint")}
+              onPicked={(rect) => void capture(rect)}
+              onCancel={() => setCapturing(false)}
+            />
+          ) : null}
+        </div>
       ) : (
         <p
           className="code-preview-note"

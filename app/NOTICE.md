@@ -16,3 +16,12 @@
   [stackblitz-labs/bolt.diy](https://github.com/stackblitz-labs/bolt.diy) (коммит `353b44c`). MIT License,
   Copyright (c) 2024 StackBlitz, Inc. and bolt.diy contributors. Изменено PRSLOY: убрана правка стилей и текста,
   добавлены точный CSS-путь, кусок `outerHTML` и отмена по Esc.
+- `apps/desktop/src/renderer/lib/next-steps.ts` — правила разбора по образцу `src/lib/suggestedPrompts.ts` из
+  [dyad-sh/dyad](https://github.com/dyad-sh/dyad) (коммит `1be2b4b`, вне `src/pro/`). Apache License 2.0,
+  Copyright (c) Dyad contributors; текст лицензии — `licenses/dyad-Apache-2.0.txt`. Изменено PRSLOY: свой тег
+  `<prsloy-next>`, разбор регулярным выражением, запасные подсказки по файлам хода. Из `NOTICE` Dyad: «Dyad.
+  Copyright (c) Dyad contributors.»
+- `apps/desktop/src/main/features/session-search.ts` — по мотивам `packages/pi-host/src/session-search.ts` из
+  [Skitre/PiDeck](https://github.com/Skitre/PiDeck) (PiCove, коммит `102d9e1`). MIT License, Copyright (c) 2026
+  PiDeck contributors. Изменено PRSLOY: «ё» = «е», без папки архива, вырезаются блоки `<attached-paths>`,
+  название чата — первая просьба, чаты без проекта прямо в `sessions/`.

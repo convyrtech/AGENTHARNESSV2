@@ -15,6 +15,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import type { ChatSearchResult } from "@zeno/contracts";
+import { MessageSquare } from "lucide-react";
+import {
+  CHAT_SEARCH_DEBOUNCE_MS,
+  chatResultSnippet,
+  chatResultTitle,
+  searchChats,
+} from "../lib/chat-search.ts";
 import type { ShellCommand } from "../lib/commands.ts";
 import { t, type Locale, type MessageKey } from "../lib/i18n.ts";
 import { cn } from "../lib/utils.ts";
@@ -24,13 +32,29 @@ export function CommandPalette(props: {
   locale: Locale;
   commands: ShellCommand[];
   onClose: () => void;
+  /** Search over old chats: a found chat opens like a click in the sidebar. */
+  onOpenChat?: (path: string, cwd: string) => void;
 }) {
   const [query, setQuery] = useState("");
+  const [chats, setChats] = useState<ChatSearchResult[]>([]);
   const tr = (key: MessageKey, vars?: Record<string, string>) => t(props.locale, key, vars);
 
   useEffect(() => {
     if (!props.open) setQuery("");
   }, [props.open]);
+
+  // Old chats: main reads pi's session files, so wait for a pause in typing.
+  useEffect(() => {
+    if (!props.onOpenChat) return;
+    let alive = true;
+    const timer = window.setTimeout(() => {
+      void searchChats(query).then((found) => alive && setChats(found));
+    }, CHAT_SEARCH_DEBOUNCE_MS);
+    return () => {
+      alive = false;
+      window.clearTimeout(timer);
+    };
+  }, [query, props.onOpenChat]);
 
   const groups = useMemo(() => {
     const navigation = props.commands.filter((c) =>
@@ -131,6 +155,38 @@ export function CommandPalette(props: {
                 ))}
               </CommandGroup>
             ))}
+            {props.onOpenChat && query.trim() && chats.length > 0 ? (
+              <CommandGroup
+                heading={tr("features.search.group")}
+                data-testid="command-palette-chats"
+                className="[&_[cmdk-group-heading]]:group-label [&_[cmdk-group-heading]]:px-2.5 [&_[cmdk-group-heading]]:py-1.5"
+              >
+                {chats.map((chat) => (
+                  <CommandItem
+                    key={chat.path}
+                    value={`chat:${chat.path}`}
+                    // Main already matched every word; cmdk must not filter these out again.
+                    keywords={[query]}
+                    data-testid="command-chat"
+                    onSelect={() => {
+                      props.onClose();
+                      props.onOpenChat?.(chat.path, chat.cwd);
+                    }}
+                    className="items-start gap-2 rounded-[var(--radius-control)] px-2.5 py-2 text-[13px] data-[selected=true]:bg-[var(--hover-fill)] data-[selected=true]:text-[var(--hover-fill-foreground)]"
+                  >
+                    <MessageSquare className="mt-0.5 size-3.5 shrink-0" strokeWidth={1.75} />
+                    <span className="flex min-w-0 flex-1 flex-col">
+                      <span className="truncate">{chatResultTitle(props.locale, chat)}</span>
+                      {chatResultSnippet(chat) ? (
+                        <span className="truncate text-[12px] text-[var(--text-subtle)]">
+                          {chatResultSnippet(chat)}
+                        </span>
+                      ) : null}
+                    </span>
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            ) : null}
           </CommandList>
         </Command>
       </DialogContent>

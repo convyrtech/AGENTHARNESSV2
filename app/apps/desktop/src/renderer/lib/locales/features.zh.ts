@@ -3,6 +3,23 @@
  * into the locale table; `zh` is the key source.
  */
 export const featuresZh = {
+  "features.search.group": "聊天",
+  "features.search.untitled": "未命名聊天",
+  "features.search.matches": "{count} 处匹配",
+  "features.capture.start": "截取页面一部分",
+  "features.capture.cancel": "取消截图",
+  "features.capture.hint": "用框圈出需要的位置。Esc 取消。",
+  "features.capture.done": "截图已添加到消息中。",
+  "features.capture.failed": "无法截取页面。",
+  "features.next.title": "接下来可以：",
+  "features.next.site.phone": "让页面在手机上也好看",
+  "features.next.site.form": "添加报名表单",
+  "features.next.site.bright": "让设计更醒目",
+  "features.next.bot.help": "给机器人添加 /help 命令",
+  "features.next.bot.buttons": "给机器人菜单添加按钮",
+  "features.next.bot.run": "简单说明怎么启动机器人",
+  "features.next.code.check": "检查一切是否正常",
+  "features.next.code.explain": "用简单的话说明你做了什么",
   "features.history.open": "版本历史",
   "features.history.title": "版本历史",
   "features.history.hint": "每次请求前都会保存项目文件。可以回到任意一次请求之前的状态。",

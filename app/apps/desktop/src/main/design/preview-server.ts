@@ -74,7 +74,8 @@ export function startPreviewServer(
     }
     const type = mimeFor(target);
     if (options.inject !== undefined && type.startsWith("text/html")) {
-      const body = Buffer.from(injectBridgeTag(readFileSync(target, "utf8")));
+      // latin1 maps bytes 1:1, so a page in any encoding keeps its bytes; the tag is ASCII.
+      const body = Buffer.from(injectBridgeTag(readFileSync(target, "latin1")), "latin1");
       res.writeHead(200, {
         "Content-Type": type,
         "Content-Length": body.length,

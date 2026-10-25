@@ -21,6 +21,8 @@ import { matchTurnSnapshots, timelineTurns } from "@/lib/turn-undo";
 import { useTurnSnapshots } from "../hooks/useTurnSnapshots.ts";
 import { TurnUndoAction } from "./TurnUndoAction.tsx";
 import { TurnPreviewAction } from "./TurnPreviewAction.tsx";
+import { NextStepChips } from "./NextStepChips.tsx";
+import { selectNextSteps, withoutNextTag } from "@/lib/next-steps";
 import { previewTargetsByBlock } from "@/lib/turn-preview";
 import { withoutRetryNoise } from "@/lib/model-failure";
 import { useCasualPrefs } from "../hooks/useCasualPrefs.ts";
@@ -117,9 +119,21 @@ export function SessionTimelineContent(props: SessionTimelineContentProps) {
     testId = "timeline",
   } = props;
   const { developerMode } = useCasualPrefs();
+  // «Что дальше»: the model's <prsloy-next> tag becomes buttons, never text in the reply.
+  const shownItems = useMemo(
+    () =>
+      items.map((item) =>
+        item.kind === "assistant" ? { ...item, text: withoutNextTag(item.text) } : item,
+      ),
+    [items],
+  );
+  const nextSteps = useMemo(
+    () => selectNextSteps(locale, items, running),
+    [locale, items, running],
+  );
   const blocks = useMemo(
-    () => buildTimelineBlocks(developerMode ? items : withoutRetryNoise(items)),
-    [items, developerMode],
+    () => buildTimelineBlocks(developerMode ? shownItems : withoutRetryNoise(shownItems)),
+    [shownItems, developerMode],
   );
   const liveActivity = useMemo(
     () => deriveLiveActivity({ items, events, running, waiting }),
@@ -224,6 +238,15 @@ export function SessionTimelineContent(props: SessionTimelineContentProps) {
               </Fragment>
             );
           })}
+          {nextSteps.length > 0 ? (
+            <MessageScrollerItem
+              messageId={`${sessionKey || "chat"}:next-steps`}
+              scrollAnchor={false}
+              className="w-full"
+            >
+              <NextStepChips locale={locale} steps={nextSteps} />
+            </MessageScrollerItem>
+          ) : null}
           {showLiveStatus && liveActivity ? (
             <MessageScrollerItem
               messageId={`${sessionKey || "live"}:live-status`}

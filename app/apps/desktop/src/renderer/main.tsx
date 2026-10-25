@@ -3493,6 +3493,7 @@ function App() {
                   onSend={(text) =>
                     void sendPrompt(undefined, undefined, { text, attachments: [] })
                   }
+                  onAttach={(paths) => setAttachments((current) => addAttachments(current, paths))}
                 />
               ) : null}
             </div>
@@ -3623,6 +3624,7 @@ function App() {
         locale={locale}
         commands={commands}
         onClose={() => setPaletteOpen(false)}
+        onOpenChat={(path, cwd) => void switchThread(path, cwd)}
       />
       <SessionTreePanel
         open={sessionPanels.tree.open}

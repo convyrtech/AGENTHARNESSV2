@@ -99,6 +99,25 @@ describe("project preview (inject)", () => {
     expect(bridge.type).toMatch(/^text\/javascript/);
   });
 
+  it("keeps the page's bytes whatever its encoding", async () => {
+    const { dir } = site();
+    const cp1251 = Buffer.from([0x3c, 0x68, 0x65, 0x61, 0x64, 0x3e, 0xcf, 0xf0, 0xe8]); // <head>При
+    writeFileSync(join(dir, "landing", "old.html"), cp1251);
+    server = await startPreviewServer(dir, { inject: "" });
+    const raw = await new Promise<Buffer>((resolve, reject) => {
+      const u = new URL(server!.url);
+      request({ host: u.hostname, port: u.port, path: "/landing/old.html" }, (res) => {
+        const chunks: Buffer[] = [];
+        res.on("data", (c: Buffer) => chunks.push(c));
+        res.on("end", () => resolve(Buffer.concat(chunks)));
+      })
+        .on("error", reject)
+        .end();
+    });
+    expect(raw.subarray(raw.length - 3)).toEqual(Buffer.from([0xcf, 0xf0, 0xe8]));
+    expect(raw.toString("latin1")).toContain(`<head><script src="${BRIDGE_PATH}"></script>`);
+  });
+
   it("has no bridge without the option", async () => {
     const { dir } = site();
     server = await startPreviewServer(dir);
