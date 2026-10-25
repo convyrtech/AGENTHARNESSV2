@@ -49,6 +49,10 @@ export interface BenchOptions {
   timeoutSec: number;
   /** Ответ на вопрос «менять файлы вне проекта?»: казуал по умолчанию отказывается. */
   allowOutside?: boolean;
+  /** Уроки (флаг "lessons" в prsloy-harness.json агента, как в приложении). По умолчанию вкл. */
+  lessons?: boolean;
+  /** Память (флаг "memory"). По умолчанию вкл. */
+  memory?: boolean;
   log?: (line: string) => void;
 }
 
@@ -119,7 +123,9 @@ export function countInterventions(
       if (text.includes("[Процесс остановлен по таймауту")) add("timeout");
       if (/запущен[аы]? (?:через реестр харнесса|в фоне)/.test(text)) add("server");
       if (/^(?:Validation failed|Invalid arguments) for tool/.test(text)) add("validationError");
+      if (text.includes("Совет из прошлых задач:")) add("lessonTip");
     }
+    if (m.role === "custom" && text.includes("Совет из прошлых задач:")) add("lessonTip");
     if (m.role === "custom" && m.customType?.startsWith("prsloy-harness")) {
       const kind = m.customType.slice("prsloy-harness".length).replace(/^\./, "") || "loop";
       if (kind === "second-opinion") {
@@ -172,6 +178,12 @@ async function runTask(task: TaskDef, opts: BenchOptions): Promise<TaskResult> {
       2,
     ),
   );
+  // Флаги — тем же файлом, что пишет приложение.
+  const settingsPath = join(agentDir, "prsloy-harness.json");
+  writeFileSync(
+    settingsPath,
+    JSON.stringify({ lessons: opts.lessons !== false, memory: opts.memory !== false }),
+  );
   const slash = opts.model.indexOf("/");
   const model = { provider: opts.model.slice(0, slash), id: opts.model.slice(slash + 1) };
 
@@ -182,6 +194,7 @@ async function runTask(task: TaskDef, opts: BenchOptions): Promise<TaskResult> {
       ? createPrsloyHarness({
           outputDir: join(opts.outDir, "harness"),
           learningDir: join(opts.outDir, "learning"),
+          settingsPath,
         })
       : (pi: ExtensionAPI) => installReusePrompt(pi, resolveOptions({ profile: "code" })),
   ];
@@ -282,6 +295,8 @@ export interface BenchReport {
   meta: {
     model: string;
     harness: boolean;
+    lessons: boolean;
+    memory: boolean;
     fake: boolean;
     date: string;
     gateway: string;
@@ -319,6 +334,8 @@ export async function runBench(opts: BenchOptions): Promise<BenchReport> {
     meta: {
       model: opts.model,
       harness: opts.harness,
+      lessons: opts.lessons !== false,
+      memory: opts.memory !== false,
       fake: opts.fake === true,
       date: new Date().toISOString(),
       gateway: opts.fake ? "fake" : new URL(opts.baseUrl ?? "http://unknown").host,
@@ -346,7 +363,7 @@ export function reportMarkdown(report: BenchReport): string {
     return `| ${r.id} | ${mark} ${r.note.replace(/\|/g, "/")}${r.error ? ` (${r.error})` : ""} | ${r.seconds} | ${r.toolCalls} | ${r.costUsd.toFixed(4)} | ${iv || "—"} |`;
   });
   return [
-    `# Замер: ${meta.model}, харнесс ${meta.harness ? "вкл" : "выкл"}${meta.fake ? " (фейковая модель)" : ""}`,
+    `# Замер: ${meta.model}, харнесс ${meta.harness ? "вкл" : "выкл"}, уроки ${meta.lessons ? "вкл" : "выкл"}, память ${meta.memory ? "вкл" : "выкл"}${meta.fake ? " (фейковая модель)" : ""}`,
     "",
     `${meta.date} · шлюз ${meta.gateway} · таймаут задачи ${meta.timeoutSec} с`,
     "",

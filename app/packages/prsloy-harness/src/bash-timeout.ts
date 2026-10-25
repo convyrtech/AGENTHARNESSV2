@@ -25,6 +25,7 @@ import {
 } from "./shell-rewrite.ts";
 import { appendText, contentText, withText, keepStructured } from "./text.ts";
 import { callSignature, recordEvent } from "./learning-log.ts";
+import { intervene } from "./lessons.ts";
 
 const SHELL_TOOLS = new Set(["bash", "powershell"]);
 const TIMEOUT_LINE = /Command timed out after (\d+(?:\.\d+)?) seconds/;
@@ -106,8 +107,12 @@ export function installBashTimeout(pi: ExtensionAPI, opts: ResolvedOptions): Pro
     if (event.toolName === "bash" && typeof input.command === "string") {
       const rewrite = await rewriteShell(input.command, ctx.cwd);
       if (rewrite.block) {
-        recordEvent(ctx, { kind: "shell.block", tool: "bash", sig: callSignature("bash", input) });
-        return { block: true, reason: rewrite.block };
+        const tip = intervene(ctx, {
+          kind: "shell.block",
+          tool: "bash",
+          sig: callSignature("bash", input),
+        });
+        return { block: true, reason: `${rewrite.block}${tip}` };
       }
       if (rewrite.servers.length > 0)
         recordEvent(ctx, {
@@ -226,7 +231,7 @@ export function installBashTimeout(pi: ExtensionAPI, opts: ResolvedOptions): Pro
     const text = contentText(event.content);
     const match = TIMEOUT_LINE.exec(text);
     if (!match) return undefined;
-    recordEvent(ctx, {
+    const tip = intervene(ctx, {
       kind: "bash.timeout",
       tool: event.toolName,
       sig: callSignature(event.toolName, event.input),
@@ -234,7 +239,7 @@ export function installBashTimeout(pi: ExtensionAPI, opts: ResolvedOptions): Pro
     return {
       content: withText(
         event.content,
-        text.replace(TIMEOUT_LINE, timeoutNote(match[1] ?? "?", opts.bashMaxTimeoutSec)),
+        text.replace(TIMEOUT_LINE, `${timeoutNote(match[1] ?? "?", opts.bashMaxTimeoutSec)}${tip}`),
       ),
       ...keepStructured(event),
     };

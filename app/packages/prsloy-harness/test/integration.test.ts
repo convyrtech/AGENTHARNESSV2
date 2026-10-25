@@ -495,6 +495,42 @@ describe("integration: learning log (S0) in a real session", () => {
   }, 60_000);
 });
 
+describe("integration: lessons (S3) in a real session", () => {
+  it("a situational tip rides on the loop warning; the event names it; a green turn counts as helped", async () => {
+    const learningDir = await mkdtemp(join(tmpdir(), "prsloy-lessons-int-"));
+    cleanup.push(() => rm(learningDir, { recursive: true, force: true }));
+    const lessonsPath = new URL("./fixtures/lessons/code.json", import.meta.url).pathname;
+    const ls = { name: "bash", arguments: { command: "ls" } };
+    const { session, server, toolResults, textOf } = await startSession(
+      (_req, index) => (index < 3 ? { toolCalls: [ls] } : { text: "Готово." }),
+      { factory: { learningDir, lessonsPath } },
+    );
+    await session.prompt("что в папке?");
+    const blocked = textOf(toolResults()[2]!);
+    expect(blocked).toContain("Этот вызов уже был 2 раза");
+    expect(blocked).toContain(
+      "Совет из прошлых задач: Listing the folder again will not change it: read the file you need instead.",
+    );
+    // Постоянные уроки модели «mock» нет: семейство не совпало — раздела нет (уроки «*» есть).
+    const system = JSON.stringify(server.requests[0]!.messages[0]);
+    expect(system).toContain("Keep answers to the user short and in Russian.");
+    expect(system).not.toContain("Run the project's own test");
+    const events = (await readFile(join(learningDir, "events.jsonl"), "utf8"))
+      .trim()
+      .split("\n")
+      .map((l) => JSON.parse(l) as { kind: string; lessons?: string[]; outcome?: string });
+    expect(events.find((e) => e.kind === "loop.warn")?.lessons).toEqual(["T-tip-ls"]);
+    expect(events.find((e) => e.kind === "lessons.active")?.lessons).toEqual(["T-always-all"]);
+    expect(events.at(-1)).toMatchObject({ kind: "turn.end", outcome: "green" });
+    const counters = JSON.parse(
+      await readFile(join(learningDir, "local-lessons.json"), "utf8"),
+    ) as {
+      lessons: Record<string, { shown: number; helped: number; hurt: number }>;
+    };
+    expect(counters.lessons["T-tip-ls"]).toEqual({ shown: 1, helped: 1, hurt: 0 });
+  }, 60_000);
+});
+
 describe("integration: stop gate «до зелёного» in a real session", () => {
   async function npmProject(cwd: string) {
     await writeFile(

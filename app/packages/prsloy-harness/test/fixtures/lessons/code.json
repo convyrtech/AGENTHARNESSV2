@@ -1,0 +1,63 @@
+{
+  "version": 1,
+  "lessons": [
+    {
+      "id": "T-always-ds",
+      "surface": "code",
+      "models": ["deepseek-v4.1-flash"],
+      "mode": "always",
+      "text": "Run the project's own test before saying done.",
+      "status": "active"
+    },
+    {
+      "id": "T-always-all",
+      "surface": "code",
+      "models": ["*"],
+      "mode": "always",
+      "text": "Keep answers to the user short and in Russian.",
+      "status": "active"
+    },
+    {
+      "id": "T-always-kimi",
+      "surface": "code",
+      "models": ["kimi-k3.1-pro"],
+      "mode": "always",
+      "text": "Kimi-only note.",
+      "status": "active"
+    },
+    {
+      "id": "T-candidate",
+      "surface": "code",
+      "models": ["*"],
+      "mode": "always",
+      "text": "Candidate, never shown.",
+      "status": "candidate"
+    },
+    {
+      "id": "T-delivered",
+      "surface": "code",
+      "models": ["*"],
+      "mode": "always",
+      "text": "Already a section.",
+      "status": "active",
+      "delivery": "section:x"
+    },
+    {
+      "id": "T-design",
+      "surface": "design",
+      "models": ["*"],
+      "mode": "always",
+      "text": "Design only.",
+      "status": "active"
+    },
+    {
+      "id": "T-tip-ls",
+      "surface": "code",
+      "models": ["*"],
+      "mode": "on-event",
+      "trigger": { "kind": "loop.warn", "sig": "bash:ls*" },
+      "text": "Listing the folder again will not change it: read the file you need instead.",
+      "status": "active"
+    }
+  ]
+}

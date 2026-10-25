@@ -22,6 +22,7 @@ import type { Reviewer } from "./reviewer.ts";
 import { headTail, showCard } from "./text.ts";
 import type { TurnChanges } from "./turn-changes.ts";
 import { modelFamily, recordEvent } from "./learning-log.ts";
+import { intervene } from "./lessons.ts";
 
 export interface ProjectCheck {
   /** Команда оболочки, из каталога проекта. */
@@ -308,14 +309,18 @@ export function installStopGate(
         return undefined;
       }
       pushbacks += 1;
-      recordEvent(ctx, { kind: "gate.red", ...(gateSig ? { sig: gateSig } : {}), n: pushbacks });
+      const tip = intervene(ctx, {
+        kind: "gate.red",
+        ...(gateSig ? { sig: gateSig } : {}),
+        n: pushbacks,
+      });
       return {
         entries: [
           ...event.entries,
           {
             type: "custom_message",
             customType: "prsloy-harness.stop-gate",
-            content: pushbackMessage(check, run, pushbacks),
+            content: `${pushbackMessage(check, run, pushbacks)}${tip}`,
             display: false,
           },
         ],
@@ -343,7 +348,7 @@ export function installStopGate(
       return undefined;
     }
     pushbacks += 1;
-    recordEvent(ctx, {
+    const tip = intervene(ctx, {
       kind: "review.fail",
       sig: `review:${modelFamily(model) ?? "?"}`,
       n: verdict.items.length,
@@ -355,7 +360,7 @@ export function installStopGate(
         {
           type: "custom_message",
           customType: "prsloy-harness.second-opinion",
-          content: reviewPushback(verdict.items),
+          content: `${reviewPushback(verdict.items)}${tip}`,
           display: false,
         },
       ],

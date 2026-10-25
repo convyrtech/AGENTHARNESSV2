@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "about": "Уроки вкладки «Код» (research/18-memory-self-learning.md §6.3, §7). Семена — только из §8.2 со статусом active/candidate, относящиеся к «Коду». В промпт (раздел prsloy_lessons) идут только trial/active с mode=always; ситуативные (mode=on-event) дописываются в возврат харнесса по trigger. delivery — урок уже доставлен иначе (постоянный раздел), в prsloy_lessons не дублируется.",
+  "lessons": [
+    {
+      "id": "L-c-casual-no-commands",
+      "surface": "code",
+      "models": ["*"],
+      "mode": "always",
+      "text": "The user is not a programmer: never ask them to run commands — do it yourself.",
+      "status": "active",
+      "since": "0.1.0-alpha.1",
+      "cause": "живая приёмка №2: DeepSeek и Kimi просили владельца запустить python3 -m http.server (prsloy-harness/README.md, практика 10)",
+      "codeFix": null,
+      "delivery": "section:prsloy_casual_user",
+      "evidence": { "bench": [], "sessions": [], "recurrenceBefore": null }
+    }
+  ]
+}

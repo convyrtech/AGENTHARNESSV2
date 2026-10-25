@@ -49,6 +49,8 @@ export interface HarnessOptions {
   settingsPath?: string;
   /** git для снимков хода. По умолчанию PRSLOY_GIT, git рядом с Git Bash, иначе `git` с PATH. */
   gitPath?: string;
+  /** Файл уроков. По умолчанию lessons/code.json пакета. */
+  lessonsPath?: string;
   /** Куда писать журнал событий (events.jsonl). По умолчанию `$PI_CODING_AGENT_DIR/prsloy-learning`. */
   learningDir?: string;
   /** Выключить отдельные практики. */
@@ -70,6 +72,7 @@ export type PracticeName =
   | "toolLeak"
   | "argRepair"
   | "learningLog"
+  | "lessons"
   | "secondOpinion"
   | "turnChanges";
 
@@ -96,6 +99,7 @@ export interface ResolvedOptions {
   settingsPath: string | undefined;
   gitPath: string | undefined;
   learningDir: string | undefined;
+  lessonsPath: string | undefined;
   disable: Partial<Record<PracticeName, boolean>>;
 }
 
@@ -186,6 +190,7 @@ export function resolveOptions(options: HarnessOptions = {}): ResolvedOptions {
     settingsPath: options.settingsPath ?? defaultSettingsPath(),
     gitPath: options.gitPath ?? process.env.PRSLOY_GIT,
     learningDir: options.learningDir,
+    lessonsPath: options.lessonsPath,
     disable: options.disable ?? {},
   };
 }

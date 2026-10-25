@@ -6,6 +6,7 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { bumpStat } from "./stats.ts";
 import { recordEvent } from "./learning-log.ts";
+import { intervene } from "./lessons.ts";
 
 interface JsonSchema {
   type?: string | string[];
@@ -295,11 +296,17 @@ export function installArgRepair(pi: ExtensionAPI): void {
       const name = VALIDATION_ERROR.exec(text)?.[1];
       if (!name) return undefined;
       bumpStat(session, "validation-error");
-      recordEvent(ctx, { kind: "validation.error", tool: name });
+      const tip = intervene(ctx, {
+        kind: "validation.error",
+        tool: name,
+        sig: `validation:${name}`,
+      });
       // Одна подсказка на инструмент за сообщение пользователя.
-      if (hinted.has(name)) return undefined;
+      const first = !hinted.has(name);
       hinted.add(name);
-      const hint = { type: "text" as const, text: `\n\n${validationHint(name, schemaOf(name))}` };
+      const extra = `${first ? `\n\n${validationHint(name, schemaOf(name))}` : ""}${tip}`;
+      if (!extra) return undefined;
+      const hint = { type: "text" as const, text: extra };
       return { message: { ...event.message, content: [...parts, hint] } as typeof event.message };
     }
     return undefined;
