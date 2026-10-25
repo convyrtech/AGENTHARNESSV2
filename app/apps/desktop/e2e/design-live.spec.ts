@@ -347,6 +347,9 @@ test("a full turn on the real tools: sheet and videos, choice «A», the page", 
       expect(brand.radius).toBe("10px");
     }
 
+    // check.py holds the page to the brand's colours: its brand_check.py is in the workspace (dev build until merged)
+    if (!EXE) expect(existsSync(join(ws(l), "harness", "brand_check.py"))).toBe(true);
+
     // the agent shell ran python3 from the app's shim: the venv's interpreter, full stdlib
     const probe = readFileSync(join(piHome(l), "live-probe.txt"), "utf8");
     expect(probe).toMatch(/^1 /);
@@ -428,7 +431,7 @@ test("a full turn on the real tools: sheet and videos, choice «A», the page", 
       await expect(page.getByTestId("design-user").last()).toHaveText("Оставить");
       await expect(page.getByTestId("design-done")).toBeVisible({ timeout: 60_000 });
       const html = readFileSync(join(ws(l), "site", "landing", "index.html"), "utf8");
-      expect(html).toContain("<h1 style='color:#b4532a;");
+      expect(html).toContain("<h1 style='color:#a4472c;");
     }
   } finally {
     await app.close();

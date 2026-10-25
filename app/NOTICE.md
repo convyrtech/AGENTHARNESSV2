@@ -44,6 +44,11 @@
 - `apps/desktop/src/main/design/text-edit.ts` — запись этого текста в файл страницы по правилам `SOURCE_EDITING.md`
   из [OpenCoworkAI/open-codesign](https://github.com/OpenCoworkAI/open-codesign) (MIT, Copyright (c) OpenCoworkAI):
   место — только точное (позиции parse5), иначе отказ с причиной. Код не копировался.
+- `../playbooks/site/harness/brand_check.py` — «только цвета бренда» и CSS-слоп. Пороги ΔE по
+  [dembrandt](https://github.com/dembrandt/dembrandt) `lib/drift.ts` (MIT, `DEFAULT_DRIFT_CONFIG`: colorSame 2.3,
+  colorShift 15). Список правил — OpenDesign `apps/daemon/src/lint-artifact.ts` (Apache-2.0): purple-gradient,
+  ai-default-indigo, emoji-icon, raw-hex, all-caps-no-tracking, left-accent-card. Код не копировался, правила
+  переписаны на Python заново.
 - `../playbooks/site/harness/brand_probe.py` — бренд по адресу сайта: по мотивам
   [dembrandt](https://github.com/dembrandt/dembrandt) (MIT, v0.39.2, вычисленные стили живой страницы) и методики
   `skills/brand-extract/SKILL.md` OpenDesign (Apache-2.0: «каждое значение — замер»). Код не копировался.

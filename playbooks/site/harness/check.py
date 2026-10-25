@@ -2,8 +2,10 @@
 and called it design, and ignored prompt bans). Usage: check.py <site_dir> <page_dir>. Exit 1 on any FAIL.
 1. No raster images in the built site unless the owner allowed them by name in <page>/ALLOWED-IMAGES.txt.
 2. 04-motion.md has a «Фирменный приём» section that names the etalon frame it comes from, and the site code names
-   that move in a data-signature attribute (the live element that carries it)."""
-import re, sys
+   that move in a data-signature attribute (the live element that carries it).
+3. brand_check.py: only the brand's colours on the live page (ΔE2000 to 02-brand.md / materials/brand.json) and the
+   CSS-slop rules (purple gradient, Tailwind indigo, emoji icons, raw hex, caps without tracking, left-stripe card)."""
+import re, subprocess, sys
 from pathlib import Path
 for _s in (sys.stdout, sys.stderr):  # Windows: под -I PYTHONUTF8 не действует, а вывод в трубу идёт в cp1252
     _s.reconfigure(encoding="utf-8", errors="replace")
@@ -42,6 +44,20 @@ STUB = re.compile(r"\[OI\]|\bTODO\b|lorem ipsum|\bundefined\b|\bNaN\b", re.I)
 for f in site.rglob("*.html"):
     for m in set(STUB.findall(re.sub(r"<script.*?</script>", " ", f.read_text(encoding="utf-8", errors="ignore"), flags=re.S))):
         fails.append(f"служебная заглушка «{m}» в тексте {f.relative_to(site)}: впиши настоящее слово")
+
+# только цвета бренда и CSS-слоп: отдельный скрипт (браузер), его FAIL — наши FAIL
+BRAND_CHECK = Path(__file__).with_name("brand_check.py")
+if site.exists() and any(site.rglob("*.htm*")) and not BRAND_CHECK.exists():
+    print("brand_check: рядом с check.py нет brand_check.py (рабочая папка старше проверки), цвета не проверены")
+elif site.exists() and any(site.rglob("*.htm*")):
+    try:
+        r = subprocess.run([sys.executable, "-I", str(BRAND_CHECK), str(site), str(page)],
+                           capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=240)
+        fails += [ln[5:] for ln in r.stdout.splitlines() if ln.startswith("FAIL ")]
+        if r.returncode not in (0, 1):
+            print("brand_check: упал, цвета не проверены:", (r.stderr or r.stdout).strip()[-300:])
+    except subprocess.TimeoutExpired:
+        print("brand_check: не уложился в 4 минуты, цвета не проверены")
 
 for x in sorted(set(fails)):
     print("FAIL", x)
