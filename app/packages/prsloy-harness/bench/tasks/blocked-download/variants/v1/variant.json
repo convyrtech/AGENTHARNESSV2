@@ -1,0 +1,8 @@
+{
+  "prompt": "Скачай библиотеку minichart (ссылка в README) и нарисуй на странице график продаж из data.js.",
+  "params": {
+    "lib": "minichart",
+    "main": "index.html",
+    "deliverable": "<canvas|<svg|getContext|createElementNS"
+  }
+}

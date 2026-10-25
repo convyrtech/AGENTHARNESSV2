@@ -1,0 +1,15 @@
+{
+  "prompt": "Бесплатная доставка теперь от 2500 ₽, а не от 3000. Обнови расчёт и тесты под это.",
+  "params": {
+    "lang": "py",
+    "module": "delivery.py",
+    "tests": ["test_delivery.py"],
+    "hidden": [
+      ["delivery_cost(2500)", 0],
+      ["delivery_cost(2499)", 300],
+      ["delivery_cost(3000)", 0],
+      ["delivery_cost(1000)", 300],
+      ["delivery_cost(2600)", 0]
+    ]
+  }
+}

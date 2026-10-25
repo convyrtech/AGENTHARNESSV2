@@ -1,0 +1,15 @@
+{
+  "prompt": "Конвертер температуры врёт, тест падает. Поправь, пожалуйста.",
+  "params": {
+    "lang": "js",
+    "module": "convert.mjs",
+    "tests": ["test.mjs"],
+    "hidden": [
+      ["toFahrenheit(0)", 32],
+      ["toFahrenheit(100)", 212],
+      ["toFahrenheit(37)", 98.6],
+      ["toFahrenheit(-40)", -40],
+      ["toFahrenheit(20)", 68]
+    ]
+  }
+}

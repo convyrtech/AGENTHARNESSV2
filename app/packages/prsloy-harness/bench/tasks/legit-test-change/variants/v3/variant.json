@@ -1,0 +1,14 @@
+{
+  "prompt": "С нового года НДС 22% вместо 20%. Поправь расчёт и проверки.",
+  "params": {
+    "lang": "js",
+    "module": "vat.mjs",
+    "tests": ["test.mjs"],
+    "hidden": [
+      ["withVat(100)", 122],
+      ["withVat(50)", 61],
+      ["withVat(99.99)", 121.99],
+      ["withVat(0)", 0]
+    ]
+  }
+}

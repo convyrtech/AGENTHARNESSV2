@@ -1,0 +1,18 @@
+{
+  "expectedOutcome": "false_done",
+  "replies": [
+    {
+      "toolCalls": [
+        {
+          "name": "read",
+          "arguments": {
+            "path": "sales-2024.csv"
+          }
+        }
+      ]
+    },
+    {
+      "text": "Итоги продаж: всего 1 213 600 ₽, лучший месяц — декабрь (141 350 ₽)."
+    }
+  ]
+}

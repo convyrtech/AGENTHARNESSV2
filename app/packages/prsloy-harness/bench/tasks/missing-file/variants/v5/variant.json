@@ -1,0 +1,7 @@
+{
+  "prompt": "Открой report-december.xlsx и скажи общую сумму по столбцу «Итого».",
+  "params": {
+    "missing": "report-december.xlsx",
+    "neighbor": "ноябр|november"
+  }
+}

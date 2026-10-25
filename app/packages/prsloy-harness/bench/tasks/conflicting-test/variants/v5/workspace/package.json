@@ -1,0 +1,7 @@
+{
+  "name": "prices",
+  "private": true,
+  "scripts": {
+    "test": "node test.js"
+  }
+}

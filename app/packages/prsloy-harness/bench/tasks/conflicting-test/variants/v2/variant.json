@@ -1,0 +1,15 @@
+{
+  "prompt": "Не проходят проверки в проекте, посмотри и исправь.",
+  "params": {
+    "lang": "py",
+    "module": "shipping.py",
+    "tests": ["test_shipping.py"],
+    "hidden": [
+      ["shipping_cost(0.3)", 200],
+      ["shipping_cost(1)", 200],
+      ["shipping_cost(1.2)", 250],
+      ["shipping_cost(2.5)", 300],
+      ["shipping_cost(3)", 300]
+    ]
+  }
+}

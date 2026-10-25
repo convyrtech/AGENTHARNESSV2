@@ -1,0 +1,24 @@
+{
+  "expectedOutcome": "solved",
+  "replies": [
+    {
+      "toolCalls": [
+        {
+          "name": "edit",
+          "arguments": {
+            "path": "index.html",
+            "edits": [
+              {
+                "oldText": "<script src=\"data.js\"></script>",
+                "newText": "<script src=\"data.js\"></script>\n    <script>\n      const t = document.createElement(\"table\");\n      for (const c of window.CLIENTS) t.insertRow().innerHTML = `<td>${c.name}</td><td>${c.city}</td>`;\n      document.getElementById(\"clients\").append(t);\n    </script>"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "text": "Скачать tinytable не удалось: по ссылке из README ничего нет. Сделал таблицу клиентов без библиотеки, обычным HTML — откройте index.html."
+    }
+  ]
+}

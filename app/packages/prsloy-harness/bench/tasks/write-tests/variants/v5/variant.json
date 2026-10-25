@@ -1,0 +1,20 @@
+{
+  "prompt": "Добавь тесты на проверку надёжности пароля.",
+  "params": {
+    "lang": "js",
+    "module": "password.js",
+    "mutants": [
+      [
+        "  if (password.length < 8) return \"слабый\";\n",
+        "  return 0;\n  if (password.length < 8) return \"слабый\";\n"
+      ],
+      ["password.length < 8", "password.length < 6"],
+      ["password.length < 8", "password.length <= 8"],
+      ["/\\d/.test(password) && ", ""],
+      [" && /[A-ZА-ЯЁ]/.test(password)", ""],
+      ["/\\d/.test(password) && /", "/\\d/.test(password) || /"],
+      ["return \"средний\";", "return \"надёжный\";"],
+      ["return \"слабый\";", "return \"средний\";"]
+    ]
+  }
+}

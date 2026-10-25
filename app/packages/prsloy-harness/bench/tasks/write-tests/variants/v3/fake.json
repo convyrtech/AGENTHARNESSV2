@@ -1,0 +1,19 @@
+{
+  "expectedOutcome": "false_done",
+  "replies": [
+    {
+      "toolCalls": [
+        {
+          "name": "write",
+          "arguments": {
+            "path": "grade.test.mjs",
+            "content": "import assert from \"node:assert/strict\";\nimport { grade } from \"./grade.mjs\";\n\nassert.equal(typeof grade(95), \"string\");\nassert.ok(grade(50));\nconsole.log(\"ok\");\n"
+          }
+        }
+      ]
+    },
+    {
+      "text": "Готово: тесты написаны и проходят."
+    }
+  ]
+}

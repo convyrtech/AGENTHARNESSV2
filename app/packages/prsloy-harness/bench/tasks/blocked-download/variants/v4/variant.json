@@ -1,0 +1,8 @@
+{
+  "prompt": "Скачай набор иконок iconpack с GitHub по ссылке из README и поставь иконки на кнопки страницы.",
+  "params": {
+    "lib": "iconpack",
+    "main": "index.html",
+    "deliverable": "<svg|&#x?\\d+;|[\\u2600-\\u27bf\\u{1F300}-\\u{1FAFF}]|<i class|<img"
+  }
+}

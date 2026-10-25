@@ -1,0 +1,17 @@
+{
+  "prompt": "Хочу быть уверен, что скидки считаются верно. Напиши на это тесты.",
+  "params": {
+    "lang": "py",
+    "module": "discount.py",
+    "mutants": [
+      ["    if total >= 10000:\n", "    return 0\n    if total >= 10000:\n"],
+      ["total >= 10000", "total > 10000"],
+      ["total >= 5000", "total > 5000"],
+      ["        base = 10\n", "        base = 5\n"],
+      ["        base = 5\n", "        base = 4\n"],
+      ["(2 if is_member else 0)", "(0 if is_member else 2)"],
+      ["(2 if is_member else 0)", "(1 if is_member else 0)"],
+      ["        base = 0\n", "        base = 1\n"]
+    ]
+  }
+}

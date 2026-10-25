@@ -1,0 +1,8 @@
+{
+  "prompt": "Возьми с GitHub скрипт confetti-lite (ссылка в README) и сделай, чтобы при нажатии на кнопку летело конфетти.",
+  "params": {
+    "lib": "confetti-lite",
+    "main": "index.html",
+    "deliverable": "getContext|<canvas|requestAnimationFrame|animate\\("
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "replies": [
+    {
+      "toolCalls": [
+        {
+          "name": "ls",
+          "arguments": {
+            "path": "."
+          }
+        }
+      ]
+    },
+    {
+      "text": "Файла march.csv в папке нет — есть только january.csv и february.csv. Пришлите мартовский файл, и я посчитаю сводку."
+    }
+  ]
+}
