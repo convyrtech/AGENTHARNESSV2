@@ -95,5 +95,5 @@ describe("C01 fresh pi home", () => {
     expect(
       (await readFile(join(agentDir, "models-store.json"), "utf8")).toLowerCase(),
     ).not.toContain("zeno");
-  });
+  }, 30_000); // creating a real pi runtime takes >5 s on a loaded CI runner
 });
