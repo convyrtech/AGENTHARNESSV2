@@ -142,7 +142,7 @@ import {
 } from "./bundled-runtimes.ts";
 import { ensureProvisionedRuntimes } from "./runtime-provision.ts";
 import { electronFetch, initPrsloy } from "./prsloy/electron.ts";
-import { registerPrsloyIpc, snapshotBeforeTurn } from "./prsloy/ipc.ts";
+import { prepareTurn, registerPrsloyIpc } from "./prsloy/ipc.ts";
 import {
   isConversationWorkspacePath,
   isNonProjectWorkspacePath,
@@ -2895,7 +2895,7 @@ class HostSupervisor {
     if (!this.#host) await this.start();
     // «Откатить ход»: snapshot the workspace before a new turn (not for steer/follow-up).
     if (!streamingBehavior && !this.#isForegroundBusy()) {
-      await snapshotBeforeTurn(prsloy, this.#workspaceCwd ?? this.#snapshot?.cwd, {
+      await prepareTurn(prsloy, this.#workspaceCwd ?? this.#snapshot?.cwd, {
         prompt: message,
         ...(this.#snapshot?.sessionId ? { sessionId: this.#snapshot.sessionId } : {}),
       });

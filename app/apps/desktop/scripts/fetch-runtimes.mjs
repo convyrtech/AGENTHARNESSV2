@@ -863,6 +863,8 @@ async function fetchOne(target, versions, force) {
   }
   // ── Git for Windows (bash for pi's bash tool, git for turn snapshots) ─────
   rmSync(gitDest, { recursive: true, force: true });
+  rmSync(join(platformDir, "git.7z.exe"), { force: true });
+  let gitFiles = 0;
   if (gitMeta) {
     const gitArchive = join(CACHE_ROOT, gitMeta.archiveName);
     await download(gitMeta.url, gitArchive);
@@ -874,6 +876,10 @@ async function fetchOne(target, versions, force) {
       }
     }
     extractSevenZipSfx(gitArchive, gitDest);
+    // Ship the original self-extractor (LZMA, ~60MB): far smaller than any tar.gz of the
+    // tree. First launch unpacks it in the background (runtime-git.ts).
+    copyFileSync(gitArchive, join(platformDir, "git.7z.exe"));
+    gitFiles = countFiles(gitDest);
     const before = dirSizeBytes(gitDest);
     pruneGitRuntime(gitDest);
     const deduped = dedupeIdenticalFiles(gitDest);
@@ -959,7 +965,7 @@ async function fetchOne(target, versions, force) {
     pruned: true,
     nodeBytes,
     pythonBytes: pyBytes,
-    ...(gitMeta ? { git: versions.git, gitBytes } : {}),
+    ...(gitMeta ? { git: versions.git, gitBytes, gitFiles } : {}),
     ...(toolMetas.length
       ? {
           tools: Object.fromEntries(
@@ -997,7 +1003,7 @@ export function packShippingArchives(platformDir) {
   mkdirSync(archives, { recursive: true });
   const nodeArchive = join(archives, "node.tar.gz");
   const pythonArchive = join(archives, "python.tar.gz");
-  const gitArchive = join(archives, "git.tar.gz");
+  const gitArchive = join(archives, "git.7z.exe");
   const toolsArchive = join(archives, "tools.tar.gz");
   if (existsSync(join(platformDir, "node"))) {
     runTar(["-czf", nodeArchive, "-C", platformDir, "node"], { stdio: "ignore" });
@@ -1009,13 +1015,15 @@ export function packShippingArchives(platformDir) {
       `[fetch-runtimes] packed ${pythonArchive} (${formatMb(statSync(pythonArchive).size)})`,
     );
   }
-  for (const [name, archive] of [
-    ["git", gitArchive],
-    ["tools", toolsArchive],
-  ]) {
-    if (!existsSync(join(platformDir, name))) continue;
-    runTar(["-czf", archive, "-C", platformDir, name], { stdio: "ignore" });
-    console.log(`[fetch-runtimes] packed ${archive} (${formatMb(statSync(archive).size)})`);
+  if (existsSync(join(platformDir, "git.7z.exe"))) {
+    copyFileSync(join(platformDir, "git.7z.exe"), gitArchive);
+    console.log(`[fetch-runtimes] shipped ${gitArchive} (${formatMb(statSync(gitArchive).size)})`);
+  }
+  if (existsSync(join(platformDir, "tools"))) {
+    runTar(["-czf", toolsArchive, "-C", platformDir, "tools"], { stdio: "ignore" });
+    console.log(
+      `[fetch-runtimes] packed ${toolsArchive} (${formatMb(statSync(toolsArchive).size)})`,
+    );
   }
   // Enrich manifest for the provisioner
   const manifestPath = join(platformDir, "manifest.json");
@@ -1024,7 +1032,7 @@ export function packShippingArchives(platformDir) {
     man.archives = {
       node: existsSync(nodeArchive) ? "archives/node.tar.gz" : undefined,
       python: existsSync(pythonArchive) ? "archives/python.tar.gz" : undefined,
-      git: existsSync(gitArchive) ? "archives/git.tar.gz" : undefined,
+      git: existsSync(gitArchive) ? "archives/git.7z.exe" : undefined,
       tools: existsSync(toolsArchive) ? "archives/tools.tar.gz" : undefined,
     };
     writeFileSync(manifestPath, `${JSON.stringify(man, null, 2)}\n`, "utf8");
@@ -1079,26 +1087,82 @@ function materializeCurrent(platformDir) {
 }
 
 /**
- * Windows host: unpack the shipped git.tar.gz exactly like first launch does (System32
- * bsdtar) and run its bash, so a broken archive (e.g. hard links) fails the build.
+ * Windows host: unpack the shipped git.7z.exe exactly like first launch does (the SFX's
+ * own `-y -o<dir>`, no 7z installed) and run its bash, so a broken archive or an SFX
+ * that waits for input fails the build instead of a user's first launch.
  * @param {string} platformDir
  */
 function verifyGitArchiveRoundTrip(platformDir) {
-  const archive = join(platformDir, "archives", "git.tar.gz");
+  const archive = join(platformDir, "archives", "git.7z.exe");
   if (process.platform !== "win32" || !existsSync(archive)) return;
   const dest = join(tmpdir(), `zeno-git-roundtrip-${Date.now()}`);
-  mkdirSync(dest, { recursive: true });
   try {
-    runTar(["-xzf", archive, "-C", dest], { stdio: "ignore" });
+    const started = Date.now();
+    execFileSync(archive, ["-y", `-o${join(dest, "git")}`], { stdio: "ignore", timeout: 600_000 });
+    const seconds = ((Date.now() - started) / 1000).toFixed(1);
     const out = execFileSync(
       join(dest, "git", "bin", "bash.exe"),
       ["-c", "git --version && echo roundtrip-ok"],
       { encoding: "utf8" },
     ).trim();
-    console.log(`[fetch-runtimes] git archive round trip: ${out.replace(/\s+/g, " ")}`);
+    console.log(
+      `[fetch-runtimes] git archive round trip (${seconds}s, ${countFiles(join(dest, "git"))} files): ${out.replace(/\s+/g, " ")}`,
+    );
+    verifyPythonShimInGitBash(platformDir, join(dest, "git", "bin", "bash.exe"), dest);
   } finally {
     rmSync(dest, { recursive: true, force: true });
   }
+}
+
+/**
+ * The agent's `python3` / `python` shims must resolve to the bundled interpreter inside
+ * Git Bash. Same script format as `writeAgentShims` in src/main/prsloy/agent-env.ts
+ * (`#!/bin/sh` + `exec '<C:/…/python.exe>' "$@"`); agent-env.test.ts pins that format.
+ * @param {string} platformDir
+ * @param {string} bash
+ * @param {string} scratch
+ */
+function verifyPythonShimInGitBash(platformDir, bash, scratch) {
+  const python = findPythonBinary(join(platformDir, "python"));
+  if (!python) throw new Error("bundled python missing for the shim smoke");
+  const shims = join(scratch, "agent-shims");
+  mkdirSync(shims, { recursive: true });
+  const target = python.replace(/\\/g, "/");
+  for (const name of ["python3", "python"]) {
+    writeFileSync(join(shims, name), `#!/bin/sh\nexec '${target}' "$@"\n`);
+  }
+  const env = { ...process.env };
+  const pathKey = Object.keys(env).find((key) => key.toUpperCase() === "PATH") ?? "Path";
+  env[pathKey] = `${shims};${env[pathKey] ?? ""}`;
+  const out = execFileSync(
+    bash,
+    ["-c", "command -v python3; python3 -c 'import sys; print(sys.executable)'; python --version"],
+    { encoding: "utf8", env },
+  ).trim();
+  const lines = out.split(/\r?\n/);
+  if ((lines[1] ?? "").trim().toLowerCase() !== python.toLowerCase()) {
+    throw new Error(`python3 shim did not reach the bundled interpreter: ${out}`);
+  }
+  if (!/Python 3\./.test(lines[2] ?? "")) throw new Error(`python shim failed: ${out}`);
+  console.log(`[fetch-runtimes] python shims in Git Bash: ${lines.join(" | ")}`);
+}
+
+/**
+ * @param {string} root
+ * @returns {number}
+ */
+function countFiles(root) {
+  let count = 0;
+  const stack = [root];
+  while (stack.length) {
+    const dir = stack.pop();
+    if (!dir || !existsSync(dir)) continue;
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      if (entry.isDirectory()) stack.push(join(dir, entry.name));
+      else count += 1;
+    }
+  }
+  return count;
 }
 
 async function main() {

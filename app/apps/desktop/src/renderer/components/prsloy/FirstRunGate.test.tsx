@@ -15,6 +15,7 @@ const fresh: PrsloyState = {
   needsWorkspace: true,
   harnessLoaded: false,
   firstRunBypass: false,
+  gitSetup: { status: "absent" },
 };
 
 function mockZeno(overrides: Record<string, unknown> = {}) {

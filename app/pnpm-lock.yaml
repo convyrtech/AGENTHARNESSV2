@@ -351,21 +351,52 @@ importers:
       '@earendil-works/pi-coding-agent':
         specifier: 'catalog:'
         version: 1.4.0(@aws-sdk/credential-provider-node@3.972.83)(@smithy/signature-v4@5.7.3)(supports-color@7.2.0)(ws@8.21.0)(zod@4.4.3)
+      '@silvia-odwyer/photon-node':
+        specifier: 'catalog:'
+        version: 0.3.4
+      electron-updater:
+        specifier: 6.8.9
+        version: 6.8.9(supports-color@7.2.0)
+      node-pty:
+        specifier: 'catalog:'
+        version: 1.1.0
+    devDependencies:
+      '@playwright/test':
+        specifier: 'catalog:'
+        version: 1.55.0
       '@prsloy/harness':
         specifier: workspace:*
         version: link:../../packages/prsloy-harness
       '@shadcn/react':
         specifier: 'catalog:'
         version: 0.2.1(@types/react@19.2.17)(react@19.2.7)
-      '@silvia-odwyer/photon-node':
+      '@tailwindcss/vite':
         specifier: 'catalog:'
-        version: 0.3.4
+        version: 4.1.11(@voidzero-dev/vite-plus-core@0.2.4(@types/node@26.1.1)(esbuild@0.28.2)(jiti@2.7.0)(typescript@6.0.2)(yaml@2.9.0))
+      '@testing-library/jest-dom':
+        specifier: 'catalog:'
+        version: 7.0.1(@testing-library/dom@10.4.2)(vitest@4.1.10)
+      '@testing-library/react':
+        specifier: 'catalog:'
+        version: 16.3.3(@testing-library/dom@10.4.2)(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      '@types/node':
+        specifier: 'catalog:'
+        version: 26.1.1
+      '@types/react':
+        specifier: 'catalog:'
+        version: 19.2.17
+      '@types/react-dom':
+        specifier: 'catalog:'
+        version: 19.2.3(@types/react@19.2.17)
       '@zeno/agent-runtime':
         specifier: workspace:*
         version: link:../../packages/agent-runtime
       '@zeno/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      '@zeno/test-utils':
+        specifier: workspace:*
+        version: link:../../packages/test-utils
       class-variance-authority:
         specifier: 'catalog:'
         version: 0.7.1
@@ -375,15 +406,21 @@ importers:
       cmdk:
         specifier: 'catalog:'
         version: 1.1.1(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
-      electron-updater:
-        specifier: 6.8.9
-        version: 6.8.9(supports-color@7.2.0)
+      electron:
+        specifier: 'catalog:'
+        version: 43.1.1(supports-color@7.2.0)
+      electron-builder:
+        specifier: 'catalog:'
+        version: 26.15.3(electron-builder-squirrel-windows@26.15.3)(supports-color@7.2.0)
       ghostty-web:
         specifier: 'catalog:'
         version: 0.4.0
       highlight.js:
         specifier: 'catalog:'
         version: 11.11.1
+      jsdom:
+        specifier: 'catalog:'
+        version: 30.0.1(@noble/hashes@2.2.0)
       katex:
         specifier: 'catalog:'
         version: 0.18.1
@@ -393,9 +430,9 @@ importers:
       mermaid:
         specifier: 'catalog:'
         version: 11.16.1
-      node-pty:
+      playwright:
         specifier: 'catalog:'
-        version: 1.1.0
+        version: 1.55.0
       radix-ui:
         specifier: 'catalog:'
         version: 1.6.4(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
@@ -423,52 +460,12 @@ importers:
       tailwind-merge:
         specifier: 'catalog:'
         version: 3.3.1
-      tw-animate-css:
-        specifier: 'catalog:'
-        version: 1.4.0
-      zustand:
-        specifier: 'catalog:'
-        version: 5.0.3(@types/react@19.2.17)(react@19.2.7)
-    devDependencies:
-      '@playwright/test':
-        specifier: 'catalog:'
-        version: 1.55.0
-      '@tailwindcss/vite':
-        specifier: 'catalog:'
-        version: 4.1.11(@voidzero-dev/vite-plus-core@0.2.4(@types/node@26.1.1)(esbuild@0.28.2)(jiti@2.7.0)(typescript@6.0.2)(yaml@2.9.0))
-      '@testing-library/jest-dom':
-        specifier: 'catalog:'
-        version: 7.0.1(@testing-library/dom@10.4.2)(vitest@4.1.10)
-      '@testing-library/react':
-        specifier: 'catalog:'
-        version: 16.3.3(@testing-library/dom@10.4.2)(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
-      '@types/node':
-        specifier: 'catalog:'
-        version: 26.1.1
-      '@types/react':
-        specifier: 'catalog:'
-        version: 19.2.17
-      '@types/react-dom':
-        specifier: 'catalog:'
-        version: 19.2.3(@types/react@19.2.17)
-      '@zeno/test-utils':
-        specifier: workspace:*
-        version: link:../../packages/test-utils
-      electron:
-        specifier: 'catalog:'
-        version: 43.1.1(supports-color@7.2.0)
-      electron-builder:
-        specifier: 'catalog:'
-        version: 26.15.3(electron-builder-squirrel-windows@26.15.3)(supports-color@7.2.0)
-      jsdom:
-        specifier: 'catalog:'
-        version: 30.0.1(@noble/hashes@2.2.0)
-      playwright:
-        specifier: 'catalog:'
-        version: 1.55.0
       tailwindcss:
         specifier: 'catalog:'
         version: 4.1.11
+      tw-animate-css:
+        specifier: 'catalog:'
+        version: 1.4.0
       typescript:
         specifier: 'catalog:'
         version: 6.0.2
@@ -478,6 +475,9 @@ importers:
       vite-plus:
         specifier: 'catalog:'
         version: 0.2.4(@opentelemetry/api@1.9.0)(@types/node@26.1.1)(@voidzero-dev/vite-plus-core@0.2.4(@types/node@26.1.1)(esbuild@0.28.2)(jiti@2.7.0)(typescript@6.0.2)(yaml@2.9.0))(esbuild@0.28.2)(jiti@2.7.0)(jsdom@30.0.1(@noble/hashes@2.2.0))(typescript@6.0.2)(yaml@2.9.0)
+      zustand:
+        specifier: 'catalog:'
+        version: 5.0.3(@types/react@19.2.17)(react@19.2.7)
 
   apps/landing:
     dependencies:

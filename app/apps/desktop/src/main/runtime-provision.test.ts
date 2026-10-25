@@ -222,25 +222,25 @@ describe("isProvisionStampCurrent", () => {
   });
 });
 
-describe("PRSLOY: git + tools archives (Windows layout)", () => {
-  function addGitArchives(vendorRoot: string): void {
-    mkdirSync(join(vendorRoot, "git", "bin"), { recursive: true });
-    writeFileSync(join(vendorRoot, "git", "bin", "bash.exe"), "x");
+describe("PRSLOY: tools archive + PortableGit SFX (Windows layout)", () => {
+  function addWindowsArchives(vendorRoot: string): void {
     mkdirSync(join(vendorRoot, "tools"), { recursive: true });
     writeFileSync(join(vendorRoot, "tools", "rg.exe"), "x");
     const archives = join(vendorRoot, "archives");
-    execFileSync("tar", ["-czf", join(archives, "git.tar.gz"), "-C", vendorRoot, "git"]);
     execFileSync("tar", ["-czf", join(archives, "tools.tar.gz"), "-C", vendorRoot, "tools"]);
+    writeFileSync(join(archives, "git.7z.exe"), "sfx");
     writeFileSync(
       join(vendorRoot, "manifest.json"),
       JSON.stringify({ node: "22.19.0", python: "3.12.13", git: "2.51.0", key: "test" }),
     );
   }
 
-  it("extracts git/ and tools/ into userData and stamps the git version", () => {
+  it("extracts tools/ synchronously and only locates git.7z.exe", () => {
     const { vendorRoot, userData } = makeVendorWithArchives();
     try {
-      addGitArchives(vendorRoot);
+      addWindowsArchives(vendorRoot);
+      const vendor = resolveVendorRuntimeLayout({ explicitVendorRoot: vendorRoot })!;
+      expect(vendor.archives?.git).toBe(join(vendorRoot, "archives", "git.7z.exe"));
       const layout = ensureProvisionedRuntimes({
         userDataPath: userData,
         explicitVendorRoot: vendorRoot,
@@ -248,17 +248,18 @@ describe("PRSLOY: git + tools archives (Windows layout)", () => {
       });
       expect(layout?.source).toBe("userData");
       const userRoot = userRuntimesRoot(userData);
-      expect(existsSync(join(userRoot, "git", "bin", "bash.exe"))).toBe(true);
       expect(existsSync(join(userRoot, "tools", "rg.exe"))).toBe(true);
-      const vendor = resolveVendorRuntimeLayout({ explicitVendorRoot: vendorRoot })!;
+      // Git is unpacked in the background (runtime-git.ts), never by the sync path.
+      expect(existsSync(join(userRoot, "git"))).toBe(false);
       expect(
         isProvisionStampCurrent(
-          { node: "22.19.0", python: "3.12.13", git: "2.51.0", provisionedAt: "" },
+          { node: "22.19.0", python: "3.12.13", provisionedAt: "" },
           vendor,
           userRoot,
         ),
       ).toBe(true);
-      // An install provisioned before git shipped must re-extract.
+      rmSync(join(userRoot, "tools"), { recursive: true, force: true });
+      // tools/ missing (install older than tools) → re-extract.
       expect(
         isProvisionStampCurrent(
           { node: "22.19.0", python: "3.12.13", provisionedAt: "" },

@@ -10,6 +10,12 @@ npmRebuild: false
 files:
   - dist/**
   - package.json
+  # Size: sourcemaps and type declarations are never read at runtime (~55MB unpacked).
+  - "!dist/**/*.map"
+  - "!**/node_modules/**/*.map"
+  - "!**/node_modules/**/*.d.ts"
+  - "!**/node_modules/**/*.d.mts"
+  - "!**/node_modules/**/*.d.cts"
 # Runtime window / notification icons (BrowserWindow.icon). Separate from the
 # exe-embedded icon from win.icon — both are required on Windows for taskbar.
 extraResources:

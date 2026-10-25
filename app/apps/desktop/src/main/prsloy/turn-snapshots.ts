@@ -46,8 +46,8 @@ export type RestoreResult = {
 
 export type TurnSnapshotsOptions = {
   root: string;
-  /** git executable (bundled PortableGit on Windows). */
-  gitBinary: string;
+  /** git executable (bundled PortableGit on Windows); a function is re-read per call. */
+  gitBinary: string | (() => string);
   maxFileBytes?: number;
   maxTotalBytes?: number;
   maxFiles?: number;
@@ -99,7 +99,7 @@ function devNull(platform: NodeJS.Platform): string {
 
 export class TurnSnapshots {
   readonly #root: string;
-  readonly #git: string;
+  readonly #git: string | (() => string);
   readonly #maxFileBytes: number;
   readonly #maxTotalBytes: number;
   readonly #maxFiles: number;
@@ -167,7 +167,7 @@ export class TurnSnapshots {
     ];
     return new Promise((resolvePromise, reject) => {
       const child = execFile(
-        this.#git,
+        typeof this.#git === "function" ? this.#git() : this.#git,
         fullArgs,
         {
           cwd: resolve(workspace),

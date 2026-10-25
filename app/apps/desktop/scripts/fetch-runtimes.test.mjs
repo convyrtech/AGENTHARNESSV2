@@ -300,20 +300,24 @@ function assertEqual(actual, expected, message) {
   }
 }
 
-// ── packShippingArchives also packs git/ and tools/ when present ────────────
+// ── packShippingArchives ships git.7z.exe as-is and packs tools/ ────────────
 {
   const root = mkdtempSync(join(tmpdir(), "zeno-pack-git-"));
   try {
     mkdirSync(join(root, "node", "bin"), { recursive: true });
-    mkdirSync(join(root, "git", "bin"), { recursive: true });
     mkdirSync(join(root, "tools"), { recursive: true });
     writeFileSync(join(root, "node", "bin", "node"), "x");
-    writeFileSync(join(root, "git", "bin", "bash.exe"), "x");
+    writeFileSync(join(root, "git.7z.exe"), "sfx");
     writeFileSync(join(root, "tools", "rg.exe"), "x");
     writeFileSync(join(root, "manifest.json"), JSON.stringify({ node: "22.19.0", git: "2.51.0" }));
     packShippingArchives(root);
     const man = JSON.parse(readFileSync(join(root, "manifest.json"), "utf8"));
-    assertEqual(man.archives?.git, "archives/git.tar.gz", "manifest git archive path");
+    assertEqual(man.archives?.git, "archives/git.7z.exe", "manifest git archive path");
+    assertEqual(
+      readFileSync(join(root, "archives", "git.7z.exe"), "utf8"),
+      "sfx",
+      "PortableGit SFX shipped as-is",
+    );
     assertEqual(man.archives?.tools, "archives/tools.tar.gz", "manifest tools archive path");
     assertEqual(man.archives?.python, undefined, "no python archive without python/");
   } finally {

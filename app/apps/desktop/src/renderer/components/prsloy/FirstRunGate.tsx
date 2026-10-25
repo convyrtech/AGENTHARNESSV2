@@ -8,7 +8,12 @@ import type { PrsloyState } from "@zeno/contracts";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { t } from "@/lib/i18n";
-import { cleanPastedKey, firstRunStep, gatewayErrorKey } from "@/lib/prsloy-first-run";
+import {
+  cleanPastedKey,
+  firstRunStep,
+  gatewayErrorKey,
+  gitSetupPercent,
+} from "@/lib/prsloy-first-run";
 import { useShellStore } from "@/store/shell-store";
 
 /** Where people buy and copy their key. */
@@ -105,6 +110,19 @@ export function FirstRunGate({ children }: { children: ReactNode }) {
     [busy],
   );
 
+  // While bundled Git unpacks (Windows first launch) refresh its percentage quietly.
+  const gitPercent = gitSetupPercent(state);
+  useEffect(() => {
+    if (gitPercent === undefined) return;
+    const timer = setInterval(() => {
+      window.zeno.prsloy
+        .getState()
+        .then(setState)
+        .catch(() => undefined);
+    }, 1500);
+    return () => clearInterval(timer);
+  }, [gitPercent === undefined]);
+
   if (step === "done") return <>{children}</>;
   if (step === "loading") return <div className="h-screen w-screen bg-background" />;
 
@@ -191,6 +209,11 @@ export function FirstRunGate({ children }: { children: ReactNode }) {
             ) : null}
           </div>
         )}
+        {gitPercent !== undefined ? (
+          <p className="prsloy-first-run-note" data-testid="prsloy-git-setup">
+            {t(locale, "prsloy.setup.git", { percent: gitPercent })}
+          </p>
+        ) : null}
       </div>
     </div>
   );

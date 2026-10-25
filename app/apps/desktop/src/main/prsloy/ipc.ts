@@ -51,6 +51,9 @@ export function buildPrsloyState(ctx: PrsloyContext, needsWorkspace: boolean): P
     needsWorkspace,
     ...(ctx.shellSource ? { shellSource: ctx.shellSource } : {}),
     harnessLoaded: ctx.harnessEnabled,
+    gitSetup: (({ status, percent }) => (percent === undefined ? { status } : { status, percent }))(
+      ctx.git.state(),
+    ),
     firstRunBypass:
       process.env.ZENO_ENABLE_TEST_COMMANDS === "1" && process.env.PRSLOY_FORCE_FIRST_RUN !== "1",
   };
@@ -151,6 +154,19 @@ export function registerPrsloyIpc(ipcMain: IpcMainLike, deps: PrsloyIpcDeps): vo
       removed: result.removed,
     };
   });
+}
+
+/**
+ * Before an agent turn: wait (bounded) for PortableGit if it is still unpacking on first
+ * launch (pi's bash needs it), then snapshot the workspace for «Откатить ход».
+ */
+export async function prepareTurn(
+  ctx: PrsloyContext,
+  workspace: string | undefined,
+  meta: { prompt?: string; sessionId?: string },
+): Promise<void> {
+  if (ctx.git.state().status === "installing") await ctx.git.whenReady(180_000);
+  await snapshotBeforeTurn(ctx, workspace, meta);
 }
 
 /** Snapshot before an agent turn; bounded so a huge folder never delays the prompt long. */

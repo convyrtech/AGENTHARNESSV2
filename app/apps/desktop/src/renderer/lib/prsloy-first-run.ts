@@ -28,6 +28,12 @@ export function gatewayErrorKey(code: PrsloyGatewayErrorCode | undefined): Messa
   return (code && ERROR_KEYS[code]) || "prsloy.error.server";
 }
 
+/** Progress line while bundled Git unpacks on first launch; undefined when not installing. */
+export function gitSetupPercent(state: PrsloyState | undefined): string | undefined {
+  if (state?.gitSetup?.status !== "installing") return undefined;
+  return String(state.gitSetup.percent ?? 0);
+}
+
 /** Strip whitespace and invisible characters people paste along with a key. */
 export function cleanPastedKey(raw: string): string {
   return raw.replace(/[\s​-‍﻿]+/gu, "");
