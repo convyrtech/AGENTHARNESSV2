@@ -962,7 +962,7 @@ export function Composer(props: ComposerProps) {
           </div>
           <Textarea
             ref={props.composerRef}
-            aria-label="Prompt"
+            aria-label={t(props.locale, "composer.inputLabel")}
             data-testid="prompt-input"
             value={props.prompt}
             onChange={(event) => handlePromptChange(event.target.value)}
