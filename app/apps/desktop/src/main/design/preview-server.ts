@@ -2,7 +2,7 @@
  * Loopback static server over a workspace's `site/` for the built-page preview.
  * GET/HEAD only, paths resolved inside the root (symlinks included), no listing.
  */
-import { createReadStream, existsSync, readdirSync, statSync } from "node:fs";
+import { createReadStream, existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { join, relative, sep } from "node:path";
@@ -13,9 +13,25 @@ export type PreviewServer = { url: string; root: string; close(): Promise<void> 
 /** Loopback ports of the preview servers that are up; the frame guard allows only these. */
 export const previewServerPorts = new Set<number>();
 
+/** Where an injecting server serves its script; never a project file (a project may not own it). */
+export const BRIDGE_PATH = "/__prsloy/bridge.js";
+
+/** `<script>` for the bridge, placed right after `<head>` so it hears the page's first errors. */
+export function injectBridgeTag(html: string): string {
+  const tag = `<script src="${BRIDGE_PATH}"></script>`;
+  const at = /<head\b[^>]*>/iu.exec(html) ?? /<html\b[^>]*>/iu.exec(html);
+  if (!at) return tag + html;
+  const end = at.index + at[0].length;
+  return html.slice(0, end) + tag + html.slice(end);
+}
+
 export function startPreviewServer(
   root: string,
-  options: { hideDotfiles?: boolean } = {},
+  options: {
+    hideDotfiles?: boolean;
+    /** Script the «Код» preview adds to every HTML page (errors, «Выбрать на странице»). */
+    inject?: string;
+  } = {},
 ): Promise<PreviewServer> {
   const server: Server = createServer((req, res) => {
     if (req.method !== "GET" && req.method !== "HEAD") {
@@ -27,6 +43,15 @@ export function startPreviewServer(
       pathname = decodeURIComponent(new URL(req.url ?? "/", "http://x").pathname);
     } catch {
       res.writeHead(400).end();
+      return;
+    }
+    if (options.inject !== undefined && pathname === BRIDGE_PATH) {
+      res.writeHead(200, {
+        "Content-Type": "text/javascript; charset=utf-8",
+        "Cache-Control": "no-store",
+        "X-Content-Type-Options": "nosniff",
+      });
+      res.end(req.method === "HEAD" ? undefined : options.inject);
       return;
     }
     const rel = pathname.replace(/^\/+/, "");
@@ -47,8 +72,20 @@ export function startPreviewServer(
       res.writeHead(404, { "Content-Type": "text/plain; charset=utf-8" }).end("Not found");
       return;
     }
+    const type = mimeFor(target);
+    if (options.inject !== undefined && type.startsWith("text/html")) {
+      const body = Buffer.from(injectBridgeTag(readFileSync(target, "utf8")));
+      res.writeHead(200, {
+        "Content-Type": type,
+        "Content-Length": body.length,
+        "Cache-Control": "no-store",
+        "X-Content-Type-Options": "nosniff",
+      });
+      res.end(req.method === "HEAD" ? undefined : body);
+      return;
+    }
     res.writeHead(200, {
-      "Content-Type": mimeFor(target),
+      "Content-Type": type,
       "Content-Length": statSync(target).size,
       "Cache-Control": "no-store",
       "X-Content-Type-Options": "nosniff",

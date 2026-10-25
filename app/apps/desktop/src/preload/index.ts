@@ -115,6 +115,10 @@ const api: ZenoDesktopApi = {
     get: () => ipcRenderer.invoke("prsloy:harness-flags:get"),
     set: (patch) => ipcRenderer.invoke("prsloy:harness-flags:set", patch),
   },
+  features: {
+    exportProjectZip: (workspacePath) =>
+      ipcRenderer.invoke("prsloy:features:export-project-zip", workspacePath),
+  },
   codePreview: {
     open: (target, workspacePath) =>
       ipcRenderer.invoke("prsloy:code-preview:open", target, workspacePath),

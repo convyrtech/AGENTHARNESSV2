@@ -7,12 +7,14 @@
  */
 
 import { designZh } from "./design.zh.ts";
+import { featuresZh } from "./features.zh.ts";
 
 export const zh = {
   "app.name": "PRSLOY",
   "timeline.thinking": "思考过程",
   "timeline.minimap": "对话导航",
   ...designZh,
+  ...featuresZh,
   "timeline.minimapUser": "用户消息",
   "timeline.minimapAssistant": "助手回复",
   "timeline.toolRunning": "运行中",
