@@ -376,7 +376,17 @@ describe("free search heuristics (review #23, item 6)", () => {
   it("«async/await», «client/server» are words, not repositories: no GitHub call", async () => {
     for (const q of ["async/await in python", "client/server architecture", "read/write lock"])
       expect(githubRepo(q), q).toBeUndefined();
-    expect(githubRepo("latest release vitejs/vite")).toEqual({ owner: "vitejs", repo: "vite" });
+    expect(githubRepo("latest release vitejs/vite on github")).toEqual({
+      owner: "vitejs",
+      repo: "vite",
+    });
+    // round 2: two package names, not a repository
+    for (const q of [
+      "react/vue latest version",
+      "последний релиз react/vue",
+      "vite/webpack changelog",
+    ])
+      expect(githubRepo(q), q).toBeUndefined();
     expect(githubRepo("https://github.com/a/b")).toEqual({ owner: "a", repo: "b" });
   });
 });
@@ -454,7 +464,7 @@ describe("GitHub limits are shown, npm versions come from the registry (review #
     ]);
     const issues: [string, string][] = [];
     await freeSearch(
-      { query: "latest release vitejs/vite" },
+      { query: "latest release vitejs/vite github" },
       { fetchImpl: f.impl, onIssue: (p, e) => issues.push([p, e.code]) },
     );
     expect(issues).toEqual([["github", "limit"]]);

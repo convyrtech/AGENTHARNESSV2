@@ -104,7 +104,11 @@ describe("free search: official sources, then the web, Wikipedia when the web is
   beforeEach(() => resetFreeCache());
 
   it("what the query is about: owner/repo, npm and PyPI packages", () => {
-    expect(githubRepo("последний релиз nodejs/node")).toEqual({ owner: "nodejs", repo: "node" });
+    expect(githubRepo("последний релиз nodejs/node на github")).toEqual({
+      owner: "nodejs",
+      repo: "node",
+    });
+    expect(githubRepo("последний релиз nodejs/node")).toBeUndefined();
     expect(githubRepo("https://github.com/pi-mono/pi.git releases")).toEqual({
       owner: "pi-mono",
       repo: "pi",
@@ -178,7 +182,10 @@ describe("free search: official sources, then the web, Wikipedia when the web is
       ["https://html.duckduckgo.com/html/", () => html(DDG)],
     ]);
     const deps = { fetchImpl: f.impl, now: NOW };
-    const hits = await freeSearch({ query: "node lts nodejs/node", count: 6, lang: "en" }, deps);
+    const hits = await freeSearch(
+      { query: "node lts nodejs/node github", count: 6, lang: "en" },
+      deps,
+    );
     expect(hits.map((h) => h.url)).toEqual([
       "https://github.com/nodejs/node/releases/tag/v26.12.1",
       "https://endoflife.date/nodejs",
@@ -196,8 +203,8 @@ describe("free search: official sources, then the web, Wikipedia when the web is
     expect(hits[1]!.date).toBe("2026-10-21");
     const form = f.calls.find((c) => c.url.startsWith("https://html.duckduckgo.com"))!;
     expect(form.method).toBe("POST");
-    expect(String(form.body)).toBe("q=node+lts+nodejs%2Fnode&kl=us-en");
-    await freeSearch({ query: "node lts nodejs/node", lang: "en" }, deps);
+    expect(String(form.body)).toBe("q=node+lts+nodejs%2Fnode+github&kl=us-en");
+    await freeSearch({ query: "node lts nodejs/node github", lang: "en" }, deps);
     expect(f.calls.filter((c) => c.url.includes("api.github.com"))).toHaveLength(1);
   });
 
@@ -215,8 +222,8 @@ describe("free search: official sources, then the web, Wikipedia when the web is
       ["https://html.duckduckgo.com/html/", () => html(DDG)],
     ]);
     const deps = { fetchImpl: f.impl, now: NOW };
-    expect(await freeSearch({ query: "a/b releases" }, deps)).toHaveLength(2);
-    await freeSearch({ query: "c/d releases" }, deps);
+    expect(await freeSearch({ query: "a/b github releases" }, deps)).toHaveLength(2);
+    await freeSearch({ query: "c/d github releases" }, deps);
     expect(f.calls.filter((c) => c.url.includes("api.github.com"))).toHaveLength(1);
   });
 
@@ -267,7 +274,7 @@ describe("free search: official sources, then the web, Wikipedia when the web is
       ["https://en.wikipedia.org/", () => json({ query: { search: [] } })],
     ]);
     const deps = { fetchImpl: f.impl, now: NOW };
-    expect(await freeSearch({ query: "o/r release" }, deps)).toEqual([
+    expect(await freeSearch({ query: "o/r github release" }, deps)).toEqual([
       expect.objectContaining({
         url: "https://github.com/o/r/commit/abcdef1234",
         title: "o/r: релизов нет, последний коммит abcdef1",

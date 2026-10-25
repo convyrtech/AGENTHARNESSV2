@@ -129,8 +129,9 @@ function latinTokens(query: string): string[] {
 const SLASH_WORDS =
   /^(async\/await|client\/server|input\/output|read\/write|true\/false|yes\/no|and\/or|on\/off|tcp\/ip|i\/o|front\/back|frontend\/backend|get\/set|start\/stop|open\/close|import\/export|dev\/prod|key\/value|request\/response|src\/\w+|\w+\/(src|lib|bin|dist|index))$/i;
 /** Без ссылки на github.com «owner/repo» — репозиторий, только если в запросе про него речь. */
-const REPO_CONTEXT =
-  /github|репозитор|\brepo\b|release|релиз|\btag\b|changelog|верси|version|\blts\b|latest|последн|commit|коммит/i;
+// «react/vue latest version» — это два пакета, а не репозиторий: «версия» и «последний» сюда не годятся. Без
+// ссылки на github.com нужно само слово GitHub или «репозиторий» — догадка не стоит запроса из 60 в час.
+const REPO_CONTEXT = /github|гитхаб|репозитор|\brepo\b/i;
 
 export function githubRepo(query: string): { owner: string; repo: string } | undefined {
   const url = /github\.com\/([\w.-]+)\/([\w.-]+)/i.exec(query);
