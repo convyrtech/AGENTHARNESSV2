@@ -11,8 +11,12 @@
  * 2. Good feed: A detects and downloads B, shows «Обновление готово — перезапустить»; the click
  *    installs B and the updater relaunches it; the installed app then reports version B.
  *
- * Env: PRSLOY_EXE (installed A), UPDATE_VERSION_A, UPDATE_VERSION_B, UPDATE_FEED_GOOD,
- * UPDATE_FEED_BAD (directories).
+ * Env: PRSLOY_EXE (installed A), UPDATE_INSTALLER_A (A's setup, to reinstall A), UPDATE_VERSION_A,
+ * UPDATE_VERSION_B, UPDATE_FEED_GOOD, UPDATE_FEED_BAD (directories).
+ *
+ * electron-updater downloads B differentially (changed blocks only, the rest from A's cached
+ * installer) and installs a verified download on quit even without the click
+ * (autoInstallOnAppQuit), so each test starts by reinstalling A.
  */
 import { expect, test } from "@playwright/test";
 import { execFileSync } from "node:child_process";
@@ -35,6 +39,7 @@ const versionA = process.env.UPDATE_VERSION_A ?? "";
 const versionB = process.env.UPDATE_VERSION_B ?? "";
 const feedGood = process.env.UPDATE_FEED_GOOD ?? "";
 const feedBad = process.env.UPDATE_FEED_BAD ?? "";
+const installerA = process.env.UPDATE_INSTALLER_A ?? "";
 const READY = '[data-testid="prsloy-update-ready"]';
 
 function powershell(command: string): string {
@@ -63,6 +68,13 @@ function installedProductVersion(): string {
   return powershell(
     `(Get-Item -LiteralPath '${exe.replaceAll("'", "''")}').VersionInfo.ProductVersion`,
   );
+}
+
+/** Silent per-user install of A (undoes an update a previous test installed on quit). */
+function reinstallA(): string {
+  powershell("Get-Process PRSLOY -ErrorAction SilentlyContinue | Stop-Process -Force");
+  execFileSync(installerA, ["/S", "/currentuser"], { windowsHide: true });
+  return installedProductVersion();
 }
 
 function desktopScreenshot(name: string): void {
@@ -103,11 +115,14 @@ async function launchA(label: string, feedUrl: string, gatewayBase: string): Pro
   });
 }
 
-test.describe.configure({ mode: "serial" });
-
 test.beforeAll(async () => {
   await beforeAllSmoke();
-  expect(versionA && versionB && feedGood && feedBad, "UPDATE_* env").toBeTruthy();
+  expect(versionA && versionB && feedGood && feedBad && installerA, "UPDATE_* env").toBeTruthy();
+});
+
+test.beforeEach(() => {
+  if (process.platform !== "win32") return;
+  expect(reinstallA()).toContain(versionA);
 });
 
 test("tampered update (sha512 mismatch): A refuses quietly and keeps running", async () => {

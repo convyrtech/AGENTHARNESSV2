@@ -263,11 +263,11 @@ jobs:
           Copy-Item "$b\*" $good
           Copy-Item "$a\*.blockmap" $good
           Copy-Item "$good\*" $bad
-          # Tampered B: same size, one byte flipped mid-file, latest.yml unchanged → sha512 mismatch.
+          # Tampered B: same size, latest.yml unchanged. One byte flipped every 1 MB, so the blocks a
+          # differential download fetches are corrupt too (the rest comes from A's cached installer).
           $exeBad = Get-ChildItem $bad -Filter '*.exe' | Select-Object -First 1
           $bytes = [IO.File]::ReadAllBytes($exeBad.FullName)
-          $i = [int]($bytes.Length / 2)
-          $bytes[$i] = $bytes[$i] -bxor 0xFF
+          for ($i = 4096; $i -lt $bytes.Length; $i += 1MB) { $bytes[$i] = $bytes[$i] -bxor 0xFF }
           [IO.File]::WriteAllBytes($exeBad.FullName, $bytes)
           Copy-Item "$b\latest.yml" smoke-out/latest-B.yml
           Get-ChildItem $a, $b | Select-Object Name, Length | Format-Table | Out-String | Write-Host
@@ -277,6 +277,7 @@ jobs:
           $exe = Join-Path $env:LOCALAPPDATA 'Programs\PRSLOY\PRSLOY.exe'
           if (-not (Test-Path $exe)) { throw 'PRSLOY.exe not found after install' }
           "PRSLOY_EXE=$exe" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
+          "UPDATE_INSTALLER_A=$($setup.FullName)" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
           "UPDATE_FEED_GOOD=$good" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
           "UPDATE_FEED_BAD=$bad" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
       - name: Update e2e
