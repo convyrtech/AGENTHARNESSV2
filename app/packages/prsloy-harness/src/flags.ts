@@ -12,8 +12,11 @@ export interface HarnessFlags {
   disabledLessons: string[];
   /** «Запоминать, когда я прошу» (память, S4). По умолчанию выкл., пока в приложении нет «Забыть» и панели «Память» (S5). */
   memory: boolean;
-  /** Системный промпт «Кода»: базовый Pi + разделы (pi) или свой (prsloy, research/17 §9). По умолчанию prsloy (этап 14, A/B: 11/12 против 10/12). */
-  prompt: "pi" | "prsloy";
+  /**
+   * Системный промпт «Кода»: базовый Pi + разделы (pi), свой (prsloy, research/17 §9) или диета (diet, H-1p #6:
+   * ≤4 000 знаков, правила кода и процедуры — вон). По умолчанию prsloy (этап 14, A/B: 11/12 против 10/12).
+   */
+  prompt: "pi" | "prsloy" | "diet";
   /** Дельта под модель (prsloy_model, research/17 §9.1). По умолчанию выкл. */
   promptDelta: boolean;
   /**
@@ -55,7 +58,8 @@ export function readFlags(settingsPath: string | undefined): HarnessFlags {
       if (raw.lessons === false) flags.lessons = false;
       if (raw.skills === true) flags.skills = true;
       if (raw.memory === true) flags.memory = true;
-      if (raw.prompt === "prsloy" || raw.prompt === "pi") flags.prompt = raw.prompt;
+      if (raw.prompt === "prsloy" || raw.prompt === "pi" || raw.prompt === "diet")
+        flags.prompt = raw.prompt;
       if (raw.promptDelta === true) flags.promptDelta = true;
       if (raw.autoMemory === true || raw.autoMemory === "shadow" || raw.autoMemory === "off")
         flags.autoMemory = raw.autoMemory;
@@ -77,8 +81,8 @@ export function readFlags(settingsPath: string | undefined): HarnessFlags {
   if (process.env.PRSLOY_SKILLS === "0") flags.skills = false;
   if (process.env.PRSLOY_MEMORY === "1") flags.memory = true;
   if (process.env.PRSLOY_MEMORY === "0") flags.memory = false;
-  if (process.env.PRSLOY_PROMPT === "prsloy" || process.env.PRSLOY_PROMPT === "pi")
-    flags.prompt = process.env.PRSLOY_PROMPT;
+  const prompt = process.env.PRSLOY_PROMPT;
+  if (prompt === "prsloy" || prompt === "pi" || prompt === "diet") flags.prompt = prompt;
   if (process.env.PRSLOY_PROMPT_DELTA === "1") flags.promptDelta = true;
   const auto = process.env.PRSLOY_AUTO_MEMORY;
   if (auto === "1" || auto === "on") flags.autoMemory = true;
