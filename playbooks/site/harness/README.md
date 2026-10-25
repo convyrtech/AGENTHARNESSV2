@@ -6,6 +6,7 @@
 | `judge.py`, `second_opinion.py`, `check.py` | судья, второе мнение перед сообщением владельцу, проверки кода |
 | `a6proxy.py` | прокси надёжности к a6: ключ держит он |
 | `moves.py` | шаг 1: наборы приёмов движения в цветах и словах владельца |
+| `brand_probe.py` | бренд по адресу сайта владельца: цвета, шрифты, скругления с живой страницы в `materials/brand.json`, без модели (приложение зовёт его само, если в сообщении есть адрес) |
 | `baseline.py`, `simulate.py`, `abreport.py`, `owner-e8p.json` | чистый A/B: см. ниже |
 
 Тесты: `python -m unittest discover -s playbooks/site/harness/tests` (без сети и моделей).

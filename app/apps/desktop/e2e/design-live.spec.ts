@@ -45,6 +45,10 @@ const WIN = process.platform === "win32";
 const VENV_PY = WIN ? join(VENV, "Scripts", "python.exe") : join(VENV, "bin", "python");
 const SHA = "39fcac42db4bd344c7d9747a5903cc18c9d87718";
 /** What the live PRSLOY gateway served on 2026-10-25: no deepseek, no kimi from the stages.json ladder. */
+const OWNER_SITE = `<!doctype html><html lang=ru><head><meta charset=utf-8><title>Зерно</title><style>
+body{margin:0;background:#f3eee3;color:#3b2a1e;font:18px/1.5 Georgia,serif}.b{background:#a4472c;color:#fff;
+border-radius:10px;padding:12px 20px;display:inline-block}</style></head><body><h1>Зерно</h1>
+<p>Обжариваем сами, каждое утро. Завтраки и выпечка в центре города.</p><a class=b href=#>Заказать</a></body></html>`;
 const LIVE_MODELS = ["qwen3.8-max", "claude-opus-5-5", "claude-fable-5", "gpt-6.1-sol", "grok-4.7"];
 const CHECKS = [
   "lang",
@@ -69,6 +73,12 @@ test.beforeAll(async () => {
   gateway = createServer((req, res) => {
     req.resume();
     req.on("end", () => {
+      if (req.method === "GET" && req.url === "/site/") {
+        // the owner's own site: «бренд по адресу сайта» reads its colours and fonts
+        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+        res.end(OWNER_SITE);
+        return;
+      }
       if (req.method === "GET" && req.url?.endsWith("/models")) {
         const list = JSON.stringify({ data: LIVE_MODELS.map((id) => ({ id })) });
         res.writeHead(200, { "Content-Type": "application/json" });
@@ -306,7 +316,8 @@ test("a full turn on the real tools: sheet and videos, choice «A», the page", 
   const { app, page } = await launch(l);
   try {
     await importTools(app, page, l);
-    await say(page, "Сделай лендинг для кофейни «Зерно»");
+    const site = gatewayUrl.replace(/\/v1$/, "/site/");
+    await say(page, `Сделай лендинг для кофейни «Зерно», наш сайт ${site}`);
     const card = page.getByTestId("design-owner").first();
     await expect(card).toBeVisible({ timeout: 300_000 });
     const videos = card.getByTestId("design-video");
@@ -321,6 +332,16 @@ test("a full turn on the real tools: sheet and videos, choice «A», the page", 
       .toEqual([true, true, true]);
     await expect(card.getByTestId("design-image")).toHaveCount(1);
     await shot(page, "videos");
+
+    // the brand of the owner's site, measured before the turn: no model
+    const brand = JSON.parse(readFileSync(join(ws(l), "materials", "brand.json"), "utf8")) as {
+      colors: Record<string, string>;
+      fonts: { body: { family: string } };
+      radius: string;
+    };
+    expect(brand.colors).toEqual({ background: "#f3eee3", text: "#3b2a1e", accent: "#a4472c" });
+    expect(brand.fonts.body.family).toBe("Georgia");
+    expect(brand.radius).toBe("10px");
 
     // the agent shell ran python3 from the app's shim: the venv's interpreter, full stdlib
     const probe = readFileSync(join(piHome(l), "live-probe.txt"), "utf8");

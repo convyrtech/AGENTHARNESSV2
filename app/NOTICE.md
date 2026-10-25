@@ -34,3 +34,6 @@
   [OpenCoworkAI/open-codesign](https://github.com/OpenCoworkAI/open-codesign) (коммит `4cf3393`,
   `packages/runtime/src/tweaks-bridge.ts`, `apps/desktop/src/renderer/src/preview/tweak-persistence.ts`). MIT License,
   Copyright (c) OpenCoworkAI. Код не копировался: у нас статический HTML, значения подставляет сервер превью.
+- `../playbooks/site/harness/brand_probe.py` — бренд по адресу сайта: по мотивам
+  [dembrandt](https://github.com/dembrandt/dembrandt) (MIT, v0.39.2, вычисленные стили живой страницы) и методики
+  `skills/brand-extract/SKILL.md` OpenDesign (Apache-2.0: «каждое значение — замер»). Код не копировался.

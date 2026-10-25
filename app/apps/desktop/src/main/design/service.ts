@@ -64,6 +64,7 @@ import {
 import { findEntry, type PreviewServer, startPreviewServer } from "./preview-server.ts";
 import { importPipeline } from "./pipeline-import.ts";
 import { killTree, killTreeNow, treeSpawnOptions } from "./proc.ts";
+import { siteUrl } from "./site-url.ts";
 import { checkTokens, overrideStyle, readTokens, saveTokens, type TokenCheck } from "./tokens.ts";
 import { listFiles, zipDirectory } from "./zip.ts";
 import { DESIGN_DISK_MB, DESIGN_SETUP_MB, setupDesignTools, toolsReady } from "./setup.ts";
@@ -516,6 +517,47 @@ export class DesignService {
       throw new Error(`Не получилось завести папку дизайна: ${err.trim().slice(-300)}`);
   }
 
+  /** brand_probe.py → materials/brand.json; false when the owner stopped it (the turn ends there). */
+  async #probeBrand(ws: string, url: string, env: Record<string, string>): Promise<boolean> {
+    this.#emit(ws, { ev: "note", text: "Смотрю ваш сайт: цвета и шрифты" });
+    const child = this.#python(
+      [
+        "-I",
+        join(this.#harness, "brand_probe.py"),
+        "--url",
+        url,
+        "--out",
+        join(ws, "materials", "brand.json"),
+        "--shot",
+        join(ws, "materials", "brand-site.png"),
+      ],
+      ws,
+      env,
+    );
+    const run: Run = { child, cancelled: false };
+    this.#runs.set(ws, run);
+    const timer = setTimeout(() => killTree(child), 90_000);
+    const code = await new Promise<number | null>((done) => {
+      child.on("error", () => done(null));
+      child.on("close", done);
+    });
+    clearTimeout(timer);
+    this.#runs.delete(ws);
+    if (run.quitting) return false;
+    if (run.cancelled) {
+      this.#emit(ws, { ev: "exit", code, cancelled: true });
+      return false;
+    }
+    this.#emit(ws, {
+      ev: "note",
+      text:
+        code === 0
+          ? "Взял цвета и шрифты с сайта"
+          : "Сайт не открылся — цвета возьму из ваших материалов",
+    });
+    return true;
+  }
+
   async say(
     projectPath: string | undefined,
     text: string,
@@ -549,6 +591,16 @@ export class DesignService {
         text: text.slice(0, 4000),
         files: files.map((f) => basename(f)),
       });
+    }
+    // «бренд по адресу сайта»: the owner named his site and its brand is not measured yet (no model)
+    const site = text ? siteUrl(text) : undefined;
+    if (
+      site &&
+      !existsSync(join(ws, "materials", "brand.json")) &&
+      existsSync(join(this.#harness, "brand_probe.py"))
+    ) {
+      const go = await this.#probeBrand(ws, site, env);
+      if (!go) return;
     }
     const args = [join(this.#harness, "run.py"), "say", ws, text];
     if (retry) args.push("--retry");
