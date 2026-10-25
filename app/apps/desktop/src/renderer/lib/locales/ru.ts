@@ -1502,4 +1502,6 @@ export const ru = {
   "prsloy.setup.git": "Готовлю окружение для команд… {percent}%",
   "prsloy.update.ready": "Обновление готово — перезапустить",
   "prsloy.update.dismiss": "Скрыть",
+  "prsloy.firstRun.folderRefused": "Это служебная папка приложения — выберите другую",
+  "prsloy.firstRun.folderFailed": "Не получилось открыть папку {path}",
 } as const;

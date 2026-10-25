@@ -1511,4 +1511,6 @@ export const en = {
   "prsloy.setup.git": "Preparing the command environment… {percent}%",
   "prsloy.update.ready": "Update ready — restart",
   "prsloy.update.dismiss": "Hide",
+  "prsloy.firstRun.folderRefused": "This is the app's own scratch folder — choose another one",
+  "prsloy.firstRun.folderFailed": "Could not open the folder {path}",
 } as const;

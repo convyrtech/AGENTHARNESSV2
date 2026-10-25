@@ -109,6 +109,39 @@ describe("settings.json seed", () => {
   });
 });
 
+describe("MCP off by default", () => {
+  it("seeds -builtin:mcp unless the user has an extensions list", () => {
+    const agentDir = tempDir();
+    ensurePrsloySettings(agentDir, {});
+    expect(readJson(join(agentDir, "settings.json")).extensions).toEqual(["-builtin:mcp"]);
+    writeFileSync(
+      join(agentDir, "settings.json"),
+      JSON.stringify({ extensions: ["+builtin:mcp"] }),
+    );
+    ensurePrsloySettings(agentDir, {});
+    expect(readJson(join(agentDir, "settings.json")).extensions).toEqual(["+builtin:mcp"]);
+  });
+
+  it("drops the auto-installed npm:pi-mcp-adapter once, keeps other packages", () => {
+    const agentDir = tempDir();
+    writeFileSync(
+      join(agentDir, "settings.json"),
+      JSON.stringify({
+        packages: ["npm:pi-mcp-adapter", { source: "npm:pi-mcp-adapter" }, "npm:other-pkg"],
+      }),
+    );
+    ensurePrsloySettings(agentDir, { dropAutoMcpAdapter: true });
+    expect(readJson(join(agentDir, "settings.json")).packages).toEqual(["npm:other-pkg"]);
+    // Without the migration flag a developer's own choice is left alone.
+    writeFileSync(
+      join(agentDir, "settings.json"),
+      JSON.stringify({ packages: ["npm:pi-mcp-adapter"] }),
+    );
+    ensurePrsloySettings(agentDir, {});
+    expect(readJson(join(agentDir, "settings.json")).packages).toEqual(["npm:pi-mcp-adapter"]);
+  });
+});
+
 describe("bundled search tools", () => {
   it("copies rg/fd into agentDir/bin and ignores other files", () => {
     const tools = tempDir();

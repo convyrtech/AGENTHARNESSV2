@@ -154,12 +154,12 @@
 
 ### 8. Размер установщика
 
-| Сборка (windows-latest)                     | `.exe`                                     |
-| ------------------------------------------- | ------------------------------------------ |
-| main до git                                 | ~211 МБ (артефакт)                         |
-| git.tar.gz                                  | 315 МБ (артефакт)                          |
-| app.asar 295→61 МБ + git.7z.exe             | **231,1 МБ** (`latest.yml` size 231148933) |
-| + locales ru/en/zh + `compression: maximum` | см. ниже                                   |
+| Сборка (windows-latest)                     | `.exe`                                              |
+| ------------------------------------------- | --------------------------------------------------- |
+| main до git                                 | ~211 МБ (артефакт)                                  |
+| git.tar.gz                                  | 315 МБ (артефакт)                                   |
+| app.asar 295→61 МБ + git.7z.exe             | **231,1 МБ** (`latest.yml` size 231148933)          |
+| + locales ru/en/zh + `compression: maximum` | **223,0 МБ** (222970437 байт), цель ≤ 230 выполнена |
 
 - `app.asar` содержал все зависимости рендерера (mermaid 86 МБ, lucide 32 МБ, highlight,
   katex, cytoscape, react…), хотя vite уже собрал их в `dist/`. В `dependencies` остались только
@@ -192,10 +192,35 @@
 - Канал: на `0.1.0-alpha.N` updater сначала ищет `alpha.yml`, затем `latest.yml`. Workflow
   кладёт `latest.yml`, этого достаточно.
 
+### 10. Дефекты живой приёмки (main ae269d3)
+
+1. **Папки с `/tmp/` в пути отказывались молча** (`D:\tmp\сайт`). `isEphemeralWorkspacePath`
+   (main и renderer) считал служебной любую папку с `/tmp/` или `/var/folders/`. Теперь
+   служебные только собственные папки приложения (`zeno-e2e-`, `recent-ws-`, …) и
+   `Documents/PRSLOY/<дата>` / `conversations`. Если папка всё же отказана, экран первого запуска
+   объясняет почему: «Это служебная папка приложения — выберите другую» или «Не получилось
+   открыть папку …». Тесты: `workspace.test.ts`, `FirstRunGate.test.tsx`.
+2. **npm-установка `pi-mcp-adapter` при первом запуске и английская плашка про MCP.** Теперь:
+   - `BUILTIN_PACKAGES = []`, при старте ничего не ставится из сети;
+   - в `settings.json` засевается `extensions: ["-builtin:mcp"]` (только если у пользователя нет
+     своего списка), встроенный MCP pi не грузится;
+   - одноразовая миграция (`state.json` → `no-auto-mcp-adapter`) убирает `npm:pi-mcp-adapter`,
+     который ранние альфы поставили сами. Английская плашка была из этого адаптера.
+
+   Если адаптер понадобится, его нужно вшить, а не ставить из npm.
+
+3. **После отката модель «помнила» файлы.** Новая команда хоста `session.note` вызывает
+   `session.sendCustomMessage` из pi SDK: это custom message, не поддельный user-ход. После
+   успешного `undoTurn` модель на следующем ходу получает: «Файлы хода N откатены… Удалены:
+   hello.py… прочитай их заново». Тест через настоящий runtime (`prsloy-undo-note.test.ts`):
+   заметка стоит в контексте следующего запроса перед новым промптом и сохранена в сессии.
+4. **`usage.credit` у Kimi.** Шлюз отдаёт его в usage. Для альфы остаёмся на своей таблице цен
+   (`PRSLOY_PRICES_USD_PER_M` × `PRSLOY_PRICE_MULTIPLIER`), `usage.credit` не читаем.
+
 ## Как проверено (Linux, без ключа шлюза)
 
 - `pnpm check` чистый. `pnpm test` (корень) зелёный:
-  - desktop: **112 files / 763 tests**, плюс `fetch-runtimes`, `after-pack`, file budgets;
+  - desktop: **113 files / 767 tests**, плюс `fetch-runtimes`, `after-pack`, file budgets;
   - harness: 8 files / 104 tests.
 - e2e (`xvfb-run playwright test`, весь набор): 28 passed, 5 failed. Все 5 падают так же на
   чистом `origin/main` (прогнал отдельно), то есть они не из этой ветки:

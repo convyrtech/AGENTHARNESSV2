@@ -14,6 +14,7 @@ import {
   gatewayErrorKey,
   gitSetupPercent,
 } from "@/lib/prsloy-first-run";
+import { isNonProjectWorkspacePath } from "@/lib/workspace";
 import { useShellStore } from "@/store/shell-store";
 
 /** Where people buy and copy their key. */
@@ -99,15 +100,24 @@ export function FirstRunGate({ children }: { children: ReactNode }) {
       try {
         const folder = await choose();
         if (!folder) return;
+        // Never refuse silently: the user would stay stuck on this screen.
+        if (isNonProjectWorkspacePath(folder)) {
+          setError(t(locale, "prsloy.firstRun.folderRefused"));
+          return;
+        }
         await window.zeno.workspace.openPath(folder);
-        setState(await window.zeno.prsloy.getState());
+        const next = await window.zeno.prsloy.getState();
+        setState(next);
+        if (next.needsWorkspace) {
+          setError(t(locale, "prsloy.firstRun.folderFailed", { path: folder }));
+        }
       } catch (cause) {
         setError(cause instanceof Error ? cause.message : String(cause));
       } finally {
         setBusy(false);
       }
     },
-    [busy],
+    [busy, locale],
   );
 
   // While bundled Git unpacks (Windows first launch) refresh its percentage quietly.

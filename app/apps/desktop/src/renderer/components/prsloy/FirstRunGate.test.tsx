@@ -109,4 +109,26 @@ describe("FirstRunGate", () => {
     fireEvent.click(screen.getByText("zerno"));
     await waitFor(() => expect(withKey.workspace.openPath).toHaveBeenCalledWith("/home/u/zerno"));
   });
+
+  it("accepts a folder under tmp and explains a refused scratch folder in words", async () => {
+    const api = mockZeno({
+      getState: vi.fn().mockResolvedValue({ ...fresh, hasKey: true }),
+    });
+    api.workspace.pickFolder
+      .mockResolvedValueOnce("C:/Users/u/Documents/PRSLOY/2026-10-25")
+      .mockResolvedValueOnce("D:\\tmp\\сайт");
+    render(
+      <FirstRunGate>
+        <div>APP</div>
+      </FirstRunGate>,
+    );
+    fireEvent.click(await screen.findByTestId("prsloy-folder-pick"));
+    expect((await screen.findByRole("alert")).textContent).toMatch(/служебная|scratch|临时/u);
+    expect(api.workspace.openPath).not.toHaveBeenCalled();
+
+    api.prsloy.getState.mockResolvedValue({ ...fresh, hasKey: true, needsWorkspace: false });
+    fireEvent.click(screen.getByTestId("prsloy-folder-pick"));
+    await screen.findByText("APP");
+    expect(api.workspace.openPath).toHaveBeenCalledWith("D:\\tmp\\сайт");
+  });
 });

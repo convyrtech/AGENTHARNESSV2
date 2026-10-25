@@ -7,11 +7,13 @@ import { app } from "electron";
 import { existsSync, lstatSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 
+/**
+ * The app's own scratch / test dirs only. A user folder under any `tmp` path (e.g.
+ * `D:\tmp\сайт`) is a real project and must not be refused.
+ */
 export function isEphemeralWorkspacePath(path: string): boolean {
   const normalized = path.replace(/\\/g, "/").toLowerCase();
   return (
-    normalized.includes("/tmp/") ||
-    normalized.includes("/var/folders/") ||
     normalized.includes("/zeno-e2e-") ||
     normalized.includes("/zeno-fake-") ||
     normalized.includes("/zeno-test-") ||

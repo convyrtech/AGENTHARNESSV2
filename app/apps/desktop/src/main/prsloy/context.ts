@@ -20,7 +20,7 @@ import { GitRuntime, type GitSetupState } from "./runtime-git.ts";
 import { TurnSnapshots } from "./turn-snapshots.ts";
 import { chooseGitBinary, chooseWindowsShellPath } from "./windows-shell.ts";
 
-export type PrsloyState = { baseUrl: string };
+export type PrsloyState = { baseUrl: string; migrations?: string[] };
 
 export type PrsloyContext = {
   paths: PrsloyHomePaths;
@@ -47,8 +47,13 @@ export type PrsloyContext = {
 function readState(path: string): PrsloyState {
   try {
     const parsed = JSON.parse(readFileSync(path, "utf8")) as Partial<PrsloyState>;
-    const baseUrl = normalizePrsloyBaseUrl(parsed.baseUrl);
-    if (baseUrl) return { baseUrl };
+    const baseUrl = normalizePrsloyBaseUrl(parsed.baseUrl) ?? PRSLOY_DEFAULT_BASE_URL;
+    return {
+      baseUrl,
+      ...(Array.isArray(parsed.migrations)
+        ? { migrations: parsed.migrations.filter((m) => typeof m === "string") }
+        : {}),
+    };
   } catch {
     // fall through to defaults
   }
@@ -126,7 +131,13 @@ export function bootstrapPrsloy(options: {
   const gitBinary = () => chooseGitBinary({ platform, bundledGitRoot, env });
 
   ensurePrsloyModelsJson(agentDir, state.baseUrl);
-  ensurePrsloySettings(agentDir, { shellPath });
+  const MCP_MIGRATION = "no-auto-mcp-adapter";
+  const dropAutoMcpAdapter = !state.migrations?.includes(MCP_MIGRATION);
+  ensurePrsloySettings(agentDir, { shellPath, dropAutoMcpAdapter });
+  if (dropAutoMcpAdapter) {
+    state = { ...state, migrations: [...(state.migrations ?? []), MCP_MIGRATION] };
+    writeState(statePath, state);
+  }
   refreshShell();
   try {
     writeAgentShims({

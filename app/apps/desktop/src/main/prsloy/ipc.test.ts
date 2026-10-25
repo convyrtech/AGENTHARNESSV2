@@ -50,6 +50,7 @@ async function setup() {
   const ctx = bootstrapPrsloy({ userDataPath: userData, cipher, env, platform: "linux" });
   let restarts = 0;
   let busy = false;
+  const notes: { customType: string; text: string }[] = [];
   let currentWorkspace: string | undefined;
   const { ipcMain, invoke } = fakeIpc();
   registerPrsloyIpc(ipcMain, {
@@ -61,6 +62,9 @@ async function setup() {
     getWorkspace: () => currentWorkspace,
     needsWorkspace: () => !currentWorkspace,
     isAgentBusy: () => busy,
+    appendSessionNote: async (customType, text) => {
+      notes.push({ customType, text });
+    },
   });
   return {
     userData,
@@ -70,6 +74,7 @@ async function setup() {
     ctx,
     invoke,
     restarts: () => restarts,
+    notes,
     setBusy: (value: boolean) => (busy = value),
     openWorkspace: () => (currentWorkspace = workspace),
   };
@@ -81,6 +86,9 @@ describe("first run over IPC (mock gateway)", () => {
     expect(t.env.PI_CODING_AGENT_DIR).toBe(join(t.userData, "agent"));
     const models = JSON.parse(readFileSync(join(t.userData, "agent", "models.json"), "utf8"));
     expect(models.providers.prsloy.baseUrl).toBe("https://api.prsloy.online/v1");
+    // MCP migration runs once per userData.
+    const prsloyState = JSON.parse(readFileSync(join(t.userData, "prsloy", "state.json"), "utf8"));
+    expect(prsloyState.migrations).toEqual(["no-auto-mcp-adapter"]);
     const state = await t.invoke<PrsloyState>(PRSLOY_IPC.getState);
     expect(state).toMatchObject({ hasKey: false, needsWorkspace: true, harnessLoaded: true });
   });
@@ -181,6 +189,12 @@ describe("undo turn over IPC", () => {
     expect(undo.removed).toEqual(["extra.css"]);
     expect(readFileSync(join(t.workspace, "page.html"), "utf8")).toBe("v1");
     expect(existsSync(join(t.workspace, "extra.css"))).toBe(false);
+    // The model is told on its next turn (it re-created undone files in the live test).
+    expect(t.notes).toHaveLength(1);
+    expect(t.notes[0]!.customType).toBe("prsloy.undo");
+    expect(t.notes[0]!.text).toContain("Файлы хода 1 откатены");
+    expect(t.notes[0]!.text).toContain("Удалены: extra.css.");
+    expect(t.notes[0]!.text).toContain("Возвращены к прежнему виду: page.html.");
   });
 });
 

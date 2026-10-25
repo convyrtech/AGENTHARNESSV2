@@ -107,7 +107,21 @@ export function ensurePrsloyModelsJson(agentDir: string, baseUrl: string): boole
 export type PrsloySettingsSeed = {
   /** Windows: bundled Git Bash. Undefined elsewhere (pi uses /bin/bash). */
   shellPath?: string | undefined;
+  /** One-time migration: drop the npm:pi-mcp-adapter that early alphas auto-installed. */
+  dropAutoMcpAdapter?: boolean;
 };
+
+/** Package source early alphas installed from npm on first launch. */
+export const AUTO_MCP_ADAPTER_SOURCE = "npm:pi-mcp-adapter";
+
+function packageSource(entry: unknown): string | undefined {
+  if (typeof entry === "string") return entry;
+  if (entry && typeof entry === "object" && "source" in entry) {
+    const source = (entry as { source?: unknown }).source;
+    return typeof source === "string" ? source : undefined;
+  }
+  return undefined;
+}
 
 /**
  * Seed pi settings.json: PRSLOY default model, our shell, no powershell tool.
@@ -124,6 +138,14 @@ export function ensurePrsloySettings(agentDir: string, seed: PrsloySettingsSeed)
   }
   if (seed.shellPath) next.shellPath = seed.shellPath;
   else delete next.shellPath;
+  // MCP off by default (casual alpha): pi's built-in MCP stays unloaded until a developer
+  // removes this entry. Only seeded when the user has no `extensions` list of their own.
+  if (!Array.isArray(next.extensions)) next.extensions = ["-builtin:mcp"];
+  if (seed.dropAutoMcpAdapter && Array.isArray(next.packages)) {
+    next.packages = next.packages.filter(
+      (entry) => packageSource(entry) !== AUTO_MCP_ADAPTER_SOURCE,
+    );
+  }
   // Keep the optional powershell tool off: drop it from an explicit tool list.
   if (Array.isArray(next.defaultTools)) {
     next.defaultTools = next.defaultTools.filter((tool) => tool !== "powershell");

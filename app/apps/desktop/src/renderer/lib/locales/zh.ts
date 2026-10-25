@@ -1480,4 +1480,6 @@ export const zh = {
   "prsloy.setup.git": "正在准备命令环境… {percent}%",
   "prsloy.update.ready": "更新已就绪 — 重启",
   "prsloy.update.dismiss": "隐藏",
+  "prsloy.firstRun.folderRefused": "这是应用的临时文件夹，请选择其他文件夹",
+  "prsloy.firstRun.folderFailed": "无法打开文件夹 {path}",
 } as const;

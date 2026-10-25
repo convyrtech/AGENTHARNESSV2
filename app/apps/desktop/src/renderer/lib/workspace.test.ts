@@ -54,6 +54,9 @@ describe("workspace helpers", () => {
   });
 
   it("filters e2e/tmp workspaces and current cwd from recent list", () => {
+    expect(isEphemeralWorkspacePath("D:\\tmp\\сайт")).toBe(false);
+    expect(isEphemeralWorkspacePath("/tmp/my-site")).toBe(false);
+    expect(isEphemeralWorkspacePath("/var/folders/xx/T/project")).toBe(false);
     expect(isEphemeralWorkspacePath("/var/folders/xx/T/zeno-e2e-abc/workspace")).toBe(true);
     expect(isEphemeralWorkspacePath("/Users/me/code/zeno")).toBe(false);
     const paths = [

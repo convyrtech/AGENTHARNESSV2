@@ -867,6 +867,17 @@ export type HostCommand =
       name: string;
     }
   | {
+      /**
+       * Append a note to the session context that the model reads on its next turn
+       * (pi custom message, not a fake user message). PRSLOY: «Файлы хода N откатены…».
+       */
+      protocolVersion: typeof IPC_PROTOCOL_VERSION;
+      type: "session.note";
+      requestId: string;
+      customType: string;
+      text: string;
+    }
+  | {
       protocolVersion: typeof IPC_PROTOCOL_VERSION;
       type: "session.clone";
       requestId: string;
@@ -2815,6 +2826,15 @@ export function isHostCommand(value: unknown): value is HostCommand {
     return value.instructions === undefined || typeof value.instructions === "string";
   }
   if (value.type === "session.setName") return typeof value.name === "string";
+  if (value.type === "session.note") {
+    return (
+      typeof value.customType === "string" &&
+      /^[a-z][a-z0-9.-]{0,63}$/u.test(value.customType) &&
+      typeof value.text === "string" &&
+      value.text.length > 0 &&
+      value.text.length <= 8000
+    );
+  }
   if (value.type === "session.export") {
     return (
       (value.format === "html" || value.format === "jsonl") &&
