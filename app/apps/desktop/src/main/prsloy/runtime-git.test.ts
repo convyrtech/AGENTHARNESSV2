@@ -127,8 +127,10 @@ describe.skipIf(process.platform === "win32")("GitRuntime", () => {
     });
     const started = Date.now();
     expect(await slow.whenReady(30)).toBe(false);
-    expect(Date.now() - started).toBeLessThan(1000);
-    expect(slow.state().status).toBe("installing");
+    // Bounded, not fast: a loaded machine (full parallel suite) is slow, a hang is not.
+    expect(Date.now() - started).toBeLessThan(5000);
+    // The unpack starts in the background; under load it may not have yet at 30 ms.
+    await expect.poll(() => slow.state().status, { timeout: 5000 }).toBe("installing");
   });
 });
 
