@@ -9,6 +9,7 @@ import {
   recipeInfos,
   uniqueFolder,
 } from "./recipes.ts";
+import { graphemes } from "./safe-name.ts";
 
 const recipes = loadRecipes();
 const byId = (id: string) => recipes.find((r) => r.id === id)!;
@@ -87,5 +88,12 @@ describe("a new project", () => {
       missing: ["purpose"],
     });
     expect(uniqueFolder(root, 'a/b:"c')).toBe(join(root, "a b c"));
+    // Windows: a device name gets a prefix; a long name with a number stays within 80.
+    expect(uniqueFolder(root, "CON")).toBe(join(root, "_CON"));
+    expect(uniqueFolder(root, "Сайт.")).toBe(join(root, "Сайт"));
+    mkdirSync(join(root, "я".repeat(80)));
+    expect(graphemes(uniqueFolder(root, "я".repeat(120)).split(/[\\/]/u).pop() ?? "")).toHaveLength(
+      80,
+    );
   });
 });
