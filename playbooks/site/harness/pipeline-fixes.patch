@@ -41,7 +41,7 @@ index 400dc78..66703ea 100644
                  for i, t in enumerate(a.variant):
                      extra = {}
 diff --git a/tools/flow.py b/tools/flow.py
-index a8a5a8d..c01564e 100644
+index a8a5a8d..87757c0 100644
 --- a/tools/flow.py
 +++ b/tools/flow.py
 @@ -476,10 +476,26 @@ def channel_messages(path, voice_dir=None):
@@ -85,7 +85,26 @@ index a8a5a8d..c01564e 100644
  
      def f(self, name):
          return self.fields.get(name, "")
-@@ -779,6 +800,10 @@ def g1(p):
+@@ -769,16 +790,25 @@ def g1(p):
+         if sheet_ok(p, p.path("01-candidates.png"), 3, "три кандидата в эталоны", pr):
+             p.choice("1", pr, "какой эталон берём")
+         if pr:
+-            hint = {"do": "Эталона нет. Найди три РАЗНЫХ живых сайта-кандидата, сними их одним листом и спроси "
+-                          "владельца, какой ближе. Открытый вопрос «какой эталон?» не задавать.",
+-                    "cmd": tool_cmd("compare_sheet.py", f"--variant <url1> --variant <url2> --variant <url3> "
+-                                                        f"--out {p.path('01-candidates.png')}"),
++            moves = p.root / "harness" / "moves.py"
++            hint = {"do": "Эталона нет. Три РАЗНЫХ кандидата одним листом" +
++                          (": наборы приёмов движения в цветах и словах владельца (harness/moves.py), "
++                           if moves.exists() else ": живые сайты, ") +
++                          "спроси владельца, какой ближе. Открытый вопрос «какой эталон?» не задавать.",
++                    "cmd": (f"python3 -I harness/moves.py candidates --page {p.dir.relative_to(p.root).as_posix()}"
++                            if moves.exists() else
++                            tool_cmd("compare_sheet.py", f"--variant <url1> --variant <url2> --variant <url3> "
++                                                         f"--out {p.path('01-candidates.png')}")),
+                     "tpl": TEMPLATES / "OWNER-MESSAGE.md"}
+             return pr, hint
+     t = read(p.path("01-teardown.md"))
      if t is None:
          return pr + ["нет 01-teardown.md"], hint
      wow = [rows for head, rows in tables(t) if any("вау" in h.lower() for h in head)]
@@ -96,7 +115,7 @@ index a8a5a8d..c01564e 100644
      rows = [r for rows in wow for r in rows if any(re.search(r"берём|берем|нет", c, re.I) for c in r)]
      if len(rows) < 3:
          pr.append(f"в таблице «что даёт вау» строк с решением «берём/нет» {len(rows)}, нужно ≥ 3")
-@@ -1047,7 +1072,8 @@ def g7(p):
+@@ -1047,7 +1077,8 @@ def g7(p):
          miss = {360, 390, 1440} - set(v.get("viewports", []))
          if miss:
              pr.append(f"гейт без ширин {sorted(miss)}")
@@ -106,7 +125,7 @@ index a8a5a8d..c01564e 100644
              pr.append("гейт не в обоих движках (Chromium и WebKit)")
      else:
          pr.append("нет artifacts/visual-gate/report.json")
-@@ -1201,7 +1227,7 @@ def init_page(page_dir):
+@@ -1201,7 +1232,7 @@ def init_page(page_dir):
      return made
  
  
