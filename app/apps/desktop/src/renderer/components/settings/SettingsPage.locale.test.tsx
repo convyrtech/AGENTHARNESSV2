@@ -78,6 +78,7 @@ describe("language setting", () => {
     const labels = [...list.querySelectorAll("[role='option']")].map((o) => o.textContent);
     expect(labels).toEqual([
       t("zh", "appearance.languageAuto"),
+      t("zh", "appearance.languageRu"),
       t("zh", "appearance.languageZh"),
       t("zh", "appearance.languageEn"),
     ]);

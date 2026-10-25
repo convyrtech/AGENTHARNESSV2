@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Folder, MoreHorizontal, Trash2 } from "lucide-react";
-import { type Locale, type MessageKey } from "../../lib/i18n.ts";
+import { localeTag, type Locale, type MessageKey } from "../../lib/i18n.ts";
 import { loadConfirmDelete } from "../../lib/behavior-prefs.ts";
 import { isConversationWorkspacePath, workspaceLabel } from "../../lib/workspace.ts";
 import {
@@ -37,7 +37,7 @@ function formatArchivedDate(iso: string | undefined, locale: Locale): string {
   const d = new Date(iso);
   if (!Number.isFinite(d.getTime())) return "";
   try {
-    return new Intl.DateTimeFormat(locale === "zh" ? "zh-CN" : "en-US", {
+    return new Intl.DateTimeFormat(localeTag(locale), {
       year: "numeric",
       month: "long",
       day: "numeric",

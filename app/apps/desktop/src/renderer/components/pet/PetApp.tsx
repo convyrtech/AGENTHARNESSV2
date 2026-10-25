@@ -14,7 +14,7 @@ import {
   type PetPrefs,
 } from "@/lib/api/pet";
 import { fallbackPetOverlayPolicy, type PetFocus, type PetTask } from "@/lib/pet";
-import { isLocale, type Locale } from "@/lib/i18n";
+import { isLocale, localeTag, type Locale } from "@/lib/i18n";
 import { detectLocaleFromEnvironment } from "@/lib/locale-detect";
 import { PetOverlay } from "./PetOverlay";
 
@@ -105,7 +105,7 @@ export function PetApp() {
   }, []);
 
   useEffect(() => {
-    document.documentElement.setAttribute("lang", locale === "zh" ? "zh-CN" : "en");
+    document.documentElement.setAttribute("lang", localeTag(locale));
   }, [locale]);
 
   return <PetOverlay focus={focus} tasks={tasks} prefs={prefs} locale={locale} policy={policy} />;

@@ -6,8 +6,6 @@ import type {
   ThemeSkinRecord,
   ThemeSkinVariant,
 } from "@zeno/contracts";
-import mikuStageUrl from "../assets/theme-skins/miku-stage.jpg";
-import zhangRuonanUrl from "../assets/theme-skins/zhang-ruonan.jpg";
 import { scopeThemeCustomCss, validateThemeCustomCss } from "../../shared/theme-css.ts";
 import type { ResolvedColorMode } from "./theme.ts";
 
@@ -56,29 +54,27 @@ export type ThemeSelection = { id: string };
 export type ThemePreview = Pick<ThemeSkinRecord, "config" | "backgroundUrl">;
 /** Special selection that leaves the original light/dark shell completely unskinned. */
 export const DEFAULT_THEME_ID = "default" as const;
-/** Built-in skins that ship with a bundled wallpaper. */
-export type ThemeImagePresetId = "miku-stage" | "zhang-ruonan";
+/**
+ * Built-in skins that ship with a bundled wallpaper. PRSLOY ships none: the brand look is
+ * the default shell itself (styles.css), so the preset machinery stays for imported skins.
+ */
+export type ThemeImagePresetId = never;
 export type ThemePresetId = ThemeImagePresetId;
 /** Wallpaper fit modes for skin art (maps to CSS background-size). */
 export type ThemeWallpaperFit = "cover" | "contain" | "stretch";
 
-export const THEME_IMAGE_PRESET_IDS: readonly ThemeImagePresetId[] = ["miku-stage", "zhang-ruonan"];
+export const THEME_IMAGE_PRESET_IDS: readonly ThemeImagePresetId[] = [];
 export const THEME_PRESET_IDS: readonly ThemePresetId[] = [...THEME_IMAGE_PRESET_IDS];
 export const THEME_WALLPAPER_FITS: readonly ThemeWallpaperFit[] = [
   "cover",
   "contain",
   "stretch",
 ] as const;
-/** Fallback only for invalid skin ids; the product default is the unskinned shell. */
-export const DEFAULT_THEME_PRESET_ID: ThemePresetId = "miku-stage";
 export const DEFAULT_THEME_SELECTION: ThemeSelection = { id: DEFAULT_THEME_ID };
 
-export const BUILTIN_THEME_BACKGROUNDS: Record<ThemeImagePresetId, string> = {
-  "miku-stage": mikuStageUrl,
-  "zhang-ruonan": zhangRuonanUrl,
-};
+export const BUILTIN_THEME_BACKGROUNDS: Record<ThemeImagePresetId, string> = {};
 
-const BUILTIN_BACKGROUND_URLS = new Set(Object.values(BUILTIN_THEME_BACKGROUNDS));
+const BUILTIN_BACKGROUND_URLS = new Set<string>(Object.values(BUILTIN_THEME_BACKGROUNDS));
 const LEGACY_THEME_PRESET_IDS = new Set([
   "classic-light",
   "classic-dark",
@@ -89,6 +85,9 @@ const LEGACY_THEME_PRESET_IDS = new Set([
   "pink-street",
   "anime-street",
   "safe-landing",
+  // Wallpaper skins removed in PRSLOY; a stored selection falls back to the default shell.
+  "miku-stage",
+  "zhang-ruonan",
 ]);
 
 const COLOR_KEYS = [
@@ -139,121 +138,44 @@ export const MATERIAL_DEFAULTS: Required<ThemeSkinMaterials> = {
   density: "standard",
 };
 
-export const THEME_PRESETS: Record<ThemePresetId, ThemePack> = {
-  "miku-stage": {
-    schemaVersion: 1,
-    id: "miku-stage",
-    name: "初音未来 · 青葱舞台",
-    appearance: "auto",
-    art: { ...ART_DEFAULTS },
-    materials: { ...MATERIAL_DEFAULTS },
-    light: {
-      background: "linear-gradient(135deg, #d9fcf5 0%, #cbeafd 100%)",
-      colors: {
-        background: "#d9f4f1",
-        panel: "#f3fffc",
-        panelAlt: "#c8e7e5",
-        accent: "#169ba8",
-        accentAlt: "#48c6ca",
-        secondary: "#277ed0",
-        highlight: "#df5d91",
-        text: "#15323a",
-        muted: "#5b7479",
-        line: "rgba(22, 155, 168, 0.25)",
-      },
-    },
-    dark: {
-      background: "linear-gradient(135deg, #071f28 0%, #10254d 100%)",
-      colors: {
-        background: "#09212a",
-        panel: "#12343b",
-        panelAlt: "#1d4a51",
-        accent: "#62dfd8",
-        accentAlt: "#a4f4ed",
-        secondary: "#77b9ff",
-        highlight: "#ffa3c4",
-        text: "#eefffd",
-        muted: "#aed0d1",
-        line: "rgba(98, 223, 216, 0.28)",
-      },
-    },
-  },
-  "zhang-ruonan": {
-    schemaVersion: 1,
-    id: "zhang-ruonan",
-    name: "章若楠 · 青春映画",
-    appearance: "auto",
-    art: { ...ART_DEFAULTS },
-    materials: { ...MATERIAL_DEFAULTS },
-    light: {
-      background: "linear-gradient(135deg, #fff1eb 0%, #e0f0eb 100%)",
-      colors: {
-        background: "#faece7",
-        panel: "#fffaf6",
-        panelAlt: "#eadbd8",
-        accent: "#cb5770",
-        accentAlt: "#ee91a5",
-        secondary: "#237d7b",
-        highlight: "#cf7d3e",
-        text: "#372729",
-        muted: "#80696b",
-        line: "rgba(203, 87, 112, 0.22)",
-      },
-    },
-    dark: {
-      background: "linear-gradient(135deg, #1d151b 0%, #132c30 100%)",
-      colors: {
-        background: "#20171d",
-        panel: "#2d2029",
-        panelAlt: "#3d3038",
-        accent: "#ff9cae",
-        accentAlt: "#ffc3ce",
-        secondary: "#8bd1c9",
-        highlight: "#ffb36e",
-        text: "#fff7f8",
-        muted: "#d2bdc3",
-        line: "rgba(255, 156, 174, 0.28)",
-      },
-    },
-  },
-};
+export const THEME_PRESETS: Record<ThemePresetId, ThemePack> = {};
 
 /** A vivid, readable starting point for themes created in Studio. */
 export function createThemeSkinDraft(name: string): ThemePack {
   return {
     schemaVersion: 1,
-    name: name.trim() || "Aurora",
+    name: name.trim() || "PRSLOY",
     appearance: "auto",
     art: { ...ART_DEFAULTS },
     materials: { ...MATERIAL_DEFAULTS },
     light: {
-      background: "linear-gradient(135deg, #f4f8ff 0%, #e7effa 100%)",
+      background: "#f3eee3",
       colors: {
-        background: "#eef3fb",
-        panel: "#ffffff",
-        panelAlt: "#e2eaf5",
-        accent: "#379cfc",
-        accentAlt: "#6db6ff",
-        secondary: "#379cfc",
-        highlight: "#d06b42",
-        text: "#172235",
-        muted: "#66768c",
-        line: "rgba(55, 156, 252, 0.22)",
+        background: "#f3eee3",
+        panel: "#faf7f0",
+        panelAlt: "#ebe4d6",
+        accent: "#a4472c",
+        accentAlt: "#c0613f",
+        secondary: "#7a6352",
+        highlight: "#a4472c",
+        text: "#3b2a1e",
+        muted: "#7a6352",
+        line: "#ddd2c1",
       },
     },
     dark: {
-      background: "linear-gradient(135deg, #1f1f1f 0%, #252525 100%)",
+      background: "#1c1612",
       colors: {
-        background: "#202020",
-        panel: "#2a2a2a",
-        panelAlt: "#353535",
-        accent: "#379cfc",
-        accentAlt: "#7bbcff",
-        secondary: "#379cfc",
-        highlight: "#d98b57",
-        text: "#f5f5f5",
-        muted: "#b2b2b2",
-        line: "rgba(255, 255, 255, 0.16)",
+        background: "#1c1612",
+        panel: "#262019",
+        panelAlt: "#302820",
+        accent: "#d0714f",
+        accentAlt: "#e08a6a",
+        secondary: "#b3a08c",
+        highlight: "#d0714f",
+        text: "#efe6d8",
+        muted: "#b3a08c",
+        line: "#3d3329",
       },
     },
   };
@@ -557,7 +479,7 @@ export function isDefaultThemeSelection(selection: ThemeSelection): boolean {
   return selection.id === DEFAULT_THEME_ID;
 }
 
-function builtinBackgroundUrl(id: string): string | undefined {
+export function builtinBackgroundUrl(id: string): string | undefined {
   return isThemeImagePresetId(id) ? BUILTIN_THEME_BACKGROUNDS[id] : undefined;
 }
 
@@ -614,7 +536,7 @@ function resolveSkinBackgroundUrl(
 ): string | undefined {
   const saved = skins.find((skin) => skin.id === selection.id);
   if (saved) return savedSkinBackgroundUrl(saved);
-  return builtinBackgroundUrl(selection.id) ?? builtinBackgroundUrl(DEFAULT_THEME_PRESET_ID);
+  return builtinBackgroundUrl(selection.id);
 }
 
 export function activeThemePack(
@@ -649,11 +571,8 @@ export function activeThemePack(
       ...(backgroundUrl ? { backgroundUrl } : {}),
     };
   }
-  const fallbackBackground = builtinBackgroundUrl(DEFAULT_THEME_PRESET_ID);
-  return {
-    config: THEME_PRESETS[DEFAULT_THEME_PRESET_ID],
-    ...(fallbackBackground ? { backgroundUrl: fallbackBackground } : {}),
-  };
+  // Unknown id (a removed or deleted skin): paint the default shell's palette.
+  return { config: createThemeSkinDraft("PRSLOY") };
 }
 
 export function resolveSkinColorMode(
@@ -1119,13 +1038,6 @@ function isSafeThemeAssetUrl(value: string | undefined, allowBuiltin = false): v
         return true;
       }
     }
-    if (
-      /theme-skins\/(?:miku-stage|zhang-ruonan)(?:[-.][\w]+)?\.(?:jpe?g|png|webp)(?:[?#].*)?$/i.test(
-        value,
-      )
-    ) {
-      return true;
-    }
   }
   try {
     const url = new URL(value, "https://zeno.local");
@@ -1135,18 +1047,6 @@ function isSafeThemeAssetUrl(value: string | undefined, allowBuiltin = false): v
       (/^skin-[a-f0-9-]{36}$/i.test(url.hostname) || isThemePresetId(url.hostname))
     ) {
       return true;
-    }
-    // Vite dev / packaged asset URLs for the three built-in wallpapers.
-    if (
-      allowBuiltin &&
-      (url.protocol === "http:" ||
-        url.protocol === "https:" ||
-        url.protocol === "file:" ||
-        url.protocol === "app:" ||
-        url.protocol === "atom:" ||
-        value.startsWith("/"))
-    ) {
-      return /theme-skins\/(?:miku-stage|zhang-ruonan)/i.test(url.pathname);
     }
     return false;
   } catch {

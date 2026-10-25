@@ -2,16 +2,42 @@
 @import "tw-animate-css";
 
 /*
- * Tokens lifted from OpenCowork dark theme (main.css :root / .dark).
- * Structure: shadcn-style semantic colors + Zeno product chrome.
- * Not copying OpenCowork trademarks — only visual system.
+ * PRSLOY palette: paper #f3eee3, card #faf7f0, ink #3b2a1e, mid #7a6352, line #ddd2c1,
+ * accent (rust) #a4472c; the dark theme is the same palette at night (warm ink canvas,
+ * lightened rust). Structure: shadcn-style semantic colors + product chrome.
+ *
+ * Type: Piazzolla for headings and the PRSLOY wordmark, Geologica for body, IBM Plex Mono
+ * for code. All three are OFL and bundled (assets/fonts, Latin + Cyrillic subsets).
  */
+
+@font-face {
+  font-family: "Piazzolla";
+  src: url("./assets/fonts/Piazzolla-VF.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Geologica";
+  src: url("./assets/fonts/Geologica-VF.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "IBM Plex Mono";
+  src: url("./assets/fonts/IBMPlexMono-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
 
 @custom-variant dark (&:is([data-theme="dark"], [data-theme="dark"] *));
 
 @theme {
-  --font-sans: "Inter", "SF Pro Text", "Segoe UI", system-ui, -apple-system, sans-serif;
-  --font-mono: "SF Mono", "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+  --font-sans: "Geologica", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --font-mono: "IBM Plex Mono", "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+  --font-display: "Piazzolla", Georgia, "Times New Roman", serif;
   /* Shared radius scale — use these everywhere (rows / controls / panels). */
   --radius-sm: 0.375rem; /* 6px — list rows, icon buttons */
   --radius-md: 0.625rem; /* 10px — inputs, bubbles, menu items */
@@ -112,30 +138,30 @@
 [data-theme="dark"] {
   color-scheme: dark;
   /* Canvas */
-  --background: #191919;
+  --background: #1c1612;
   --theme-background: var(--background);
-  --foreground: oklch(0.985 0.004 260);
+  --foreground: #efe6d8;
   /*
    * Unified surfaces (keep these in sync):
    *  panel  #2d2d2d — input, env panel, menus, dialogs
    *  muted  #383838 — session/hover highlight, composer protrusion
    *  soft   #272727 — user message bubble
    */
-  --surface-panel: #2d2d2d;
-  --surface-muted: #383838;
-  --surface-soft: #272727;
+  --surface-panel: #262019;
+  --surface-muted: #302820;
+  --surface-soft: #2a231c;
   --card: var(--surface-panel);
-  --card-foreground: oklch(0.985 0.004 260);
+  --card-foreground: #efe6d8;
   --popover: var(--surface-panel);
-  --popover-foreground: oklch(0.985 0.004 260);
-  --primary: oklch(0.72 0.12 255);
-  --primary-foreground: oklch(0.18 0.01 260);
+  --popover-foreground: #efe6d8;
+  --primary: #d0714f;
+  --primary-foreground: #1c1612;
   --secondary: var(--surface-muted);
-  --secondary-foreground: oklch(0.985 0.004 260);
-  --muted: #222222;
-  --muted-foreground: #acacac;
+  --secondary-foreground: #efe6d8;
+  --muted: #221b16;
+  --muted-foreground: #b3a08c;
   --hover-fill: var(--surface-muted);
-  --hover-fill-foreground: oklch(0.985 0.004 260);
+  --hover-fill-foreground: #efe6d8;
   --accent: var(--hover-fill);
   --accent-foreground: var(--hover-fill-foreground);
   /*
@@ -145,22 +171,22 @@
   --destructive: oklch(0.72 0.17 25);
   --destructive-foreground: oklch(0.18 0.02 25);
   /* Chrome borders / row dividers (cards, composer, env, settings). */
-  --border: #3c3c3c;
-  --border-subtle: color-mix(in srgb, #ffffff 11%, transparent);
-  --divider: color-mix(in srgb, #ffffff 9%, transparent);
-  --input: #3c3c3c;
-  --ring: oklch(0.62 0.09 255);
+  --border: #3d3329;
+  --border-subtle: color-mix(in srgb, #efe6d8 11%, transparent);
+  --divider: color-mix(in srgb, #efe6d8 9%, transparent);
+  --input: #3d3329;
+  --ring: #d0714f;
   /* Interactive accent: switches (on) + hyperlinks */
-  --link: #379cfc;
-  --switch-on: #379cfc;
-  --sidebar: #151515;
-  --sidebar-foreground: oklch(0.985 0.004 260);
-  --sidebar-primary: oklch(0.72 0.12 255);
-  --sidebar-primary-foreground: oklch(0.18 0.01 260);
+  --link: #e08a6a;
+  --switch-on: #d0714f;
+  --sidebar: #17120f;
+  --sidebar-foreground: #efe6d8;
+  --sidebar-primary: #d0714f;
+  --sidebar-primary-foreground: #1c1612;
   --sidebar-accent: var(--hover-fill);
   --sidebar-accent-foreground: var(--hover-fill-foreground);
-  --sidebar-border: #383838;
-  --sidebar-ring: oklch(0.62 0.09 255);
+  --sidebar-border: #302820;
+  --sidebar-ring: #d0714f;
 
   --canvas: var(--background);
   --surface: var(--surface-panel);
@@ -171,15 +197,15 @@
   --text-muted: var(--muted-foreground);
   --text-subtle: var(--muted-foreground);
   /* Composer input card + project protrusion (dark). */
-  --bg-composer: #2b2b2b;
-  --composer-border: color-mix(in srgb, #ffffff 11%, #2b2b2b);
-  --composer-protrusion: #1f1f1f;
+  --bg-composer: #262019;
+  --composer-border: color-mix(in srgb, #efe6d8 11%, #262019);
+  --composer-protrusion: #201a15;
   --success: #3ecf8e;
   --warning: #f0a500;
   --danger: #e05555;
   --running: #4c8dff;
-  --code-bg: #0f0f0f;
-  --code-fg: #e8e8e2;
+  --code-bg: #14100d;
+  --code-fg: #efe6d8;
   --bg-app: var(--canvas);
   --bg-sidebar: var(--sidebar);
   --bg-panel: var(--canvas);
@@ -187,10 +213,10 @@
   --bg-code: var(--code-bg);
   --bg-hover: var(--hover-fill);
   --bg-active: var(--hover-fill);
-  --border-strong: #484848;
+  --border-strong: #4d4135;
   --text-on-dark: var(--code-fg);
   --user-bubble: var(--surface-soft);
-  --user-bubble-fg: oklch(0.985 0.004 260);
+  --user-bubble-fg: #efe6d8;
   --sidebar-width: 272px;
   --thread-max: 760px;
   --review-width: 480px;
@@ -210,53 +236,53 @@
   --font-weight-medium: 500;
   --font-weight-semibold: 600;
   /* Dark theme group names */
-  --group-label-color: #747474;
+  --group-label-color: #8a7764;
 }
 
 [data-theme="light"] {
   color-scheme: light;
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f3eee3;
+  --foreground: #3b2a1e;
   /*
    * Unified surfaces:
    *  panel  #ffffff — input, env panel, menus, dialogs
    *  muted  #f6f6f6 — session/hover highlight, composer protrusion
    *  soft   #f5f5f5 — user message bubble
    */
-  --surface-panel: #ffffff;
-  --surface-muted: #f6f6f6;
-  --surface-soft: #f5f5f5;
+  --surface-panel: #faf7f0;
+  --surface-muted: #ebe4d6;
+  --surface-soft: #ece5d8;
   --card: var(--surface-panel);
-  --card-foreground: #171717;
+  --card-foreground: #3b2a1e;
   --popover: var(--surface-panel);
-  --popover-foreground: #171717;
-  --primary: #171717;
-  --primary-foreground: #fafafa;
+  --popover-foreground: #3b2a1e;
+  --primary: #a4472c;
+  --primary-foreground: #faf7f0;
   --secondary: var(--surface-muted);
-  --secondary-foreground: #171717;
-  --muted: #f1f2f4;
-  --muted-foreground: #808182;
+  --secondary-foreground: #3b2a1e;
+  --muted: #ece5d8;
+  --muted-foreground: #7a6352;
   --hover-fill: var(--surface-muted);
-  --hover-fill-foreground: #171717;
+  --hover-fill-foreground: #3b2a1e;
   --accent: var(--hover-fill);
   --accent-foreground: var(--hover-fill-foreground);
-  --destructive: #dc2626;
-  --border: #d7d9e0;
-  --border-subtle: color-mix(in srgb, #9aa0ab 30%, #ffffff);
-  --divider: color-mix(in srgb, #9aa0ab 24%, #ffffff);
-  --input: #d7d9e0;
-  --ring: #0a84ff;
+  --destructive: #b42318;
+  --border: #ddd2c1;
+  --border-subtle: color-mix(in srgb, #3b2a1e 12%, #f3eee3);
+  --divider: color-mix(in srgb, #3b2a1e 10%, #f3eee3);
+  --input: #ddd2c1;
+  --ring: #a4472c;
   /* Interactive accent: switches (on) + hyperlinks */
-  --link: #379cfc;
-  --switch-on: #379cfc;
-  --sidebar: #f1f2f4;
-  --sidebar-foreground: #171717;
-  --sidebar-primary: #171717;
-  --sidebar-primary-foreground: #fafafa;
+  --link: #a4472c;
+  --switch-on: #a4472c;
+  --sidebar: #ece5d8;
+  --sidebar-foreground: #3b2a1e;
+  --sidebar-primary: #a4472c;
+  --sidebar-primary-foreground: #faf7f0;
   --sidebar-accent: var(--hover-fill);
   --sidebar-accent-foreground: var(--hover-fill-foreground);
-  --sidebar-border: #cdd0d8;
-  --sidebar-ring: #0a84ff;
+  --sidebar-border: #ddd2c1;
+  --sidebar-ring: #a4472c;
   --canvas: var(--background);
   --surface: var(--surface-panel);
   --surface-elevated: var(--surface-panel);
@@ -266,21 +292,21 @@
   --text-muted: var(--muted-foreground);
   --text-subtle: var(--muted-foreground);
   /* Composer input card + project protrusion (light). */
-  --bg-composer: #ffffff;
-  --composer-border: color-mix(in srgb, #9aa0ab 36%, #ffffff);
-  --composer-protrusion: #f5f5f5;
+  --bg-composer: #faf7f0;
+  --composer-border: #ddd2c1;
+  --composer-protrusion: #ece5d8;
   --bg-app: var(--canvas);
   --bg-sidebar: var(--sidebar);
   --bg-panel: var(--canvas);
   --bg-elevated: var(--surface-elevated);
   --bg-hover: var(--hover-fill);
   --bg-active: var(--hover-fill);
-  --border-strong: #b8bac2;
-  --code-bg: #f1f2f4;
-  --code-fg: #171717;
+  --border-strong: #c9bba5;
+  --code-bg: #ece5d8;
+  --code-fg: #3b2a1e;
   --user-bubble: var(--surface-soft);
-  --user-bubble-fg: #171717;
-  --shadow-soft: 0 12px 32px rgb(0 0 0 / 0.08);
+  --user-bubble-fg: #3b2a1e;
+  --shadow-soft: 0 12px 32px rgb(59 42 30 / 0.1);
   --radius-control: var(--radius-sm);
   --radius-field: var(--radius-md);
   --radius-panel: var(--radius-lg);
@@ -288,7 +314,17 @@
   --font-weight-medium: 500;
   --font-weight-semibold: 600;
   /* Light theme group names */
-  --group-label-color: #a7a9a9;
+  --group-label-color: #a08a76;
+}
+
+/* The PRSLOY wordmark and display headings (empty hero, page titles). */
+.brand-wordmark {
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+.font-display {
+  font-family: var(--font-display);
 }
 
 html,
@@ -395,9 +431,10 @@ body {
   }
 }
 .bootstrap-brand {
-  font-size: 1.125rem;
+  font-family: var(--font-display);
+  font-size: 1.375rem;
   font-weight: 600;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.04em;
   color: var(--foreground);
 }
 .bootstrap-status {
@@ -1958,6 +1995,7 @@ html[data-custom-window-controls="true"] .page-header {
 .zeno-md h3,
 .zeno-md h4 {
   @apply mt-3 mb-1.5 font-semibold tracking-tight text-[var(--foreground)];
+  font-family: var(--font-display);
 }
 .zeno-md h1 {
   @apply text-[1.25em];
@@ -4462,6 +4500,7 @@ textarea.models-scoped-patterns-input[data-slot="textarea"] {
 }
 .settings-page-title {
   @apply m-0 text-left text-[22px] font-semibold tracking-tight text-[var(--foreground)];
+  font-family: var(--font-display);
 }
 .settings-page-title-action {
   @apply shrink-0;
@@ -6427,4 +6466,50 @@ textarea.models-scoped-patterns-input[data-slot="textarea"] {
   .app-shell.sidebar-open .sidebar {
     @apply absolute inset-y-0 left-0 z-30 w-[min(272px,88vw)] shadow-2xl;
   }
+}
+
+/* Casual composer controls: «Быстрее | Качественнее» and the ruble cost of turn and chat. */
+.model-tier-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 9999px;
+  background: var(--surface-muted);
+}
+.model-tier-option {
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 9999px;
+  font-size: 12px;
+  color: var(--muted-foreground);
+  cursor: pointer;
+  transition:
+    background-color 0.15s,
+    color 0.15s;
+}
+.model-tier-option:hover:not(:disabled) {
+  color: var(--foreground);
+}
+.model-tier-option[data-active="true"] {
+  background: var(--card);
+  color: var(--foreground);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.08);
+}
+.model-tier-option:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+.cost-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 6px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--muted-foreground);
+}
+.cost-chip-sep {
+  opacity: 0.5;
 }

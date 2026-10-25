@@ -59,6 +59,7 @@ import {
   activeThemePack,
   ART_DEFAULTS,
   BUILTIN_THEME_BACKGROUNDS,
+  builtinBackgroundUrl,
   createThemeSkinDraft,
   DEFAULT_THEME_ID,
   MATERIAL_DEFAULTS,
@@ -74,7 +75,6 @@ import {
   isDefaultThemeSelection,
   isThemeImagePresetId,
   isThemePresetId,
-  type ThemeImagePresetId,
   type ThemePreview,
   type ThemeSelection,
   type ThemeWallpaperFit,
@@ -556,9 +556,9 @@ export function ThemeSkinStudio(props: ThemeSkinStudioProps) {
   const [editorTab, setEditorTab] = useState<ThemeEditorTab>("theme");
   const [draft, setDraft] = useState<ThemeSkinConfig | undefined>();
   const [backgroundPath, setBackgroundPath] = useState<string | undefined>();
-  const [backgroundBuiltinId, setBackgroundBuiltinId] = useState<ThemeImagePresetId | undefined>();
+  const [backgroundBuiltinId, setBackgroundBuiltinId] = useState<string | undefined>();
   const [initialBackgroundBuiltinId, setInitialBackgroundBuiltinId] = useState<
-    ThemeImagePresetId | undefined
+    string | undefined
   >();
   const [removeBackground, setRemoveBackground] = useState(false);
   const [canScrollBack, setCanScrollBack] = useState(false);
@@ -577,7 +577,7 @@ export function ThemeSkinStudio(props: ThemeSkinStudioProps) {
     previewImageUrl.current ??
     (!removeBackground
       ? (editorRecord?.backgroundUrl ??
-        (backgroundBuiltinId ? BUILTIN_THEME_BACKGROUNDS[backgroundBuiltinId] : undefined))
+        (backgroundBuiltinId ? builtinBackgroundUrl(backgroundBuiltinId) : undefined))
       : undefined);
 
   const cards = useMemo(() => {
@@ -786,7 +786,7 @@ export function ThemeSkinStudio(props: ThemeSkinStudioProps) {
         ? isThemePresetId(props.selection.id) && isThemeImagePresetId(props.selection.id)
           ? BUILTIN_THEME_BACKGROUNDS[props.selection.id]
           : restoreBuiltin
-            ? BUILTIN_THEME_BACKGROUNDS[restoreBuiltin]
+            ? builtinBackgroundUrl(restoreBuiltin)
             : undefined
         : undefined;
     applyPreview(next, wallpaper);

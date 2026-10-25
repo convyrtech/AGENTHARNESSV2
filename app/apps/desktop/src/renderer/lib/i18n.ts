@@ -1,16 +1,18 @@
-export type Locale = "zh" | "en";
+export type Locale = "ru" | "zh" | "en";
 
 import { en } from "./locales/en.ts";
+import { ru } from "./locales/ru.ts";
 import { zh } from "./locales/zh.ts";
 
 export const messages = {
   zh,
   en,
+  ru,
 } as const;
 
 export type MessageKey = keyof (typeof messages)["zh"];
 
-export const DEFAULT_LOCALE: Locale = "zh";
+export const DEFAULT_LOCALE: Locale = "ru";
 
 /**
  * What the user picked in settings. `auto` defers to environment detection
@@ -19,11 +21,18 @@ export const DEFAULT_LOCALE: Locale = "zh";
 export type LocalePreference = "auto" | Locale;
 
 export function isLocale(value: unknown): value is Locale {
-  return value === "zh" || value === "en";
+  return value === "ru" || value === "zh" || value === "en";
 }
 
 export function isLocalePreference(value: unknown): value is LocalePreference {
   return value === "auto" || isLocale(value);
+}
+
+/** BCP 47 tag for `Intl` formatting. */
+export function localeTag(locale: Locale): string {
+  if (locale === "ru") return "ru-RU";
+  if (locale === "zh") return "zh-CN";
+  return "en-US";
 }
 
 export function t(locale: Locale, key: MessageKey, vars?: Record<string, string>): string {

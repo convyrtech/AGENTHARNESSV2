@@ -22,18 +22,19 @@ describe("detectLocale", () => {
     expect(detectLocale({ language: "en-US", timeZone: "Asia/Shanghai" })).toBe("zh");
   });
 
-  it("returns en for non-Chinese signals", () => {
-    expect(detectLocale({ language: "en-US", timeZone: "America/New_York" })).toBe("en");
-    expect(detectLocale({ language: "ja-JP", timeZone: "Asia/Tokyo" })).toBe("en");
-    expect(detectLocale({ language: "de-DE", timeZone: "Europe/Berlin" })).toBe("en");
+  it("returns ru for non-Chinese signals", () => {
+    expect(detectLocale({ language: "en-US", timeZone: "America/New_York" })).toBe("ru");
+    expect(detectLocale({ language: "ja-JP", timeZone: "Asia/Tokyo" })).toBe("ru");
+    expect(detectLocale({ language: "de-DE", timeZone: "Europe/Berlin" })).toBe("ru");
+    expect(detectLocale({ language: "ru-RU", timeZone: "Europe/Moscow" })).toBe("ru");
   });
 
-  it("returns en when nothing is known, rather than assuming Chinese", () => {
-    expect(detectLocale({})).toBe("en");
-    expect(detectLocale({ language: "" })).toBe("en");
-    expect(detectLocale({ language: "   " })).toBe("en");
-    expect(detectLocale({ timeZone: "" })).toBe("en");
-    expect(detectLocale({ language: undefined, timeZone: undefined })).toBe("en");
+  it("returns ru when nothing is known, rather than assuming Chinese", () => {
+    expect(detectLocale({})).toBe("ru");
+    expect(detectLocale({ language: "" })).toBe("ru");
+    expect(detectLocale({ language: "   " })).toBe("ru");
+    expect(detectLocale({ timeZone: "" })).toBe("ru");
+    expect(detectLocale({ language: undefined, timeZone: undefined })).toBe("ru");
   });
 
   it("matches the time zone on its own", () => {
@@ -43,7 +44,7 @@ describe("detectLocale", () => {
 
   it("is case-sensitive about IANA zone ids, which are never re-cased", () => {
     // The set holds canonical ids; a mismatched case simply misses and reads English.
-    expect(detectLocale({ timeZone: "asia/shanghai" })).toBe("en");
+    expect(detectLocale({ timeZone: "asia/shanghai" })).toBe("ru");
   });
 
   it("ships the full Chinese-reading zone set", () => {
@@ -61,6 +62,7 @@ describe("resolveLocale", () => {
   it("honors an explicit preference without consulting the environment", () => {
     expect(resolveLocale("zh")).toBe("zh");
     expect(resolveLocale("en")).toBe("en");
+    expect(resolveLocale("ru")).toBe("ru");
   });
 
   it("defers to environment detection for auto", () => {
