@@ -26,7 +26,6 @@ import {
 } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import { Readable } from "node:stream";
-import { execFile } from "node:child_process";
 import {
   app,
   type BrowserWindow,
@@ -42,6 +41,7 @@ import type {
   DesignStatus,
   DesignEventMessage,
 } from "@zeno/contracts";
+import { restrictToCurrentUser } from "../prsloy/file-acl.ts";
 import { buildHarnessEnv, buildModelsJson, python3Shims, venvBinDir, venvPython } from "./env.ts";
 import { LineSplitter, parseHarnessLine } from "./events.ts";
 import {
@@ -246,6 +246,8 @@ export class DesignService {
     const dir = join(this.#designRoot, "proxy");
     mkdirSync(join(this.#designRoot, "logs"), { recursive: true });
     mkdirSync(dir, { recursive: true, mode: 0o700 });
+    // Restrict the directory first so the key file is user-only from the moment it exists.
+    restrictToCurrentUser(dir, { isDir: true });
     const keyFile = join(dir, `key-${randomUUID()}`);
     writeFileSync(keyFile, gw.apiKey, { mode: 0o600 });
     restrictToUser(keyFile);
@@ -523,20 +525,10 @@ export class DesignService {
   }
 }
 
-/** Windows ACLs: only the current user may read the key file (POSIX gets 0600 from writeFile). */
+/** User-only ACL (Windows: SID via icacls; POSIX: 0600) on the key file. */
 function restrictToUser(file: string): void {
-  if (process.platform !== "win32") {
-    chmodSync(file, 0o600);
-    return;
-  }
-  const user = process.env.USERNAME;
-  if (!user) return;
-  execFile(
-    "icacls",
-    [file, "/inheritance:r", "/grant:r", `${user}:F`],
-    { windowsHide: true },
-    () => {},
-  );
+  const result = restrictToCurrentUser(file, { isDir: false });
+  if (!result.ok) console.warn("[design] could not restrict key file:", result.detail);
 }
 
 function projectArg(raw: unknown): string | undefined {
