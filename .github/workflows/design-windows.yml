@@ -103,3 +103,68 @@ jobs:
             ${{ runner.temp }}/design-smoke/moves-candidates.png
           if-no-files-found: warn
           retention-days: 14
+
+  # The owner's exe: the latest installer desktop-windows built on main (no second build), installed silently per
+  # user into a «Иван Петров» folder; the same live spec drives the installed PRSLOY.exe, tools set up by the tab.
+  installed:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11.15.1
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: app/pnpm-lock.yaml
+      - name: Latest installer from main (desktop-windows)
+        id: pkg
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $run = gh run list --repo "${{ github.repository }}" --workflow desktop-windows.yml --branch main `
+            --status success --limit 1 --json databaseId,headSha | ConvertFrom-Json
+          if (-not $run) { throw "no successful desktop-windows run on main" }
+          "run=$($run[0].databaseId)" >> $env:GITHUB_OUTPUT
+          "sha=$($run[0].headSha)" >> $env:GITHUB_OUTPUT
+          "installer: desktop-windows run $($run[0].databaseId) at $($run[0].headSha)"
+      - uses: actions/download-artifact@v4
+        with:
+          name: prsloy-win-x64
+          path: app/pkg
+          run-id: ${{ steps.pkg.outputs.run }}
+          github-token: ${{ github.token }}
+      - name: Test runner
+        working-directory: app
+        run: pnpm install --frozen-lockfile
+      - name: Silent install (/S /currentuser) into «Иван Петров»
+        shell: pwsh
+        run: |
+          $target = Join-Path $env:RUNNER_TEMP 'Иван Петров\AppData\Local\Programs\PRSLOY'
+          $setup = Get-ChildItem app/pkg -Recurse -Filter *.exe | Select-Object -First 1
+          "installer: $($setup.Name) ($([math]::Round($setup.Length / 1MB, 1)) MB)"
+          $p = Start-Process $setup.FullName -ArgumentList "/S /currentuser /D=$target" -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "installer exited with $($p.ExitCode)" }
+          $exe = Join-Path $target 'PRSLOY.exe'
+          if (-not (Test-Path $exe)) { throw "no $exe after install" }
+          "DESIGN_LIVE_EXE=$exe" >> $env:GITHUB_ENV
+      - name: Live «Дизайн» on the installed app (first-use setup, full turn, close mid-turn, stuck → retry)
+        working-directory: app/apps/desktop
+        env:
+          DESIGN_LIVE_SHOTS: ${{ runner.temp }}\design-live-installed
+        run: npx playwright test e2e/design-live.spec.ts --reporter=list --trace=retain-on-failure
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: design-live-windows-installed
+          path: |
+            ${{ runner.temp }}/design-live-installed/
+            app/apps/desktop/test-results/
+          if-no-files-found: warn
+          retention-days: 14
