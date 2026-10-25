@@ -108,6 +108,11 @@ export type PrsloyContext = {
   availableModels(): string[] | undefined;
   /** Agent Host env: scrubbed, shims first, pinned home, key handoff. */
   hostEnv(base: Record<string, string | undefined>): Record<string, string>;
+  /**
+   * The «Дизайн» venv's python once its tools are installed (design/wire.ts sets this):
+   * the harness opens the user's pages in a browser with it (PRSLOY_DESIGN_PYTHON).
+   */
+  designPython?: () => string | undefined;
 };
 
 function readState(path: string): PrsloyState {
@@ -288,13 +293,18 @@ export function bootstrapPrsloy(options: {
     },
     availableModels: () => (state.models ? [...state.models.ids] : undefined),
     hostEnv(base) {
-      return buildPrsloyHostEnv(base, {
+      const env = buildPrsloyHostEnv(base, {
         agentDir,
         sessionDir,
         shimsDir: paths.shimsDir,
         gatewayKey: keyStore.read(),
         platform,
       });
+      // No venv yet (or never set up): no variable, the harness skips the page check.
+      const designPython = this.designPython?.();
+      if (designPython) env.PRSLOY_DESIGN_PYTHON = designPython;
+      else delete env.PRSLOY_DESIGN_PYTHON;
+      return env;
     },
   };
 }

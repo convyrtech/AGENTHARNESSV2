@@ -46,7 +46,7 @@ export function installDesign(
   prsloy: PrsloyContext,
 ): DesignService {
   const getGateway = () => prsloyGateway(prsloy);
-  return registerDesignIpc({
+  const service = registerDesignIpc({
     piSettings: () => (prsloy.shellPath ? { shellPath: prsloy.shellPath } : {}),
     piToolsDir: join(prsloy.agentDir, "bin"),
     userDataPath: app.getPath("userData"),
@@ -67,4 +67,7 @@ export function installDesign(
     // <pi agent dir>/prsloy-learning (%APPDATA%\\PRSLOY\\agent\\prsloy-learning), next to the «Код» harness's events
     learnDir: join(prsloy.agentDir, "prsloy-learning"),
   });
+  // «Код»'s harness checks the user's pages in a browser with the design tools' python.
+  prsloy.designPython = () => service.designPython();
+  return service;
 }

@@ -965,6 +965,23 @@ e2e `long-chat-compaction`, 150 ходов. Fake-модели дана цена,
   - в ленте её нет;
   - в JSONL сессии `customType: prsloy-memory.forgot`, `display: false`.
 
+## `PRSLOY_DESIGN_PYTHON` для харнесса «Кода»
+
+### 45. Python «Дизайна» в env агент-хоста
+
+Харнесс открывает в браузере страницы, которые агент делает пользователю (page-check), Python
+«Дизайна».
+
+- Когда инструменты «Дизайна» установлены (`toolsReady()`), `hostEnv` агент-хоста «Кода» получает
+  `PRSLOY_DESIGN_PYTHON=<venv>/Scripts/python.exe` (на Linux — `<venv>/bin/python`).
+- Как подключено: `design/wire.ts` ставит `prsloy.designPython = () => service.designPython()`.
+- Нет venv — переменной нет. Значение, унаследованное из окружения пользователя, тоже
+  убирается.
+- Env фиксируется при запуске хоста, поэтому переменная появится со следующего запуска хоста
+  после установки инструментов.
+- Тест `design/design-python.test.ts`: без venv переменной нет (даже если она была в базовом env);
+  после установки — путь к Python из venv.
+
 ## Как проверено (Linux, без ключа шлюза)
 
 - `pnpm check` чистый. `pnpm test` (корень) зелёный:
