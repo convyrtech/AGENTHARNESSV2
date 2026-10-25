@@ -8,7 +8,9 @@
       <out>/report.md и report.json: деньги по журналу a6 (quota / 500000 = $), минуты и вызовы агентов, сообщения
       владельца и повторы вопросов, до какого шага дошли;
       <out>/blind/sheet.png: финальные страницы рядом (390×844 и 1440×900, compare_sheet.py), подписи А/Б в
-      случайном порядке; какая буква чья — только в <out>/blind-key.json.
+      случайном порядке; какая буква чья — только в <out>/blind-key.json;
+      <out>/blind/step5.png: все прототипы шага 5 обоих прогонов вперемешку (А, Б, В…), ключ — blind-step5-key.json.
+      Качество — вердикты судьи (judge.py): первый раунд, раунды до PASS, Blocker/Critical, лимит раундов.
 """
 import argparse, json, random, shutil, subprocess, sys, time, urllib.request
 from pathlib import Path
@@ -18,6 +20,39 @@ for _s in (sys.stdout, sys.stderr):  # Windows: под -I PYTHONUTF8 не дей
 USD_PER_QUOTA = 1 / 500000
 GRACE = 5                       # строка журнала пишется по концу вызова: окно хода чуть шире
 LABELS = ("А", "Б")
+MANY = "АБВГДЕЖЗИК"
+
+
+def judge_rows(ledger):
+    """Раунды судьи из журнала: поля строки (run.py пишет их с #21) или JSON последней строки вывода (старые записи)."""
+    out = []
+    for r in ledger:
+        if r.get("kind") != "judge":
+            continue
+        j = {k: r[k] for k in ("round", "verdict", "findings") if k in r}
+        if "verdict" not in j and r.get("exit") == 0:
+            try:
+                j = json.loads((r.get("out") or "").strip().splitlines()[-1])
+            except (ValueError, IndexError):
+                j = {}
+        out.append({"exit": r.get("exit"), "round": j.get("round"), "verdict": j.get("verdict"),
+                    "findings": j.get("findings") or {}})
+    return out
+
+
+def judge_quality(ledger):
+    rows = judge_rows(ledger)
+    seen = [r for r in rows if r["verdict"]]
+    heavy = lambda r: sum(v for k, v in r["findings"].items() if k.lower() in ("blocker", "critical"))
+    return {
+        "rounds": [f"{r['round']}:{r['verdict']}" for r in seen],
+        "first": seen[0]["verdict"] if seen else None,
+        "first_heavy": heavy(seen[0]) if seen else None,
+        "final": seen[-1]["verdict"] if seen else None,
+        "final_heavy": heavy(seen[-1]) if seen else None,
+        "rounds_to_pass": next((r["round"] for r in seen if r["verdict"] == "PASS"), None),
+        "cap": any(r["exit"] == 3 for r in rows),
+    }
 
 
 def read_jsonl(path):
@@ -84,6 +119,7 @@ def metrics(rec):
         per_key[k] = per_key.get(k, 0) + 1
     m = {
         "driver": run["driver"], "model": run.get("model"), "ws": run["ws"], "page": run["page"],
+        "parallel5": run.get("parallel5"),
         "reached_gate": run.get("reached_gate"), "done": run.get("done"), "stop": run.get("stop"),
         "owner_messages": sum(1 for t in turns if t.get("sent")),
         "questions": len(asked), "question_keys": asked,
@@ -111,6 +147,7 @@ def metrics(rec):
                                 + sum(batches.values())) / 60, 1)
     m["protos"] = {"ok": sum(1 for r in protos if r.get("ok")), "all": len(protos),
                    "cost_usd": round(sum(r.get("cost", 0) or 0 for r in protos), 4)}
+    m["judge"] = judge_quality(ledger)
     a6 = rec / "a6-rows.json"
     if a6.exists():
         d = json.loads(a6.read_text(encoding="utf-8"))
@@ -120,7 +157,19 @@ def metrics(rec):
     return m
 
 
+def _judge(m, f):
+    return f(m["judge"]) if m.get("judge") else "нет данных"
+
+
 ROWS = [("Дошёл до шага", lambda m: "все пройдены" if m["done"] else str(m["reached_gate"])),
+        ("Шаг 5 параллельно (#21)", lambda m: {True: "вкл", False: "выкл"}.get(m.get("parallel5"), "как в stages.json")),
+        ("Судья, раунд 1: вердикт (Blocker+Critical)", lambda m: _judge(
+            m, lambda j: f"{j['first']} ({j['first_heavy']})" if j["first"] else "не судил")),
+        ("Судья: раундов до PASS", lambda m: _judge(m, lambda j: j["rounds_to_pass"] or "не прошёл")),
+        ("Судья: итог (Blocker+Critical), лимит раундов", lambda m: _judge(
+            m, lambda j: f"{j['final'] or '—'} ({j['final_heavy'] if j['final'] else '—'}), "
+                         f"{'лимит' if j['cap'] else 'без лимита'}")),
+        ("Судья: раунды", lambda m: _judge(m, lambda j: " ".join(j["rounds"]) or "—")),
         ("Почему остановился", lambda m: m["stop"]),
         ("Деньги по журналу a6", lambda m: (f"${m['a6']['usd']:.4f} ({m['a6']['calls']} выз.)" +
                                             ("" if m["a6"]["covered"] else " неполный журнал")) if m["a6"] else "не забран"),
@@ -141,8 +190,13 @@ ROWS = [("Дошёл до шага", lambda m: "все пройдены" if m["d
         ("Шаги вопросов", lambda m: " ".join(m["question_keys"]))]
 
 
+def arm(m):
+    p = {True: ", шаг 5 параллельно", False: ", шаг 5 обычный"}.get(m.get("parallel5"), "")
+    return f"{m['driver']} ({m['model']}{p})"
+
+
 def report_md(ma, mb):
-    head = f"| | A: {ma['driver']} ({ma['model']}) | B: {mb['driver']} ({mb['model']}) |"
+    head = f"| | A: {arm(ma)} | B: {arm(mb)} |"
     lines = ["# A/B харнесса", "", head, "|---|---|---|"]
     lines += [f"| {name} | {f(ma)} | {f(mb)} |" for name, f in ROWS]
     for tag, m in (("A", ma), ("B", mb)):
@@ -176,6 +230,35 @@ def blind_sheet(ma, mb, out, pipeline, python, rng):
     return {"sheet": str(sheet)}
 
 
+def blind_many(items, out, name, pipeline, python, rng):
+    """Слепой лист из многих вариантов: [(чей, путь)], подписи А, Б, В… вперемешку; ключ — отдельным файлом."""
+    items = [(who, p) for who, p in items if p.exists()]
+    if len(items) < 2:
+        return {"error": "мало вариантов: " + str(len(items))}
+    items = items[: len(MANY)]
+    rng.shuffle(items)
+    sheet = out / "blind" / f"{name}.png"
+    sheet.parent.mkdir(parents=True, exist_ok=True)
+    tool = Path(pipeline) / "tools" / "compare_sheet.py"
+    labels = MANY[: len(items)]
+    r = subprocess.run([python, "-I", str(tool), "--engine", "chromium", "--labels", ",".join(labels),
+                        *[x for _, p in items for x in ("--variant", str(p))], "--out", str(sheet)],
+                       capture_output=True, text=True, encoding="utf-8")
+    for side in (sheet.with_suffix(".json"), sheet.with_name(sheet.name + ".json")):
+        side.unlink(missing_ok=True)
+    if r.returncode or not sheet.exists():
+        return {"error": "compare_sheet: " + (r.stdout + r.stderr)[-400:]}
+    key = {labels[i]: {"record": who, "page": str(p)} for i, (who, p) in enumerate(items)}
+    (out / f"blind-{name}-key.json").write_text(json.dumps(key, ensure_ascii=False, indent=1), encoding="utf-8")
+    return {"sheet": str(sheet)}
+
+
+def step5_items(m, who):
+    """Прототипы шага 5 прогона: design/<страница>/05-proto/<буква>/index.html."""
+    root = Path(m["ws"]) / "design" / m["page"] / "05-proto"
+    return [(who, d / "index.html") for d in sorted(root.iterdir()) if d.is_dir()] if root.exists() else []
+
+
 def compare(a):
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
@@ -184,11 +267,14 @@ def compare(a):
     pipeline = a.pipeline or str(Path(ma["ws"]) / "design-pipeline")
     rng = random.Random(a.seed) if a.seed is not None else random.SystemRandom()
     sheet = blind_sheet(ma, mb, out, pipeline, a.python, rng)
-    (out / "report.json").write_text(json.dumps({"A": ma, "B": mb, "blind": sheet}, ensure_ascii=False, indent=1),
-                                     encoding="utf-8")
+    step5 = blind_many(step5_items(ma, "A") + step5_items(mb, "B"), out, "step5", pipeline, a.python, rng)
+    (out / "report.json").write_text(json.dumps({"A": ma, "B": mb, "blind": sheet, "blind_step5": step5},
+                                                ensure_ascii=False, indent=1), encoding="utf-8")
     print((out / "report.md").read_text(encoding="utf-8"))
     print("слепой лист: " + sheet.get("sheet", sheet.get("error", "")) +
           ("  (ключ — blind-key.json, владельцу не показывать)" if "sheet" in sheet else ""))
+    print("прототипы шага 5: " + step5.get("sheet", step5.get("error", "")) +
+          ("  (ключ — blind-step5-key.json)" if "sheet" in step5 else ""))
     if not (ma["a6"] and mb["a6"]):
         print("деньги: журнал a6 забран не для обоих прогонов (abreport.py cost сразу после прогона)")
 

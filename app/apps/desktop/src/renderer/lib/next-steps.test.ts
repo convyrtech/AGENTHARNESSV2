@@ -95,4 +95,16 @@ describe("selectNextSteps", () => {
       ),
     ).toHaveLength(3);
   });
+
+  it("stays after «Откатить ход»: the undo note after the reply is not the turn's end", () => {
+    const note: TimelineItem = {
+      id: "n",
+      kind: "system",
+      text: "Пользователь откатил ход",
+      extension: true,
+      title: "prsloy-undo",
+    };
+    const items = [user("сделай фон тёмным"), write("index.html"), reply("Сделал."), note];
+    expect(selectNextSteps("ru", items, false)).toHaveLength(3);
+  });
 });

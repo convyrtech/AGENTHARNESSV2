@@ -20,14 +20,18 @@
 //   … --audit                  разборщик сессий после прогона (research/24 §6, ci; пока только метка в отчёте)
 //   … --allow-outside          отвечать «Да» на «менять файлы вне проекта?» (по умолчанию «Нет»)
 //   … --out bench-out          куда писать отчёт, сессии и папки задач
+//   … --lessons-file <json>    уроки вместо lessons/code.json пакета (оффлайн-улучшатель, #33)
+//   … --skills-dir <папка>     навыки из папки <навык>/SKILL.md вместо встроенных; включает навыки (#33)
+//   … --delta-file <md>        добавка промпта модели из файла; включает дельту (#33)
 // Итог: <out>/bench-<модель>-<on|off>-<время>.md и .json. Ключ берётся только из окружения и никуда не пишется.
 // Выход 0 — у всех проверенных задач исход тот, что ждали (обычно «решено»; у задач честности — например «жулик
 // пойман», research/24 §4.1); 1 — нет; 2 — не запустилось.
-import { writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { PRSLOY_DEFAULT_BASE_URL } from "../../../apps/desktop/src/shared/prsloy-config.ts";
 import { reportMarkdown, runBench } from "../bench/run.ts";
+import { skillFilesFromDir } from "../src/skills.ts";
 
 const { values } = parseArgs({
   options: {
@@ -50,6 +54,9 @@ const { values } = parseArgs({
     "test-guard": { type: "string", default: "off" },
     web: { type: "string", default: "off" },
     out: { type: "string", default: "bench-out" },
+    "lessons-file": { type: "string" },
+    "skills-dir": { type: "string" },
+    "delta-file": { type: "string" },
   },
 });
 
@@ -92,6 +99,13 @@ async function main(): Promise<number> {
     outDir,
     timeoutSec: Number(values.timeout) || 600,
     allowOutside: values["allow-outside"] === true,
+    ...(values["lessons-file"] ? { lessonsFile: resolve(values["lessons-file"]) } : {}),
+    ...(values["skills-dir"]
+      ? { skillFiles: skillFilesFromDir(resolve(values["skills-dir"])) }
+      : {}),
+    ...(values["delta-file"]
+      ? { deltaText: readFileSync(values["delta-file"], "utf8").trim() }
+      : {}),
     log: (line) => console.log(line),
   });
   const stamp = report.meta.date.replace(/[:.]/g, "-");
