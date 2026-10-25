@@ -473,6 +473,16 @@ Windows (установленное приложение, run 40172344893 на f
 
 `pnpm check` чисто; `pnpm test` exit 0 (harness 214, agent-runtime 118, desktop 955).
 
+### Дополнение: `details.ports` для превью (по просьбе ui)
+
+Серверная команда целиком (`npm run dev`, `python3 -m http.server 8000`) раньше блокировалась (`block`), а у
+заблокированного вызова нет `tool_result` — и нет `details`. Теперь команда становится пустой (`:`), а результат —
+тот же текст и та же ошибка, что дал бы `block`, плюс `details`. Для `cmd &` `details` дописываются к деталям bash.
+Форма как у `bash_background`: `{id, pid, logPath, ports, servers:[{id, pid, ports, logPath}]}` (`id` — первого
+сервера, `ports` — все). Текст для модели не изменился: обрезка вывода такой результат не трогает (без заголовка
+`[exit …]`). Тесты: `test/bash-timeout.test.ts` (форма и текст обоих путей), `test/integration.test.ts` (настоящая
+сессия: `python3 -m http.server A` и `… B &` — `details.ports` = `[A]` и `[B]`, текст прежний).
+
 ### Живая проверка — для дирижёра
 
 ```sh

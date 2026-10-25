@@ -69,12 +69,29 @@ describe("bash timeout", () => {
   it("moves a dev server to the background with pid, port and log", async () => {
     const dir = await project();
     const { pi, registry } = setup(dir);
-    const blocked = await pi.toolCall("bash", { command: "npm run dev" });
+    const input: Record<string, unknown> = { command: "npm run dev" };
     try {
-      expect(blocked?.block).toBe(true);
-      expect(blocked?.reason).toContain("запущена в фоне");
-      expect(blocked?.reason).toMatch(/порт \d+/);
+      // Не block (у него нет tool_result и details): команда пустая, результат — текст и ошибка, как у block.
+      expect(await pi.toolCall("bash", input, "dev")).toBeUndefined();
+      expect(input.command).toBe(":");
+      const result = await pi.toolResult({
+        toolName: "bash",
+        toolCallId: "dev",
+        text: "(no output)",
+      });
+      expect(result.isError).toBe(true);
+      expect(result.text).toMatch(
+        /^Команда похожа на сервер, поэтому запущена в фоне, чтобы bash не завис\.\nbg1: работает, pid \d+, порт \d+/,
+      );
+      expect(result.text).toContain("Логи и остановка: тул process.");
       const [proc] = registry.list();
+      // Форма details — как у bash_background: превью берёт порт отсюда, а не из текста.
+      expect(result.details).toMatchObject({
+        id: "bg1",
+        pid: proc?.pid,
+        ports: proc?.ports,
+        servers: [{ id: "bg1", ports: proc?.ports }],
+      });
       expect(proc?.exitCode).toBeUndefined();
       const port = proc?.ports[0];
       const response = await fetch(`http://127.0.0.1:${port}/`);
@@ -137,6 +154,7 @@ describe("servers via & and kill commands", () => {
       const result = await pi.toolResult({ toolName: "bash", toolCallId: "c1", text: "next" });
       expect(result.text).toContain("запущен через реестр харнесса");
       expect(result.text).toMatch(/bg1: работает, pid \d+, порт \d+/);
+      expect(result.details).toMatchObject({ id: "bg1", ports: proc?.ports });
 
       // pkill -f по этому серверу идёт через реестр, а не убивает bash.
       const kill: Record<string, unknown> = { command: 'pkill -f "node server.js"; echo done' };

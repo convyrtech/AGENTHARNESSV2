@@ -324,6 +324,35 @@ describe("integration: real createAgentSession + mock gateway", () => {
   );
 
   it.skipIf(process.platform === "win32")(
+    "a server command and `cmd &` carry details.ports for the preview; the model text is unchanged",
+    async () => {
+      const [a, b] = [await freePort(), await freePort()];
+      const { session, toolResults, textOf } = await startSession(
+        (_req, index) => {
+          const command = [`python3 -m http.server ${a}`, `python3 -m http.server ${b} &`][index];
+          return command
+            ? { toolCalls: [{ name: "bash", arguments: { command } }] }
+            : { text: "Готово." };
+        },
+        { factory: {} },
+      );
+      await session.prompt("покажи сайт");
+      const [whole, amp] = toolResults() as unknown as (ToolResultMessage & {
+        details?: unknown;
+      })[];
+      // Целиком серверная команда: текст как у прежнего block — без заголовка [exit …], с ошибкой.
+      expect(textOf(whole!)).toMatch(/^Команда похожа на сервер, поэтому запущена в фоне/);
+      expect(whole!.isError).toBe(true);
+      expect(whole!.details).toMatchObject({ id: "bg1", ports: [a] });
+      expect(textOf(amp!)).toMatch(/^\[exit 0 · /);
+      expect(textOf(amp!)).toContain("запущен через реестр харнесса");
+      expect(amp!.details).toMatchObject({ id: "bg2", ports: [b] });
+      await session.extensionRunner.emit({ type: "session_shutdown", reason: "quit" });
+    },
+    30_000,
+  );
+
+  it.skipIf(process.platform === "win32")(
     "background servers are stopped when the session ends",
     async () => {
       const port = await freePort();

@@ -103,6 +103,8 @@ export function installToolOutput(pi: ExtensionAPI, opts: ResolvedOptions): void
     const started = startedAt.get(event.toolCallId);
     startedAt.delete(event.toolCallId);
     if (SKIP_TOOLS.has(event.toolName)) return undefined;
+    // Сервер ушёл в реестр — текст результата уже готовый (как у block), без заголовка и обрезки.
+    if ((event.details as Record<string, unknown> | undefined)?.prsloyServer) return undefined;
     const elapsedMs = started === undefined ? undefined : Date.now() - started;
     if (SHELL_TOOLS.has(event.toolName)) return shellResult(event, elapsedMs);
     if (event.toolName === "read") return readResult(event);
