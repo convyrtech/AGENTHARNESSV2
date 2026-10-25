@@ -24,7 +24,7 @@ describe("«Заметил и запомнил»", () => {
       />,
     );
     expect(screen.getByTestId("memory-card").textContent).toContain(
-      "Заметил и запомнил: Пишет без терминов",
+      "Заметил и запомнил «Пишет без терминов»",
     );
     expect(screen.getByText("Ваши слова: «пиши проще»")).toBeTruthy();
     fireEvent.click(screen.getByTestId("memory-auto-pin"));
@@ -32,7 +32,7 @@ describe("«Заметил и запомнил»", () => {
     expect((await screen.findByRole("status")).textContent).toBe("Закреплено");
   });
 
-  it("several: «Запомнил 2» · [Показать], each with its own buttons", async () => {
+  it("several: «Запомнил несколько вещей (2)» · [Показать], each with its own buttons", async () => {
     render(
       <MemoryAutoCard
         locale="ru"
@@ -45,7 +45,7 @@ describe("«Заметил и запомнил»", () => {
         }}
       />,
     );
-    expect(screen.getByTestId("memory-card").textContent).toContain("Запомнил 2");
+    expect(screen.getByTestId("memory-card").textContent).toContain("Запомнил несколько вещей (2)");
     expect(screen.queryAllByTestId("memory-auto-entry")).toHaveLength(0);
     fireEvent.click(screen.getByTestId("memory-auto-show"));
     expect(screen.getAllByTestId("memory-auto-entry")).toHaveLength(2);
@@ -117,7 +117,7 @@ describe("the agent asks before it forgets or replaces (research/27 §2)", () =>
     expect(screen.queryByTestId("memory-confirm-yes")).toBeNull();
   });
 
-  it("«Раньше: «…». Теперь: «…»?» · [Нет] → «Оставил как было.»", async () => {
+  it("«Раньше вы просили «…». Теперь — «…»?» · [Нет] → «Оставил как было.»", async () => {
     render(
       <MemoryConfirmCard
         locale="ru"
@@ -132,7 +132,9 @@ describe("the agent asks before it forgets or replaces (research/27 §2)", () =>
         }}
       />,
     );
-    expect(screen.getByTestId("memory-card").textContent).toContain("Раньше: «А». Теперь: «Б»?");
+    expect(screen.getByTestId("memory-card").textContent).toContain(
+      "Раньше вы просили «А». Теперь — «Б»?",
+    );
     fireEvent.click(screen.getByTestId("memory-confirm-no"));
     await waitFor(() => expect(api.confirm).toHaveBeenCalledWith("c2", false, undefined));
     expect((await screen.findByTestId("memory-card")).textContent).toContain("Оставил как было.");

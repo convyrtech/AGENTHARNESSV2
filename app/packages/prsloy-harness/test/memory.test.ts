@@ -87,9 +87,9 @@ describe("memory: the tool", () => {
       quote: "отвечай коротко, без терминов",
     });
     expect(r.isError).toBeFalsy();
-    expect(r.content[0]!.text).toContain("Запомнил: Отвечать коротко, без терминов");
+    expect(r.content[0]!.text).toContain("Запомнил «Отвечать коротко, без терминов»");
     expect(pi.sent.map((m) => [m.customType, m.content, m.display])).toEqual([
-      ["prsloy-memory.saved", "Запомнил: Отвечать коротко, без терминов", true],
+      ["prsloy-memory.saved", "Запомнил «Отвечать коротко, без терминов»", true],
     ]);
     const user = JSON.parse(readFileSync(join(dir, "user.json"), "utf8")) as {
       entries: { quote: string }[];
@@ -150,7 +150,9 @@ describe("memory: the tool", () => {
       text: "Сайт без npm: чистый HTML и CSS",
       quote: "Не надо никаких npm, сайт на чистом HTML и CSS",
     });
-    expect(r.content[0]!.text).toContain("Запомнил для этого проекта: Сайт без npm");
+    expect(r.content[0]!.text).toContain(
+      "Запомнил для этого проекта «Сайт без npm: чистый HTML и CSS»",
+    );
     expect(existsSync(join(dir, "projects", projectKey(cwd), "project.json"))).toBe(true);
   });
 
@@ -202,7 +204,7 @@ describe("memory: the tool", () => {
     });
     expect(r.content[0]!.text).toBe(MEMORY_TEXT.asked);
     expect(String(pi.sent.at(-1)!.content)).toBe(
-      "Раньше: «Любит тёмные сайты». Теперь: «Не любит тёмные сайты»?",
+      "Раньше вы просили «Любит тёмные сайты». Теперь — «Не любит тёмные сайты»?",
     );
     expect(handle.store.entries("user", pi.ctx.cwd).map((e) => e.text)).toEqual([
       "Любит тёмные сайты",

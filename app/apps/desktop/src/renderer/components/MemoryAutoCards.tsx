@@ -1,6 +1,6 @@
 /**
  * Memory v2 cards (research/24 §3.6): what the harness noticed in the owner's words by itself.
- * «Заметил и запомнил: …» · [Забыть] [Закрепить] (several: «Запомнил N» · [Показать]);
+ * «Заметил и запомнил «…»» · [Забыть] [Закрепить] (several: «Запомнил несколько вещей (N)» · [Показать]);
  * «Обновил: было «…», стало «…»» · [Вернуть]; when the replaced entry was pinned, a question:
  * «Раньше вы просили «…». Теперь — «…»?» · [Да, теперь так] [Нет, как раньше]. And the agent's own
  * proposals to forget or replace, which wait for [Да] / [Нет] (research/27 §2).
@@ -247,7 +247,7 @@ export function MemoryUpdatedCard(props: { locale: Locale; details: unknown; tex
 
 /**
  * research/27 §2: the agent's tool no longer forgets or replaces by itself — it asks. «Забыть «…»?» or
- * «Раньше: «…». Теперь: «…»?» · [Да] [Нет] → `memory.confirm`. Main ignores a second answer and drops a
+ * «Раньше вы просили «…». Теперь — «…»?» · [Да] [Нет] → `memory.confirm`. Main ignores a second answer and drops a
  * proposal after a day; its refusal shows under the card.
  */
 export function MemoryConfirmCard(props: { locale: Locale; details: unknown; text: string }) {
