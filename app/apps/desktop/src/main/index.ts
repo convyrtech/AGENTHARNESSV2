@@ -896,7 +896,7 @@ function setWorktreePrefs(patch: {
 function getGitPrefs(): GitPrefs {
   const prefs = loadDesktopPrefs();
   return {
-    branchPrefix: prefs.gitBranchPrefix?.trim() || "zeno/",
+    branchPrefix: prefs.gitBranchPrefix?.trim() || "prsloy/",
     pullMode: prefs.gitPullMode === "squash" ? "squash" : "merge",
     forcePush: prefs.gitForcePush === true,
     draftPr: prefs.gitDraftPr === true,

@@ -103,11 +103,13 @@ function activityLabel(
   locale: Locale,
   activity: ProcessActivity,
   duration: string | undefined,
+  /** Casual mode leaves the raw command out: the progress line below says it in words. */
+  withDetail = true,
 ): string {
   const tr = (key: MessageKey, vars?: Record<string, string>) => t(locale, key, vars);
   const phase = activity.phase;
   const tool = activity.toolName?.trim() || "tool";
-  const detail = activity.toolSummary?.trim();
+  const detail = withDetail ? activity.toolSummary?.trim() : undefined;
 
   if (phase === "executing") {
     if (detail && duration) {
@@ -1527,15 +1529,46 @@ function ProcessThinking(props: {
   locale: Locale;
   workspacePath?: string | undefined;
 }) {
+  // The model's reasoning is often English and always long; casual mode folds it into one
+  // quiet «Думаю…» row and keeps the text a click away.
+  const { developerMode } = useCasualPrefs();
+  const [open, setOpen] = useState(false);
+  const body = (
+    <MarkdownContent
+      className="process-step-thinking-body"
+      workspacePath={props.workspacePath}
+      locale={props.locale}
+    >
+      {props.item.text}
+    </MarkdownContent>
+  );
+  if (developerMode) {
+    return (
+      <div className="process-step-thinking" data-kind="thinking">
+        {body}
+      </div>
+    );
+  }
   return (
-    <div className="process-step-thinking" data-kind="thinking">
-      <MarkdownContent
-        className="process-step-thinking-body"
-        workspacePath={props.workspacePath}
-        locale={props.locale}
+    <div
+      className="process-step-thinking"
+      data-kind="thinking"
+      data-folded={open ? "false" : "true"}
+    >
+      <button
+        type="button"
+        className="process-step-thinking-toggle"
+        aria-expanded={open}
+        data-testid="thinking-toggle"
+        onClick={() => setOpen((value) => !value)}
       >
-        {props.item.text}
-      </MarkdownContent>
+        <ChevronRight
+          className={cn("size-3.5 shrink-0 transition-transform", open && "rotate-90")}
+          strokeWidth={2}
+        />
+        {t(props.locale, "timeline.thinkingFolded")}
+      </button>
+      {open ? body : null}
     </div>
   );
 }
@@ -1630,7 +1663,8 @@ export const TimelineProcessBlock = memo(function TimelineProcessBlock(props: {
   const liveDuration =
     elapsedDurationLabel(props.startedAt, active ? undefined : props.endedAt, now, props.locale) ??
     props.durationLabel;
-  const label = activityLabel(props.locale, activity, liveDuration);
+  const { developerMode } = useCasualPrefs();
+  const label = activityLabel(props.locale, activity, liveDuration, developerMode);
 
   // Default-open while the agent is working this turn; force-close when the turn ends.
   const [detailsOpen, setDetailsOpen] = useState(active);
@@ -1703,7 +1737,8 @@ export const TimelineLiveStatus = memo(function TimelineLiveStatus(props: {
   const active = props.activity.phase !== "processed";
   const now = useNow(active);
   const duration = elapsedDurationLabel(props.activity.startedAt, undefined, now, props.locale);
-  const label = activityLabel(props.locale, props.activity, duration);
+  const { developerMode } = useCasualPrefs();
+  const label = activityLabel(props.locale, props.activity, duration, developerMode);
   const icon = liveStatusIcon(props.activity.phase);
 
   return (

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 import type { TimelineItem } from "./timeline.ts";
-import { currentTurnAction, elapsedLabel, turnStartedAt } from "./turn-progress.ts";
+import { currentTurnAction, summarizeCommand, turnStartedAt } from "./turn-progress.ts";
 
 const user = (text: string, timestamp?: string): TimelineItem => ({
   id: `u-${text}`,
@@ -14,8 +14,7 @@ const tool = (toolName: string, args: unknown, status: "running" | "completed" =
 describe("currentTurnAction", () => {
   it("names the running command and the file being edited", () => {
     expect(currentTurnAction([user("go"), tool("bash", { command: "npm test" })])).toEqual({
-      key: "progress.run",
-      vars: { detail: "npm test" },
+      key: "progress.runTests",
     });
     expect(
       currentTurnAction([user("go"), tool("edit", { path: "/home/u/site/index.html" })]),
@@ -48,11 +47,7 @@ describe("currentTurnAction", () => {
     ).toBe("progress.thinking");
   });
 
-  it("cuts long commands and falls back for unknown tools", () => {
-    const long = `npm run ${"x".repeat(100)}`;
-    const action = currentTurnAction([user("go"), tool("bash", { command: long })]);
-    expect(action.vars?.detail).toHaveLength(60);
-    expect(action.vars?.detail?.endsWith("…")).toBe(true);
+  it("falls back for unknown tools", () => {
     expect(currentTurnAction([user("go"), tool("bash", {})]).key).toBe("progress.runOpen");
     expect(currentTurnAction([user("go"), tool("mystery", {})])).toEqual({
       key: "progress.generic",
@@ -70,14 +65,35 @@ describe("turnStartedAt", () => {
   });
 });
 
-describe("elapsedLabel", () => {
-  it("is coarse: seconds, then minutes, then hours", () => {
-    expect(elapsedLabel(40_500)).toEqual({ key: "progress.elapsed.seconds", vars: { n: "40" } });
-    expect(elapsedLabel(150_000)).toEqual({ key: "progress.elapsed.minutes", vars: { n: "2" } });
-    expect(elapsedLabel(65 * 60_000)).toEqual({
-      key: "progress.elapsed.hours",
-      vars: { h: "1", m: "5" },
-    });
-    expect(elapsedLabel(-5).vars?.n).toBe("0");
+describe("summarizeCommand", () => {
+  it.each([
+    ["cd /dev/shm/prsloy/проект && npm test -- --run", "progress.runTests", undefined],
+    ["cd /tmp/x && python3 -I build.py --out site", "progress.runProgram", { program: "python3" }],
+    ["python3 -I tools/check_page.py site/landing", "progress.runCheck", undefined],
+    ["FOO=1 BAR=2 node scripts/gen.mjs", "progress.runProgram", { program: "node" }],
+    ["pnpm install", "progress.runInstall", undefined],
+    ["npm run build", "progress.runBuild", undefined],
+    ["pip install pillow", "progress.runInstall", undefined],
+    ["ls -la && cat README.md", "progress.runLook", undefined],
+    ["mkdir -p site && cp a b", "progress.runFiles", undefined],
+    ["git status", "progress.runGit", undefined],
+    ["/usr/local/bin/ffmpeg -i in.mp4 out.webm", "progress.runProgram", { program: "ffmpeg" }],
+  ])("%s", (command, key, vars) => {
+    expect(summarizeCommand(command)).toEqual(vars ? { key, vars } : { key });
+  });
+
+  it("turns a heredoc into the file it writes", () => {
+    expect(summarizeCommand("cat > /home/u/site/index.html <<'EOF'\n<!doctype html>\nEOF")).toEqual(
+      {
+        key: "progress.write",
+        vars: { detail: "index.html" },
+      },
+    );
+  });
+
+  it("never shows a raw line", () => {
+    const long = `cd /a && ${"x".repeat(80)} --flag`;
+    expect(summarizeCommand(long)).toEqual({ key: "progress.runOpen" });
+    expect(summarizeCommand("cd /only/dir")).toEqual({ key: "progress.runOpen" });
   });
 });

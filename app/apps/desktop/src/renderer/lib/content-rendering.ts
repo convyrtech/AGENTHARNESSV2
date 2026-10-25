@@ -160,3 +160,19 @@ export function contentSourceUrl(source: string, workspacePath?: string): string
   if (encoded.startsWith("//")) return `file:${encoded}`;
   return `file://${encoded.startsWith("/") ? "" : "/"}${encoded}`;
 }
+
+/** Extensions worth opening from a reply: pages, styles, scripts, data, documents, media. */
+const OPENABLE_FILE =
+  /^[^\s`'"<>|*?]+\.(?:html?|css|m?js|jsx|tsx?|json|md|txt|py|csv|xml|ya?ml|toml|svg|png|jpe?g|webp|gif|mp4|webm|pdf|docx?|xlsx?)(?::\d+(?::\d+)?)?$/iu;
+
+/**
+ * Inline code that names a file (`index.html`, `site/landing/index.html:12`) becomes an
+ * open-file link, so a casual user opens the page without typing a command. Returns the
+ * href to hand to the regular link renderer, or undefined when it is not a file path.
+ */
+export function inlineCodeFileHref(code: string, workspacePath?: string): string | undefined {
+  const text = code.trim();
+  if (!text || text.length > 260 || /:\/\//u.test(text) || !OPENABLE_FILE.test(text))
+    return undefined;
+  return parseContentLink(text, workspacePath).kind === "file" ? text : undefined;
+}

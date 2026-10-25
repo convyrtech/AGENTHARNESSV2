@@ -39,7 +39,20 @@ export const DEVELOPER_SETTINGS_SECTIONS: ReadonlySet<SettingsSection> = new Set
   "worktree",
   "runtimes",
   "proxy",
+  // pull / merge / force push / PR / branch prefix: a developer's Git, not a casual user's.
+  "git",
 ]);
+
+/** Shortcuts that open developer surfaces (packages, resources, the pi terminal). */
+export const DEVELOPER_SHORTCUTS: ReadonlySet<string> = new Set([
+  "packages",
+  "resources",
+  "toggle-content-mode",
+]);
+
+export function isShortcutVisible(id: string, developerMode: boolean): boolean {
+  return developerMode || !DEVELOPER_SHORTCUTS.has(id);
+}
 
 export function isSettingsSectionVisible(
   section: SettingsSection,

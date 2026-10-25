@@ -171,6 +171,10 @@ for (const mode of ["light", "dark"] as const) {
       await page.getByRole("button", { name: "Продолжить" }).click();
       await expect(page.getByRole("alert")).toContainText("Ключ не подошёл");
       await shot(page, `${mode}-first-run-key`);
+      // «Другой сервер» reveals the address, prefilled with the current one.
+      await page.getByTestId("prsloy-server-link").click();
+      await expect(page.getByTestId("prsloy-server-input")).toHaveValue(/127\.0\.0\.1/);
+      await shot(page, `${mode}-first-run-server`);
 
       await input.fill(GOOD_KEY);
       await page.getByRole("button", { name: "Продолжить" }).click();
@@ -206,6 +210,8 @@ for (const mode of ["light", "dark"] as const) {
       await shot(page, `${mode}-undo-done`);
 
       await page.keyboard.press("Control+,");
+      // Casual mode: no Git page in settings (pull / force push / PR are developer tools).
+      await expect(page.getByTestId("settings-nav-git")).toHaveCount(0);
       await page.getByTestId("settings-nav-account").click();
       await expect(page.getByTestId("settings-account-masked")).toContainText("abcd");
       await shot(page, `${mode}-account`);

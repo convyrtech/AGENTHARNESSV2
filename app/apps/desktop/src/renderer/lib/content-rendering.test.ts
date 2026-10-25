@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 import {
   contentMediaKind,
+  inlineCodeFileHref,
   contentSourceUrl,
   formatFileLinkLabel,
   formatWorkspaceRelativePath,
@@ -48,5 +49,26 @@ describe("conversation content targets", () => {
     expect(formatFileLinkLabel("Fixture file", "/work/project/fixture.txt", "/work/project")).toBe(
       "Fixture file",
     );
+  });
+});
+
+describe("inlineCodeFileHref", () => {
+  it("turns file names in inline code into open targets", () => {
+    expect(inlineCodeFileHref("index.html", "/home/u/site")).toBe("index.html");
+    expect(inlineCodeFileHref("site/landing/index.html:12", "/home/u/p")).toBe(
+      "site/landing/index.html:12",
+    );
+    expect(inlineCodeFileHref("/home/u/p/logo.png")).toBe("/home/u/p/logo.png");
+    expect(inlineCodeFileHref("C:\\Users\\u\\site\\index.html")).toBe(
+      "C:\\Users\\u\\site\\index.html",
+    );
+  });
+
+  it("leaves code, commands and URLs alone", () => {
+    expect(inlineCodeFileHref("npm test", "/p")).toBeUndefined();
+    expect(inlineCodeFileHref("const a = 1", "/p")).toBeUndefined();
+    expect(inlineCodeFileHref("https://example.com/a.html", "/p")).toBeUndefined();
+    expect(inlineCodeFileHref("README", "/p")).toBeUndefined();
+    expect(inlineCodeFileHref("index.html")).toBeUndefined();
   });
 });

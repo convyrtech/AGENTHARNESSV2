@@ -131,4 +131,24 @@ describe("FirstRunGate", () => {
     await screen.findByText("APP");
     expect(api.workspace.openPath).toHaveBeenCalledWith("D:\\tmp\\сайт");
   });
+
+  it("checks the key against another server when one is given", async () => {
+    const api = mockZeno();
+    api.prsloy.setKey.mockResolvedValue({ ok: false, code: "bad_url" });
+    render(
+      <FirstRunGate>
+        <div>APP</div>
+      </FirstRunGate>,
+    );
+    await screen.findByTestId("prsloy-first-run-key");
+    fireEvent.click(screen.getByTestId("prsloy-server-link"));
+    const server = screen.getByTestId("prsloy-server-input") as HTMLInputElement;
+    expect(server.value).toBe("https://api.prsloy.online/v1");
+    fireEvent.change(server, { target: { value: " https://gw.example/v1 " } });
+    const key = screen.getByPlaceholderText("sk-…");
+    fireEvent.change(key, { target: { value: "sk-1" } });
+    fireEvent.submit(key.closest("form")!);
+    expect(await screen.findByRole("alert")).toBeTruthy();
+    expect(api.prsloy.setKey).toHaveBeenLastCalledWith("sk-1", "https://gw.example/v1");
+  });
 });

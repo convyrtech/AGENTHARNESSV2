@@ -15,6 +15,7 @@ import {
   contentMediaKind,
   contentSourceUrl,
   formatFileLinkLabel,
+  inlineCodeFileHref,
   parseContentLink,
 } from "../lib/content-rendering.ts";
 import { markdownSanitizeSchema } from "../lib/markdown-sanitize.ts";
@@ -688,6 +689,14 @@ export const MarkdownContent = memo(function MarkdownContent(props: {
               .replace(/\n$/, "");
             if (match || code.includes("\n")) {
               return <ContentCodeBlock code={code} language={match?.[1]} locale={locale} />;
+            }
+            const fileHref = inlineCodeFileHref(code, props.workspacePath);
+            if (fileHref) {
+              return (
+                <MarkdownLink href={fileHref} workspacePath={props.workspacePath}>
+                  {code}
+                </MarkdownLink>
+              );
             }
             return <code className={className}>{children}</code>;
           },

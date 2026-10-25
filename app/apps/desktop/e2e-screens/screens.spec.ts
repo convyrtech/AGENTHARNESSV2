@@ -62,6 +62,14 @@ function fakeModel(readmePath: string): Server {
           })}\n\n`,
         );
       send({ role: "assistant", content: "" });
+      // «Цена»: English reasoning, then a price split into deltas that repeat the tail.
+      if (userText.includes("Цена")) {
+        send({ reasoning_content: "Let me look at the working directory first." });
+        for (const part of ["Итого: 1", "0", "0", "0 ₽, было 800", "0 ₽."]) send({ content: part });
+        send({}, "stop", { prompt_tokens: 500, completion_tokens: 20, total_tokens: 520 });
+        res.end("data: [DONE]\n\n");
+        return;
+      }
       if (slow) {
         if (!afterTool) {
           send({
@@ -274,14 +282,30 @@ test("PRSLOY main screens, light and dark", async () => {
       await page.getByTestId("prompt-input").fill("Запусти тесты");
       await page.getByTestId("send-prompt").click();
       await expect(page.getByTestId("turn-progress")).toBeVisible({ timeout: 30_000 });
-      await expect(page.getByTestId("turn-progress-action")).toHaveText(
-        "Запускаю команду: npm test",
-      );
+      await expect(page.getByTestId("turn-progress-action")).toHaveText("Запускаю тесты");
       await shot(page, `${mode}-progress-line`);
       await expect(page.getByTestId("timeline")).toContainText("Тесты прошли.", {
         timeout: 30_000,
       });
       await expect(page.getByTestId("turn-progress")).toBeHidden();
+
+      await page.getByTestId("prompt-input").fill("Цена за месяц?");
+      await page.getByTestId("send-prompt").click();
+      await expect(page.getByTestId("timeline")).toContainText("Итого: 1000 ₽, было 8000 ₽.", {
+        timeout: 30_000,
+      });
+      // Scoped to the chat: test builds also dump raw events in a hidden developer panel.
+      const leak = page
+        .getByTestId("timeline")
+        .getByText("Let me look at the working directory first.");
+      await expect(leak).toHaveCount(0);
+      await page
+        .getByText(/^Готово за/)
+        .last()
+        .click();
+      await expect(page.getByTestId("thinking-toggle").last()).toHaveText("Думаю…");
+      await expect(leak).toHaveCount(0);
+      await shot(page, `${mode}-price-thinking`);
 
       await page.getByTestId("prompt-input").fill("Проверим обрыв связи");
       await page.getByTestId("send-prompt").click();

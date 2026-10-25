@@ -28,7 +28,8 @@ describe("streamed text never loses characters", () => {
     deltas.forEach((delta, i) => {
       state = applyRuntimeEventToLiveStream(state, { type, delta }, [], { sequence: i + 1 });
     });
-    return state.items[0]?.text;
+    const item = state.items[0];
+    return item && "text" in item ? item.text : undefined;
   }
 
   it.each([
@@ -54,7 +55,8 @@ describe("streamed text never loses characters", () => {
     state = applyRuntimeEventToLiveStream(state, { type: "message.delta", delta: "0" }, [], {
       sequence: 2,
     });
-    expect(state.items[0]?.text).toBe("100");
+    const item = state.items[0];
+    expect(item && "text" in item ? item.text : undefined).toBe("100");
   });
 });
 

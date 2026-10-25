@@ -2,24 +2,29 @@
  * «ход 1,20 ₽ · чат 8,40 ₽» next to the composer's model control. Reads the session cost
  * from the shell snapshot; the turn share comes from lib/rub-cost.ts.
  */
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { t, type Locale } from "../lib/i18n.ts";
 import { formatRub, INITIAL_TURN_COST, nextTurnCost, usdToRub } from "../lib/rub-cost.ts";
 import { useCasualPrefs } from "../hooks/useCasualPrefs.ts";
 import { useShellStore } from "../store/shell-store.ts";
 
+/**
+ * The turn tracker outlives the chip: the composer unmounts on a trip to Settings, and a
+ * component-local tracker came back empty («ход» reset). One app, one foreground session.
+ */
+let tracker = INITIAL_TURN_COST;
+
 export function CostChip(props: { locale: Locale }) {
   const snapshot = useShellStore((s) => s.snapshot);
   const running = useShellStore((s) => s.running);
   const { rubPerUsd } = useCasualPrefs();
-  const tracker = useRef(INITIAL_TURN_COST);
-  const [turnUsd, setTurnUsd] = useState<number | undefined>(undefined);
+  const [turnUsd, setTurnUsd] = useState<number | undefined>(() => tracker.turnUsd);
   const sessionKey = snapshot?.sessionFile ?? snapshot?.sessionId;
   const sessionUsd = snapshot?.usage?.cost;
 
   useEffect(() => {
-    tracker.current = nextTurnCost(tracker.current, { sessionKey, running, sessionUsd });
-    setTurnUsd(tracker.current.turnUsd);
+    tracker = nextTurnCost(tracker, { sessionKey, running, sessionUsd });
+    setTurnUsd(tracker.turnUsd);
   }, [sessionKey, running, sessionUsd]);
 
   if (typeof sessionUsd !== "number" || !Number.isFinite(sessionUsd)) return null;
@@ -27,8 +32,12 @@ export function CostChip(props: { locale: Locale }) {
   if (sessionUsd <= 0) return null;
   const rub = (usd: number) => formatRub(usdToRub(usd, rubPerUsd), props.locale);
   const sessionLabel = t(props.locale, "cost.session", { amount: rub(sessionUsd) });
+  // pi adds a reply's cost when the reply ends, so a running turn grows in steps; until its
+  // first reply lands there is nothing to show yet, not «ход 0,00 ₽».
   const turnLabel =
-    turnUsd !== undefined ? t(props.locale, "cost.turn", { amount: rub(turnUsd) }) : undefined;
+    turnUsd !== undefined && !(running && turnUsd <= 0)
+      ? t(props.locale, "cost.turn", { amount: rub(turnUsd) })
+      : undefined;
 
   return (
     <span
