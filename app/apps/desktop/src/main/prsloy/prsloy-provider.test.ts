@@ -75,6 +75,12 @@ describe("PRSLOY provider (mock gateway, real pi runtime)", () => {
 
     await handle.runtime.session.prompt("Прочитай notes.txt");
     await handle.runtime.session.prompt("Ещё раз");
+
+    // Cost from the price table, computed by pi itself: mock usage is 10 in / 5 out tokens.
+    const lastAssistant = [...handle.runtime.session.messages]
+      .reverse()
+      .find((m) => m.role === "assistant") as { usage?: { cost?: { total?: number } } };
+    expect(lastAssistant.usage?.cost?.total).toBeCloseTo((10 * 0.0012 + 5 * 0.0048) / 1e6, 15);
     expect(server.requests.length).toBe(3);
     if (process.env.PRSLOY_WIRE_OUT) {
       const { messages: _m, tools: _t, ...shape } = server.requests[0]!.body;
