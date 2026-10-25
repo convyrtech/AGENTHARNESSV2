@@ -27,8 +27,11 @@ const strictCleanBash = process.env.SMOKE_STRICT_CLEAN_BASH === "1";
 const MARKER = "PRSLOY_SMOKE_42";
 // $((6*7)) proves a real POSIX shell evaluated the command, not just echoed it.
 const BASH_COMMAND = "echo PRSLOY_SMOKE_$((6*7)); echo SHELL=$0; uname -a || ver";
+// Optional: extracted MinGit (Git for Windows) to try as the bundled-bash fix.
+const mingitDir = process.env.SMOKE_MINGIT_DIR ?? "";
 
 interface Launched {
+  bashCommand: string;
   app: ElectronApplication;
   page: Page;
   fakeModel: FakeOpenAiServer;
@@ -51,7 +54,11 @@ function cleanWindowsPath(path: string): string {
     .join(";");
 }
 
-async function launch(label: string, options: { hideGitBash?: boolean } = {}): Promise<Launched> {
+async function launch(
+  label: string,
+  options: { hideGitBash?: boolean; prependPath?: string[]; bashCommand?: string } = {},
+): Promise<Launched> {
+  const bashCommand = options.bashCommand ?? BASH_COMMAND;
   const root = await mkdtemp(join(tmpdir(), `prsloy-smoke-${label}-`));
   const home = join(root, "home");
   const agentDir = join(home, ".pi", "agent");
@@ -67,7 +74,7 @@ async function launch(label: string, options: { hideGitBash?: boolean } = {}): P
 
   const fakeModel = new FakeOpenAiServer({
     toolPath,
-    toolCall: { name: "bash", arguments: { command: BASH_COMMAND } },
+    toolCall: { name: "bash", arguments: { command: bashCommand } },
   });
   await fakeModel.start();
   await writeFile(
@@ -129,7 +136,7 @@ async function launch(label: string, options: { hideGitBash?: boolean } = {}): P
     take("ProgramW6432");
     env.ProgramFiles = empty;
     env["ProgramFiles(x86)"] = empty;
-    env.Path = cleanWindowsPath(take("Path") ?? "");
+    env.Path = [...(options.prependPath ?? []), cleanWindowsPath(take("Path") ?? "")].join(";");
   }
 
   const mainLog = join(outDir, `${label}-main.log`);
@@ -167,7 +174,7 @@ async function launch(label: string, options: { hideGitBash?: boolean } = {}): P
     timeout: 180_000,
   });
   const readyMs = Date.now() - t0;
-  return { app, page, fakeModel, userData, launchMs, readyMs };
+  return { bashCommand, app, page, fakeModel, userData, launchMs, readyMs };
 }
 
 async function close(launched: Launched | undefined): Promise<void> {
@@ -242,7 +249,7 @@ async function runBashTurn(launched: Launched, label: string) {
   const ok = result.includes(MARKER);
   await writeFile(
     join(outDir, `bash-${label}.json`),
-    JSON.stringify({ ok, command: BASH_COMMAND, result }, null, 2),
+    JSON.stringify({ ok, command: launched.bashCommand, result }, null, 2),
   );
   return { ok, result };
 }
@@ -318,6 +325,28 @@ test("clean Windows (Git Bash hidden): bash tool", async () => {
     }
   } finally {
     if (launched) await shot(launched.page, "99-clean-final");
+    await close(launched);
+  }
+});
+
+test("clean Windows + MinGit on PATH: bash tool (fix candidate)", async () => {
+  test.skip(process.platform !== "win32" || !mingitDir, "needs SMOKE_MINGIT_DIR on Windows");
+  let launched: Launched | undefined;
+  try {
+    launched = await launch("mingit", {
+      hideGitBash: true,
+      prependPath: [join(mingitDir, "usr", "bin"), join(mingitDir, "cmd")],
+      bashCommand: `${BASH_COMMAND}; git --version; ls / | head -20`,
+    });
+    await startHost(launched.page);
+    const bash = await runBashTurn(launched, "mingit");
+    if (!bash.ok) {
+      test
+        .info()
+        .annotations.push({ type: "mingit-bash", description: bash.result.slice(0, 2000) });
+    }
+  } finally {
+    if (launched) await shot(launched.page, "99-mingit-final");
     await close(launched);
   }
 });
