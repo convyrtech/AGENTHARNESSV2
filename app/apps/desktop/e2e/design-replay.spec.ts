@@ -19,6 +19,7 @@ import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { startClip } from "../e2e-screens/clip-recorder.ts";
 
 const require = createRequire(import.meta.url);
 const electronBinary = require("electron") as string;
@@ -154,6 +155,18 @@ test("the real run, turn by turn, as the owner sees it", async () => {
         await expect(page.getByTestId("design-ticker")).toHaveCount(0);
         await expect(page.getByText(/^bash /)).toHaveCount(0);
         await shot(page, "replay-turn7-running");
+        if (SHOTS) {
+          // the waiting line on a long step, for docs/prsloy/screens/theme-design-step.mp4
+          const box = (await page.getByTestId("design-progress").boundingBox())!;
+          const stop = await startClip(page, join(SHOTS, "theme-design-step.mp4"), {
+            x: Math.round(box.x),
+            y: Math.round(box.y) - 8,
+            width: Math.round(box.width / 2) * 2,
+            height: Math.round(box.height / 2) * 2 + 16,
+          });
+          await page.waitForTimeout(4_000);
+          await stop();
+        }
         await page.getByTestId("design-progress-details").click();
         await expect(page.getByTestId("design-ticker").locator("li")).toHaveCount(8);
         await shot(page, "replay-turn7-details");

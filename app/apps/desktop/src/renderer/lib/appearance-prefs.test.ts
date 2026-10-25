@@ -63,6 +63,14 @@ describe("appearance-prefs", () => {
     expect(n.codeFontFamily).toBe("Ok Mono");
   });
 
+  it("a saved copy of the old default font follows the new default", () => {
+    const n = normalizeAppearancePrefs({
+      uiFontFamily: '"Geologica", "Segoe UI", system-ui, -apple-system, sans-serif',
+    });
+    expect(n.uiFontFamily).toBe(DEFAULT_UI_FONT_FAMILY);
+    expect(DEFAULT_UI_FONT_FAMILY).toContain('"Geist"');
+  });
+
   it("persists patch and reset", () => {
     expect(loadAppearancePrefs()).toEqual(DEFAULT_APPEARANCE_PREFS);
     patchAppearancePrefs({

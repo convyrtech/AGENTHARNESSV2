@@ -1,0 +1,355 @@
+/*
+ * The drafting sheet and its motion, after the owner's reference (a blueprint motion reel):
+ * graph grid, blueprint hatching for progress and selection, «FIG. 01 — …» captions, the
+ * waiting line (draw → wave → hatch), the launch splash, rolling digits, morphing toggles,
+ * sliders and selected rows, panels that slide in.
+ *
+ * Colors come from the theme tokens in styles.css (--grid-line, --hatch-ink, --accent-glow).
+ * Motion moves only transform, opacity and stroke-dashoffset, runs only while its element is
+ * on screen (no idle loops), and stops entirely under prefers-reduced-motion — which Chromium
+ * also reports when Windows «Show animations» is off.
+ */
+
+:root,
+[data-theme] {
+  --hatch: repeating-linear-gradient(-45deg, var(--hatch-ink) 0 1px, transparent 1px 6px);
+  --hatch-soft: repeating-linear-gradient(
+    -45deg,
+    color-mix(in srgb, var(--hatch-ink) 26%, transparent) 0 1px,
+    transparent 1px 6px
+  );
+  --ease-draft: cubic-bezier(0.6, 0, 0.2, 1);
+  --ease-spring: cubic-bezier(0.3, 1.45, 0.5, 1);
+}
+
+/* ── Sheet ─────────────────────────────────────────────────────────────── */
+
+.shell-content,
+.bootstrap-overlay {
+  background-image:
+    linear-gradient(to right, var(--grid-line) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--grid-line) 1px, transparent 1px);
+  background-size: var(--grid-size) var(--grid-size);
+}
+
+.fig-caption {
+  margin: 0 0 0.5rem;
+  font-family: var(--font-sans);
+  font-size: 10.5px;
+  font-weight: 600;
+  line-height: 1.4;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+}
+
+/* Blueprint accent: the dark sheet's cyan glows a little; the light sheet has no glow. */
+[data-slot="button"][data-variant="default"],
+.bg-primary {
+  box-shadow: var(--accent-glow);
+}
+:focus-visible {
+  outline-color: var(--ring);
+}
+
+/* ── Selected rows and tabs: hatching that grows in from the left ───────── */
+
+.nav-item,
+.settings-rail-item,
+.sidebar-list-row,
+.page-tab {
+  position: relative;
+  isolation: isolate;
+}
+.nav-item::after,
+.settings-rail-item::after,
+.sidebar-list-row::after,
+.page-tab::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background-image: var(--hatch-soft);
+  box-shadow: inset 2px 0 0 var(--primary);
+  opacity: 0;
+  transform: scaleX(0.4);
+  transform-origin: left center;
+  transition:
+    opacity 0.18s ease-out,
+    transform 0.34s var(--ease-draft);
+  pointer-events: none;
+}
+.nav-item[data-active="true"]::after,
+.settings-rail-item[data-active="true"]::after,
+.sidebar-list-row[data-active="true"]::after,
+.page-tab[data-active="true"]::after {
+  opacity: 1;
+  transform: none;
+}
+/* Tabs underline instead: the hatching grows along the tab with a blueprint rule under it. */
+.page-tab::after {
+  box-shadow: inset 0 -2px 0 var(--primary);
+}
+
+/* ── Toggles and sliders morph ─────────────────────────────────────────── */
+
+[data-slot="switch-thumb"] {
+  transform-origin: left center;
+  transition:
+    translate 0.34s var(--ease-spring),
+    scale 0.16s ease-out;
+}
+[data-slot="switch"][data-state="checked"] [data-slot="switch-thumb"] {
+  transform-origin: right center;
+}
+[data-slot="switch"]:active:not(:disabled) [data-slot="switch-thumb"] {
+  scale: 1.3 1;
+}
+[data-slot="switch"][data-state="checked"] {
+  box-shadow: var(--accent-glow);
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  transition: transform 0.16s var(--ease-spring);
+}
+input[type="range"]:active::-webkit-slider-thumb {
+  transform: scale(1.35, 0.8);
+}
+
+/* ── Panels slide in (no fade, no jump) ────────────────────────────────── */
+
+@keyframes panel-slide-in {
+  from {
+    transform: translateX(24px);
+  }
+  to {
+    transform: none;
+  }
+}
+.code-preview-panel,
+.review-panel {
+  animation: panel-slide-in 0.24s var(--ease-draft);
+}
+
+/* ── Rolling digits ────────────────────────────────────────────────────── */
+
+.roll-text {
+  font-variant-numeric: tabular-nums;
+}
+.roll-digit {
+  display: inline-block;
+}
+@keyframes roll-digit-in {
+  from {
+    transform: translateY(0.55em);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+.roll-digit-in {
+  animation: roll-digit-in 0.32s var(--ease-draft);
+}
+
+/* ── The waiting line ──────────────────────────────────────────────────── */
+
+.line-loader {
+  display: block;
+  width: 100%;
+  height: 10px;
+  overflow: visible;
+}
+.line-loader-draw,
+.line-loader-wave {
+  fill: none;
+  stroke: var(--primary);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+.line-loader-hatch {
+  stroke: var(--hatch-ink);
+  stroke-width: 1.2;
+}
+.line-loader-fill {
+  transform-box: fill-box;
+  transform-origin: left center;
+}
+.line-loader[data-mode="value"] .line-loader-fill {
+  transition: transform 0.4s var(--ease-draft);
+}
+.line-loader[data-mode="wait"] .line-loader-draw {
+  stroke-dasharray: 1;
+  animation: line-draw 3.2s var(--ease-draft) infinite;
+}
+.line-loader[data-mode="wait"] .line-loader-wave {
+  opacity: 0;
+  animation:
+    line-wave-show 3.2s linear infinite,
+    line-wave-run 0.9s linear infinite;
+}
+.line-loader[data-mode="wait"] .line-loader-fill {
+  transform: scaleX(0);
+  animation: line-fill 3.2s var(--ease-draft) infinite;
+}
+@keyframes line-draw {
+  0% {
+    stroke-dashoffset: 1;
+    opacity: 1;
+  }
+  25%,
+  30% {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+  36%,
+  100% {
+    stroke-dashoffset: 0;
+    opacity: 0;
+  }
+}
+@keyframes line-wave-show {
+  0%,
+  28% {
+    opacity: 0;
+  }
+  36%,
+  68% {
+    opacity: 1;
+  }
+  76%,
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes line-wave-run {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(24px);
+  }
+}
+@keyframes line-fill {
+  0%,
+  62% {
+    transform: scaleX(0);
+    opacity: 1;
+  }
+  88% {
+    transform: scaleX(1);
+    opacity: 1;
+  }
+  100% {
+    transform: scaleX(1);
+    opacity: 0;
+  }
+}
+
+/* ── Launch splash: a line draws, the wordmark rises out of it (0.7 s; ≤ 1.2 s) ─ */
+
+.brand-splash {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.375rem;
+  margin-bottom: 0.25rem;
+}
+.brand-splash-word {
+  overflow: hidden;
+  padding: 0 0.25rem;
+}
+.brand-splash-word > span {
+  display: block;
+  animation: splash-rise 0.45s var(--ease-draft) 0.25s both;
+}
+.brand-splash-line {
+  width: 11rem;
+  height: 2px;
+  overflow: visible;
+}
+.brand-splash-line path {
+  fill: none;
+  stroke: var(--primary);
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+  stroke-dasharray: 1;
+  animation: splash-draw 0.35s var(--ease-draft) both;
+}
+/* Booted before the splash finished: it plays out, but the app underneath already takes clicks. */
+.bootstrap-overlay[data-ready="true"] {
+  pointer-events: none;
+  -webkit-app-region: no-drag;
+}
+.bootstrap-overlay[data-ready="true"] .bootstrap-loader {
+  visibility: hidden;
+}
+.bootstrap-loader {
+  width: 11rem;
+  animation: splash-after 0s linear 1.2s both;
+}
+@keyframes splash-draw {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes splash-rise {
+  from {
+    transform: translateY(105%);
+  }
+  to {
+    transform: none;
+  }
+}
+@keyframes splash-after {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* ── No motion ─────────────────────────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0s !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    transition-delay: 0s !important;
+    scroll-behavior: auto !important;
+  }
+  /* The waiting line stands still: drawn, hatched, no wave. */
+  .line-loader[data-mode="wait"] .line-loader-draw,
+  .line-loader[data-mode="wait"] .line-loader-fill,
+  .line-loader[data-mode="wait"] .line-loader-wave {
+    animation: none !important;
+  }
+  .line-loader[data-mode="wait"] .line-loader-draw {
+    stroke-dashoffset: 0;
+  }
+  .line-loader[data-mode="wait"] .line-loader-fill {
+    transform: scaleX(1);
+    opacity: 0.6;
+  }
+  .line-loader[data-mode="wait"] .line-loader-wave {
+    opacity: 0;
+  }
+}
+
+/* Small waiting lines beside a status text. */
+.turn-progress-loader,
+.design-progress-loader {
+  flex-shrink: 0;
+  width: 28px;
+}

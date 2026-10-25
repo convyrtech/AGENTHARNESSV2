@@ -1,11 +1,13 @@
 /**
- * One quiet line above the composer while a turn runs longer than 15 s: what the agent is
- * doing now, for how long, and «Остановить». No spinners.
+ * One quiet line above the composer while a turn runs longer than 15 s: the waiting line,
+ * what the agent is doing now, for how long (the digits roll), and «Остановить».
  */
 import { useEffect, useMemo, useState } from "react";
 import { Square } from "lucide-react";
 import { t, type Locale } from "../lib/i18n.ts";
 import { formatDurationMs, type TimelineItem } from "../lib/timeline.ts";
+import { LineLoader } from "./motion/LineLoader.tsx";
+import { RollText } from "./motion/RollText.tsx";
 import { currentTurnAction, PROGRESS_LINE_DELAY_MS, turnStartedAt } from "../lib/turn-progress.ts";
 
 export function TurnProgressLine(props: {
@@ -34,11 +36,12 @@ export function TurnProgressLine(props: {
 
   return (
     <div className="turn-progress" role="status" aria-live="polite" data-testid="turn-progress">
+      <LineLoader className="turn-progress-loader" />
       <span className="turn-progress-action" data-testid="turn-progress-action">
         {t(props.locale, action.key, action.vars)}
       </span>
       {/* Same clock and format as the step header above («1 мин 59 с»), so the two agree. */}
-      <span className="turn-progress-time">{formatDurationMs(elapsed, props.locale)}</span>
+      <RollText className="turn-progress-time" text={formatDurationMs(elapsed, props.locale)} />
       <button
         type="button"
         className="turn-progress-stop"

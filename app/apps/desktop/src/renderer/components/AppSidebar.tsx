@@ -367,7 +367,12 @@ function ProductRail(
           <Search className="h-4 w-4" strokeWidth={1.6} />
         </IconBtn>
         <span className="sr-only">
-          <button type="button" data-testid="theme-toggle" onClick={props.onToggleTheme} />
+          <button
+            type="button"
+            data-testid="theme-toggle"
+            aria-label={tr("appearance.theme")}
+            onClick={props.onToggleTheme}
+          />
         </span>
       </div>
 

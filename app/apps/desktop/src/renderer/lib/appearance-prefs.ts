@@ -18,7 +18,9 @@ const KEY = "zeno.appearance.prefs.v1";
 export const APPEARANCE_PREFS_CHANGED_EVENT = "zeno-appearance-prefs";
 
 /** Matches styles.css @theme --font-sans default. */
-export const DEFAULT_UI_FONT_FAMILY =
+export const DEFAULT_UI_FONT_FAMILY = '"Geist", "Segoe UI", system-ui, -apple-system, sans-serif';
+/** The default before Geist: a saved copy of it means «the default», not a choice. */
+const LEGACY_DEFAULT_UI_FONT_FAMILY =
   '"Geologica", "Segoe UI", system-ui, -apple-system, sans-serif';
 /** Matches styles.css @theme --font-mono default. */
 export const DEFAULT_CODE_FONT_FAMILY =
@@ -62,7 +64,10 @@ export function normalizeAppearancePrefs(
   return {
     uiFontSize: clamp(Number(base.uiFontSize), UI_FONT_SIZE_MIN, UI_FONT_SIZE_MAX),
     codeFontSize: clamp(Number(base.codeFontSize), CODE_FONT_SIZE_MIN, CODE_FONT_SIZE_MAX),
-    uiFontFamily: normalizeFontFamily(base.uiFontFamily, DEFAULT_UI_FONT_FAMILY),
+    uiFontFamily:
+      base.uiFontFamily === LEGACY_DEFAULT_UI_FONT_FAMILY
+        ? DEFAULT_UI_FONT_FAMILY
+        : normalizeFontFamily(base.uiFontFamily, DEFAULT_UI_FONT_FAMILY),
     codeFontFamily: normalizeFontFamily(base.codeFontFamily, DEFAULT_CODE_FONT_FAMILY),
   };
 }
