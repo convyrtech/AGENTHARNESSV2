@@ -155,6 +155,8 @@ class RealPi(unittest.TestCase):
 
 
 STUB_PI = r'''import json, sys
+for _s in (sys.stdout, sys.stderr):  # Windows: a pipe is cp1252, the events are Russian
+    _s.reconfigure(encoding="utf-8", errors="replace")
 from pathlib import Path
 a = sys.argv[1:]
 assert "-e" in a and a[a.index("-e") + 1].endswith("ask_owner.ts"), a
@@ -171,6 +173,8 @@ else:
 '''
 
 STUB_FLOW = r'''import json, sys
+for _s in (sys.stdout, sys.stderr):  # Windows: under -I PYTHONUTF8 does not apply and the pipe is cp1252
+    _s.reconfigure(encoding="utf-8", errors="replace")
 from pathlib import Path
 a = sys.argv[1:]
 page = Path(a[a.index("--page") + 1])
@@ -215,9 +219,9 @@ class Say(unittest.TestCase):
         return [json.loads(x) for x in r.stdout.splitlines() if x.startswith("{")]
 
     def test_card_from_the_tool_and_the_answer_as_before(self):
-        ev = self.events(self.run_py("say", str(self.ws), "Сделай лендинг для обжарщиков"))
-        owner = [e for e in ev if e.get("ev") == "owner"]
-        self.assertEqual(len(owner), 1)
+        r = self.run_py("say", str(self.ws), "Сделай лендинг для обжарщиков")
+        owner = [e for e in self.events(r) if e.get("ev") == "owner"]
+        self.assertEqual(len(owner), 1, r.stdout[-1500:] + r.stderr[-1500:])
         self.assertEqual(owner[0]["options"], self.load()["ask_card"](NORMAL)[1])
         self.assertIn("B. Для обжарщиков (рекомендую)", owner[0]["text"])
         # the app answers with the button's text, as it does now; run.py writes it as before
