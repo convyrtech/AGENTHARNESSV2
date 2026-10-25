@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Йога с Олей</title>
+    <style>
+      body {
+        font-family: sans-serif;
+        max-width: 640px;
+        margin: 0 auto;
+        padding: 16px;
+      }
+      label {
+        display: block;
+        margin: 8px 0;
+      }
+      input,
+      button {
+        font-size: 16px;
+        padding: 8px;
+      }
+      #thanks {
+        display: none;
+        color: #1a7f37;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Йога с Олей</h1>
+    <p>Занятия по вторникам и четвергам в 19:00.</p>
+    <form id="signup">
+      <label>Имя <input id="name" name="name" required /></label>
+      <label>Телефон <input id="tel" name="tel" type="tel" required /></label>
+      <button type="submit">Записаться</button>
+    </form>
+    <p id="thanks">Спасибо! Оля перезвонит в течение дня.</p>
+    <script src="form.js"></script>
+  </body>
+</html>

@@ -1,0 +1,16 @@
+[
+  {
+    "toolCalls": [
+      {
+        "name": "edit",
+        "arguments": {
+          "path": "index.html",
+          "edits": [{ "oldText": "function showPrice() {", "newText": "function showPrices() {" }]
+        }
+      }
+    ]
+  },
+  {
+    "text": "Починил: кнопка вызывала showPrices(), а функция называлась showPrice. Теперь цены открываются."
+  }
+]

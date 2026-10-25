@@ -12,6 +12,7 @@ import {
   groupIssues,
   hasBlocking,
   pageCheckMessage,
+  pageFindings,
   type PageIssue,
   serveStatic,
 } from "../src/page-check.ts";
@@ -158,16 +159,19 @@ describe("page check in a real Chromium", async () => {
           '<!doctype html><meta charset="utf-8"><script type="module" src="./main.js"></script><p>ok</p>',
         "main.js": "document.querySelector('p').textContent = 'да';",
       });
-      expect(await checkPage(module, { playwright: pw!, executablePath })).toEqual({
-        entry: "index.html",
-        issues: [],
-        fileSkipped: true,
-      });
+      expect(await checkPage(module, { playwright: pw!, executablePath, interact: false })).toEqual(
+        {
+          entry: "index.html",
+          issues: [],
+          fileSkipped: true,
+        },
+      );
 
       // Функция правил получает опции (как lintLayout ci); window-min и focus-hidden для страницы не смотрим.
       const custom = await checkPage(project({ "index.html": "<p>Привет</p>" }), {
         playwright: pw!,
         executablePath,
+        interact: false,
         lint: String((o: unknown) => [
           { rule: "small-text", selector: "p", text: "", detail: JSON.stringify(o) },
           { rule: "window-min", selector: "html", text: "", detail: "окно" },
@@ -191,6 +195,67 @@ describe("page check in a real Chromium", async () => {
         entry: "index.html",
         issues: [],
       });
+    },
+    60_000,
+  );
+
+  it.skipIf(!pw)(
+    "clicks, forms, dead anchors, axe and Tab: findings with selectors; hints never push back alone",
+    async () => {
+      const dir = project({
+        "index.html": `<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Студия</title></head>
+<body><nav><a href="#prices">Цены</a> <a href="#contacts">Контакты</a> <a href="./gone.html">Старое</a></nav>
+<h1>Студия</h1><section id="prices"><button id="show" type="button" onclick="showPrices()">Показать цены</button></section>
+<form id="order"><label>Имя <input id="name" name="name"></label><label>Телефон <input id="tel" type="tel"></label><button type="submit">Записаться</button></form>
+<img src="data:image/gif;base64,R0lGODlhAQABAAAAACw=" width="40" height="40">
+<script>document.getElementById("order").addEventListener("submit", (e) => { e.preventDefault(); document.getElementById("phone").value; });</script>
+</body></html>`,
+      });
+      const r = await checkPage(dir, { playwright: pw!, executablePath });
+      const by = (kind: string) => r!.issues.filter((i) => i.kind === kind);
+      // Нажатия — только через сервер на 1440, ошибка привязана к тому, что нажали.
+      expect(by("interaction").map((i) => [i.target, i.width, i.where, i.detail])).toEqual(
+        expect.arrayContaining([
+          [
+            "http",
+            1440,
+            "#order",
+            "после нажатия «Записаться»: Cannot read properties of null (reading 'value')",
+          ],
+          ["http", 1440, "#show", "после нажатия «Показать цены»: showPrices is not defined"],
+        ]),
+      );
+      expect(by("link").map((i) => i.detail)).toEqual([
+        "ссылка «Контакты» ведёт к #contacts, а такого раздела на странице нет",
+        "ссылка «Старое» ведёт на ./gone.html — такой страницы нет (404)",
+      ]);
+      // axe: картинка без alt — critical; селектор axe.
+      expect(by("a11y").map((i) => [i.rule, i.where])).toEqual([["image-alt", "img"]]);
+      expect(hasBlocking(r!)).toBe(true);
+      const message = pageCheckMessage(r!, 1, 2);
+      expect(message).toContain(
+        "(через сервер, 1440 px) после нажатия «Показать цены»: showPrices is not defined — #show",
+      );
+      expect(message).not.toContain("gone.html 404");
+      expect(groupIssues(by("a11y"))).toEqual([
+        "- (через сервер, 1440 px) доступность: Images must have alternative text (image-alt) — img",
+      ]);
+      expect(pageFindings(r!)).toHaveLength(3);
+      expect(pageFindings(r!)[0]).toMatch(/^\(через сервер, 1440 px\) /);
+
+      // Фокус застрял: Tab с кнопки возвращает на неё же; до поля ниже не дойти. Только подсказки.
+      const trap = project({
+        "index.html": `<!doctype html><html lang="ru"><head><meta charset="utf-8"><title>Т</title></head><body><main>
+<button id="a" type="button">Первая</button><button id="b" type="button">Вторая</button><input id="q" aria-label="Поиск">
+<script>for (const id of ["a", "b"]) document.getElementById(id).addEventListener("keydown", (e) => { if (e.key === "Tab") { e.preventDefault(); document.getElementById(id === "a" ? "b" : "a").focus(); } });</script>
+</main></body></html>`,
+      });
+      const t = await checkPage(trap, { playwright: pw!, executablePath });
+      expect(t!.issues.filter((i) => i.kind === "keyboard").map((i) => [i.rule, i.where])).toEqual([
+        ["trap", "#a"],
+        ["unreachable", "#q"],
+      ]);
+      expect(hasBlocking(t!)).toBe(false);
     },
     60_000,
   );

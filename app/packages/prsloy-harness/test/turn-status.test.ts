@@ -44,6 +44,25 @@ describe("turn status facts", () => {
     expect(turnFacts(state({ edited: true }), "", 1)?.facts).toEqual(["no-checks"]);
   });
 
+  it("page check: errors left → page-fail; clean with hints → page-ok + page-hints; findings in details", () => {
+    const found = [
+      "(через сервер, 1440 px) после нажатия «Показать цены»: showPrices is not defined — #show",
+    ];
+    expect(
+      turnFacts(state({ edited: true, hasCheck: true, page: false, pageIssues: found }), "", 1),
+    ).toEqual({ facts: ["page-fail"], files: [], page: found });
+    const hint = [
+      "(через сервер, 1440 px) клавиатура: до «Поиск» не дойти клавишей Tab — #q (подсказка)",
+    ];
+    expect(
+      turnFacts(state({ edited: true, hasCheck: true, page: true, pageIssues: hint }), "", 1),
+    ).toEqual({ facts: ["page-hints", "page-ok"], files: [], page: hint });
+    expect(turnFacts(state({ edited: true, hasCheck: true, page: true }), "", 1)).toEqual({
+      facts: ["page-ok"],
+      files: [],
+    });
+  });
+
   it("old tests changed: by request → tests-updated, without → tests-changed; files listed", () => {
     const patch = patchOf("test.js", ["assert.equal(f(1), 2);"], ["assert.equal(f(1), 3);"]);
     expect(
@@ -108,9 +127,11 @@ describe("turn status facts", () => {
     );
     expect(Object.keys(TURN_FACT_TEXT)).toEqual([
       "checks-fail",
+      "page-fail",
       "stubs-left",
       "tests-changed",
       "tests-weak",
+      "page-hints",
       "checks-pass",
       "page-ok",
       "ran-ok",
