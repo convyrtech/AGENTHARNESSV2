@@ -88,6 +88,17 @@ export async function assertPublicUrl(
   url: string,
   resolve: Resolve = defaultResolve,
 ): Promise<URL> {
+  return (await checkPublicUrl(url, resolve)).url;
+}
+
+/**
+ * То же, что assertPublicUrl, и проверенные IP: соединение идёт ровно на них (pinned.ts), чтобы имя не успело
+ * разрешиться заново в частный адрес (DNS rebinding). Пусто — имя не разрешилось или это IP в адресе.
+ */
+export async function checkPublicUrl(
+  url: string,
+  resolve: Resolve = defaultResolve,
+): Promise<{ url: URL; ips: string[] }> {
   const u = new URL(url);
   if (u.protocol !== "http:" && u.protocol !== "https:")
     throw new PrivateAddressError("только http и https");
@@ -96,7 +107,7 @@ export async function assertPublicUrl(
       "локальный или частный адрес: web_fetch читает только интернет (свой сервер — curl в bash)",
     );
   const host = u.hostname.replace(/^\[|\]$/g, "");
-  if (isIP(host)) return u;
+  if (isIP(host)) return { url: u, ips: [host] };
   let ips: string[] = [];
   try {
     ips = await Promise.race([
@@ -110,5 +121,5 @@ export async function assertPublicUrl(
     throw new PrivateAddressError(
       `${host} указывает на частный адрес: web_fetch читает только интернет`,
     );
-  return u;
+  return { url: u, ips };
 }

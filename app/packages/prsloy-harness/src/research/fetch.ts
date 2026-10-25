@@ -6,7 +6,8 @@
 // Last-Modified; иначе «дата неизвестна».
 
 import { netReason, timeoutSignal } from "./common.ts";
-import { assertPublicUrl, PrivateAddressError, type Resolve } from "./net-guard.ts";
+import { assertPublicUrl, checkPublicUrl, PrivateAddressError, type Resolve } from "./net-guard.ts";
+import { pinnedFetch, proxyFor } from "./pinned.ts";
 
 export interface PageText {
   url: string;
@@ -35,6 +36,8 @@ export interface ReadDeps {
   signal?: AbortSignal;
   /** Разрешение имён для проверки частных адресов (тесты). */
   resolve?: Resolve;
+  /** Запрос на проверенный IP (тесты подменяют); по умолчанию pinned.ts. */
+  pinnedFetch?: typeof pinnedFetch;
 }
 
 export class ReadError extends Error {
@@ -405,18 +408,33 @@ async function direct(url: string, deps: ReadDeps): Promise<PageText> {
   let res: Response | undefined;
   let current = url;
   const signal = timeoutSignal(deps.timeoutMs ?? 20_000, deps.signal);
+  let ips: string[];
+  try {
+    ({ ips } = await checkPublicUrl(current, deps.resolve));
+  } catch (e) {
+    throw new ReadError(
+      e instanceof PrivateAddressError ? e.message : "это не адрес страницы",
+      0,
+      true,
+    );
+  }
+  const headers = {
+    "User-Agent": UA,
+    Accept: "text/html,application/xhtml+xml,text/plain;q=0.9,*/*;q=0.5",
+    "Accept-Language": "ru,en;q=0.8",
+  };
   for (let hop = 0; ; hop++) {
     try {
-      res = await (deps.fetchImpl ?? fetch)(current, {
-        // редиректы — сами: каждый шаг проверяем, не ведёт ли он на частный адрес
-        redirect: "manual",
-        headers: {
-          "User-Agent": UA,
-          Accept: "text/html,application/xhtml+xml,text/plain;q=0.9,*/*;q=0.5",
-          "Accept-Language": "ru,en;q=0.8",
-        },
-        signal,
-      });
+      // соединение — на проверенный IP (если он известен и между нами нет прокси): DNS не успеет подменить адрес
+      const pinTo = !deps.fetchImpl && ips[0] && !proxyFor(new URL(current)) ? ips[0] : undefined;
+      res = pinTo
+        ? await (deps.pinnedFetch ?? pinnedFetch)(current, { headers, signal }, pinTo)
+        : await (deps.fetchImpl ?? fetch)(current, {
+            // редиректы — сами: каждый шаг проверяем, не ведёт ли он на частный адрес
+            redirect: "manual",
+            headers,
+            signal,
+          });
     } catch (e) {
       throw new ReadError(`не открылась: ${netReason(e)}`);
     }
@@ -427,7 +445,7 @@ async function direct(url: string, deps: ReadDeps): Promise<PageText> {
     let next: string;
     try {
       next = new URL(location, current).toString();
-      await assertPublicUrl(next, deps.resolve);
+      ({ ips } = await checkPublicUrl(next, deps.resolve));
     } catch (e) {
       throw new ReadError(
         `редирект на ${e instanceof PrivateAddressError ? "частный адрес" : "неверный адрес"} — не читаем`,

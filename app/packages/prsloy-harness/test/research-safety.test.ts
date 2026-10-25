@@ -1,9 +1,12 @@
 // Ревью #23 перед включением webTools: враждебные страницы, адреса, ключи. Каждый тест падает без своей правки.
 import { mkdtempSync } from "node:fs";
+import { createServer } from "node:http";
+import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { beforeEach, describe, expect, it } from "vite-plus/test";
 import { guardQuery } from "../src/research/query-guard.ts";
+import { pinnedFetch, proxyFor } from "../src/research/pinned.ts";
 import { githubSearch } from "../src/research/github.ts";
 import {
   freeSearch,
@@ -569,5 +572,68 @@ describe("the year guard leaves versions and codes alone (review #23, round 2)",
     ])
       expect(guardQuery(q, TODAY), q).toEqual({ query: q, removed: [] });
     expect(guardQuery("лучшие ноутбуки 2024.", TODAY).removed).toEqual([2024]);
+  });
+});
+
+describe("the connection goes to the IP that passed the check (review #23, round 2)", () => {
+  it("pinnedFetch connects to the given IP and keeps the name in Host", async () => {
+    const seen: string[] = [];
+    const server = createServer((req, res) => {
+      seen.push(String(req.headers.host));
+      res.writeHead(200, { "content-type": "text/plain" });
+      res.end("pinned ok");
+    });
+    await new Promise<void>((r) => server.listen(0, "127.0.0.1", r));
+    const port = (server.address() as AddressInfo).port;
+    try {
+      // the name does not resolve at all: only the pin can reach the server
+      const res = await pinnedFetch(`http://never-resolves.invalid:${port}/x`, {}, "127.0.0.1");
+      expect(res.status).toBe(200);
+      expect(await res.text()).toBe("pinned ok");
+      expect(seen).toEqual([`never-resolves.invalid:${port}`]);
+    } finally {
+      server.close();
+    }
+  });
+
+  it("readPage pins every hop to its own checked IP; a proxy in env means no pin", async () => {
+    const pins: [string, string][] = [];
+    const pinned = (async (url: string, _init: unknown, ip: string) => {
+      pins.push([new URL(url).hostname, ip]);
+      return url.includes("/start")
+        ? new Response(null, { status: 302, headers: { location: "https://b.example/page" } })
+        : new Response(`<article>${"Текст. ".repeat(60)}</article>`, {
+            headers: { "content-type": "text/html" },
+          });
+    }) as typeof pinnedFetch;
+    const resolve: Resolve = async (h) =>
+      h === "a.example" ? ["93.184.215.14"] : ["151.101.1.69"];
+    const saved = { ...process.env };
+    for (const k of ["HTTPS_PROXY", "https_proxy", "HTTP_PROXY", "http_proxy"])
+      delete process.env[k];
+    try {
+      const page = await readPage("https://a.example/start", {
+        resolve,
+        pinnedFetch: pinned,
+        jina: false,
+      });
+      expect(page.finalUrl).toBe("https://b.example/page");
+      expect(pins).toEqual([
+        ["a.example", "93.184.215.14"],
+        ["b.example", "151.101.1.69"],
+      ]);
+    } finally {
+      Object.assign(process.env, saved);
+    }
+    expect(proxyFor(new URL("https://a.example/"), { HTTPS_PROXY: "http://proxy:3128" })).toBe(
+      "http://proxy:3128",
+    );
+    expect(
+      proxyFor(new URL("https://a.example/"), {
+        HTTPS_PROXY: "http://proxy:3128",
+        NO_PROXY: ".example",
+      }),
+    ).toBeUndefined();
+    expect(proxyFor(new URL("https://a.example/"), {})).toBeUndefined();
   });
 });
