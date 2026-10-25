@@ -3,9 +3,7 @@
  * sandboxed side panel. Main serves only the workspace (loopback static server) and
  * http://127.0.0.1:<port>; nothing else may load in the frame.
  */
-export type CodePreviewTarget =
-  | { kind: "file"; path: string }
-  | { kind: "server"; port: number };
+export type CodePreviewTarget = { kind: "file"; path: string } | { kind: "server"; port: number };
 
 export type CodePreviewResult =
   | { ok: true; url: string }
