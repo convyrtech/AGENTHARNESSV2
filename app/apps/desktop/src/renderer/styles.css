@@ -6956,6 +6956,35 @@ textarea.models-scoped-patterns-input[data-slot="textarea"] {
   background: var(--surface-muted);
   object-fit: contain;
 }
+/* «Дизайн» progress line: «Остановить» quiet until hovered, «Подробности» as a small toggle. */
+.design-progress-stop {
+  flex-shrink: 0;
+  height: 26px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  color: var(--muted-foreground);
+  transition:
+    background-color 0.15s,
+    color 0.15s;
+}
+.design-progress-stop:hover:not(:disabled) {
+  background: var(--hover-fill);
+  color: var(--foreground);
+}
+.design-progress-stop:disabled {
+  opacity: 0.5;
+}
+.design-progress-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  color: var(--muted-foreground);
+}
+.design-progress-toggle:hover {
+  color: var(--foreground);
+}
 .design-preview-stage {
   display: flex;
   justify-content: center;

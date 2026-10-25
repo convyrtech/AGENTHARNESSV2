@@ -343,7 +343,10 @@ test("owner leads a landing page from request to preview", async () => {
     await card.getByTestId("design-recommend").click();
     await expect(page.getByTestId("design-user").nth(2)).toHaveText("как рекомендуешь");
     await expect(page.getByTestId("design-progress")).toBeVisible();
-    await expect(page.getByTestId("design-progress-step")).toContainText("1");
+    await expect(page.getByTestId("design-progress-meta")).toContainText("1");
+    // the raw tool calls sit under «Подробности», not in the owner's face
+    await expect(page.getByTestId("design-ticker")).toHaveCount(0);
+    await page.getByTestId("design-progress-details").click();
     await expect(page.getByTestId("design-ticker")).toHaveText(/\w/);
     await expect(page.getByTestId("design-stop")).toBeVisible();
     await shot(page, "progress", 0);

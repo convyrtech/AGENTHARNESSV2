@@ -19,7 +19,14 @@ export type DesignFile = {
 
 export type DesignHarnessEvent =
   | { ev: "stage"; gate: string; title: string; model: string; attempt: number; t?: number }
-  | { ev: "tool"; name: string; brief: string; t?: number }
+  | {
+      ev: "tool";
+      name: string;
+      brief: string;
+      /** run.py's own words for the action («Проверяю страницу на телефоне»), when it has them. */
+      doing?: string;
+      t?: number;
+    }
   | { ev: "note"; text: string; t?: number }
   | { ev: "owner"; text: string; files: DesignFile[]; options: DesignOptionGroup[]; t?: number }
   | { ev: "done"; text: string; t?: number }

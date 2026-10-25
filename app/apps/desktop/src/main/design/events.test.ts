@@ -146,3 +146,29 @@ describe("fileKind", () => {
     expect(fileKind("notes.md")).toBe("other");
   });
 });
+
+describe("run.py word options", () => {
+  it("keeps a word key whole: the button sends it back as the answer", () => {
+    const ev = parseHarnessLine(
+      JSON.stringify({
+        ev: "owner",
+        text: "Берём его или экран с тремя шагами?",
+        files: [],
+        options: [
+          {
+            q: "",
+            options: [
+              { key: "Берём его", label: "Берём его", recommended: true },
+              { key: "экран с тремя шагами", label: "Экран с тремя шагами" },
+            ],
+          },
+        ],
+      }),
+      () => undefined,
+    );
+    expect(ev && ev.ev === "owner" ? ev.options[0]?.options.map((o) => o.key) : []).toEqual([
+      "Берём его",
+      "экран с тремя шагами",
+    ]);
+  });
+});
