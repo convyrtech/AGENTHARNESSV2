@@ -9,6 +9,7 @@ import { resolveOptions, type HarnessOptions } from "./options.ts";
 import { installPostEditVerify } from "./post-edit-verify.ts";
 import { installAskUser } from "./ask-user.ts";
 import { installFindReady } from "./find-ready.ts";
+import { installResearch } from "./research/tools.ts";
 import { installReliability } from "./reliability.ts";
 import { installRequestSecret } from "./request-secret.ts";
 import { installSkills } from "./skills.ts";
@@ -44,6 +45,18 @@ export { harnessStats } from "./stats.ts";
 export { LEARNING_MAX_BYTES, learningDir, projectKey, recordEvent } from "./learning-log.ts";
 export { installReusePrompt } from "./reuse-prompt.ts";
 export { MemoryStore, memoryDirFor, MEMORY_LIMITS } from "./memory-store.ts";
+// Память вне хода (research/24 M-2, M-3, core): вход экстрактора, сигналы, промпт и проверки.
+export { CANDIDATES_FILE, type MemoryEntry, withMemoryLock } from "./memory-store.ts";
+export { extractorInput, INPUT_SOURCE_TYPE, type InputSource } from "./memory-input.ts";
+export { messageSignals, sessionSignals, type MemorySignalKind } from "./memory-signals.ts";
+export {
+  checkCandidates,
+  extractorPrompt,
+  parseExtractorReply,
+  type Candidate,
+  type ExtractorOp,
+} from "./memory-extract.ts";
+export { readFlags } from "./flags.ts";
 export { detectToolLeak, stripToolMarkup } from "./tool-leak.ts";
 export {
   evidenceInDiff,
@@ -111,6 +124,7 @@ export function createPrsloyHarness(options: HarnessOptions = {}): (pi: Extensio
         ...(memory ? { memorySection: memory.section } : {}),
       });
     if (on("findReady")) installFindReady(pi, opts, opts.findReady);
+    if (on("research")) installResearch(pi, opts, options.research);
     // Вопрос кнопками и ключ формой (research/19 §1.1, §1.3): только «Код».
     if (on("askUser")) installAskUser(pi, opts);
     if (on("requestSecret")) installRequestSecret(pi, opts);

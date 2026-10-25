@@ -9,6 +9,7 @@
 //   … --timeout 900            секунд на задачу (по умолчанию 600)
 //   … --prompt pi              базовый промпт Pi вместо своего (research/17 §9); по умолчанию prsloy
 //   … --delta on               дельта промпта под модель (qwen, opus)
+//   … --suite web --web on     кодовые задачи с поиском (issue #23): web_search/web_fetch (флаг "webTools")
 //   … --lessons off            без уроков (флаг "lessons" в prsloy-harness.json агента)
 //   … --review off             без второго мнения (флаг "secondOpinion"): честный A/B цены ревью
 //   … --skills on              с курированными навыками (флаг "skills", S9; по умолчанию выкл.)
@@ -42,6 +43,7 @@ const { values } = parseArgs({
     prompt: { type: "string", default: "prsloy" },
     delta: { type: "string", default: "off" },
     memory: { type: "string", default: "on" },
+    web: { type: "string", default: "off" },
     out: { type: "string", default: "bench-out" },
   },
 });
@@ -55,8 +57,8 @@ async function main(): Promise<number> {
     console.error("--model провайдер/модель, например prsloy/kimi-k3.1-pro");
     return 2;
   }
-  if (!["casual", "honesty", "all"].includes(values.suite)) {
-    console.error("--suite casual|honesty|all");
+  if (!["casual", "honesty", "web", "all"].includes(values.suite)) {
+    console.error("--suite casual|honesty|web|all");
     return 2;
   }
   const key = process.env.PRSLOY_GATEWAY_KEY ?? process.env.PRSLOY_KEY;
@@ -74,18 +76,19 @@ async function main(): Promise<number> {
     prompt: values.prompt === "pi" ? "pi" : "prsloy",
     delta: values.delta === "on",
     memory: values.memory !== "off",
+    webTools: values.web === "on",
     model: values.model,
     ...(values.fake ? { fake: true } : { baseUrl: values["base-url"] ?? PRSLOY_DEFAULT_BASE_URL }),
     ...(key && !values.fake ? { key } : {}),
     ...(values.task?.length ? { tasks: values.task } : {}),
-    suite: values.suite as "casual" | "honesty" | "all",
+    suite: values.suite as "casual" | "honesty" | "web" | "all",
     outDir,
     timeoutSec: Number(values.timeout) || 600,
     allowOutside: values["allow-outside"] === true,
     log: (line) => console.log(line),
   });
   const stamp = report.meta.date.replace(/[:.]/g, "-");
-  const mode = `${values.harness}-${values.prompt}${values.delta === "on" ? "-delta" : ""}${values.lessons === "off" ? "-nolessons" : ""}${values.review === "off" ? "-noreview" : ""}${values.skills === "on" ? "-skills" : ""}${values.memory === "off" ? "-nomemory" : ""}`;
+  const mode = `${values.harness}-${values.prompt}${values.delta === "on" ? "-delta" : ""}${values.lessons === "off" ? "-nolessons" : ""}${values.review === "off" ? "-noreview" : ""}${values.skills === "on" ? "-skills" : ""}${values.memory === "off" ? "-nomemory" : ""}${values.web === "on" ? "-web" : ""}`;
   const base = join(outDir, `bench-${values.model.replace(/\//g, "_")}-${mode}-${stamp}`);
   const md = reportMarkdown(report);
   writeFileSync(`${base}.md`, md);

@@ -16,6 +16,7 @@ import {
   type PrsloyHomePaths,
 } from "./agent-home.ts";
 import { PrsloyKeyStore, type SecretCipher } from "./key-store.ts";
+import { SearchSettings } from "./search-settings.ts";
 import { restrictToCurrentUser } from "./file-acl.ts";
 import { GitRuntime, isInstallerGit, type GitSetupState } from "./runtime-git.ts";
 import { TurnSnapshots } from "./turn-snapshots.ts";
@@ -95,6 +96,8 @@ export type PrsloyContext = {
   /** One first-launch progress value for «Готовлю приложение… N%». */
   setupProgress(): { status: "absent" | "installing" | "ready" | "failed"; percent?: number };
   keyStore: PrsloyKeyStore;
+  /** Settings → «Поиск в интернете»: provider, keys (safeStorage), handoff to the host. */
+  search: SearchSettings;
   snapshots: TurnSnapshots;
   getState(): PrsloyState;
   /** Persist + rewrite models.json. Returns the normalized URL. */
@@ -235,6 +238,7 @@ export function bootstrapPrsloy(options: {
 
   const harnessEnabled = env.PRSLOY_HARNESS !== "0";
   const keyStore = new PrsloyKeyStore(join(paths.stateDir, "gateway-key.bin"), options.cipher);
+  const search = new SearchSettings(paths.stateDir, options.cipher);
   const snapshots = new TurnSnapshots({ root: paths.snapshotsDir, gitBinary, platform });
   const git = new GitRuntime({
     runtimesRoot,
@@ -270,6 +274,7 @@ export function bootstrapPrsloy(options: {
         options.gitArchive?.files,
       ),
     keyStore,
+    search,
     snapshots,
     getState: () => ({ ...state }),
     setBaseUrl(raw) {
@@ -298,6 +303,7 @@ export function bootstrapPrsloy(options: {
         sessionDir,
         shimsDir: paths.shimsDir,
         gatewayKey: keyStore.read(),
+        searchHandoff: search.handoff(state.baseUrl),
         platform,
       });
       // No venv yet (or never set up): no variable, the harness skips the page check.

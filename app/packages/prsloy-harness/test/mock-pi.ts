@@ -66,8 +66,13 @@ export class MockPi {
       },
       registerTool: (tool: ToolDefinition<any, any, any>) => {
         tools.set(tool.name, tool);
+        if (tool.defaultActive === true && !this.activeTools.includes(tool.name))
+          this.activeTools = [...this.activeTools, tool.name];
       },
       getActiveTools: () => this.activeTools,
+      setActiveTools: (names: string[]) => {
+        this.activeTools = [...names];
+      },
       appendEntry: () => {},
       sendMessage: async (message: MockPi["sent"][number]) => {
         this.sent.push(message);

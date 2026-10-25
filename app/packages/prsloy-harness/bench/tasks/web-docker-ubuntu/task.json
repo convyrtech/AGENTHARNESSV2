@@ -1,0 +1,5 @@
+{
+  "title": "Dockerfile на последнюю LTS Ubuntu",
+  "suite": "web",
+  "prompt": "Переведи Dockerfile на последнюю LTS-версию Ubuntu (тег вида ubuntu:NN.04). Остальное не меняй."
+}

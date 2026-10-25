@@ -81,6 +81,15 @@
   [abi/screenshot-to-code](https://github.com/abi/screenshot-to-code) (MIT): несколько вариантов одним вызовом на разных
   моделях параллельно, блок дизайн-системы в задании с правилом «при конфликте побеждает дизайн-система»
   (`backend/prompts/design_system.py`, `backend/routes/generate_code.py`). Ни кода, ни текста промптов не брали.
+- `packages/prsloy-harness/src/research/ledger.ts` — журнал источников «Исследовать»: номер [n] выдаёт код, одна
+  страница — один номер. По идее `sources.py` из [NousResearch/hermes-agent](https://github.com/NousResearch/hermes-agent)
+  (MIT, Nous Research). Код не копировался.
+- `packages/prsloy-harness/src/research/free.ts` — бесплатный поиск без ключа: запасной путь через
+  html.duckduckgo.com по идее пакета [deedy5/ddgs](https://github.com/deedy5/ddgs) (MIT, Copyright (c) deedy5): форма
+  `q`/`kl`/`df`, адрес результата из `uddg`. Код не копировался.
+- `packages/prsloy-harness/src/research/source-tier.ts` — уровень источника (код, релизы, доки, статьи, форумы,
+  маркетинг) по идее отбора источников в [stanford-oval/storm](https://github.com/stanford-oval/storm) (MIT). Код не
+  копировался.
 - `../playbooks/site/harness/brand_probe.py` — бренд по адресу сайта: по мотивам
   [dembrandt](https://github.com/dembrandt/dembrandt) (MIT, v0.39.2, вычисленные стили живой страницы) и методики
   `skills/brand-extract/SKILL.md` OpenDesign (Apache-2.0: «каждое значение — замер»). Код не копировался.

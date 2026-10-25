@@ -15,6 +15,7 @@ import {
   readdirSync,
   readFileSync,
   renameSync,
+  rmSync,
   statSync,
   unlinkSync,
   writeFileSync,
@@ -261,6 +262,9 @@ export interface AddInput {
 export interface MemoryHistoryView extends MemoryHistoryItem {
   scope: MemoryScope;
 }
+
+/** Кандидаты экстрактора в тени (M-3): слова пользователя, поэтому тот же срок, что у текстов журнала. */
+export const CANDIDATES_FILE = "candidates.jsonl";
 
 /** «Было» с «Вернуть» живёт 90 дней (§3.5). */
 export const HISTORY_DAYS = 90;
@@ -724,7 +728,47 @@ export class MemoryStore {
       if (scope === "project") delete file.digest;
       this.#write(scope, cwd, file);
     }
+    rmSync(join(this.dir, CANDIDATES_FILE), { force: true });
     this.#compactJournal({ all: true });
+  }
+
+  /**
+   * Кандидаты экстрактора (M-3, в тени): дописать строки; строки старше JOURNAL_TEXT_DAYS при этом уходят.
+   * В раздел промпта и в записи памяти отсюда ничего не попадает.
+   */
+  recordCandidates(lines: readonly Record<string, unknown>[], now = new Date()): void {
+    withMemoryLock(this.dir, () => {
+      const path = join(this.dir, CANDIDATES_FILE);
+      const cutoff = now.getTime() - JOURNAL_TEXT_DAYS * 86_400_000;
+      let kept: string[] = [];
+      try {
+        kept = readFileSync(path, "utf8")
+          .split("\n")
+          .filter((l) => {
+            if (!l.trim()) return false;
+            try {
+              const ts = (JSON.parse(l) as { ts?: string }).ts;
+              return typeof ts === "string" && Date.parse(ts) >= cutoff;
+            } catch {
+              return false;
+            }
+          });
+      } catch {
+        // нет файла
+      }
+      const added = lines.map((l) => JSON.stringify({ ts: now.toISOString(), ...l }));
+      writeAtomic(path, null, `${[...kept, ...added].join("\n")}\n`);
+    });
+  }
+
+  /** Пользователь просил это забыть: тот же признак, что у `add` (хэши основ, полярность). Только чтение. */
+  isForgotten(scope: MemoryScope, cwd: string, text: string): boolean {
+    const hash = textHash(text);
+    return this.#read(scope, cwd).tombstones.some((t) =>
+      t.stems && t.negations
+        ? matchesForgotten(text, { stems: t.stems, negations: t.negations })
+        : t.textHash === hash,
+    );
   }
 
   /** «Было» обеих областей для этой папки, новые первыми. */
@@ -841,6 +885,7 @@ export class MemoryStore {
           origin: "user",
         });
       }
+      rmSync(join(this.dir, CANDIDATES_FILE), { force: true });
       this.#compactJournal({ all: true });
     });
   }

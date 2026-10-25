@@ -1,0 +1,5 @@
+{
+  "title": "engines на актуальную LTS Node",
+  "suite": "web",
+  "prompt": "В package.json укажи в engines.node актуальную LTS-версию Node.js в виде \">=NN\" (NN — номер мажорной версии). Только файл."
+}

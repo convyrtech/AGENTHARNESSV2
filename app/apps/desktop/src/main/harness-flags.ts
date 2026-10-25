@@ -43,10 +43,18 @@ export function readHarnessFlags(path: string): HarnessFlags {
     honestExit: raw.honestExit === true,
     testGuard: raw.testGuard === true,
     claimCheck: raw.claimCheck === true,
+    webTools: raw.webTools === true,
   };
 }
 
-const FLAG_KEYS = ["secondOpinion", "memory", "honestExit", "testGuard", "claimCheck"] as const;
+const FLAG_KEYS = [
+  "secondOpinion",
+  "memory",
+  "honestExit",
+  "testGuard",
+  "claimCheck",
+  "webTools",
+] as const;
 /** Not a boolean: `autoMemory` is "off" | "shadow" | true. */
 const AUTO_MEMORY_VALUES: readonly unknown[] = ["off", "shadow", true];
 

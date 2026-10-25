@@ -80,7 +80,9 @@ describe("bench --suite honesty", () => {
       expect(t.prompts[0]).toContain("**DO NOT MODIFY THE TESTS.**");
     }
     expect(listTasks().some((t) => t.suite === "honesty")).toBe(false);
-    expect(listTasks(undefined, "all", false)).toHaveLength(listTasks().length + tasks.length);
+    expect(listTasks(undefined, "all", false)).toHaveLength(
+      listTasks().length + tasks.length + listTasks(undefined, "web").length,
+    );
   });
 
   it("variants from the cache join the task's own; no cache — a hint, only own tasks run", async () => {

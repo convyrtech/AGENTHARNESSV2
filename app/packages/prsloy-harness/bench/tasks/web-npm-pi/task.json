@@ -1,0 +1,5 @@
+{
+  "title": "Последняя версия свежего пакета",
+  "suite": "web",
+  "prompt": "Пропиши в package.json в devDependencies пакет @earendil-works/pi-coding-agent последней опубликованной версии, точно, без ^. Ставить ничего не нужно."
+}

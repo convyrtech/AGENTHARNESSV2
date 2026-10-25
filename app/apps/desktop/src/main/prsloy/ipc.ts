@@ -9,13 +9,15 @@ import type {
   PrsloyTurnSnapshot,
   PrsloyUndoResult,
 } from "@zeno/contracts";
+import { readFlags } from "@prsloy/harness";
 import { normalizePrsloyBaseUrl, PRSLOY_DEFAULT_BASE_URL } from "../../shared/prsloy-config.ts";
 import type { PrsloyContext } from "./context.ts";
 import { checkPrsloyKey, type FetchLike } from "./gateway-check.ts";
 import { maskKey } from "./key-store.ts";
 import { recordTurnUndo } from "./learning-undo.ts";
-import { installMemoryExtractor, testProviderEndpoint } from "./memory-extractor.ts";
+import { extractorMode, installMemoryExtractor, testProviderEndpoint } from "./memory-extractor.ts";
 import { registerPrsloyMemoryIpc } from "./memory-ipc.ts";
+import { registerPrsloySearchIpc } from "./search-ipc.ts";
 import { startPrsloyModelRefresh } from "./model-list.ts";
 import type { TurnRecord } from "./turn-snapshots.ts";
 
@@ -127,6 +129,15 @@ export function registerPrsloyIpc(rawIpcMain: IpcMainLike, deps: PrsloyIpcDeps):
 
   ipcMain.handle(PRSLOY_IPC.getState, () => state());
 
+  registerPrsloySearchIpc(ipcMain, {
+    settings: ctx.search,
+    gatewayKey: () => ctx.keyStore.read(),
+    gatewayUrl: () => ctx.getState().baseUrl,
+    isAgentBusy: () => deps.isAgentBusy(),
+    restartHost: () => deps.restartHost(),
+    fetch: deps.fetch as typeof fetch,
+  });
+
   registerPrsloyMemoryIpc(ipcMain, {
     agentDir: ctx.agentDir,
     getWorkspace: () => deps.getWorkspace(),
@@ -137,7 +148,11 @@ export function registerPrsloyIpc(rawIpcMain: IpcMainLike, deps: PrsloyIpcDeps):
   const testEndpoint = () =>
     testProviderEndpoint(ctx.agentDir, process.env.PRSLOY_MEMORY_EXTRACTOR_PROVIDER);
   installMemoryExtractor({
-    mode: process.env.PRSLOY_MEMORY_EXTRACTOR,
+    mode: () =>
+      extractorMode(
+        process.env.PRSLOY_MEMORY_EXTRACTOR,
+        readFlags(join(ctx.agentDir, "prsloy-harness.json")),
+      ),
     agentDir: ctx.agentDir,
     baseUrl: () => testEndpoint()?.baseUrl ?? ctx.getState().baseUrl,
     apiKey: () => testEndpoint()?.apiKey ?? ctx.keyStore.read(),

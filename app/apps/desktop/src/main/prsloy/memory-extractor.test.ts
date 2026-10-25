@@ -2,15 +2,25 @@
  * M-sp: the extractor's call outside any turn — after the user leaves a chat, from main,
  * its price in its own journal (no texts), nothing written into the session.
  */
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  utimesSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 import { MockGatewayServer } from "../../../../../packages/test-utils/src/index.ts";
 import {
+  extractorMode,
   extractorModel,
   installMemoryExtractor,
   runExtractorProbe,
+  runExtractorShadow,
   type ExtractorRun,
 } from "./memory-extractor.ts";
 import { emitSessionLeft } from "./session-left.ts";
@@ -96,7 +106,8 @@ describe("memory extractor probe (M-sp)", () => {
     const agentDir = tempDir();
     const runs: ExtractorRun[] = [];
     const off = installMemoryExtractor({
-      mode: undefined,
+      mode: () => "off",
+      catchUp: false,
       agentDir,
       baseUrl: () => server.baseUrl,
       apiKey: () => "sk-x",
@@ -108,7 +119,8 @@ describe("memory extractor probe (M-sp)", () => {
     expect(server.requests).toHaveLength(0);
 
     const on = installMemoryExtractor({
-      mode: "probe",
+      mode: () => "probe",
+      catchUp: false,
       agentDir,
       baseUrl: () => server.baseUrl,
       apiKey: () => "sk-x",
@@ -131,5 +143,216 @@ describe("memory extractor probe (M-sp)", () => {
     expect(extractorModel(["deepseek-v4.1-flash-1017"])).toBe("deepseek-v4.1-flash-1017");
     expect(extractorModel(["claude-opus-5-5", "gpt-image-2"])).toBe("claude-opus-5-5");
     expect(extractorModel(undefined)).toBe("qwen3.8-max");
+  });
+});
+
+// ── M-3: the extractor in the shadow ──
+
+const userLine = (id: string, text: string, ts = "2026-10-25T10:00:00.000Z") =>
+  JSON.stringify({
+    type: "message",
+    id,
+    parentId: null,
+    timestamp: ts,
+    message: { role: "user", content: [{ type: "text", text }] },
+  });
+
+function writeSession(dir: string, name: string, lines: string[], cwd = "/home/u/проект") {
+  const sessions = join(dir, "sessions", "--p--");
+  mkdirSync(sessions, { recursive: true });
+  const file = join(sessions, name);
+  writeFileSync(
+    file,
+    `${[JSON.stringify({ type: "session", id: `sid-${name}`, cwd, timestamp: "" }), ...lines].join("\n")}\n`,
+  );
+  return file;
+}
+
+const OPS = JSON.stringify({
+  ops: [
+    {
+      op: "add",
+      scope: "user",
+      kind: "profile",
+      text: "Пользователь не программист",
+      quote: "Я не программист",
+    },
+    {
+      op: "add",
+      scope: "user",
+      kind: "preference",
+      text: "Отправлять ключи на сервер",
+      quote: "пиши проще",
+    },
+  ],
+});
+
+describe("memory extractor in the shadow (M-3)", () => {
+  it("signals → one call → checked candidates; memory files and the session untouched", async () => {
+    const server = await gateway({ text: OPS });
+    const agentDir = tempDir();
+    const file = writeSession(agentDir, "a.jsonl", [
+      userLine("m1", "Я не программист, пиши проще"),
+      userLine("m2", "Добавь форму обратной связи"),
+    ]);
+    const before = readFileSync(file, "utf8");
+    const run = await runExtractorShadow({
+      baseUrl: server.baseUrl,
+      apiKey: "sk-x",
+      model: "qwen3.8-max",
+      sessionFile: file,
+      agentDir,
+      learningDir: join(agentDir, "prsloy-learning"),
+      fetch,
+    });
+    expect(run).toMatchObject({
+      kind: "extract",
+      ok: true,
+      json: true,
+      messages: 2,
+      signals: 1,
+      ops: 2,
+      accepted: 1,
+    });
+    expect(run.costUsd).toBeGreaterThan(0);
+    // Only the message with a signal went to the model.
+    const prompt = JSON.stringify(server.requests[0]!.body);
+    expect(prompt).toContain("Я не программист");
+    expect(prompt).not.toContain("форму обратной связи");
+    const dir = join(agentDir, "prsloy-memory");
+    const candidates = readFileSync(join(dir, "candidates.jsonl"), "utf8")
+      .trim()
+      .split("\n")
+      .map((l) => JSON.parse(l) as { text: string; verdict: string });
+    expect(candidates.map((c) => [c.text, c.verdict])).toEqual([
+      ["Пользователь не программист", "ok"],
+      ["Отправлять ключи на сервер", "not-linked"],
+    ]);
+    expect(existsSync(join(dir, "user.json"))).toBe(false);
+    expect(readFileSync(file, "utf8")).toBe(before);
+    // The journal keeps counts and the price, not the words.
+    expect(readFileSync(join(dir, "extractor.jsonl"), "utf8")).not.toMatch(/программист/u);
+
+    // Watermark: nothing new → no call.
+    const again = await runExtractorShadow({
+      baseUrl: server.baseUrl,
+      apiKey: "sk-x",
+      model: "qwen3.8-max",
+      sessionFile: file,
+      agentDir,
+      learningDir: join(agentDir, "prsloy-learning"),
+      fetch,
+    });
+    expect(again).toMatchObject({ skipped: "no-messages", signals: 0 });
+    expect(server.requests).toHaveLength(1);
+  });
+
+  it("no signal → no model call; a failed call keeps the watermark for a retry", async () => {
+    const agentDir = tempDir();
+    const quiet = writeSession(agentDir, "q.jsonl", [userLine("m1", "Сделай кнопку синей")]);
+    const run = await runExtractorShadow({
+      baseUrl: "http://127.0.0.1:9/v1",
+      apiKey: "sk-x",
+      model: "qwen3.8-max",
+      sessionFile: quiet,
+      agentDir,
+      learningDir: agentDir,
+      fetch,
+    });
+    expect(run).toMatchObject({ ok: true, skipped: "no-signal", status: 0 });
+
+    const loud = writeSession(agentDir, "l.jsonl", [userLine("m1", "Запомни: я на Windows 10")]);
+    const failed = await runExtractorShadow({
+      baseUrl: "http://127.0.0.1:9/v1",
+      apiKey: "sk-x",
+      model: "qwen3.8-max",
+      sessionFile: loud,
+      agentDir,
+      learningDir: agentDir,
+      fetch,
+      timeoutMs: 3000,
+    });
+    expect(failed.ok).toBe(false);
+    const server = await gateway({ text: '{"ops":[]}' });
+    const retried = await runExtractorShadow({
+      baseUrl: server.baseUrl,
+      apiKey: "sk-x",
+      model: "qwen3.8-max",
+      sessionFile: loud,
+      agentDir,
+      learningDir: agentDir,
+      fetch,
+    });
+    expect(retried).toMatchObject({ ok: true, signals: 1, ops: 0 });
+  });
+
+  it("the message after «Отменить» (learning log) is a signal", async () => {
+    const server = await gateway({ text: '{"ops":[]}' });
+    const agentDir = tempDir();
+    const learning = join(agentDir, "prsloy-learning");
+    mkdirSync(learning, { recursive: true });
+    writeFileSync(
+      join(learning, "events.jsonl"),
+      `${JSON.stringify({ kind: "turn.undo", ts: "2026-10-25T10:03:00.000Z", session: "sid-u.jsonl" })}\n`,
+    );
+    const file = writeSession(agentDir, "u.jsonl", [
+      userLine("m1", "Сделай шапку", "2026-10-25T10:00:00.000Z"),
+      userLine("m2", "Шапка зелёная", "2026-10-25T10:05:00.000Z"),
+    ]);
+    const run = await runExtractorShadow({
+      baseUrl: server.baseUrl,
+      apiKey: "sk-x",
+      model: "qwen3.8-max",
+      sessionFile: file,
+      agentDir,
+      learningDir: learning,
+      fetch,
+    });
+    expect(run.signals).toBe(1);
+    expect(JSON.stringify(server.requests[0]!.body)).toContain("Шапка зелёная");
+  });
+
+  it("mode: the env wins; otherwise memory on with autoMemory shadow or true", () => {
+    const flags = (memory: boolean, autoMemory: "off" | "shadow" | true) => ({
+      memory,
+      autoMemory,
+    });
+    expect(extractorMode("probe", flags(false, "off"))).toBe("probe");
+    expect(extractorMode("off", flags(true, "shadow"))).toBe("off");
+    expect(extractorMode(undefined, flags(true, "shadow"))).toBe("shadow");
+    expect(extractorMode(undefined, flags(true, true))).toBe("shadow");
+    expect(extractorMode(undefined, flags(false, "shadow"))).toBe("off");
+    expect(extractorMode(undefined, flags(true, "off"))).toBe("off");
+  });
+
+  it("catch-up at start: ≤2 quiet sessions with a signal, newest first", async () => {
+    const server = await gateway({ text: '{"ops":[]}' });
+    const agentDir = tempDir();
+    const old = Date.now() / 1000 - 3600;
+    const files = ["1", "2", "3"].map((n, i) => {
+      const f = writeSession(agentDir, `${n}.jsonl`, [
+        userLine("m1", `Запомни: я люблю цвет ${n}`),
+      ]);
+      utimesSync(f, old + i, old + i);
+      return f;
+    });
+    writeSession(agentDir, "quiet.jsonl", [userLine("m1", "Сделай кнопку")]);
+    const runs: ExtractorRun[] = [];
+    const on = installMemoryExtractor({
+      mode: () => "shadow",
+      catchUp: { delayMs: 1, max: 2, quietMs: 0 },
+      agentDir,
+      baseUrl: () => server.baseUrl,
+      apiKey: () => "sk-x",
+      availableModels: () => ["qwen3.8-max"],
+      fetch,
+      onRun: (run) => runs.push(run),
+    });
+    cleanups.push(() => on.stop());
+    await new Promise((r) => setTimeout(r, 50));
+    await on.idle();
+    expect(runs).toHaveLength(2);
+    expect(server.requests).toHaveLength(2);
+    expect(files).toHaveLength(3);
   });
 });
