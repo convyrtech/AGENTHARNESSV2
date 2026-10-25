@@ -97,7 +97,8 @@
   файл на один id, названия из `session_index.jsonl`. Изменено PRSLOY: чтение потоком (и `.jsonl.zst`), только текст
   с однострочными заметками об инструментах, выводы инструментов и размышления не переносятся, секреты скрываются,
   папки субагентов пропускаются, запись в обычный файл сессии Pi со сводкой и сменой модели.
-- `packages/session-import/src/title.ts`, `clean.ts`, `ledger.ts`, правила в `adapters/claude-code.ts` — по правилам
+- `packages/session-import/src/title.ts`, `clean.ts`, `ledger.ts`, `adapters/cursor-agent.ts` (расшифровка папки проекта
+  Cursor, не больше 128 проверок, `<user_query>`), правила в `adapters/claude-code.ts` — по правилам
   импорта [openai/codex](https://github.com/openai/codex) (`codex-rs/external-agent-migration/src/sessions/`, коммит
   `970111f`). Apache License 2.0; текст лицензии — `licenses/codex-Apache-2.0.txt`. Из `NOTICE` Codex: «OpenAI Codex.
   Copyright 2025 OpenAI.» Взяты: порядок названий (своё → от агента → первая строка, 120 знаков), список служебных

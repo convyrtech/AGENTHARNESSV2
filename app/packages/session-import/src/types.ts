@@ -4,7 +4,14 @@
  * thinking and pictures stay behind and are only counted.
  */
 
-export const IMPORT_TOOLS = ["claude-code", "codex", "pi-cli", "opencode", "gemini"] as const;
+export const IMPORT_TOOLS = [
+  "claude-code",
+  "codex",
+  "pi-cli",
+  "opencode",
+  "gemini",
+  "cursor-agent",
+] as const;
 export type ImportTool = (typeof IMPORT_TOOLS)[number];
 
 export const IMPORT_TOOL_LABELS: Record<ImportTool, string> = {
@@ -13,6 +20,7 @@ export const IMPORT_TOOL_LABELS: Record<ImportTool, string> = {
   "pi-cli": "Pi",
   opencode: "OpenCode",
   gemini: "Gemini CLI",
+  "cursor-agent": "Cursor",
 };
 
 export type ImportedTurn = {

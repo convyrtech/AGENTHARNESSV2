@@ -7,6 +7,7 @@
  */
 import { readClaudeCodeChat } from "./adapters/claude-code.ts";
 import { codexTitles, readCodexChat } from "./adapters/codex.ts";
+import { readCursorChat } from "./adapters/cursor-agent.ts";
 import { readGeminiChat } from "./adapters/gemini.ts";
 import { readOpenCodeChat, releaseOpenCodeSnapshots } from "./adapters/opencode.ts";
 import { readPiCliSession } from "./adapters/pi-cli.ts";
@@ -86,12 +87,28 @@ async function prepare(
     return { file, cwd, title: copy.title, secrets: copy.secrets };
   }
   let chat: ImportedChat | undefined;
-  if (candidate.tool === "claude-code") chat = await readClaudeCodeChat(candidate.sourcePath);
-  else if (candidate.tool === "opencode")
-    chat = readOpenCodeChat(candidate.sourcePath, candidate.sourceId);
-  else if (candidate.tool === "gemini")
-    chat = await readGeminiChat(candidate.sourcePath, candidate.cwd);
-  else chat = await readCodexChat(candidate.sourcePath, await titles());
+  // exhaustive: a new tool without a reader does not type-check
+  switch (candidate.tool) {
+    case "claude-code":
+      chat = await readClaudeCodeChat(candidate.sourcePath);
+      break;
+    case "codex":
+      chat = await readCodexChat(candidate.sourcePath, await titles());
+      break;
+    case "opencode":
+      chat = readOpenCodeChat(candidate.sourcePath, candidate.sourceId);
+      break;
+    case "gemini":
+      chat = await readGeminiChat(candidate.sourcePath, candidate.cwd);
+      break;
+    case "cursor-agent":
+      chat = await readCursorChat(candidate.sourcePath, candidate.cwd);
+      break;
+    default: {
+      const unknown: never = candidate.tool;
+      throw new Error(`no reader for ${String(unknown)}`);
+    }
+  }
   if (!chat || chat.turns.length === 0) return "empty";
   const cwd = resolveProject(chat.cwd, { home: options.home });
   if (!cwd) return "no-project";

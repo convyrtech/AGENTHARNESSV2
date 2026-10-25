@@ -14,6 +14,7 @@ const found: ImportScanResult = {
     "pi-cli": zero,
     opencode: zero,
     gemini: zero,
+    "cursor-agent": zero,
   },
   chats: [
     {

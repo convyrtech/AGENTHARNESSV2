@@ -20,6 +20,7 @@ describe("scanSources", () => {
       "pi-cli": { chats: 1, projects: 1, recent: 1 },
       opencode: { chats: 0, projects: 0, recent: 0 },
       gemini: { chats: 0, projects: 0, recent: 0 },
+      "cursor-agent": { chats: 0, projects: 0, recent: 0 },
     });
     expect(result.skipped).toEqual([]);
     expect(result.selected).toHaveLength(5);
@@ -69,6 +70,7 @@ describe("scanSources", () => {
         piSessions: "/нет/3",
         opencodeData: "/нет/4",
         geminiDir: "/нет/5",
+        cursorDir: "/нет/6",
       },
       ledger: emptyLedger(),
     });

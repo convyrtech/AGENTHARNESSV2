@@ -28,6 +28,7 @@ describe("paths", () => {
       piSessions: join("/h", ".pi", "agent", "sessions"),
       opencodeData: join("/h", ".local", "share", "opencode"),
       geminiDir: join("/h", ".gemini"),
+      cursorDir: join("/h", ".cursor"),
     });
     expect(sourceRoots({ HOME: "/h", GEMINI_CLI_HOME: "/g" }, "linux").geminiDir).toBe(
       join("/g", ".gemini"),

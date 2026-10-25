@@ -28,6 +28,8 @@ export type SourceRoots = {
   opencodeDb?: string;
   /** Gemini CLI's folder: `<GEMINI_CLI_HOME or home>/.gemini` (chats under `tmp/<project>/chats`). */
   geminiDir: string;
+  /** Cursor's folder: `~/.cursor` (Agent / CLI transcripts under `projects/<encoded>/agent-transcripts`). */
+  cursorDir: string;
 };
 
 export function sourceRoots(
@@ -45,5 +47,6 @@ export function sourceRoots(
     opencodeData: join(env.XDG_DATA_HOME || join(home, ".local", "share"), "opencode"),
     ...(env.OPENCODE_DB ? { opencodeDb: env.OPENCODE_DB } : {}),
     geminiDir: join(env.GEMINI_CLI_HOME || home, ".gemini"),
+    cursorDir: join(home, ".cursor"),
   };
 }
