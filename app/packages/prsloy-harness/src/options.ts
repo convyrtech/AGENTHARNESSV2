@@ -1,4 +1,5 @@
 import { tmpdir } from "node:os";
+import type { FindReadyOptions } from "./find-ready.ts";
 import type { ReliabilityOptions } from "./reliability-proxy.ts";
 import { join } from "node:path";
 
@@ -38,6 +39,8 @@ export interface HarnessOptions {
   reliabilityProviders?: string[];
   /** Настройки прокси: ttft, idle, попытки. TTFT по умолчанию 60 с (env PRSLOY_PROXY_TTFT_SEC). */
   reliability?: ReliabilityOptions;
+  /** Тул find_ready: таймаут, кэш, свой fetch (тесты). */
+  findReady?: FindReadyOptions;
   /** Выключить отдельные практики. */
   disable?: Partial<Record<PracticeName, boolean>>;
 }
@@ -51,7 +54,8 @@ export type PracticeName =
   | "editRobustness"
   | "secretScrub"
   | "reusePrompt"
-  | "reliabilityProxy";
+  | "reliabilityProxy"
+  | "findReady";
 
 export interface ResolvedOptions {
   profile: HarnessProfile;
@@ -70,6 +74,7 @@ export interface ResolvedOptions {
   backgroundEnv: () => NodeJS.ProcessEnv;
   reliabilityProviders: string[];
   reliability: ReliabilityOptions;
+  findReady: FindReadyOptions;
   disable: Partial<Record<PracticeName, boolean>>;
 }
 
@@ -140,6 +145,7 @@ export function resolveOptions(options: HarnessOptions = {}): ResolvedOptions {
     backgroundEnv: options.backgroundEnv ?? (() => sanitizedEnv()),
     reliabilityProviders: options.reliabilityProviders ?? envProviders() ?? ["prsloy"],
     reliability: reliabilityOptions(options.reliability),
+    findReady: options.findReady ?? {},
     disable: options.disable ?? {},
   };
 }

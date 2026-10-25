@@ -9,6 +9,7 @@ import type { ResolvedOptions } from "./options.ts";
 export const REUSE_SECTION = [
   "Before writing code, check whether a well-established library or standard module already solves the problem; prefer reusing proven, maintained solutions over writing your own, and say which one you chose and why.",
   "Before adding a dependency, confirm the package really exists in the registry (npm view <name> / pip index versions <name>); never install a package name you have not verified.",
+  "Use the find_ready tool before writing a utility from scratch: it searches npm, checks the npm/PyPI names you suggest, and shows downloads, last release, license and deprecation.",
 ].join("\n");
 
 // Живая приёмка №2 (дирижёр, 2026-10-25): DeepSeek и Kimi советовали владельцу «запустите python3 -m http.server».

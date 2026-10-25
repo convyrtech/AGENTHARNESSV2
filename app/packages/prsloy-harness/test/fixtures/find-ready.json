@@ -1,0 +1,504 @@
+{
+  "https://registry.npmjs.org/-/v1/search?text=date%20format&size=15": {
+    "status": 200,
+    "body": {
+      "objects": [
+        {
+          "package": {
+            "name": "date-format-parse",
+            "description": "Lightweight date format and parse",
+            "version": "0.2.7",
+            "date": "2021-08-08T07:10:45.682Z",
+            "license": "MIT"
+          },
+          "downloads": {
+            "monthly": 626798,
+            "weekly": 95483
+          }
+        },
+        {
+          "package": {
+            "name": "moment-jdateformatparser",
+            "description": "Translates the `java.text.SimpleDateFormat` date format to the `moment.js` date format.",
+            "version": "1.2.1",
+            "date": "2018-06-26T14:44:49.046Z"
+          },
+          "downloads": {
+            "monthly": 221861,
+            "weekly": 36851
+          }
+        },
+        {
+          "package": {
+            "name": "formatjs",
+            "description": "JavaScript date format tester.",
+            "version": "0.1.1",
+            "date": "2012-07-04T20:06:46.347Z"
+          },
+          "downloads": {
+            "monthly": 40714,
+            "weekly": 6490
+          }
+        },
+        {
+          "package": {
+            "name": "handlebars-dateformat",
+            "description": "handlebars date format helper",
+            "version": "1.1.3",
+            "date": "2022-09-30T12:43:02.295Z",
+            "license": "ISC"
+          },
+          "downloads": {
+            "monthly": 19555,
+            "weekly": 3049
+          }
+        },
+        {
+          "package": {
+            "name": "date-format",
+            "description": "Formatting Date objects as strings since 2013",
+            "version": "4.0.14",
+            "date": "2022-09-26T17:43:25.892Z",
+            "license": "MIT"
+          },
+          "downloads": {
+            "monthly": 28974294,
+            "weekly": 4437393
+          }
+        },
+        {
+          "package": {
+            "name": "chai-date-string",
+            "description": "Validates a string to have valid date format",
+            "version": "0.1.0",
+            "date": "2015-12-23T21:37:42.266Z",
+            "license": "ISC"
+          },
+          "downloads": {
+            "monthly": 35855,
+            "weekly": 3562
+          }
+        },
+        {
+          "package": {
+            "name": "dafo",
+            "description": "General Date Format",
+            "version": "1.0.1",
+            "date": "2024-04-17T14:31:58.213Z",
+            "license": "MIT"
+          },
+          "downloads": {
+            "monthly": 1445,
+            "weekly": 326
+          }
+        },
+        {
+          "package": {
+            "name": "date-util",
+            "description": "Date utilites (date format, strtotime)",
+            "version": "1.2.1",
+            "date": "2014-12-10T13:08:55.353Z"
+          },
+          "downloads": {
+            "monthly": 1064,
+            "weekly": 120
+          }
+        },
+        {
+          "package": {
+            "name": "@revolist/revogrid-column-date",
+            "description": "Date format for RevoGrid system based on duetds-date-picker",
+            "version": "2.0.27",
+            "date": "2026-09-16T14:56:20.008Z",
+            "license": "MIT"
+          },
+          "downloads": {
+            "monthly": 5328,
+            "weekly": 996
+          }
+        },
+        {
+          "package": {
+            "name": "mongoose-date-format",
+            "description": "### INSTALL ``` npm install mongoose-date-format --save ```",
+            "version": "1.2.0",
+            "date": "2018-06-12T14:01:00.534Z",
+            "license": "ISC"
+          },
+          "downloads": {
+            "monthly": 240,
+            "weekly": 67
+          }
+        },
+        {
+          "package": {
+            "name": "current-week-number",
+            "description": "Get current week number of the current year,given Date format string or Date object.",
+            "version": "1.0.7",
+            "date": "2015-03-02T22:14:00.184Z",
+            "license": "MIT"
+          },
+          "downloads": {
+            "monthly": 4804,
+            "weekly": 1081
+          }
+        },
+        {
+          "package": {
+            "name": "@cityssm/modern-julian-date",
+            "description": "Converts a regular JavaScript date to the modern Julian date format YYYYDDD.",
+            "version": "1.0.3",
+            "date": "2026-08-19T20:25:55.305Z",
+            "license": "MIT"
+          },
+          "downloads": {
+            "monthly": 2010,
+            "weekly": 168
+          }
+        },
+        {
+          "package": {
+            "name": "get-date-format",
+            "description": "Module that tries to get the date format out of sample of dates",
+            "version": "0.2.1",
+            "date": "2017-12-22T11:38:29.463Z",
+            "license": "MIT"
+          },
+          "downloads": {
+            "monthly": 246,
+            "weekly": 77
+          }
+        },
+        {
+          "package": {
+            "name": "dateformatter",
+            "description": "Date format library, PHP style",
+            "version": "0.1.0",
+            "date": "2012-11-28T14:19:43.103Z"
+          },
+          "downloads": {
+            "monthly": 504,
+            "weekly": 62
+          }
+        },
+        {
+          "package": {
+            "name": "@jswork/simple-date-format",
+            "description": "A simple date format.",
+            "version": "1.0.6",
+            "date": "2025-11-05T07:18:24.732Z",
+            "license": "MIT"
+          },
+          "downloads": {
+            "monthly": 84,
+            "weekly": 6
+          }
+        }
+      ]
+    }
+  },
+  "https://registry.npmjs.org/request/latest": {
+    "status": 200,
+    "body": {
+      "name": "request",
+      "description": "Simplified HTTP request client.",
+      "version": "2.88.2",
+      "license": "Apache-2.0",
+      "deprecated": "request has been deprecated, see https://github.com/request/request/issues/3142"
+    }
+  },
+  "https://registry.npmjs.org/nonexistent-pkg-prsloy-zz/latest": {
+    "status": 404,
+    "body": null
+  },
+  "https://api.npmjs.org/downloads/point/last-week/request": {
+    "status": 200,
+    "body": {
+      "downloads": 7234608,
+      "start": "2026-10-16",
+      "end": "2026-10-22",
+      "package": "request"
+    }
+  },
+  "https://registry.npmjs.org/date-format-parse/latest": {
+    "status": 200,
+    "body": {
+      "name": "date-format-parse",
+      "description": "Lightweight date format and parse",
+      "version": "0.2.7",
+      "license": "MIT"
+    }
+  },
+  "https://registry.npmjs.org/date-format/latest": {
+    "status": 200,
+    "body": {
+      "name": "date-format",
+      "description": "Formatting Date objects as strings since 2013",
+      "version": "4.0.14",
+      "license": "MIT"
+    }
+  },
+  "https://registry.npmjs.org/formatjs/latest": {
+    "status": 200,
+    "body": {
+      "name": "formatjs",
+      "description": "JavaScript date format tester.",
+      "version": "0.1.1"
+    }
+  },
+  "https://registry.npmjs.org/chai-date-string/latest": {
+    "status": 200,
+    "body": {
+      "name": "chai-date-string",
+      "description": "Validates a string to have valid date format",
+      "version": "0.1.0",
+      "license": "ISC"
+    }
+  },
+  "https://registry.npmjs.org/moment-jdateformatparser/latest": {
+    "status": 200,
+    "body": {
+      "name": "moment-jdateformatparser",
+      "description": "Translates the `java.text.SimpleDateFormat` date format to the `moment.js` date format.",
+      "version": "1.2.1"
+    }
+  },
+  "https://registry.npmjs.org/handlebars-dateformat/latest": {
+    "status": 200,
+    "body": {
+      "name": "handlebars-dateformat",
+      "description": "handlebars date format helper",
+      "version": "1.1.3",
+      "license": "ISC"
+    }
+  },
+  "https://packages.ecosyste.ms/api/v1/registries/npmjs.org/packages/formatjs": {
+    "status": 200,
+    "body": {
+      "name": "formatjs",
+      "status": null,
+      "downloads": 49114,
+      "downloads_period": "last-month",
+      "latest_release_published_at": "2012-07-04T20:06:46.347Z",
+      "repo_metadata": {
+        "archived": false
+      }
+    }
+  },
+  "https://packages.ecosyste.ms/api/v1/registries/npmjs.org/packages/handlebars-dateformat": {
+    "status": 200,
+    "body": {
+      "name": "handlebars-dateformat",
+      "status": null,
+      "downloads": 19187,
+      "downloads_period": "last-month",
+      "latest_release_published_at": "2022-09-30T12:43:02.295Z",
+      "repo_metadata": {
+        "archived": false
+      }
+    }
+  },
+  "https://packages.ecosyste.ms/api/v1/registries/npmjs.org/packages/moment-jdateformatparser": {
+    "status": 200,
+    "body": {
+      "name": "moment-jdateformatparser",
+      "status": null,
+      "downloads": 269868,
+      "downloads_period": "last-month",
+      "latest_release_published_at": "2018-06-26T14:44:49.046Z",
+      "repo_metadata": {
+        "archived": false
+      }
+    }
+  },
+  "https://packages.ecosyste.ms/api/v1/registries/npmjs.org/packages/chai-date-string": {
+    "status": 200,
+    "body": {
+      "name": "chai-date-string",
+      "status": null,
+      "downloads": 22347,
+      "downloads_period": "last-month",
+      "latest_release_published_at": "2015-12-23T21:37:42.266Z",
+      "repo_metadata": {
+        "archived": false
+      }
+    }
+  },
+  "https://packages.ecosyste.ms/api/v1/registries/npmjs.org/packages/date-format-parse": {
+    "status": 200,
+    "body": {
+      "name": "date-format-parse",
+      "status": null,
+      "downloads": 444397,
+      "downloads_period": "last-month",
+      "latest_release_published_at": "2021-08-08T07:10:45.682Z",
+      "repo_metadata": {
+        "archived": false
+      }
+    }
+  },
+  "https://packages.ecosyste.ms/api/v1/registries/npmjs.org/packages/date-format": {
+    "status": 200,
+    "body": {
+      "name": "date-format",
+      "status": null,
+      "downloads": 31892339,
+      "downloads_period": "last-month",
+      "latest_release_published_at": "2022-09-26T17:43:25.892Z",
+      "repo_metadata": {
+        "archived": false
+      }
+    }
+  },
+  "https://pypi.org/pypi/pyyaml/json": {
+    "status": 200,
+    "body": {
+      "info": {
+        "name": "PyYAML",
+        "summary": "YAML parser and emitter for Python",
+        "version": "6.0.3",
+        "license": "MIT",
+        "license_expression": null,
+        "classifiers": [
+          "Development Status :: 5 - Production/Stable",
+          "Intended Audience :: Developers",
+          "License :: OSI Approved :: MIT License",
+          "Operating System :: OS Independent",
+          "Programming Language :: Cython",
+          "Programming Language :: Python",
+          "Programming Language :: Python :: 3",
+          "Programming Language :: Python :: 3.10",
+          "Programming Language :: Python :: 3.11",
+          "Programming Language :: Python :: 3.12",
+          "Programming Language :: Python :: 3.13",
+          "Programming Language :: Python :: 3.14",
+          "Programming Language :: Python :: 3.8",
+          "Programming Language :: Python :: 3.9",
+          "Programming Language :: Python :: Implementation :: CPython",
+          "Programming Language :: Python :: Implementation :: PyPy",
+          "Topic :: Software Development :: Libraries :: Python Modules",
+          "Topic :: Text Processing :: Markup"
+        ]
+      },
+      "urls": [
+        {
+          "upload_time_iso_8601": "2025-09-25T21:31:46.040932Z"
+        }
+      ]
+    }
+  },
+  "https://pypi.org/pypi/python-slugify/json": {
+    "status": 200,
+    "body": {
+      "info": {
+        "name": "python-slugify",
+        "summary": "A Python slugify application that also handles Unicode",
+        "version": "9.1.3",
+        "license": null,
+        "license_expression": "MIT",
+        "classifiers": [
+          "Development Status :: 5 - Production/Stable",
+          "Intended Audience :: Developers",
+          "Natural Language :: English",
+          "Programming Language :: Python :: 3",
+          "Programming Language :: Python :: 3 :: Only",
+          "Programming Language :: Python :: 3.10",
+          "Programming Language :: Python :: 3.11",
+          "Programming Language :: Python :: 3.12",
+          "Programming Language :: Python :: 3.13",
+          "Programming Language :: Python :: 3.14"
+        ]
+      },
+      "urls": [
+        {
+          "upload_time_iso_8601": "2026-10-07T01:06:18.891997Z"
+        }
+      ]
+    }
+  },
+  "https://pypi.org/pypi/pyyamlz-prsloy-fake/json": {
+    "status": 404,
+    "body": null
+  },
+  "https://pypi.org/pypi/slugify/json": {
+    "status": 200,
+    "body": {
+      "info": {
+        "name": "slugify",
+        "summary": "A generic slugifier.",
+        "version": "0.0.1",
+        "license": "UNKNOWN",
+        "license_expression": null,
+        "classifiers": []
+      },
+      "urls": [
+        {
+          "upload_time_iso_8601": "2010-12-07T16:36:05.530747Z"
+        }
+      ]
+    }
+  },
+  "https://pypistats.org/api/packages/pyyaml/recent": {
+    "status": 200,
+    "body": {
+      "data": {
+        "last_week": 268607697
+      }
+    }
+  },
+  "https://pypistats.org/api/packages/python-slugify/recent": {
+    "status": 200,
+    "body": {
+      "data": {
+        "last_week": 17368777
+      }
+    }
+  },
+  "https://pypistats.org/api/packages/slugify/recent": {
+    "status": 200,
+    "body": {
+      "data": {
+        "last_week": 35223
+      }
+    }
+  },
+  "https://packages.ecosyste.ms/api/v1/registries/pypi.org/packages/PyYAML": {
+    "status": 200,
+    "body": {
+      "name": "pyyaml",
+      "status": null,
+      "downloads": 910520274,
+      "downloads_period": "last-month",
+      "latest_release_published_at": "2025-09-25T21:31:46.000Z",
+      "repo_metadata": {
+        "archived": false
+      }
+    }
+  },
+  "https://packages.ecosyste.ms/api/v1/registries/pypi.org/packages/slugify": {
+    "status": 200,
+    "body": {
+      "name": "slugify",
+      "status": null,
+      "downloads": 210182,
+      "downloads_period": "last-month",
+      "latest_release_published_at": "2010-12-07T16:36:05.000Z",
+      "repo_metadata": {
+        "archived": false
+      }
+    }
+  },
+  "https://packages.ecosyste.ms/api/v1/registries/pypi.org/packages/python-slugify": {
+    "status": 200,
+    "body": {
+      "name": "python-slugify",
+      "status": null,
+      "downloads": 64296908,
+      "downloads_period": "last-month",
+      "latest_release_published_at": "2026-10-07T01:06:18.000Z",
+      "repo_metadata": {
+        "archived": false
+      }
+    }
+  }
+}

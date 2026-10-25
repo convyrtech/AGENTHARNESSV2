@@ -15,6 +15,7 @@ import {
 import { afterEach, describe, expect, it } from "vite-plus/test";
 import { createPrsloyHarness, type HarnessOptions } from "../src/index.ts";
 import { PSEUDO_CALL_NOTE } from "../src/loop-detector.ts";
+import { recordedFetch } from "./recorded-fetch.ts";
 import { messageText, ScriptedOpenAiServer, type Script } from "./scripted-openai-server.ts";
 
 const cleanup: (() => Promise<void>)[] = [];
@@ -182,6 +183,40 @@ describe("integration: real createAgentSession + mock gateway", () => {
     ).find((m) => m.role === "custom" && m.customType === "prsloy-harness.budget");
     expect(String(summary?.content)).toContain(
       "Задача остановлена: исчерпан лимит вызовов тулов (2)",
+    );
+  }, 30_000);
+
+  it("find_ready: the model looks for a ready package before writing its own (recorded registries)", async () => {
+    const { session, server, toolResults, textOf } = await startSession(
+      (_req, index) =>
+        index === 0
+          ? {
+              toolCalls: [
+                {
+                  name: "find_ready",
+                  arguments: {
+                    query: "slugify",
+                    ecosystem: "pypi",
+                    candidates: ["python-slugify", "pyyamlz-prsloy-fake"],
+                  },
+                },
+              ],
+            }
+          : { text: "Возьму python-slugify." },
+      { factory: { findReady: { fetchImpl: recordedFetch() } } },
+    );
+    expect(session.getActiveToolNames()).toContain("find_ready");
+    await session.prompt("сделай slug из заголовка");
+    const [result] = toolResults();
+    const text = textOf(result!);
+    expect(text).toContain("python-slugify");
+    expect(text).toContain("pip install python-slugify");
+    expect(text).toContain("Нет в PyPI: pyyamlz-prsloy-fake — не ставь");
+    const system = server.requests[0]!.messages.find(
+      (m) => m.role === "system" || m.role === "developer",
+    );
+    expect(messageText(system)).toContain(
+      "Use the find_ready tool before writing a utility from scratch",
     );
   }, 30_000);
 
