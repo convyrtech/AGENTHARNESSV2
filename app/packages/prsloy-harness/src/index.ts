@@ -7,6 +7,7 @@ import { installEditRobustness } from "./edit-robustness.ts";
 import { installLoopDetector } from "./loop-detector.ts";
 import { resolveOptions, type HarnessOptions } from "./options.ts";
 import { installPostEditVerify } from "./post-edit-verify.ts";
+import { installReliability } from "./reliability.ts";
 import { installReusePrompt } from "./reuse-prompt.ts";
 import { installSecretScrub } from "./secret-scrub.ts";
 import { installToolOutput } from "./tool-output.ts";
@@ -17,6 +18,12 @@ export { checkFile } from "./checkers.ts";
 export { detectPseudoToolCall } from "./loop-detector.ts";
 export { scrubSecrets } from "./secret-scrub.ts";
 export { looksLikeServer, detectPorts } from "./process-registry.ts";
+export {
+  ReliabilityProxy,
+  STREAM_INTERRUPTED_CODE,
+  STREAM_INTERRUPTED_MESSAGE,
+  type ReliabilityOptions,
+} from "./reliability-proxy.ts";
 
 /**
  * Порядок важен. tool_call: бюджет и петли блокируют до того, как bash что-то запустит.
@@ -36,6 +43,7 @@ export function createPrsloyHarness(options: HarnessOptions = {}): (pi: Extensio
     budget?.installWarning();
     if (on("reusePrompt")) installReusePrompt(pi, opts);
     if (on("secretScrub")) installSecretScrub(pi);
+    if (on("reliabilityProxy")) installReliability(pi, opts);
   };
 }
 

@@ -1,4 +1,5 @@
 import { tmpdir } from "node:os";
+import type { ReliabilityOptions } from "./reliability-proxy.ts";
 import { join } from "node:path";
 
 /** Профиль агента. Раздел «поиск готового» добавляется только в «Код». */
@@ -33,6 +34,10 @@ export interface HarnessOptions {
   shellPath?: string;
   /** Окружение фоновых процессов. По умолчанию копия process.env без ключей машины. */
   backgroundEnv?: () => NodeJS.ProcessEnv;
+  /** Провайдеры, чьи запросы идут через прокси надёжности. По умолчанию `prsloy` (env PRSLOY_RELIABILITY_PROVIDERS). */
+  reliabilityProviders?: string[];
+  /** Настройки прокси: ttft, idle, попытки. TTFT по умолчанию 60 с (env PRSLOY_PROXY_TTFT_SEC). */
+  reliability?: ReliabilityOptions;
   /** Выключить отдельные практики. */
   disable?: Partial<Record<PracticeName, boolean>>;
 }
@@ -45,7 +50,8 @@ export type PracticeName =
   | "postEditVerify"
   | "editRobustness"
   | "secretScrub"
-  | "reusePrompt";
+  | "reusePrompt"
+  | "reliabilityProxy";
 
 export interface ResolvedOptions {
   profile: HarnessProfile;
@@ -62,6 +68,8 @@ export interface ResolvedOptions {
   nodePath: string | undefined;
   shellPath: string | undefined;
   backgroundEnv: () => NodeJS.ProcessEnv;
+  reliabilityProviders: string[];
+  reliability: ReliabilityOptions;
   disable: Partial<Record<PracticeName, boolean>>;
 }
 
@@ -94,6 +102,26 @@ function envBashTimeout(): number | undefined {
   return Number.isFinite(value) && value > 0 ? value : undefined;
 }
 
+function envProviders(): string[] | undefined {
+  const value = process.env.PRSLOY_RELIABILITY_PROVIDERS;
+  if (value === undefined) return undefined;
+  if (value.trim() === "0") return [];
+  return value
+    .split(",")
+    .map((p) => p.trim())
+    .filter(Boolean);
+}
+
+function envTtftMs(): number | undefined {
+  const value = Number(process.env.PRSLOY_PROXY_TTFT_SEC);
+  return Number.isFinite(value) && value > 0 ? value * 1000 : undefined;
+}
+
+function reliabilityOptions(given: ReliabilityOptions | undefined): ReliabilityOptions {
+  const ttftMs = envTtftMs();
+  return ttftMs === undefined ? { ...given } : { ttftMs, ...given };
+}
+
 export function resolveOptions(options: HarnessOptions = {}): ResolvedOptions {
   return {
     profile: options.profile ?? envProfile() ?? "code",
@@ -110,6 +138,8 @@ export function resolveOptions(options: HarnessOptions = {}): ResolvedOptions {
     nodePath: options.nodePath,
     shellPath: options.shellPath,
     backgroundEnv: options.backgroundEnv ?? (() => sanitizedEnv()),
+    reliabilityProviders: options.reliabilityProviders ?? envProviders() ?? ["prsloy"],
+    reliability: reliabilityOptions(options.reliability),
     disable: options.disable ?? {},
   };
 }
