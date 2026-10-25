@@ -370,6 +370,19 @@ test("a full turn on the real tools: sheet and videos, choice «A», the page", 
       expect(statSync(state).mode & 0o777).toBe(0o700);
     }
 
+    // red marks on the sheet go with the answer (dev build until merged): main lays them over the picture
+    if (!EXE) {
+      await card.getByTestId("design-image").click();
+      const canvas = page.getByTestId("design-marks-canvas");
+      const box = (await canvas.boundingBox())!;
+      await page.mouse.move(box.x + box.width * 0.2, box.y + box.height * 0.2);
+      await page.mouse.down();
+      await page.mouse.move(box.x + box.width * 0.45, box.y + box.height * 0.45, { steps: 8 });
+      await page.mouse.up();
+      await page.getByTestId("design-marks-attach").click();
+      await expect(page.getByTestId("design-attachments")).toContainText("marks-");
+    }
+
     // choice «A» → the next turn: pick, the page, check.py, done
     await card.getByTestId("design-option-A").click();
     await expect(page.getByTestId("design-done")).toBeVisible({ timeout: 300_000 });
@@ -391,6 +404,19 @@ test("a full turn on the real tools: sheet and videos, choice «A», the page", 
     if (!EXE) {
       expect(stages[0]?.model).toBe("a6p/qwen3.8-max");
       expect(stages.every((x) => LIVE_MODELS.includes(x.model!.split("/")[1]!))).toBe(true);
+    }
+    // the turn with the marks: the real run.py told the agent what red is and gave the turn to a model that sees
+    if (!EXE) {
+      expect(
+        readdirSync(join(ws(l), "materials")).some((n) =>
+          /^marks-01-candidates-\d{6}\.png$/.test(n),
+        ),
+      ).toBe(true);
+      expect(stages.at(-1)?.model).toBe("a6p/claude-opus-5-5");
+      const briefs = readdirSync(join(state, "sessions"))
+        .filter((n) => n.endsWith(".brief.md"))
+        .map((n) => readFileSync(join(state, "sessions", n), "utf8"));
+      expect(briefs.some((b) => b.includes("пометки владельца, не дизайн"))).toBe(true);
     }
     // run.py's learning events: next to the «Код» harness's, kinds and numbers only — none of the owner's words
     const learn = readFileSync(

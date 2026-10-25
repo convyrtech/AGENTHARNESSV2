@@ -139,6 +139,7 @@ describe.skipIf(!python3 || process.platform === "win32")("design IPC", () => {
   it("registers only the design channels and refuses untrusted senders", () => {
     expect([...handlers.keys()].sort()).toEqual(
       [
+        "attach-marks",
         "cancel",
         "edit",
         "edit-text",

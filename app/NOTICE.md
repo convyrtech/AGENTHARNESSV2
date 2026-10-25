@@ -49,6 +49,10 @@
   colorShift 15). Список правил — OpenDesign `apps/daemon/src/lint-artifact.ts` (Apache-2.0): purple-gradient,
   ai-default-indigo, emoji-icon, raw-hex, all-caps-no-tracking, left-accent-card. Код не копировался, правила
   переписаны на Python заново.
+- `apps/desktop/src/renderer/components/design/MarksDialog.tsx`, `src/main/design/marks.ts` и строка о пометках в
+  `../playbooks/site/harness/run.py` — красные пометки на картинке. Правило «красное — пометки, не дизайн» — по идее
+  системного промпта [tldraw/make-real](https://github.com/tldraw/make-real) (`prompts/anthropic-system-prompt.md`,
+  Interpretation Rules). Ни кода, ни текста промпта, ни холста tldraw не брали.
 - `../playbooks/site/harness/brand_probe.py` — бренд по адресу сайта: по мотивам
   [dembrandt](https://github.com/dembrandt/dembrandt) (MIT, v0.39.2, вычисленные стили живой страницы) и методики
   `skills/brand-extract/SKILL.md` OpenDesign (Apache-2.0: «каждое значение — замер»). Код не копировался.
