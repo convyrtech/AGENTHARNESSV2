@@ -3,9 +3,9 @@
   python3 run_pi.py --model a6/claude-opus-5-5 --search search.json --out runs/a-opus.jsonl [--only r01,i05]
                     [--base https://a6api.com/v1] [--key-file ../.a6key] [--pi "node <pi>/dist/bundle/cli.js"]
 
-search.json — поставщик поиска для web_search: {"provider": "deepseek", "key": "…"}, {"provider": "searxng",
-"url": "https://…"}, {"provider": "prsloy", "url": "https://шлюз/v1", "key": "ключ шлюза"} и т. п. (поля — как в
-настройках приложения). Ключ модели читается из файла и кладётся во временную папку агента (права 600), после прогона
+search.json — поставщик поиска для web_search: {"provider": "free"} (бесплатный, без ключа), {"provider": "deepseek",
+"key": "…"}, {"provider": "searxng", "url": "https://…"}, {"provider": "prsloy", "url": "https://шлюз/v1", "key":
+"ключ шлюза"} и т. п. (поля — как в настройках приложения). Ключ модели читается из файла и кладётся во временную папку агента (права 600), после прогона
 папка удаляется. Ответ — results.jsonl для score.py: ответ, источники с дословными цитатами, запросы, цена, время.
 """
 import argparse, datetime as dt, json, os, re, shutil, subprocess, sys, tempfile, time

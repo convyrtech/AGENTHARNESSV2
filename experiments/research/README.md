@@ -11,7 +11,7 @@
 | `check_refs.py` | Перед прогоном: живые эталоны открываются, цитаты застывших ещё лежат на своих страницах |
 | `score.py` | Метрики по `results.jsonl` любого исполнителя (формат — в начале файла) |
 | `run_builtin.py` | База B: встроенный поиск моделей через шлюз (`web_search_options`) и проверка каналов `/v1/tools/search|fetch` |
-| `run_pi.py`, `bench_ext.ts` | База A: модель в Pi только с `web_search`/`web_fetch` харнесса (R1) |
+| `run_pi.py`, `bench_ext.ts` | База A: модель в Pi только с `web_search`/`web_fetch` харнесса (R1); поиск — та же цепочка, что в приложении (выбранный → бесплатный) |
 | `read_urls.mts` | Приёмка чтения R1: 50 адресов (20 российских), доля прочитанных |
 | `test_score.py` | Тесты оценки без сети |
 
@@ -41,7 +41,8 @@ python3 score.py runs/builtin-opus.jsonl --out runs/builtin-opus
 приложения:
 
 ```
-echo '{"provider": "deepseek", "key": "<ключ DeepSeek>"}' > search.json     # или searxng/brave/exa/…; prsloy: url + key шлюза
+echo '{"provider": "free"}' > search.json      # бесплатный (по умолчанию в приложении)
+# или {"provider": "deepseek", "key": "<ключ>"}, searxng/brave/exa/…; prsloy и model: url + key шлюза
 python3 run_pi.py --model a6/claude-opus-5-5 --search search.json --out runs/a-opus.jsonl
 python3 score.py runs/a-opus.jsonl --out runs/a-opus
 node --experimental-strip-types read_urls.mts [--jina]     # чтение: ≥85% из 50, ≥15 российских
