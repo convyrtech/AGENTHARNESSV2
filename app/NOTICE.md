@@ -84,6 +84,9 @@
 - `packages/prsloy-harness/src/research/ledger.ts` — журнал источников «Исследовать»: номер [n] выдаёт код, одна
   страница — один номер. По идее `sources.py` из [NousResearch/hermes-agent](https://github.com/NousResearch/hermes-agent)
   (MIT, Nous Research). Код не копировался.
+- `packages/prsloy-harness/src/research/tools.ts` (`clip`) — длинная страница в ответе web_fetch: голова и хвост, середина
+  — в файле. Идея того же [NousResearch/hermes-agent](https://github.com/NousResearch/hermes-agent) (MIT, Nous
+  Research). Код не копировался.
 - `packages/prsloy-harness/src/research/free.ts` — бесплатный поиск без ключа: запасной путь через
   html.duckduckgo.com по идее пакета [deedy5/ddgs](https://github.com/deedy5/ddgs) (MIT, Copyright (c) deedy5): форма
   `q`/`kl`/`df`, адрес результата из `uddg`. Код не копировался.

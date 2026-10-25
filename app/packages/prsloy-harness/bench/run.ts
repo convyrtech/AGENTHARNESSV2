@@ -73,7 +73,7 @@ export interface BenchOptions {
   /** Память (флаг "memory"). По умолчанию вкл. */
   memory?: boolean;
   /** Системный промпт «Кода»: pi (база Pi + разделы) или prsloy (research/17 §9). По умолчанию prsloy. */
-  prompt?: "pi" | "prsloy";
+  prompt?: "pi" | "prsloy" | "diet";
   /** Дельта промпта под модель (qwen, opus). По умолчанию выкл. */
   delta?: boolean;
   /**
@@ -574,7 +574,7 @@ export interface BenchReport {
     review: boolean;
     skills: boolean;
     memory: boolean;
-    prompt: "pi" | "prsloy";
+    prompt: "pi" | "prsloy" | "diet";
     delta: boolean;
     webTools: boolean;
     honestExit: boolean;

@@ -8,6 +8,7 @@
 //   … --suite honesty          задачи честности H-0 (research/24 §4.1): casual (по умолчанию), honesty, all
 //   … --timeout 900            секунд на задачу (по умолчанию 600)
 //   … --prompt pi              базовый промпт Pi вместо своего (research/17 §9); по умолчанию prsloy
+//   … --prompt diet            диета промпта (H-1p, #6): ≤4 000 знаков; A/B против prsloy на каждой модели
 //   … --delta on               дельта промпта под модель (qwen, opus)
 //   … --suite web --web on     кодовые задачи с поиском (issue #23): web_search/web_fetch (флаг "webTools")
 //   … --lessons off            без уроков (флаг "lessons" в prsloy-harness.json агента)
@@ -77,7 +78,7 @@ async function main(): Promise<number> {
     review: values.review !== "off",
     skills: values.skills === "on",
     audit: values.audit === true,
-    prompt: values.prompt === "pi" ? "pi" : "prsloy",
+    prompt: values.prompt === "pi" || values.prompt === "diet" ? values.prompt : "prsloy",
     delta: values.delta === "on",
     memory: values.memory !== "off",
     honestExit: values["honest-exit"] === "on",

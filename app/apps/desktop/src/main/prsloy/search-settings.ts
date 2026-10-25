@@ -8,6 +8,7 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import type {
+  PrsloySearchHandoff,
   SearchCheckResult,
   SearchProviderId,
   SearchProviderState,
@@ -33,6 +34,8 @@ export const SEARCH_PROVIDER_IDS: readonly SearchProviderId[] = [
 export const DEFAULT_SEARCH: SearchProviderId = "free";
 /** Models whose built-in web search works on the owner's gateway (the conductor's probe, 2026-10-25). */
 export const DEFAULT_MODEL_SEARCH: readonly string[] = ["gpt-6.1-sol"];
+/** Ключ API — печатные ASCII без пробелов. */
+const PRINTABLE_KEY = /^[\x21-\x7e]{1,4096}$/;
 const MODEL_ID = /^[\w.:/-]{1,128}$/;
 /** No key of their own: free needs nothing, prsloy and model use the PRSLOY key. */
 const KEYLESS = new Set<SearchProviderId>(["free", "prsloy", "model"]);
@@ -58,20 +61,7 @@ type Stored = {
 };
 
 /** What the host gets: the active provider's config and the gateway address (no gateway key: Pi has it). */
-export type SearchHandoff = {
-  search: {
-    provider: SearchProviderId;
-    key?: string;
-    folderId?: string;
-    url?: string;
-    models?: string[];
-  };
-  gatewayUrl?: string;
-  /** The user's GitHub token, if set: the free search uses it whatever provider is active. */
-  githubToken?: string;
-  /** Models for the model's search fallback, in order. */
-  modelSearch?: string[];
-};
+export type SearchHandoff = PrsloySearchHandoff;
 
 export function isSearchProviderId(value: unknown): value is SearchProviderId {
   return typeof value === "string" && (SEARCH_PROVIDER_IDS as readonly string[]).includes(value);
@@ -163,6 +153,11 @@ export class SearchSettings {
       if (!fields.url?.trim()) throw new Error("Нужен адрес сервера SearXNG");
     } else if (!key.trim()) {
       throw new Error("Ключ пустой");
+    } else if (!PRINTABLE_KEY.test(key.trim())) {
+      // перевод строки или не-ASCII в ключе ломает заголовок запроса, а Node повторяет значение заголовка в ошибке
+      throw new Error(
+        "В ключе только латинские буквы, цифры и знаки, без пробелов и переводов строки",
+      );
     } else {
       this.#store(id).write(key.trim());
     }
@@ -253,10 +248,10 @@ export class SearchSettings {
   }
 
   /**
-   * JSON the host takes (and deletes from its env) at boot. Always set: an active provider that is not set up
-   * (its key was removed) falls back to the free search. Whether the agent has the tools is the `webTools` flag.
+   * What `host.start` carries for web search (over the message channel, not env — review #23, item 5). An active
+   * provider that is not set up (its key was removed) falls back to the free search.
    */
-  handoff(gatewayUrl: string | undefined): string {
+  handoff(gatewayUrl: string | undefined): SearchHandoff {
     const search = this.config(this.#read().active ?? DEFAULT_SEARCH, gatewayUrl) ?? {
       provider: "free" as const,
     };
@@ -267,6 +262,6 @@ export class SearchSettings {
       ...(githubToken ? { githubToken } : {}),
       modelSearch: this.#models(this.#read()),
     };
-    return JSON.stringify(handoff);
+    return handoff;
   }
 }

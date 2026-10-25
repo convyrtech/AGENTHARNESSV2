@@ -137,14 +137,17 @@ export type PrsloyHostEnvOptions = {
   shimsDir: string;
   /** Gateway key handed to the host; the host removes it from its env at boot. */
   gatewayKey?: string | undefined;
-  /** Web search provider and its key (JSON, search-settings.ts); the host removes it from its env at boot. */
+  /**
+   * Web search config and keys (JSON, search-settings `handoff()`), only while webTools is on. Never reaches the
+   * spawn env: splitHostHandoff moves it into the prsloy.handoff message before the fork.
+   */
   searchHandoff?: string | undefined;
   platform?: NodeJS.Platform;
 };
 
 /** Env var the host reads (and deletes) at boot. Added after the scrub on purpose. */
 export const GATEWAY_KEY_HANDOFF_ENV = "PRSLOY_GATEWAY_KEY";
-/** The same for the web search config (issue #23). */
+/** The same for the web search config (issue #23); splitHostHandoff takes both out before the fork. */
 export const SEARCH_HANDOFF_ENV = "PRSLOY_SEARCH_HANDOFF";
 
 /**

@@ -2,13 +2,20 @@
  * Memory v2 cards (research/24 §3.6): what the harness noticed in the owner's words by itself.
  * «Заметил и запомнил: …» · [Забыть] [Закрепить] (several: «Запомнил N» · [Показать]);
  * «Обновил: было «…», стало «…»» · [Вернуть]; when the replaced entry was pinned, a question:
- * «Раньше вы просили «…». Теперь — «…»?» · [Да, теперь так] [Нет, как раньше].
+ * «Раньше вы просили «…». Теперь — «…»?» · [Да, теперь так] [Нет, как раньше]. And the agent's own
+ * proposals to forget or replace, which wait for [Да] / [Нет] (research/27 §2).
  */
 import type { MemoryAutoCardDetails } from "@zeno/contracts";
 import { Brain, Pin, RotateCcw } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { t, type Locale } from "../lib/i18n.ts";
-import { errorText, memoryApi, parseAutoDetails, parseUpdatedDetails } from "../lib/memory.ts";
+import {
+  errorText,
+  memoryApi,
+  parseAutoDetails,
+  parseConfirmDetails,
+  parseUpdatedDetails,
+} from "../lib/memory.ts";
 import { useShellStore } from "../store/shell-store.ts";
 
 type Tr = (key: Parameters<typeof t>[1], vars?: Record<string, string>) => string;
@@ -220,6 +227,72 @@ export function MemoryUpdatedCard(props: { locale: Locale; details: unknown; tex
     );
   return (
     <CardShell kind="updated" title={title} actions={actions}>
+      {error ? (
+        <p className="model-failure-hint" role="alert">
+          {tr("features.memory.failed", { error })}
+        </p>
+      ) : null}
+    </CardShell>
+  );
+}
+
+/**
+ * research/27 §2: the agent's tool no longer forgets or replaces by itself — it asks. «Забыть «…»?» or
+ * «Раньше: «…». Теперь: «…»?» · [Да] [Нет] → `memory.confirm`. Main ignores a second answer and drops a
+ * proposal after a day; its refusal shows under the card.
+ */
+export function MemoryConfirmCard(props: { locale: Locale; details: unknown; text: string }) {
+  const tr: Tr = (key, vars) => t(props.locale, key, vars);
+  const details = parseConfirmDetails(props.details);
+  const api = memoryApi();
+  const workspace = useShellStore((s) => s.snapshot?.cwd);
+  const [state, setState] = useState<"idle" | "yes" | "no">("idle");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | undefined>();
+  if (!details) return <CardShell kind="confirm" title={props.text.trim()} />;
+
+  async function answer(yes: boolean) {
+    if (!api?.confirm || !details) return;
+    setBusy(true);
+    setError(undefined);
+    try {
+      await api.confirm(details.confirmId, yes, workspace);
+      setState(yes ? "yes" : "no");
+    } catch (e) {
+      setError(errorText(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const title =
+    state === "no"
+      ? tr("features.memory.confirm.kept")
+      : state === "yes"
+        ? tr(
+            details.action === "forget"
+              ? "features.memory.confirm.forgot"
+              : "features.memory.confirm.replaced",
+          )
+        : details.action === "forget"
+          ? tr("features.memory.confirm.forget", { text: details.text ?? "" })
+          : tr("features.memory.confirm.replace", {
+              before: details.before ?? "",
+              after: details.after ?? "",
+            });
+  const actions =
+    state !== "idle" || !api?.confirm ? null : (
+      <>
+        <ActionButton testId="memory-confirm-yes" disabled={busy} onClick={() => void answer(true)}>
+          {tr("features.memory.confirm.yes")}
+        </ActionButton>
+        <ActionButton testId="memory-confirm-no" disabled={busy} onClick={() => void answer(false)}>
+          {tr("features.memory.confirm.no")}
+        </ActionButton>
+      </>
+    );
+  return (
+    <CardShell kind="confirm" title={title} actions={actions}>
       {error ? (
         <p className="model-failure-hint" role="alert">
           {tr("features.memory.failed", { error })}

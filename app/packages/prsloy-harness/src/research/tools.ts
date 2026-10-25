@@ -9,8 +9,9 @@ import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-a
 import { Type } from "typebox";
 import { readFlags } from "../flags.ts";
 import type { ResolvedOptions } from "../options.ts";
+import { rememberSecretValue } from "../secret-scrub.ts";
 import { showCard } from "../text.ts";
-import { readPage, type PageText, type ReadDeps } from "./fetch.ts";
+import { readPage, ReadError, type PageText, type ReadDeps } from "./fetch.ts";
 import { SourceLedger } from "./ledger.ts";
 import { MODEL_SEARCH_NOTE } from "./model-search.ts";
 import { guardQuery } from "./query-guard.ts";
@@ -91,6 +92,10 @@ export function installResearch(
   if (opts.profile !== "code") return;
   const enabled = () => research.enabled === true || readFlags(opts.settingsPath).webTools;
   const now = research.now ?? (() => new Date());
+  // Ключи поиска — в список чистки секретов дословно: где бы ни всплыли в выводе инструментов, модель их не увидит.
+  if (research.search?.key)
+    rememberSecretValue(research.search.key, `поиска ${providerName(research.search.provider)}`);
+  if (research.githubToken) rememberSecretValue(research.githubToken, "GitHub");
   const ledgers = new Map<string, SourceLedger>();
   const ledger = (ctx: ExtensionContext) => {
     const id = sessionOf(ctx);
@@ -106,11 +111,14 @@ export function installResearch(
     const key = await ctx.modelRegistry
       .getApiKeyForProvider(PRSLOY_PROVIDER)
       .catch(() => undefined);
+    if (key) rememberSecretValue(key, "PRSLOY");
     return key ? { url: research.gatewayUrl, key } : undefined;
   };
   const searchDeps: SearchDeps = {
     ...(research.fetchImpl ? { fetchImpl: research.fetchImpl } : {}),
     now,
+    // limitCard объявлена ниже; вызывается только во время поиска, когда она уже есть
+    onIssue: (provider, e) => void limitCard(provider, e.code, e.message),
   };
   const readDeps = async (ctx: ExtensionContext): Promise<ReadDeps> => {
     const gw = await gateway(ctx);
@@ -156,9 +164,12 @@ export function installResearch(
   // Флаг — в начале каждого хода: включили или выключили в приложении — инструменты появляются или уходят.
   pi.on("before_agent_start", () => {
     const active = pi.getActiveTools();
-    const has = TOOLS.every((t) => active.includes(t));
     const want = enabled();
-    if (want === has) return undefined;
+    // включено — оба на месте; выключено — ни одного (один оставшийся тоже убираем)
+    const settled = want
+      ? TOOLS.every((t) => active.includes(t))
+      : !TOOLS.some((t) => active.includes(t));
+    if (settled) return undefined;
     pi.setActiveTools(
       want
         ? [...active.filter((t) => !TOOLS.includes(t)), ...TOOLS]
@@ -188,7 +199,7 @@ export function installResearch(
       site: Type.Optional(Type.String({ description: "Only this site, e.g. github.com" })),
       count: Type.Optional(Type.Number({ description: "1–10, default 6" })),
     }),
-    async execute(_id, params, _signal, _onUpdate, ctx) {
+    async execute(_id, params, signal, _onUpdate, ctx) {
       const guarded = guardQuery(params.query, now());
       const site = params.site
         ?.trim()
@@ -207,17 +218,19 @@ export function installResearch(
       let limited = false;
       for (const cfg of await chain(ctx)) {
         try {
-          hits = await search(cfg, q, searchDeps);
+          if (signal?.aborted) break;
+          hits = await search(cfg, q, { ...searchDeps, ...(signal ? { signal } : {}) });
           used = cfg;
           break;
         } catch (e) {
-          const err = e instanceof SearchError ? e : new SearchError("network", String(e));
+          const err = e instanceof SearchError ? e : new SearchError("network", "сбой поиска");
           limited ||= err.code === "limit";
           const name = providerName(cfg.provider);
           failures.push(err.message.startsWith(name) ? err.message : `${name}: ${err.message}`);
           await limitCard(cfg.provider, err.code, err.message);
         }
       }
+      if (signal?.aborted) throw new Error("Поиск остановлен");
       if (!hits || !used) {
         throw new Error(
           limited
@@ -277,7 +290,7 @@ export function installResearch(
     parameters: Type.Object({
       source: Type.String({ description: "Source number from web_search (e.g. 3) or a full URL" }),
     }),
-    async execute(_id, params, _signal, _onUpdate, ctx) {
+    async execute(_id, params, signal, _onUpdate, ctx) {
       const l = ledger(ctx);
       const ref = params.source.trim().replace(/^\[|\]$/g, "");
       const known = /^\d+$/.test(ref) ? l.get(Number(ref)) : undefined;
@@ -285,9 +298,11 @@ export function installResearch(
       const url = known?.url ?? ref;
       let page: PageText;
       try {
-        page = await readPage(url, await readDeps(ctx));
+        page = await readPage(url, { ...(await readDeps(ctx)), ...(signal ? { signal } : {}) });
       } catch (e) {
-        throw new Error(`Страница не прочиталась: ${(e as Error).message}`);
+        throw new Error(
+          `Страница не прочиталась: ${e instanceof ReadError ? e.message : "сбой чтения"}`,
+        );
       }
       const s = known ?? l.add({ url, title: page.title, foundBy: "url" });
       const path = l.saveText(s.n, {

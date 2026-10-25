@@ -3,7 +3,7 @@
 // токена releases/repo — 60 в час, /search/repositories|issues — 10 в минуту, /search/code — только с токеном.
 // Лимит каждого ресурса (core, search, code_search) считаем по заголовкам ответа и до сброса не спрашиваем; ответы
 // кэшируем. Токен — из настроек приложения (safeStorage → хост), агенту не виден.
-import { clean, dated, SearchError } from "./common.ts";
+import { clean, dated, netReason, SearchError, timeoutSignal } from "./common.ts";
 import type { SearchDeps, SearchHit } from "./search.ts";
 
 const API = "https://api.github.com";
@@ -46,25 +46,40 @@ async function gh(
         "X-GitHub-Api-Version": "2022-11-28",
         ...(deps.githubToken ? { Authorization: `Bearer ${deps.githubToken}` } : {}),
       },
-      signal: AbortSignal.timeout(deps.timeoutMs ?? 10_000),
+      signal: timeoutSignal(deps.timeoutMs ?? 10_000, deps.signal),
     });
   } catch (e) {
-    throw new SearchError("network", `GitHub: нет ответа (${(e as Error).message})`);
+    throw new SearchError("network", `GitHub: нет ответа (${netReason(e)})`);
   }
   const remaining = res.headers.get("x-ratelimit-remaining");
   const reset = Number(res.headers.get("x-ratelimit-reset")) * 1000;
-  // лимит: осталось 0, 429 или «вторичный» лимит (403 с retry-after); иной 403 — запрет, не лимит
+  // лимит: осталось 0, 429 или «вторичный» лимит (403 с retry-after или с этими словами в ответе — заголовка у
+  // него бывает нет); иной 403 — запрет, не лимит
   const retryAfter = Number(res.headers.get("retry-after"));
   const spent = remaining !== null && Number(remaining) === 0;
+  const secondary =
+    res.status === 403 &&
+    !spent &&
+    !(retryAfter > 0) &&
+    /secondary rate limit|abuse detection/i.test(
+      await res
+        .clone()
+        .text()
+        .catch(() => ""),
+    );
   const limited =
-    res.status === 429 || (res.status === 403 && (spent || retryAfter > 0)) || (res.ok && spent);
+    res.status === 429 ||
+    (res.status === 403 && (spent || retryAfter > 0 || secondary)) ||
+    (res.ok && spent);
   if (limited) {
     pausedUntil[resource] =
       retryAfter > 0
         ? now + retryAfter * 1000
-        : reset > now
-          ? reset
-          : now + (resource === "core" ? 3_600_000 : 60_000);
+        : secondary
+          ? now + 60_000
+          : reset > now
+            ? reset
+            : now + (resource === "core" ? 3_600_000 : 60_000);
   }
   if (res.status === 401) throw new SearchError("auth", "GitHub: токен не принят (HTTP 401)");
   if (limited && !res.ok) throw limitError(resource);
@@ -209,7 +224,8 @@ export async function githubSearch(
         }
       }
     } catch (e) {
-      firstError ??= e instanceof SearchError ? e : new SearchError("network", String(e));
+      firstError ??=
+        e instanceof SearchError ? e : new SearchError("network", "GitHub: сбой поиска");
     }
   }
   if (!out.length && firstError) throw firstError;

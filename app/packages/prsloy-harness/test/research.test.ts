@@ -396,6 +396,11 @@ describe("web_search / web_fetch tools", () => {
     writeFileSync(join(on.out, "prsloy-harness.json"), JSON.stringify({ webTools: true }));
     await on.mock.userPrompt();
     expect(on.mock.activeTools).toEqual(expect.arrayContaining(["web_search", "web_fetch"]));
+    // one of the two left active by someone else: still taken off when the flag is off
+    writeFileSync(join(on.out, "prsloy-harness.json"), JSON.stringify({ webTools: false }));
+    on.mock.activeTools = on.mock.activeTools.filter((t) => t !== "web_fetch");
+    await on.mock.userPrompt();
+    expect(on.mock.activeTools).not.toContain("web_search");
     // the old key `research` does not turn them off either: only webTools decides
     expect(setup({}, { research: false }).mock.activeTools).toContain("web_search");
   });
