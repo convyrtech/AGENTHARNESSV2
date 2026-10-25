@@ -1,12 +1,14 @@
 // Бесплатный поиск по умолчанию (issue #23, решение владельца: «по умолчанию поиск бесплатный»). Без ключа:
-//   1) официальные источники, когда запрос про них: GitHub (последний релиз, иначе последний коммит; 60 запросов в
-//      час без токена — кэш на час и пауза до сброса лимита), реестр npm, PyPI, endoflife.date;
+//   1) официальные источники, когда запрос про них: GitHub (последний релиз, иначе последний коммит; issues, когда
+//      запрос похож на ошибку; репозитории и issues при site:github.com — github.ts, с лимитами и кэшем), реестр
+//      npm, PyPI, endoflife.date;
 //   2) выдача по вебу: SearXNG по адресу владельца (#31), если он задан, иначе DuckDuckGo HTML — хрупкий запасной
 //      путь (идея из пакета ddgs, MIT; код свой);
 //   3) Википедия (ru/en), когда выдачи по вебу нет или мало.
 // У каждого результата — дата, где источник её даёт. Всё идёт с машины пользователя (системный прокси хоста).
 import { clean, dated, SearchError } from "./common.ts";
 import { decodeEntities } from "./fetch.ts";
+import { ERROR_LIKE, githubLatest, githubSearch, resetGithub, type GithubKind } from "./github.ts";
 import type { SearchDeps, SearchHit, SearchQuery } from "./search.ts";
 
 const UA =
@@ -19,18 +21,18 @@ export const UNAVAILABLE = "поиск временно недоступен";
 export interface FreeDeps extends SearchDeps {
   /** Выдача SearXNG владельца (#31), когда адрес задан; иначе — DuckDuckGo. */
   searxng?: (q: SearchQuery) => Promise<SearchHit[]>;
+  /** Токен GitHub из настроек: больше лимит (и поиск по коду у поставщика github). */
+  githubToken?: string;
 }
 
 // ---------- сеть и кэш ----------
 
 const cache = new Map<string, { at: number; value: unknown }>();
-/** До какого времени GitHub без токена не спрашиваем (лимит 60 в час исчерпан или почти). */
-let githubPausedUntil = 0;
 
-/** Для тестов: забыть кэш и паузу GitHub. */
+/** Для тестов: забыть кэш и паузы GitHub. */
 export function resetFreeCache(): void {
   cache.clear();
-  githubPausedUntil = 0;
+  resetGithub();
 }
 
 async function getJson(
@@ -46,20 +48,11 @@ async function getJson(
     headers: { Accept: "application/json", "User-Agent": API_UA, ...headers },
     signal: AbortSignal.timeout(deps.timeoutMs ?? 10_000),
   });
-  if (url.startsWith("https://api.github.com/")) noteGithubLimit(res);
   // 404 — ответ «нет такого», его тоже кэшируем
   const value = res.ok ? ((await res.json()) as unknown) : res.status === 404 ? null : undefined;
   if (value === undefined) throw new Error(`HTTP ${res.status}`);
   cache.set(url, { at: now, value });
   return value;
-}
-
-function noteGithubLimit(res: Response): void {
-  const remaining = res.headers.get("x-ratelimit-remaining");
-  const reset = Number(res.headers.get("x-ratelimit-reset")) * 1000;
-  const limited =
-    res.status === 403 || res.status === 429 || (remaining !== null && Number(remaining) <= 2);
-  if (limited) githubPausedUntil = Number.isFinite(reset) && reset > 0 ? reset : Date.now() + HOUR;
 }
 
 // ---------- что в запросе ----------
@@ -141,51 +134,6 @@ const EOL_ALIAS: Record<string, string> = {
 };
 
 // ---------- официальные источники ----------
-
-async function github(query: string, deps: SearchDeps): Promise<SearchHit[]> {
-  const r = githubRepo(query);
-  if (!r || Date.now() < githubPausedUntil) return [];
-  const base = `https://api.github.com/repos/${r.owner}/${r.repo}`;
-  const gh = { Accept: "application/vnd.github+json" };
-  const rel = (await getJson(`${base}/releases/latest`, deps, HOUR, gh)) as {
-    html_url?: string;
-    tag_name?: string;
-    name?: string;
-    published_at?: string;
-    body?: string;
-  } | null;
-  if (rel?.html_url) {
-    return [
-      {
-        url: rel.html_url,
-        title: `${r.owner}/${r.repo}: последний релиз ${rel.tag_name ?? ""}`.trim(),
-        snippet: clean(`${rel.name ?? ""} ${rel.body ?? ""}`, 600),
-        ...dated(rel.published_at),
-        provider: "free",
-      },
-    ];
-  }
-  if (Date.now() < githubPausedUntil) return [];
-  const commits = (await getJson(`${base}/commits?per_page=1`, deps, HOUR, gh)) as
-    | {
-        html_url?: string;
-        sha?: string;
-        commit?: { message?: string; committer?: { date?: string } };
-      }[]
-    | null;
-  const c = Array.isArray(commits) ? commits[0] : undefined;
-  if (!c?.html_url) return [];
-  return [
-    {
-      url: c.html_url,
-      title:
-        `${r.owner}/${r.repo}: релизов нет, последний коммит ${c.sha?.slice(0, 7) ?? ""}`.trim(),
-      snippet: clean(c.commit?.message, 400),
-      ...dated(c.commit?.committer?.date),
-      provider: "free",
-    },
-  ];
-}
 
 async function npm(query: string, deps: SearchDeps): Promise<SearchHit[]> {
   const name = npmPackage(query);
@@ -384,16 +332,34 @@ export async function freeSearch(q: SearchQuery, deps: FreeDeps = {}): Promise<S
   const count = Math.min(10, Math.max(1, Math.round(q.count ?? 8)));
   const quiet = (p: Promise<SearchHit[]>) => p.catch(() => [] as SearchHit[]);
   const site = q.site?.toLowerCase();
-  const official = site
-    ? site.includes("github.com")
-      ? [quiet(github(q.query, deps))]
-      : []
-    : [
-        quiet(github(q.query, deps)),
-        quiet(npm(q.query, deps)),
-        quiet(pypi(q.query, deps)),
-        quiet(endoflife(q.query, deps, now)),
-      ];
+  const onGithub = site?.includes("github.com") === true;
+  const repo = githubRepo(q.query);
+  const errorLike = ERROR_LIKE.test(q.query);
+  let githubError: SearchError | undefined;
+  const kinds: GithubKind[] = onGithub
+    ? errorLike
+      ? ["issues", "repos"]
+      : ["repos", "issues"]
+    : errorLike
+      ? ["issues"]
+      : [];
+  const ghSearch = kinds.length
+    ? githubSearch(q.query, kinds, deps, onGithub ? count : 3).catch((e: unknown) => {
+        githubError = e instanceof SearchError ? e : new SearchError("network", String(e));
+        return [] as SearchHit[];
+      })
+    : Promise.resolve([] as SearchHit[]);
+  const official = [
+    ...(repo ? [quiet(githubLatest(repo.owner, repo.repo, deps))] : []),
+    ...(site
+      ? []
+      : [
+          quiet(npm(q.query, deps)),
+          quiet(pypi(q.query, deps)),
+          quiet(endoflife(q.query, deps, now)),
+        ]),
+    ghSearch,
+  ];
   let webError: SearchError | undefined;
   const web = (deps.searxng ? deps.searxng(q) : duckduckgo(q, deps)).catch((e: unknown) => {
     webError =
@@ -411,6 +377,7 @@ export async function freeSearch(q: SearchQuery, deps: FreeDeps = {}): Promise<S
     seen.add(k);
     return true;
   });
+  if (!out.length && onGithub && githubError) throw githubError;
   if (!out.length && webError) throw webError;
   return out.slice(0, count);
 }

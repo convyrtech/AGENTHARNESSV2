@@ -1,10 +1,11 @@
 // Последний запасной путь поиска (issue #23): встроенный поиск модели через шлюз PRSLOY — Chat Completions с
-// `web_search_options`. По замеру R0 он работает только у gpt-6.1-sol. Источники берутся из аннотаций url_citation
-// и строк ответа; код их не проверял — это видно в выдаче («поиск модели, источники не проверены кодом»).
+// `web_search_options`. Работает не у всех моделей (замер дирижёра 2026-10-25: на шлюзе владельца — gpt-6.1-sol;
+// на a6 — gpt-5.4 и grok-4.20-multi-agent-0309), поэтому список моделей настраивается (по каталогу шлюза) и
+// пробуется по порядку. Источники берутся из аннотаций url_citation и строк ответа; код их не проверял — это видно в выдаче («поиск модели, источники не проверены кодом»).
 import { clean, dated, SearchError } from "./common.ts";
 import type { SearchDeps, SearchHit, SearchQuery } from "./search.ts";
 
-export const MODEL_SEARCH_MODEL = "gpt-6.1-sol";
+export const MODEL_SEARCH_MODELS: readonly string[] = ["gpt-6.1-sol"];
 export const MODEL_SEARCH_NOTE = "поиск модели, источники не проверены кодом";
 
 const LINE =
@@ -43,10 +44,36 @@ export function modelHits(text: string, annotations: Annotation[]): SearchHit[] 
   return [...byUrl.values()];
 }
 
+/**
+ * Модели по порядку: неверный ключ — сразу ошибка; у модели ошибка или пустая выдача (поиска у неё нет) —
+ * следующая.
+ */
 export async function modelSearch(
-  gateway: { url: string; key: string },
+  gateway: { url: string; key: string; models?: readonly string[] },
   q: SearchQuery,
   deps: SearchDeps = {},
+): Promise<SearchHit[]> {
+  const models = gateway.models?.length ? gateway.models : MODEL_SEARCH_MODELS;
+  let last: SearchError | undefined;
+  for (const model of models) {
+    try {
+      const hits = await askModel(model, gateway, q, deps);
+      if (hits.length) return hits;
+      last = new SearchError("format", `Поиск модели: ${model} не вернула источников`);
+    } catch (e) {
+      const err = e instanceof SearchError ? e : new SearchError("network", String(e));
+      if (err.code === "auth") throw err;
+      last = err;
+    }
+  }
+  throw last ?? new SearchError("format", "Поиск модели: нет моделей");
+}
+
+async function askModel(
+  model: string,
+  gateway: { url: string; key: string },
+  q: SearchQuery,
+  deps: SearchDeps,
 ): Promise<SearchHit[]> {
   const now = deps.now?.() ?? new Date();
   const count = Math.min(10, Math.max(1, Math.round(q.count ?? 8)));
@@ -65,7 +92,7 @@ export async function modelSearch(
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${gateway.key}` },
       body: JSON.stringify({
-        model: MODEL_SEARCH_MODEL,
+        model,
         web_search_options: {},
         messages: [
           {
@@ -81,17 +108,26 @@ export async function modelSearch(
       signal: AbortSignal.timeout(deps.timeoutMs ?? 90_000),
     });
   } catch (e) {
-    throw new SearchError("network", `Поиск модели: нет ответа (${(e as Error).message})`);
+    throw new SearchError(
+      "network",
+      `Поиск модели (${model}): нет ответа (${(e as Error).message})`,
+    );
   }
   if (res.status === 401 || res.status === 403)
-    throw new SearchError("auth", `Поиск модели: ключ шлюза не принят (HTTP ${res.status})`);
+    throw new SearchError(
+      "auth",
+      `Поиск модели (${model}): ключ шлюза не принят (HTTP ${res.status})`,
+    );
   if (res.status === 402 || res.status === 429)
-    throw new SearchError("limit", `Поиск модели: лимит или баланс исчерпан (HTTP ${res.status})`);
-  if (!res.ok) throw new SearchError("network", `Поиск модели: HTTP ${res.status}`);
+    throw new SearchError(
+      "limit",
+      `Поиск модели (${model}): лимит или баланс исчерпан (HTTP ${res.status})`,
+    );
+  if (!res.ok) throw new SearchError("network", `Поиск модели (${model}): HTTP ${res.status}`);
   const data = (await res.json().catch(() => null)) as {
     choices?: { message?: { content?: string; annotations?: Annotation[] } }[];
   } | null;
   const msg = data?.choices?.[0]?.message;
-  if (!msg) throw new SearchError("format", "Поиск модели: пустой ответ");
+  if (!msg) throw new SearchError("format", `Поиск модели (${model}): пустой ответ`);
   return modelHits(msg.content ?? "", msg.annotations ?? []).slice(0, count);
 }

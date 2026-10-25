@@ -35,6 +35,10 @@ export interface ResearchOptions {
   search?: SearchConfig;
   /** Адрес шлюза PRSLOY: поиск PRSLOY и запасное чтение страниц; ключ — ключ шлюза из Pi. */
   gatewayUrl?: string;
+  /** Токен GitHub из настроек (необязательный): бесплатный поиск ходит в GitHub с ним. */
+  githubToken?: string;
+  /** Модели со встроенным поиском для запасного «поиска модели», по порядку (по умолчанию gpt-6.1-sol). */
+  modelSearch?: string[];
   /** Jina Reader без ключа как последний запасной путь чтения (по умолчанию да). */
   jina?: boolean;
   /** Подмена сети и даты (тесты). */
@@ -124,10 +128,18 @@ export function installResearch(
       c.provider === "prsloy" || c.provider === "model"
         ? { ...c, url: c.url ?? gw?.url ?? "", key: gw?.key ?? c.key ?? "" }
         : c;
-    const list = [fill(active)];
-    if (active.provider !== "free") list.push({ provider: "free" });
+    const token = research.githubToken ? { githubToken: research.githubToken } : {};
+    const models = research.modelSearch?.length ? { models: research.modelSearch } : {};
+    const first: SearchConfig =
+      active.provider === "free"
+        ? { ...active, ...token }
+        : active.provider === "model"
+          ? { ...models, ...fill(active) }
+          : fill(active);
+    const list = [first];
+    if (active.provider !== "free") list.push({ provider: "free", ...token });
     if (gw && active.provider !== "model")
-      list.push({ provider: "model", url: gw.url, key: gw.key });
+      list.push({ provider: "model", url: gw.url, key: gw.key, ...models });
     return list;
   };
   /** Карточка про лимит или ключ — раз на поставщика и причину за сессию. */
@@ -287,9 +299,11 @@ export function installResearch(
       const via =
         page.via === "direct"
           ? ""
-          : page.via === "gateway"
-            ? " (через шлюз)"
-            : " (через Jina Reader)";
+          : page.via === "jsdelivr"
+            ? " (через jsDelivr)"
+            : page.via === "gateway"
+              ? " (через шлюз)"
+              : " (через Jina Reader)";
       const text = [
         header(),
         `[${s.n}] ${page.title || host(url)} — ${host(page.finalUrl)} — ${s.date ?? "дата неизвестна"}${via}`,
