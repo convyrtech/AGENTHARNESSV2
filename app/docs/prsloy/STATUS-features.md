@@ -175,3 +175,39 @@
   отправка: в запросе к модели картинка (фейковая модель картинки не принимает, pi пишет «image omitted»), PNG на
   диске, размер не меньше нарисованного. Скриншоты: `features-capture-1-before.png`,
   `features-capture-2-frame.png`, `features-capture-3-after.png`.
+
+## 7. Поиск по старым чатам (§1.6)
+
+**Что видит человек.** Лупа в боковой панели (рядом с PRSLOY) открывает палитру. Пишет «доставк» или
+«елок доставк» — под командами группа «Чаты»: название чата (или его первая просьба) и кусок текста, где нашлось.
+Клик открывает чат так же, как клик в боковой панели.
+
+**Как устроено.**
+
+- `main/features/session-search.ts` — порт PiCove (PiDeck) `session-search.ts` (MIT, атрибуция в
+  `app/NOTICE.md`, шапка в файле). Ищет прямо по JSONL-сессиям Pi в `<agentDir>/sessions/` (чаты без проекта) и
+  в папках проектов. Совпасть должны все слова; «ё» = «е»; кэш по `mtime` и размеру; отрывок 40/120 символов;
+  до 3 мест на чат, до 30 чатов, новые сверху. Вывод инструментов и имена приложенных файлов
+  (`<attached-paths>`) не ищутся.
+- IPC `prsloy:features:search-chats` с `assertTrustedSender`; папка агента — `PI_CODING_AGENT_DIR`, как в
+  `harness-flags.ts`. Запрос обрезается до 200 символов.
+- `lib/chat-search.ts` (от 2 букв, пауза 200 мс), группа в `CommandPalette.tsx`; `main.tsx` — одна строка
+  `onOpenChat` → `switchThread`.
+
+**Проверка.**
+
+- unit: `main/features/session-search.test.ts` (все слова, ё/е, порядок, название, совпадений, вложения и вывод
+  инструментов не ищутся, битые файлы, чаты прямо в `sessions/`), `lib/chat-search.test.ts`.
+- e2e: `e2e/features-search.spec.ts` — два чата; «елок доставк» находит только первый (в нём «ёлок»); клик
+  открывает его; «пицца» — чатов нет. Скриншоты: `features-search-1-before.png`, `features-search-2-after.png`.
+
+## Сводка по чужому коду
+
+| Откуда                                | Лицензия                    | Что взято                          | Где                                |
+| ------------------------------------- | --------------------------- | ---------------------------------- | ---------------------------------- |
+| bolt.diy `public/inspector-script.js` | MIT                         | подсветка, селектор, путь элемента | `main/preview-bridge/inspector.js` |
+| Dyad `src/lib/suggestedPrompts.ts`    | Apache-2.0 (вне `src/pro/`) | правила разбора тега               | `renderer/lib/next-steps.ts`       |
+| PiCove/PiDeck `session-search.ts`     | MIT                         | поиск по JSONL Pi                  | `main/features/session-search.ts`  |
+
+Идеи без кода: Dyad `PreviewErrorBanner` и `VersionPane`, bolt.diy `ScreenshotSelector`. Из `src/pro/` Dyad (FSL)
+ничего не открывал и не брал.

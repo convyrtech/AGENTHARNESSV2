@@ -21,3 +21,7 @@
   Copyright (c) Dyad contributors; текст лицензии — `licenses/dyad-Apache-2.0.txt`. Изменено PRSLOY: свой тег
   `<prsloy-next>`, разбор регулярным выражением, запасные подсказки по файлам хода. Из `NOTICE` Dyad: «Dyad.
   Copyright (c) Dyad contributors.»
+- `apps/desktop/src/main/features/session-search.ts` — по мотивам `packages/pi-host/src/session-search.ts` из
+  [Skitre/PiDeck](https://github.com/Skitre/PiDeck) (PiCove, коммит `102d9e1`). MIT License, Copyright (c) 2026
+  PiDeck contributors. Изменено PRSLOY: «ё» = «е», без папки архива, вырезаются блоки `<attached-paths>`,
+  название чата — первая просьба, чаты без проекта прямо в `sessions/`.

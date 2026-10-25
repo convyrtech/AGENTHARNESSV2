@@ -4,6 +4,9 @@
 import type { featuresZh } from "./features.zh.ts";
 
 export const featuresEn: Record<keyof typeof featuresZh, string> = {
+  "features.search.group": "Chats",
+  "features.search.untitled": "Untitled chat",
+  "features.search.matches": "{count} matches",
   "features.capture.start": "Snap part of the page",
   "features.capture.cancel": "Cancel snapshot",
   "features.capture.hint": "Draw a frame around the place you need. Esc cancels.",

@@ -3,6 +3,9 @@
  * into the locale table; `zh` is the key source.
  */
 export const featuresZh = {
+  "features.search.group": "聊天",
+  "features.search.untitled": "未命名聊天",
+  "features.search.matches": "{count} 处匹配",
   "features.capture.start": "截取页面一部分",
   "features.capture.cancel": "取消截图",
   "features.capture.hint": "用框圈出需要的位置。Esc 取消。",

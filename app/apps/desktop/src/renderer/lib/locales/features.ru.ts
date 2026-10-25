@@ -4,6 +4,9 @@
 import type { featuresZh } from "./features.zh.ts";
 
 export const featuresRu: Record<keyof typeof featuresZh, string> = {
+  "features.search.group": "Чаты",
+  "features.search.untitled": "Чат без названия",
+  "features.search.matches": "совпадений: {count}",
   "features.capture.start": "Снять часть страницы",
   "features.capture.cancel": "Отменить снимок",
   "features.capture.hint": "Обведите рамкой нужное место. Esc — отмена.",

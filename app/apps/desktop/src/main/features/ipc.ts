@@ -10,6 +10,12 @@ import { app, BrowserWindow, dialog, ipcMain, shell, type IpcMainInvokeEvent } f
 import { previewWorkspace } from "../code-preview-guard.ts";
 import { captureRect } from "./capture-rect.ts";
 import { listProjectFiles, zipName, zipProject } from "./project-zip.ts";
+import { searchChats } from "./session-search.ts";
+
+/** Main exports `PI_CODING_AGENT_DIR` before app ready (prsloy/agent-home.ts). */
+function agentDir(): string {
+  return process.env.PI_CODING_AGENT_DIR?.trim() || join(app.getPath("userData"), "agent");
+}
 
 async function exportProjectZip(
   event: IpcMainInvokeEvent,
@@ -75,5 +81,10 @@ export function installFeatures(assertTrustedSender: (event: IpcMainInvokeEvent)
   ipcMain.handle("prsloy:features:capture-preview", (event, rect: unknown) => {
     assertTrustedSender(event);
     return capturePreview(event, rect);
+  });
+  ipcMain.handle("prsloy:features:search-chats", (event, query: unknown) => {
+    assertTrustedSender(event);
+    if (typeof query !== "string") return [];
+    return searchChats({ agentDir: agentDir(), query: query.slice(0, 200) });
   });
 }

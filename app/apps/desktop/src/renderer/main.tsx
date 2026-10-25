@@ -3624,6 +3624,7 @@ function App() {
         locale={locale}
         commands={commands}
         onClose={() => setPaletteOpen(false)}
+        onOpenChat={(path, cwd) => void switchThread(path, cwd)}
       />
       <SessionTreePanel
         open={sessionPanels.tree.open}
