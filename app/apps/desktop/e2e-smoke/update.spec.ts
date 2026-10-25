@@ -26,7 +26,6 @@ import { passFirstRun, seedGateway, startGateway } from "./gateway.ts";
 import {
   beforeAllSmoke,
   close,
-  exe,
   launch,
   outDir,
   shot,
@@ -64,9 +63,15 @@ function runningInstalled(): Array<{ Id: number; Path: string; StartTime: string
   }>;
 }
 
-function installedProductVersion(): string {
+/**
+ * Installed version from the per-user uninstall entry NSIS writes (`DisplayVersion` keeps the
+ * prerelease part; the exe's file version is just 0.1.0.0).
+ */
+function installedVersion(): string {
   return powershell(
-    `(Get-Item -LiteralPath '${exe.replaceAll("'", "''")}').VersionInfo.ProductVersion`,
+    "Get-ItemProperty 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*' " +
+      "-ErrorAction SilentlyContinue | Where-Object DisplayName -like 'PRSLOY*' | " +
+      "Select-Object -First 1 -ExpandProperty DisplayVersion",
   );
 }
 
@@ -74,7 +79,7 @@ function installedProductVersion(): string {
 function reinstallA(): string {
   powershell("Get-Process PRSLOY -ErrorAction SilentlyContinue | Stop-Process -Force; exit 0");
   execFileSync(installerA, ["/S", "/currentuser"], { windowsHide: true });
-  return installedProductVersion();
+  return installedVersion();
 }
 
 function desktopScreenshot(name: string): void {
@@ -181,7 +186,7 @@ test("tampered update (sha512 mismatch): A refuses quietly and keeps running", a
   }
   // Quit must not install anything (autoInstallOnAppQuit only installs a verified download).
   await new Promise((r) => setTimeout(r, 5_000));
-  const product = installedProductVersion();
+  const product = installedVersion();
   await writeMetrics({ updateBadInstalledAfterQuit: product });
   expect(product).toContain(versionA);
 });
@@ -225,7 +230,7 @@ test("good update: detect, download, «Обновление готово — п�
     const relaunchMs = Date.now() - clickedAt;
     await new Promise((r) => setTimeout(r, 8_000));
     desktopScreenshot("32-update-relaunched-desktop");
-    const product = installedProductVersion();
+    const product = installedVersion();
     await writeMetrics({
       updateGood: {
         readyMs,
@@ -233,7 +238,7 @@ test("good update: detect, download, «Обновление готово — п�
         quitMs,
         relaunchMs,
         relaunchedProcesses: fresh,
-        installedProductVersion: product,
+        installedVersion: product,
       },
     });
     expect(product).toContain(versionB);
