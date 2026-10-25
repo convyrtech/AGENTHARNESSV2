@@ -22,7 +22,7 @@ import { installResearch } from "../src/research/tools.ts";
 import { scrubSecrets } from "../src/secret-scrub.ts";
 import { MockPi } from "./mock-pi.ts";
 import { isPrivateHost, isPrivateIp, type Resolve } from "../src/research/net-guard.ts";
-import { fakeFetch, json } from "./fake-fetch.ts";
+import { fakeFetch, json, PUBLIC_DNS } from "./fake-fetch.ts";
 import {
   htmlToText,
   isTextType,
@@ -101,6 +101,7 @@ describe("the body is streamed up to the cap (review #23, item 2)", () => {
       new Response(endless, { headers: { "content-type": "text/html" } })) as typeof fetch;
     const page = await readPage("https://example.com/huge", {
       fetchImpl,
+      resolve: PUBLIC_DNS,
       maxBytes: 1_000_000,
       jina: false,
     });
@@ -126,7 +127,7 @@ describe("the body is streamed up to the cap (review #23, item 2)", () => {
         headers: { "content-type": "application/x-msdownload" },
       })) as typeof fetch;
     await expect(
-      readPage("https://example.com/setup.exe", { fetchImpl, jina: false }),
+      readPage("https://example.com/setup.exe", { fetchImpl, jina: false, resolve: PUBLIC_DNS }),
     ).rejects.toThrow("не текст");
   });
 });
@@ -264,7 +265,11 @@ describe("keys never reach text the model sees (review #23, item 4)", () => {
     (mock.ctx as unknown as { modelRegistry: unknown }).modelRegistry = {
       getApiKeyForProvider: async () => "sk-gw-0123456789abcdefghij",
     };
-    installResearch(mock.api, resolveOptions({ outputDir: out }), { enabled: true, ...research });
+    installResearch(mock.api, resolveOptions({ outputDir: out }), {
+      enabled: true,
+      resolve: PUBLIC_DNS,
+      ...research,
+    });
     return mock;
   }
 

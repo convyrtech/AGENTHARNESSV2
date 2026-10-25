@@ -6,7 +6,7 @@
 // Last-Modified; иначе «дата неизвестна».
 
 import { netReason, timeoutSignal } from "./common.ts";
-import { assertPublicUrl, checkPublicUrl, PrivateAddressError, type Resolve } from "./net-guard.ts";
+import { checkPublicUrl, PrivateAddressError, type Resolve } from "./net-guard.ts";
 import { pinnedFetch, proxyFor } from "./pinned.ts";
 
 export interface PageText {
@@ -404,13 +404,14 @@ async function cappedJson<T>(res: Response, max = MAX_BODY_BYTES): Promise<T> {
   return JSON.parse(new TextDecoder().decode(await readCapped(res, max))) as T;
 }
 
-async function direct(url: string, deps: ReadDeps): Promise<PageText> {
+/** `checked` — IP адреса, уже проверенные вызывающим (readPage): не разрешаем имя второй раз. */
+async function direct(url: string, deps: ReadDeps, checked?: string[]): Promise<PageText> {
   let res: Response | undefined;
   let current = url;
   const signal = timeoutSignal(deps.timeoutMs ?? 20_000, deps.signal);
   let ips: string[];
   try {
-    ({ ips } = await checkPublicUrl(current, deps.resolve));
+    ips = checked ?? (await checkPublicUrl(current, deps.resolve)).ips;
   } catch (e) {
     throw new ReadError(
       e instanceof PrivateAddressError ? e.message : "это не адрес страницы",
@@ -579,8 +580,9 @@ export async function readPage(url: string, deps: ReadDeps = {}): Promise<PageTe
   if (parsed.username || parsed.password)
     throw new ReadError("адрес с логином и паролем не читаем");
   // частный адрес не читаем и в запасные пути (шлюз, Jina, jsDelivr) не отдаём
+  let checked: string[];
   try {
-    await assertPublicUrl(url, deps.resolve);
+    ({ ips: checked } = await checkPublicUrl(url, deps.resolve));
   } catch (e) {
     throw new ReadError(
       e instanceof PrivateAddressError ? e.message : "это не адрес страницы",
@@ -591,7 +593,7 @@ export async function readPage(url: string, deps: ReadDeps = {}): Promise<PageTe
   const errors: string[] = [];
   let first: PageText | undefined;
   try {
-    first = await direct(url, deps);
+    first = await direct(url, deps, checked);
     if (first.text.length >= MIN_TEXT) return first;
     errors.push("почти пустая страница (собирается скриптом?)");
   } catch (e) {

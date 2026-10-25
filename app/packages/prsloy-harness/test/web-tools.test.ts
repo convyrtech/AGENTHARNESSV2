@@ -19,7 +19,7 @@ import { guardQuery } from "../src/research/query-guard.ts";
 import { search, SearchError } from "../src/research/search.ts";
 import { tierOf } from "../src/research/source-tier.ts";
 import { installResearch, WEB_TOOLS_LINE } from "../src/research/tools.ts";
-import { fakeFetch, json } from "./fake-fetch.ts";
+import { fakeFetch, json, PUBLIC_DNS } from "./fake-fetch.ts";
 import { MockPi } from "./mock-pi.ts";
 
 const NOW = () => new Date("2026-10-25T12:00:00Z");
@@ -467,7 +467,11 @@ describe("GitHub: repositories, issues, code with a token; limits per resource",
         () => new Response(text, { headers: { "content-type": "text/plain" } }),
       ],
     ]);
-    const page = await readPage("https://github.com/o/r", { fetchImpl: f.impl, jina: false });
+    const page = await readPage("https://github.com/o/r", {
+      fetchImpl: f.impl,
+      jina: false,
+      resolve: PUBLIC_DNS,
+    });
     expect(page).toMatchObject({ url: "https://github.com/o/r", via: "jsdelivr" });
     expect(page.text).toContain("Next generation frontend tooling");
   });
@@ -561,7 +565,10 @@ describe("web_search: chain, year guard, tiers, site", () => {
     (mock.ctx as unknown as { modelRegistry: unknown }).modelRegistry = {
       getApiKeyForProvider: async (p: string) => (p === "prsloy" ? "sk-gateway" : undefined),
     };
-    installResearch(mock.api, resolveOptions({ outputDir: out, settingsPath }), research);
+    installResearch(mock.api, resolveOptions({ outputDir: out, settingsPath }), {
+      resolve: PUBLIC_DNS,
+      ...research,
+    });
     const run = async (params: Record<string, unknown>) => {
       const r = await mock.tools
         .get("web_search")!
