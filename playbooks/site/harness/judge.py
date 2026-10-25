@@ -20,6 +20,8 @@
 """
 import argparse, base64, datetime as dt, hashlib, io, json, re, sys, time, urllib.request, uuid
 from pathlib import Path
+for _s in (sys.stdout, sys.stderr):  # Windows: под -I PYTHONUTF8 не действует, а вывод в трубу идёт в cp1252
+    _s.reconfigure(encoding="utf-8", errors="replace")
 
 ap = argparse.ArgumentParser()
 ap.add_argument("--page", required=True)
