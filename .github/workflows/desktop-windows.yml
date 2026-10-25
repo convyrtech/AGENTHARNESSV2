@@ -223,6 +223,11 @@ jobs:
       # 0.5 s, window texts checked for wizard pages; then the uninstaller the same way.
       - name: One-click install and uninstall (as a double click)
         shell: pwsh
+        env:
+          # The installer starts the app itself (inherits this env) in product mode with real network:
+          # it found the newer published alpha and installed it on exit, while the uninstaller ran (#32).
+          # Update checks are tested in firstrun.spec (dead proxy) and in the update-e2e job, not here.
+          PRSLOY_NO_UPDATE: "1"
         run: |
           $ErrorActionPreference = 'Stop'
           New-Item -ItemType Directory -Force smoke-out | Out-Null
