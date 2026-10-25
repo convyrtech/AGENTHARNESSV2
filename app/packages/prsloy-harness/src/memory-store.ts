@@ -2,6 +2,9 @@
 // user.json (обо мне), projects/<sha256(realpath)[:16]>/project.json (об этом проекте), journal.jsonl (каждая
 // операция: до и после — для «Вернуть» и аудита). Без Pi: тот же модуль может читать и править память из main
 // для панели «Память». Пишет атомарно (tmp + rename).
+// M-1 (research/24 §3.2, §3.6): схема v2 — `origin` user/auto, `kind`, `pinned`, `evidence` ≤3, `strength`,
+// `lastSeen`; общая история «было» (заменено / истекло / забыто) с `opId` и «Вернуть» байт-в-байт; операции
+// add / reinforce / supersede / revert / pin в журнале с `opId`. v1-файлы читаются как есть.
 import { createHash, randomBytes } from "node:crypto";
 import {
   appendFileSync,
@@ -9,6 +12,7 @@ import {
   existsSync,
   mkdirSync,
   openSync,
+  readdirSync,
   readFileSync,
   renameSync,
   statSync,
@@ -31,15 +35,51 @@ import {
 
 export type MemoryScope = "user" | "project";
 
+/** Вид записи (§3.5): от него зависит забывание. */
+export type MemoryKind = "profile" | "preference" | "decision" | "correction";
+
+/** Где пользователь это сказал (до трёх, новые в конце). */
+export interface MemoryEvidence {
+  quote: string;
+  session?: string;
+  at: string;
+}
+
 export interface MemoryEntry {
   id: string;
   text: string;
   /** Слова пользователя, по которым запись сделана. */
   quote: string;
-  origin: "user";
+  /** user — пользователь попросил запомнить; auto — заметил экстрактор (M-3). */
+  origin: "user" | "auto";
+  kind?: MemoryKind;
+  /** Закреплено: само не исчезает и меняется только через карточку. */
+  pinned?: boolean;
+  evidence?: MemoryEvidence[];
+  /** Сколько раз подтверждено (reinforce), от 1. */
+  strength?: number;
+  lastSeen?: string;
   session?: string;
   created: string;
   shown?: number;
+}
+
+export type MemoryHistoryKind = "replaced" | "expired" | "forgotten";
+
+/**
+ * «Было»: что ушло из памяти и чем «Вернуть» это вернёт (байт-в-байт). В файле лежат replaced и expired
+ * (90 дней); forgotten собирается из журнала (там текст 30 дней), чтобы в файле после «Забыть» были одни хэши.
+ */
+export interface MemoryHistoryItem {
+  opId: string;
+  kind: MemoryHistoryKind;
+  /** Запись, как она лежала до операции. */
+  entry: MemoryEntry;
+  /** Для replaced — что встало на её место. */
+  now?: MemoryEntry;
+  /** Место записи в списке: «Вернуть» ставит её туда же. */
+  pos: number;
+  at: string;
 }
 
 export interface Tombstone {
@@ -64,12 +104,15 @@ export interface Digest {
 }
 
 interface UserFile {
-  version: 1;
+  /** 2 — схема M-1; 1 читается как есть (новые поля необязательны). */
+  version: 1 | 2;
   entries: MemoryEntry[];
   tombstones: Tombstone[];
   /** Какими правилами записи уже перепроверены ("m0"). */
   rules?: string;
   quarantined?: QuarantinedEntry[];
+  /** Новые в конце; старше HISTORY_DAYS удаляются при записи. */
+  history?: MemoryHistoryItem[];
 }
 
 interface ProjectFile extends UserFile {
@@ -200,12 +243,44 @@ export function withMemoryLock<T>(dir: string, fn: () => T): T {
 
 export type AddResult =
   /** `replaced` — прежняя запись с обратным смыслом: пользователь передумал, последнее слово главнее. */
-  | { ok: true; entry: MemoryEntry; replaced?: MemoryEntry }
-  | { ok: false; reason: "duplicate" | "forgotten" | "too_long" | "full" };
+  | { ok: true; opId: string; entry: MemoryEntry; replaced?: MemoryEntry }
+  /** Дубль усиливает запись, что уже есть (reinforce): strength, lastSeen, evidence. */
+  | { ok: false; reason: "duplicate"; opId: string; entry: MemoryEntry }
+  /** `pinned` — автоматическая запись не вытесняет закреплённую: только карточка (§3.4 п. 9). */
+  | { ok: false; reason: "forgotten" | "too_long" | "full" | "pinned" };
+
+export interface AddInput {
+  text: string;
+  quote: string;
+  session?: string | undefined;
+  origin?: MemoryEntry["origin"];
+  kind?: MemoryKind;
+}
+
+/** Строка «Было» для панели: обе области, новые первыми. */
+export interface MemoryHistoryView extends MemoryHistoryItem {
+  scope: MemoryScope;
+}
+
+/** «Было» с «Вернуть» живёт 90 дней (§3.5). */
+export const HISTORY_DAYS = 90;
+export const EVIDENCE_MAX = 3;
+
+/** «Забыть» по журналу: запись, её место и opId (у строк до M-1 его нет). */
+interface ForgetRecord {
+  opId?: string;
+  scope: MemoryScope;
+  entry: MemoryEntry;
+  pos: number;
+  at: string;
+}
+
+export const newOpId = () => `op-${randomBytes(6).toString("hex")}`;
 
 /** Текст в журнале живёт 30 дней, потом остаются хэши (research/24 §1). */
 export const JOURNAL_TEXT_DAYS = 30;
 const RULES = "m0";
+const VERSION = 2;
 
 function tombstoneFor(entry: MemoryEntry, now = new Date()): Tombstone {
   const sig = hashedSignature(entry.text);
@@ -224,8 +299,13 @@ function hashedEntry(value: unknown): unknown {
   if (!value || typeof value !== "object") return value;
   const e = value as Record<string, unknown>;
   if (typeof e.text !== "string") return value;
-  const { text, quote: _quote, ...rest } = e;
-  return { ...rest, textHash: textHash(text) };
+  const { text, quote: _quote, evidence, ...rest } = e;
+  // Цитаты в evidence — те же слова пользователя: остаётся только их число.
+  return {
+    ...rest,
+    textHash: textHash(text),
+    ...(Array.isArray(evidence) ? { evidence: evidence.length } : {}),
+  };
 }
 
 /** Перепроверка старой записи теми же правилами, что и новой. */
@@ -329,7 +409,15 @@ export class MemoryStore {
 
   #write(scope: MemoryScope, cwd: string, rawFile: ProjectFile): void {
     // Всё, что пишет этот код, уже прошло проверки M-0.
-    const file = { ...rawFile, rules: RULES };
+    const cutoff = Date.now() - HISTORY_DAYS * 86_400_000;
+    const history = (rawFile.history ?? []).filter((h) => Date.parse(h.at) >= cutoff);
+    const { history: _h, ...rest } = rawFile;
+    const file = {
+      ...rest,
+      version: VERSION as 1 | 2,
+      rules: RULES,
+      ...(history.length ? { history } : {}),
+    };
     if (scope === "user") {
       const { path: _path, digest: _digest, ...user } = file;
       writeAtomic(this.#userPath(), user);
@@ -393,31 +481,52 @@ export class MemoryStore {
     return this.#read("project", cwd).digest;
   }
 
-  add(
-    scope: MemoryScope,
-    cwd: string,
-    input: { text: string; quote: string; session?: string | undefined },
-  ): AddResult {
+  add(scope: MemoryScope, cwd: string, input: AddInput): AddResult {
     return withMemoryLock(this.dir, () => this.#add(scope, cwd, input));
   }
 
-  #add(
-    scope: MemoryScope,
-    cwd: string,
-    input: { text: string; quote: string; session?: string | undefined },
-  ): AddResult {
+  #add(scope: MemoryScope, cwd: string, input: AddInput): AddResult {
     const text = input.text.replace(/\s+/g, " ").trim();
     if (text.length > MEMORY_LIMITS.entryChars) return { ok: false, reason: "too_long" };
     const file = this.#read(scope, cwd);
     const hash = textHash(text);
     const sig = signature(text);
-    // Дубль — то же по основам и с той же полярностью.
-    if (
-      file.entries.some(
-        (e) => textHash(e.text) === hash || relation(sig, signature(e.text)) === "same",
-      )
-    )
-      return { ok: false, reason: "duplicate" };
+    const now = new Date().toISOString();
+    const quote = input.quote.trim();
+    const evidence: MemoryEvidence = {
+      quote,
+      ...(input.session ? { session: input.session } : {}),
+      at: now,
+    };
+    // Дубль — то же по основам и с той же полярностью: запись усиливается (reinforce).
+    const dup = file.entries.findIndex(
+      (e) => textHash(e.text) === hash || relation(sig, signature(e.text)) === "same",
+    );
+    if (dup >= 0) {
+      const before = file.entries[dup]!;
+      const seen = before.evidence ?? [{ quote: before.quote, at: before.created }];
+      const after: MemoryEntry = {
+        ...before,
+        strength: (before.strength ?? 1) + 1,
+        lastSeen: now,
+        evidence: (seen.some((e) => e.quote === quote) ? seen : [...seen, evidence]).slice(
+          -EVIDENCE_MAX,
+        ),
+      };
+      file.entries[dup] = after;
+      this.#write(scope, cwd, file);
+      const opId = newOpId();
+      this.#journal({
+        op: "reinforce",
+        opId,
+        scope,
+        id: after.id,
+        before,
+        after,
+        origin: input.origin ?? "user",
+      });
+      return { ok: false, reason: "duplicate", opId, entry: after };
+    }
     // Забытое само не возвращается, и пересказом тоже. Обратная полярность — не то же самое.
     if (
       file.tombstones.some((t) =>
@@ -427,8 +536,10 @@ export class MemoryStore {
       )
     )
       return { ok: false, reason: "forgotten" };
-    // Противоречие: пользователь передумал. Прежняя запись уходит, новая встаёт на её место.
-    const replaced = file.entries.find((e) => relation(sig, signature(e.text)) === "contradicts");
+    // Противоречие: пользователь передумал. Прежняя запись уходит в «Было», новая встаёт на её место.
+    const pos = file.entries.findIndex((e) => relation(sig, signature(e.text)) === "contradicts");
+    const replaced = pos >= 0 ? file.entries[pos] : undefined;
+    if (replaced?.pinned && input.origin === "auto") return { ok: false, reason: "pinned" };
     if (replaced) file.entries = file.entries.filter((e) => e.id !== replaced.id);
     const limits = scope === "user" ? MEMORY_LIMITS.user : MEMORY_LIMITS.project;
     const used =
@@ -436,36 +547,49 @@ export class MemoryStore {
       (scope === "project" ? (file.digest?.text.length ?? 0) : 0);
     if (file.entries.length >= limits.entries || used + text.length > limits.chars)
       return { ok: false, reason: "full" };
+    const origin = input.origin ?? "user";
     const entry: MemoryEntry = {
       id: `${scope === "user" ? "u" : "p"}-${randomBytes(2).toString("hex")}`,
       text,
-      quote: input.quote.trim(),
-      origin: "user",
+      quote,
+      origin,
+      ...(input.kind ? { kind: input.kind } : {}),
+      evidence: [evidence],
+      strength: 1,
+      lastSeen: now,
       ...(input.session ? { session: input.session } : {}),
-      created: new Date().toISOString(),
+      created: now,
     };
     file.entries.push(entry);
+    const opId = newOpId();
+    if (replaced)
+      file.history = [
+        ...(file.history ?? []),
+        { opId, kind: "replaced", entry: replaced, now: entry, pos, at: now },
+      ];
     this.#write(scope, cwd, file);
     if (replaced) {
       this.#journal({
         op: "supersede",
+        opId,
         scope,
         id: replaced.id,
         before: replaced,
         after: entry,
-        origin: "user",
+        origin,
       });
     } else {
       this.#journal({
         op: "remember",
+        opId,
         scope,
         id: entry.id,
         before: null,
         after: entry,
-        origin: "user",
+        origin,
       });
     }
-    return replaced ? { ok: true, entry, replaced } : { ok: true, entry };
+    return replaced ? { ok: true, opId, entry, replaced } : { ok: true, opId, entry };
   }
 
   /** Забыть по id (в обоих местах); запись уходит в tombstones. */
@@ -476,12 +600,23 @@ export class MemoryStore {
   #forget(id: string, cwd: string): MemoryEntry | undefined {
     for (const scope of ["user", "project"] as const) {
       const file = this.#read(scope, cwd);
-      const entry = file.entries.find((e) => e.id === id);
+      const pos = file.entries.findIndex((e) => e.id === id);
+      const entry = file.entries[pos];
       if (!entry) continue;
       file.entries = file.entries.filter((e) => e.id !== id);
       file.tombstones.push(tombstoneFor(entry));
       this.#write(scope, cwd, file);
-      this.#journal({ op: "forget", scope, id, before: entry, after: null, origin: "user" });
+      // Текст забытого — только в журнале (30 дней): в файле после «Забыть» одни хэши.
+      this.#journal({
+        op: "forget",
+        opId: newOpId(),
+        scope,
+        id,
+        pos,
+        before: entry,
+        after: null,
+        origin: "user",
+      });
       return entry;
     }
     return undefined;
@@ -493,39 +628,62 @@ export class MemoryStore {
   }
 
   #restore(id: string, cwd: string): MemoryEntry | undefined {
-    let found: { scope: MemoryScope; entry: MemoryEntry } | undefined;
+    const found = this.#forgets().find((f) => f.entry.id === id);
+    return found ? this.#undoForget(found, cwd) : undefined;
+  }
+
+  /** «Забыть» из журнала, пока там текст (после срока — хэш, и вернуть нечего). Последний раз — последним. */
+  #forgets(): ForgetRecord[] {
+    const out: ForgetRecord[] = [];
     try {
       for (const line of readFileSync(join(this.dir, "journal.jsonl"), "utf8").split("\n")) {
         if (!line.trim()) continue;
         const j = JSON.parse(line) as {
+          ts?: string;
           op?: string;
+          opId?: string;
           scope?: MemoryScope;
           id?: string;
+          pos?: number;
           before?: MemoryEntry;
         };
-        if (j.op === "forget" && j.id === id && j.before && j.scope)
-          found = { scope: j.scope, entry: j.before };
+        if (j.op !== "forget" || !j.id || !j.scope || typeof j.before?.text !== "string") continue;
+        out.push({
+          ...(j.opId ? { opId: j.opId } : {}),
+          scope: j.scope,
+          entry: j.before,
+          pos: typeof j.pos === "number" ? j.pos : Number.MAX_SAFE_INTEGER,
+          at: j.ts ?? "",
+        });
       }
     } catch {
-      return undefined;
+      // нет журнала
     }
-    // После срока в журнале только хэш: вернуть нечего.
-    if (!found || typeof found.entry.text !== "string") return undefined;
-    const file = this.#read(found.scope, cwd);
-    if (!file.tombstones.some((t) => t.id === id) || file.entries.some((e) => e.id === id))
+    return out.reverse();
+  }
+
+  #undoForget(found: ForgetRecord, cwd: string): MemoryEntry | undefined {
+    const { scope, entry } = found;
+    const file = this.#read(scope, cwd);
+    if (
+      !file.tombstones.some((t) => t.id === entry.id) ||
+      file.entries.some((e) => e.id === entry.id)
+    )
       return undefined;
-    file.tombstones = file.tombstones.filter((t) => t.id !== id);
-    file.entries.push(found.entry);
-    this.#write(found.scope, cwd, file);
+    file.tombstones = file.tombstones.filter((t) => t.id !== entry.id);
+    file.entries.splice(Math.min(found.pos, file.entries.length), 0, entry);
+    this.#write(scope, cwd, file);
     this.#journal({
       op: "restore",
-      scope: found.scope,
-      id,
+      opId: newOpId(),
+      ...(found.opId ? { revertOf: found.opId } : {}),
+      scope,
+      id: entry.id,
       before: null,
-      after: found.entry,
+      after: entry,
       origin: "user",
     });
-    return found.entry;
+    return entry;
   }
 
   /** Сводка «прошлый раз» (S6): пишет только код харнесса. */
@@ -562,9 +720,128 @@ export class MemoryStore {
       });
       file.entries = [];
       delete file.quarantined;
+      delete file.history;
       if (scope === "project") delete file.digest;
       this.#write(scope, cwd, file);
     }
     this.#compactJournal({ all: true });
+  }
+
+  /** «Было» обеих областей для этой папки, новые первыми. */
+  history(cwd: string): MemoryHistoryView[] {
+    return this.#history(cwd);
+  }
+
+  #history(cwd: string): MemoryHistoryView[] {
+    const files = { user: this.#read("user", cwd), project: this.#read("project", cwd) };
+    const out: MemoryHistoryView[] = (["user", "project"] as const).flatMap((scope) =>
+      (files[scope].history ?? []).map((h) => ({ ...h, scope })),
+    );
+    // Забытое — из журнала: только с opId (после M-1) и только то, что лежит в tombstones этой папки.
+    const seen = new Set<string>();
+    for (const f of this.#forgets()) {
+      if (!f.opId || seen.has(f.entry.id)) continue;
+      seen.add(f.entry.id);
+      const file = files[f.scope];
+      if (!file.tombstones.some((t) => t.id === f.entry.id)) continue;
+      if (file.entries.some((e) => e.id === f.entry.id)) continue;
+      out.push({
+        opId: f.opId,
+        kind: "forgotten",
+        entry: f.entry,
+        pos: f.pos,
+        at: f.at,
+        scope: f.scope,
+      });
+    }
+    return out.sort((a, b) => b.at.localeCompare(a.at));
+  }
+
+  /**
+   * «Вернуть» операцию из «Было» (§3.6): запись встаёт на прежнее место такой, какой была; для replaced
+   * уходит то, что её заменило. Возвращает вернувшуюся запись или undefined (нет такой операции, срок вышел,
+   * запись уже на месте).
+   */
+  revert(opId: string, cwd: string): MemoryEntry | undefined {
+    return withMemoryLock(this.dir, () => this.#revert(opId, cwd));
+  }
+
+  #revert(opId: string, cwd: string): MemoryEntry | undefined {
+    const forgot = this.#forgets().find((f) => f.opId === opId);
+    if (forgot) return this.#undoForget(forgot, cwd);
+    for (const scope of ["user", "project"] as const) {
+      const file = this.#read(scope, cwd);
+      const item = file.history?.find((h) => h.opId === opId);
+      if (!item) continue;
+      if (file.entries.some((e) => e.id === item.entry.id)) return undefined;
+      const removed = item.now ? file.entries.find((e) => e.id === item.now!.id) : undefined;
+      if (removed) file.entries = file.entries.filter((e) => e.id !== removed.id);
+      file.entries.splice(Math.min(item.pos, file.entries.length), 0, item.entry);
+      file.history = file.history!.filter((h) => h.opId !== opId);
+      this.#write(scope, cwd, file);
+      this.#journal({
+        op: "revert",
+        opId: newOpId(),
+        revertOf: opId,
+        scope,
+        id: item.entry.id,
+        before: removed ?? null,
+        after: item.entry,
+        origin: "user",
+      });
+      return item.entry;
+    }
+    return undefined;
+  }
+
+  /** «Закрепить» / «Открепить» (§3.5–3.6). */
+  pin(id: string, pinned: boolean, cwd: string): MemoryEntry | undefined {
+    return withMemoryLock(this.dir, () => this.#pin(id, pinned, cwd));
+  }
+
+  #pin(id: string, pinned: boolean, cwd: string): MemoryEntry | undefined {
+    for (const scope of ["user", "project"] as const) {
+      const file = this.#read(scope, cwd);
+      const at = file.entries.findIndex((e) => e.id === id);
+      const before = file.entries[at];
+      if (!before) continue;
+      if (Boolean(before.pinned) === pinned) return before;
+      const { pinned: _p, ...rest } = before;
+      const after: MemoryEntry = pinned ? { ...rest, pinned: true } : rest;
+      file.entries[at] = after;
+      this.#write(scope, cwd, file);
+      this.#journal({ op: "pin", opId: newOpId(), scope, id, before, after, origin: "user" });
+      return after;
+    }
+    return undefined;
+  }
+
+  /**
+   * Память выключили (§3.6): стереть записи, «Было», сводку и тексты журнала во всех областях и проектах.
+   * Tombstones (только хэши) остаются: забытое не вернётся и после повторного включения.
+   */
+  eraseAll(): void {
+    withMemoryLock(this.dir, () => {
+      const projects = join(this.dir, "projects");
+      const paths = existsSync(projects)
+        ? readdirSync(projects).map((key) => join(projects, key, "project.json"))
+        : [];
+      for (const path of [this.#userPath(), ...paths]) {
+        if (!existsSync(path)) continue;
+        const file = readJson<ProjectFile | null>(path, null);
+        if (!file || typeof file !== "object") continue;
+        const { entries, history: _h, quarantined: _q, digest: _d, ...rest } = file;
+        writeAtomic(path, { ...rest, version: VERSION, rules: RULES, entries: [] });
+        this.#journal({
+          op: "erase",
+          opId: newOpId(),
+          scope: path === this.#userPath() ? "user" : "project",
+          before: hashedEntry(entries ?? []),
+          after: [],
+          origin: "user",
+        });
+      }
+      this.#compactJournal({ all: true });
+    });
   }
 }

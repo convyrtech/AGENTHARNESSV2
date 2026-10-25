@@ -1158,8 +1158,7 @@ CLI прогнан через `node` против mock-шлюза.
 - `bench/tasks/visit-card-memory/fake.json`;
 - e2e `features-memory`.
 
-Не сделано в M-0: «выключение памяти стирает тексты журнала». Флаг `memory` живёт в общем `flags.ts`,
-это будет после «труб» harness.
+Не сделано в M-0: «выключение памяти стирает тексты журнала» — сделано в M-1 (§57).
 
 ## Память — M-sp, пробный шаг (research/24 §3.1, §3.3)
 
@@ -1254,6 +1253,72 @@ CLI прогнан через `node` против mock-шлюза.
 Остались три отказа — в них нет общего слова: «Валюта — рубли» / «цены в рублях», «старше 60» / «мне за 60»,
 «на ты» / «давай на ты». Тест `memory-match.test.ts`: имена через письменности, «платных» / «платить» (и
 забытое по хэшам), а также «не совпадает»: «Mac» / «мех», длинное латинское слово, отрицание.
+
+## Память — M-1: схема v2, «Было», «Вернуть», закрепление (research/24 §3.2, §3.5, §3.6)
+
+### 56. Схема и операции
+
+`MemoryEntry` (харнесс, `memory-store.ts`) получил необязательные поля — v1-файлы читаются как есть, запись
+пишет `version: 2`:
+
+| поле       | что                                                                     |
+| ---------- | ----------------------------------------------------------------------- |
+| `origin`   | `"user"` (попросил запомнить) или `"auto"` (заметил экстрактор, M-3)    |
+| `kind`     | `profile / preference / decision / correction` — для забывания (M-4)    |
+| `pinned`   | закреплено: автоматическая запись его не вытесняет (`reason: "pinned"`) |
+| `evidence` | до 3 цитат `{quote, session?, at}`, новые в конце                       |
+| `strength` | сколько раз подтверждено, от 1                                          |
+| `lastSeen` | когда подтверждено последний раз                                        |
+
+Операции, у каждой в журнале `opId` (`op-` + 12 hex):
+
+- **add** (`remember`) — как раньше, результат несёт `opId`;
+- **reinforce** — дубль по основам больше не просто «Уже помню»: `strength + 1`, `lastSeen`, новая цитата в
+  `evidence` (результат `{ok:false, reason:"duplicate", opId, entry}`);
+- **supersede** — противоречие: прежняя запись уходит в «Было» (`history` файла: `{opId, kind:"replaced",
+entry, now, pos, at}`);
+- **revert(opId)** — «Вернуть» байт-в-байт: запись встаёт на прежнее место (`pos`) такой, какой была, а то, что
+  её заменило, уходит. Повторный revert и чужой opId ничего не делают;
+- **pin(id, pinned)** — «Закрепить» / «Открепить».
+
+«Было» в файле — `replaced` (и `expired` с M-4), 90 дней (`HISTORY_DAYS`), старше — удаляется при записи.
+**Забытое в файл не кладётся**: после M-0 там только хэши. Для «Было» оно собирается из журнала (строка
+`forget` с `opId` и `pos`, текст 30 дней) — только то, что ещё лежит в tombstones этой папки. Так «Вернуть»
+забытого работает и по `opId`, и по `id` (старый `restore`).
+
+Стирание журнала (`hashedEntry`) теперь убирает и цитаты из `evidence` (остаётся их число).
+
+### 57. Выключение памяти стирает её
+
+`MemoryStore.eraseAll()`: в `user.json` и во всех `projects/*/project.json` — пустые записи, без «Было»,
+сводки и карантина; тексты журнала — хэши сразу. Tombstones (хэши) остаются: забытое не вернётся и после
+повторного включения. Вызывает main: обработчик `prsloy:harness-flags:set` (`harness-flags.ts`) после записи
+флагов зовёт `memoryFlagsChanged(before, after)` из `memory-ipc.ts`; если `memory` было `true`, а стало `false` —
+`eraseAll` и скрытая заметка открытой сессии (`MEMORY_FORGOT_ALL_NOTE`).
+
+### 58. Main, контракты, карточки
+
+- `prsloy:memory-pin (id, pinned, workspace?)` и `prsloy:memory-revert (opId, workspace?)` в `memory-ipc.ts`
+  (контракты «труб»). Проверка входа: id как раньше, `pinned` — boolean, `opId` — `op-[a-f0-9]{6,32}`. После
+  revert замены — скрытая заметка `prsloy-memory.reverted`: «Пользователь вернул прежнее: «…». «…» больше не
+  учитывай.»
+- `MemorySnapshot.history?: {opId, scope, kind, text, now?, at}[]`, новые первыми; `MemoryItem` — `origin`,
+  `quote`, `pinned` (необязательные, в `packages/contracts/src/memory.ts` — те же поля, что у features).
+- Карточки (`MEMORY_CARD` в `memory.ts`): замена теперь `prsloy-memory.updated` с details `{opId, id, scope,
+before, after, pinned?}` (тексты); для M-3 готов `autoDetails` → `prsloy-memory.auto` с `{items:[{id, scope,
+text, quote?}]}`. Нынешний renderer знает только `prsloy-memory.saved`; новые типы рисует UI v2 features.
+
+Как проверено:
+
+- `test/memory-m1.test.ts` (9): поля v2 и `version: 2`; v1 читается как есть; reinforce (strength 4, три
+  цитаты); supersede → «Было» → revert байт-в-байт на прежнее место; забытое — из журнала, в файле нет текста,
+  revert по opId; «Было» 90 дней; pin и запрет auto вытеснять закреплённое; `eraseAll` по всем проектам,
+  tombstones держат; форматы details карточек;
+- `memory-ipc.test.ts` (+4): pin / unpin; revert замены байт-в-байт и заметка; забытое в «Было» и revert по
+  opId; выключение памяти стирает записи, сводки, «Было» и тексты журнала везде, другие флаги — ничего;
+  неверные `pinned` и `opId`;
+- e2e `prsloy-memory.spec.ts` «memory M-1»: через настоящий preload — pin, «Вернуть» по opId на место,
+  `harnessFlags.set({memory:false})` стирает файлы. `features-memory`, `prsloy-extractor` — зелёные.
 
 ## Как проверено (Linux, без ключа шлюза)
 
