@@ -41,24 +41,40 @@ export type ImportPaths = {
   agentDir: string;
   /** `<userData>/prsloy/import-ledger.json`. */
   ledgerPath: string;
+  /** `<userData>/prsloy/state.json`: the models the gateway served at the last check. */
+  statePath: string;
 };
 
-/** The model imported chats continue on: the one PRSLOY's settings name, else its default. */
-export function importTargetModel(agentDir: string): TargetModel {
+function readJson(path: string): Record<string, unknown> | undefined {
   try {
-    const settings = JSON.parse(readFileSync(join(agentDir, "settings.json"), "utf8")) as Record<
-      string,
-      unknown
-    >;
-    if (typeof settings.defaultProvider === "string" && typeof settings.defaultModel === "string") {
-      return { provider: settings.defaultProvider, modelId: settings.defaultModel };
-    }
+    const parsed: unknown = JSON.parse(readFileSync(path, "utf8"));
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>)
+      : undefined;
   } catch {
-    // no settings yet: the first-run default
+    return undefined;
+  }
+}
+
+/** Model ids the gateway's `/v1/models` listed (prsloy/context.ts keeps them in state.json). */
+export function servedModels(statePath: string): string[] | undefined {
+  const models = readJson(statePath)?.models;
+  const ids = models && typeof models === "object" ? (models as { ids?: unknown }).ids : undefined;
+  return Array.isArray(ids) ? ids.filter((id): id is string => typeof id === "string") : undefined;
+}
+
+/**
+ * The model imported chats continue on: the one PRSLOY's settings name, else the default of the
+ * models the gateway serves (so the first turn does not ask for one it dropped).
+ */
+export function importTargetModel(agentDir: string, served?: readonly string[]): TargetModel {
+  const settings = readJson(join(agentDir, "settings.json"));
+  if (typeof settings?.defaultProvider === "string" && typeof settings.defaultModel === "string") {
+    return { provider: settings.defaultProvider, modelId: settings.defaultModel };
   }
   return {
     provider: PRSLOY_PROVIDER_ID,
-    modelId: prsloySpeedModelId(PRSLOY_DEFAULT_SPEED_MODE),
+    modelId: prsloySpeedModelId(PRSLOY_DEFAULT_SPEED_MODE, served?.length ? served : undefined),
   };
 }
 
@@ -110,7 +126,7 @@ export class SessionImportService {
       home: paths.home,
       sessionDir: paths.sessionDir,
       ledgerPath: paths.ledgerPath,
-      target: importTargetModel(paths.agentDir),
+      target: importTargetModel(paths.agentDir, servedModels(paths.statePath)),
       onProgress: (done, total) => onProgress?.({ done, total }),
     });
     const skipped: Partial<Record<ImportSkipReason, number>> = {};

@@ -21,6 +21,7 @@ function importPaths(): ImportPaths {
     agentDir,
     sessionDir: process.env.PI_CODING_AGENT_SESSION_DIR?.trim() || join(agentDir, "sessions"),
     ledgerPath: join(userData, "prsloy", IMPORT_LEDGER_FILE),
+    statePath: join(userData, "prsloy", "state.json"),
   };
 }
 

@@ -4,7 +4,12 @@ import { join } from "node:path";
 import { realpathSync } from "node:fs";
 import { cleanTemp, fakeMachine } from "../../../../../packages/session-import/test/helpers.ts";
 import { PRSLOY_PROVIDER_ID } from "../../shared/prsloy-config.ts";
-import { importTargetModel, MAX_LISTED_CHATS, SessionImportService } from "./service.ts";
+import {
+  importTargetModel,
+  MAX_LISTED_CHATS,
+  servedModels,
+  SessionImportService,
+} from "./service.ts";
 
 afterEach(cleanTemp);
 
@@ -18,7 +23,7 @@ async function service() {
     join(agentDir, "settings.json"),
     JSON.stringify({ defaultProvider: "prsloy", defaultModel: "deepseek-v4.1-flash-1017" }),
   );
-  const paths = { ...machine, agentDir };
+  const paths = { ...machine, agentDir, statePath: join(machine.root, "prsloy", "state.json") };
   return { machine, svc: new SessionImportService(() => paths) };
 }
 
@@ -72,5 +77,18 @@ describe("SessionImportService", () => {
       modelId: "deepseek-v4.1-flash-1017",
     });
     expect(importTargetModel(join(machine.root, "нет")).provider).toBe(PRSLOY_PROVIDER_ID);
+  });
+
+  it("without settings picks a model the gateway still serves", async () => {
+    const { machine } = await service();
+    const statePath = join(machine.root, "prsloy", "state.json");
+    expect(servedModels(statePath)).toBeUndefined();
+    await mkdir(join(machine.root, "prsloy"), { recursive: true });
+    await writeFile(statePath, JSON.stringify({ models: { ids: ["kimi-k3.1-pro", 7] } }));
+    expect(servedModels(statePath)).toEqual(["kimi-k3.1-pro"]);
+    expect(importTargetModel(join(machine.root, "нет"), ["kimi-k3.1-pro"])).toEqual({
+      provider: PRSLOY_PROVIDER_ID,
+      modelId: "kimi-k3.1-pro",
+    });
   });
 });

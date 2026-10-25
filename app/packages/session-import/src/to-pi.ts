@@ -3,15 +3,17 @@
  * the chat list, search and «Продолжить» work with no special cases:
  *
  *   header (cwd = the project folder from the transcript)
- *   custom `prsloy.import` — where it came from (not sent to the model)
  *   message × N — the whole history as plain text, original times
+ *   custom `prsloy.import` — where it came from (not sent to the model)
  *   compaction — a summary written by code + the last few turns kept as they are
  *   model_change — to PRSLOY's model, so «Продолжить» does not ask for the other agent's
  *   session_info — the title
  *
  * The model sees only the summary and the tail; the person sees everything. A Pi CLI chat is
  * already in this format: it is copied under a new id, with the import record and model_change
- * appended. Files are written next to the target and renamed into place.
+ * appended. In both, everything before the `prsloy.import` record is the other agent's
+ * history — never the person's words here (core's memory relies on it, #13). Files are written
+ * next to the target and renamed into place.
  */
 import { randomBytes, randomUUID } from "node:crypto";
 import { mkdir, rename, rm, writeFile } from "node:fs/promises";
@@ -111,8 +113,6 @@ export function buildPiSession(
     dropped: chat.dropped,
     secrets: chat.secrets,
   };
-  push({ type: "custom", customType: IMPORT_CUSTOM_TYPE, data: record }, stamp(chat.startedAt));
-
   const keepFrom = tailStart(chat.turns);
   let firstKept: string | undefined;
   let lastTime = chat.startedAt;
@@ -135,6 +135,8 @@ export function buildPiSession(
     const id = push({ type: "message", message }, stamp(time));
     if (index === keepFrom) firstKept = id;
   });
+  // after the history: what follows is written here
+  push({ type: "custom", customType: IMPORT_CUSTOM_TYPE, data: record }, stamp(lastTime));
 
   const after = stamp(Math.max(now.getTime(), lastTime));
   const compactionId = nextId();
