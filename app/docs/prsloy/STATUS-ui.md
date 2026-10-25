@@ -80,6 +80,28 @@
 - На Linux без keyring `safeStorage` недоступен даже с `--password-store=basic`, поэтому на скриншотах видна
   подпись «Ключ не сохранится». На Windows (DPAPI) её не будет.
 
+## Этап 3
+
+1. **Длинный ход виден** (практика 17). Если ход идёт дольше 15 с, над полем ввода появляется одна тихая строка:
+   - что агент делает сейчас («Запускаю команду: npm test», «Правлю index.html», «Думаю», «Пишу ответ»);
+   - сколько идёт ход («40 с», «2 мин», «1 ч 5 мин»);
+   - «Остановить».
+     Строка обновляется каждую секунду, спиннеров нет. Действие берётся из последнего события инструмента
+     (`lib/turn-progress.ts`). Когда инструмент уже закончил, а модель решает дальше, строка честно пишет «Думаю».
+     В заголовке шагов убрано сырое имя инструмента: было «Запуск bash · …», стало «Работает · …».
+2. **Пустой чат.** Три примера кнопками: «Сделай простой сайт-визитку», «Разберись, что в этой папке», «Найди и
+   почини ошибку». Клик вставляет текст в поле и ставит туда курсор, ничего не отправляет. Только в казуальном
+   режиме.
+3. **Рубли.** В `shared/prsloy-config.ts` у модели появилось необязательное поле `cost` (доллары за 1M токенов,
+   единица pi). `buildPrsloyModelsJsonProvider` пишет его в `models.json`, пустое поле даёт `PRSLOY_UNPRICED`.
+   pi сам считает стоимость хода и чата, плашка показывает её в рублях. Пока цен нет, стоимость 0 и плашка скрыта.
+   Ядру достаточно заполнить `cost` у четырёх моделей: `ensurePrsloyModelsJson` перепишет файл при следующем
+   запуске.
+4. **Скриншоты:** `{light,dark}-progress-line.png` (настоящий `npm test` на 20 с в демо-проекте) и
+   `{light,dark}-empty-chat.png`. Тест проверяет, что клик по примеру заполняет поле и не отправляет.
+
+`PackagesPage` вынесен из `main.tsx`, бюджет файла снижен с 4469 до 3803 строк.
+
 ## Как проверено
 
 ```
@@ -87,7 +109,7 @@ $ pnpm check
 pass: All 529 files are correctly formatted
 pass: Found no warnings, lint errors, or type errors in 486 files
 $ pnpm test
- desktop: Test Files 112 passed, Tests 767 passed; harness 104; agent-runtime 115
+ desktop: Test Files 113 passed, Tests 775 passed; harness 104; agent-runtime 115
 file budgets ok (4 frozen, 2000-line ceiling for the rest)
 $ pnpm --filter @zeno/desktop run build
 $ xvfb-run -a npx playwright test -c playwright.screens.config.ts   # в apps/desktop

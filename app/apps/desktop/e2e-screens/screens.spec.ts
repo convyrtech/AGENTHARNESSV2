@@ -36,6 +36,9 @@ function fakeModel(readmePath: string): Server {
       };
       const lastUser = messages.findLastIndex((m) => m.role === "user");
       const afterTool = messages.slice(lastUser + 1).some((m) => m.role === "tool");
+      const userText = JSON.stringify(messages[lastUser]?.content ?? "");
+      // «Запусти тесты»: `npm test`, which the demo project makes take 20 s.
+      const slow = userText.includes("тесты");
       res.writeHead(200, { "content-type": "text/event-stream" });
       const send = (delta: object, finish: string | null = null, usage?: object) =>
         res.write(
@@ -49,6 +52,31 @@ function fakeModel(readmePath: string): Server {
           })}\n\n`,
         );
       send({ role: "assistant", content: "" });
+      if (slow) {
+        if (!afterTool) {
+          send({
+            tool_calls: [
+              {
+                index: 0,
+                id: "call-bash",
+                type: "function",
+                function: { name: "bash", arguments: JSON.stringify({ command: "npm test" }) },
+              },
+            ],
+          });
+          send({}, "tool_calls", {
+            prompt_tokens: 2400,
+            completion_tokens: 30,
+            total_tokens: 2430,
+          });
+          res.end("data: [DONE]\n\n");
+        } else {
+          send({ content: "Тесты прошли." });
+          send({}, "stop", { prompt_tokens: 2500, completion_tokens: 20, total_tokens: 2520 });
+          res.end("data: [DONE]\n\n");
+        }
+        return;
+      }
       if (!afterTool) {
         send({
           tool_calls: [
@@ -91,6 +119,10 @@ async function launch(): Promise<{ app: ElectronApplication; page: Page; server:
   const readme = join(workspace, "README.md");
   await writeFile(readme, "# Кофейня «Зерно»\n\nЛендинг: меню, адрес, бронь столика.\n");
   await writeFile(join(workspace, "index.html"), "<!doctype html><title>Зерно</title>\n");
+  await writeFile(
+    join(workspace, "package.json"),
+    JSON.stringify({ name: "zerno", private: true, scripts: { test: "sleep 20 && echo ok" } }),
+  );
 
   const server = fakeModel(readme);
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -140,7 +172,7 @@ async function launch(): Promise<{ app: ElectronApplication; page: Page; server:
     ZENO_WORKSPACE: workspace,
     ZENO_MODEL_PROVIDER: "prsloy-demo",
     ZENO_MODEL_ID: "deepseek-v4.1-flash-1017",
-    ZENO_TOOLS: "read",
+    ZENO_TOOLS: "read,bash",
     ZENO_PERSIST_SESSION: "0",
     ZENO_NO_AUTO_RESUME: "1",
     LANG: "ru_RU.UTF-8",
@@ -197,7 +229,13 @@ test("PRSLOY main screens, light and dark", async () => {
         /Agent Host ready|Agent Host restarted/,
         { timeout: 45_000 },
       );
+      await expect(page.getByTestId("example-chips")).toBeVisible();
       await shot(page, `${mode}-1-home`);
+      await shot(page, `${mode}-empty-chat`);
+      // A chip fills the composer and sends nothing.
+      await page.getByRole("button", { name: "Сделай простой сайт-визитку" }).click();
+      await expect(page.getByTestId("prompt-input")).toHaveValue("Сделай простой сайт-визитку");
+      await expect(page.getByTestId("example-chips")).toBeVisible();
 
       await page.getByTestId("prompt-input").fill("Посмотри проект и скажи, что тут");
       await page.getByTestId("send-prompt").click();
@@ -213,6 +251,18 @@ test("PRSLOY main screens, light and dark", async () => {
         .first()
         .click();
       await shot(page, `${mode}-2-chat`);
+
+      await page.getByTestId("prompt-input").fill("Запусти тесты");
+      await page.getByTestId("send-prompt").click();
+      await expect(page.getByTestId("turn-progress")).toBeVisible({ timeout: 30_000 });
+      await expect(page.getByTestId("turn-progress-action")).toHaveText(
+        "Запускаю команду: npm test",
+      );
+      await shot(page, `${mode}-progress-line`);
+      await expect(page.getByTestId("timeline")).toContainText("Тесты прошли.", {
+        timeout: 30_000,
+      });
+      await expect(page.getByTestId("turn-progress")).toBeHidden();
 
       await page.keyboard.press(process.platform === "darwin" ? "Meta+," : "Control+,");
       await expect(page.getByTestId("settings-general")).toBeVisible();

@@ -19,9 +19,27 @@ export type PrsloyCompat = {
   thinkingFormat?: "openai" | "deepseek" | "qwen";
 };
 
+/** Retail price in US dollars per 1M tokens (pi's `models.json` cost unit). */
+export type PrsloyModelCost = {
+  input: number;
+  output: number;
+  cacheRead: number;
+  cacheWrite: number;
+};
+
+/** No price known: pi then counts the model as free and the UI hides the ruble cost. */
+export const PRSLOY_UNPRICED: PrsloyModelCost = {
+  input: 0,
+  output: 0,
+  cacheRead: 0,
+  cacheWrite: 0,
+};
+
 export type PrsloyModelDef = {
   id: string;
   name: string;
+  /** Set once retail prices are known; pi computes turn and session cost from it. */
+  cost?: PrsloyModelCost;
   reasoning: boolean;
   input: ("text" | "image")[];
   contextWindow: number;
@@ -171,7 +189,7 @@ export function buildPrsloyModelsJsonProvider(baseUrl: string): Record<string, u
       input: [...model.input],
       contextWindow: model.contextWindow,
       maxTokens: model.maxTokens,
-      cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+      cost: { ...(model.cost ?? PRSLOY_UNPRICED) },
       compat: { ...model.compat },
     })),
   };

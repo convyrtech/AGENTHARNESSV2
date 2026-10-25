@@ -6639,3 +6639,70 @@ textarea.models-scoped-patterns-input[data-slot="textarea"] {
 .prsloy-first-run-error {
   color: var(--destructive);
 }
+
+/* Long-turn progress line above the composer: action · time · stop, no spinner. */
+.turn-progress {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 auto 8px;
+  width: 100%;
+  max-width: var(--thread-max);
+  padding: 0 4px;
+  font-size: 13px;
+  color: var(--muted-foreground);
+}
+.turn-progress-action {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--foreground);
+}
+.turn-progress-time {
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+.turn-progress-stop {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  margin-left: auto;
+  padding: 0 10px;
+  border-radius: var(--radius-sm);
+  color: var(--muted-foreground);
+  cursor: pointer;
+}
+.turn-progress-stop:hover {
+  background: var(--hover-fill);
+  color: var(--foreground);
+}
+
+/* Empty chat: example tasks that fill the composer. */
+.example-chips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 24px;
+  max-width: 560px;
+}
+.example-chip {
+  height: 34px;
+  padding: 0 14px;
+  border: 1px solid var(--border);
+  border-radius: 9999px;
+  background: var(--card);
+  font-size: 13px;
+  color: var(--foreground);
+  cursor: pointer;
+  transition:
+    background-color 0.15s,
+    border-color 0.15s;
+}
+.example-chip:hover {
+  border-color: var(--border-strong);
+  background: var(--hover-fill);
+}

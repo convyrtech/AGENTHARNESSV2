@@ -46,7 +46,9 @@ const FROZEN = {
   // 4605 → 4534: the MCP servers list became `components/McpServersSection.tsx`.
   // 4534 → 4476: `ResourcesPage` moved to its own component, paying for the casual-mode gates.
   // 4476 → 4469: core moved the render root to `components/prsloy/render-root.tsx`.
-  "renderer/main.tsx": 4469,
+  // 4469 → 3803: `PackagesPage` moved to its own component, paying for the progress line
+  // and the empty-chat examples.
+  "renderer/main.tsx": 3803,
   // 5163 → 5109: `EnvironmentSection` moved out, paying for the ru option and casual prefs.
   // 5109 → 5062: `BehaviorSection` moved out, paying for the «Аккаунт» route.
   "renderer/components/settings/SettingsPage.tsx": 5062,

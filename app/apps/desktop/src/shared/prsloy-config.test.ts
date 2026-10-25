@@ -4,6 +4,7 @@ import {
   normalizePrsloyBaseUrl,
   PRSLOY_DEFAULT_BASE_URL,
   PRSLOY_MODELS,
+  PRSLOY_UNPRICED,
   PRSLOY_SPEED_MODES,
   prsloyModelForSpeed,
   prsloySpeedForModel,
@@ -70,5 +71,18 @@ describe("prsloy config", () => {
     // Opus: no reasoning effort through the gateway.
     expect(byId["claude-opus-5-5"]!.reasoning).toBe(false);
     expect(byId["claude-opus-5-5"]!.compat.supportsReasoningEffort).toBe(false);
+  });
+});
+
+describe("model prices", () => {
+  it("writes each model's price into models.json, zero when unknown", () => {
+    const provider = buildPrsloyModelsJsonProvider("https://api.prsloy.online/v1") as {
+      models: Array<{ id: string; cost: unknown }>;
+    };
+    for (const model of provider.models) {
+      const def = PRSLOY_MODELS.find((m) => m.id === model.id)!;
+      expect(model.cost).toEqual(def.cost ?? PRSLOY_UNPRICED);
+    }
+    expect(PRSLOY_UNPRICED).toEqual({ input: 0, output: 0, cacheRead: 0, cacheWrite: 0 });
   });
 });

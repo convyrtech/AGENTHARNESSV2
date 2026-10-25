@@ -150,11 +150,18 @@ describe("i18n key sync", () => {
   });
 
   it("keeps every ru placeholder that en has", () => {
+    // Raw tool names («bash») mean nothing to a casual reader; ru drops them on purpose.
+    const dropped = new Set([
+      "timeline.activity.executing {tool}",
+      "timeline.activity.executingWithDuration {tool}",
+      "timeline.activity.executingDetail {tool}",
+      "timeline.activity.executingDetailWithDuration {tool}",
+    ]);
     const missing: string[] = [];
     for (const [key, en] of Object.entries(messages.en)) {
       const ru: string = messages.ru[key as keyof typeof messages.ru];
       for (const name of en.match(/\{[a-zA-Z]+\}/g) ?? []) {
-        if (!ru.includes(name)) missing.push(`${key} ${name}`);
+        if (!ru.includes(name) && !dropped.has(`${key} ${name}`)) missing.push(`${key} ${name}`);
       }
     }
     expect(missing).toEqual([]);
