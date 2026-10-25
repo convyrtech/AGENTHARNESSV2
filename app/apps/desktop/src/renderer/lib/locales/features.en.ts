@@ -113,6 +113,8 @@ export const featuresEn: Record<keyof typeof featuresZh, string> = {
   "features.secret.note":
     "The key is saved in the .env file in the project folder. It is not sent to the model and does not appear in the chat.",
   "features.secret.save": "Save",
+  "features.memory.hintAuto":
+    "The agent remembers what you ask it to and notices what matters in your words by itself. It never remembers passwords or keys. Below you can see what it remembers and make it forget.",
   "features.memory.autoToggle": "Notice what matters by myself",
   "features.memory.autoToggleHint":
     "The agent remembers what matters from your own words: how to answer, what you like, project decisions. Never from files or sites.",

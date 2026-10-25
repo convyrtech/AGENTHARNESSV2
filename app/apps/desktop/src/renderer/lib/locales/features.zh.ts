@@ -105,6 +105,8 @@ export const featuresZh = {
   "features.secret.placeholder": "粘贴密钥",
   "features.secret.note": "密钥保存在项目文件夹的 .env 文件里，不会发给模型，也不会出现在对话里。",
   "features.secret.save": "保存",
+  "features.memory.hintAuto":
+    "助手会记住你让它记的，也会自己从你的话里注意到重要的事。不记密码和密钥。下面能看到它记了什么，也可以让它忘掉。",
   "features.memory.autoToggle": "自动注意重要内容",
   "features.memory.autoToggleHint":
     "代理会从你自己的话中记住重要内容：怎么回答、你喜欢什么、项目决定。绝不从文件或网站记忆。",
