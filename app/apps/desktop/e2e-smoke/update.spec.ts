@@ -19,13 +19,14 @@
  * (autoInstallOnAppQuit), so each test starts by reinstalling A.
  */
 import { expect, test } from "@playwright/test";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { passFirstRun, seedGateway, startGateway } from "./gateway.ts";
 import {
   beforeAllSmoke,
   close,
+  findings,
   launch,
   outDir,
   shot,
@@ -236,19 +237,64 @@ test("good update: detect, download, «Обновление готово — п�
 
     // Watch the installer and the relaunch; keep a timeline whatever happens.
     let fresh: Array<{ Id: number; Path: string; StartTime: string }> = [];
-    const timeline: Array<{ ms: number; installed: string; processes: string }> = [];
+    const timeline: Array<{ phase: string; ms: number; installed: string; processes: string }> = [];
     let relaunchMs: number | undefined;
     let installedMs: number | undefined;
-    for (let i = 0; i < 60 && relaunchMs === undefined; i++) {
-      const installed = installedVersion();
-      if (installedMs === undefined && installed.includes(versionB)) {
-        installedMs = Date.now() - clickedAt;
+    const watch = async (phase: string, maxMs: number) => {
+      const deadline = Date.now() + maxMs;
+      while (relaunchMs === undefined && Date.now() < deadline) {
+        const installed = installedVersion();
+        if (installedMs === undefined && installed.includes(versionB)) {
+          installedMs = Date.now() - clickedAt;
+        }
+        timeline.push({
+          phase,
+          ms: Date.now() - clickedAt,
+          installed,
+          processes: prsloyProcesses(),
+        });
+        fresh = runningInstalled().filter((p) => !before.has(p.Id));
+        if (fresh.length > 0) relaunchMs = Date.now() - clickedAt;
+        else await new Promise((r) => setTimeout(r, 3_000));
       }
-      timeline.push({ ms: Date.now() - clickedAt, installed, processes: prsloyProcesses() });
-      if (i === 5) desktopScreenshot("32a-update-installing-desktop");
-      fresh = runningInstalled().filter((p) => !before.has(p.Id));
-      if (fresh.length > 0) relaunchMs = Date.now() - clickedAt;
-      else await new Promise((r) => setTimeout(r, 4_000));
+    };
+    await watch("click", 45_000);
+    desktopScreenshot("32a-update-after-click-desktop");
+
+    // The click must update without questions. quitAndInstall(false, true) runs the assisted
+    // NSIS installer without /S, which stops on «Choose Installation Options» (English, all
+    // users / only me) while the app is already gone.
+    const installers = prsloyProcesses();
+    const wizard =
+      relaunchMs === undefined &&
+      !installedVersion().includes(versionB) &&
+      /"MainWindowTitle":"PRSLOY Setup/.test(installers);
+    const silent = findings("update-silent", process.env.SMOKE_STRICT_UPDATE_SILENT === "1");
+    silent.check(
+      "click installs B without an installer wizard",
+      !wizard,
+      `installer window after 45 s: ${installers}`,
+    );
+    await silent.finish();
+    let viaSilentInstaller = false;
+    if (wizard) {
+      // Proposed fix, proven here: run the verified pending installer the way
+      // quitAndInstall(true, true) does (--updated /S --force-run).
+      const pending = powershell(
+        "Get-Process | Where-Object Name -like 'PRSLOY-*-win-x64' | Select-Object -First 1 " +
+          "-ExpandProperty Path; exit 0",
+      );
+      powershell(
+        "Get-Process | Where-Object Name -like 'PRSLOY-*-win-x64' | Stop-Process -Force; exit 0",
+      );
+      await new Promise((r) => setTimeout(r, 2_000));
+      expect(pending, "pending installer path").toMatch(/pending.*\.exe$/i);
+      spawn(pending, ["--updated", "/S", "--force-run"], {
+        detached: true,
+        stdio: "ignore",
+      }).unref();
+      viaSilentInstaller = true;
+      await watch("silent", 240_000);
     }
     await new Promise((r) => setTimeout(r, 8_000));
     desktopScreenshot("32-update-relaunched-desktop");
@@ -259,6 +305,8 @@ test("good update: detect, download, «Обновление готово — п�
         feed: summarize(feed.hits),
         quitMs,
         installedMs: installedMs ?? null,
+        clickShowedWizard: wizard,
+        viaSilentInstaller,
         relaunchMs: relaunchMs ?? null,
         relaunchedProcesses: fresh,
         installedVersion: product,
