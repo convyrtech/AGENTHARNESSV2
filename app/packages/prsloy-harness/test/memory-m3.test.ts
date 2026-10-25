@@ -61,6 +61,20 @@ describe("M-3 prompt and reply", () => {
     ]);
     expect(parseExtractorReply('{"ops":[]}')).toEqual([]);
     expect(parseExtractorReply("не знаю")).toBeUndefined();
+    // Straight quotes inside a string (the live qwen run): repaired, not lost.
+    expect(
+      parseExtractorReply(
+        '{"ops":[{"op":"add","scope":"user","kind":"preference","text":"Обращаться на "ты"","quote":"давай на ты"}]}',
+      ),
+    ).toEqual([
+      {
+        op: "add",
+        scope: "user",
+        kind: "preference",
+        text: 'Обращаться на "ты"',
+        quote: "давай на ты",
+      },
+    ]);
     expect(parseExtractorReply('{"ops": "нет"}')).toBeUndefined();
   });
 });

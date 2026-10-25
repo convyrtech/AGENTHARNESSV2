@@ -70,6 +70,7 @@ export function extractorPrompt(
     '- kind: "profile" (о себе, компьютер), "preference" (как отвечать, вкус), "decision" (решение проекта), "correction" (повторное исправление).',
     "",
     'Ответ — только JSON: {"ops":[{"op":"add","scope":"user","kind":"preference","text":"…","quote":"…"}]}. Нечего сохранять — {"ops":[]}.',
+    'Внутри строк не ставь прямые кавычки ": если нужно выделить слово, пиши «ёлочки» или без кавычек.',
     "",
     "Что уже в памяти — обо мне:",
     list(memory.user),
@@ -81,16 +82,53 @@ export function extractorPrompt(
   ].join("\n");
 }
 
+/**
+ * Прямые кавычки внутри строки («обращаться на "ты"») ломают JSON. Кавычка внутри строки, за которой (после
+ * пробелов) не идёт `,` `}` `]` `:` или конец, — часть текста: её экранируем.
+ */
+export function repairJsonQuotes(raw: string): string {
+  let out = "";
+  let inString = false;
+  for (let i = 0; i < raw.length; i++) {
+    const ch = raw[i]!;
+    if (inString && ch === "\\") {
+      out += ch + (raw[i + 1] ?? "");
+      i += 1;
+      continue;
+    }
+    if (ch === '"') {
+      if (!inString) {
+        inString = true;
+        out += ch;
+        continue;
+      }
+      const next = raw.slice(i + 1).trimStart()[0];
+      if (next === undefined || next === "," || next === "}" || next === "]" || next === ":") {
+        inString = false;
+        out += ch;
+      } else out += '\\"';
+      continue;
+    }
+    out += ch;
+  }
+  return out;
+}
+
 /** Первый JSON-объект в ответе (модель могла обернуть его в ```json или добавить слова). */
 export function parseExtractorReply(reply: string): ExtractorOp[] | undefined {
   const start = reply.indexOf("{");
   const end = reply.lastIndexOf("}");
   if (start < 0 || end <= start) return undefined;
+  const raw = reply.slice(start, end + 1);
   let parsed: unknown;
   try {
-    parsed = JSON.parse(reply.slice(start, end + 1));
+    parsed = JSON.parse(raw);
   } catch {
-    return undefined;
+    try {
+      parsed = JSON.parse(repairJsonQuotes(raw));
+    } catch {
+      return undefined;
+    }
   }
   const ops = (parsed as { ops?: unknown }).ops;
   if (!Array.isArray(ops)) return undefined;
