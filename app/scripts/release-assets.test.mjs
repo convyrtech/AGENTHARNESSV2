@@ -8,6 +8,7 @@ import { join } from "node:path";
 import { createHash } from "node:crypto";
 import {
   isUsefulReleaseAsset,
+  checkLinuxFeed,
   checkWindowsFeed,
   collectReleaseAssets,
   validatePublishAssets,
@@ -214,6 +215,44 @@ function windowsRelease(name, { version = "0.1.0-alpha.2", body = "installer", s
 {
   const root = mkdtempSync(join(tmpdir(), "zeno-feed-empty-"));
   assert(!checkWindowsFeed(root).ok, "no latest.yml must fail");
+  rmSync(root, { recursive: true, force: true });
+}
+
+// Linux: latest-linux.yml → the AppImage (blockmap embedded), the .deb beside it.
+{
+  const root = mkdtempSync(join(tmpdir(), "zeno-linux-feed-"));
+  const name = "PRSLOY-0.1.0-alpha.3-linux-x86_64.AppImage";
+  const body = "appimage bytes";
+  writeFileSync(join(root, name), body);
+  writeFileSync(join(root, "PRSLOY-0.1.0-alpha.3-linux-amd64.deb"), "deb");
+  const sha512 = createHash("sha512").update(body).digest("base64");
+  writeFileSync(
+    join(root, "latest-linux.yml"),
+    [
+      "version: 0.1.0-alpha.3",
+      "files:",
+      `  - url: ${name}`,
+      `    sha512: ${sha512}`,
+      `    size: ${Buffer.byteLength(body)}`,
+      "    blockMapSize: 123",
+      `path: ${name}`,
+      `sha512: ${sha512}`,
+      "",
+    ].join("\n"),
+  );
+  const r = checkLinuxFeed(root, { version: "0.1.0-alpha.3" });
+  assert(r.ok, `good linux feed must pass: ${r.errors.join("; ")}`);
+  assert(!checkLinuxFeed(root, { version: "0.1.0-alpha.4" }).ok, "other version must fail");
+  writeFileSync(join(root, name), "tampered bytes");
+  assert(
+    checkLinuxFeed(root).errors.some((e) => e.includes("sha512") || e.includes("size")),
+    "changed AppImage must fail",
+  );
+  rmSync(join(root, "PRSLOY-0.1.0-alpha.3-linux-amd64.deb"));
+  assert(
+    checkLinuxFeed(root).errors.some((e) => e.includes(".deb")),
+    "missing .deb must fail",
+  );
   rmSync(root, { recursive: true, force: true });
 }
 

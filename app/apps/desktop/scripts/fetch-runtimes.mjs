@@ -634,8 +634,17 @@ export function pruneNodeRuntime(nodeRoot) {
 /**
  * Bumped whenever pruning changes what ships: the app re-extracts runtimes whose stamp
  * carries an older revision. 2: the Windows stdlib is no longer pruned (see below).
+ * 3 (Linux/macOS only): ensurepip's bundled pip wheel is kept — without it `python -m venv`
+ * fails, so the agent's python and «Дизайн» had no venv and no pip. Windows stays at 2: nothing
+ * changed there, and a new revision would make every Windows user unpack again.
  */
 export const PYTHON_PRUNE_REV = 2;
+export const PYTHON_PRUNE_REV_POSIX = 3;
+
+/** @param {string} os target os (win32 | linux | darwin) */
+export function pythonPruneRev(os) {
+  return os === "win32" ? PYTHON_PRUNE_REV : PYTHON_PRUNE_REV_POSIX;
+}
 
 /** Stdlib modules the agent's python must import after pruning (build fails otherwise). */
 export const PYTHON_REQUIRED_MODULES = [
@@ -725,7 +734,7 @@ export function prunePythonRuntime(pythonRoot) {
       "lib2to3",
       "test",
       "tests",
-      "ensurepip/_bundled", // keep ensurepip module; drop heavy wheels if present as dir
+      // ensurepip/_bundled stays: its pip wheel is what `python -m venv` installs.
     ]) {
       drop.push(join(pyLib, name));
     }
@@ -872,7 +881,7 @@ async function fetchOne(target, versions, force) {
         prev.python === versions.python &&
         (prev.git ?? undefined) === (gitMeta ? versions.git : undefined) &&
         prev.pruned === true &&
-        prev.pruneRev === PYTHON_PRUNE_REV
+        prev.pruneRev === pythonPruneRev(target.os)
       ) {
         console.log(`[fetch-runtimes] ${target.key} already at pinned versions (pruned)`);
         return { platformDir, nodeDest, pythonDest, manifestPath };
@@ -986,6 +995,20 @@ async function fetchOne(target, versions, force) {
     console.log(
       `[fetch-runtimes] python stdlib smoke ok (${PYTHON_REQUIRED_MODULES.length} modules)`,
     );
+    // Linux/macOS: the app builds userData/runtimes/python-venv with `-m venv` on first launch;
+    // it needs ensurepip's wheel. Prove it here, on the build machine, when it runs this target.
+    if (target.os !== "win32" && target.os === process.platform) {
+      const venv = join(tmpdir(), `zeno-venv-smoke-${process.pid}`);
+      try {
+        execFileSync(pyBin, ["-m", "venv", venv], { stdio: ["ignore", "pipe", "pipe"] });
+        execFileSync(join(venv, "bin", "python3"), ["-m", "pip", "--version"], {
+          stdio: ["ignore", "pipe", "pipe"],
+        });
+        console.log("[fetch-runtimes] python venv smoke ok (venv + pip)");
+      } finally {
+        rmSync(venv, { recursive: true, force: true });
+      }
+    }
   } catch (error) {
     const detail = error instanceof Error ? error.message : String(error);
     throw new Error(`Bundled python failed smoke test: ${detail}`);
@@ -1021,7 +1044,7 @@ async function fetchOne(target, versions, force) {
     arch: target.arch,
     key: target.key,
     pruned: true,
-    pruneRev: PYTHON_PRUNE_REV,
+    pruneRev: pythonPruneRev(target.os),
     nodeBytes,
     pythonBytes: pyBytes,
     // First launch progress («Готовлю приложение… N%») counts unpacked files against these.

@@ -25,6 +25,7 @@ import {
   pruneNodeRuntime,
   prunePythonRuntime,
   PYTHON_PRUNE_REV,
+  pythonPruneRev,
   pythonDistMeta,
   resolveTarget,
   resolveTarBinary,
@@ -171,10 +172,15 @@ function assertEqual(actual, expected, message) {
     writeFileSync(join(pyRoot, "include", "Python.h"), "/* headers */\n");
     mkdirSync(join(lib, "__pycache__"), { recursive: true });
     writeFileSync(join(lib, "__pycache__", "x.pyc"), "\0");
+    const wheel = join(lib, "ensurepip", "_bundled", "pip-25.0.1-py3-none-any.whl");
+    mkdirSync(dirname(wheel), { recursive: true });
+    writeFileSync(wheel, "PK");
 
     prunePythonRuntime(pyRoot);
 
     assert(existsSync(join(bin, "python3")), "python3 kept");
+    // `python -m venv` installs this wheel: without it the app had no venv and no pip on Linux.
+    assert(existsSync(wheel), "ensurepip's pip wheel kept");
     assert(existsSync(join(lib, "encodings", "utf_8.py")), "stdlib encodings kept");
     assert(!existsSync(join(lib, "idlelib")), "idlelib removed");
     assert(!existsSync(join(pyRoot, "lib", "tcl9.0")), "tcl removed");
@@ -215,6 +221,8 @@ function assertEqual(actual, expected, message) {
     assert(!existsSync(join(stdlib, "idlelib")), "idlelib removed");
     assert(!existsSync(join(pyRoot, "tcl")), "tcl removed");
     assert(PYTHON_PRUNE_REV >= 2, "prune revision bumped for the Windows stdlib fix");
+    assert(pythonPruneRev("win32") === PYTHON_PRUNE_REV, "Windows keeps its revision");
+    assert(pythonPruneRev("linux") > PYTHON_PRUNE_REV, "Linux/macOS re-extract with the pip wheel");
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

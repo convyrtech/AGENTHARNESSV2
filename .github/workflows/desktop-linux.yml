@@ -1,0 +1,139 @@
+# Linux build of PRSLOY: AppImage (auto-update through latest-linux.yml) and .deb, on Ubuntu 24.04.
+#
+#   package-linux  fetch Node + Python for linux-x64, build, electron-builder AppImage + deb, the
+#                  packaged smoke (scripts/packaged-smoke.mjs: window, key, host, first turn with bash)
+#   smoke-linux    a fresh runner with nothing of ours: the AppImage as a person starts it — key gate on
+#                  a fake gateway, wrong key → Russian error, folder, one turn with a command, quit
+#
+# desktop-windows.yml calls this workflow next to the Windows jobs (same version) and attaches the
+# Linux files to the same release after the Windows release job: a red Linux build never holds the
+# Windows release. Run alone: Actions → desktop-linux → Run workflow (files as an artifact only).
+name: desktop-linux
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        description: "Версия (пусто — из package.json)"
+        required: false
+        type: string
+        default: ""
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Версия сборки, например 0.1.0-alpha.3 (пусто — из package.json); только артефакт, без релиза"
+        required: false
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: app
+
+jobs:
+  package-linux:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11.15.1
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: app/pnpm-lock.yaml
+      - name: Version
+        if: inputs.version != ''
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          node -e "const f='./apps/desktop/package.json';const p=require(f);p.version=process.env.VERSION;require('fs').writeFileSync(f,JSON.stringify(p,null,2)+'\n')"
+      - name: Install
+        run: pnpm install --frozen-lockfile
+      - name: Electron binary
+        run: pnpm electron:install
+      # Ubuntu 24.04: AppArmor blocks the unprivileged user namespaces Chromium's sandbox needs
+      - name: Allow Electron's sandbox
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+      # pnpm package = fetch-runtimes (linux-x64 Node + Python) → fetch-design → build →
+      # electron-builder (linux: AppImage + deb) → packaged smoke (strict: red on a failed check).
+      - name: Package (AppImage + deb) and packaged smoke
+        env:
+          PRSLOY_SMOKE: "1"
+          PRSLOY_SMOKE_STRICT: "1"
+        run: xvfb-run -a pnpm package
+      - name: Collect
+        run: node scripts/release-assets.mjs collect apps/desktop/release/app artifacts --platform linux --arch X64
+      # latest-linux.yml as GitHubProvider reads it: url = the AppImage asset name, size, sha512.
+      - name: Check latest-linux.yml
+        env:
+          VERSION: ${{ inputs.version }}
+        run: node scripts/release-assets.mjs check-feed artifacts --platform linux ${VERSION:+--version "$VERSION"}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: prsloy-linux-package-smoke
+          path: |
+            app/apps/desktop/release/app/packaged-smoke.json
+            app/apps/desktop/release/app/packaged-smoke-failure.png
+          if-no-files-found: ignore
+          retention-days: 14
+      - uses: actions/upload-artifact@v4
+        with:
+          name: prsloy-linux-x64
+          path: app/artifacts/*
+          if-no-files-found: error
+          retention-days: 14
+
+  smoke-linux:
+    needs: package-linux
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11.15.1
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: app/pnpm-lock.yaml
+      - name: Install test deps
+        run: pnpm install --frozen-lockfile
+      - uses: actions/download-artifact@v4
+        with:
+          name: prsloy-linux-x64
+          path: app/installer
+      - name: Allow Electron's sandbox
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+      # The AppImage as downloaded: chmod +x, nothing else (FUSE as the runner has it).
+      - name: AppImage
+        run: |
+          set -euo pipefail
+          appimage=$(ls "$PWD"/installer/PRSLOY-*-linux-x86_64.AppImage | head -1)
+          chmod +x "$appimage"
+          "$appimage" --appimage-version || true
+          echo "PRSLOY_EXE=$appimage" >> "$GITHUB_ENV"
+      - name: Smoke (AppImage, product mode)
+        working-directory: app/apps/desktop
+        env:
+          SMOKE_OUT: ${{ github.workspace }}/app/smoke-out
+          SMOKE_REPORT: linux
+        run: xvfb-run -a pnpm exec playwright test -c playwright.smoke.config.ts firstrun.spec.ts
+      - name: Summary
+        if: always()
+        run: |
+          echo "## Linux smoke" >> "$GITHUB_STEP_SUMMARY"
+          [ -f smoke-out/metrics.json ] && { echo '```json'; cat smoke-out/metrics.json; echo '```'; } >> "$GITHUB_STEP_SUMMARY" || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: prsloy-linux-smoke
+          path: app/smoke-out
+          retention-days: 14
