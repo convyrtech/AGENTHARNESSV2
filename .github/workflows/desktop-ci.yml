@@ -44,12 +44,11 @@ jobs:
 
   # Skills (skills/<name>) through NVIDIA SkillSpector — static (regex, AST, taint, YARA), no LLM — plus the
   # harness's own threat check (packages/prsloy-harness/scripts/skill-scan.mts). Third-party code: own job,
-  # read-only token, no secrets, scanner and setup-uv pinned by full commit SHA. Non-blocking until the first
-  # scores are known (then the ≤ 50/100 threshold turns blocking).
+  # read-only token, no secrets, scanner and setup-uv pinned by full commit SHA. Blocking: a skill above
+  # 50/100 or any finding of our own check fails the run (first scores: max 36/100, run 40296333450).
   skill-scan:
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    continue-on-error: true
     permissions:
       contents: read
     steps:
