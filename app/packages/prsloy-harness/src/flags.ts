@@ -37,9 +37,9 @@ export interface HarnessFlags {
   /** Ревьюер ищет подгонку (H-4, #9): виды подгонки в промпте, факты кодом, тесты в диффе целиком. По умолчанию выкл. */
   reviewerCheats: boolean;
   /**
-   * Устаревшее описание проекта (#6 потока, stale-docs.ts): "prompt" — только строка в промпте (по умолчанию);
-   * "end" — раздел после AGENTS.md; "frame" — пометка в начале AGENTS.md; "read" — строка в результате read;
-   * "gate" — один возврат в конце хода. Для замера kimi/deepseek.
+   * Устаревшее описание проекта (#6 потока, stale-docs.ts). По умолчанию "end" — раздел после AGENTS.md (замер
+   * дирижёра 26.10: kimi 1/6 → 6/6, deepseek без вреда); "prompt" — только строка в промпте; "frame" — пометка в
+   * начале AGENTS.md; "read" — строка в результате read; "gate" — один возврат в конце хода.
    */
   staleDocs: StaleDocsMode;
 }
@@ -74,7 +74,8 @@ export function readFlags(settingsPath: string | undefined): HarnessFlags {
     webTools: true,
     testQuality: false,
     reviewerCheats: false,
-    staleDocs: "prompt",
+    // #6 потока (дирижёр, 26.10): "end" — по замеру kimi/deepseek.
+    staleDocs: "end",
   };
   if (settingsPath && existsSync(settingsPath)) {
     try {

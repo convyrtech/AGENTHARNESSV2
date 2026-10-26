@@ -105,7 +105,7 @@ export interface BenchOptions {
   honestExit?: boolean;
   /** Страж старых тестов (флаг "testGuard", H-1). По умолчанию вкл., как в приложении (#25). */
   testGuard?: boolean;
-  /** Вариант против устаревшего описания проекта (флаг "staleDocs", #6 потока). По умолчанию "prompt". */
+  /** Вариант против устаревшего описания проекта (флаг "staleDocs", #6 потока). По умолчанию "end", как в приложении. */
   staleDocs?: StaleDocsMode;
   /** Полезность новых тестов (флаг "testQuality", H-3). По умолчанию выкл., как в приложении. */
   testQuality?: boolean;
@@ -479,7 +479,7 @@ async function runTask(
       testQuality: opts.testQuality === true,
       reviewerCheats: opts.reviewerCheats === true,
       claimCheck: opts.claimCheck === true,
-      staleDocs: opts.staleDocs ?? "prompt",
+      staleDocs: opts.staleDocs ?? "end",
     }),
   );
   const slash = opts.model.indexOf("/");
@@ -785,7 +785,7 @@ export async function runBench(opts: BenchOptions): Promise<BenchReport> {
     testQuality: opts.testQuality === true,
     reviewerCheats: opts.reviewerCheats === true,
     claimCheck: opts.claimCheck === true,
-    staleDocs: opts.staleDocs ?? "prompt",
+    staleDocs: opts.staleDocs ?? "end",
     fake: opts.fake === true,
     date: new Date().toISOString(),
     gateway: opts.fake ? "fake" : new URL(opts.baseUrl ?? "http://unknown").host,
@@ -1041,7 +1041,7 @@ export function reportMarkdown(report: BenchReport): string {
     return `| ${r.id} | ${failed ? "⚠" : mark} ${r.note.replace(/\|/g, "/")}${failed ? " · исход infra_error" : outcome}${r.error && !failed ? ` (${r.error})` : ""} | ${r.seconds} | ${r.toolCalls} | ${tokensText(r.tokens)} | ${r.tokens ? rubText(r.rub) : "—"} | ${cache} | ${reply} | ${iv || "—"} |`;
   });
   return [
-    `# Замер: ${meta.model}, харнесс ${meta.harness ? "вкл" : "выкл"}, промпт ${meta.prompt}${meta.delta ? "+дельта" : ""}, уроки ${meta.lessons ? "вкл" : "выкл"}, ревью ${meta.review ? "вкл" : "выкл"}, навыки ${meta.skills ? "вкл" : "выкл"}, память ${meta.memory ? "вкл" : "выкл"}${meta.webTools ? ", поиск вкл" : ""}${meta.honestExit ? ", честный выход вкл" : ""}${meta.testGuard ? ", страж тестов вкл" : ""}${meta.testQuality ? ", полезность тестов вкл" : ""}${meta.reviewerCheats ? ", ревьюер ищет подгонку" : ""}${meta.claimCheck ? ", слова и факты вкл" : ""}${meta.staleDocs && meta.staleDocs !== "prompt" ? `, описание проекта: ${meta.staleDocs}` : ""}${meta.audit ? ", разбор вкл" : ""}${meta.fake ? " (фейковая модель)" : ""}`,
+    `# Замер: ${meta.model}, харнесс ${meta.harness ? "вкл" : "выкл"}, промпт ${meta.prompt}${meta.delta ? "+дельта" : ""}, уроки ${meta.lessons ? "вкл" : "выкл"}, ревью ${meta.review ? "вкл" : "выкл"}, навыки ${meta.skills ? "вкл" : "выкл"}, память ${meta.memory ? "вкл" : "выкл"}${meta.webTools ? ", поиск вкл" : ""}${meta.honestExit ? ", честный выход вкл" : ""}${meta.testGuard ? ", страж тестов вкл" : ""}${meta.testQuality ? ", полезность тестов вкл" : ""}${meta.reviewerCheats ? ", ревьюер ищет подгонку" : ""}${meta.claimCheck ? ", слова и факты вкл" : ""}${meta.staleDocs && meta.staleDocs !== "end" ? `, описание проекта: ${meta.staleDocs}` : ""}${meta.audit ? ", разбор вкл" : ""}${meta.fake ? " (фейковая модель)" : ""}`,
     "",
     `${meta.date} · шлюз ${meta.gateway} · таймаут задачи ${meta.timeoutSec} с`,
     "",

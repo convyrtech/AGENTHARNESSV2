@@ -13,6 +13,7 @@ const DEFAULTS = {
   webTools: true,
   testQuality: false,
   reviewerCheats: false,
+  staleDocs: "end",
 } as const;
 
 vi.mock("electron", () => ({ app: { getPath: () => tmpdir() }, ipcMain: { handle: vi.fn() } }));
@@ -95,5 +96,19 @@ describe("harness flags (prsloy-harness.json)", () => {
     expect(() => writeHarnessFlags(path, null)).toThrow();
     expect(() => writeHarnessFlags(path, { memory: 1 })).toThrow();
     expect(() => writeHarnessFlags(path, { other: true })).toThrow();
+  });
+
+  it("staleDocs (26.10): «end» by default, the measured variants by hand, anything else refused", () => {
+    const path = harnessFlagsPath(mkdtempSync(join(tmpdir(), "flags-")));
+    expect(readHarnessFlags(path).staleDocs).toBe("end");
+    expect(writeHarnessFlags(path, { staleDocs: "prompt" })).toEqual({
+      ...DEFAULTS,
+      staleDocs: "prompt",
+    });
+    expect(JSON.parse(readFileSync(path, "utf8"))).toEqual({ staleDocs: "prompt" });
+    writeFileSync(path, JSON.stringify({ staleDocs: "loud" }));
+    expect(readHarnessFlags(path).staleDocs).toBe("end");
+    expect(() => writeHarnessFlags(path, { staleDocs: "loud" })).toThrow();
+    expect(() => writeHarnessFlags(path, { staleDocs: true })).toThrow();
   });
 });

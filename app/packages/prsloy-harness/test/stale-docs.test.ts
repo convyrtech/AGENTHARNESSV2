@@ -54,16 +54,16 @@ async function editedTurn(pi: MockPi, answer: string) {
 }
 
 describe("staleDocs flag", () => {
-  it("defaults to «prompt»; known values pass, unknown stay default", () => {
+  it("defaults to «end» (measured 26.10); known values pass, unknown stay default", () => {
     const p = join(root, "flags.json");
     writeFileSync(p, "{}");
-    expect(readFlags(p).staleDocs).toBe("prompt");
-    for (const m of ["end", "frame", "read", "gate"] as const) {
+    expect(readFlags(p).staleDocs).toBe("end");
+    for (const m of ["prompt", "frame", "read", "gate"] as const) {
       writeFileSync(p, JSON.stringify({ staleDocs: m }));
       expect(readFlags(p).staleDocs).toBe(m);
     }
     writeFileSync(p, JSON.stringify({ staleDocs: "loud" }));
-    expect(readFlags(p).staleDocs).toBe("prompt");
+    expect(readFlags(p).staleDocs).toBe("end");
   });
 
   it("doc files: AGENTS.md, CLAUDE.md, README*; not code or other notes", () => {
@@ -94,7 +94,7 @@ describe("staleDocs flag", () => {
 
 describe("variants", () => {
   it("prompt: nothing added anywhere", async () => {
-    const pi = setup(undefined);
+    const pi = setup("prompt");
     const o = await start(pi);
     expect(o.sections).toEqual({});
     expect(o.contextFiles[0]!.content).toBe(AGENTS);
@@ -103,8 +103,8 @@ describe("variants", () => {
     expect((await editedTurn(pi, "Готово.")).continue).toBe(false);
   });
 
-  it("end: a section after project_context, only when there is a description", async () => {
-    const pi = setup("end");
+  it("end (the default): a section after project_context, only when there is a description", async () => {
+    const pi = setup(undefined);
     expect((await start(pi)).sections).toEqual({ prsloy_project_notes: STALE_DOCS_END_SECTION });
     expect((await start(pi, false)).sections).toEqual({});
   });

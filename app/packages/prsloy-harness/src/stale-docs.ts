@@ -3,8 +3,10 @@
 // AGENTS.md в системный промпт ПОСЛЕ нашего текста и с подписью «Project-specific instructions and guidelines»
 // (<project_instructions>), — для модели это поздняя и более конкретная инструкция. Варианты за флагом "staleDocs"
 // (замер kimi ×3 и deepseek ×3 — у дирижёра):
-//   - "prompt" (по умолчанию) — только строка в промпте, как было;
-//   - "end"   — та же мысль ещё раз разделом ПОСЛЕ project_context (последнее слово — наше);
+//   - "prompt" — только строка в промпте, как было;
+//   - "end" (по умолчанию с 26.10) — та же мысль ещё раз разделом ПОСЛЕ project_context (последнее слово — наше).
+//     Замер дирижёра, 2 задачи × повторы: kimi prompt 1/6 → end 6/6; deepseek 8/12 → 7/12, код всегда как в коде,
+//     провал только «не назвал расхождение» на naming;
 //   - "frame" — пометка в начале каждого файла описания: «записано раньше, может устареть, код главнее»;
 //   - "read"  — строка в результате read, когда агент сам читает AGENTS.md / CLAUDE.md / README;
 //   - "gate"  — в конце хода с правками, если в проекте есть описание, а в ответе о нём ни слова: один раз
@@ -42,7 +44,7 @@ type Part = { type: string; text?: string };
 
 export function installStaleDocs(pi: ExtensionAPI, opts: ResolvedOptions): void {
   if (opts.profile !== "code") return;
-  let mode: StaleDocsMode = "prompt";
+  let mode: StaleDocsMode = "end";
   let hasDocs = false;
   let edited = false;
   let nudged = false;

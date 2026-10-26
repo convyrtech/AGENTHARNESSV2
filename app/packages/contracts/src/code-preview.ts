@@ -39,6 +39,12 @@ export type HarnessFlags = {
   testQuality: boolean;
   /** The reviewer looks for test-fitting (H-4, #9): kinds in its prompt, code-computed facts, tests kept whole. Default off. */
   reviewerCheats: boolean;
+  /**
+   * Stale project notes (AGENTS.md / README) against the code: how the harness says «the code wins».
+   * "end" (default since 26.10, measured) — a section after the project notes; "prompt" — the prompt line only;
+   * "frame" / "read" / "gate" — the other measured variants.
+   */
+  staleDocs: "prompt" | "end" | "frame" | "read" | "gate";
 };
 
 export interface HarnessFlagsApi {

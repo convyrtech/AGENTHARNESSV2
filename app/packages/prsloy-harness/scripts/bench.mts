@@ -17,7 +17,7 @@
 //   … --memory off             без памяти (флаг "memory")
 //   … --honest-exit on         инструмент report_blocker (флаг "honestExit", H-1; по умолчанию выкл.)
 //   … --test-guard off         без стража старых тестов (флаг "testGuard", H-1; по умолчанию вкл., #25)
-//   … --stale-docs end         вариант против устаревшего AGENTS.md (флаг "staleDocs": prompt|end|frame|read|gate)
+//   … --stale-docs prompt      вариант против устаревшего AGENTS.md (флаг "staleDocs": end — по умолчанию, prompt|frame|read|gate)
 //   … --test-quality on        полезность новых тестов (флаг "testQuality", H-3; по умолчанию выкл.)
 //   … --reviewer-cheats on     ревьюер ищет подгонку (флаг "reviewerCheats", H-4; по умолчанию выкл.)
 //   … --claim-check on         слова и факты (флаг "claimCheck", H-2: H6–H8; по умолчанию выкл.)
@@ -67,7 +67,7 @@ const { values } = parseArgs({
     "claim-check": { type: "string", default: "off" },
     "budget-rub": { type: "string" },
     "budget-tokens": { type: "string" },
-    "stale-docs": { type: "string", default: "prompt" },
+    "stale-docs": { type: "string", default: "end" },
     web: { type: "string", default: "off" },
     out: { type: "string", default: "bench-out" },
     resume: { type: "string" },
@@ -122,7 +122,7 @@ async function main(): Promise<number> {
     claimCheck: values["claim-check"] === "on",
     staleDocs: STALE_DOCS_MODES.includes(values["stale-docs"] as StaleDocsMode)
       ? (values["stale-docs"] as StaleDocsMode)
-      : "prompt",
+      : "end",
     webTools: values.web === "on",
     model: values.model,
     ...(values.fake ? { fake: true } : { baseUrl: values["base-url"] ?? PRSLOY_DEFAULT_BASE_URL }),
