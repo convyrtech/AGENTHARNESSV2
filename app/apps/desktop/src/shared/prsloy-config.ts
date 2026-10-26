@@ -64,12 +64,52 @@ export const PRSLOY_PROVIDER_COMPAT: PrsloyCompat = {
 };
 
 /**
- * One output limit for every model (owner's decision; the gateway took 32k, 64k and 128k
- * for all of them). A gateway that still answers 400 about it gets the next value down,
- * silently, from the agent host (agent-host/prsloy-fetch.ts).
+ * Output limit asked of a model: the smaller of the owner's ceiling (128k; the gateway took
+ * 32k, 64k and 128k for all models) and the model's own output limit (PRSLOY_OUTPUT_LIMITS).
+ * A gateway that refuses it — 400 about `max_tokens`, or 402 (a vendor that won't reserve that
+ * much: kimi on 26.10 answered 402 to ≥ 32 000 and 200 to ≤ 4 000) — gets the next value
+ * down, silently, from the agent host (agent-host/prsloy-fetch.ts; the bench uses the same).
  */
 export const PRSLOY_MAX_TOKENS = 128_000;
-export const PRSLOY_MAX_TOKENS_FALLBACK: readonly number[] = [64_000, 32_000];
+export const PRSLOY_MAX_TOKENS_FALLBACK: readonly number[] = [64_000, 32_000, 16_000, 8_000];
+
+/**
+ * The model's own output limit, with where the number comes from (#39). The gateway's
+ * `/v1/models` (New API) lists ids only, so the table is ours; `null` — no verified number,
+ * the owner's ceiling applies. Only numbers seen in a primary source go here.
+ */
+export const PRSLOY_OUTPUT_LIMITS: Readonly<
+  Record<string, { tokens: number | null; source: string }>
+> = {
+  "deepseek-v4.1-flash-1017": {
+    tokens: 393_216,
+    source:
+      "research/07 §2.1: DeepSeek Models & Pricing — output up to 384K, max 393 216 [VERIFIED]",
+  },
+  "kimi-k3.1-pro": {
+    tokens: null,
+    source:
+      "research/07 §1.2 has Kimi K3 (131K by default), not K3.1 Pro; not verified for K3.1 Pro",
+  },
+  "qwen3.8-max": {
+    tokens: 131_072,
+    source:
+      "research/07 §2.4: Qwen3.8-Max API — up to 131K output (thinking_budget ≤ 32 768 is reasoning only, STATUS-core §33)",
+  },
+  "claude-opus-5-5": {
+    tokens: 128_000,
+    source: "STATUS-core §34: Opus max_tokens ≤ 128K (dossier, [V])",
+  },
+  "claude-fable-5": { tokens: null, source: "no number in our sources" },
+  "gpt-6.1-sol": { tokens: null, source: "no number in our sources" },
+  "grok-4.7": { tokens: null, source: "research/07 §1.2: «Н/Д в собранных доках»" },
+};
+
+/** `max_tokens` the catalog asks of a model: min(owner's ceiling, its own limit). */
+export function prsloyMaxTokens(modelId: string): number {
+  const own = PRSLOY_OUTPUT_LIMITS[modelId]?.tokens;
+  return own ? Math.min(PRSLOY_MAX_TOKENS, own) : PRSLOY_MAX_TOKENS;
+}
 
 /**
  * Model catalog. Reasoning content is replayed verbatim by pi (the thinking block keeps
@@ -83,7 +123,7 @@ export const PRSLOY_MODELS: readonly PrsloyModelDef[] = [
     reasoning: true,
     input: ["text", "image"],
     contextWindow: 128_000,
-    maxTokens: PRSLOY_MAX_TOKENS,
+    maxTokens: prsloyMaxTokens("deepseek-v4.1-flash-1017"),
     compat: {
       thinkingFormat: "deepseek",
       supportsReasoningEffort: true,
@@ -96,7 +136,7 @@ export const PRSLOY_MODELS: readonly PrsloyModelDef[] = [
     reasoning: true,
     input: ["text", "image"],
     contextWindow: 256_000,
-    maxTokens: PRSLOY_MAX_TOKENS,
+    maxTokens: prsloyMaxTokens("kimi-k3.1-pro"),
     compat: {
       thinkingFormat: "openai",
       supportsReasoningEffort: true,
@@ -115,7 +155,7 @@ export const PRSLOY_MODELS: readonly PrsloyModelDef[] = [
     reasoning: true,
     input: ["text"],
     contextWindow: 256_000,
-    maxTokens: PRSLOY_MAX_TOKENS,
+    maxTokens: prsloyMaxTokens("qwen3.8-max"),
     compat: {
       thinkingFormat: "qwen",
       supportsReasoningEffort: true,
@@ -132,7 +172,7 @@ export const PRSLOY_MODELS: readonly PrsloyModelDef[] = [
     reasoning: false,
     input: ["text", "image"],
     contextWindow: 200_000,
-    maxTokens: PRSLOY_MAX_TOKENS,
+    maxTokens: prsloyMaxTokens("claude-opus-5-5"),
     compat: {
       supportsReasoningEffort: false,
     },
@@ -144,7 +184,7 @@ export const PRSLOY_MODELS: readonly PrsloyModelDef[] = [
     reasoning: false,
     input: ["text", "image"],
     contextWindow: 200_000,
-    maxTokens: PRSLOY_MAX_TOKENS,
+    maxTokens: prsloyMaxTokens("claude-fable-5"),
     compat: { supportsReasoningEffort: false },
   },
   {
@@ -153,7 +193,7 @@ export const PRSLOY_MODELS: readonly PrsloyModelDef[] = [
     reasoning: false,
     input: ["text", "image"],
     contextWindow: 400_000,
-    maxTokens: PRSLOY_MAX_TOKENS,
+    maxTokens: prsloyMaxTokens("gpt-6.1-sol"),
     compat: { supportsReasoningEffort: false },
   },
   {
@@ -162,7 +202,7 @@ export const PRSLOY_MODELS: readonly PrsloyModelDef[] = [
     reasoning: false,
     input: ["text", "image"],
     contextWindow: 256_000,
-    maxTokens: PRSLOY_MAX_TOKENS,
+    maxTokens: prsloyMaxTokens("grok-4.7"),
     compat: { supportsReasoningEffort: false },
   },
 ];

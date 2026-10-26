@@ -20,6 +20,7 @@ import {
   ANSWER_NO,
   ANSWER_YES,
 } from "../../../apps/desktop/src/agent-host/write-boundary.ts";
+import { createPrsloyFetch } from "../../../apps/desktop/src/agent-host/prsloy-fetch.ts";
 import {
   buildPrsloyModelsJsonProvider,
   PRSLOY_PROVIDER_ID,
@@ -438,12 +439,12 @@ export function infraReason(
 ): string | undefined {
   const auth = failures.find(isAuthFailure);
   if (auth) return `ключ не принят шлюзом: ${auth.message}`;
-  const quota = failures.find((f) => f.status === 402);
-  if (quota) return `квота шлюза: ${quota.message}`;
   if (stop?.reason === "budget") return stop.message;
-  // 5xx и обрыв: прокси надёжности повторяет сам — сбой, только если ход им и кончился.
-  if (sessionFailed && failures.length) return `сбой шлюза: ${failures.at(-1)!.message}`;
-  return undefined;
+  // 402 (резерв вывода — спускаемся по max_tokens, #39), 5xx и обрыв (прокси надёжности повторяет сам): сбой,
+  // только если ход им и кончился.
+  if (!sessionFailed || !failures.length) return undefined;
+  const last = failures.at(-1)!;
+  return `${last.status === 402 ? "квота шлюза" : "сбой шлюза"}: ${last.message}`;
 }
 
 async function runTask(
@@ -854,6 +855,24 @@ export async function runBench(opts: BenchOptions): Promise<BenchReport> {
     if (control.stop) control.abort?.();
   }
   await control.meter.start();
+  // Тот же путь, что в приложении (agent-host/index.ts): обёртка fetch спускает max_tokens на 400/402 и
+  // переводит на другую модель, если эта пропала. Ставится на время прогона, как в хосте — на процесс.
+  const baseFetch = globalThis.fetch;
+  globalThis.fetch = createPrsloyFetch({
+    base: baseFetch.bind(globalThis),
+    apiKey: opts.key ?? "fake",
+    async listModels() {
+      const response = await baseFetch(`${control.meter.upstream.replace(/\/+$/, "")}/models`, {
+        headers: { Authorization: `Bearer ${opts.key ?? "fake"}`, Accept: "application/json" },
+        signal: AbortSignal.timeout(15_000),
+      }).catch(() => undefined);
+      if (!response?.ok) return [];
+      const body = (await response.json()) as { data?: { id?: unknown }[] };
+      return (body.data ?? [])
+        .map((m) => m.id)
+        .filter((id): id is string => typeof id === "string");
+    },
+  });
   try {
     const cache = opts.fake ? false : (opts.honestyCache ?? HONESTY_CACHE);
     if (opts.suite && opts.suite !== "casual" && cache && !existsSync(cache))
@@ -889,6 +908,7 @@ export async function runBench(opts: BenchOptions): Promise<BenchReport> {
       );
     }
   } finally {
+    globalThis.fetch = baseFetch;
     await closeSharedProxy();
     await control.meter.stop();
   }

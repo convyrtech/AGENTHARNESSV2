@@ -8,14 +8,18 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vite-plus/test";
-import { createPixRuntime } from "@zeno/agent-runtime";
+import { classifyModelError, createPixRuntime } from "@zeno/agent-runtime";
 import { MockGatewayServer } from "../../../../../packages/test-utils/src/index.ts";
 import {
   buildPrsloyModelsJsonProvider,
   isPrsloyChatModelId,
   prsloyFallbackModelId,
+  prsloyMaxTokens,
   prsloyModelCost,
   prsloySpeedModelId,
+  PRSLOY_MAX_TOKENS,
+  PRSLOY_MODELS,
+  PRSLOY_OUTPUT_LIMITS,
   PRSLOY_PROVIDER_ID,
 } from "../../shared/prsloy-config.ts";
 import { createPrsloyFetch, modelSwitchText } from "../../agent-host/prsloy-fetch.ts";
@@ -98,6 +102,15 @@ describe("catalog and presets from the gateway's list", () => {
       ["claude-fable-5", "claude-opus-5-5", "gpt-6.1-sol", "grok-4.7", "qwen3.8-max"].sort(),
     );
     expect(provider.models.every((m) => m.maxTokens === 128_000)).toBe(true);
+    // #39: каждая модель каталога — в таблице лимитов вывода с источником; спрашиваем min(128k, свой).
+    for (const m of PRSLOY_MODELS) {
+      const own = PRSLOY_OUTPUT_LIMITS[m.id];
+      expect(own?.source, m.id).toBeTruthy();
+      expect(m.maxTokens, m.id).toBe(
+        own?.tokens ? Math.min(PRSLOY_MAX_TOKENS, own.tokens) : PRSLOY_MAX_TOKENS,
+      );
+    }
+    expect(prsloyMaxTokens("unknown-model")).toBe(PRSLOY_MAX_TOKENS);
     expect(prsloyModelCost("gpt-6.1-sol").input).toBeGreaterThan(0);
     expect(prsloyModelCost("qwen3.8-max").input).toBeGreaterThan(0);
     expect(prsloyModelCost("claude-opus-5-5").input).toBeGreaterThan(0);
@@ -238,5 +251,49 @@ describe("quiet recovery on the wire (real pi runtime, agent-host fetch wrapper)
     expect(server.requests.map((r) => r.body.max_tokens)).toEqual([128_000, 64_000, 32_000]);
     const last = [...handle.runtime.session.messages].reverse().find((m) => m.role === "assistant");
     expect(JSON.stringify(last)).toContain("Готово.");
+  }, 60_000);
+
+  it("a vendor that answers 402 to a big output reserve (kimi, 26.10): steps down to 16k, and the next request starts there", async () => {
+    const server = new MockGatewayServer({
+      apiKey: "sk-w",
+      modelIds: ["qwen3.8-max"],
+      maxTokensLimit: 16_000,
+      maxTokensStatus: 402,
+      turns: [{ text: "Готово." }, { text: "Ещё готово." }],
+    });
+    await server.start();
+    cleanups.push(() => server.stop());
+    const { handle } = await session(server, "qwen3.8-max");
+    await handle.runtime.session.prompt("Привет");
+    expect(server.requests.map((r) => r.body.max_tokens)).toEqual([
+      128_000, 64_000, 32_000, 16_000,
+    ]);
+    await handle.runtime.session.prompt("Ещё");
+    // Без новой лестницы: 16k для этой модели держится PRSLOY_CAP_TTL_MS.
+    expect(server.requests.slice(4).map((r) => r.body.max_tokens)).toEqual([16_000]);
+    const last = [...handle.runtime.session.messages].reverse().find((m) => m.role === "assistant");
+    expect(JSON.stringify(last)).toContain("Ещё готово.");
+  }, 60_000);
+
+  it("a real empty balance stays 402 at every step and ends as no_balance", async () => {
+    const server = new MockGatewayServer({
+      apiKey: "sk-w",
+      modelIds: ["qwen3.8-max"],
+      maxTokensLimit: 1,
+      maxTokensStatus: 402,
+      turns: [{ text: "не дойдёт" }],
+    });
+    await server.start();
+    cleanups.push(() => server.stop());
+    const { handle } = await session(server, "qwen3.8-max");
+    await handle.runtime.session.prompt("Привет");
+    expect(server.requests.map((r) => r.body.max_tokens)).toEqual([
+      128_000, 64_000, 32_000, 16_000, 8_000,
+    ]);
+    const last = [...handle.runtime.session.messages]
+      .reverse()
+      .find((m) => m.role === "assistant") as { stopReason?: string; errorMessage?: string };
+    expect(last.stopReason).toBe("error");
+    expect(classifyModelError(last.errorMessage, last.stopReason)).toBe("no_balance");
   }, 60_000);
 });

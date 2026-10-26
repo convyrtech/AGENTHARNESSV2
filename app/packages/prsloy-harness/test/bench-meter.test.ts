@@ -133,10 +133,12 @@ describe("infra_error", () => {
     status,
     message: `HTTP ${status}: x`,
   });
-  it("401/403 and 402 always; 5xx and network only when the turn ended on it; budget stop", () => {
+  it("401/403 always; 402, 5xx and network only when the turn ended on it; budget stop", () => {
     expect(infraReason([f(401)], undefined, false)).toMatch(/^ключ не принят шлюзом/);
     expect(infraReason([f(403)], undefined, false)).toMatch(/^ключ не принят шлюзом/);
-    expect(infraReason([f(402)], undefined, false)).toMatch(/^квота шлюза/);
+    // 402 — сначала спуск по max_tokens (#39): сбой, только если ход им и кончился.
+    expect(infraReason([f(402)], undefined, false)).toBeUndefined();
+    expect(infraReason([f(402)], undefined, true)).toMatch(/^квота шлюза/);
     // Прокси надёжности повторил 500 и дождался ответа — ход дошёл до конца, сбоя нет.
     expect(infraReason([f(500)], undefined, false)).toBeUndefined();
     expect(infraReason([f(500), f("network")], undefined, true)).toBe(
@@ -208,6 +210,32 @@ describe("infra_error", () => {
     expect(report.stopped).toBeUndefined();
     expect(report.results[0]!.outcome).toBe("infra_error");
     expect(report.results[0]!.note).toMatch(/^сбой шлюза: HTTP 50\d/);
+  }, 120_000);
+});
+
+describe("the app's request path (#39)", () => {
+  it("402 to a big output reserve: the bench steps max_tokens down like the app and the task runs", async () => {
+    const gw = await gateway((body) =>
+      Number((body as { max_tokens?: number }).max_tokens) > 32_000
+        ? { status: 402, error: "Insufficient quota for this request" }
+        : { text: "Проект — сайт кофейни: страница index.html и стили style.css." },
+    );
+    const report = await runBench({
+      harness: true,
+      model: MODEL,
+      key: "k",
+      baseUrl: gw.baseUrl,
+      timeoutSec: 60,
+      tasks: ["explain-project"],
+      outDir: join(out, "reserve"),
+    });
+    await gw.stop();
+    const sent = gw.requests.map((r) => (r as { max_tokens?: number }).max_tokens);
+    // pi режет 128k до «окно − вход», потом 64k → 402, 32k → 200.
+    expect(sent.slice(1, 3)).toEqual([64_000, 32_000]);
+    expect(sent[0]).toBeGreaterThan(64_000);
+    expect(report.stopped).toBeUndefined();
+    expect(report.results[0]!.outcome).not.toBe("infra_error");
   }, 120_000);
 });
 
