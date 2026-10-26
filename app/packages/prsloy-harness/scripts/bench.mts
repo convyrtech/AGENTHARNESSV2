@@ -99,7 +99,7 @@ async function main(): Promise<number> {
     console.error("Нужен ключ шлюза в PRSLOY_GATEWAY_KEY (или --fake).");
     return 2;
   }
-  const budget = (name: "budget-rub" | "budget-tokens"): number | undefined => {
+  const budget = (name: "budget-rub" | "budget-tokens" | "context-window"): number | undefined => {
     const raw = values[name];
     if (raw === undefined) return undefined;
     const n = Number(raw);
@@ -108,6 +108,7 @@ async function main(): Promise<number> {
   };
   const budgetRub = budget("budget-rub");
   const budgetTokens = budget("budget-tokens");
+  const contextWindow = budget("context-window");
   const outDir = resolve(values.resume ?? values.out);
   const report = await runBench({
     ...(values.resume ? { resume: true } : {}),
@@ -125,7 +126,7 @@ async function main(): Promise<number> {
     reviewerCheats: values["reviewer-cheats"] === "on",
     claimCheck: values["claim-check"] === "on",
     taskThread: values["task-thread"] === "on",
-    ...(budget("context-window") ? { contextWindow: budget("context-window") } : {}),
+    ...(contextWindow ? { contextWindow } : {}),
     staleDocs: STALE_DOCS_MODES.includes(values["stale-docs"] as StaleDocsMode)
       ? (values["stale-docs"] as StaleDocsMode)
       : "end",
