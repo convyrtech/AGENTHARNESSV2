@@ -3,20 +3,25 @@
 // одна строка по-русски, details — { facts, files?, page? } (page — находки проверки страницы с селекторами). Модель её не пишет и не перекрывает: при красной проверке ui
 // ставит карточку над ответом. Факты — из того, что видел харнесс: последний прогон гейта, проверка страницы,
 // запуск программы после последней правки, дифф хода (старые тесты, заглушки).
+import type { ClaimFinding, ClaimTracker } from "./claim-check.ts";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { parsePatch, TEST_FILE } from "./gate-signals.ts";
 import type { ResolvedOptions } from "./options.ts";
 import { oldTestChanges, userAskedToChange } from "./test-guard.ts";
 import { detectProjectCheck } from "./stop-gate.ts";
-import { showCard } from "./text.ts";
+import { recordEvent } from "./learning-log.ts";
+import { fatalLine } from "./process-registry.ts";
+import { contentText, showCard } from "./text.ts";
 import type { TurnChanges } from "./turn-changes.ts";
 
 export const TURN_STATUS_TYPE = "prsloy-harness.turn-status";
 
 export type TurnFact =
   | "checks-fail"
+  | "ran-fail"
   | "page-fail"
   | "stubs-left"
+  | "claim-unbacked"
   | "tests-changed"
   | "tests-weak"
   | "page-hints"
@@ -29,8 +34,10 @@ export type TurnFact =
 /** Порядок и слова — как в ui: сначала то, что требует внимания. */
 export const TURN_FACT_TEXT: Readonly<Record<TurnFact, string>> = {
   "checks-fail": "Проверки не прошли",
+  "ran-fail": "Программа упала при запуске — посмотрите",
   "page-fail": "На странице остались ошибки — посмотрите",
   "stubs-left": "Остались заглушки",
+  "claim-unbacked": "Слова агента не подтверждены проверкой — посмотрите",
   "tests-changed": "Агент поменял старые проверки — посмотрите",
   "tests-weak": "Новые тесты почти ничего не проверяют — посмотрите",
   "page-hints": "Есть подсказки по удобству страницы",
@@ -57,6 +64,8 @@ export interface TurnStatusState {
   edited: boolean;
   /** Программу запускали после последней правки, и она отработала. */
   ranOk: boolean;
+  /** Последний запуск программы после последней правки упал: код ≠ 0, процесс умер в первые секунды или в выводе смертельная строка (EADDRINUSE, Traceback). */
+  ranFail: boolean;
   /** Слабые новые тесты (H-3, флаг testQuality): файлы. */
   weakTests: string[];
 }
@@ -70,17 +79,18 @@ export function createTurnStatus(): TurnStatusState {
     pageIssues: [],
     edited: false,
     ranOk: false,
+    ranFail: false,
     weakTests: [],
   };
 }
 
 /** Запуск самой программы (не установка, не тест): `python app.py`, `node bot.js`, `.venv/Scripts/python x.py`. */
-const RUNS_PROGRAM =
+export const RUNS_PROGRAM =
   /(?:^|&&|;|\|\|)\s*(?:\S*[\\/])?(?:python3?|py|node)(?:\.exe)?\s+(?:-[\w-]+\s+)*(?!-m\s+(?:pytest|unittest|pip))[^\s;&|]+\.(?:py|m?js|cjs)\b/;
-const TEST_RUN = /\b(?:pytest|unittest|jest|vitest|mocha|npm (?:run )?test|node --test)\b/;
+export const TEST_RUN = /\b(?:pytest|unittest|jest|vitest|mocha|npm (?:run )?test|node --test)\b/;
 
 /** Заглушки вместо кода (H7) в добавленных строках. `@abstractmethod` в двух строках выше — не заглушка. */
-const STUB =
+export const STUB =
   /\b(?:TODO|FIXME)\b.*\b(?:implement|реализ)|rest of (?:the )?code|existing code here|your code here|остальн\p{L}* (?:код|отч\p{L}*|функци\p{L}*)|здесь будет|(?:#|\/\/)\s*(?:\.\.\.|…)|\braise NotImplementedError\b|throw new Error\(\s*["'`](?:not implemented|todo)/iu;
 
 export function stubFiles(patch: string): string[] {
@@ -102,7 +112,15 @@ export function turnFacts(
   state: TurnStatusState,
   patch: string | undefined,
   filesChanged: number,
-): { facts: TurnFact[]; files: string[]; page?: string[] } | undefined {
+  claims: readonly ClaimFinding[] = [],
+):
+  | {
+      facts: TurnFact[];
+      files: string[];
+      page?: string[];
+      claims?: { quote: string; why: string }[];
+    }
+  | undefined {
   const edited = state.edited || filesChanged > 0;
   if (!edited && state.gate === undefined) return undefined;
   const facts = new Set<TurnFact>();
@@ -113,8 +131,10 @@ export function turnFacts(
   else if (state.page === false) facts.add("page-fail");
   if (state.page === true && state.pageIssues.length) facts.add("page-hints");
   if (state.ranOk) facts.add("ran-ok");
+  else if (state.ranFail) facts.add("ran-fail");
   // Страница открылась или программа отработала — это и есть проверка для новичка: «нечем» только если не было ничего.
-  if (edited && !state.hasCheck && state.page !== true && !state.ranOk) facts.add("no-checks");
+  if (edited && !state.hasCheck && state.page !== true && !state.ranOk && !state.ranFail)
+    facts.add("no-checks");
   if (patch) {
     const tests = oldTestChanges(patch);
     if (tests.length) {
@@ -131,10 +151,17 @@ export function turnFacts(
       files.push(...stubs);
     }
   }
+  // H8 (флаг claimCheck): «тесты проходят», «проверил», «готово» — против фактов хода; цитата и чего не хватило.
+  if (claims.length) facts.add("claim-unbacked");
   const ordered = ORDER.filter((f) => facts.has(f));
   if (!ordered.length) return undefined;
   const page = state.page === undefined ? [] : state.pageIssues;
-  return { facts: ordered, files: [...new Set(files)], ...(page.length ? { page } : {}) };
+  return {
+    facts: ordered,
+    files: [...new Set(files)],
+    ...(page.length ? { page } : {}),
+    ...(claims.length ? { claims: claims.map(({ quote, why }) => ({ quote, why })) } : {}),
+  };
 }
 
 export function turnStatusLine(facts: TurnFact[]): string {
@@ -144,10 +171,10 @@ export function turnStatusLine(facts: TurnFact[]): string {
 export function installTurnStatus(
   pi: ExtensionAPI,
   opts: ResolvedOptions,
-  deps: { state: TurnStatusState; changes?: TurnChanges | undefined },
+  deps: { state: TurnStatusState; changes?: TurnChanges | undefined; claims?: ClaimTracker },
 ): void {
   if (opts.profile !== "code") return;
-  const { state, changes } = deps;
+  const { state, changes, claims } = deps;
 
   pi.on("before_agent_start", (event) => {
     if (event.messageType !== "user") return;
@@ -158,11 +185,25 @@ export function installTurnStatus(
     if ((event.toolName === "edit" || event.toolName === "write") && !event.isError) {
       state.edited = true;
       state.ranOk = false;
-    } else if (event.toolName === "bash" && !event.isError) {
+      state.ranFail = false;
+    } else if (event.toolName === "bash") {
       const command = (event.input as { command?: unknown }).command;
-      if (typeof command === "string" && RUNS_PROGRAM.test(command) && !TEST_RUN.test(command))
-        state.ranOk = true;
-    } else if (event.toolName === "bash_background" && !event.isError) state.ranOk = true;
+      if (typeof command === "string" && RUNS_PROGRAM.test(command) && !TEST_RUN.test(command)) {
+        const text = contentText(event.content);
+        // Сервер в обычном bash упёрся в таймаут — он работал; ни «работает», ни «упала» не говорим.
+        if (!/timed out after|остановлен по таймауту/i.test(text)) {
+          const ok = !event.isError && !fatalLine(text);
+          state.ranOk = ok;
+          state.ranFail = !ok;
+        }
+      }
+    } else if (event.toolName === "bash_background" && !event.isError) {
+      // Жив после паузы и без смертельной строки в выводе (bash-timeout кладёт это в details).
+      const d = (event.details ?? {}) as { alive?: unknown; fatal?: unknown };
+      const ok = d.alive !== false && !d.fatal;
+      state.ranOk = ok;
+      state.ranFail = !ok;
+    }
     return undefined;
   });
 
@@ -174,12 +215,19 @@ export function installTurnStatus(
     // Гейт не успел прогнать проверку (стоп, бюджет) — «нечем проверить» говорим, только если её правда нет.
     if (state.gate === undefined && !state.hasCheck) state.hasCheck = !!detectProjectCheck(ctx.cwd);
     const diff = changes?.peekLastDiff();
-    const result = turnFacts(state, diff?.patch, diff?.files.length ?? 0);
+    const claimed = claims?.findings({ gate: state.gate, page: state.page }) ?? [];
+    for (const c of claimed)
+      recordEvent(ctx, {
+        kind: c.verdict === "wrong" ? "claim.false_done" : "claim.unverified",
+        sig: `claim:${c.kind}`,
+      });
+    const result = turnFacts(state, diff?.patch, diff?.files.length ?? 0, claimed);
     if (!result) return;
     await showCard(pi, TURN_STATUS_TYPE, turnStatusLine(result.facts), {
       facts: result.facts,
       ...(result.files.length ? { files: result.files } : {}),
       ...(result.page ? { page: result.page } : {}),
+      ...(result.claims ? { claims: result.claims } : {}),
     });
   });
 }

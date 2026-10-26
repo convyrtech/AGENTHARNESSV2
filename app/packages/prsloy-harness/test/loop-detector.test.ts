@@ -4,6 +4,8 @@ import {
   installLoopDetector,
   LENGTH_NOTE,
   PSEUDO_CALL_NOTE,
+  SAME_FAIL_CARD,
+  SAME_FAIL_NOTE,
 } from "../src/loop-detector.ts";
 import { resolveOptions } from "../src/options.ts";
 import { MockPi } from "./mock-pi.ts";
@@ -37,6 +39,55 @@ describe("loop detector", () => {
     expect(pi.aborted).toBe(0);
     await pi.call("bash", { ...input }, "1 failing");
     expect(pi.aborted).toBe(1);
+  });
+
+  it("3 identical failing bash calls (same command, same exit code) block, then stop the turn with an honest line and card", async () => {
+    const pi = setup();
+    await pi.userPrompt();
+    const fail = (out: string, code = 1, command = "npm install") =>
+      pi.call("bash", { command }, `${out}\n\nCommand exited with code ${code}`, true);
+    // Вывод разный (время, номер попытки) — петля по результату не видит, серия по коду видит.
+    expect((await fail("try 1 ETIMEDOUT")).result?.modified).toBe(false);
+    expect((await fail("try 2 ETIMEDOUT")).result?.modified).toBe(false);
+    const third = await fail("try 3 ETIMEDOUT");
+    expect(third.result?.text).toContain(SAME_FAIL_NOTE);
+    // Модель всё равно зовёт инструмент: первый вызов блокируется (ещё можно честно ответить текстом)…
+    const next = await pi.call("read", { path: "package.json" }, "{}");
+    expect(next.blocked).toEqual({ block: true, reason: SAME_FAIL_NOTE });
+    expect(pi.sent).toEqual([]);
+    // …второй — жёсткая остановка хода и карточка.
+    const last = await pi.call("bash", { command: "npm install" }, "x");
+    expect(last.blocked).toMatchObject({ block: true, terminate: true, reason: SAME_FAIL_NOTE });
+    expect(pi.sent.map((m) => [m.customType, m.content])).toEqual([
+      ["prsloy-harness.loop", SAME_FAIL_CARD],
+    ]);
+  });
+
+  it("the streak breaks on another exit code, a success or a successful edit; identical output stops at the 3rd", async () => {
+    const pi = setup();
+    await pi.userPrompt();
+    const fail = (code: number, command = "python app.py") =>
+      pi.call("bash", { command }, `Traceback\n\nCommand exited with code ${code}`, true);
+    await fail(1);
+    await fail(2);
+    expect((await fail(1)).result?.modified).toBe(false);
+    await pi.call("edit", { path: "app.py", edits: [] }, "ok");
+    await fail(1);
+    await pi.call("bash", { command: "ls" }, "app.py");
+    expect((await fail(1)).result?.modified).toBe(false);
+    // Одинаковый вывод: третий вызов не выполняется (петля), а ход останавливается.
+    const same = setup();
+    await same.userPrompt();
+    const red = () =>
+      same.call("bash", { command: "pytest" }, "1 failed\n\nCommand exited with code 1", true);
+    await red();
+    await red();
+    const third = await red();
+    expect(third.blocked).toEqual({ block: true, reason: SAME_FAIL_NOTE });
+    expect((await red()).blocked).toEqual({ block: true, reason: SAME_FAIL_NOTE });
+    expect(same.sent).toHaveLength(0);
+    expect((await red()).blocked).toMatchObject({ block: true, terminate: true });
+    expect(same.sent).toHaveLength(1);
   });
 
   it("treats argument key order as the same call", async () => {

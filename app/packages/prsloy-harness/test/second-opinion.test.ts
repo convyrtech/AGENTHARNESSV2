@@ -9,6 +9,8 @@ import {
   pickModel,
   remarks,
   reviewerFor,
+  NOT_REVIEWERS,
+  REVIEWER_PREFERENCES,
   reviewersFor,
   reviewFailCard,
   reviewPrompt,
@@ -21,9 +23,14 @@ import { BUGGY_DIFF } from "./review-fixtures.ts";
 describe("reviewer choice (ADR-7: writer and reviewer from different families)", () => {
   it("preference lists by family; unknown family — no review", () => {
     expect(reviewersFor("qwen3.8-max")).toEqual(["deepseek", "kimi", "claude-opus"]);
-    expect(reviewersFor("claude-opus-5-5")).toEqual(["kimi", "deepseek", "qwen"]);
-    expect(reviewersFor("deepseek-v4.1-flash-1017")).toEqual(["kimi", "qwen", "claude-opus"]);
-    expect(reviewersFor("kimi-k3.1-pro")).toEqual(["deepseek", "qwen", "claude-opus"]);
+    expect(reviewersFor("claude-opus-5-5")).toEqual(["kimi", "deepseek"]);
+    expect(reviewersFor("claude-fable-5-1")).toEqual(["kimi", "deepseek"]);
+    expect(reviewersFor("deepseek-v4.1-flash-1017")).toEqual(["kimi", "claude-opus"]);
+    expect(reviewersFor("kimi-k3.1-pro")).toEqual(["deepseek", "claude-opus"]);
+    expect(reviewersFor("grok-5")).toEqual(["deepseek", "kimi", "claude-opus"]);
+    // qwen, grok, fable — никогда не проверяющие (их каналы теряют системные сообщения).
+    for (const [, list] of REVIEWER_PREFERENCES)
+      for (const prefix of list) expect(NOT_REVIEWERS.test(prefix), prefix).toBe(false);
     expect(reviewerFor("qwen3.8-max")).toBe("deepseek");
     expect(reviewersFor("mock")).toEqual([]);
   });
@@ -46,7 +53,8 @@ describe("reviewer choice (ADR-7: writer and reviewer from different families)",
         all.filter((id) => !id.startsWith("deepseek")),
       ),
     ).toBe("kimi-k3.1-pro");
-    expect(at("claude-opus-5-5", ["claude-opus-5-5", "qwen3.8-max"])).toBe("qwen3.8-max");
+    // Только qwen в каталоге — ревью нет: qwen не проверяющий (канал теряет системные сообщения).
+    expect(at("claude-opus-5-5", ["claude-opus-5-5", "qwen3.8-max"])).toBeUndefined();
     expect(at("kimi-k3.1-pro", ["kimi-k3.1-pro", "claude-opus-5-5"])).toBe("claude-opus-5-5");
     // только своя семья — ревью нет
     expect(

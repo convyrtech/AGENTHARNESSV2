@@ -51,8 +51,12 @@ import type { FetchLike } from "./gateway-check.ts";
 import { carryUnsavedCards } from "./memory-card-carry.ts";
 import { onSessionLeft } from "./session-left.ts";
 
-/** Cheapest that meters input on the gateway first (deepseek reports no input tokens yet). */
-const EXTRACTOR_MODELS = ["qwen3.8-max", "deepseek-v4.1-flash-1017"];
+/**
+ * Kimi first: measured live 29/30 caught, 0 false, every accepted candidate correct. Not Qwen: its
+ * gateway channel adds ~2k hidden prompt tokens to every call and drops system messages (probe
+ * 2026-10-25). DeepSeek is the fallback.
+ */
+const EXTRACTOR_MODELS = ["kimi-k3.1-pro", "deepseek-v4.1-flash-1017"];
 
 export function extractorModel(available: readonly string[] | undefined): string {
   if (available?.length) {

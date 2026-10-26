@@ -9,6 +9,14 @@ import type { TimelineItem } from "./timeline.ts";
 /** Show the line only once a turn has run this long. */
 export const PROGRESS_LINE_DELAY_MS = 15_000;
 
+/** The model has sent nothing for this long while the agent waits for it: say it is slow, not stuck. */
+export const SLOW_MODEL_HINT_MS = 30_000;
+
+/** The quiet «отвечает медленно» hint: waiting on the model (not a tool) and silent long enough. */
+export function showSlowModelHint(action: ProgressAction, silentMs: number): boolean {
+  return action.key === "progress.thinking" && silentMs >= SLOW_MODEL_HINT_MS;
+}
+
 export type ProgressAction = { key: MessageKey; vars?: Record<string, string> };
 
 const DETAIL_MAX = 60;

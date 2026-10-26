@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 import type { BudgetHandle } from "../src/budget.ts";
+import { type ClaimTracker, createClaimState, type GateFacts } from "../src/claim-check.ts";
 import { resolveOptions } from "../src/options.ts";
 import type { Reviewer } from "../src/reviewer.ts";
 import { REVIEW_PASS_CARD } from "../src/second-opinion.ts";
@@ -50,6 +51,7 @@ async function setup(o: {
   enabled?: boolean;
   noPair?: boolean;
   cheats?: boolean;
+  claims?: ClaimTracker;
 }) {
   const cwd = await dir(o.withTests ?? false);
   const pi = new MockPi(cwd);
@@ -86,6 +88,7 @@ async function setup(o: {
     budget,
     reviewEnabled: () => o.enabled ?? true,
     reviewerCheats: () => o.cheats ?? false,
+    ...(o.claims ? { claims: o.claims } : {}),
   });
   const settle = async (extra: Record<string, unknown> = {}) => {
     const out = await pi.boundary("agent_before_settle", { outcome: "completed", ...extra });
@@ -98,6 +101,31 @@ async function setup(o: {
 const cards = (pi: MockPi) => pi.sent.filter((m) => m.display).map((m) => String(m.content));
 
 describe("second opinion in the stop gate", () => {
+  it("H8 claimCheck: findings against the gate's facts reach the reviewer's signals", async () => {
+    const seen: GateFacts[] = [];
+    const claims: ClaimTracker = {
+      state: createClaimState(),
+      enabled: () => true,
+      findings: (facts) => {
+        seen.push({ ...facts });
+        return [
+          {
+            kind: "tests",
+            quote: "тесты проходят",
+            verdict: "unbacked",
+            why: "тесты не запускались",
+          },
+        ];
+      },
+    };
+    const t = await setup({ claims });
+    await t.settle();
+    expect(t.prompts[0]).toContain(
+      "- Слова и факты: в ответе «тесты проходят», но тесты не запускались (не подтверждено)",
+    );
+    expect(seen[0]).toEqual({ gate: undefined, page: undefined });
+  });
+
   it("H-4 flag reviewerCheats: the reviewer gets the kinds of fitting and code facts; off — the old prompt", async () => {
     const on = await setup({ cheats: true });
     await on.settle();

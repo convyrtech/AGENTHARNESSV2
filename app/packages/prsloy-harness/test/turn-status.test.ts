@@ -127,8 +127,10 @@ describe("turn status facts", () => {
     );
     expect(Object.keys(TURN_FACT_TEXT)).toEqual([
       "checks-fail",
+      "ran-fail",
       "page-fail",
       "stubs-left",
+      "claim-unbacked",
       "tests-changed",
       "tests-weak",
       "page-hints",

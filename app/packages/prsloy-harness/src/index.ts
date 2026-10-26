@@ -15,6 +15,7 @@ import { installRequestSecret } from "./request-secret.ts";
 import { installSkills } from "./skills.ts";
 import { installAutoMemory } from "./memory-auto.ts";
 import { installClaimCheck } from "./claim-check.ts";
+import { installInstallOffline } from "./install-offline.ts";
 import { createHonesty, installHonestExit } from "./honest-exit.ts";
 import { createTurnStatus, installTurnStatus } from "./turn-status.ts";
 import { readFlags } from "./flags.ts";
@@ -73,6 +74,8 @@ export { looksLikeServer, detectPorts } from "./process-registry.ts";
 export { resolveToolPath } from "./paths.ts";
 export {
   ReliabilityProxy,
+  MODEL_SLOW_CODE,
+  MODEL_SLOW_MESSAGE,
   STREAM_INTERRUPTED_CODE,
   STREAM_INTERRUPTED_MESSAGE,
   type ReliabilityOptions,
@@ -134,14 +137,20 @@ export function createPrsloyHarness(options: HarnessOptions = {}): (pi: Extensio
     if (on("skills")) installSkills(pi, opts, { dir: opts.skillsDir, files: opts.skillFiles });
     // Раньше стоп-гейта: сорванный вызов инструмента — сначала повтор, проверки проекта потом.
     if (on("toolLeak")) installToolLeak(pi);
+    if (on("installOffline")) installInstallOffline(pi, opts);
     // Честный выход и страж старых тестов (research/24 §4, H-1): за флагами honestExit / testGuard, по умолчанию
     // выкл. Состояние сообщения общее у report_blocker и гейта: принятый блокер снимает возвраты «почини».
     const honesty = opts.profile === "code" && on("honestExit") ? createHonesty() : undefined;
     // Статус хода по фактам (H9): гейт пишет прогоны, карточка — в конце хода, после ответа.
     const turnStatus = opts.profile === "code" && on("turnStatus") ? createTurnStatus() : undefined;
+    // Слова и факты (H-2: H6–H8): флаг claimCheck читается на каждом сообщении; итог — гейту и статусу хода.
+    const claims = on("claimCheck")
+      ? installClaimCheck(pi, opts, () => readFlags(opts.settingsPath).claimCheck)
+      : undefined;
     if (codeGate)
       installStopGate(pi, opts, {
         ...(honesty ? { honesty } : {}),
+        ...(claims ? { claims } : {}),
         ...(turnStatus ? { turnStatus } : {}),
         ...(on("reviewerCheats")
           ? { reviewerCheats: () => readFlags(opts.settingsPath).reviewerCheats }
@@ -177,8 +186,8 @@ export function createPrsloyHarness(options: HarnessOptions = {}): (pi: Extensio
     if (opts.profile === "code") {
       if (on("autoMemory")) installAutoMemory(pi, opts);
       if (honesty) installHonestExit(pi, opts, { state: honesty, changes });
-      if (turnStatus) installTurnStatus(pi, opts, { state: turnStatus, changes });
-      if (on("claimCheck")) installClaimCheck(pi, opts);
+      if (turnStatus)
+        installTurnStatus(pi, opts, { state: turnStatus, changes, ...(claims ? { claims } : {}) });
     }
     if (on("secretScrub")) installSecretScrub(pi);
     if (on("reliabilityProxy")) installReliability(pi, opts);

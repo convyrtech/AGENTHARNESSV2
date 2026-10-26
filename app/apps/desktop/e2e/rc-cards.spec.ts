@@ -98,6 +98,17 @@ const CARDS = [
     },
   },
   {
+    customType: "prsloy-harness.install-offline",
+    content: "Не скачались пакеты: нет связи",
+    details: { command: "npm install", retry: true },
+  },
+  {
+    customType: "prsloy-harness.loop",
+    content:
+      "Одна и та же команда трижды упала с той же ошибкой — остановил, чтобы не тратить попытки",
+    details: {},
+  },
+  {
     customType: "prsloy-harness.search-limit",
     content: "Brave: 429 Too Many Requests",
     details: { provider: "brave", code: "limit" },
@@ -110,7 +121,7 @@ async function problems(page: Page): Promise<string[]> {
     const out: string[] = [];
     const cards = [
       ...document.querySelectorAll<HTMLElement>(
-        '[data-testid="memory-card"], [data-testid="blocker-card"], [data-testid="search-limit-card"]',
+        '[data-testid="memory-card"], [data-testid="blocker-card"], [data-testid="search-limit-card"], [data-testid="harness-card"]',
       ),
     ];
     for (const card of cards) {
@@ -163,6 +174,14 @@ for (const mode of ["light", "dark"] as const) {
       await expect(page.getByTestId("memory-card")).toHaveCount(6);
       await expect(page.getByTestId("blocker-card")).toBeVisible();
       await expect(page.getByTestId("search-limit-card")).toBeVisible();
+      // alpha.2 harness cards: their own words, «Повторить» only where there is something to retry
+      const offline = page.locator('[data-harness="offline"]');
+      await expect(offline).toContainText("Не скачались пакеты: нет связи");
+      await expect(offline.getByTestId("harness-card-retry")).toBeVisible();
+      const loop = page.locator('[data-harness="loop"]');
+      await expect(loop).toContainText("Одна и та же команда трижды упала");
+      await expect(loop.getByTestId("harness-card-retry")).toHaveCount(0);
+      await expect(loop.getByTestId("harness-card-toggle")).toHaveCount(0);
       expect(await page.evaluate(() => document.documentElement.dataset.theme)).toBe(mode);
       await page.getByTestId("memory-auto-show").click();
       await page.evaluate(() => document.fonts.ready);
@@ -176,7 +195,7 @@ for (const mode of ["light", "dark"] as const) {
         const tag = `${Math.round(zoom * 100)}-${mode}`;
         for (const p of await problems(page)) found.push(`${tag} ${p}`);
         const cards = page.locator(
-          '[data-testid="memory-card"], [data-testid="blocker-card"], [data-testid="search-limit-card"]',
+          '[data-testid="memory-card"], [data-testid="blocker-card"], [data-testid="search-limit-card"], [data-testid="harness-card"]',
         );
         const count = await cards.count();
         for (let i = 0; i < count; i += 1) {

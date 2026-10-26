@@ -162,6 +162,12 @@ test("10 · a Python script crashes with a traceback; the agent tries the same t
     await noRawErrors(n.page);
     // The harness tells the model a repeat will not help; «Что дальше» offers to fix it.
     expect(n.bodies.join("\n")).toContain("Повтор не поможет");
+    // Three identical failures stop it (harness loop stop): the same traceback twice, the 3rd identical run is
+    // refused and counts as the 3rd failure, the 4th is refused too — so only two tracebacks ever reach the model —
+    // and the model still gets to explain («нет круассана» above).
+    const last = n.bodies.at(-1) ?? "";
+    expect(last).toContain("больше ничего не запускай");
+    expect(last.split("KeyError").length - 1).toBe(2);
     await expect(n.page.getByTestId("next-steps")).toContainText("Почини ошибку и запусти снова");
     await shot(n.page, "first-hour-bad-7-traceback");
   } finally {

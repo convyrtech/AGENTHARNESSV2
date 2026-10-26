@@ -94,13 +94,16 @@ describe("pipes: events and hooks", () => {
     expect(kinds.length).toBe(12);
   });
 
-  it("hooks still empty (autoMemory, claimCheck) register nothing; H-1 (honestExit) adds an inactive report_blocker", () => {
+  it("autoMemory still registers nothing; claimCheck (H-2) adds 3 handlers, no tools; H-1 (honestExit) adds an inactive report_blocker", () => {
     const count = (disable: Record<string, boolean>) => {
       const pi = new MockPi(root);
       createPrsloyHarness({ outputDir: join(root, "out"), disable })(pi.api);
       return [pi.tools.size, [...pi.handlers.values()].reduce((n, l) => n + l.length, 0)];
     };
-    expect(count({})).toEqual(count({ autoMemory: true, claimCheck: true }));
+    expect(count({})).toEqual(count({ autoMemory: true }));
+    // claimCheck: tool_result (H6, H7), message_end (финальный ответ), before_agent_start (флаг на ход).
+    const [tools, handlers] = count({});
+    expect(count({ claimCheck: true })).toEqual([tools, handlers! - 3]);
     expect(count({})[0]).toBe(count({ honestExit: true })[0]! + 1);
   });
 });

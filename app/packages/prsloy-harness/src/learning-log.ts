@@ -42,6 +42,7 @@ export type LearningKind =
   | "ask"
   | "secret.saved"
   | "secret.declined"
+  | "install.offline"
   | "vague.nudge"
   | "skill.loaded"
   | "skill.used"
@@ -68,6 +69,7 @@ export type LearningKind =
   | "claim.unverified"
   | "claim.stub"
   | "claim.false_done"
+  | "claim.same_red"
   // Честный выход (harness, §4.2): блокер заявлен, принят кодом, отклонён.
   | "blocker.reported"
   | "blocker.accepted"

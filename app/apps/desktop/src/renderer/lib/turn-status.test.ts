@@ -15,6 +15,7 @@ describe("parseTurnStatus", () => {
       tone: "warn",
       files: [],
       page: [],
+      claims: [],
     });
   });
 
@@ -32,7 +33,7 @@ describe("parseTurnStatus", () => {
   it("red wins over a green from the same turn; unknown facts and junk are dropped", () => {
     expect(
       parseTurnStatus({ facts: ["checks-pass", "checks-fail", "made-up", 3], files: ["a.ts", 1] }),
-    ).toEqual({ facts: ["checks-fail"], tone: "fail", files: ["a.ts"], page: [] });
+    ).toEqual({ facts: ["checks-fail"], tone: "fail", files: ["a.ts"], page: [], claims: [] });
   });
 
   it("nothing to show without facts", () => {
@@ -89,6 +90,41 @@ const ids = (blocks: TimelineBlock[]) =>
   blocks.map((b) => (b.type === "process" ? `${b.id}${b.checksFailed ? "!" : ""}` : b.item.id));
 
 describe("arrangeTurnStatus", () => {
+  it("a turn the model broke off (402, dropped connection) is marked stopped, not «Готово»", () => {
+    const failed: TimelineBlock = {
+      type: "item",
+      item: { id: "f1", kind: "system", text: "402", title: "Response failed", tone: "error" },
+    };
+    const out = arrangeTurnStatus([user("u1"), process("p1"), failed, user("u2"), process("p2")]);
+    const stopped = out.filter((b) => b.type === "process").map((b) => Boolean(b.stopped));
+    expect(stopped).toEqual([true, false]);
+  });
+
+  it("claim-unbacked warns after stubs-left; up to 2 quotes with why", () => {
+    const status = parseTurnStatus({
+      facts: ["checks-pass", "claim-unbacked", "stubs-left"],
+      claims: [
+        { quote: "Всё проверил", why: "проверок в ходе не было" },
+        { quote: "  " },
+        { quote: "Работает на телефоне" },
+        { quote: "третья" },
+      ],
+    });
+    expect(status?.facts).toEqual(["stubs-left", "claim-unbacked", "checks-pass"]);
+    expect(status?.tone).toBe("warn");
+    expect(status?.claims).toEqual([
+      { quote: "Всё проверил", why: "проверок в ходе не было" },
+      { quote: "Работает на телефоне" },
+    ]);
+  });
+
+  it("ran-fail is red and beats ran-ok", () => {
+    expect(parseTurnStatus({ facts: ["ran-ok", "ran-fail"] })).toMatchObject({
+      facts: ["ran-fail"],
+      tone: "fail",
+    });
+  });
+
   it("a red card moves above the model's reply and the turn's header loses «Готово»", () => {
     const blocks = [user("u1"), process("p1"), reply("a1"), status("s1", ["checks-fail"])];
     expect(ids(arrangeTurnStatus(blocks))).toEqual(["u1", "p1!", "s1", "a1"]);

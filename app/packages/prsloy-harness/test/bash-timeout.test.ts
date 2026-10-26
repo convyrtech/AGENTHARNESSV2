@@ -1,6 +1,7 @@
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { spawn } from "node:child_process";
+import { createServer } from "node:net";
 import { builtinModules } from "node:module";
 import { join, resolve as resolvePath } from "node:path";
 import { build } from "vite-plus";
@@ -8,7 +9,8 @@ import { afterEach, describe, expect, it } from "vite-plus/test";
 import { installBashTimeout } from "../src/bash-timeout.ts";
 import { contentText } from "../src/text.ts";
 import { resolveOptions } from "../src/options.ts";
-import { detectPorts, looksLikeServer } from "../src/process-registry.ts";
+import { detectPorts, fatalLine, looksLikeServer } from "../src/process-registry.ts";
+import { createTurnStatus, installTurnStatus, turnFacts } from "../src/turn-status.ts";
 import { MockPi } from "./mock-pi.ts";
 
 const dirs: string[] = [];
@@ -110,6 +112,92 @@ describe("bash timeout", () => {
     }
     await new Promise((r) => setTimeout(r, 300));
     expect(registry.list()[0]?.exitCode).not.toBeUndefined();
+  });
+
+  it("a server on a busy port: not alive after the grace, the fatal line in details; turn status says ran-fail", async () => {
+    const dir = await project();
+    const busy = createServer(() => {});
+    await new Promise<void>((ok) => busy.listen(0, "127.0.0.1", ok));
+    const port = (busy.address() as { port: number }).port;
+    await writeFile(
+      join(dir, "busy.js"),
+      `require("node:http").createServer(() => {}).listen(${port}, "127.0.0.1", () => console.log("http://localhost:${port}"));`,
+    );
+    try {
+      const { pi } = setup(dir);
+      const status = createTurnStatus();
+      installTurnStatus(pi.api, resolveOptions({ profile: "code" }), { state: status });
+      await pi.userPrompt("запусти сервер");
+      const started = await pi
+        .tool("bash_background")
+        .execute(
+          "t",
+          { command: "node busy.js", wait_seconds: 5 },
+          undefined,
+          undefined,
+          pi.ctx as never,
+        );
+      const details = started.details as { alive: boolean; exitCode?: number; fatal?: string };
+      expect(details.alive).toBe(false);
+      expect(details.fatal).toMatch(/EADDRINUSE/);
+      await pi.toolResult({
+        toolName: "bash_background",
+        input: { command: "node busy.js" },
+        details,
+      });
+      expect(turnFacts({ ...status, edited: true }, "", 1)?.facts).toEqual(["ran-fail"]);
+      // Тот же сервер на свободном порту — жив после паузы, ran-ok.
+      await writeFile(
+        join(dir, "free.js"),
+        `require("node:http").createServer(() => {}).listen(0, "127.0.0.1", () => console.log("up"));`,
+      );
+      const ok = await pi
+        .tool("bash_background")
+        .execute(
+          "t",
+          { command: "node free.js", wait_seconds: 1 },
+          undefined,
+          undefined,
+          pi.ctx as never,
+        );
+      expect(ok.details).toMatchObject({ alive: true });
+      expect((ok.details as { fatal?: string }).fatal).toBeUndefined();
+      await pi.toolResult({
+        toolName: "bash_background",
+        input: { command: "node free.js" },
+        details: ok.details,
+      });
+      expect(turnFacts({ ...status, edited: true }, "", 1)?.facts).toEqual(["ran-ok"]);
+      await pi
+        .tool("process")
+        .execute("t", { action: "stop", id: "bg2" }, undefined, undefined, pi.ctx as never);
+    } finally {
+      await new Promise((ok) => busy.close(ok));
+    }
+  }, 20_000);
+
+  it("foreground runs: Traceback or a non-zero exit is ran-fail; a timeout is neither; tests do not count", async () => {
+    const { pi } = setup();
+    const status = createTurnStatus();
+    installTurnStatus(pi.api, resolveOptions({ profile: "code" }), { state: status });
+    await pi.userPrompt("запусти");
+    const run = (text: string, isError = false, command = "python app.py") =>
+      pi.toolResult({ toolName: "bash", input: { command }, text, isError });
+    await run(
+      "Traceback (most recent call last):\n  File app.py\nOSError: [Errno 98] Address already in use",
+      true,
+    );
+    expect([status.ranOk, status.ranFail]).toEqual([false, true]);
+    await run("[Процесс остановлен по таймауту 120 с.] Если это сервер…", true);
+    expect([status.ranOk, status.ranFail]).toEqual([false, true]);
+    await run("Итого: 42");
+    expect([status.ranOk, status.ranFail]).toEqual([true, false]);
+    await run("FAILED", true, "python -m pytest");
+    expect([status.ranOk, status.ranFail]).toEqual([true, false]);
+    expect(fatalLine("ok\nError: listen EADDRINUSE: address already in use :::3000")).toBe(
+      "Error: listen EADDRINUSE: address already in use :::3000",
+    );
+    expect(fatalLine("GET / 200\nno errors found")).toBeUndefined();
   });
 
   it("bash_background starts a command and process stop kills it", async () => {

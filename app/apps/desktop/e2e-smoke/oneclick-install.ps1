@@ -123,6 +123,12 @@ function Watch([string]$phase, [scriptblock]$start, [int]$timeoutSec) {
   } while (($alive -or -not $proc.HasExited) -and ((Get-Date) - $t0).TotalSeconds -lt $timeoutSec)
   $seconds = [math]::Round(((Get-Date) - $t0).TotalSeconds, 1)
   Shot "$phase-end"
+  # SpiderBanner (electron-builder's one-click banner) opens with its own English «Installing, Please
+  # Wait...» and the template replaces it with $(installing) the same moment; a 500 ms poll can land in
+  # between. Excused only when that window did show the Russian text too.
+  $replaced = @{}
+  foreach ($k in $texts.Keys) { $f = $k -split '\|', 4; if ($f[3] -match 'Установка, пожалуйста, подождите') { $replaced[$f[0]] = $true } }
+  $bannerDefault = { param($k) $f = $k -split '\|', 4; $f[3] -ceq 'Installing, Please Wait...' -and $replaced.ContainsKey($f[0]) }
   return [ordered]@{
     seconds = $seconds
     finishedOnItsOwn = -not $alive
@@ -132,13 +138,14 @@ function Watch([string]$phase, [scriptblock]$start, [int]$timeoutSec) {
     # NSIS's own branding line («Nullsoft Install System vX») is not a wizard; message-box
     # buttons are labelled by Windows in the OS language.
     wizardWords = @($texts.Keys | Where-Object {
-        $f = $_ -split '\|', 4; $f[1] -ne 'msgbtn' -and $f[3] -cmatch $wizard -and $f[3] -notmatch 'Nullsoft' })
+        $f = $_ -split '\|', 4; $f[1] -ne 'msgbtn' -and $f[3] -cmatch $wizard -and $f[3] -notmatch 'Nullsoft' -and -not (& $bannerDefault $_) })
     # Every text the installer itself writes must be Russian: English words without Cyrillic
     # (product name and version aside) are leftovers.
     englishTexts = @($texts.Keys | Where-Object {
         $f = $_ -split '\|', 4
         $t = ($f[3] -replace 'PRSLOY', '' -replace '\b\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?', '' -replace 'Nullsoft Install System v[\d.]+', '')
-        $f[1] -ne 'msgbtn' -and $t -match '[A-Za-z]{4,}' -and $t -notmatch '[А-Яа-яЁё]' })
+        $f[1] -ne 'msgbtn' -and $t -match '[A-Za-z]{4,}' -and $t -notmatch '[А-Яа-яЁё]' -and -not (& $bannerDefault $_) })
+    bannerDefaultSeen = [bool](@($texts.Keys | Where-Object { & $bannerDefault $_ }).Count)
     screenshots = $i
     confirmationsAnswered = $confirmed
   }
@@ -172,6 +179,12 @@ Start-Sleep -Seconds 2
 # ── Uninstall: also no wizard, Russian, keeps %APPDATA%\PRSLOY ──
 $uninstaller = Join-Path $installDir 'Uninstall PRSLOY.exe'
 $report.uninstall = Watch 'uninstall' { Start-Process -FilePath $uninstaller -PassThru } 180
+# NSIS's uninstaller re-runs itself from %TEMP% and exits at once; that copy deletes the files a moment
+# later, possibly after Watch saw the first process go. Wait for the program like a person would (#32).
+$goneAt = Get-Date
+$goneDeadline = $goneAt.AddSeconds(60)
+while ((Test-Path -LiteralPath $exe) -and (Get-Date) -lt $goneDeadline) { Start-Sleep -Milliseconds 500 }
+$report.uninstall.exeGoneAfterSeconds = [math]::Round(((Get-Date) - $goneAt).TotalSeconds, 1)
 $report.programFolderRemoved = -not (Test-Path -LiteralPath $exe)
 $report.appDataKept = Test-Path -LiteralPath $appData
 # Verified kept; now give the later smoke tests a fresh runner again (the upgrade test needs a
