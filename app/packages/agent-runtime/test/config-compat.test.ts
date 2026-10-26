@@ -31,6 +31,8 @@ async function fileHash(path: string): Promise<string> {
 }
 
 afterEach(async () => {
+  // Clean up test environment variables
+  delete process.env[ZENO_SESSION_DIR_ENV];
   await Promise.all(
     temporaryDirectories
       .splice(0)
