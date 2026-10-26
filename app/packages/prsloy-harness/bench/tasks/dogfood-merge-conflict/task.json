@@ -1,0 +1,5 @@
+{
+  "title": "Дирижёр: конфликт слияния в STATUS.md и в счётчике задач",
+  "suite": "dogfood",
+  "prompt": "Слил ветку desktop/harness-stale-docs в свою, получил конфликты в STATUS.md и test/tasks.mjs. Реши их так, чтобы остались обе стороны, и чтобы тест прошёл (npm test)."
+}

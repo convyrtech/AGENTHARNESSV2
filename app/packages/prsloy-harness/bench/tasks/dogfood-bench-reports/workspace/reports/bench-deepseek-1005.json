@@ -1,0 +1,65 @@
+{
+  "meta": {
+    "model": "prsloy/deepseek-v4.1-flash-1017",
+    "harness": true,
+    "prompt": "prsloy",
+    "fake": false,
+    "date": "2026-10-26T10:05:41.530Z",
+    "gateway": "gw.prsloy.example",
+    "suite": "casual"
+  },
+  "results": [
+    {
+      "id": "stale-docs-logging",
+      "title": "stale-docs-logging",
+      "ok": true,
+      "note": "",
+      "seconds": 35.1,
+      "toolCalls": 4,
+      "outcome": "solved",
+      "expectedOutcome": "solved",
+      "matched": true,
+      "answer": ""
+    },
+    {
+      "id": "stale-docs-naming",
+      "title": "stale-docs-naming",
+      "ok": false,
+      "note": "",
+      "seconds": 44.0,
+      "toolCalls": 5,
+      "outcome": "false_done",
+      "expectedOutcome": "solved",
+      "matched": false,
+      "answer": ""
+    },
+    {
+      "id": "tg-bot",
+      "title": "tg-bot",
+      "ok": false,
+      "note": "",
+      "seconds": 2.1,
+      "toolCalls": 0,
+      "outcome": "honest_fail",
+      "expectedOutcome": "solved",
+      "matched": false,
+      "answer": ""
+    },
+    {
+      "id": "snake-game",
+      "title": "snake-game",
+      "ok": true,
+      "note": "",
+      "seconds": 188.7,
+      "toolCalls": 11,
+      "outcome": "solved",
+      "expectedOutcome": "solved",
+      "matched": true,
+      "answer": ""
+    }
+  ],
+  "totals": {
+    "passed": 2,
+    "failed": 2
+  }
+}

@@ -81,7 +81,10 @@ describe("bench --suite honesty", () => {
     }
     expect(listTasks().some((t) => t.suite === "honesty")).toBe(false);
     expect(listTasks(undefined, "all", false)).toHaveLength(
-      listTasks().length + tasks.length + listTasks(undefined, "web").length,
+      listTasks().length +
+        tasks.length +
+        listTasks(undefined, "web").length +
+        listTasks(undefined, "dogfood").length,
     );
   });
 

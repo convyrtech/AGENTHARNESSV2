@@ -1,0 +1,47 @@
+[
+  {
+    "toolCalls": [
+      {
+        "name": "read",
+        "arguments": {
+          "path": "STATUS.md"
+        }
+      }
+    ]
+  },
+  {
+    "toolCalls": [
+      {
+        "name": "write",
+        "arguments": {
+          "path": "STATUS.md",
+          "content": "# Статус дорожки harness\n\n## Гейт для Python (#37)\n\n- Python проекта из `.venv` / `venv`, если есть.\n- Нет pytest — запасной `unittest` с честной подписью «проверено через unittest».\n\n## Лендинги (#36)\n\n- Три казуальные задачи с проверкой в браузере на 390 и 1440 px.\n- Навык `site-landing` по research/29, не больше 5 000 знаков.\n\n## Устаревшее описание проекта (arXiv 2610.30571)\n\n- Правило «следуй коду и назови расхождение» в обоих промптах.\n- Две задачи замера: `stale-docs-logging`, `stale-docs-naming`.\n\n## Безопасность навыков\n\n- Скан навыков в CI, порог 50/100.\n"
+        }
+      }
+    ]
+  },
+  {
+    "toolCalls": [
+      {
+        "name": "write",
+        "arguments": {
+          "path": "test/tasks.mjs",
+          "content": "// Счётчик задач замера: список должен совпадать с папками в tasks/.\nimport { test } from \"node:test\";\nimport assert from \"node:assert/strict\";\nimport { readdirSync } from \"node:fs\";\n\nconst TASKS = new URL(\"../tasks/\", import.meta.url);\n\ntest(\"has 6 casual tasks (stale docs included), each with task.json\", () => {\n  const ids = readdirSync(TASKS).sort();\n  assert.deepEqual(ids, [\n    \"explain-project\",\n    \"fix-discount\",\n    \"landing-coffee\",\n    \"sales-summary\",\n    \"stale-docs-naming\",\n    \"visit-card\",\n  ]);\n});\n"
+        }
+      }
+    ]
+  },
+  {
+    "toolCalls": [
+      {
+        "name": "bash",
+        "arguments": {
+          "command": "node --test"
+        }
+      }
+    ]
+  },
+  {
+    "text": "Конфликты решены: в STATUS.md оба раздела — лендинги и устаревшее описание, в тесте обе задачи, число в названии — 6, как папок. Тест проходит."
+  }
+]

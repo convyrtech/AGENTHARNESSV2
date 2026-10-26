@@ -60,10 +60,11 @@ export interface BenchOptions {
   /** id задач (`conflicting-test` — все варианты, `conflicting-test/v2` — один); по умолчанию весь набор `suite`. */
   tasks?: string[];
   /**
-   * Набор задач: casual (22 казуальных, по умолчанию), honesty (задачи честности H-0), web (кодовые задачи, где без
-   * поиска модель ошибается: версии, поддержка, свежие API — issue #23) или all.
+   * Набор задач: casual (казуальные, по умолчанию), honesty (задачи честности H-0), web (кодовые задачи, где без
+   * поиска модель ошибается: версии, поддержка, свежие API — issue #23), dogfood (обычные задачи дирижёра на снимках
+   * настоящих данных) или all. Несколько — списком: ["casual", "honesty"].
    */
-  suite?: Suite;
+  suite?: Suite | Suite[];
   /** Кэш взятых задач (по умолчанию HONESTY_CACHE); false — только то, что в git. В --fake кэш не берётся. */
   honestyCache?: string | false;
   harness: boolean;
@@ -133,7 +134,10 @@ export interface BenchOptions {
  * Исход задачи честности (research/24 §4.1 H-0, research/22 §6.5). Задача ждёт свой исход (`expectedOutcome` в
  * task.json, по умолчанию solved): CI проверяет, что «жулик пойман», а не что «все прошли».
  */
-export type Suite = "casual" | "honesty" | "web" | "all";
+export type Suite = "casual" | "honesty" | "web" | "dogfood" | "all";
+export const SUITES: readonly Suite[] = ["casual", "honesty", "web", "dogfood", "all"];
+/** Набор задачи по task.json `suite`; без него — казуальная. */
+type OwnSuite = Exclude<Suite, "all">;
 
 /**
  * infra_error — задачу не прогнали: шлюз не принял ключ (401/403), кончилась квота (402), 5xx после повторов или
@@ -215,7 +219,7 @@ interface TaskDef {
   /** Заготовка фейковой модели (fake.json варианта или задачи); нет — вариант в --fake не гоняется. */
   fake: string | undefined;
   title: string;
-  suite: "casual" | "honesty" | "web";
+  suite: OwnSuite;
   /** Сессии задачи по порядку: одна или несколько (двухсессионные задачи памяти). */
   prompts: string[];
   /** Ожидаемый исход (task.json `expectedOutcome`), по умолчанию solved. */
@@ -248,7 +252,7 @@ function readJson(path: string): TaskJson {
  */
 export function listTasks(
   only?: string[],
-  suite: Suite = "casual",
+  suite: Suite | readonly Suite[] = "casual",
   cache: string | false = HONESTY_CACHE,
 ): TaskDef[] {
   const out: TaskDef[] = [];
@@ -256,8 +260,17 @@ export function listTasks(
     const dir = join(TASKS_DIR, id);
     if (!existsSync(join(dir, "task.json"))) continue;
     const def = readJson(join(dir, "task.json"));
-    const own = def.suite === "honesty" || def.suite === "web" ? def.suite : "casual";
-    if (suite !== "all" && own !== suite && !only?.some((o) => o.split("/")[0] === id)) continue;
+    const own: OwnSuite =
+      def.suite === "honesty" || def.suite === "web" || def.suite === "dogfood"
+        ? def.suite
+        : "casual";
+    const suites: readonly Suite[] = typeof suite === "string" ? [suite] : suite;
+    if (
+      !suites.includes("all") &&
+      !suites.includes(own) &&
+      !only?.some((o) => o.split("/")[0] === id)
+    )
+      continue;
     const roots = [join(dir, "variants"), ...(cache ? [join(cache, id, "variants")] : [])].filter(
       (r) => existsSync(r),
     );
@@ -733,7 +746,8 @@ export interface BenchReport {
     gateway: string;
     timeoutSec: number;
     audit: boolean;
-    suite: Suite;
+    /** Набор(ы) прогона: «casual» или через запятую, «casual,honesty». */
+    suite: string;
   };
   results: TaskResult[];
   totals: {
@@ -791,7 +805,7 @@ export async function runBench(opts: BenchOptions): Promise<BenchReport> {
     gateway: opts.fake ? "fake" : new URL(opts.baseUrl ?? "http://unknown").host,
     timeoutSec: opts.timeoutSec,
     audit: opts.audit === true,
-    suite: opts.suite ?? "casual",
+    suite: [opts.suite ?? "casual"].flat().join(","),
   };
   // Результат каждой задачи — в файл сразу, как она закончилась: перезапуск контейнера не съедает часы замера.
   const resultsDir = join(opts.outDir, "results");
@@ -875,7 +889,10 @@ export async function runBench(opts: BenchOptions): Promise<BenchReport> {
   });
   try {
     const cache = opts.fake ? false : (opts.honestyCache ?? HONESTY_CACHE);
-    if (opts.suite && opts.suite !== "casual" && cache && !existsSync(cache))
+    const wantsHonesty = [opts.suite ?? "casual"]
+      .flat()
+      .some((x) => x === "honesty" || x === "all");
+    if (wantsHonesty && cache && !existsSync(cache))
       opts.log?.(
         "Нет задач ImpossibleBench и EvilGenie: запусти node packages/prsloy-harness/bench/import/fetch-honesty.mjs. Пока гоняю только свои.",
       );

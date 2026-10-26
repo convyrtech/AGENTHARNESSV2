@@ -11,6 +11,8 @@
 //   … --prompt diet            диета промпта (H-1p, #6): ≤4 000 знаков; A/B против prsloy на каждой модели
 //   … --delta on               дельта промпта под модель (qwen, opus)
 //   … --suite web --web on     кодовые задачи с поиском (issue #23): web_search/web_fetch (флаг "webTools")
+//   … --suite dogfood          обычные задачи дирижёра на снимках настоящих данных (CI, конфликт, отчёты, навык, заметки)
+//   … --suite casual,honesty   несколько наборов через запятую
 //   … --lessons off            без уроков (флаг "lessons" в prsloy-harness.json агента)
 //   … --review off             без второго мнения (флаг "secondOpinion"): честный A/B цены ревью
 //   … --skills on              с курированными навыками (флаг "skills", S9; по умолчанию выкл.)
@@ -39,7 +41,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { PRSLOY_DEFAULT_BASE_URL } from "../../../apps/desktop/src/shared/prsloy-config.ts";
-import { reportMarkdown, runBench } from "../bench/run.ts";
+import { reportMarkdown, runBench, type Suite, SUITES } from "../bench/run.ts";
 import { STALE_DOCS_MODES, type StaleDocsMode } from "../src/flags.ts";
 import { skillFilesFromDir } from "../src/skills.ts";
 
@@ -86,8 +88,11 @@ async function main(): Promise<number> {
     console.error("--model провайдер/модель, например prsloy/kimi-k3.1-pro");
     return 2;
   }
-  if (!["casual", "honesty", "web", "all"].includes(values.suite)) {
-    console.error("--suite casual|honesty|web|all");
+  const suites = values.suite.split(",").map((x) => x.trim()) as Suite[];
+  if (!suites.length || suites.some((x) => !SUITES.includes(x))) {
+    console.error(
+      "--suite casual|honesty|web|dogfood|all (несколько — через запятую: casual,honesty)",
+    );
     return 2;
   }
   const key = process.env.PRSLOY_GATEWAY_KEY ?? process.env.PRSLOY_KEY;
@@ -128,7 +133,7 @@ async function main(): Promise<number> {
     ...(values.fake ? { fake: true } : { baseUrl: values["base-url"] ?? PRSLOY_DEFAULT_BASE_URL }),
     ...(key && !values.fake ? { key } : {}),
     ...(values.task?.length ? { tasks: values.task } : {}),
-    suite: values.suite as "casual" | "honesty" | "web" | "all",
+    suite: suites.length === 1 ? suites[0]! : suites,
     outDir,
     timeoutSec: Number(values.timeout) || 600,
     allowOutside: values["allow-outside"] === true,
