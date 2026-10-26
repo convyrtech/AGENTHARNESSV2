@@ -27,6 +27,15 @@ describe("clean", () => {
     expect(removeInvisible(hidden)).toBe("ок");
   });
 
+  it("the harness's full list: variation selectors E0100+ and the soft hyphen go; emoji and Cyrillic keep their shape", () => {
+    // «Emoji smuggling»: байты в селекторах вариантов E0100…; мягкий перенос — невидимый разрыв слова.
+    const smuggled = `пр\u00adивет${String.fromCodePoint(0xe0100, 0xe0131)}`;
+    expect(removeInvisible(smuggled)).toBe("привет");
+    // Обычные эмодзи с FE0F и ZWJ не превращаются в мусор: ❤️, 1️⃣, 👨‍👩‍👧, 👍🏽.
+    for (const emoji of ["❤️", "1️⃣", "👨‍👩‍👧", "👍🏽", "Привет, мир!"])
+      expect(removeInvisible(emoji), emoji).toBe(emoji);
+  });
+
   it("hides known key shapes and named secrets, keeping the name", () => {
     const key = `sk-${"z9".repeat(12)}`;
     expect(scrub(`ключ ${key}`)).toEqual({ text: "ключ [СКРЫТО: sk-ключ]", count: 1 });

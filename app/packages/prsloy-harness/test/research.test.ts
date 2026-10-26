@@ -489,6 +489,32 @@ describe("web_search / web_fetch tools", () => {
     expect(readFileSync(path, "utf8")).not.toContain("<!--");
   });
 
+  it("web_fetch of raw code: an unclosed «<!--» keeps the rest of the file and is only marked; joiners stay in the file", async () => {
+    const py = 'MARKER = "<!--"\nname = "می\u200cخواهم"\nprint(MARKER, name)\n';
+    const f = fakeFetch([
+      [
+        "https://raw.example/tool.py",
+        () => new Response(py, { headers: { "content-type": "text/plain" } }),
+      ],
+    ]);
+    const { mock } = setup({ enabled: true, fetchImpl: f.impl, now: NOW });
+    const read = await mock.tools
+      .get("web_fetch")!
+      .execute(
+        "1",
+        { source: "https://raw.example/tool.py" },
+        undefined,
+        undefined,
+        mock.ctx as never,
+      );
+    const page = (read.content[0] as { text: string }).text;
+    expect(page).toContain("print(MARKER, name)");
+    expect(page).not.toContain("Харнесс убрал");
+    expect(read.details).toMatchObject({ hidden: { unclosed: true } });
+    const path = /Полный текст: (.+)/.exec(page)![1]!;
+    expect(readFileSync(path, "utf8")).toContain("می\u200cخواهم");
+  });
+
   it("a spent limit everywhere is said in words the user can act on, with a card", async () => {
     const f = fakeFetch([
       ["https://api.search.brave.com/", () => json({}, 429)],

@@ -11,7 +11,7 @@
  * prefixes). Changed by PRSLOY: wrappers are cut anywhere in the text, not only at its start;
  * notes are one plain line in the reply instead of tagged blocks.
  */
-import { scrubSecrets } from "@prsloy/harness";
+import { INVISIBLE_FOR_PEOPLE, scrubSecrets } from "@prsloy/harness";
 
 /** Claude Code / Codex service wrappers around non-conversational text (Codex's list). */
 const CONTROL_WRAPPERS = [
@@ -52,8 +52,12 @@ export function stripControlWrappers(text: string): string {
   return out.trim();
 }
 
-/** Zero-width, bidi controls and Unicode tag characters (U+E0000…E007F) carry hidden text. */
-const INVISIBLE = /[​-‏‪-‮⁠-⁤⁦-⁩﻿]|[\u{E0000}-\u{E007F}]/gu;
+/**
+ * Invisible characters that carry hidden text: the harness's Default_Ignorable_Code_Point list (as NVIDIA
+ * SkillSpector's) — zero-width, bidi, Unicode tags, variation selectors E0100…E0FFF, soft hyphen. People-safe
+ * variant: ZWJ/ZWNJ and FE00–FE0F stay, emoji like «1️⃣» and «👨‍👩‍👧» and Persian/Indic words keep their shape.
+ */
+const INVISIBLE = INVISIBLE_FOR_PEOPLE;
 
 export function removeInvisible(text: string): string {
   return text.replace(INVISIBLE, "");

@@ -31,6 +31,30 @@ describe("hidden text (web_fetch)", () => {
   });
 });
 
+describe("hidden text: code and scripts people read", () => {
+  it("an unclosed «<!--» in code is kept and flagged (not the rest of the file cut); closed comments still go", () => {
+    const js = 'const start = "<!--";\nconst end = "-->"; // ok\nfunction rest() { return 1; }';
+    // «<!--» в строке и «-->» дальше — это закрытый «комментарий» по форме; он уходит, остальное нет.
+    expect(stripHidden(js, { unclosed: "keep" }).text).toContain("function rest()");
+    const py = 'MARKER = "<!--"\nprint("hello")\n';
+    expect(stripHidden(py, { unclosed: "keep" })).toEqual({
+      text: py,
+      invisible: 0,
+      comments: 0,
+      unclosed: true,
+    });
+    expect(stripHidden(py).text).toBe('MARKER = "');
+  });
+
+  it("people-safe: ZWJ/ZWNJ and FE00–FE0F stay (emoji, Persian); for the model they go; tags go everywhere", () => {
+    const text = `👨\u200d👩 1\ufe0f\u20e3 می\u200cخواهم${String.fromCodePoint(0xe0041)}`;
+    expect(stripHidden(text, { forPeople: true }).text).toBe(
+      "👨\u200d👩 1\ufe0f\u20e3 می\u200cخواهم",
+    );
+    expect(stripHidden(text).text).toBe("👨👩 1\u20e3 میخواهم");
+  });
+});
+
 describe("skill threats (SkillSpector categories, own rules)", () => {
   it("catches injection, exfiltration, remote exec, credentials, memory and tool poisoning", () => {
     const cats = (text: string) => skillThreats("SKILL.md", text).map((t) => t.category);
