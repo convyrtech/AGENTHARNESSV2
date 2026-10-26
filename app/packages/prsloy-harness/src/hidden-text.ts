@@ -26,9 +26,35 @@ export const INVISIBLE_RANGES: readonly (readonly [number, number])[] = [
 ];
 
 const hex = (n: number) => `\\u{${n.toString(16)}}`;
-export const INVISIBLE = new RegExp(
-  `[${INVISIBLE_RANGES.map(([a, b]) => (a === b ? hex(a) : `${hex(a)}-${hex(b)}`)).join("")}]`,
-  "gu",
+const charClass = (ranges: readonly (readonly [number, number])[]) =>
+  new RegExp(
+    `[${ranges.map(([a, b]) => (a === b ? hex(a) : `${hex(a)}-${hex(b)}`)).join("")}]`,
+    "gu",
+  );
+
+/** Всё невидимое — для текста модели и проверки навыков. */
+export const INVISIBLE = charClass(INVISIBLE_RANGES);
+
+/**
+ * Для текста, который читают люди (сохранённая страница, импорт чатов): ZWNJ/ZWJ (U+200C–200D) и селекторы
+ * вариантов U+FE00–FE0F остаются. Без них «1️⃣» становится «1⃣», а «👨‍👩‍👧» — тремя эмодзи, персидский и индийские
+ * письменности пишутся неверно. Опасное (теги, E0100–E0FFF, bidi, zero-width space) убирается и здесь.
+ */
+export const INVISIBLE_FOR_PEOPLE = charClass(
+  INVISIBLE_RANGES.flatMap(([a, b]): (readonly [number, number])[] => {
+    const keep: (readonly [number, number])[] = [
+      [0x200c, 0x200d],
+      [0xfe00, 0xfe0f],
+    ];
+    let parts: (readonly [number, number])[] = [[a, b]];
+    for (const [ka, kb] of keep)
+      parts = parts.flatMap(([x, y]) =>
+        kb < x || ka > y
+          ? [[x, y] as const]
+          : [...(x < ka ? [[x, ka - 1] as const] : []), ...(y > kb ? [[kb + 1, y] as const] : [])],
+      );
+    return parts;
+  }),
 );
 
 export interface HiddenFound {
@@ -37,14 +63,27 @@ export interface HiddenFound {
   invisible: number;
   /** Сколько HTML-комментариев убрано. */
   comments: number;
+  /** Остался незакрытый `<!--` (при `unclosed: "keep"`): текст после него не тронут. */
+  unclosed?: boolean;
+}
+
+export interface StripOptions {
+  /**
+   * Незакрытый `<!--`: "cut" — до конца текста (HTML, где браузер тоже скроет хвост); "keep" — оставить как есть и
+   * пометить (код `.js`/`.py`, markdown со строкой "<!--": обрезка молча съела бы остаток файла).
+   */
+  unclosed?: "cut" | "keep";
+  /** true — для людей (сохранённый файл, импорт): ZWJ/ZWNJ и селекторы вариантов остаются (INVISIBLE_FOR_PEOPLE). */
+  forPeople?: boolean;
 }
 
 /**
  * Убирает невидимые символы и `<!-- … -->` за один линейный проход (ленивая регулярка на враждебной странице
- * квадратична: см. scanHtml в research/fetch.ts). Незакрытый комментарий режется до конца текста.
+ * квадратична: см. scanHtml в research/fetch.ts).
  */
-export function stripHidden(input: string): HiddenFound {
+export function stripHidden(input: string, options: StripOptions = {}): HiddenFound {
   let comments = 0;
+  let unclosed = false;
   const parts: string[] = [];
   let i = 0;
   for (;;) {
@@ -53,18 +92,27 @@ export function stripHidden(input: string): HiddenFound {
       parts.push(input.slice(i));
       break;
     }
+    const end = input.indexOf("-->", start + 4);
+    if (end === -1) {
+      if (options.unclosed === "keep") {
+        parts.push(input.slice(i));
+        unclosed = true;
+      } else {
+        parts.push(input.slice(i, start));
+        comments += 1;
+      }
+      break;
+    }
     parts.push(input.slice(i, start));
     comments += 1;
-    const end = input.indexOf("-->", start + 4);
-    if (end === -1) break;
     i = end + 3;
   }
   let invisible = 0;
-  const text = parts.join("").replace(INVISIBLE, () => {
+  const text = parts.join("").replace(options.forPeople ? INVISIBLE_FOR_PEOPLE : INVISIBLE, () => {
     invisible += 1;
     return "";
   });
-  return { text, invisible, comments };
+  return { text, invisible, comments, ...(unclosed ? { unclosed } : {}) };
 }
 
 /** Строка для модели, если что-то убрано; пусто — нечего сказать. */

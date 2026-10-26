@@ -310,17 +310,25 @@ export function installResearch(
         );
       }
       // Скрытый текст (невидимые символы, HTML-комментарии — в markdown от Jina и сырых файлах они остаются)
-      // убираем до модели и до файла; сколько убрано — модели строкой.
-      const body = stripHidden(page.text);
-      const title = stripHidden(page.title);
-      const hidden = hiddenTextNote({
-        invisible: body.invisible + title.invisible,
+      // убираем до модели и до файла; сколько убрано — модели строкой. Незакрытый «<!--» в тексте — это код или
+      // строка ("<!--" в .js/.py), не прячущийся хвост: остаётся (HTML-комментарии scanHtml уже снял). В файле,
+      // который читает человек, ZWJ/ZWNJ и селекторы вариантов (эмодзи, персидский) остаются; у модели — нет.
+      const body = stripHidden(page.text, { unclosed: "keep" });
+      const title = stripHidden(page.title, { unclosed: "keep" });
+      const people = stripHidden(page.text, { unclosed: "keep", forPeople: true });
+      const forFile = people.text;
+      // В счёт — только опасное (то, что убрано и для людей): ZWNJ в персидском слове — не «скрытый текст».
+      const counts = {
+        invisible: people.invisible + stripHidden(page.title, { forPeople: true }).invisible,
         comments: body.comments + title.comments,
-      });
+        ...(body.unclosed || title.unclosed ? { unclosed: true } : {}),
+      };
+      // Только незакрытый «<!--» — не повод пугать модель: пометка в details.hidden, без строки.
+      const hidden = hiddenTextNote({ invisible: counts.invisible, comments: counts.comments });
       page = { ...page, text: body.text, title: title.text };
       const s = known ?? l.add({ url, title: page.title, foundBy: "url" });
       const path = l.saveText(s.n, {
-        text: page.text,
+        text: forFile,
         title: page.title,
         status: page.status,
         ...(page.date ? { date: page.date, dateFrom: page.dateFrom ?? "page" } : {}),
@@ -347,14 +355,7 @@ export function installResearch(
           n: s.n,
           via: page.via,
           chars: page.text.length,
-          ...(hidden
-            ? {
-                hidden: {
-                  invisible: body.invisible + title.invisible,
-                  comments: body.comments + title.comments,
-                },
-              }
-            : {}),
+          ...(hidden || counts.unclosed ? { hidden: counts } : {}),
         },
       };
     },
