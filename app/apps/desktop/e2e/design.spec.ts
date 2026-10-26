@@ -529,11 +529,15 @@ test("owner leads a landing page from request to preview", async () => {
     const edit = page.getByTestId("design-edit");
     await expect(edit.getByTestId("design-edit-hint")).toBeVisible();
     await expect(preview.locator("h1[data-pl]")).toHaveCount(1);
+    // picking is armed once the page says «ready»: click only then (the page shows the crosshair)
+    const armed = preview.locator("html.prsloy-pick-active");
+    await expect(armed).toHaveCount(1);
     await preview.locator("h1").click();
     await expect(edit.getByTestId("design-edit-place-1")).toHaveText("«Зерно»");
     await expect(edit.getByTestId("design-edit-apply")).toBeDisabled();
     // a second mark, then taken back
     await edit.getByTestId("design-edit-pick").click();
+    await expect(armed).toHaveCount(1);
     await preview.locator("p.k").click();
     await expect(edit.getByTestId("design-edit-place-2")).toHaveText("«КОФЕЙНЯ»");
     await edit.getByTestId("design-edit-remove-2").click();
@@ -585,10 +589,13 @@ test("owner leads a landing page from request to preview", async () => {
     // text without a model: a double click, type, Enter — written where the page says it is
     await page.getByTestId("design-edit-open").click();
     await expect(preview.locator("h1[data-pl]")).toHaveCount(1);
+    await expect(armed).toHaveCount(1);
     // while picking, a double click is a pick (its first click), not a text edit
     await preview.locator("h1").dblclick();
     await expect(page.getByTestId("design-edit-place-1")).toHaveText("«Зерно»");
     await expect(preview.locator("[contenteditable]")).toHaveCount(0);
+    // the pick turned picking off in the page: the next double click edits text
+    await expect(armed).toHaveCount(0);
     const line = preview.locator("p", { hasText: "Обжариваем" });
     await line.dblclick();
     await expect(line).toHaveAttribute("contenteditable", "plaintext-only");

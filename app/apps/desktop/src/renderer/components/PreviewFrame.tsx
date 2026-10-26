@@ -83,6 +83,12 @@ export function PreviewStage(props: {
   onMessage.current = props.bridge?.onMessage;
   const picking = useRef(props.bridge?.picking ?? false);
   picking.current = props.bridge?.picking ?? false;
+  /**
+   * The page in the frame said «ready». Until then a pick command is not sent: «ready» sends the
+   * current state. Sending on mount as well armed picking twice, and the second «on» could land after
+   * the owner had already picked — the next double click then picked again instead of editing text.
+   */
+  const ready = useRef(false);
   const sameOrigin = (props.sandbox ?? "allow-scripts").split(/\s+/u).includes("allow-same-origin");
   const pageOrigin = originOf(props.url);
   /** What `event.origin` must be. */
@@ -97,9 +103,10 @@ export function PreviewStage(props: {
       if (!frame || event.source !== frame || event.origin !== origin) return;
       const message = parseBridgeMessage(event.data);
       if (!message) return;
-      // A page the frame moved to starts with picking off: repeat the owner's choice.
-      if (message.type === "ready" && picking.current) {
-        frame.postMessage(pickCommand(true), target ?? "*");
+      // A page the frame moved to starts with picking off: repeat the owner's choice, once.
+      if (message.type === "ready") {
+        ready.current = true;
+        if (picking.current) frame.postMessage(pickCommand(true), target ?? "*");
       }
       onMessage.current?.(message);
     };
@@ -107,9 +114,14 @@ export function PreviewStage(props: {
     return () => window.removeEventListener("message", listener);
   }, [hasBridge, origin, target]);
 
+  // A new page: wait for its «ready» again.
+  useEffect(() => {
+    ready.current = false;
+  }, [props.url]);
+
   const pickingNow = props.bridge?.picking ?? false;
   useEffect(() => {
-    if (!hasBridge || !origin) return;
+    if (!hasBridge || !origin || !ready.current) return;
     frameRef.current?.contentWindow?.postMessage(pickCommand(pickingNow), target ?? "*");
   }, [hasBridge, origin, target, pickingNow]);
 
