@@ -132,6 +132,11 @@ export interface BenchOptions {
    * каталога приложения.
    */
   contextWindow?: number;
+  /**
+   * Сколько последних токенов Pi оставляет дословно при сжатии (`compaction.keepRecentTokens`, по умолчанию 20 000).
+   * Для замера с маленьким окном: сжатие срабатывает при «окно − 16 384».
+   */
+  keepRecentTokens?: number;
   /** Разборщик сессий после прогона (research/24 §6, A-4; ci). Пока только помечается в отчёте. */
   audit?: boolean;
   /**
@@ -481,6 +486,12 @@ async function runTask(
   // Одна папка агента на все сессии задачи: память и уроки переживают сессию, как у пользователя.
   const agentDir = mkdtempSync(join(work, `${slug}-agent-`));
   const memoryDir = join(agentDir, "prsloy-memory");
+  // Настройки Pi (settings.json папки агента): сколько оставлять дословно при сжатии — для замера #64.
+  if (opts.keepRecentTokens)
+    writeFileSync(
+      join(agentDir, "settings.json"),
+      JSON.stringify({ compaction: { keepRecentTokens: opts.keepRecentTokens } }),
+    );
   // Флаги — тем же файлом, что пишет приложение.
   const settingsPath = join(agentDir, "prsloy-harness.json");
   writeFileSync(
@@ -757,6 +768,7 @@ export interface BenchReport {
     claimCheck: boolean;
     taskThread: boolean;
     contextWindow: number | undefined;
+    keepRecentTokens: number | undefined;
     fake: boolean;
     date: string;
     gateway: string;
@@ -817,6 +829,7 @@ export async function runBench(opts: BenchOptions): Promise<BenchReport> {
     staleDocs: opts.staleDocs ?? "end",
     taskThread: opts.taskThread === true,
     contextWindow: opts.contextWindow,
+    keepRecentTokens: opts.keepRecentTokens,
     fake: opts.fake === true,
     date: new Date().toISOString(),
     gateway: opts.fake ? "fake" : new URL(opts.baseUrl ?? "http://unknown").host,
@@ -1072,7 +1085,7 @@ export function reportMarkdown(report: BenchReport): string {
     return `| ${r.id} | ${failed ? "⚠" : mark} ${r.note.replace(/\|/g, "/")}${failed ? " · исход infra_error" : outcome}${r.error && !failed ? ` (${r.error})` : ""} | ${r.seconds} | ${r.toolCalls} | ${tokensText(r.tokens)} | ${r.tokens ? rubText(r.rub) : "—"} | ${cache} | ${reply} | ${iv || "—"} |`;
   });
   return [
-    `# Замер: ${meta.model}, харнесс ${meta.harness ? "вкл" : "выкл"}, промпт ${meta.prompt}${meta.delta ? "+дельта" : ""}, уроки ${meta.lessons ? "вкл" : "выкл"}, ревью ${meta.review ? "вкл" : "выкл"}, навыки ${meta.skills ? "вкл" : "выкл"}, память ${meta.memory ? "вкл" : "выкл"}${meta.webTools ? ", поиск вкл" : ""}${meta.honestExit ? ", честный выход вкл" : ""}${meta.testGuard ? ", страж тестов вкл" : ""}${meta.testQuality ? ", полезность тестов вкл" : ""}${meta.reviewerCheats ? ", ревьюер ищет подгонку" : ""}${meta.claimCheck ? ", слова и факты вкл" : ""}${meta.taskThread ? ", нить задачи вкл" : ""}${meta.contextWindow ? `, окно ${meta.contextWindow}` : ""}${meta.staleDocs && meta.staleDocs !== "end" ? `, описание проекта: ${meta.staleDocs}` : ""}${meta.audit ? ", разбор вкл" : ""}${meta.fake ? " (фейковая модель)" : ""}`,
+    `# Замер: ${meta.model}, харнесс ${meta.harness ? "вкл" : "выкл"}, промпт ${meta.prompt}${meta.delta ? "+дельта" : ""}, уроки ${meta.lessons ? "вкл" : "выкл"}, ревью ${meta.review ? "вкл" : "выкл"}, навыки ${meta.skills ? "вкл" : "выкл"}, память ${meta.memory ? "вкл" : "выкл"}${meta.webTools ? ", поиск вкл" : ""}${meta.honestExit ? ", честный выход вкл" : ""}${meta.testGuard ? ", страж тестов вкл" : ""}${meta.testQuality ? ", полезность тестов вкл" : ""}${meta.reviewerCheats ? ", ревьюер ищет подгонку" : ""}${meta.claimCheck ? ", слова и факты вкл" : ""}${meta.taskThread ? ", нить задачи вкл" : ""}${meta.contextWindow ? `, окно ${meta.contextWindow}` : ""}${meta.keepRecentTokens ? `, дословно ${meta.keepRecentTokens}` : ""}${meta.staleDocs && meta.staleDocs !== "end" ? `, описание проекта: ${meta.staleDocs}` : ""}${meta.audit ? ", разбор вкл" : ""}${meta.fake ? " (фейковая модель)" : ""}`,
     "",
     `${meta.date} · шлюз ${meta.gateway} · таймаут задачи ${meta.timeoutSec} с`,
     "",

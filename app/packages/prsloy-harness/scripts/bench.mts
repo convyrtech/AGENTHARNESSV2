@@ -22,7 +22,8 @@
 //   … --reviewer-cheats on     ревьюер ищет подгонку (флаг "reviewerCheats", H-4; по умолчанию выкл.)
 //   … --claim-check on         слова и факты (флаг "claimCheck", H-2: H6–H8; по умолчанию выкл.)
 //   … --task-thread on         нить задачи после сжатия истории (флаг "taskThread", #64 п.1; по умолчанию выкл.)
-//   … --context-window 48000   окно контекста моделей для замера сжатия (по умолчанию — как в приложении)
+//   … --context-window 22384 --keep-recent 1500   замер сжатия: Pi сжимает при «окно − 16 384»,
+//                              оставляя дословно последние N токенов (по умолчанию — как в приложении)
 //   … --audit                  разборщик сессий после прогона (research/24 §6, ci; пока только метка в отчёте)
 //   … --allow-outside          отвечать «Да» на «менять файлы вне проекта?» (по умолчанию «Нет»)
 //   … --out bench-out          куда писать отчёт, сессии и папки задач; результат каждой задачи — results/<задача>.json
@@ -69,6 +70,7 @@ const { values } = parseArgs({
     "claim-check": { type: "string", default: "off" },
     "task-thread": { type: "string", default: "off" },
     "context-window": { type: "string" },
+    "keep-recent": { type: "string" },
     "budget-rub": { type: "string" },
     "budget-tokens": { type: "string" },
     "stale-docs": { type: "string", default: "end" },
@@ -99,7 +101,9 @@ async function main(): Promise<number> {
     console.error("Нужен ключ шлюза в PRSLOY_GATEWAY_KEY (или --fake).");
     return 2;
   }
-  const budget = (name: "budget-rub" | "budget-tokens" | "context-window"): number | undefined => {
+  const budget = (
+    name: "budget-rub" | "budget-tokens" | "context-window" | "keep-recent",
+  ): number | undefined => {
     const raw = values[name];
     if (raw === undefined) return undefined;
     const n = Number(raw);
@@ -109,6 +113,7 @@ async function main(): Promise<number> {
   const budgetRub = budget("budget-rub");
   const budgetTokens = budget("budget-tokens");
   const contextWindow = budget("context-window");
+  const keepRecentTokens = budget("keep-recent");
   const outDir = resolve(values.resume ?? values.out);
   const report = await runBench({
     ...(values.resume ? { resume: true } : {}),
@@ -127,6 +132,7 @@ async function main(): Promise<number> {
     claimCheck: values["claim-check"] === "on",
     taskThread: values["task-thread"] === "on",
     ...(contextWindow ? { contextWindow } : {}),
+    ...(keepRecentTokens ? { keepRecentTokens } : {}),
     staleDocs: STALE_DOCS_MODES.includes(values["stale-docs"] as StaleDocsMode)
       ? (values["stale-docs"] as StaleDocsMode)
       : "end",
