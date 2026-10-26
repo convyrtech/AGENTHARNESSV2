@@ -3,7 +3,7 @@
 #   package-linux  fetch Node + Python for linux-x64 (venv + pip checked), build, electron-builder
 #                  AppImage + deb, latest-linux.yml checked against the AppImage
 #   smoke-linux    fresh Ubuntu 24.04 runners, each package installed the way the release notes say
-#                  (deb: apt install ./…deb; AppImage: chmod +x and libfuse2t64), AppArmor left as
+#                  (deb: apt install ./…deb; AppImage: chmod +x only, no libfuse2), AppArmor left as
 #                  Ubuntu ships it: key gate on a fake gateway (wrong key → Russian error), folder,
 #                  a reply, the first command, quit (e2e-smoke/firstrun.spec.ts, product mode)
 #
@@ -114,12 +114,11 @@ jobs:
           sudo apt-get update -q
           sudo apt-get install -y "$PWD/$(ls installer/PRSLOY-*-linux-amd64.deb | head -1)"
           echo "PRSLOY_EXE=/opt/PRSLOY/PRSLOY" >> "$GITHUB_ENV"
+      # Static AppImage runtime (electron-builder toolsets.appimage): no libfuse2 to install first.
       - name: Prepare the AppImage
         if: matrix.package == 'appimage'
         run: |
           set -euo pipefail
-          sudo apt-get update -q
-          sudo apt-get install -y libfuse2t64
           appimage=$(ls "$PWD"/installer/PRSLOY-*-linux-x86_64.AppImage | head -1)
           chmod +x "$appimage"
           echo "PRSLOY_EXE=$appimage" >> "$GITHUB_ENV"
