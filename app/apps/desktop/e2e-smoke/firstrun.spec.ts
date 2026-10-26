@@ -12,6 +12,7 @@
  * it in Settings. The folder dialog is answered by stubbing dialog.showOpenDialog in main.
  */
 import { expect, test } from "@playwright/test";
+import { execFileSync } from "node:child_process";
 import { createServer as createTcpServer, type Server as TcpServer, type Socket } from "node:net";
 import { once } from "node:events";
 import { existsSync, readdirSync } from "node:fs";
@@ -292,6 +293,16 @@ test("first command after the first launch: key → folder → command → reply
     m.runtimesAfterSendMs =
       timings.runtimes !== undefined ? timings.runtimes - since(sentAt) : null;
     expect(chats.length, "the command's result went back to the model").toBeGreaterThanOrEqual(2);
+    // #38: the agent's python (the venv in userData) runs pytest — on Windows and Linux alike.
+    const venvPython =
+      process.platform === "win32"
+        ? join(launched.userData, "runtimes", "python-venv", "Scripts", "python.exe")
+        : join(launched.userData, "runtimes", "python-venv", "bin", "python3");
+    const pytestVersion = execFileSync(venvPython, ["-m", "pytest", "--version"], {
+      encoding: "utf8",
+    }).trim();
+    m.pytest = pytestVersion;
+    expect(pytestVersion).toMatch(/^pytest \d+\.\d+/);
     // A turn that sat behind the unpack must have said so on screen.
     if ((timings["turn-wait"] ?? 0) > 2_000) {
       expect(m.turnProgressShownMs, "«Готовлю инструменты» while the turn waited").not.toBeNull();

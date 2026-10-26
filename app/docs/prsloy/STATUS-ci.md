@@ -1,5 +1,20 @@
 # STATUS: дорожка ci (W0 + W5)
 
+## pytest во встроенном Python (#38)
+
+- fetch-runtimes ставит в встроенный Python закреплённые pytest 9.1.1, pluggy 1.6.0, iniconfig 2.3.1, packaging 26.3,
+  pygments 2.21.0 и на Windows colorama 0.4.6: его же pip, `--require-hashes --no-deps --only-binary :all:`, sha256 из
+  PyPI; версии не моложе двух недель (pluggy 1.7.0 вышел 11 дней назад — взят 1.6.0). Лицензии — NOTICE.md.
+- Консольные скрипты pip пишет с путём сборочной машины: на Linux/macOS — переносимая шапка, как у встроенного pip;
+  на Windows вместо `.exe`-запускателей `pytest.cmd` рядом с python.exe (он в PATH агента).
+- venv агента создаётся с `--system-site-packages` (runtime-provision.ts, `VENV_ARGS`): pytest виден, `pip install`
+  агента идёт в venv. Ревизия рантайма: Windows 3, Linux/macOS 4 — после обновления venv пересобирается.
+- Проверки: при сборке — `python -m pytest`, команда `pytest`, pytest внутри venv; в смоуке (firstrun.spec, Windows и
+  Linux) — venv-Python агента `-m pytest --version`.
+- Прогон: https://github.com/convyrtech/AGENTHARNESSV2/actions/runs/40319353975 — сборки и смоуки Windows (latest, 2022) и Linux (deb, AppImage), update-e2e — зелёные.
+- Прибавка к установщику (против сухого прогона main 40300701050): Windows 223 819 160 − 222 217 459 = +1,53 МиБ;
+  Linux (AppImage и deb вместе) 447 728 318 − 444 528 507 = +3,05 МиБ, по ~1,5 МиБ на файл.
+
 ## Первый запуск: где ждёт первая команда (замер и «Готовлю инструменты…»)
 
 Замер на установленном приложении, свежий профиль, ключ и папка — со скоростью машины (худший случай);

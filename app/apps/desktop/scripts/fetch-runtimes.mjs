@@ -16,6 +16,7 @@ import {
   existsSync,
   lstatSync,
   mkdirSync,
+  mkdtempSync,
   readFileSync,
   linkSync,
   readdirSync,
@@ -637,9 +638,97 @@ export function pruneNodeRuntime(nodeRoot) {
  * 3 (Linux/macOS only): ensurepip's bundled pip wheel is kept — without it `python -m venv`
  * fails, so the agent's python and «Дизайн» had no venv and no pip. Windows stays at 2: nothing
  * changed there, and a new revision would make every Windows user unpack again.
+ * Windows 3 / Linux, macOS 4: pytest ships in the bundled python (#38) — every platform unpacks once more,
+ * and the venv is rebuilt with --system-site-packages so the agent's python sees it.
  */
-export const PYTHON_PRUNE_REV = 2;
-export const PYTHON_PRUNE_REV_POSIX = 3;
+export const PYTHON_PRUNE_REV = 3;
+export const PYTHON_PRUNE_REV_POSIX = 4;
+
+/**
+ * pytest for the agent's python (#38): without it the test gate and test guard have nothing to run on a
+ * Python project. Pinned versions, pure-Python wheels, sha256 from PyPI, installed with
+ * `pip --require-hashes --no-deps` (every dependency listed here). Licences: NOTICE.md.
+ */
+export const PYTEST_REQUIREMENTS = [
+  "pytest==9.1.1 --hash=sha256:37a86b45efb9a47a61a36449063e8e18d0cab3161329fc099eb21783169c4f0c",
+  "pluggy==1.6.0 --hash=sha256:e920276dd6813095e9377c0bc5566d94c932c33b27a3e3945d8389c374dd4746",
+  "iniconfig==2.3.1 --hash=sha256:9121e2c1fdb355232495be3194c8dfe87ccc2d5dee45947b78e68f499790d7a7",
+  "packaging==26.3 --hash=sha256:d7193f7c8e4e93f444fde0262bf90af30e16fa0ad0ad44cb553c87339b23cd1c",
+  "pygments==2.21.0 --hash=sha256:2363c69b61c4a97c838da3b130dcd6468f4848992b21a82f2a63ec34377137d9",
+  'colorama==0.4.6 ; sys_platform == "win32" --hash=sha256:4f1d9991f5acc0ca119f9d443620b77f9d6b33703e51011c16baf57afb285fc6',
+];
+
+/**
+ * Install PYTEST_REQUIREMENTS into the bundled python with its own pip (the build machine runs this target).
+ * @param {string} pyBin
+ */
+export function installPytest(pyBin) {
+  const dir = mkdtempSync(join(tmpdir(), "zeno-pytest-"));
+  try {
+    const req = join(dir, "requirements.txt");
+    writeFileSync(req, `${PYTEST_REQUIREMENTS.join("\n")}\n`);
+    execFileSync(
+      pyBin,
+      [
+        "-m",
+        "pip",
+        "install",
+        "--require-hashes",
+        "--no-deps",
+        "--only-binary",
+        ":all:",
+        "--no-compile",
+        "--no-cache-dir",
+        "--disable-pip-version-check",
+        "--no-warn-script-location",
+        "-r",
+        req,
+      ],
+      { stdio: ["ignore", "pipe", "pipe"] },
+    );
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+/** Relocatable first lines, as the bundled pip has them: python is found next to the script. */
+const POSIX_SCRIPT_HEADER = [
+  "#!/bin/sh",
+  `'''exec' "$(dirname -- "$(realpath -- "$0")")/python3" "$0" "$@"`,
+  "' '''",
+];
+const PYTEST_SCRIPTS = ["pytest", "py.test", "pygmentize"];
+
+/**
+ * pip writes console scripts with the build machine's absolute python path (bin/pytest: `#!/home/…/python3`;
+ * Scripts\pytest.exe: the path inside the launcher). Linux/macOS: the same relocatable header as pip's own
+ * script. Windows: the launchers go (Scripts is not on the agent's PATH anyway) and `pytest.cmd` next to
+ * python.exe (on PATH) runs `python -m pytest`.
+ * @param {string} pythonRoot
+ * @param {string} os target os
+ * @returns {string[]} files written
+ */
+export function relocatePytestScripts(pythonRoot, os) {
+  const written = [];
+  if (os === "win32") {
+    for (const name of PYTEST_SCRIPTS) {
+      rmSync(join(pythonRoot, "Scripts", `${name}.exe`), { force: true });
+    }
+    const cmd = join(pythonRoot, "pytest.cmd");
+    writeFileSync(cmd, '@"%~dp0python.exe" -m pytest %*\r\n');
+    written.push(cmd);
+    return written;
+  }
+  for (const name of PYTEST_SCRIPTS) {
+    const file = join(pythonRoot, "bin", name);
+    if (!existsSync(file)) continue;
+    const lines = readFileSync(file, "utf8").split("\n");
+    if (!lines[0]?.startsWith("#!/") || lines[0].startsWith("#!/bin/sh")) continue;
+    writeFileSync(file, [...POSIX_SCRIPT_HEADER, ...lines.slice(1)].join("\n"), { mode: 0o755 });
+    written.push(file);
+  }
+  return written;
+}
 
 /** @param {string} os target os (win32 | linux | darwin) */
 export function pythonPruneRev(os) {
@@ -976,6 +1065,28 @@ async function fetchOne(target, versions, force) {
   if (!nodeBinAfter) throw new Error(`Node binary missing after prune (${nodeDest})`);
   if (!pyBin) throw new Error(`Python binary missing after extract (${pythonDest})`);
 
+  // pytest (#38): installed by the bundled python's own pip, so only when this machine runs the target.
+  if (target.os === process.platform) {
+    installPytest(pyBin);
+    relocatePytestScripts(pythonDest, target.os);
+    const v = execFileSync(pyBin, ["-m", "pytest", "--version"], { encoding: "utf8" }).trim();
+    // The `pytest` command too, as the agent would type it.
+    if (target.os === "win32") {
+      execFileSync("cmd.exe", ["/d", "/c", join(pythonDest, "pytest.cmd"), "--version"], {
+        stdio: ["ignore", "pipe", "pipe"],
+      });
+    } else {
+      execFileSync(join(pythonDest, "bin", "pytest"), ["--version"], {
+        stdio: ["ignore", "pipe", "pipe"],
+      });
+    }
+    console.log(`[fetch-runtimes] ${v} in the bundled python (python -m pytest and pytest)`);
+  } else {
+    throw new Error(
+      `pytest goes into the bundled python with its own pip: build ${target.os} on ${target.os} (here: ${process.platform})`,
+    );
+  }
+
   // Smoke
   try {
     const nodeV = execFileSync(nodeBinAfter, ["-v"], { encoding: "utf8" }).trim();
@@ -1000,11 +1111,16 @@ async function fetchOne(target, versions, force) {
     if (target.os !== "win32" && target.os === process.platform) {
       const venv = join(tmpdir(), `zeno-venv-smoke-${process.pid}`);
       try {
-        execFileSync(pyBin, ["-m", "venv", venv], { stdio: ["ignore", "pipe", "pipe"] });
-        execFileSync(join(venv, "bin", "python3"), ["-m", "pip", "--version"], {
+        // Same arguments as the app (runtime-provision.ts VENV_ARGS): pytest must be visible in the venv.
+        execFileSync(pyBin, ["-m", "venv", "--system-site-packages", venv], {
           stdio: ["ignore", "pipe", "pipe"],
         });
-        console.log("[fetch-runtimes] python venv smoke ok (venv + pip)");
+        for (const mod of ["pip", "pytest"]) {
+          execFileSync(join(venv, "bin", "python3"), ["-m", mod, "--version"], {
+            stdio: ["ignore", "pipe", "pipe"],
+          });
+        }
+        console.log("[fetch-runtimes] python venv smoke ok (venv + pip + pytest)");
       } finally {
         rmSync(venv, { recursive: true, force: true });
       }
