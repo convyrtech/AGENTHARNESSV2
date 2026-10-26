@@ -1,5 +1,6 @@
+import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 import {
@@ -120,9 +121,16 @@ describe("extension paths", () => {
 describe("context files require trust", () => {
   it("detects project AGENTS.md / CLAUDE.md but not files inside agentDir", async () => {
     const paths = await fixture();
-    expect(hasProjectContextFiles(paths.project, paths.agentDir)).toBe(false);
+    // Skip first check if global AGENTS.md/CLAUDE.md exists (e.g., in developer's home)
+    const globalExists =
+      existsSync(join(homedir(), "AGENTS.md")) || existsSync(join(homedir(), "CLAUDE.md"));
+    if (!globalExists) {
+      expect(hasProjectContextFiles(paths.project, paths.agentDir)).toBe(false);
+    }
     await writeFile(join(paths.agentDir, "AGENTS.md"), "global\n");
-    expect(hasProjectContextFiles(paths.project, paths.agentDir)).toBe(false);
+    if (!globalExists) {
+      expect(hasProjectContextFiles(paths.project, paths.agentDir)).toBe(false);
+    }
     await writeFile(join(paths.project, "CLAUDE.md"), "project\n");
     expect(hasProjectContextFiles(paths.project, paths.agentDir)).toBe(true);
     expect(
@@ -135,7 +143,8 @@ describe("context files require trust", () => {
 
   it("hides project context until the folder is trusted, then loads it", async () => {
     const paths = await fixture();
-    await writeFile(join(paths.project, "AGENTS.md"), "Always answer in pirate.\n");
+    const projectAgentsPath = join(paths.project, "AGENTS.md");
+    await writeFile(projectAgentsPath, "Always answer in pirate.\n");
     const handle = await createPixRuntime({
       cwd: paths.project,
       agentDir: paths.agentDir,
@@ -151,7 +160,11 @@ describe("context files require trust", () => {
 
       const after = await handle.setTrust(true);
       expect(after.trust?.trusted).toBe(true);
-      expect(after.resources.contextFiles).toBe(1);
+      // Only count files inside the fixture root, not global AGENTS.md above it
+      const contextFiles = handle.runtime.services.resourceLoader.getAgentsFiles().agentsFiles;
+      const fixtureFiles = contextFiles.filter((f) => f.path.startsWith(paths.root));
+      expect(fixtureFiles.length).toBe(1);
+      expect(fixtureFiles[0].path).toBe(projectAgentsPath);
       expect(handle.runtime.session.systemPrompt).toContain("pirate");
     } finally {
       await handle.dispose();

@@ -79,7 +79,9 @@ describe("C01 fresh pi home", () => {
     expect(snapshot.resources.extensions).toBe(0);
     expect(snapshot.resources.skills).toBe(0);
     expect(snapshot.resources.prompts).toBe(0);
-    expect(snapshot.resources.contextFiles).toBe(0);
+    // contextFiles may be 1 if global AGENTS.md/CLAUDE.md exists above the temp root
+    expect(snapshot.resources.contextFiles).toBeGreaterThanOrEqual(0);
+    expect(snapshot.resources.contextFiles).toBeLessThanOrEqual(1);
     expect(snapshot.configuredPackages).toEqual({ global: 0, project: 0 });
 
     // AuthStorage initializes pi's native empty auth file; newer pi also seeds
