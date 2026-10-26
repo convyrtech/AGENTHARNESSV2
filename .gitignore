@@ -11,3 +11,5 @@ __pycache__/
 # model passport: raw answers and findings about gateway suppliers stay private (public repo)
 experiments/model-passport/out/
 experiments/model-passport/RESULTS-*.md
+# bench outputs: raw model answers, never in git
+bench-out/
