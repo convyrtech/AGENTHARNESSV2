@@ -48,6 +48,7 @@ describe("prsloy config", () => {
       expect(presets).not.toContain(id);
     expect(PRSLOY_SPEED_PREFERENCE.fast[0]).toBe("deepseek-v4.1-flash-1017");
     expect(PRSLOY_SPEED_PREFERENCE.quality[0]).toBe("kimi-k3.1-pro");
+    expect(PRSLOY_SPEED_PREFERENCE.quality).not.toContain("deepseek-v4.1-flash-1017");
     // Qwen's channel drops images silently: never send it one.
     expect(PRSLOY_MODELS.find((m) => m.id === "qwen3.8-max")!.input).toEqual(["text"]);
     // No reasoning field for Opus and Fable (effort routes them to worse channels); no developer role.

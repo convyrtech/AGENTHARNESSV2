@@ -306,7 +306,9 @@ export const PRSLOY_DEFAULT_SPEED_MODE: PrsloySpeedMode = "fast";
  */
 export const PRSLOY_SPEED_PREFERENCE: Readonly<Record<PrsloySpeedMode, readonly string[]>> = {
   fast: ["deepseek-v4.1-flash-1017", "kimi-k3.1-pro", "gpt-6.1-sol"],
-  quality: ["kimi-k3.1-pro", "gpt-6.1-sol", "deepseek-v4.1-flash-1017", "claude-opus-5-5"],
+  // No DeepSeek in «Качественнее» (owner, 2026-10-26): a person who chose quality never silently gets
+  // the fast model; without Kimi and GPT-6.1 Sol it falls to Opus.
+  quality: ["kimi-k3.1-pro", "gpt-6.1-sol", "claude-opus-5-5"],
 };
 
 /** The preset's model id for what the gateway serves (`undefined` list = not known yet). */
