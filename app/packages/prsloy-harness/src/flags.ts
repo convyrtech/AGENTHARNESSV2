@@ -26,7 +26,7 @@ export interface HarnessFlags {
   autoMemory: AutoMemoryMode;
   /** Честный выход (research/24 §4.2): инструмент report_blocker и текст T1 в возвратах. По умолчанию выкл. */
   honestExit: boolean;
-  /** Страж старых тестов (research/24 §4.1, H2/H3). По умолчанию выкл. до ответа владельца (§4.3). */
+  /** Страж старых тестов (research/24 §4.1, H2/H3). По умолчанию вкл. (#25: менять старые тесты — только по просьбе). */
   testGuard: boolean;
   /** Сверка слов агента с вызовами (research/24 §4.1, H-2: «проверил», заглушки). По умолчанию выкл. */
   claimCheck: boolean;
@@ -53,7 +53,8 @@ export function readFlags(settingsPath: string | undefined): HarnessFlags {
     promptDelta: false,
     autoMemory: true,
     honestExit: false,
-    testGuard: false,
+    // #25 (владелец, 26.10): агент не меняет старые тесты без просьбы — страж включён; false в файле остаётся.
+    testGuard: true,
     claimCheck: false,
     webTools: true,
     testQuality: false,
@@ -72,7 +73,7 @@ export function readFlags(settingsPath: string | undefined): HarnessFlags {
       if (raw.autoMemory === true || raw.autoMemory === "shadow" || raw.autoMemory === "off")
         flags.autoMemory = raw.autoMemory;
       if (raw.honestExit === true) flags.honestExit = true;
-      if (raw.testGuard === true) flags.testGuard = true;
+      if (typeof raw.testGuard === "boolean") flags.testGuard = raw.testGuard;
       if (raw.claimCheck === true) flags.claimCheck = true;
       if (typeof raw.webTools === "boolean") flags.webTools = raw.webTools;
       if (raw.testQuality === true) flags.testQuality = true;

@@ -42,7 +42,8 @@ export function readHarnessFlags(path: string): HarnessFlags {
     // research/24 §2 «трубы»: the harness reads the same keys (packages/prsloy-harness/src/flags.ts)
     autoMemory: auto === "off" || auto === "shadow" ? auto : true,
     honestExit: raw.honestExit === true,
-    testGuard: raw.testGuard === true,
+    // #25: on by default; a hand-set false stays.
+    testGuard: raw.testGuard !== false,
     claimCheck: raw.claimCheck === true,
     webTools: raw.webTools !== false,
     testQuality: raw.testQuality === true,
