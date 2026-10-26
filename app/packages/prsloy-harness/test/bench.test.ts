@@ -1,5 +1,5 @@
 // Замер в режиме --fake: раннер, проверки кодом и учёт вмешательств работают без ключа (CI на Linux).
-import { cpSync, existsSync, mkdtempSync, rmSync } from "node:fs";
+import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -125,6 +125,22 @@ describe("bench --fake", () => {
       expect(t.bySource.agent?.calls).toBeGreaterThan(0);
       if (harness) expect(t.bySource.review?.calls).toBeGreaterThan(0);
       else expect(t.bySource.review).toBeUndefined();
+      // Сверка с журналом прокси надёжности (prsloy-proxy.jsonl, есть только с харнессом): второе мнение идёт через
+      // него же, так что вызовы и вход совпадают задача в задачу.
+      if (harness)
+        for (const r of report.results) {
+          const file = join(out, "on", "sessions", r.id.replace(/\//g, "-"), "prsloy-proxy.jsonl");
+          const calls = existsSync(file)
+            ? readFileSync(file, "utf8")
+                .split("\n")
+                .filter(Boolean)
+                .map((l) => JSON.parse(l) as { prompt?: number })
+            : [];
+          expect([calls.length, calls.reduce((n, c) => n + (c.prompt ?? 0), 0)], r.id).toEqual([
+            r.tokens.calls,
+            r.tokens.input,
+          ]);
+        }
       // Цен в bench/prices.json пока нет — не ноль, а «неизвестна».
       expect(report.totals.rub).toBeNull();
       expect(report.totals.outcomes.infra_error).toBe(0);
