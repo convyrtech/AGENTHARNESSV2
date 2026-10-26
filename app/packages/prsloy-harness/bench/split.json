@@ -18,6 +18,8 @@
     "show-site",
     "snake-continue",
     "speed-up",
+    "stale-docs-logging",
+    "stale-docs-naming",
     "visit-card",
     "visit-card-memory"
   ],
@@ -37,6 +39,14 @@
     {
       "task": "page-menu",
       "date": "2026-10-25"
+    },
+    {
+      "task": "stale-docs-logging",
+      "date": "2026-10-26"
+    },
+    {
+      "task": "stale-docs-naming",
+      "date": "2026-10-26"
     }
   ]
 }
