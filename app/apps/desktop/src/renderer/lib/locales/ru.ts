@@ -1607,6 +1607,12 @@ export const ru = {
   "harness.offline.body": "Проверьте интернет и нажмите «Повторить».",
   "harness.loop.title": "Одна и та же ошибка трижды — остановил",
   "harness.loop.body": "Напишите, что поменять, или попросите сделать иначе.",
+  "harness.testsOutdated.title":
+    "Старые тесты расходятся с вашей просьбой — похоже, они устарели. Обновить их под новое правило?",
+  "harness.testsOutdated.files": "Тесты: {files}",
+  "harness.testsOutdated.expand": "Показать полностью",
+  "harness.testsOutdated.collapse": "Свернуть",
+  "harness.testsOutdated.answered": "Выбрано: {label}",
   "harness.note.title": "Заметка",
   "harness.review.title": "Проверила вторая модель",
   "harness.review.remarks": "Замечания ({count})",

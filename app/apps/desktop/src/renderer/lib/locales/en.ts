@@ -1626,6 +1626,12 @@ export const en = {
   "harness.offline.body": "Check the internet and press «Retry».",
   "harness.loop.title": "The same error three times — stopped",
   "harness.loop.body": "Say what to change, or ask for another way.",
+  "harness.testsOutdated.title":
+    "The old tests disagree with your request — they look outdated. Update them to the new rule?",
+  "harness.testsOutdated.files": "Tests: {files}",
+  "harness.testsOutdated.expand": "Show all",
+  "harness.testsOutdated.collapse": "Collapse",
+  "harness.testsOutdated.answered": "Chosen: {label}",
   "harness.note.title": "Note",
   "harness.review.title": "Checked by a second model",
   "harness.review.remarks": "Remarks ({count})",

@@ -98,6 +98,24 @@ const CARDS = [
     },
   },
   {
+    customType: "prsloy-harness.tests-outdated",
+    content:
+      "Старые тесты расходятся с вашей просьбой — похоже, они устарели. Обновить их под новое правило?",
+    details: {
+      files: ["tests/price.test.js", "tests/cart.test.js"],
+      quote:
+        "test('скидка постоянным покупателям', () => {\n  expect(price(100, { loyal: true })).toBe(90);\n  expect(price(200, { loyal: true })).toBe(180);\n  expect(price(0, { loyal: true })).toBe(0);\n});",
+      request: "скидка 15% постоянным покупателям",
+      actions: [
+        {
+          label: "Обновить тесты",
+          prompt: "Обнови тесты под новое правило: скидка 15% постоянным покупателям",
+        },
+        { label: "Оставить как есть" },
+      ],
+    },
+  },
+  {
     customType: "prsloy-harness.install-offline",
     content: "Не скачались пакеты: нет связи",
     details: { command: "npm install", retry: true },
@@ -121,7 +139,7 @@ async function problems(page: Page): Promise<string[]> {
     const out: string[] = [];
     const cards = [
       ...document.querySelectorAll<HTMLElement>(
-        '[data-testid="memory-card"], [data-testid="blocker-card"], [data-testid="search-limit-card"], [data-testid="harness-card"]',
+        '[data-testid="memory-card"], [data-testid="blocker-card"], [data-testid="search-limit-card"], [data-testid="harness-card"], [data-testid="tests-outdated-card"]',
       ),
     ];
     for (const card of cards) {
@@ -178,6 +196,12 @@ for (const mode of ["light", "dark"] as const) {
       const offline = page.locator('[data-harness="offline"]');
       await expect(offline).toContainText("Не скачались пакеты: нет связи");
       await expect(offline.getByTestId("harness-card-retry")).toBeVisible();
+      // #25: the old tests' question, the assertion folded, both buttons
+      const outdated = page.getByTestId("tests-outdated-card");
+      await expect(outdated).toContainText("Тесты: tests/price.test.js, tests/cart.test.js");
+      await expect(outdated.getByTestId("tests-outdated-quote-toggle")).toBeVisible();
+      await expect(outdated.getByTestId("tests-outdated-update")).toHaveText("Обновить тесты");
+      await expect(outdated.getByTestId("tests-outdated-keep")).toHaveText("Оставить как есть");
       const loop = page.locator('[data-harness="loop"]');
       await expect(loop).toContainText("Одна и та же команда трижды упала");
       await expect(loop.getByTestId("harness-card-retry")).toHaveCount(0);
@@ -195,7 +219,7 @@ for (const mode of ["light", "dark"] as const) {
         const tag = `${Math.round(zoom * 100)}-${mode}`;
         for (const p of await problems(page)) found.push(`${tag} ${p}`);
         const cards = page.locator(
-          '[data-testid="memory-card"], [data-testid="blocker-card"], [data-testid="search-limit-card"], [data-testid="harness-card"]',
+          '[data-testid="memory-card"], [data-testid="blocker-card"], [data-testid="search-limit-card"], [data-testid="harness-card"], [data-testid="tests-outdated-card"]',
         );
         const count = await cards.count();
         for (let i = 0; i < count; i += 1) {
