@@ -92,6 +92,8 @@ import { MemoryCard } from "./MemoryCard.tsx";
 import { BlockerCard } from "./BlockerCard.tsx";
 import { SearchLimitCard } from "./SearchLimitCard.tsx";
 import { BLOCKER_TYPE } from "../lib/blocker-card.ts";
+import { TESTS_OUTDATED_TYPE } from "../lib/tests-outdated-card.ts";
+import { TestsOutdatedCard } from "./TestsOutdatedCard.tsx";
 import { SEARCH_LIMIT_TYPE } from "../lib/search-settings.ts";
 import { harnessToolVerb } from "../lib/harness-tools.ts";
 import { memoryCardKind } from "../lib/memory.ts";
@@ -853,6 +855,17 @@ export const TimelineRow = memo(function TimelineRow(props: {
   if (item.extension && item.title === BLOCKER_TYPE) {
     return (
       <BlockerCard
+        locale={props.locale}
+        text={item.text}
+        details={item.details}
+        onSend={props.onSend}
+        disabled={props.editingLocked}
+      />
+    );
+  }
+  if (item.extension && item.title === TESTS_OUTDATED_TYPE) {
+    return (
+      <TestsOutdatedCard
         locale={props.locale}
         text={item.text}
         details={item.details}

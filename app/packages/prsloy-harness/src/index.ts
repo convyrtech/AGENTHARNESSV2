@@ -26,6 +26,7 @@ import { installMemory } from "./memory.ts";
 import { installDigest } from "./digest.ts";
 import { memoryDirFor } from "./memory-store.ts";
 import { installSecretScrub } from "./secret-scrub.ts";
+import { installStaleDocs } from "./stale-docs.ts";
 import { installStopGate } from "./stop-gate.ts";
 import { checkPage } from "./page-check.ts";
 import { installArgRepair } from "./arg-repair.ts";
@@ -142,6 +143,8 @@ export function createPrsloyHarness(options: HarnessOptions = {}): (pi: Extensio
     // Честный выход и страж старых тестов (research/24 §4, H-1): за флагами honestExit / testGuard, по умолчанию
     // выкл. Состояние сообщения общее у report_blocker и гейта: принятый блокер снимает возвраты «почини».
     const honesty = opts.profile === "code" && on("honestExit") ? createHonesty() : undefined;
+    // «Тесты устарели» (#25): карточку показывают страж и report_blocker — раз за сообщение, кто первый.
+    const testsOutdated = opts.profile === "code" ? { shown: false } : undefined;
     // Статус хода по фактам (H9): гейт пишет прогоны, карточка — в конце хода, после ответа.
     const turnStatus = opts.profile === "code" && on("turnStatus") ? createTurnStatus() : undefined;
     // Слова и факты (H-2: H6–H8): флаг claimCheck читается на каждом сообщении; итог — гейту и статусу хода.
@@ -152,6 +155,7 @@ export function createPrsloyHarness(options: HarnessOptions = {}): (pi: Extensio
       installStopGate(pi, opts, {
         ...(honesty ? { honesty } : {}),
         ...(claims ? { claims } : {}),
+        ...(testsOutdated ? { testsOutdated } : {}),
         ...(turnStatus ? { turnStatus } : {}),
         ...(on("reviewerCheats")
           ? { reviewerCheats: () => readFlags(opts.settingsPath).reviewerCheats }
@@ -173,6 +177,8 @@ export function createPrsloyHarness(options: HarnessOptions = {}): (pi: Extensio
       });
     // После стоп-гейта: расплывчатая просьба без названного прочтения — один раз «допиши, как понял» (этап 14).
     if (on("vagueRequest")) installVagueRequest(pi, opts);
+    // Устаревшее описание проекта (#6 потока): варианты за флагом "staleDocs", возврат "gate" — после гейта.
+    if (on("staleDocs")) installStaleDocs(pi, opts);
     // Сводка «прошлый раз» (S6): после стоп-гейта — его итог хода уже известен.
     if (memory && on("digest"))
       installDigest(pi, {
@@ -186,7 +192,7 @@ export function createPrsloyHarness(options: HarnessOptions = {}): (pi: Extensio
     // Страж и сверка — рядом со стоп-гейтом (им нужен снимок хода), до чистки секретов.
     if (opts.profile === "code") {
       if (on("autoMemory")) installAutoMemory(pi, opts);
-      if (honesty) installHonestExit(pi, opts, { state: honesty, changes });
+      if (honesty) installHonestExit(pi, opts, { state: honesty, changes, testsOutdated });
       if (turnStatus)
         installTurnStatus(pi, opts, { state: turnStatus, changes, ...(claims ? { claims } : {}) });
     }

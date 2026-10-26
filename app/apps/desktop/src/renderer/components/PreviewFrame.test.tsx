@@ -58,4 +58,33 @@ describe("PreviewStage bridge", () => {
     expect(onMessage).toHaveBeenCalledWith({ type: "ready" });
     expect(posted.at(-1)?.[1]).toBe("*");
   });
+
+  it("arms picking once, on «ready»: nothing before it, so a late second «on» cannot undo a pick", async () => {
+    const onMessage = vi.fn();
+    const view = (picking: boolean) => (
+      <PreviewStage
+        locale="ru"
+        url={URL_}
+        device="desktop"
+        testId="frame"
+        bridge={{ picking, onMessage }}
+      />
+    );
+    const { rerender } = render(view(false));
+    const frame = screen.getByTestId("frame") as HTMLIFrameElement;
+    const posted: unknown[] = [];
+    vi.spyOn(frame.contentWindow!, "postMessage").mockImplementation(((m: unknown) => {
+      posted.push(m);
+    }) as never);
+    // the owner turns picking on while the page is still loading: nothing is sent yet
+    rerender(view(true));
+    await act(async () => {});
+    expect(posted).toEqual([]);
+    act(() => {
+      window.dispatchEvent(
+        new MessageEvent("message", { data: ready, origin: "null", source: frame.contentWindow }),
+      );
+    });
+    expect(posted).toEqual([{ source: "prsloy-host", type: "pick", active: true }]);
+  });
 });

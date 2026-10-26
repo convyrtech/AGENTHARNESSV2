@@ -26,7 +26,7 @@ export interface HarnessFlags {
   autoMemory: AutoMemoryMode;
   /** Честный выход (research/24 §4.2): инструмент report_blocker и текст T1 в возвратах. По умолчанию выкл. */
   honestExit: boolean;
-  /** Страж старых тестов (research/24 §4.1, H2/H3). По умолчанию выкл. до ответа владельца (§4.3). */
+  /** Страж старых тестов (research/24 §4.1, H2/H3). По умолчанию вкл. (#25: менять старые тесты — только по просьбе). */
   testGuard: boolean;
   /** Сверка слов агента с вызовами (research/24 §4.1, H-2: «проверил», заглушки). По умолчанию выкл. */
   claimCheck: boolean;
@@ -36,7 +36,22 @@ export interface HarnessFlags {
   testQuality: boolean;
   /** Ревьюер ищет подгонку (H-4, #9): виды подгонки в промпте, факты кодом, тесты в диффе целиком. По умолчанию выкл. */
   reviewerCheats: boolean;
+  /**
+   * Устаревшее описание проекта (#6 потока, stale-docs.ts). По умолчанию "end" — раздел после AGENTS.md (замер
+   * дирижёра 26.10: kimi 1/6 → 6/6, deepseek без вреда); "prompt" — только строка в промпте; "frame" — пометка в
+   * начале AGENTS.md; "read" — строка в результате read; "gate" — один возврат в конце хода.
+   */
+  staleDocs: StaleDocsMode;
 }
+
+export type StaleDocsMode = "prompt" | "end" | "frame" | "read" | "gate";
+export const STALE_DOCS_MODES: readonly StaleDocsMode[] = [
+  "prompt",
+  "end",
+  "frame",
+  "read",
+  "gate",
+];
 
 export type AutoMemoryMode = "off" | "shadow" | true;
 
@@ -53,11 +68,14 @@ export function readFlags(settingsPath: string | undefined): HarnessFlags {
     promptDelta: false,
     autoMemory: true,
     honestExit: false,
-    testGuard: false,
+    // #25 (владелец, 26.10): агент не меняет старые тесты без просьбы — страж включён; false в файле остаётся.
+    testGuard: true,
     claimCheck: false,
     webTools: true,
     testQuality: false,
     reviewerCheats: false,
+    // #6 потока (дирижёр, 26.10): "end" — по замеру kimi/deepseek.
+    staleDocs: "end",
   };
   if (settingsPath && existsSync(settingsPath)) {
     try {
@@ -72,11 +90,13 @@ export function readFlags(settingsPath: string | undefined): HarnessFlags {
       if (raw.autoMemory === true || raw.autoMemory === "shadow" || raw.autoMemory === "off")
         flags.autoMemory = raw.autoMemory;
       if (raw.honestExit === true) flags.honestExit = true;
-      if (raw.testGuard === true) flags.testGuard = true;
+      if (typeof raw.testGuard === "boolean") flags.testGuard = raw.testGuard;
       if (raw.claimCheck === true) flags.claimCheck = true;
       if (typeof raw.webTools === "boolean") flags.webTools = raw.webTools;
       if (raw.testQuality === true) flags.testQuality = true;
       if (raw.reviewerCheats === true) flags.reviewerCheats = true;
+      if (STALE_DOCS_MODES.includes(raw.staleDocs as StaleDocsMode))
+        flags.staleDocs = raw.staleDocs as StaleDocsMode;
       if (Array.isArray(raw.disabledLessons))
         flags.disabledLessons = raw.disabledLessons.filter(
           (x): x is string => typeof x === "string",

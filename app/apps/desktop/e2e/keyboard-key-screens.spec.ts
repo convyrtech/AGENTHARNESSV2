@@ -139,6 +139,9 @@ test("chat cards, Settings «Память» and «Поиск», a dialog and «�
     await tabTo(page, "settings-nav-memory");
     await page.keyboard.press("Enter");
     await expect(page.getByTestId("settings-memory")).toBeVisible();
+    // the switches stay disabled (and out of the Tab order) until the harness flags are read
+    await expect(page.getByTestId("settings-memory-toggle")).toBeEnabled();
+    await expect(page.getByTestId("settings-memory-auto-toggle")).toBeEnabled();
     await tabTo(page, "settings-memory-toggle", 30);
     await tabTo(page, "settings-memory-auto-toggle", 5);
     await screenIsClean(page, "settings-memory");
@@ -148,6 +151,7 @@ test("chat cards, Settings «Память» and «Поиск», a dialog and «�
     await page.keyboard.press("Enter");
     await expect(page.getByTestId("settings-web-search")).toBeVisible();
     const toggle = page.getByTestId("web-search-toggle");
+    await expect(toggle).toBeEnabled();
     await tabTo(page, "web-search-toggle", 30);
     const state = await toggle.getAttribute("aria-checked");
     await page.keyboard.press("Space");
