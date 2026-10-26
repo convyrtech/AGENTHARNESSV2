@@ -59,7 +59,7 @@ async function loadPlaywright() {
  * Открывает страницу в Chromium и вызывает `inspect(page)`. Ошибки страницы и console.error собираются.
  * Нет браузера (CI без Playwright) — `{ ok: null, skipped: true }`: такая проверка не засчитывается ни туда, ни сюда.
  */
-export async function openPage(file, inspect) {
+export async function openPage(file, inspect, viewport) {
   const pw = await loadPlaywright();
   let browser;
   // Свой Chromium Playwright; если его версия не скачана — BENCH_CHROMIUM или предустановленный /opt/pw-browsers.
@@ -78,7 +78,8 @@ export async function openPage(file, inspect) {
   }
   if (!browser) return { ok: null, skipped: true, note: "нет браузера для проверки страницы" };
   try {
-    const page = await browser.newPage();
+    // viewport — ширина окна (сайт-визитка: 390 и 1440); без него — окно Playwright по умолчанию.
+    const page = await browser.newPage(viewport ? { viewport } : {});
     const errors = [];
     page.on("pageerror", (e) => errors.push(String(e.message ?? e)));
     page.on("console", (m) => {

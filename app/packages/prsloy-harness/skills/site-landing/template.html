@@ -3,113 +3,241 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Название — короткое описание</title>
+    <title>Название — что вы делаете и где</title>
+    <meta
+      name="description"
+      content="Одна фраза: что вы делаете, для кого и где. Как записаться или заказать."
+    />
     <style>
       * {
         box-sizing: border-box;
       }
       body {
         margin: 0;
-        font-family: system-ui, sans-serif;
-        line-height: 1.5;
-        color: #1d1d1f;
-      }
-      header,
-      section,
-      footer {
-        padding: 24px 16px;
+        font-family: Georgia, "Times New Roman", serif;
+        line-height: 1.55;
+        color: #22201c;
+        background: #fbf8f3;
       }
       .wrap {
-        max-width: 960px;
+        max-width: 1040px;
         margin: 0 auto;
+        padding: 0 20px;
+      }
+      header.hero {
+        padding: 40px 0 32px;
+        background: #f6e3ea;
       }
       h1 {
-        font-size: 1.8rem;
-        margin: 0 0 8px;
+        font-size: 2rem;
+        line-height: 1.15;
+        margin: 0 0 12px;
       }
-      img {
-        max-width: 100%;
-        height: auto;
-        display: block;
+      h2 {
+        font-size: 1.5rem;
+        line-height: 1.2;
+        margin: 0 0 12px;
       }
-      .cards {
+      section {
+        padding: 36px 0;
+        border-top: 1px solid #e6dfd4;
+      }
+      .lead {
+        font-size: 1.1rem;
+        max-width: 36em;
+        margin: 0 0 20px;
+      }
+      .cta {
+        display: inline-block;
+        padding: 14px 22px;
+        border-radius: 10px;
+        background: #9b3b5a;
+        color: #fff;
+        text-decoration: none;
+        font-weight: 600;
+        border: 2px solid #9b3b5a;
+      }
+      .cta:hover {
+        background: #fff;
+        color: #9b3b5a;
+      }
+      .cta:focus-visible,
+      button:focus-visible,
+      input:focus-visible {
+        outline: 3px solid #f2b84b;
+        outline-offset: 2px;
+      }
+      .grid {
         display: grid;
         gap: 16px;
       }
-      .btn {
-        display: inline-block;
-        padding: 12px 20px;
-        border-radius: 8px;
-        background: #1d1d1f;
-        color: #fff;
-        text-decoration: none;
+      .card {
+        background: #fff;
+        border-radius: 12px;
+        padding: 16px;
+      }
+      dt {
+        font-weight: 600;
+        margin-top: 12px;
+      }
+      dd {
+        margin: 4px 0 0;
       }
       form {
         display: grid;
         gap: 12px;
-        max-width: 420px;
+        max-width: 440px;
       }
-      input,
-      textarea,
-      button {
+      label {
+        display: grid;
+        gap: 4px;
+      }
+      input {
         font: inherit;
         padding: 10px 12px;
-        border: 1px solid #ccc;
+        border: 1px solid #b9b0a3;
         border-radius: 8px;
         width: 100%;
       }
+      input[aria-invalid="true"] {
+        border-color: #b3261e;
+      }
+      .error {
+        color: #b3261e;
+        font-size: 0.95rem;
+        min-height: 1.2em;
+        margin: 0;
+      }
+      .ok {
+        color: #1b6b3a;
+        font-weight: 600;
+      }
       button {
-        background: #1d1d1f;
-        color: #fff;
+        font: inherit;
+        padding: 12px 18px;
+        border-radius: 10px;
         border: 0;
+        background: #9b3b5a;
+        color: #fff;
         cursor: pointer;
+      }
+      button:disabled {
+        opacity: 0.6;
+        cursor: progress;
+      }
+      footer {
+        padding: 28px 0;
+        background: #22201c;
+        color: #f3efe8;
+      }
+      footer a {
+        color: #f3efe8;
       }
       @media (min-width: 768px) {
         h1 {
-          font-size: 2.6rem;
+          font-size: 3rem;
         }
-        .cards {
+        .grid {
           grid-template-columns: repeat(3, 1fr);
         }
       }
     </style>
   </head>
   <body>
-    <header>
+    <header class="hero">
       <div class="wrap">
-        <h1>Название</h1>
-        <p>Одна фраза: что вы делаете и для кого.</p>
-        <a class="btn" href="#contact">Оставить заявку</a>
+        <h1>Название: главное, что вы делаете</h1>
+        <p class="lead">Одна-две фразы из слов клиента: что, где, когда. Без выдуманных цифр.</p>
+        <a class="cta" href="#order-form">Записаться</a>
       </div>
     </header>
-    <section>
-      <div class="wrap cards">
-        <article>
-          <h2>Услуга 1</h2>
-          <p>Коротко о пользе.</p>
-        </article>
-        <article>
-          <h2>Услуга 2</h2>
-          <p>Коротко о пользе.</p>
-        </article>
-        <article>
-          <h2>Услуга 3</h2>
-          <p>Коротко о пользе.</p>
-        </article>
-      </div>
-    </section>
-    <section id="contact">
+    <main>
+      <section id="what">
+        <div class="wrap">
+          <h2>Что вы получите</h2>
+          <div class="grid">
+            <article class="card">
+              <h3>Услуга</h3>
+              <p>Коротко о пользе. Цена — только если её назвал клиент.</p>
+            </article>
+            <article class="card">
+              <h3>Услуга</h3>
+              <p>Коротко о пользе.</p>
+            </article>
+          </div>
+        </div>
+      </section>
+      <section id="why">
+        <div class="wrap">
+          <h2>Почему нам можно доверять</h2>
+          <p>Утверждение и рядом его доказательство: часы работы, адрес, как вы работаете.</p>
+        </div>
+      </section>
+      <section id="faq">
+        <div class="wrap">
+          <h2>Частые вопросы</h2>
+          <dl>
+            <dt>Как записаться?</dt>
+            <dd>Оставьте телефон в форме — перезвоним.</dd>
+            <dt>Можно перенести?</dt>
+            <dd>Да, предупредите заранее.</dd>
+          </dl>
+        </div>
+      </section>
+      <section id="order-form">
+        <div class="wrap">
+          <h2>Запись</h2>
+          <p>Оставьте имя и телефон — перезвоним и договоримся.</p>
+          <form id="order" novalidate>
+            <label
+              >Как к вам обращаться <input id="name" name="name" required autocomplete="name"
+            /></label>
+            <label
+              >Телефон
+              <input
+                id="phone"
+                name="phone"
+                type="tel"
+                required
+                pattern="\+?[0-9\s()-]{10,}"
+                placeholder="+7 (000) 000-00-00"
+                autocomplete="tel"
+            /></label>
+            <p id="error" class="error" role="alert"></p>
+            <button type="submit">Записаться</button>
+            <p id="done" class="ok" hidden>Спасибо! Скоро перезвоним.</p>
+          </form>
+        </div>
+      </section>
+    </main>
+    <footer>
       <div class="wrap">
-        <h2>Заявка</h2>
-        <!-- Без сервера письмо само не уйдёт: mailto (почтовая программа посетителя) или сервис форм. -->
-        <form action="mailto:name@example.com" method="post" enctype="text/plain">
-          <input name="name" placeholder="Ваше имя" required />
-          <input name="phone" type="tel" placeholder="Телефон" required />
-          <textarea name="message" rows="3" placeholder="Сообщение"></textarea>
-          <button type="submit">Отправить</button>
-        </form>
+        <p>Название, адрес или район, часы работы.</p>
+        <p>Телефон: <a href="tel:+70000000000">+7 (000) 000-00-00</a> — замените на свой.</p>
       </div>
-    </section>
-    <footer><div class="wrap">Телефон: +7 (000) 000-00-00 · Адрес: заменить</div></footer>
+    </footer>
+    <script>
+      const form = document.getElementById("order");
+      const phone = document.getElementById("phone");
+      const name = document.getElementById("name");
+      const error = document.getElementById("error");
+      const done = document.getElementById("done");
+      form.addEventListener("submit", (e) => {
+        e.preventDefault();
+        const problems = [];
+        if (!name.value.trim()) problems.push("Напишите, как к вам обращаться.");
+        if (!/^\+?[\d\s()-]{10,}$/.test(phone.value.trim()))
+          problems.push("Проверьте номер телефона.");
+        name.setAttribute("aria-invalid", String(!name.value.trim()));
+        phone.setAttribute(
+          "aria-invalid",
+          String(problems.length > 0 && !/^\+?[\d\s()-]{10,}$/.test(phone.value.trim())),
+        );
+        error.textContent = problems.join(" ");
+        if (problems.length) return;
+        done.hidden = false;
+        form.reset();
+      });
+    </script>
   </body>
 </html>

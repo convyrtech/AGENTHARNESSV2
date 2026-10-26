@@ -7,6 +7,9 @@
     "agents-md-conflict",
     "english-logs",
     "explain-project",
+    "landing-auto",
+    "landing-coffee",
+    "landing-nails",
     "page-button",
     "page-form",
     "page-menu",
@@ -37,6 +40,18 @@
     {
       "task": "page-menu",
       "date": "2026-10-25"
+    },
+    {
+      "task": "landing-auto",
+      "date": "2026-10-26"
+    },
+    {
+      "task": "landing-coffee",
+      "date": "2026-10-26"
+    },
+    {
+      "task": "landing-nails",
+      "date": "2026-10-26"
     }
   ]
 }
