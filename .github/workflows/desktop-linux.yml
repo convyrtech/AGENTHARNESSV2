@@ -13,9 +13,6 @@
 name: desktop-linux
 
 on:
-  # TEMP: lets the branch run this before it is on main; removed before merge.
-  push:
-    branches: [desktop/linux]
   workflow_call:
     inputs:
       version:
