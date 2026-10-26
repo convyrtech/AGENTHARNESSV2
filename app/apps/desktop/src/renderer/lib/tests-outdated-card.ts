@@ -4,16 +4,11 @@
  * `details: TestsOutdatedCardDetails`. What the page reads: the files, the conflicting assertion, the
  * request and the buttons; anything odd is dropped.
  */
+import type { TestsOutdatedCardDetails } from "@zeno/contracts";
 
 export const TESTS_OUTDATED_TYPE = "prsloy-harness.tests-outdated";
 
-/** Mirrors `TestsOutdatedCardDetails` (contracts `honesty.ts`, harness #25). */
-export type TestsOutdatedDetails = {
-  files: string[];
-  quote: string;
-  request: string;
-  actions: { label: string; prompt?: string }[];
-};
+export type TestsOutdatedDetails = TestsOutdatedCardDetails;
 
 /** A quote longer than this (or over 3 lines) starts folded. */
 export const QUOTE_FOLD_CHARS = 180;
