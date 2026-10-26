@@ -48,5 +48,5 @@
   Новую найденную проблему — новой issue (REST: `POST /repos/convyrtech/AGENTHARNESSV2/issues`), не только в STATUS.
   Репозиторий публичный: в issues ни ключей, ни личных данных, ни содержимого приватного пайплайна. `DIARY.md` —
   история и замеры, issues — что делать.
-- Коммиты заканчивай строками:
-  `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`
+- Чужую подпись в коммит не ставь. Строка `Co-Authored-By: Claude …` была для дорожек Claude Code до 26.10. Агент PRSLOY
+  пишет модель, которой работал, в итоге issue.
