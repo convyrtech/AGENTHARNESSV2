@@ -8,6 +8,7 @@
 // Модели видят только улики: просьбу, стенограммы, файлы агента и деревья обвязки (context.ts). Исход check.mjs
 // считает только этот скрипт и пишет в RESULT.md — в контекст моделей он не попадает. Оценка на test — тоже здесь.
 // Результат — предложение (PROPOSAL.md и папка обвязки): в приложение его переносит человек.
+import { SCORE_LIMIT, skillspectorBin, skillspectorScan } from "../skill-scan.ts";
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
@@ -247,6 +248,33 @@ function fixPrompt(errors: string[]): string {
  * Роль, которая правит копию обвязки: промпт, проверка валидатором, одна попытка исправить с ошибками,
  * иначе — откат к базе (кандидат = база, помечен fallback).
  */
+/**
+ * Валидатор дерева (форма, лимиты, своя проверка безопасности) плюс SkillSpector по изменённым навыкам, если он
+ * стоит на машине тюнера: предложенный навык с оценкой выше 50 не принимается, как в CI.
+ */
+function checkHarness(harness: string, base: HarnessTree): string[] {
+  const tree = readTree(harness);
+  const errors = validateTree(tree);
+  if (errors.length) return errors;
+  const changed = [
+    ...new Set(
+      Object.keys(tree)
+        .filter((p) => p.startsWith("skills/") && tree[p] !== base[p])
+        .map((p) => p.split("/")[1]!),
+    ),
+  ];
+  const bin = changed.length ? skillspectorBin() : undefined;
+  for (const name of bin ? changed : []) {
+    const r = skillspectorScan(join(harness, "skills", name), bin!);
+    if (r.error) errors.push(`skills/${name}: SkillSpector не отработал (${r.error})`);
+    else if ((r.score ?? 0) > SCORE_LIMIT)
+      errors.push(
+        `небезопасно: skills/${name}: SkillSpector ${r.score}/100 — ${r.issues.slice(0, 2).join("; ")}`,
+      );
+  }
+  return errors;
+}
+
 async function editHarness(
   opts: PpcOptions,
   label: string,
@@ -270,13 +298,13 @@ async function editHarness(
     const first = await session.prompt(prompt);
     cost.usd += first.costUsd;
     notes = block(first.reply, "notes") ?? first.reply;
-    errors = first.error ? [first.error] : validateTree(readTree(harness));
+    errors = first.error ? [first.error] : checkHarness(harness, base);
     if (errors.length && !first.error) {
       opts.log?.(`${label}: ${errors.length} ошибок валидатора, вторая попытка`);
       const second = await session.prompt(fixPrompt(errors));
       cost.usd += second.costUsd;
       notes = block(second.reply, "notes") ?? notes;
-      errors = second.error ? [second.error] : validateTree(readTree(harness));
+      errors = second.error ? [second.error] : checkHarness(harness, base);
       status = "retried";
     }
   } finally {

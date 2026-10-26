@@ -25,6 +25,10 @@
   `fetch-honesty.mjs` в локальный кэш. Варианты `syn-*` в git — свои задачи, сделанные тем же кодом.
 - [hyparquet](https://github.com/hyparam/hyparquet) 1.31.3 — dev-зависимость `prsloy-harness`: чтение parquet в
   `fetch-honesty.mjs`. MIT License (строки copyright в их LICENSE нет).
+- `packages/prsloy-harness/src/skill-threats.ts`, `src/hidden-text.ts`, OSV в `src/find-ready.ts` — по мотивам
+  [NVIDIA SkillSpector](https://github.com/NVIDIA/skillspector) (Apache-2.0, коммит `d7338f5`). Взяты идеи:
+  категории угроз, список диапазонов Default_Ignorable_Code_Point (Unicode 15.1) и запрос к OSV.dev. Правила и код
+  свои, файлы не скопированы. Сам SkillSpector в приложение не входит: его ставит CI (`scripts/skill-scan.mts`).
 - [axe-core](https://github.com/dequelabs/axe-core) 4.13.0 — зависимость `prsloy-harness`: проверка доступности
   в проверке страницы «Кода» (`src/page-check.ts`, `src/page-probe.ts`). Mozilla Public License 2.0, © Deque Systems,
   Inc. Используется как есть, без изменений: исходник пакета (`axe.source`) уходит в страницу, исходный код — в

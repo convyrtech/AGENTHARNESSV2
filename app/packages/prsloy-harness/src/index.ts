@@ -42,6 +42,7 @@ export { checkFile } from "./checkers.ts";
 export { FindReady, formatResult as formatFindReady } from "./find-ready.ts";
 export { detectPseudoToolCall } from "./loop-detector.ts";
 export { scrubSecrets } from "./secret-scrub.ts";
+export { INVISIBLE, INVISIBLE_RANGES, stripHidden } from "./hidden-text.ts";
 export { repairToolCall } from "./arg-repair.ts";
 export { harnessStats } from "./stats.ts";
 export { LEARNING_MAX_BYTES, learningDir, projectKey, recordEvent } from "./learning-log.ts";
