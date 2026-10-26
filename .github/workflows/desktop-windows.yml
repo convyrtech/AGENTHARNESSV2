@@ -525,6 +525,54 @@ jobs:
             echo "Сухой прогон $TAG: всё прошло, выпуск остановлен перед публикацией; $minutes мин от нажатия." >> "$GITHUB_STEP_SUMMARY"
           fi
 
+  # Linux (AppImage + deb, desktop-linux.yml) next to the Windows jobs, same version. Nothing
+  # Windows waits for it: a red Linux build never holds the Windows release.
+  linux:
+    needs: plan
+    if: needs.plan.outputs.mode != 'skip'
+    uses: ./.github/workflows/desktop-linux.yml
+    with:
+      version: ${{ needs.plan.outputs.version }}
+
+  # After the Windows release job made the release: the Linux files go into the same release, so
+  # electron-updater on Linux finds latest-linux.yml next to latest.yml. Until they land, a Linux
+  # app skips that release (update-provider.ts) and stays where it is. A dry run only checks.
+  release-linux:
+    needs: [plan, release, linux]
+    if: needs.plan.outputs.publish == 'true' || needs.plan.outputs.mode == 'dispatch-dry'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    defaults:
+      run:
+        working-directory: .
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: app/scripts
+      - uses: actions/download-artifact@v4
+        with:
+          name: prsloy-linux-x64
+          path: release-linux
+      - name: Linux files complete
+        env:
+          VERSION: ${{ needs.plan.outputs.version }}
+        run: |
+          ls -la release-linux
+          node app/scripts/release-assets.mjs check-feed release-linux --platform linux --version "$VERSION"
+      - name: Attach to the release
+        if: needs.plan.outputs.publish == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.plan.outputs.tag }}
+        run: |
+          gh release upload "$TAG" release-linux/* --clobber -R "$GITHUB_REPOSITORY"
+          echo "Linux: AppImage, deb и latest-linux.yml добавлены в $TAG." >> "$GITHUB_STEP_SUMMARY"
+      - name: Dry run
+        if: needs.plan.outputs.publish != 'true'
+        run: |
+          echo "Сухой прогон Linux: файлы сверены, в релиз не загружались." >> "$GITHUB_STEP_SUMMARY"
+
   # A UI release whose run failed: back to draft, so it leaves releases.atom and does not hold
   # everyone's updates (GITHUB_TOKEN with contents: write may edit releases).
   unpublish:
