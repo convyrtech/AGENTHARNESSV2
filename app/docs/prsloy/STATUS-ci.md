@@ -22,6 +22,25 @@ smoke `firstrun.spec.ts` → metrics.json `firstCommand`, в main-логе `turn
 - Не делали (решение дирижёра): ход до venv (ранний `pip install` попал бы в базовый Python) и распаковку в
   установщике (+12 с установки и безголовый режим в main).
 
+## Проверка навыков в CI: NVIDIA SkillSpector (desktop-ci, job skill-scan)
+
+- Одобрено владельцем. Отдельный job: `contents: read`, checkout без сохранённых credentials, без секретов;
+  SkillSpector `d7338f58200a9ae2a24810cee08911ab68b107a7` и astral-sh/setup-uv v7
+  `37802adc94f370d6bfd71619e3f0bf239e1f3b78` — полными SHA. Статический режим `--no-llm`, скрипт харнесса
+  `skill-scan.mts`. Блокирующий: оценка выше 50/100 или любая своя находка.
+- Первый прогон 40296333450: canvas-game 25, excel-csv 0, explain-project 7, fix-code 0, python-windows 8,
+  site-landing 0, telegram-bot 36, web-scraper 0; своя проверка — 0 у всех.
+- Находки у двух средних (правило — место — строка):
+  - telegram-bot · PE3 HIGH «код читает файл с учётными данными» · `bot.py:8` — `load_dotenv()  # TELEGRAM_BOT_TOKEN
+из .env (его пишет request_secret)`: бот читает свой токен из `.env` проекта, так задумано.
+  - telegram-bot · PE3 HIGH, то же · `bot.py:24` — `raise SystemExit("Нет TELEGRAM_BOT_TOKEN в .env")`: сообщение
+    со словом токена, не чтение файла.
+  - telegram-bot · LP3 MEDIUM «в манифесте нет `allowed-tools`/`permissions`, а код пользуется возможностями» ·
+    `SKILL.md:1` (заголовок навыка): можно объявить в front matter, решение харнесса.
+  - canvas-game · AE1 HIGH «упомянутый файл проверен не полностью» · `SKILL.md:8` — ссылка на `game.html`: сканер
+    не разобрал HTML до конца; это пробел покрытия, не угроза.
+  - (низкие, для полноты: explain-project EA2 MEDIUM `SKILL.md:23`; python-windows AE4 MEDIUM `SKILL.md:1`.)
+
 ## Разборщик: «пишет вне папки проекта» (D10, forbidden:outside)
 
 - Живой стенд: агент сделал `cd /tmp && npm install jsdom`, и в /tmp остался package.json. Раньше D10 ловил только
