@@ -29,6 +29,16 @@
   [NVIDIA SkillSpector](https://github.com/NVIDIA/skillspector) (Apache-2.0, коммит `d7338f5`). Взяты идеи:
   категории угроз, список диапазонов Default_Ignorable_Code_Point (Unicode 15.1) и запрос к OSV.dev. Правила и код
   свои, файлы не скопированы. Сам SkillSpector в приложение не входит: его ставит CI (`scripts/skill-scan.mts`).
+- `packages/prsloy-harness/skills/site-landing/` и `bench/lib/landing-check.mjs` — по мотивам
+  [elayadesign/ai-design-skills](https://github.com/elayadesign/ai-design-skills) `landing-page-design` (коммит
+  `a2735a3`) и [Leonxlnx/taste-skill](https://github.com/Leonxlnx/taste-skill) (`12af471`), оба MIT (research/29).
+  Взяты идеи:
+  - одна цель → одно действие, кнопка «глагол + польза»;
+  - доказательство рядом с утверждением, FAQ и снятие риска, состояния;
+  - идея из самого клиента и проверка конкурентом;
+  - правила, измеряемые в браузере: один h1, заголовки ≤ 2 строк, заголовок у секции, нет 01/02/03 и подписей
+    капслоком.
+    Текст и код свои, файлы не скопированы.
 - [axe-core](https://github.com/dequelabs/axe-core) 4.13.0 — зависимость `prsloy-harness`: проверка доступности
   в проверке страницы «Кода» (`src/page-check.ts`, `src/page-probe.ts`). Mozilla Public License 2.0, © Deque Systems,
   Inc. Используется как есть, без изменений: исходник пакета (`axe.source`) уходит в страницу, исходный код — в

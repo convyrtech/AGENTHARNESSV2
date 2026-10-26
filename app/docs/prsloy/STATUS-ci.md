@@ -52,7 +52,7 @@ smoke `firstrun.spec.ts` → metrics.json `firstCommand`, в main-логе `turn
 - packaged-smoke.mjs на Linux не запускается (зависает на кнопке перезапуска хоста из отладочной панели —
   проверка рассчитана на Windows); его заменяет firstrun.spec на установленных пакетах.
 - «Дизайн» из zip пайплайна в CI не проверен: репозиторий пайплайна приватный.
-- Заметка для владельца — `docs/prsloy/RELEASE-NOTES-alpha.3.md` («PRSLOY для Linux»).
+- Заметка для владельца — `docs/prsloy/RELEASE-NOTES-alpha.2.md`, раздел «PRSLOY для Linux» (Linux вышел вместе с alpha.2).
 
 ## Проверка навыков в CI: NVIDIA SkillSpector (desktop-ci, job skill-scan)
 

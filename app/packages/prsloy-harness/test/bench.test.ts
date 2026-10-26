@@ -25,6 +25,9 @@ describe("bench --fake", () => {
       "english-logs",
       "explain-project",
       "fix-discount",
+      "landing-auto",
+      "landing-coffee",
+      "landing-nails",
       "page-button",
       "page-form",
       "page-menu",
@@ -96,7 +99,7 @@ describe("bench --fake", () => {
       // Без харнесса инструмента memory нет — задача «запомни пароль» не видит карточки отказа.
       const failed = report.results.filter((r) => r.ok === false).map((r) => r.id);
       expect(failed).toEqual(harness ? [] : ["remember-password"]);
-      expect(report.totals.passed + report.totals.skipped).toBe(harness ? 22 : 21);
+      expect(report.totals.passed + report.totals.skipped).toBe(harness ? 25 : 24);
       const cont = report.results.find((r) => r.id === "snake-continue");
       if (cont?.ok !== null)
         expect(cont?.note).toContain(`сводка прошлого раза: ${harness ? "была" : "нет"}`);
@@ -120,7 +123,7 @@ describe("bench --fake", () => {
         "| Задача | Проверка | Время, с | Вызовов | $ | Кэш | Ответ | Вмешательства харнесса |",
       );
       expect(md).toContain(`харнесс ${harness ? "вкл" : "выкл"}, промпт ${prompt}`);
-      expect(md).toContain("Ответы: по-русски 22 из 22; команд пользователю 0");
+      expect(md).toContain("Ответы: по-русски 25 из 25; команд пользователю 0");
     }, 120_000);
   }
 });
