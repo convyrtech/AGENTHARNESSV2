@@ -404,7 +404,6 @@ function isPathInside(path: string, dir: string): boolean {
 
 /** Whether cwd or an ancestor carries an AGENTS.md / CLAUDE.md that pi would load. */
 export function hasProjectContextFiles(cwd: string, agentDir: string): boolean {
-  const agentDirParent = dirname(resolve(agentDir));
   let current = resolve(cwd);
   while (true) {
     if (!isPathInside(current, agentDir)) {
@@ -413,7 +412,7 @@ export function hasProjectContextFiles(cwd: string, agentDir: string): boolean {
       }
     }
     const parent = dirname(current);
-    if (parent === current || parent === agentDirParent) return false;
+    if (parent === current) return false;
     current = parent;
   }
 }

@@ -1,6 +1,6 @@
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 import {
   createPixRuntime,
@@ -130,11 +130,15 @@ describe("context files require trust", () => {
         await handle.dispose();
       }
     };
+    // What hasProjectContextFiles sees above the fixture (e.g. a developer's ~/AGENTS.md).
+    // The fixture itself must add nothing on top of it; in CI there is nothing above.
+    const above = hasProjectContextFiles(dirname(paths.root), paths.agentDir);
+    if (process.env.CI) expect(above).toBe(false);
     expect((await getFixtureContextFiles()).length).toBe(0);
-    expect(hasProjectContextFiles(paths.project, paths.agentDir)).toBe(false);
+    expect(hasProjectContextFiles(paths.project, paths.agentDir)).toBe(above);
     await writeFile(join(paths.agentDir, "AGENTS.md"), "global\n");
     expect((await getFixtureContextFiles()).length).toBe(0);
-    expect(hasProjectContextFiles(paths.project, paths.agentDir)).toBe(false);
+    expect(hasProjectContextFiles(paths.project, paths.agentDir)).toBe(above);
     await writeFile(join(paths.project, "CLAUDE.md"), "project\n");
     expect((await getFixtureContextFiles()).length).toBe(1);
     expect(hasProjectContextFiles(paths.project, paths.agentDir)).toBe(true);
