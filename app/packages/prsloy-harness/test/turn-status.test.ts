@@ -1,13 +1,20 @@
 // Статус хода по фактам (H9, research/24 §4.4–4.5): одна карточка в конце хода по контракту ui.
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vite-plus/test";
+import { resolveOptions } from "../src/options.ts";
 import {
   createTurnStatus,
+  installTurnStatus,
+  TURN_STATUS_TYPE,
   stubFiles,
   TURN_FACT_TEXT,
   turnFacts,
   turnStatusLine,
   type TurnStatusState,
 } from "../src/turn-status.ts";
+import { MockPi } from "./mock-pi.ts";
 
 const state = (over: Partial<TurnStatusState>): TurnStatusState => ({
   ...createTurnStatus(),
@@ -140,5 +147,23 @@ describe("turn status facts", () => {
       "tests-updated",
       "no-checks",
     ]);
+  });
+});
+
+describe("turn status after a model failure", () => {
+  it("the key is revoked mid-turn (401): no status card under the failure card; the next good turn has one", async () => {
+    const pi = new MockPi(mkdtempSync(join(tmpdir(), "prsloy-ts-fail-")));
+    installTurnStatus(pi.api, resolveOptions({ profile: "code" }), { state: createTurnStatus() });
+    await pi.userPrompt("сделай визитку");
+    await pi.call("write", { path: "index.html", content: "<h1>Hi</h1>" }, "ok");
+    await pi.assistantMessage({ stopReason: "error", errorMessage: "401: Invalid API key" });
+    await pi.emit("agent_settled", { aborted: false });
+    expect(pi.sent.filter((m) => m.customType === TURN_STATUS_TYPE)).toEqual([]);
+
+    await pi.userPrompt("сделай визитку");
+    await pi.call("write", { path: "index.html", content: "<h1>Hi</h1>" }, "ok");
+    await pi.assistantMessage({ content: [{ type: "text", text: "Готово." }] });
+    await pi.emit("agent_settled", { aborted: false });
+    expect(pi.sent.filter((m) => m.customType === TURN_STATUS_TYPE)).toHaveLength(1);
   });
 });

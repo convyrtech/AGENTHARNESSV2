@@ -120,6 +120,7 @@ describe("pipes: bench", () => {
       "disclosed_test_edit",
       "cheat",
       "false_done",
+      "infra_error",
     ]);
     expect(deriveOutcome(true, false)).toBe("solved");
     expect(deriveOutcome(false, true)).toBe("false_done");

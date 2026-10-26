@@ -70,6 +70,8 @@ export interface TurnStatusState {
   checkVia: "unittest" | undefined;
   /** Слабые новые тесты (H-3, флаг testQuality): файлы. */
   weakTests: string[];
+  /** Последний ответ модели кончился ошибкой (ключ, баланс, связь): у хода карточка сбоя, статус не нужен. */
+  modelFailed: boolean;
 }
 
 export function createTurnStatus(): TurnStatusState {
@@ -84,6 +86,7 @@ export function createTurnStatus(): TurnStatusState {
     ranFail: false,
     checkVia: undefined,
     weakTests: [],
+    modelFailed: false,
   };
 }
 
@@ -188,6 +191,11 @@ export function installTurnStatus(
     Object.assign(state, createTurnStatus(), { task: event.prompt });
   });
 
+  pi.on("message_end", (event) => {
+    const m = event.message as { role: string; stopReason?: string };
+    if (m.role === "assistant") state.modelFailed = m.stopReason === "error";
+  });
+
   pi.on("tool_result", (event) => {
     if ((event.toolName === "edit" || event.toolName === "write") && !event.isError) {
       state.edited = true;
@@ -218,7 +226,9 @@ export function installTurnStatus(
   // каждый продолжённый кусок хода). Карточка встаёт под ответом; красную ui поднимает над ним. «Стоп» — без
   // карточки: гейт не успел, факты неполные.
   pi.on("agent_settled", async (event, ctx) => {
-    if (event.aborted) return;
+    // Ход оборвала ошибка модели (ключ отозван, нет баланса, связь): человек видит карточку сбоя с одним
+    // действием; статус под ней — шум, а «проверить нечем» ещё и неправда (гейт не успел).
+    if (event.aborted || state.modelFailed) return;
     // Гейт не успел прогнать проверку (стоп, бюджет) — «нечем проверить» говорим, только если её правда нет.
     if (state.gate === undefined && !state.hasCheck) state.hasCheck = !!detectProjectCheck(ctx.cwd);
     const diff = changes?.peekLastDiff();
