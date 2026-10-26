@@ -224,8 +224,10 @@ function windowsRelease(name, { version = "0.1.0-alpha.2", body = "installer", s
   const name = "PRSLOY-0.1.0-alpha.3-linux-x86_64.AppImage";
   const body = "appimage bytes";
   writeFileSync(join(root, name), body);
-  writeFileSync(join(root, "PRSLOY-0.1.0-alpha.3-linux-amd64.deb"), "deb");
+  const deb = "PRSLOY-0.1.0-alpha.3-linux-amd64.deb";
+  writeFileSync(join(root, deb), "deb");
   const sha512 = createHash("sha512").update(body).digest("base64");
+  const debSha = createHash("sha512").update("deb").digest("base64");
   writeFileSync(
     join(root, "latest-linux.yml"),
     [
@@ -235,6 +237,9 @@ function windowsRelease(name, { version = "0.1.0-alpha.2", body = "installer", s
       `    sha512: ${sha512}`,
       `    size: ${Buffer.byteLength(body)}`,
       "    blockMapSize: 123",
+      `  - url: ${deb}`,
+      `    sha512: ${debSha}`,
+      "    size: 3",
       `path: ${name}`,
       `sha512: ${sha512}`,
       "",

@@ -342,7 +342,8 @@ export function checkWindowsFeed(dir, options = {}) {
 
 /**
  * The same for Linux: latest-linux.yml lists the AppImage (its blockmap is embedded in the file,
- * electron-builder writes none beside it); the .deb ships next to it for manual install only.
+ * electron-builder writes none beside it) and the .deb (electron-updater's DebUpdater reads the same
+ * feed). Every listed file must be in the folder with its size and sha512.
  *
  * @param {string} dir  folder with latest-linux.yml, the AppImage and the .deb (one release)
  * @param {{ version?: string }} [options]
@@ -373,7 +374,9 @@ export function checkLinuxFeed(dir, options = {}) {
     if (!GITHUB_SAFE_NAME.test(f.url)) {
       errors.push(`${f.url}: GitHub would rename this asset (only A-Z a-z 0-9 . _ -)`);
     }
-    if (!f.url.endsWith(".AppImage")) errors.push(`${f.url}: not an AppImage`);
+    if (!f.url.endsWith(".AppImage") && !f.url.endsWith(".deb")) {
+      errors.push(`${f.url}: neither an AppImage nor a .deb`);
+    }
     if (version && !f.url.includes(version)) {
       errors.push(`${f.url}: name does not carry version ${version}`);
     }
@@ -389,6 +392,7 @@ export function checkLinuxFeed(dir, options = {}) {
     const sha512 = createHash("sha512").update(body).digest("base64");
     if (f.sha512 !== sha512) errors.push(`${f.url}: sha512 differs from latest-linux.yml`);
   }
+  if (!files.some((f) => f.url.endsWith(".AppImage"))) errors.push("latest-linux.yml: no AppImage");
   const names = listFiles(dir).map((p) => basename(p));
   if (!names.some((n) => n.endsWith(".deb"))) errors.push("no .deb next to the AppImage");
   const listed = new Set(files.map((f) => f.url).concat("latest-linux.yml"));
@@ -479,7 +483,7 @@ function main() {
         for (const err of linux.errors) console.error(`  - ${err}`);
         process.exit(1);
       }
-      console.log(`latest-linux.yml ok: ${linux.version} → ${linux.files.join(", ")} (+ .deb)`);
+      console.log(`latest-linux.yml ok: ${linux.version} → ${linux.files.join(", ")}`);
       return;
     }
     const result = checkWindowsFeed(a, { version: flags.version });
