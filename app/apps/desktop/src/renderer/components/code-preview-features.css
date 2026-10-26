@@ -433,3 +433,26 @@
 .web-search-model-name {
   min-width: 12rem;
 }
+
+/* «Старые тесты устарели» (#25): the conflicting assertion, monospace, folded when long */
+.tests-outdated-quote {
+  margin: 4px 0 0 24px;
+}
+.tests-outdated-pre {
+  margin: 0;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+/* exactly three lines plus the top padding: no half-cut fourth line, the last one fades */
+.tests-outdated-pre.is-folded {
+  max-height: calc(3lh + 8px);
+  overflow: hidden;
+  mask-image: linear-gradient(to bottom, #000 60%, transparent);
+}
