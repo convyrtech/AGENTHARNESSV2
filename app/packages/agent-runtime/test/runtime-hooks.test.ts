@@ -1,7 +1,6 @@
-import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
-import { homedir, tmpdir } from "node:os";
-import { join } from "node:path";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 import {
   createPixRuntime,
@@ -121,17 +120,27 @@ describe("extension paths", () => {
 describe("context files require trust", () => {
   it("detects project AGENTS.md / CLAUDE.md but not files inside agentDir", async () => {
     const paths = await fixture();
-    // Skip first check if global AGENTS.md/CLAUDE.md exists (e.g., in developer's home)
-    const globalExists =
-      existsSync(join(homedir(), "AGENTS.md")) || existsSync(join(homedir(), "CLAUDE.md"));
-    if (!globalExists) {
-      expect(hasProjectContextFiles(paths.project, paths.agentDir)).toBe(false);
-    }
+    const getFixtureContextFiles = async () => {
+      const handle = await createPixRuntime({ cwd: paths.project, agentDir: paths.agentDir });
+      try {
+        const allFiles = handle.runtime.services.resourceLoader.getAgentsFiles().agentsFiles;
+        // Filter to project dir only, not agentDir
+        return allFiles.filter((f) => f.path.startsWith(paths.project));
+      } finally {
+        await handle.dispose();
+      }
+    };
+    // What hasProjectContextFiles sees above the fixture (e.g. a developer's ~/AGENTS.md).
+    // The fixture itself must add nothing on top of it; in CI there is nothing above.
+    const above = hasProjectContextFiles(dirname(paths.root), paths.agentDir);
+    if (process.env.CI) expect(above).toBe(false);
+    expect((await getFixtureContextFiles()).length).toBe(0);
+    expect(hasProjectContextFiles(paths.project, paths.agentDir)).toBe(above);
     await writeFile(join(paths.agentDir, "AGENTS.md"), "global\n");
-    if (!globalExists) {
-      expect(hasProjectContextFiles(paths.project, paths.agentDir)).toBe(false);
-    }
+    expect((await getFixtureContextFiles()).length).toBe(0);
+    expect(hasProjectContextFiles(paths.project, paths.agentDir)).toBe(above);
     await writeFile(join(paths.project, "CLAUDE.md"), "project\n");
+    expect((await getFixtureContextFiles()).length).toBe(1);
     expect(hasProjectContextFiles(paths.project, paths.agentDir)).toBe(true);
     expect(
       filterUntrustedContextFiles(
@@ -164,7 +173,7 @@ describe("context files require trust", () => {
       const contextFiles = handle.runtime.services.resourceLoader.getAgentsFiles().agentsFiles;
       const fixtureFiles = contextFiles.filter((f) => f.path.startsWith(paths.root));
       expect(fixtureFiles.length).toBe(1);
-      expect(fixtureFiles[0].path).toBe(projectAgentsPath);
+      expect(fixtureFiles[0]?.path).toBe(projectAgentsPath);
       expect(handle.runtime.session.systemPrompt).toContain("pirate");
     } finally {
       await handle.dispose();
