@@ -141,3 +141,12 @@
   только данные (уроки, навыки, добавку промпта модели), метки вердикта — нашего стенда (check.mjs и отчёт),
   добавлена проверка строк check.mjs; заголовки Google LLC сохранены, правки отмечены в файлах. `third_party/`
   не брался. Схема раунда в `src/tuner/ppc.ts` — своя, по описанию Propose–Probe–Compose.
+- Встроенный Python (`apps/desktop/scripts/fetch-runtimes.mjs`, #38) несёт pytest и его зависимости — ставятся при
+  сборке рантайма из колёс PyPI с проверкой sha256 (`pip --require-hashes`): [pytest](https://github.com/pytest-dev/pytest)
+  9.1.1 (MIT, © Holger Krekel and others), [pluggy](https://github.com/pytest-dev/pluggy) 1.6.0 (MIT, © Holger Krekel),
+  [iniconfig](https://github.com/pytest-dev/iniconfig) 2.3.1 (MIT, © Holger Krekel and others),
+  [packaging](https://github.com/pypa/packaging) 26.3 (Apache-2.0 или BSD-2-Clause, © Donald Stufft and individual
+  contributors), [Pygments](https://github.com/pygments/pygments) 2.21.0 (BSD-2-Clause, © the respective authors, see AUTHORS) и на
+  Windows [colorama](https://github.com/tartley/colorama) 0.4.6 (BSD-3-Clause, © Jonathan Hartley). Тексты лицензий
+  едут вместе с пакетами (`site-packages/*.dist-info/`). Изменено PRSLOY: консольные скрипты переписаны на
+  перемещаемый запуск (`pytest` находит Python рядом с собой; на Windows — `pytest.cmd`), код пакетов не менялся.

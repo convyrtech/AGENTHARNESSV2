@@ -278,7 +278,7 @@ export function ensureIsolationDirs(options: {
   if (!venvHasPython && pyBin && existsSync(pyBin)) {
     try {
       rmSync(pythonVenv, { recursive: true, force: true });
-      execFileSync(pyBin, ["-m", "venv", pythonVenv], {
+      execFileSync(pyBin, VENV_ARGS(pythonVenv), {
         stdio: "ignore",
         timeout: 120_000,
       });
@@ -304,6 +304,18 @@ function isolationDirsForPythonRoot(
   }
   return ensureIsolationDirs({ userDataPath });
 }
+
+/**
+ * The agent's python is this venv (first on PATH). `--system-site-packages` lets it see what the bundled
+ * python ships beside pip — pytest (#38), so a project's tests can run — while `pip install` still goes
+ * into the venv.
+ */
+export const VENV_ARGS = (pythonVenv: string) => [
+  "-m",
+  "venv",
+  "--system-site-packages",
+  pythonVenv,
+];
 
 /**
  * Env vars that keep npm/pip installs inside userData isolation trees.
@@ -700,7 +712,7 @@ export async function provisionRuntimesAsync(
   if (!options.skipVenv && pyBin) {
     try {
       rmSync(pythonVenv, { recursive: true, force: true });
-      await runAsync(pyBin, ["-m", "venv", pythonVenv], 180_000);
+      await runAsync(pyBin, VENV_ARGS(pythonVenv), 180_000);
       phaseTiming("venv");
     } catch (error) {
       console.warn("[zeno] python venv create failed:", error);

@@ -26,6 +26,8 @@ import {
   prunePythonRuntime,
   PYTHON_PRUNE_REV,
   pythonPruneRev,
+  PYTEST_REQUIREMENTS,
+  relocatePytestScripts,
   pythonDistMeta,
   resolveTarget,
   resolveTarBinary,
@@ -187,6 +189,45 @@ function assertEqual(actual, expected, message) {
     assert(!existsSync(join(pyRoot, "include")), "include removed");
     assert(!existsSync(join(bin, "idle3")), "idle3 bin removed");
     assert(!existsSync(join(lib, "__pycache__")), "pycache removed");
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+}
+
+// ── pytest (#38): pinned with hashes; console scripts relocatable ──
+{
+  for (const line of PYTEST_REQUIREMENTS) {
+    assert(
+      /==\S+/.test(line) && /--hash=sha256:[0-9a-f]{64}$/.test(line),
+      `pinned with hash: ${line}`,
+    );
+  }
+  assert(
+    PYTEST_REQUIREMENTS.some((l) => l.startsWith("pytest==")),
+    "pytest listed",
+  );
+  const root = mkdtempSync(join(tmpdir(), "zeno-pytest-reloc-"));
+  try {
+    mkdirSync(join(root, "bin"), { recursive: true });
+    const script = join(root, "bin", "pytest");
+    writeFileSync(
+      script,
+      "#!/home/build/python/bin/python3\nimport sys\nfrom _pytest.config import _console_main\n",
+    );
+    relocatePytestScripts(root, "linux");
+    const text = readFileSync(script, "utf8");
+    assert(text.startsWith("#!/bin/sh\n'''exec'"), "relocatable header like pip's");
+    assert(!text.includes("/home/build"), "build path gone");
+    assert(text.includes("from _pytest.config import _console_main"), "body kept");
+
+    mkdirSync(join(root, "Scripts"), { recursive: true });
+    writeFileSync(join(root, "Scripts", "pytest.exe"), "MZ");
+    relocatePytestScripts(root, "win32");
+    assert(!existsSync(join(root, "Scripts", "pytest.exe")), "absolute-path launcher removed");
+    assert(
+      readFileSync(join(root, "pytest.cmd"), "utf8").includes('"%~dp0python.exe" -m pytest'),
+      "pytest.cmd next to python.exe",
+    );
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
