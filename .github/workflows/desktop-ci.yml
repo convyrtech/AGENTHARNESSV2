@@ -42,6 +42,61 @@ jobs:
       - run: pnpm test:release-assets
       - run: pnpm build
 
+  # Skills (skills/<name>) through NVIDIA SkillSpector — static (regex, AST, taint, YARA), no LLM — plus the
+  # harness's own threat check (packages/prsloy-harness/scripts/skill-scan.mts). Third-party code: own job,
+  # read-only token, no secrets, scanner and setup-uv pinned by full commit SHA. Non-blocking until the first
+  # scores are known (then the ≤ 50/100 threshold turns blocking).
+  skill-scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    continue-on-error: true
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      # The script comes with harness (desktop/harness-skillspector): until it is on this ref, say so.
+      - name: Scan script present
+        id: script
+        run: |
+          if [ -f packages/prsloy-harness/scripts/skill-scan.mts ]; then echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::packages/prsloy-harness/scripts/skill-scan.mts нет на $GITHUB_REF_NAME — проверка навыков пропущена"
+          fi
+      - uses: pnpm/action-setup@v6
+        if: steps.script.outputs.present == 'true'
+        with:
+          version: 11.15.1
+      - uses: actions/setup-node@v7
+        if: steps.script.outputs.present == 'true'
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: app/pnpm-lock.yaml
+      - if: steps.script.outputs.present == 'true'
+        run: pnpm install --frozen-lockfile
+      # astral-sh/setup-uv v7
+      - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78
+        if: steps.script.outputs.present == 'true'
+      - name: Skill security scan (NVIDIA SkillSpector, static, no LLM)
+        if: steps.script.outputs.present == 'true'
+        timeout-minutes: 10
+        run: |
+          uv tool install --python 3.12 "git+https://github.com/NVIDIA/skillspector.git@d7338f58200a9ae2a24810cee08911ab68b107a7"
+          node --experimental-strip-types --no-warnings packages/prsloy-harness/scripts/skill-scan.mts --json skill-scan.json
+      - name: Summary
+        if: always() && steps.script.outputs.present == 'true'
+        run: |
+          [ -f skill-scan.json ] && { echo "## Skill scan"; echo '```json'; cat skill-scan.json; echo '```'; } >> "$GITHUB_STEP_SUMMARY" || true
+      - uses: actions/upload-artifact@v4
+        if: always() && steps.script.outputs.present == 'true'
+        with:
+          name: skill-scan
+          path: app/skill-scan.json
+          if-no-files-found: ignore
+
   # Electron e2e на Linux под xvfb: весь набор e2e/*.spec.ts (кроме дымовых Windows), два шарда по ~4 мин.
   e2e:
     runs-on: ubuntu-latest
