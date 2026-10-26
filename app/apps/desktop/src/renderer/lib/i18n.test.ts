@@ -41,6 +41,12 @@ describe("i18n", () => {
     expect(t("en", "settings.runtimes.notInstalledHint")).toContain("runtimes:fetch");
   });
 
+  it("labels copying the app version in every locale", () => {
+    expect(t("zh", "prsloy.settings.versionCopy")).toBe("复制 PRSLOY 版本");
+    expect(t("en", "prsloy.settings.versionCopy")).toBe("Copy PRSLOY version");
+    expect(t("ru", "prsloy.settings.versionCopy")).toBe("Скопировать версию PRSLOY");
+  });
+
   it("distinguishes removing from a list and deleting the file", () => {
     // The two are different operations and the labels have to say so: one is recoverable.
     expect(t("zh", "thread.delete")).toBe("从列表移除");

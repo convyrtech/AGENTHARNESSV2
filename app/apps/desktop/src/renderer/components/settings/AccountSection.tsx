@@ -17,6 +17,7 @@ import {
   SettingsRow,
   SettingsSectionBlock,
 } from "./SettingsPrimitives.tsx";
+import { AppVersionRow } from "./AppVersionRow.tsx";
 
 type Tr = (key: MessageKey, vars?: Record<string, string>) => string;
 
@@ -247,6 +248,12 @@ export function AccountSection(props: { tr: Tr }) {
       </SettingsSectionBlock>
       <SettingsSectionBlock label={tr("prsloy.support.group")} testId="settings-account-support">
         <SupportReportRow tr={tr} />
+      </SettingsSectionBlock>
+      <SettingsSectionBlock
+        label={tr("prsloy.settings.versionGroup")}
+        testId="settings-account-version"
+      >
+        <AppVersionRow tr={tr} />
       </SettingsSectionBlock>
     </SettingsPageShell>
   );
