@@ -16,6 +16,7 @@ import { dirname, join, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { modelDelta } from "../code-prompt.ts";
 import { LESSONS_MAX, LESSONS_MAX_CHARS, type Lesson } from "../lessons.ts";
+import { threatLine, treeThreats } from "../skill-threats.ts";
 import { skillFilesFromDir } from "../skills.ts";
 import { assertTreeHasNoGraderVerdicts } from "./leaks.ts";
 
@@ -155,6 +156,14 @@ export function validateTree(tree: HarnessTree): string[] {
     if (md.length > SKILL_BODY_MAX)
       errors.push(`skills/${name}/SKILL.md: длиннее ${SKILL_BODY_MAX} символов`);
   }
+  // Безопасность (как сканер навыков в CI, по категориям SkillSpector): предложенный навык, урок или добавка
+  // промпта с инъекцией, утечкой ключей или скрытым текстом не принимается.
+  const surface = Object.fromEntries(
+    Object.entries(tree).filter(
+      ([p]) => p.startsWith("skills/") || p === "lessons.json" || p === "model-delta.md",
+    ),
+  );
+  for (const t of treeThreats(surface)) errors.push(`небезопасно: ${threatLine(t)}`);
   try {
     assertTreeHasNoGraderVerdicts(tree);
   } catch (e) {

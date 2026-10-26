@@ -4,6 +4,7 @@
 // включает или убирает инструменты без перезапуска. Опция research.enabled — включить всегда (бенч, тесты).
 // Поиск — цепочкой: выбранный поставщик → бесплатный → встроенный поиск модели через шлюз. Код, а не модель,
 // ставит сегодняшнюю дату, убирает из запроса прошлый год и метит уровень источника (research/26 §4.2).
+import { hiddenTextNote, stripHidden } from "../hidden-text.ts";
 import { join } from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
@@ -308,6 +309,15 @@ export function installResearch(
           `Страница не прочиталась: ${e instanceof ReadError ? e.message : "сбой чтения"}`,
         );
       }
+      // Скрытый текст (невидимые символы, HTML-комментарии — в markdown от Jina и сырых файлах они остаются)
+      // убираем до модели и до файла; сколько убрано — модели строкой.
+      const body = stripHidden(page.text);
+      const title = stripHidden(page.title);
+      const hidden = hiddenTextNote({
+        invisible: body.invisible + title.invisible,
+        comments: body.comments + title.comments,
+      });
+      page = { ...page, text: body.text, title: title.text };
       const s = known ?? l.add({ url, title: page.title, foundBy: "url" });
       const path = l.saveText(s.n, {
         text: page.text,
@@ -327,12 +337,25 @@ export function installResearch(
         header(),
         `[${s.n}] ${page.title || host(url)} — ${host(page.finalUrl)} — ${s.date ?? "дата неизвестна"}${via}`,
         `Полный текст: ${path}`,
+        ...(hidden ? [hidden] : []),
         "",
         clip(page.text),
       ].join("\n");
       return {
         content: [{ type: "text", text }],
-        details: { n: s.n, via: page.via, chars: page.text.length },
+        details: {
+          n: s.n,
+          via: page.via,
+          chars: page.text.length,
+          ...(hidden
+            ? {
+                hidden: {
+                  invisible: body.invisible + title.invisible,
+                  comments: body.comments + title.comments,
+                },
+              }
+            : {}),
+        },
       };
     },
   });
