@@ -71,7 +71,7 @@ describe("search limit card", () => {
       provider: "brave",
       code: "limit",
     });
-    expect(parseLimitDetails({ provider: "tavily", code: "limit" })).toBeUndefined();
+    expect(parseLimitDetails({ provider: "bing", code: "limit" })).toBeUndefined();
     expect(parseLimitDetails({ provider: "brave", code: "network" })).toBeUndefined();
     expect(parseLimitDetails(null)).toBeUndefined();
   });

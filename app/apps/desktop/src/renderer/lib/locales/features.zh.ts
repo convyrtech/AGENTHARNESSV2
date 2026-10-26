@@ -219,6 +219,7 @@ export const featuresZh = {
   "features.web.name.searxng": "SearXNG（自己的服务器）",
   "features.web.name.brave": "Brave",
   "features.web.name.exa": "Exa",
+  "features.web.name.tavily": "Tavily",
   "features.web.name.firecrawl": "Firecrawl",
   "features.web.name.jina": "Jina",
   "features.web.name.prsloy": "PRSLOY 搜索",
@@ -234,6 +235,8 @@ export const featuresZh = {
     "每月 5 美元免费，约 1000 次。密钥：api-dashboard.search.brave.com → Search 套餐（要绑卡）→ 密钥页面。在俄罗斯能否使用未经验证。",
   "features.web.hint.exa":
     "每月 10 美元免费，不需要绑卡。密钥：dashboard.exa.ai → 密钥页面。在俄罗斯能否使用未经验证。",
+  "features.web.hint.tavily":
+    "每月 1000 次免费搜索，不需要绑卡。密钥：app.tavily.com → 密钥页面。在俄罗斯能否使用未经验证。",
   "features.web.hint.firecrawl":
     "每月 1000 点免费，不需要绑卡。密钥：firecrawl.dev → Dashboard → 密钥页面。",
   "features.web.hint.jina": "新密钥带免费额度。密钥：jina.ai → 密钥页面。",

@@ -21,6 +21,7 @@ export const SEARCH_ORDER: readonly SearchProviderId[] = [
   "searxng",
   "brave",
   "exa",
+  "tavily",
   "firecrawl",
   "jina",
   "github",
