@@ -16,7 +16,7 @@
 //   … --skills on              с курированными навыками (флаг "skills", S9; по умолчанию выкл.)
 //   … --memory off             без памяти (флаг "memory")
 //   … --honest-exit on         инструмент report_blocker (флаг "honestExit", H-1; по умолчанию выкл.)
-//   … --test-guard on          страж старых тестов (флаг "testGuard", H-1; по умолчанию выкл.)
+//   … --test-guard off         без стража старых тестов (флаг "testGuard", H-1; по умолчанию вкл., #25)
 //   … --test-quality on        полезность новых тестов (флаг "testQuality", H-3; по умолчанию выкл.)
 //   … --reviewer-cheats on     ревьюер ищет подгонку (флаг "reviewerCheats", H-4; по умолчанию выкл.)
 //   … --claim-check on         слова и факты (флаг "claimCheck", H-2: H6–H8; по умолчанию выкл.)
@@ -56,7 +56,7 @@ const { values } = parseArgs({
     delta: { type: "string", default: "off" },
     memory: { type: "string", default: "on" },
     "honest-exit": { type: "string", default: "off" },
-    "test-guard": { type: "string", default: "off" },
+    "test-guard": { type: "string", default: "on" },
     "test-quality": { type: "string", default: "off" },
     "reviewer-cheats": { type: "string", default: "off" },
     "claim-check": { type: "string", default: "off" },
@@ -99,7 +99,7 @@ async function main(): Promise<number> {
     delta: values.delta === "on",
     memory: values.memory !== "off",
     honestExit: values["honest-exit"] === "on",
-    testGuard: values["test-guard"] === "on",
+    testGuard: values["test-guard"] !== "off",
     testQuality: values["test-quality"] === "on",
     reviewerCheats: values["reviewer-cheats"] === "on",
     claimCheck: values["claim-check"] === "on",

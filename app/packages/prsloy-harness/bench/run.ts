@@ -90,7 +90,7 @@ export interface BenchOptions {
   webTools?: boolean;
   /** Честный выход report_blocker (флаг "honestExit", H-1). По умолчанию выкл., как в приложении. */
   honestExit?: boolean;
-  /** Страж старых тестов (флаг "testGuard", H-1). По умолчанию выкл., как в приложении. */
+  /** Страж старых тестов (флаг "testGuard", H-1). По умолчанию вкл., как в приложении (#25). */
   testGuard?: boolean;
   /** Полезность новых тестов (флаг "testQuality", H-3). По умолчанию выкл., как в приложении. */
   testQuality?: boolean;
@@ -401,7 +401,7 @@ async function runTask(task: TaskDef, opts: BenchOptions): Promise<TaskResult> {
       promptDelta: opts.delta === true || opts.deltaText !== undefined,
       webTools: opts.webTools === true,
       honestExit: opts.honestExit === true,
-      testGuard: opts.testGuard === true,
+      testGuard: opts.testGuard !== false,
       testQuality: opts.testQuality === true,
       reviewerCheats: opts.reviewerCheats === true,
       claimCheck: opts.claimCheck === true,
@@ -666,7 +666,7 @@ export async function runBench(opts: BenchOptions): Promise<BenchReport> {
     delta: opts.delta === true,
     webTools: opts.webTools === true,
     honestExit: opts.honestExit === true,
-    testGuard: opts.testGuard === true,
+    testGuard: opts.testGuard !== false,
     testQuality: opts.testQuality === true,
     reviewerCheats: opts.reviewerCheats === true,
     claimCheck: opts.claimCheck === true,

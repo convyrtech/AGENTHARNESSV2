@@ -29,7 +29,7 @@ export type HarnessFlags = {
   autoMemory: "off" | "shadow" | true;
   /** Honest exit: `report_blocker` and the T1 text in every push-back (research/24 §4.2, default off). */
   honestExit: boolean;
-  /** Guard of the old tests (research/24 §4.1 H2/H3, default off until the owner decides §4.3). */
+  /** Guard of the old tests (research/24 §4.1 H2/H3; on by default since the owner decided #25). */
   testGuard: boolean;
   /** The agent's words checked against its calls (research/24 §4.1 H-2, default off). */
   claimCheck: boolean;

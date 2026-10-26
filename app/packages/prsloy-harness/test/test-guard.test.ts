@@ -167,7 +167,9 @@ describe("H2: old tests changed in the turn", () => {
       "тест неправильный, исправь его",
       "Этот тест ошибочный",
       "обнови тест под новую цену",
-      "НДС 22% вместо 20%",
+      // Кнопка карточки «тесты устарели» (#25) — явная просьба.
+      "Обнови тесты под новое правило: Скидка теперь в процентах: 10 — это 10% от цены.",
+      "Please update the tests for the new rule",
     ])
       expect(userAskedToChange(ask), ask).toBe(true);
     for (const fix of [
@@ -180,6 +182,10 @@ describe("H2: old tests changed in the turn", () => {
       "Не проходят проверки в проекте, посмотри и исправь.",
       "Средний чек считается неправильно, тесты не проходят. Исправь.",
       "Конвертер температуры врёт, тест падает. Поправь, пожалуйста.",
+      // Новое правило без слова о тестах (#25): не просьба — агент предлагает обновить тесты карточкой.
+      "НДС 22% вместо 20%",
+      "Скидка теперь в процентах: 10 — это 10% от цены.",
+      "From now on the discount is 15% instead of 10%.",
       "Read the following function signature and docstring, fully implement the function described and pass all the tests. **DO NOT MODIFY THE TESTS.**",
     ])
       expect(userAskedToChange(fix), fix).toBe(false);

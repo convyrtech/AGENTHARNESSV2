@@ -6,6 +6,11 @@
 //   - `missing_file`: названного файла правда нет.
 // Остальные причины (`no_access`, `too_hard`, `other`) код не проверит: карточка показывается после попытки,
 // но возвраты остаются. Страж и статус работают и после блокера. Формат квитанции — по Gomez (research/22 §3).
+import {
+  showTestsOutdated,
+  testsOutdatedDetails,
+  type TestsOutdatedState,
+} from "./tests-outdated.ts";
 import { existsSync } from "node:fs";
 import { isAbsolute, join, normalize, relative } from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
@@ -85,9 +90,27 @@ function inside(cwd: string, path: string): string | undefined {
   return rel.startsWith("..") || isAbsolute(rel) ? undefined : abs;
 }
 
+/** Старые тестовые файлы (на начало хода), где есть цитата блокера: для карточки «тесты устарели». */
+async function oldTestFilesWith(
+  cwd: string,
+  changes: TurnChanges | undefined,
+  evidence: string,
+): Promise<string[]> {
+  const quote = squash(evidence);
+  const files = (await changes?.filesAtStart()) ?? [];
+  const out: string[] = [];
+  for (const f of files.filter((f) => TEST_FILE.test(f)).slice(0, 50)) {
+    const text = await changes?.fileAtStart(f);
+    if (text !== undefined && squash(text).includes(quote)) out.push(f);
+  }
+  return out;
+}
+
 export interface HonestExitDeps {
   state: HonestyState;
   changes?: TurnChanges | undefined;
+  /** Карточка «тесты устарели» (#25): общее со стражем состояние «уже показана». */
+  testsOutdated?: TestsOutdatedState | undefined;
 }
 
 export function installHonestExit(
@@ -98,6 +121,10 @@ export function installHonestExit(
   if (opts.profile !== "code") return;
   const { state, changes } = deps;
   const NAME = "report_blocker";
+  let task = "";
+  pi.on("before_agent_start", (event) => {
+    if (event.messageType === "user") task = event.prompt;
+  });
 
   // Флаг — на старте сессии: инструмент либо есть всю сессию, либо его нет.
   pi.on("session_start", () => {
@@ -191,6 +218,13 @@ export function installHonestExit(
       state.reported = true;
       if (confirmed) state.accepted = card;
       await showCard(pi, "prsloy-harness.blocker", `Не получилось: ${card.what}`, card);
+      // #25: тест противоречит просьбе — ещё и предложение обновить тесты (раз за сообщение, общее со стражем).
+      if (confirmed && reason === "test_conflicts_request" && deps.testsOutdated)
+        await showTestsOutdated(
+          pi,
+          deps.testsOutdated,
+          testsOutdatedDetails(await oldTestFilesWith(ctx.cwd, changes, evidence), evidence, task),
+        );
       return reply(
         confirmed ? BLOCKER_TEXT.accepted : BLOCKER_TEXT.shown,
         confirmed ? "accepted" : "shown",

@@ -8,7 +8,7 @@ const DEFAULTS = {
   memory: true,
   autoMemory: true,
   honestExit: false,
-  testGuard: false,
+  testGuard: true,
   claimCheck: false,
   webTools: true,
   testQuality: false,
