@@ -3,6 +3,7 @@
 // а не эффект verify-скрипта; своей цифры у гейта нет, её даёт наш бенч. Когда ход в профиле «Код» заканчивается после
 // правок, харнесс дёшево проверяет проект его же проверкой и, если красно, возвращает модель к работе — не больше
 // двух раз за сообщение пользователя. Хук Pi 1.4: agent_before_settle (записи + одно продолжение).
+import { runCheck } from "./check-run.ts";
 import { type ClaimTracker, claimSignals, type GateFacts } from "./claim-check.ts";
 import { spawn, spawnSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
@@ -64,7 +65,30 @@ export interface ProjectCheck {
   missingTool?: RegExp;
   /** Добавки к окружению запуска (PATH с node_modules/.bin для исходных скриптов, H1). */
   env?: Record<string, string>;
+  /** Запасная проверка, если у этой нет инструмента (#37: нет pytest — unittest). */
+  fallback?: ProjectCheck;
 }
+
+/**
+ * Python проекта (#37): `.venv` или `venv` в папке — его интерпретатор (`Scripts/python.exe` на Windows,
+ * `bin/python` на Linux и Mac), иначе системный. Путь в кавычках: команда идёт через оболочку.
+ */
+export function projectPython(
+  cwd: string,
+  platform: NodeJS.Platform = process.platform,
+): { command: string; venv: boolean } {
+  for (const dir of [".venv", "venv"]) {
+    const exe =
+      platform === "win32"
+        ? join(cwd, dir, "Scripts", "python.exe")
+        : join(cwd, dir, "bin", "python");
+    if (existsSync(exe)) return { command: `"${exe}"`, venv: true };
+  }
+  return { command: platform === "win32" ? "python" : "python3", venv: false };
+}
+
+const PYTHON_MISSING =
+  /python3?(?:\.exe)?"?: (?:command )?not found|is not recognized as an internal or external command|No such file or directory/i;
 
 export interface CheckRun {
   code: number | null;
@@ -135,6 +159,7 @@ function packageManager(cwd: string): string {
 export function detectProjectCheck(
   cwd: string,
   hasBinary: (name: string) => boolean = onPath,
+  platform: NodeJS.Platform = process.platform,
 ): ProjectCheck | undefined {
   const pkg = readJson(join(cwd, "package.json"));
   if (pkg) {
@@ -165,13 +190,19 @@ export function detectProjectCheck(
       };
     }
   }
-  const python = process.platform === "win32" ? "python" : "python3";
-  if (hasPythonTests(cwd) && hasBinary(python)) {
+  const python = projectPython(cwd, platform);
+  if (hasPythonTests(cwd) && (python.venv || hasBinary(python.command))) {
     return {
-      command: `${python} -m pytest -q -x`,
+      command: `${python.command} -m pytest -q -x`,
       label: "pytest",
-      missingTool:
-        /No module named pytest|python3?: (?:command )?not found|is not recognized as an internal or external command/i,
+      missingTool: new RegExp(`No module named pytest|${PYTHON_MISSING.source}`, "i"),
+      // Нет pytest (у казуала на Windows обычно так) — unittest из стандартной библиотеки. Голые pytest-функции он не
+      // видит: «Ran 0 tests» — значит, проверять нечем, а не «прошло».
+      fallback: {
+        command: `${python.command} -m unittest discover -q`,
+        label: "unittest",
+        missingTool: new RegExp(`\\bRan 0 tests\\b|NO TESTS RAN|${PYTHON_MISSING.source}`, "i"),
+      },
     };
   }
   if (existsSync(join(cwd, "Cargo.toml")) && hasBinary("cargo"))
@@ -516,7 +547,7 @@ export function installStopGate(
     // H1: если проверка за ход пропала или поменялась (`scripts.test` → `echo ok`), прогоняется та, что была.
     const now = detectProjectCheck(ctx.cwd);
     const changed = start ? checkChange(start, now?.command, packageScripts(ctx.cwd)) : undefined;
-    const check = (changed && start ? originalCheck(start, ctx.cwd) : undefined) ?? now;
+    let check = (changed && start ? originalCheck(start, ctx.cwd) : undefined) ?? now;
     if (changed) recordEvent(ctx, { kind: "test_guard.command_changed" });
     const guardOn = testGuard();
     const found = guardOn ? signatures(parsePatch(diff?.patch ?? "")) : [];
@@ -550,7 +581,9 @@ export function installStopGate(
         ]),
         ...qualitySignals,
       ].slice(0, 8);
-    const run = check ? await runner(check, ctx.cwd, opts.stopGateTimeoutMs) : undefined;
+    // Нет pytest — запасной unittest (#37); дальше (возврат, ревьюер, статус) — та проверка, что отработала.
+    let run: CheckRun | undefined;
+    if (check) ({ check, run } = await runCheck(runner, check, ctx.cwd, opts.stopGateTimeoutMs));
     // Зелёное, таймаут или нечем проверять — не красное: не пилим казуала за отсутствие тестов.
     const red =
       check && run && !run.timedOut && run.code !== 0 && !check.missingTool?.test(run.output);
@@ -558,6 +591,7 @@ export function installStopGate(
       facts.gate = red ? "red" : "green";
     if (turnStatus && check && run && !run.timedOut && !check.missingTool?.test(run.output)) {
       turnStatus.gate = red ? "red" : "green";
+      if (check.label === "unittest") turnStatus.checkVia = "unittest";
       turnStatus.hasCheck = true;
     }
     const gateSig = check

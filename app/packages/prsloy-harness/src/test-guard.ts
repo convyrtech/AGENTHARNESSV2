@@ -8,6 +8,7 @@
 //     подмена отчёта pytest, пустой `except`, комментарии «для теста»). Сигналы — ревьюеру; возврат — только
 //     при двух разных видах (research/22 §6.7).
 // Просьба пользователя изменить поведение или проверки (§4.3) — не возврат, а «Проверки обновлены по вашей просьбе».
+import { runCheck } from "./check-run.ts";
 import { cpSync, existsSync, mkdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { dirname, join } from "node:path";
@@ -248,8 +249,8 @@ export async function runInCopy(input: {
       mkdirSync(dirname(join(dir, file)), { recursive: true });
       writeFileSync(join(dir, file), text);
     }
-    const check = input.check(dir);
-    const run = await input.runner(check, dir, input.timeoutMs);
+    // Та же запасная проверка, что у гейта (#37): нет pytest — unittest.
+    const { check, run } = await runCheck(input.runner, input.check(dir), dir, input.timeoutMs);
     // Нечем проверить (pytest не установлен) — не красное: молчим, как гейт.
     return { run, red: !run.timedOut && run.code !== 0 && !check.missingTool?.test(run.output) };
   } finally {

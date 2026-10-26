@@ -66,6 +66,8 @@ export interface TurnStatusState {
   ranOk: boolean;
   /** Последний запуск программы после последней правки упал: код ≠ 0, процесс умер в первые секунды или в выводе смертельная строка (EADDRINUSE, Traceback). */
   ranFail: boolean;
+  /** Чем проверено, если не основной проверкой проекта (#37: pytest нет — unittest). */
+  checkVia: "unittest" | undefined;
   /** Слабые новые тесты (H-3, флаг testQuality): файлы. */
   weakTests: string[];
 }
@@ -80,6 +82,7 @@ export function createTurnStatus(): TurnStatusState {
     edited: false,
     ranOk: false,
     ranFail: false,
+    checkVia: undefined,
     weakTests: [],
   };
 }
@@ -164,8 +167,12 @@ export function turnFacts(
   };
 }
 
-export function turnStatusLine(facts: TurnFact[]): string {
-  return facts.map((f) => TURN_FACT_TEXT[f]).join(" · ");
+export function turnStatusLine(facts: TurnFact[], via?: TurnStatusState["checkVia"]): string {
+  const line = facts.map((f) => TURN_FACT_TEXT[f]).join(" · ");
+  // Честно, чем проверено: unittest видит не все тесты (голые pytest-функции — нет).
+  return via && (facts.includes("checks-pass") || facts.includes("checks-fail"))
+    ? `${line} · проверено через ${via}`
+    : line;
 }
 
 export function installTurnStatus(
@@ -223,7 +230,8 @@ export function installTurnStatus(
       });
     const result = turnFacts(state, diff?.patch, diff?.files.length ?? 0, claimed);
     if (!result) return;
-    await showCard(pi, TURN_STATUS_TYPE, turnStatusLine(result.facts), {
+    await showCard(pi, TURN_STATUS_TYPE, turnStatusLine(result.facts, state.checkVia), {
+      ...(state.checkVia ? { via: state.checkVia } : {}),
       facts: result.facts,
       ...(result.files.length ? { files: result.files } : {}),
       ...(result.page ? { page: result.page } : {}),
