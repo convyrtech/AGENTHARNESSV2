@@ -52,7 +52,19 @@ const OWNER_SITE = `<!doctype html><html lang=ru><head><meta charset=utf-8><titl
 body{margin:0;background:#f3eee3;color:#3b2a1e;font:18px/1.5 Georgia,serif}.b{background:#a4472c;color:#fff;
 border-radius:10px;padding:12px 20px;display:inline-block}</style></head><body><h1>Зерно</h1>
 <p>Обжариваем сами, каждое утро. Завтраки и выпечка в центре города.</p><a class=b href=#>Заказать</a></body></html>`;
-const LIVE_MODELS = ["qwen3.8-max", "claude-opus-5-5", "claude-fable-5", "gpt-6.1-sol", "grok-4.7"];
+const LIVE_MODELS = [
+  "claude-fable-5",
+  "claude-opus-5-5",
+  "deepseek-v4.1-flash-1017",
+  "gpt-6.1-sol",
+  "gpt-image-2",
+  "gpt-image-2.5",
+  "grok-4.7",
+  "kimi-k3.1-pro",
+  "nano-banana-2.1",
+  "nano-banana-pro",
+  "qwen3.8-max",
+];
 const CHECKS = [
   "lang",
   "casual",
@@ -595,7 +607,8 @@ test("a full turn on the real tools: sheet and videos, choice «A», the page", 
     );
     expect(existsSync(join(ws(l), "design", "landing", "01-pack.json"))).toBe(true);
     expect(ownerLines(l)).toBe(2);
-    // the ladder follows the gateway's /v1/models: the first stage runs on qwen, nothing on deepseek or kimi
+    // the ladder follows the gateway's /v1/models, minus qwen on PRSLOY (its channel drops system messages and
+    // images, stages.json gateway_skip): step 0 on deepseek, taste steps on kimi, nothing on qwen
     const stages = readFileSync(join(state, "ledger.jsonl"), "utf8")
       .split("\n")
       .filter(Boolean)
@@ -606,7 +619,9 @@ test("a full turn on the real tools: sheet and videos, choice «A», the page", 
       .annotations.push({ type: "first stage model", description: String(stages[0]?.model) });
     // the installed exe is main's latest build: it follows the gateway's list once the change is merged
     if (!EXE) {
-      expect(stages[0]?.model).toBe("a6p/qwen3.8-max");
+      expect(stages[0]?.model).toBe("a6p/deepseek-v4.1-flash-1017");
+      expect(stages.some((x) => x.model === "a6p/kimi-k3.1-pro")).toBe(true);
+      expect(stages.some((x) => x.model?.includes("qwen"))).toBe(false);
       expect(stages.every((x) => LIVE_MODELS.includes(x.model!.split("/")[1]!))).toBe(true);
     }
     // the turn with the marks: the real run.py told the agent what red is and gave the turn to a model that sees
@@ -790,7 +805,7 @@ test("pi dying mid-step: «stuck» in plain words, «Повторить» works"
     writeFileSync(join(piHome(l), "live-control.json"), JSON.stringify({ crash: 99 }));
     await say(page, "Сделай лендинг для кофейни «Зерно»");
     // every rung of the ladder dies. A long ladder runs out of the turn's stages first («Сделал часть
-    // работы» → «Продолжить»); the ladder narrowed to the gateway's models (qwen → opus) is spent at once.
+    // работы» → «Продолжить»); a short ladder is spent at once.
     const paused = page.getByTestId("design-paused");
     const stuck = page.getByTestId("design-stuck");
     await expect(paused.or(stuck)).toBeVisible({ timeout: 120_000 });

@@ -95,6 +95,36 @@ class FitLadder(unittest.TestCase):
         self.assertEqual(c["stages"]["1"]["start"], 0)     # kimi → ближайшая выше: qwen
         self.assertEqual(c["judge"]["model"], "claude-opus-5-5")
 
+    def test_prsloy_catalog_2026_10_26_taste_on_kimi_mechanics_on_deepseek_opus_on_top(self):
+        g = load_run()
+        cat = set(["claude-fable-5", "claude-opus-5-5", "deepseek-v4.1-flash-1017", "gpt-6.1-sol", "gpt-image-2", "gpt-image-2.5", "grok-4.7", "kimi-k3.1-pro", "nano-banana-2.1", "nano-banana-pro", "qwen3.8-max"])                                # GET /v1/models on PRSLOY, 2026-10-26
+        real = json.loads((HERE / "stages.json").read_text(encoding="utf-8"))
+        c = g["fit_ladder"](real, cat, "prsloy")
+        self.assertEqual(c["ladder"], ["a6p/deepseek-v4.1-flash-1017", "a6p/kimi-k3.1-pro", "a6p/claude-opus-5-5"])
+        self.assertEqual(c["defaults"]["start"], 0)                   # mechanics: deepseek
+        self.assertEqual({k: v["start"] for k, v in c["stages"].items() if k in ("1", "2", "5", "6")},
+                         {"1": 1, "2": 1, "5": 1, "6": 1})            # taste: kimi
+        self.assertEqual(c["judge"]["model"], "claude-opus-5-5")
+
+    def test_prsloy_drops_qwen_its_channel_loses_system_messages_and_images(self):
+        g = load_run()
+        cfg = dict(self.cfg(), gateway_skip={"prsloy": ["qwen"]})
+        cfg["stages"]["5"] = {"start": 2}
+        c = g["fit_ladder"](json.loads(json.dumps(cfg)), {"qwen3.8-max", "claude-opus-5-5", "gpt-6.1-sol"}, "prsloy")
+        self.assertEqual(c["ladder"], ["a6p/claude-opus-5-5"])
+        self.assertEqual((c["defaults"]["start"], c["stages"]["1"]["start"]), (0, 0))
+        self.assertEqual(c["judge"]["model"], "claude-opus-5-5")
+        # the model list did not load: qwen still goes, the rest of the ladder stays
+        c = g["fit_ladder"](json.loads(json.dumps(cfg)), set(), "prsloy")
+        self.assertEqual(c["ladder"], ["a6p/deepseek-v4.1-flash-1017", "a6p/kimi-k3.1-pro", "a6p/claude-opus-5-5"])
+        self.assertEqual((c["stages"]["1"]["start"], c["stages"]["5"]["start"]), (1, 2))   # qwen's rung → opus
+        # a6 (no gateway label): the ladder as written
+        c = g["fit_ladder"](json.loads(json.dumps(cfg)), set(), "")
+        self.assertIn("a6p/qwen3.8-max", c["ladder"])
+        # the shipped stages.json says the same
+        real = json.loads((HERE / "stages.json").read_text(encoding="utf-8"))
+        self.assertNotIn("a6p/qwen3.8-max", g["fit_ladder"](real, set(), "prsloy")["ladder"])
+
     def test_judge_falls_back_only_to_a_visual_class_model(self):
         g = load_run()
         # research/28 §4.4: no Opus-class model — no judge (the owner is told), never Kimi

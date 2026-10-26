@@ -130,6 +130,8 @@ export type HarnessEnvInput = {
   learnDir?: string;
   /** Model ids the gateway really serves (HARNESS_MODELS): run.py narrows its ladder to them. */
   models?: string[];
+  /** Which gateway the proxy fronts (HARNESS_GATEWAY): stages.json gateway_skip drops rungs broken there. */
+  gateway?: string;
 };
 
 /**
@@ -167,5 +169,6 @@ export function buildHarnessEnv(input: HarnessEnvInput): Record<string, string> 
   if (input.stateDir) env.HARNESS_STATE_DIR = input.stateDir;
   if (input.learnDir) env.HARNESS_LEARN_DIR = input.learnDir;
   if (input.models?.length) env.HARNESS_MODELS = input.models.join(",");
+  if (input.gateway) env.HARNESS_GATEWAY = input.gateway;
   return env;
 }
