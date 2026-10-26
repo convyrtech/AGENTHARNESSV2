@@ -56,6 +56,18 @@ export const TASKS_DIR = join(dirname(fileURLToPath(import.meta.url)), "tasks");
  */
 export const HONESTY_CACHE = join(dirname(fileURLToPath(import.meta.url)), ".cache", "honesty");
 
+/** Окно контекста всех моделей каталога для замера сжатия; без числа — как в приложении. */
+export function withContextWindow(
+  provider: Record<string, unknown>,
+  contextWindow: number | undefined,
+): Record<string, unknown> {
+  if (!contextWindow || !Array.isArray(provider.models)) return provider;
+  return {
+    ...provider,
+    models: (provider.models as Record<string, unknown>[]).map((m) => ({ ...m, contextWindow })),
+  };
+}
+
 export interface BenchOptions {
   /** id задач (`conflicting-test` — все варианты, `conflicting-test/v2` — один); по умолчанию весь набор `suite`. */
   tasks?: string[];
@@ -113,6 +125,13 @@ export interface BenchOptions {
   reviewerCheats?: boolean;
   /** Слова и факты (флаг "claimCheck", H-2: H6–H8). По умолчанию выкл., как в приложении. */
   claimCheck?: boolean;
+  /** Нить задачи после сжатия истории (флаг "taskThread", #64 п.1). По умолчанию выкл., как в приложении. */
+  taskThread?: boolean;
+  /**
+   * Окно контекста модели для замера (#64): маленькое окно — сжатие истории посреди задачи. По умолчанию — окно из
+   * каталога приложения.
+   */
+  contextWindow?: number;
   /** Разборщик сессий после прогона (research/24 §6, A-4; ci). Пока только помечается в отчёте. */
   audit?: boolean;
   /**
@@ -480,6 +499,7 @@ async function runTask(
       reviewerCheats: opts.reviewerCheats === true,
       claimCheck: opts.claimCheck === true,
       staleDocs: opts.staleDocs ?? "end",
+      taskThread: opts.taskThread === true,
     }),
   );
   const slash = opts.model.indexOf("/");
@@ -498,7 +518,14 @@ async function runTask(
     writeFileSync(
       join(agentDir, "models.json"),
       JSON.stringify(
-        { providers: { [PRSLOY_PROVIDER_ID]: buildPrsloyModelsJsonProvider(baseUrl) } },
+        {
+          providers: {
+            [PRSLOY_PROVIDER_ID]: withContextWindow(
+              buildPrsloyModelsJsonProvider(baseUrl),
+              opts.contextWindow,
+            ),
+          },
+        },
         null,
         2,
       ),
@@ -728,6 +755,8 @@ export interface BenchReport {
     testQuality: boolean;
     reviewerCheats: boolean;
     claimCheck: boolean;
+    taskThread: boolean;
+    contextWindow: number | undefined;
     fake: boolean;
     date: string;
     gateway: string;
@@ -786,6 +815,8 @@ export async function runBench(opts: BenchOptions): Promise<BenchReport> {
     reviewerCheats: opts.reviewerCheats === true,
     claimCheck: opts.claimCheck === true,
     staleDocs: opts.staleDocs ?? "end",
+    taskThread: opts.taskThread === true,
+    contextWindow: opts.contextWindow,
     fake: opts.fake === true,
     date: new Date().toISOString(),
     gateway: opts.fake ? "fake" : new URL(opts.baseUrl ?? "http://unknown").host,
@@ -1041,7 +1072,7 @@ export function reportMarkdown(report: BenchReport): string {
     return `| ${r.id} | ${failed ? "⚠" : mark} ${r.note.replace(/\|/g, "/")}${failed ? " · исход infra_error" : outcome}${r.error && !failed ? ` (${r.error})` : ""} | ${r.seconds} | ${r.toolCalls} | ${tokensText(r.tokens)} | ${r.tokens ? rubText(r.rub) : "—"} | ${cache} | ${reply} | ${iv || "—"} |`;
   });
   return [
-    `# Замер: ${meta.model}, харнесс ${meta.harness ? "вкл" : "выкл"}, промпт ${meta.prompt}${meta.delta ? "+дельта" : ""}, уроки ${meta.lessons ? "вкл" : "выкл"}, ревью ${meta.review ? "вкл" : "выкл"}, навыки ${meta.skills ? "вкл" : "выкл"}, память ${meta.memory ? "вкл" : "выкл"}${meta.webTools ? ", поиск вкл" : ""}${meta.honestExit ? ", честный выход вкл" : ""}${meta.testGuard ? ", страж тестов вкл" : ""}${meta.testQuality ? ", полезность тестов вкл" : ""}${meta.reviewerCheats ? ", ревьюер ищет подгонку" : ""}${meta.claimCheck ? ", слова и факты вкл" : ""}${meta.staleDocs && meta.staleDocs !== "end" ? `, описание проекта: ${meta.staleDocs}` : ""}${meta.audit ? ", разбор вкл" : ""}${meta.fake ? " (фейковая модель)" : ""}`,
+    `# Замер: ${meta.model}, харнесс ${meta.harness ? "вкл" : "выкл"}, промпт ${meta.prompt}${meta.delta ? "+дельта" : ""}, уроки ${meta.lessons ? "вкл" : "выкл"}, ревью ${meta.review ? "вкл" : "выкл"}, навыки ${meta.skills ? "вкл" : "выкл"}, память ${meta.memory ? "вкл" : "выкл"}${meta.webTools ? ", поиск вкл" : ""}${meta.honestExit ? ", честный выход вкл" : ""}${meta.testGuard ? ", страж тестов вкл" : ""}${meta.testQuality ? ", полезность тестов вкл" : ""}${meta.reviewerCheats ? ", ревьюер ищет подгонку" : ""}${meta.claimCheck ? ", слова и факты вкл" : ""}${meta.taskThread ? ", нить задачи вкл" : ""}${meta.contextWindow ? `, окно ${meta.contextWindow}` : ""}${meta.staleDocs && meta.staleDocs !== "end" ? `, описание проекта: ${meta.staleDocs}` : ""}${meta.audit ? ", разбор вкл" : ""}${meta.fake ? " (фейковая модель)" : ""}`,
     "",
     `${meta.date} · шлюз ${meta.gateway} · таймаут задачи ${meta.timeoutSec} с`,
     "",

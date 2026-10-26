@@ -121,7 +121,10 @@ describe("renderThread", () => {
     const cwd = "/w/proj";
     const entries = [
       user("сделай"),
-      calls(["p", "edit", { path: "/w/proj/src/a.ts" }], ["q", "write", { path: "/elsewhere/b.ts" }]),
+      calls(
+        ["p", "edit", { path: "/w/proj/src/a.ts" }],
+        ["q", "write", { path: "/elsewhere/b.ts" }],
+      ),
       result("p", "edit", "ok"),
       result("q", "write", "ok"),
       calls(["r", "bash", { command: "cd /w/proj && ./run.sh /w/proj/x" }]),
@@ -164,7 +167,11 @@ describe("withThread", () => {
 function gitRepo(): string {
   const dir = mkdtempSync(join(root, "repo-"));
   const git = (...args: string[]) =>
-    execFileSync("git", args, { cwd: dir, stdio: "pipe", env: { ...process.env, GIT_TERMINAL_PROMPT: "0" } });
+    execFileSync("git", args, {
+      cwd: dir,
+      stdio: "pipe",
+      env: { ...process.env, GIT_TERMINAL_PROMPT: "0" },
+    });
   git("init", "-q", "-b", "work/x");
   git("config", "user.email", "t@example.com");
   git("config", "user.name", "t");
@@ -221,7 +228,9 @@ async function compact(pi: MockPi, summary: string) {
 }
 
 async function context(pi: MockPi, messages: unknown[]) {
-  const [out] = (await pi.emit("context", { messages })) as Array<{ messages: unknown[] } | undefined>;
+  const [out] = (await pi.emit("context", { messages })) as Array<
+    { messages: unknown[] } | undefined
+  >;
   return out?.messages;
 }
 
@@ -244,7 +253,9 @@ describe("installTaskThread", () => {
     expect(block).toContain("     M a.ts");
     expect(block).toContain("[128] git push origin main");
 
-    const out = await context(pi, [{ role: "compactionSummary", summary: "SUMMARY", timestamp: 1 }]);
+    const out = await context(pi, [
+      { role: "compactionSummary", summary: "SUMMARY", timestamp: 1 },
+    ]);
     expect(out?.[1]).toMatchObject({ role: "custom", content: block });
   });
 

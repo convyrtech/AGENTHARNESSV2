@@ -109,7 +109,10 @@ export function factsFromEntries(entries: readonly unknown[]): ThreadFacts {
       if (name === "bash" && typeof call.args.command === "string") {
         const match = EXIT_LINE.exec(textOf(m.content));
         const code = match ? Number(match[1] ?? match[2]) : undefined;
-        commands.push({ command: call.args.command, exit: code ?? (m.isError === true ? undefined : 0) });
+        commands.push({
+          command: call.args.command,
+          exit: code ?? (m.isError === true ? undefined : 0),
+        });
       } else if ((name === "edit" || name === "write") && m.isError !== true) {
         const path = call.args.path ?? call.args.file_path;
         if (typeof path === "string" && !seen.has(path)) {
@@ -149,11 +152,7 @@ function shorteners(cwd: string | undefined): {
 }
 
 /** Блок фактов для модели. Пусто (нет ни просьб, ни работы) — пустая строка. */
-export function renderThread(
-  facts: ThreadFacts,
-  git: GitFacts | undefined,
-  cwd?: string,
-): string {
+export function renderThread(facts: ThreadFacts, git: GitFacts | undefined, cwd?: string): string {
   const short = shorteners(cwd);
   const requests = facts.requests;
   const commands = facts.commands.map((c) => ({ ...c, command: short.command(c.command) }));

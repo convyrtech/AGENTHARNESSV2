@@ -21,6 +21,8 @@
 //   … --test-quality on        полезность новых тестов (флаг "testQuality", H-3; по умолчанию выкл.)
 //   … --reviewer-cheats on     ревьюер ищет подгонку (флаг "reviewerCheats", H-4; по умолчанию выкл.)
 //   … --claim-check on         слова и факты (флаг "claimCheck", H-2: H6–H8; по умолчанию выкл.)
+//   … --task-thread on         нить задачи после сжатия истории (флаг "taskThread", #64 п.1; по умолчанию выкл.)
+//   … --context-window 48000   окно контекста моделей для замера сжатия (по умолчанию — как в приложении)
 //   … --audit                  разборщик сессий после прогона (research/24 §6, ci; пока только метка в отчёте)
 //   … --allow-outside          отвечать «Да» на «менять файлы вне проекта?» (по умолчанию «Нет»)
 //   … --out bench-out          куда писать отчёт, сессии и папки задач; результат каждой задачи — results/<задача>.json
@@ -65,6 +67,8 @@ const { values } = parseArgs({
     "test-quality": { type: "string", default: "off" },
     "reviewer-cheats": { type: "string", default: "off" },
     "claim-check": { type: "string", default: "off" },
+    "task-thread": { type: "string", default: "off" },
+    "context-window": { type: "string" },
     "budget-rub": { type: "string" },
     "budget-tokens": { type: "string" },
     "stale-docs": { type: "string", default: "end" },
@@ -120,6 +124,8 @@ async function main(): Promise<number> {
     testQuality: values["test-quality"] === "on",
     reviewerCheats: values["reviewer-cheats"] === "on",
     claimCheck: values["claim-check"] === "on",
+    taskThread: values["task-thread"] === "on",
+    ...(budget("context-window") ? { contextWindow: budget("context-window") } : {}),
     staleDocs: STALE_DOCS_MODES.includes(values["stale-docs"] as StaleDocsMode)
       ? (values["stale-docs"] as StaleDocsMode)
       : "end",
