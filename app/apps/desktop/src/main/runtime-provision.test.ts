@@ -39,14 +39,14 @@ function makeVendorWithArchives(): {
 } {
   const root = mkdtempSync(join(tmpdir(), "zeno-vendor-"));
   const userData = mkdtempSync(join(tmpdir(), "zeno-userdata-"));
-  const nodeDir = join(root, "node", "bin");
-  const pyDir = join(root, "python", "bin");
+  const nodeDir = join(root, "node", process.platform === "win32" ? "" : "bin");
+  const pyDir = join(root, "python", process.platform === "win32" ? "" : "bin");
   mkdirSync(nodeDir, { recursive: true });
   mkdirSync(pyDir, { recursive: true });
-  const nodeBin = join(nodeDir, "node");
-  const pyBin = join(pyDir, "python3");
-  writeFileSync(nodeBin, "#!/bin/sh\necho v22.19.0\n", { mode: 0o755 });
-  writeFileSync(pyBin, "#!/bin/sh\necho Python 3.12.13\n", { mode: 0o755 });
+  const nodeBin = join(nodeDir, process.platform === "win32" ? "node.exe" : "node");
+  const pyBin = join(pyDir, process.platform === "win32" ? "python.exe" : "python3");
+  writeFileSync(nodeBin, process.platform === "win32" ? "@echo off" : "#!//bin/sh\necho v22.19.0\n", { mode: 0o755 });
+  writeFileSync(pyBin, process.platform === "win32" ? "@echo off" : "#!//bin/sh\necho Python 3.12.13\n", { mode: 0o755 });
   writeFileSync(
     join(root, "manifest.json"),
     JSON.stringify({
@@ -59,8 +59,9 @@ function makeVendorWithArchives(): {
 
   const archives = join(root, "archives");
   mkdirSync(archives, { recursive: true });
-  execFileSync("tar", ["-czf", join(archives, "node.tar.gz"), "-C", root, "node"]);
-  execFileSync("tar", ["-czf", join(archives, "python.tar.gz"), "-C", root, "python"]);
+  const tar = resolveTarBinary();
+  execFileSync(tar, ["-czf", join(archives, "node.tar.gz"), "-C", root, "node"]);
+  execFileSync(tar, ["-czf", join(archives, "python.tar.gz"), "-C", root, "python"]);
 
   // Vendor for packaged layout has only archives + manifest (no expanded trees required).
   // Keep expanded too so resolveVendor finds either.
@@ -104,8 +105,10 @@ describe("extractRuntimeArchives", () => {
         },
         dest,
       );
-      expect(existsSync(join(dest, "node", "bin", "node"))).toBe(true);
-      expect(existsSync(join(dest, "python", "bin", "python3"))).toBe(true);
+      const nodePath = process.platform === "win32" ? join(dest, "node", "node.exe") : join(dest, "node", "bin", "node");
+      expect(existsSync(nodePath)).toBe(true);
+      const pythonPath = process.platform === "win32" ? join(dest, "python", "python.exe") : join(dest, "python", "bin", "python3");
+      expect(existsSync(pythonPath)).toBe(true);
       const roots = rootsFromRuntimeRoot(dest);
       expect(roots?.nodeRoot).toBe(join(dest, "node"));
     } finally {
@@ -133,7 +136,8 @@ describe("ensureProvisionedRuntimes", () => {
       expect(layout).toBeDefined();
       expect(layout?.source).toBe("userData");
       expect(layout?.provisioned).toBe(true);
-      expect(existsSync(join(userRuntimesRoot(userData), "node", "bin", "node"))).toBe(true);
+      const nodePath = process.platform === "win32" ? join(userRuntimesRoot(userData), "node", "node.exe") : join(userRuntimesRoot(userData), "node", "bin", "node");
+      expect(existsSync(nodePath)).toBe(true);
       expect(existsSync(npmPrefixDir(userData))).toBe(true);
       expect(layout?.npmPrefix).toBe(npmPrefixDir(userData));
 
@@ -155,8 +159,10 @@ describe("ensureProvisionedRuntimes", () => {
     const root = mkdtempSync(join(tmpdir(), "zeno-dev-vendor-"));
     const userData = mkdtempSync(join(tmpdir(), "zeno-dev-ud-"));
     try {
-      mkdirSync(join(root, "node", "bin"), { recursive: true });
-      writeFileSync(join(root, "node", "bin", "node"), "#!/bin/sh\n", { mode: 0o755 });
+      const nodeDir = join(root, "node", process.platform === "win32" ? "" : "bin");
+      mkdirSync(nodeDir, { recursive: true });
+      const nodeBin = join(nodeDir, process.platform === "win32" ? "node.exe" : "node");
+      writeFileSync(nodeBin, process.platform === "win32" ? "@echo off" : "#!//bin/sh\n", { mode: 0o755 });
       writeFileSync(join(root, "manifest.json"), JSON.stringify({ node: "22.19.0" }));
 
       const layout = ensureProvisionedRuntimes({
@@ -181,15 +187,19 @@ describe("isolation env", () => {
     const userData = mkdtempSync(join(tmpdir(), "zeno-iso-"));
     try {
       const root = join(userData, "runtimes");
-      mkdirSync(join(root, "node", "bin"), { recursive: true });
-      writeFileSync(join(root, "node", "bin", "node"), "#!/bin/sh\n", { mode: 0o755 });
+      const nodeDir = join(root, "node", process.platform === "win32" ? "" : "bin");
+      mkdirSync(nodeDir, { recursive: true });
+      const nodeBin = join(nodeDir, process.platform === "win32" ? "node.exe" : "node");
+      writeFileSync(nodeBin, process.platform === "win32" ? "@echo off" : "#!//bin/sh\n", { mode: 0o755 });
       const roots = rootsFromRuntimeRoot(root);
       expect(roots).toBeDefined();
       if (!roots) return;
 
       const dirs = ensureIsolationDirs({ userDataPath: userData });
-      mkdirSync(join(dirs.pythonVenv, "bin"), { recursive: true });
-      writeFileSync(join(dirs.pythonVenv, "bin", "python3"), "#!/bin/sh\n", { mode: 0o755 });
+      const pyVenvDir = process.platform === "win32" ? join(dirs.pythonVenv, "Scripts") : join(dirs.pythonVenv, "bin");
+      mkdirSync(pyVenvDir, { recursive: true });
+      const pyExe = process.platform === "win32" ? join(pyVenvDir, "python.exe") : join(pyVenvDir, "python3");
+      writeFileSync(pyExe, process.platform === "win32" ? "@echo off" : "#!//bin/sh\n", { mode: 0o755 });
 
       const layout = {
         roots,
@@ -216,8 +226,10 @@ describe("isProvisionStampCurrent", () => {
     const { vendorRoot, userData } = makeVendorWithArchives();
     try {
       const userRoot = userRuntimesRoot(userData);
-      mkdirSync(join(userRoot, "node", "bin"), { recursive: true });
-      writeFileSync(join(userRoot, "node", "bin", "node"), "#!/bin/sh\n", { mode: 0o755 });
+      const nodeDir = join(userRoot, "node", process.platform === "win32" ? "" : "bin");
+      mkdirSync(nodeDir, { recursive: true });
+      const nodeBin = join(nodeDir, process.platform === "win32" ? "node.exe" : "node");
+      writeFileSync(nodeBin, process.platform === "win32" ? "@echo off" : "#!//bin/sh\n", { mode: 0o755 });
       const vendor = resolveVendorRuntimeLayout({ explicitVendorRoot: vendorRoot });
       expect(vendor).toBeDefined();
       if (!vendor) return;
@@ -240,7 +252,8 @@ describe("PRSLOY: tools archive + PortableGit SFX (Windows layout)", () => {
     mkdirSync(join(vendorRoot, "tools"), { recursive: true });
     writeFileSync(join(vendorRoot, "tools", "rg.exe"), "x");
     const archives = join(vendorRoot, "archives");
-    execFileSync("tar", ["-czf", join(archives, "tools.tar.gz"), "-C", vendorRoot, "tools"]);
+    const tar = resolveTarBinary();
+    execFileSync(tar, ["-czf", join(archives, "tools.tar.gz"), "-C", vendorRoot, "tools"]);
     writeFileSync(join(archives, "git.7z.exe"), "sfx");
     writeFileSync(
       join(vendorRoot, "manifest.json"),
@@ -328,7 +341,8 @@ describe("PRSLOY window first: plan + background unpack", () => {
         onProgress: (done) => progress.push(done),
       });
       expect(layout?.source).toBe("userData");
-      expect(existsSync(join(userRuntimesRoot(userData), "node", "bin", "node"))).toBe(true);
+      const nodePath = process.platform === "win32" ? join(userRuntimesRoot(userData), "node", "node.exe") : join(userRuntimesRoot(userData), "node", "bin", "node");
+      expect(existsSync(nodePath)).toBe(true);
       expect(progress.length).toBeGreaterThan(0);
       expect(readProvisionStamp(userData)?.node).toBe("22.19.0");
       // No staging leftovers.
@@ -358,7 +372,8 @@ describe("PRSLOY window first: plan + background unpack", () => {
       const plan = planProvisionedRuntimes(options);
       if (plan.kind !== "extract") throw new Error(`expected extract, got ${plan.kind}`);
       const layout = await provisionRuntimesAsync({ ...options, plan });
-      expect(existsSync(join(userRuntimesRoot(userDataCyr), "node", "bin", "node"))).toBe(true);
+      const nodePath = process.platform === "win32" ? join(userRuntimesRoot(userDataCyr), "node", "node.exe") : join(userRuntimesRoot(userDataCyr), "node", "bin", "node");
+      expect(existsSync(nodePath)).toBe(true);
       expect(layout?.source).toBe("userData");
       // Sync path (prefs toggles) too.
       rmSync(userRuntimesRoot(userDataCyr), { recursive: true, force: true });

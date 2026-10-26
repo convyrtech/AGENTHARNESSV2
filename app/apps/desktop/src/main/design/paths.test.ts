@@ -1,6 +1,6 @@
 import { mkdirSync, mkdtempSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { describe, expect, it } from "vite-plus/test";
 import {
   DESIGN_DIR,
@@ -20,7 +20,11 @@ function tree() {
   mkdirSync(join(ws, "design", "landing"), { recursive: true });
   writeFileSync(join(ws, "design", "landing", "00 moods.png"), "x");
   writeFileSync(join(root, "secret.txt"), "s");
-  symlinkSync(join(root, "secret.txt"), join(ws, "link.txt"));
+  mkdirSync(join(root, "outside"));
+  writeFileSync(join(root, "outside", "secret.txt"), "s");
+  // A directory link out of the workspace. "junction" needs no admin rights on Windows
+  // (file symlinks do: EPERM without SeCreateSymbolicLinkPrivilege); Linux ignores the type.
+  symlinkSync(join(root, "outside"), join(ws, "link"), "junction");
   return { root, ws };
 }
 
@@ -37,7 +41,8 @@ describe("harnessStateDir", () => {
 
 describe("workspaceFor", () => {
   it("puts the workspace inside the project, or under the fallback root", () => {
-    expect(workspaceFor("/p/shop", "/docs")).toBe(join("/p/shop", DESIGN_DIR));
+    // workspaceFor resolves the project path; on Windows that adds the current drive letter.
+    expect(workspaceFor("/p/shop", "/docs")).toBe(join(resolve("/p/shop"), DESIGN_DIR));
     expect(workspaceFor(undefined, "/docs")).toBe(join("/docs", DESIGN_DIR));
   });
 });
@@ -49,7 +54,8 @@ describe("insideRoot", () => {
     expect(insideRoot(ws, join(ws, "design"))).toMatch(/design$/);
     expect(insideRoot(ws, "../secret.txt")).toBeUndefined();
     expect(insideRoot(ws, join(root, "secret.txt"))).toBeUndefined();
-    expect(insideRoot(ws, "link.txt")).toBeUndefined();
+    expect(insideRoot(ws, "link")).toBeUndefined();
+    expect(insideRoot(ws, "link/secret.txt")).toBeUndefined();
     expect(insideRoot(ws, ws)).toBeUndefined();
   });
 });
