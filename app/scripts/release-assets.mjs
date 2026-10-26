@@ -13,6 +13,7 @@
  *   node scripts/release-assets.mjs collect <outDir> <artifactsDir> --platform win|mac|linux [--arch <arch>]
  *   node scripts/release-assets.mjs validate-publish <releaseAssetsDir>
  *   node scripts/release-assets.mjs check-feed <dir> [--version <semver>]   (Windows: latest.yml)
+ *   node scripts/release-assets.mjs check-feed <dir> --platform linux [--version <semver>]   (latest-linux.yml)
  *   node scripts/release-assets.mjs list <dir>
  */
 import { createHash } from "node:crypto";
@@ -339,6 +340,67 @@ export function checkWindowsFeed(dir, options = {}) {
   return { ok: errors.length === 0, errors, files: files.map((f) => f.url), version };
 }
 
+/**
+ * The same for Linux: latest-linux.yml lists the AppImage (its blockmap is embedded in the file,
+ * electron-builder writes none beside it) and the .deb (electron-updater's DebUpdater reads the same
+ * feed). Every listed file must be in the folder with its size and sha512.
+ *
+ * @param {string} dir  folder with latest-linux.yml, the AppImage and the .deb (one release)
+ * @param {{ version?: string }} [options]
+ */
+export function checkLinuxFeed(dir, options = {}) {
+  /** @type {string[]} */
+  const errors = [];
+  const feedPath = join(dir, "latest-linux.yml");
+  if (!existsSync(feedPath)) {
+    return { ok: false, errors: ["latest-linux.yml missing"], files: [] };
+  }
+  const yml = readFileSync(feedPath, "utf8");
+  const top = (key) => yml.match(new RegExp(`^${key}: *'?([^'\\n]*)'?$`, "m"))?.[1]?.trim();
+  /** @type {{ url: string, sha512?: string, size?: number }[]} */
+  const files = [];
+  for (const block of yml.split(/^ {2}- /m).slice(1)) {
+    const field = (key) => block.match(new RegExp(`^\\s*${key}: *(\\S+)`, "m"))?.[1];
+    const url = block.match(/^url: *'?(.+?)'?\s*$/m)?.[1];
+    if (url) files.push({ url, sha512: field("sha512"), size: Number(field("size")) });
+  }
+  const version = top("version");
+  if (!version) errors.push("latest-linux.yml: no version");
+  if (options.version && version !== options.version) {
+    errors.push(`latest-linux.yml: version ${version}, expected ${options.version}`);
+  }
+  if (files.length === 0) errors.push("latest-linux.yml: no files");
+  for (const f of files) {
+    if (!GITHUB_SAFE_NAME.test(f.url)) {
+      errors.push(`${f.url}: GitHub would rename this asset (only A-Z a-z 0-9 . _ -)`);
+    }
+    if (!f.url.endsWith(".AppImage") && !f.url.endsWith(".deb")) {
+      errors.push(`${f.url}: neither an AppImage nor a .deb`);
+    }
+    if (version && !f.url.includes(version)) {
+      errors.push(`${f.url}: name does not carry version ${version}`);
+    }
+    const file = join(dir, f.url);
+    if (!existsSync(file)) {
+      errors.push(`${f.url}: listed in latest-linux.yml but not in the folder`);
+      continue;
+    }
+    const body = readFileSync(file);
+    if (f.size !== body.length) {
+      errors.push(`${f.url}: size ${body.length}, latest-linux.yml says ${f.size}`);
+    }
+    const sha512 = createHash("sha512").update(body).digest("base64");
+    if (f.sha512 !== sha512) errors.push(`${f.url}: sha512 differs from latest-linux.yml`);
+  }
+  if (!files.some((f) => f.url.endsWith(".AppImage"))) errors.push("latest-linux.yml: no AppImage");
+  const names = listFiles(dir).map((p) => basename(p));
+  if (!names.some((n) => n.endsWith(".deb"))) errors.push("no .deb next to the AppImage");
+  const listed = new Set(files.map((f) => f.url).concat("latest-linux.yml"));
+  const extra = names.filter((n) => !listed.has(n) && !n.endsWith(".deb"));
+  if (extra.length) errors.push(`not referenced by latest-linux.yml: ${extra.join(", ")}`);
+  return { ok: errors.length === 0, errors, files: files.map((f) => f.url), version };
+}
+
 // --- CLI -----------------------------------------------------------------------
 
 function parseArgs(argv) {
@@ -409,8 +471,20 @@ function main() {
 
   if (command === "check-feed") {
     if (!a) {
-      console.error("Usage: node scripts/release-assets.mjs check-feed <dir> [--version <semver>]");
+      console.error(
+        "Usage: node scripts/release-assets.mjs check-feed <dir> [--platform linux] [--version <semver>]",
+      );
       process.exit(2);
+    }
+    if (flags.platform === "linux") {
+      const linux = checkLinuxFeed(a, { version: flags.version });
+      if (!linux.ok) {
+        console.error(`latest-linux.yml check failed in ${a}:`);
+        for (const err of linux.errors) console.error(`  - ${err}`);
+        process.exit(1);
+      }
+      console.log(`latest-linux.yml ok: ${linux.version} → ${linux.files.join(", ")}`);
+      return;
     }
     const result = checkWindowsFeed(a, { version: flags.version });
     if (!result.ok) {

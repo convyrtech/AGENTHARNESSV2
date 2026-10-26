@@ -111,6 +111,11 @@ nsis:
   shortcutName: PRSLOY
   # PortableGit is unpacked during installation (first «Код» turn does not wait for it).
   include: build/installer.nsh
+# AppImage on the static runtime (1.0.3): no libfuse2 needed (Ubuntu 22.04+ do not ship it) and a zstd
+# image instead of the legacy toolset's xz under `compression: maximum`, which took ~90 s to open the
+# window through FUSE on Ubuntu 24.04 (desktop-linux smoke). Only the AppImage target reads this.
+toolsets:
+  appimage: "1.0.3"
 linux:
   icon: icon.png
   executableName: PRSLOY

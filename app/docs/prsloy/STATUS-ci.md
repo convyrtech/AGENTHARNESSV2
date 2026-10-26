@@ -22,6 +22,38 @@ smoke `firstrun.spec.ts` → metrics.json `firstCommand`, в main-логе `turn
 - Не делали (решение дирижёра): ход до venv (ранний `pip install` попал бы в базовый Python) и распаковку в
   установщике (+12 с установки и безголовый режим в main).
 
+## Linux: AppImage и deb (desktop-linux.yml)
+
+- Сборка на ubuntu-24.04: Node и Python для linux-x64 свои (как на Windows), git и bash — системные (без git
+  агент работает, нет только «Откатить» и патча «Дизайна»). `release-assets check-feed --platform linux`
+  сверяет latest-linux.yml (AppImage и deb: размер, sha512, версия).
+- Найдено и исправлено:
+  - Python на Linux/macOS не создавал venv: обрезка удаляла `ensurepip/_bundled` (колесо pip). Колесо
+    оставлено, ревизия обрезки 3 только для Linux/macOS (Windows — 2, там ничего не менялось), при сборке —
+    проверка venv + pip.
+  - AppImage на старом наборе инструментов: нужен libfuse2 (в Ubuntu 22.04+ его нет), образ в xz по 1 МБ при
+    `compression: maximum` — окно открывалось через 90 с. `toolsets.appimage: "1.0.3"`: статический runtime,
+    zstd, без libfuse2; без fusermount вообще распаковывается и запускается сам.
+- Smoke на чистых раннерах, AppArmor как в Ubuntu: deb через `apt install ./…deb` (его postinst ставит профиль
+  AppArmor), AppImage только `chmod +x`; firstrun.spec в режиме продукта (ключ, неверный ключ → русская
+  ошибка, папка, ответ, первая команда, выход).
+
+| Прогон 40294320830 | экран ключа | при зависшей сети | ключ → ответ | окно (main) |
+| ------------------ | ----------- | ----------------- | ------------ | ----------- |
+| deb                | 5,1 с       | 1,3 с             | 6,1 с        | 1,2 с       |
+| AppImage           | 6,6 с       | 2,1 с             | 6,1 с        | 1,8 с       |
+
+До статического runtime (40292972858) AppImage: экран ключа 107 с, при зависшей сети 103 с, окно 90 с.
+
+- Выпуск: desktop-windows.yml вызывает desktop-linux.yml рядом со своими job (та же версия); `release-linux`
+  после Windows-`release` сверяет latest-linux.yml и грузит AppImage, deb и ленту в тот же релиз (сухой
+  прогон — только сверка). Windows-`release` от Linux не зависит. Пока файлы Linux не легли, приложение на
+  Linux этот релиз пропускает (update-provider.ts) и остаётся на своей версии.
+- packaged-smoke.mjs на Linux не запускается (зависает на кнопке перезапуска хоста из отладочной панели —
+  проверка рассчитана на Windows); его заменяет firstrun.spec на установленных пакетах.
+- «Дизайн» из zip пайплайна в CI не проверен: репозиторий пайплайна приватный.
+- Заметка для владельца — `docs/prsloy/RELEASE-NOTES-alpha.3.md` («PRSLOY для Linux»).
+
 ## Проверка навыков в CI: NVIDIA SkillSpector (desktop-ci, job skill-scan)
 
 - Одобрено владельцем. Отдельный job: `contents: read`, checkout без сохранённых credentials, без секретов;
