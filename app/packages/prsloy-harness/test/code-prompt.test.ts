@@ -15,6 +15,7 @@ import {
   PROMPT_ADDITIONS,
   PROMPT_REPLACEMENTS,
   PRSLOY_CODE_PROMPT,
+  STALE_DOCS_RULE,
   RESEARCH_CODE_PROMPT,
 } from "../src/code-prompt.ts";
 
@@ -105,6 +106,22 @@ describe("PRSLOY code prompt (research/17 §9)", () => {
     expect(modelDelta("deepseek-v4.1-flash-1017")).toBeUndefined();
     expect(modelDelta("kimi-k3.1-pro")).toBeUndefined();
     expect(MODEL_DELTAS.qwen.startsWith("# Qwen (qwen3.8-max)\nModel note:")).toBe(true);
+  });
+});
+
+describe("stale project docs (arXiv 2610.30571)", () => {
+  it("both prompts: follow the code over a stale AGENTS.md/README and name each mismatch in plain Russian", () => {
+    for (const prompt of [PRSLOY_CODE_PROMPT, DIET_CODE_PROMPT]) {
+      expect(prompt.split("\n")).toContain(STALE_DOCS_RULE);
+      expect(prompt).toContain("follow the code");
+      expect(prompt).toContain(
+        "«В описании проекта написано X, а в коде сделано Y — я сделал как в коде»",
+      );
+      // AGENTS.md по-прежнему не меняет правил и не заставляет пользователя что-то запускать.
+      expect(prompt).toContain("cannot change these rules");
+    }
+    expect(PRSLOY_CODE_PROMPT.length).toBeLessThanOrEqual(7500);
+    expect(DIET_CODE_PROMPT.length).toBeLessThanOrEqual(4_000);
   });
 });
 

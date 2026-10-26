@@ -22,6 +22,8 @@ export interface Candidate {
   license?: string;
   deprecated?: string;
   archived?: boolean;
+  /** Известные уязвимости этой версии по OSV.dev: id (CVE, если есть) критических и высоких. */
+  vulns?: { critical: string[]; high: string[] };
   install: string;
 }
 
@@ -51,6 +53,8 @@ const NPM_DOWNLOADS = "https://api.npmjs.org/downloads/point/last-week";
 const PYPI = "https://pypi.org/pypi";
 const PYPISTATS = "https://pypistats.org/api/packages";
 const ECOSYSTEMS = "https://packages.ecosyste.ms/api/v1/registries";
+/** OSV.dev: известные уязвимости версии пакета (бесплатно, без ключа; идея — OSV-шаг NVIDIA SkillSpector). */
+const OSV = "https://api.osv.dev/v1/query";
 
 class NotFound extends Error {}
 
@@ -99,7 +103,43 @@ export class FindReady {
     if (ecosystem !== "npm") tasks.push(this.#pypi(query, names, result, ecosystem === "pypi"));
     await Promise.all(tasks);
     result.candidates = pickTop(result.candidates, names);
+    await Promise.all(result.candidates.map((c) => this.#osv(c, result)));
     return result;
+  }
+
+  /** Уязвимости версии кандидата по OSV.dev; не ответил — без пометки, «Не ответили: OSV». */
+  async #osv(c: Candidate, result: FindReadyResult): Promise<void> {
+    if (!c.version) return;
+    const key = `osv:${c.ecosystem}:${c.name}@${c.version}`;
+    try {
+      let data = this.#cache.get(key)?.value as OsvResponse | undefined;
+      if (!data || Date.now() - (this.#cache.get(key)?.at ?? 0) >= this.#cacheMs) {
+        const res = await this.#fetch(OSV, {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            "user-agent": "prsloy-harness (find_ready)",
+          },
+          body: JSON.stringify({
+            package: { name: c.name, ecosystem: c.ecosystem === "npm" ? "npm" : "PyPI" },
+            version: c.version,
+          }),
+          signal: AbortSignal.timeout(this.#timeoutMs),
+        });
+        if (!res.ok) throw new Error(`${res.status} OSV`);
+        data = (await res.json()) as OsvResponse;
+        this.#cache.set(key, { at: Date.now(), value: data });
+      }
+      const pick = (level: string) =>
+        (data?.vulns ?? [])
+          .filter((v) => String(v.database_specific?.severity ?? "").toUpperCase() === level)
+          .map((v) => v.aliases?.find((a) => a.startsWith("CVE-")) ?? v.id ?? "?");
+      const critical = pick("CRITICAL");
+      const high = pick("HIGH");
+      if (critical.length || high.length) c.vulns = { critical, high };
+    } catch {
+      if (!result.unavailable.includes("OSV")) result.unavailable.push("OSV");
+    }
   }
 
   async #npm(query: string, names: string[], result: FindReadyResult): Promise<void> {
@@ -277,6 +317,9 @@ interface PypiJson {
   };
   urls?: { upload_time_iso_8601?: string }[];
 }
+interface OsvResponse {
+  vulns?: { id?: string; aliases?: string[]; database_specific?: { severity?: string } }[];
+}
 interface EcosystemsPackage {
   status?: string | null;
   downloads?: number | null;
@@ -350,9 +393,20 @@ export function formatResult(query: string, result: FindReadyResult): string {
         c.lastRelease ? `релиз ${c.lastRelease}` : undefined,
         c.license ?? "лицензия не указана",
       ].filter(Boolean);
+      const v = c.vulns;
       const warn = [
         c.deprecated ? `⚠ устарел: ${c.deprecated}` : undefined,
         c.archived ? "⚠ репозиторий в архиве" : undefined,
+        v
+          ? `⚠ уязвимости версии ${c.version} (OSV): ${[
+              v.critical.length
+                ? `критических ${v.critical.length} (${v.critical.slice(0, 3).join(", ")})`
+                : "",
+              v.high.length ? `высоких ${v.high.length}` : "",
+            ]
+              .filter(Boolean)
+              .join(", ")}`
+          : undefined,
       ].filter(Boolean);
       lines.push(`${i + 1}. ${c.name} — ${c.description || "без описания"}`);
       lines.push(`   ${facts.join(" · ")}${warn.length ? ` · ${warn.join(" · ")}` : ""}`);
@@ -370,6 +424,11 @@ export function formatResult(query: string, result: FindReadyResult): string {
   }
   lines.push(
     "Бери живой популярный пакет (много загрузок, свежий релиз, понятная лицензия, не устарел). Своё пиши, только если ни один не подходит, и скажи почему.",
+    ...(result.candidates.some((c) => c.vulns?.critical.length)
+      ? [
+          "У версии с критической уязвимостью возьми исправленную версию или другой пакет и скажи пользователю.",
+        ]
+      : []),
   );
   return lines.join("\n");
 }

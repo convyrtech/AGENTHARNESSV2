@@ -18,7 +18,7 @@ const out = mkdtempSync(join(tmpdir(), "prsloy-bench-"));
 afterAll(() => rmSync(out, { recursive: true, force: true }));
 
 describe("bench --fake", () => {
-  it("has 20 casual tasks (4 across sessions / for memory), each with a prompt, a check and a fake solution", () => {
+  it("has 22 casual tasks (4 across sessions / for memory), each with a prompt, a check and a fake solution", () => {
     const tasks = listTasks();
     expect(tasks.map((t) => t.id)).toEqual([
       "agents-md-conflict",
@@ -37,6 +37,8 @@ describe("bench --fake", () => {
       "snake-continue",
       "snake-game",
       "speed-up",
+      "stale-docs-logging",
+      "stale-docs-naming",
       "tg-bot",
       "vague-request",
       "visit-card",
@@ -94,7 +96,7 @@ describe("bench --fake", () => {
       // Без харнесса инструмента memory нет — задача «запомни пароль» не видит карточки отказа.
       const failed = report.results.filter((r) => r.ok === false).map((r) => r.id);
       expect(failed).toEqual(harness ? [] : ["remember-password"]);
-      expect(report.totals.passed + report.totals.skipped).toBe(harness ? 20 : 19);
+      expect(report.totals.passed + report.totals.skipped).toBe(harness ? 22 : 21);
       const cont = report.results.find((r) => r.id === "snake-continue");
       if (cont?.ok !== null)
         expect(cont?.note).toContain(`сводка прошлого раза: ${harness ? "была" : "нет"}`);
@@ -118,7 +120,7 @@ describe("bench --fake", () => {
         "| Задача | Проверка | Время, с | Вызовов | $ | Кэш | Ответ | Вмешательства харнесса |",
       );
       expect(md).toContain(`харнесс ${harness ? "вкл" : "выкл"}, промпт ${prompt}`);
-      expect(md).toContain("Ответы: по-русски 20 из 20; команд пользователю 0");
+      expect(md).toContain("Ответы: по-русски 22 из 22; команд пользователю 0");
     }, 120_000);
   }
 });
