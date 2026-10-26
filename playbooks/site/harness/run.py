@@ -22,7 +22,7 @@ HERE = Path(__file__).resolve().parent
 PLAYBOOK = HERE.parent                                  # playbooks/site
 CFG = json.loads((HERE / "stages.json").read_text(encoding="utf-8"))
 # HARNESS_MODELS: модели, которые реально есть на шлюзе (приложение берёт их из /v1/models). Лестница сужается до них,
-# ступень без модели поднимается до ближайшей доступной: шлюз PRSLOY 2026-10-25 отдавал qwen и opus, но не deepseek и kimi
+# ступень без модели поднимается до ближайшей доступной (утром 2026-10-25 PRSLOY не отдавал deepseek и kimi, к ночи отдавал)
 AVAILABLE = {m.strip() for m in os.environ.get("HARNESS_MODELS", "").split(",") if m.strip()}
 
 

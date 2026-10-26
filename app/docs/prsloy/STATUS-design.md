@@ -1101,7 +1101,9 @@ python3 abreport.py compare $R/off-N/rec $R/on-N/rec --out $R/report-N --pipelin
   ступени шагов поднимаются до ближайшей оставшейся, судья выбирается только из уцелевших.
 - Приложение всегда передаёт `HARNESS_GATEWAY=prsloy` (`env.ts`, `service.ts`): прокси «Дизайна» стоит только перед
   PRSLOY. qwen выпадает, даже если список моделей шлюза не загрузился.
-- Итог на PRSLOY: раньше шаги вкуса шли на qwen (deepseek и kimi шлюз не отдавал), теперь вся лестница — Opus.
+- Итог на PRSLOY по каталогу 2026-10-26 (`GET /v1/models`: deepseek, kimi, opus, fable, qwen и др.): лестница
+  deepseek → kimi → opus. Шаг 0 и 7–8 — на deepseek, шаги вкуса 0a–6 — на kimi, Opus сверху и судья. Тест на этот
+  каталог — `test_lessons.py`. (Утром 2026-10-25 шлюз deepseek и kimi не отдавал, и шаги вкуса шли на qwen.)
 - Прогоны на a6 без метки идут по лестнице как написана.
 - Проверить a6 на ту же беду: `vision_probe.py --out <папка> --canary --model <id> …` — один вызов на модель с
   заданием в system-сообщении и картинкой.

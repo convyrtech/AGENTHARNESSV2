@@ -95,6 +95,17 @@ class FitLadder(unittest.TestCase):
         self.assertEqual(c["stages"]["1"]["start"], 0)     # kimi → ближайшая выше: qwen
         self.assertEqual(c["judge"]["model"], "claude-opus-5-5")
 
+    def test_prsloy_catalog_2026_10_26_taste_on_kimi_mechanics_on_deepseek_opus_on_top(self):
+        g = load_run()
+        cat = set(["claude-fable-5", "claude-opus-5-5", "deepseek-v4.1-flash-1017", "gpt-6.1-sol", "gpt-image-2", "gpt-image-2.5", "grok-4.7", "kimi-k3.1-pro", "nano-banana-2.1", "nano-banana-pro", "qwen3.8-max"])                                # GET /v1/models on PRSLOY, 2026-10-26
+        real = json.loads((HERE / "stages.json").read_text(encoding="utf-8"))
+        c = g["fit_ladder"](real, cat, "prsloy")
+        self.assertEqual(c["ladder"], ["a6p/deepseek-v4.1-flash-1017", "a6p/kimi-k3.1-pro", "a6p/claude-opus-5-5"])
+        self.assertEqual(c["defaults"]["start"], 0)                   # mechanics: deepseek
+        self.assertEqual({k: v["start"] for k, v in c["stages"].items() if k in ("1", "2", "5", "6")},
+                         {"1": 1, "2": 1, "5": 1, "6": 1})            # taste: kimi
+        self.assertEqual(c["judge"]["model"], "claude-opus-5-5")
+
     def test_prsloy_drops_qwen_its_channel_loses_system_messages_and_images(self):
         g = load_run()
         cfg = dict(self.cfg(), gateway_skip={"prsloy": ["qwen"]})

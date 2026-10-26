@@ -380,8 +380,20 @@ describe.skipIf(!python3 || process.platform === "win32")("design IPC", () => {
     cpSync(join(root, "bundle", "playbooks"), join(bare, "playbooks"), { recursive: true });
     const userData = join(root, "Иван Петров", "PRSLOY");
     const events: DesignEventMessage[] = [];
-    // the live gateway (2026-10-25): no deepseek, no kimi from the stages.json ladder
-    const LIVE = ["qwen3.8-max", "claude-opus-5-5", "claude-fable-5", "gpt-6.1-sol", "grok-4.7"];
+    // the live gateway's catalog (GET /v1/models, 2026-10-26)
+    const LIVE = [
+      "claude-fable-5",
+      "claude-opus-5-5",
+      "deepseek-v4.1-flash-1017",
+      "gpt-6.1-sol",
+      "gpt-image-2",
+      "gpt-image-2.5",
+      "grok-4.7",
+      "kimi-k3.1-pro",
+      "nano-banana-2.1",
+      "nano-banana-pro",
+      "qwen3.8-max",
+    ];
     const gateway = createServer((req, res) => {
       const body = JSON.stringify(
         req.url === "/v1/models" ? { data: LIVE.map((id) => ({ id })) } : {},
