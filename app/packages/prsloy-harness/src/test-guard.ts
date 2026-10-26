@@ -8,6 +8,7 @@
 //     подмена отчёта pytest, пустой `except`, комментарии «для теста»). Сигналы — ревьюеру; возврат — только
 //     при двух разных видах (research/22 §6.7).
 // Просьба пользователя изменить поведение или проверки (§4.3) — не возврат, а «Проверки обновлены по вашей просьбе».
+import { runCheck } from "./check-run.ts";
 import { cpSync, existsSync, mkdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { dirname, join } from "node:path";
@@ -94,18 +95,15 @@ export function signaturesWarrantPushback(found: Signature[]): boolean {
 }
 
 /**
- * Пользователь сам просит изменить поведение или проверки (research/24 §4.3): «теперь скидка 15%», «округляй
- * вниз», «поправь и проверки». Тогда страж не возвращает ход.
+ * Пользователь сам просит изменить проверки (research/24 §4.3): «поправь и проверки», «тест устарел, обнови»,
+ * «Обнови тесты под новое правило: …» (кнопка карточки «тесты устарели»). Тогда страж не возвращает ход.
+ * Новое правило само по себе («теперь скидка 15%», «НДС 22% вместо 20%») — не просьба (#25, владелец 26.10):
+ * агент тесты не трогает, говорит, что они устарели, и предлагает обновить.
  */
 export function userAskedToChange(task: string): boolean {
   // «Почини, тесты падают» — не просьба менять тесты: «почини/исправь/поправь» рядом с «тест» не в счёт.
-  if (CHANGE_REQUEST.test(task)) return true;
-  // «НДС 22% вместо 20%» — новое правило; «выдаёт 180 вместо 20» — описание бага, не просьба.
-  return /(?<!\p{L})вместо(?!\p{L})/iu.test(task) && !BUG_INSTEAD.test(task);
+  return CHANGE_REQUEST.test(task);
 }
-
-const BUG_INSTEAD =
-  /(?:выда|показыва|пиш|да[её]т|получа|выход|счита|возвраща|печата)\p{L}*[^.!?\n]{0,40}(?<!\p{L})вместо(?!\p{L})/iu;
 
 const CHANGE_REQUEST = new RegExp(
   [
@@ -118,9 +116,7 @@ const CHANGE_REQUEST = new RegExp(
     "(?<!\\p{L})(?:тест|проверк)\\p{L}*\\s+(?:\\p{L}+\\s+)?(?:устарел|неправильн|ошибочн|неверн|вр[её]т)",
     "(?:тест|проверк)\\p{L}*[^.!?\\n]{0,40}(?:исправ|поправ)\\p{L}*\\s+(?:его|её|ее|их)(?!\\p{L})",
     "(?<!\\p{L})и\\s+(?:тест|проверк)",
-    "(?<!\\p{L})(?:теперь|больше не|по-новому|отныне)(?!\\p{L})",
-    "\\binstead\\b",
-    "\\bfrom now on\\b",
+    "\\b(?:update|change|fix|rewrite)\\s+(?:the\\s+)?tests?\\b",
   ].join("|"),
   "iu",
 );
@@ -248,8 +244,8 @@ export async function runInCopy(input: {
       mkdirSync(dirname(join(dir, file)), { recursive: true });
       writeFileSync(join(dir, file), text);
     }
-    const check = input.check(dir);
-    const run = await input.runner(check, dir, input.timeoutMs);
+    // Та же запасная проверка, что у гейта (#37): нет pytest — unittest.
+    const { check, run } = await runCheck(input.runner, input.check(dir), dir, input.timeoutMs);
     // Нечем проверить (pytest не установлен) — не красное: молчим, как гейт.
     return { run, red: !run.timedOut && run.code !== 0 && !check.missingTool?.test(run.output) };
   } finally {

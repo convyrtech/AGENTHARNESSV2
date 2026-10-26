@@ -26,6 +26,7 @@ const FLAGS: HarnessFlags = {
   webTools: false,
   testQuality: false,
   reviewerCheats: false,
+  staleDocs: "end",
 };
 
 function setup(busy: { value: boolean }) {

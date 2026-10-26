@@ -1,5 +1,5 @@
 // Замер в режиме --fake: раннер, проверки кодом и учёт вмешательств работают без ключа (CI на Linux).
-import { cpSync, existsSync, mkdtempSync, rmSync } from "node:fs";
+import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -118,10 +118,38 @@ describe("bench --fake", () => {
       const reviews = report.results.reduce((n, r) => n + (r.interventions.reviewPass ?? 0), 0);
       if (harness) expect(reviews).toBeGreaterThan(0);
       else expect(reviews).toBe(0);
+      // Токены — по usage из ответов шлюза, всех вызовов: у фейка 100 на вход и 20 на выход каждый.
+      const t = report.totals.tokens;
+      expect(t.calls).toBeGreaterThan(report.results.length);
+      expect([t.input, t.output]).toEqual([t.calls * 100, t.calls * 20]);
+      expect(t.bySource.agent?.calls).toBeGreaterThan(0);
+      if (harness) expect(t.bySource.review?.calls).toBeGreaterThan(0);
+      else expect(t.bySource.review).toBeUndefined();
+      // Сверка с журналом прокси надёжности (prsloy-proxy.jsonl, есть только с харнессом): второе мнение идёт через
+      // него же, так что вызовы и вход совпадают задача в задачу.
+      if (harness)
+        for (const r of report.results) {
+          const file = join(out, "on", "sessions", r.id.replace(/\//g, "-"), "prsloy-proxy.jsonl");
+          const calls = existsSync(file)
+            ? readFileSync(file, "utf8")
+                .split("\n")
+                .filter(Boolean)
+                .map((l) => JSON.parse(l) as { prompt?: number })
+            : [];
+          expect([calls.length, calls.reduce((n, c) => n + (c.prompt ?? 0), 0)], r.id).toEqual([
+            r.tokens.calls,
+            r.tokens.input,
+          ]);
+        }
+      // Цен в bench/prices.json пока нет — не ноль, а «неизвестна».
+      expect(report.totals.rub).toBeNull();
+      expect(report.totals.outcomes.infra_error).toBe(0);
       const md = reportMarkdown(report);
       expect(md).toContain(
-        "| Задача | Проверка | Время, с | Вызовов | $ | Кэш | Ответ | Вмешательства харнесса |",
+        "| Задача | Проверка | Время, с | Вызовов | Токены вх/вых/кэш | ₽ | Кэш | Ответ | Вмешательства харнесса |",
       );
+      expect(md).toMatch(/Вызовы шлюза: агент \d+ \(.*\), второе мнение \d+/);
+      expect(md).toContain("цена неизвестна.");
       expect(md).toContain(`харнесс ${harness ? "вкл" : "выкл"}, промпт ${prompt}`);
       expect(md).toContain("Ответы: по-русски 25 из 25; команд пользователю 0");
     }, 120_000);

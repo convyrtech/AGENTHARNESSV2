@@ -16,7 +16,8 @@
 //   … --skills on              с курированными навыками (флаг "skills", S9; по умолчанию выкл.)
 //   … --memory off             без памяти (флаг "memory")
 //   … --honest-exit on         инструмент report_blocker (флаг "honestExit", H-1; по умолчанию выкл.)
-//   … --test-guard on          страж старых тестов (флаг "testGuard", H-1; по умолчанию выкл.)
+//   … --test-guard off         без стража старых тестов (флаг "testGuard", H-1; по умолчанию вкл., #25)
+//   … --stale-docs prompt      вариант против устаревшего AGENTS.md (флаг "staleDocs": end — по умолчанию, prompt|frame|read|gate)
 //   … --test-quality on        полезность новых тестов (флаг "testQuality", H-3; по умолчанию выкл.)
 //   … --reviewer-cheats on     ревьюер ищет подгонку (флаг "reviewerCheats", H-4; по умолчанию выкл.)
 //   … --claim-check on         слова и факты (флаг "claimCheck", H-2: H6–H8; по умолчанию выкл.)
@@ -28,14 +29,18 @@
 //   … --lessons-file <json>    уроки вместо lessons/code.json пакета (оффлайн-улучшатель, #33)
 //   … --skills-dir <папка>     навыки из папки <навык>/SKILL.md вместо встроенных; включает навыки (#33)
 //   … --delta-file <md>        добавка промпта модели из файла; включает дельту (#33)
+//   … --budget-rub N           остановить прогон, когда цена по токенам (bench/prices.json) дошла до N ₽ (выход 3)
+//   … --budget-tokens N        то же по токенам (вход + выход всех вызовов шлюза), когда цен нет
 // Итог: <out>/bench-<модель>-<on|off>-<время>.md и .json. Ключ берётся только из окружения и никуда не пишется.
 // Выход 0 — у всех проверенных задач исход тот, что ждали (обычно «решено»; у задач честности — например «жулик
-// пойман», research/24 §4.1); 1 — нет; 2 — не запустилось.
+// пойман», research/24 §4.1); 1 — нет; 2 — не запустилось или шлюз не принял ключ (401/403: прогон встаёт сразу);
+// 3 — бюджет исчерпан. Ошибки шлюза — исход infra_error: не в счёт, --resume гоняет такие задачи заново.
 import { readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { PRSLOY_DEFAULT_BASE_URL } from "../../../apps/desktop/src/shared/prsloy-config.ts";
 import { reportMarkdown, runBench } from "../bench/run.ts";
+import { STALE_DOCS_MODES, type StaleDocsMode } from "../src/flags.ts";
 import { skillFilesFromDir } from "../src/skills.ts";
 
 const { values } = parseArgs({
@@ -56,10 +61,13 @@ const { values } = parseArgs({
     delta: { type: "string", default: "off" },
     memory: { type: "string", default: "on" },
     "honest-exit": { type: "string", default: "off" },
-    "test-guard": { type: "string", default: "off" },
+    "test-guard": { type: "string", default: "on" },
     "test-quality": { type: "string", default: "off" },
     "reviewer-cheats": { type: "string", default: "off" },
     "claim-check": { type: "string", default: "off" },
+    "budget-rub": { type: "string" },
+    "budget-tokens": { type: "string" },
+    "stale-docs": { type: "string", default: "end" },
     web: { type: "string", default: "off" },
     out: { type: "string", default: "bench-out" },
     resume: { type: "string" },
@@ -87,6 +95,15 @@ async function main(): Promise<number> {
     console.error("Нужен ключ шлюза в PRSLOY_GATEWAY_KEY (или --fake).");
     return 2;
   }
+  const budget = (name: "budget-rub" | "budget-tokens"): number | undefined => {
+    const raw = values[name];
+    if (raw === undefined) return undefined;
+    const n = Number(raw);
+    if (!Number.isFinite(n) || n <= 0) throw new Error(`--${name} N: N — положительное число`);
+    return n;
+  };
+  const budgetRub = budget("budget-rub");
+  const budgetTokens = budget("budget-tokens");
   const outDir = resolve(values.resume ?? values.out);
   const report = await runBench({
     ...(values.resume ? { resume: true } : {}),
@@ -99,10 +116,13 @@ async function main(): Promise<number> {
     delta: values.delta === "on",
     memory: values.memory !== "off",
     honestExit: values["honest-exit"] === "on",
-    testGuard: values["test-guard"] === "on",
+    testGuard: values["test-guard"] !== "off",
     testQuality: values["test-quality"] === "on",
     reviewerCheats: values["reviewer-cheats"] === "on",
     claimCheck: values["claim-check"] === "on",
+    staleDocs: STALE_DOCS_MODES.includes(values["stale-docs"] as StaleDocsMode)
+      ? (values["stale-docs"] as StaleDocsMode)
+      : "end",
     webTools: values.web === "on",
     model: values.model,
     ...(values.fake ? { fake: true } : { baseUrl: values["base-url"] ?? PRSLOY_DEFAULT_BASE_URL }),
@@ -119,6 +139,8 @@ async function main(): Promise<number> {
     ...(values["delta-file"]
       ? { deltaText: readFileSync(values["delta-file"], "utf8").trim() }
       : {}),
+    ...(budgetRub !== undefined ? { budgetRub } : {}),
+    ...(budgetTokens !== undefined ? { budgetTokens } : {}),
     log: (line) => console.log(line),
   });
   const stamp = report.meta.date.replace(/[:.]/g, "-");
@@ -128,6 +150,15 @@ async function main(): Promise<number> {
   writeFileSync(`${base}.md`, md);
   writeFileSync(`${base}.json`, `${JSON.stringify(report, null, 2)}\n`);
   console.log(`\n${md}\nОтчёт: ${base}.md, ${base}.json`);
+  // Ключ не принят — 2 (как и прочие ошибки запуска), бюджет — 3: дальше гонять бессмысленно или дорого.
+  if (report.stopped?.reason === "auth") {
+    console.error("Ключ не принят шлюзом: прогон остановлен.");
+    return 2;
+  }
+  if (report.stopped?.reason === "budget") {
+    console.error(`Бюджет исчерпан: прогон остановлен (${report.stopped.message}).`);
+    return 3;
+  }
   return report.totals.unexpected === 0 ? 0 : 1;
 }
 

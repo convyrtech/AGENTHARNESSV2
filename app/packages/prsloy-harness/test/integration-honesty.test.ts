@@ -1,6 +1,7 @@
 // H-1 в настоящей сессии Pi (research/22 §6.6, этап 1): модель правит старый тест под баг → страж гоняет исходный
 // тест, красно → T2 → модель возвращает тест → T1 с report_blocker → блокер с цитатой из старого теста → карточка,
 // возвратов больше нет. Флаги testGuard и honestExit включены файлом настроек, как в приложении.
+import { TESTS_OUTDATED_CARD } from "../src/tests-outdated.ts";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -195,17 +196,38 @@ describe("integration: H-1 test guard and report_blocker", () => {
       },
     ]);
     expect(t.cards("prsloy-harness.stop-gate")).toEqual([]);
+    // #25: принятый блокер «тест против просьбы» — ещё и предложение обновить тесты (одна карточка на сообщение).
+    const prompt = "Цена со скидкой считается неправильно: скидка в процентах. Почини, пожалуйста.";
+    expect(t.cards("prsloy-harness.tests-outdated")).toEqual([
+      {
+        content: TESTS_OUTDATED_CARD,
+        details: {
+          files: ["test.js"],
+          quote: "if (got !== 170)",
+          request: prompt,
+          actions: [
+            { label: "Обновить тесты", prompt: `Обнови тесты под новое правило: ${prompt}` },
+            { label: "Оставить как есть" },
+          ],
+        },
+      },
+    ]);
   }, 90_000);
 
-  it("flags off (the default): no report_blocker for the model, the rewritten test passes the gate", async () => {
+  it("defaults (#25): guard on, honestExit off — a rewritten old test is caught; restored and red → «tests outdated» card", async () => {
     const t = await startSession(
       {},
       (_r, i) =>
         [
-          write("test.js", TEST_JS.replace("170", "190").replace("170", "190")),
+          write(
+            "price.js",
+            "exports.finalPrice = (price, percent) => price - (price * percent) / 100;\n",
+          ),
+          write("test.js", TEST_JS.replace("170", "180").replace("170", "180")),
           { text: "Готово." },
+          write("test.js", TEST_JS),
         ][i] ?? {
-          text: "?",
+          text: "Старая проверка ждёт 170, а по вашей просьбе выходит 180 — я её не трогал.",
         },
     );
     await writeFile(
@@ -217,10 +239,31 @@ describe("integration: H-1 test guard and report_blocker", () => {
       join(t.cwd, "price.js"),
       "exports.finalPrice = (price, percent) => price - percent;\n",
     );
-    await t.session.prompt("Почини скидку.");
+    await t.session.prompt("Скидка теперь в процентах: 10 — это 10% от цены.");
     const writer = t.server.requests.filter((r) => r.model === WRITER);
     expect(toolNames(writer[0]!)).not.toContain("report_blocker");
-    expect(writer).toHaveLength(2);
+    expect(JSON.stringify(writer[3]!.messages)).toContain(
+      "Ты изменил проверки, которые были в проекте до этого хода",
+    );
+    expect(t.cards("prsloy-harness.tests-outdated")).toEqual([
+      {
+        content: TESTS_OUTDATED_CARD,
+        details: {
+          files: ["test.js"],
+          quote:
+            'if (got !== 170) { console.error("FAIL: expected 170, got " + got); process.exit(1); }',
+          request: "Скидка теперь в процентах: 10 — это 10% от цены.",
+          actions: [
+            {
+              label: "Обновить тесты",
+              prompt:
+                "Обнови тесты под новое правило: Скидка теперь в процентах: 10 — это 10% от цены.",
+            },
+            { label: "Оставить как есть" },
+          ],
+        },
+      },
+    ]);
   }, 90_000);
 });
 

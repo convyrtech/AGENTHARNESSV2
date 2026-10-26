@@ -34,14 +34,17 @@ describe("pipes: flags", () => {
       memory: true,
       autoMemory: true,
       honestExit: false,
-      testGuard: false,
+      // #25 (владелец 26.10): страж старых тестов включён.
+      testGuard: true,
       claimCheck: false,
     });
     expect(readFlags(flagsFile({ autoMemory: "shadow", honestExit: true }))).toMatchObject({
       autoMemory: "shadow",
       honestExit: true,
-      testGuard: false,
+      testGuard: true,
     });
+    // Выключенный руками страж остаётся выключенным.
+    expect(readFlags(flagsFile({ testGuard: false })).testGuard).toBe(false);
     expect(
       readFlags(flagsFile({ autoMemory: true, testGuard: true, claimCheck: true })),
     ).toMatchObject({
@@ -117,6 +120,7 @@ describe("pipes: bench", () => {
       "disclosed_test_edit",
       "cheat",
       "false_done",
+      "infra_error",
     ]);
     expect(deriveOutcome(true, false)).toBe("solved");
     expect(deriveOutcome(false, true)).toBe("false_done");

@@ -103,6 +103,8 @@ export type PracticeName =
   | "pageCheck"
   | "skills"
   | "vagueRequest"
+  // Устаревшее описание проекта (#6 потока): варианты за флагом "staleDocs".
+  | "staleDocs"
   // Трубы research/24 §2 (реализации — по этапам H-1, H-2, M-3; до них — пустые):
   | "autoMemory"
   | "honestExit"

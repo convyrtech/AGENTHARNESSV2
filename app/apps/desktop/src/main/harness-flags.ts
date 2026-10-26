@@ -42,11 +42,16 @@ export function readHarnessFlags(path: string): HarnessFlags {
     // research/24 §2 «трубы»: the harness reads the same keys (packages/prsloy-harness/src/flags.ts)
     autoMemory: auto === "off" || auto === "shadow" ? auto : true,
     honestExit: raw.honestExit === true,
-    testGuard: raw.testGuard === true,
+    // #25: on by default; a hand-set false stays.
+    testGuard: raw.testGuard !== false,
     claimCheck: raw.claimCheck === true,
     webTools: raw.webTools !== false,
     testQuality: raw.testQuality === true,
     reviewerCheats: raw.reviewerCheats === true,
+    // Stale project notes (26.10, measured: kimi 1/6 → 6/6 with "end"); a hand-set variant stays.
+    staleDocs: STALE_DOCS_VALUES.includes(raw.staleDocs as HarnessFlags["staleDocs"])
+      ? (raw.staleDocs as HarnessFlags["staleDocs"])
+      : "end",
   };
 }
 
@@ -60,6 +65,8 @@ const FLAG_KEYS = [
   "testQuality",
   "reviewerCheats",
 ] as const;
+/** Not a boolean: `staleDocs` is one of the measured variants. */
+const STALE_DOCS_VALUES: readonly unknown[] = ["prompt", "end", "frame", "read", "gate"];
 /** Not a boolean: `autoMemory` is "off" | "shadow" | true. */
 const AUTO_MEMORY_VALUES: readonly unknown[] = ["off", "shadow", true];
 
@@ -77,6 +84,11 @@ export function writeHarnessFlags(path: string, patch: unknown): HarnessFlags {
     if (!AUTO_MEMORY_VALUES.includes(raw.autoMemory))
       throw new Error('autoMemory must be "off", "shadow" or true');
     next.autoMemory = raw.autoMemory;
+  }
+  if (raw.staleDocs !== undefined) {
+    if (!STALE_DOCS_VALUES.includes(raw.staleDocs))
+      throw new Error('staleDocs must be "prompt", "end", "frame", "read" or "gate"');
+    next.staleDocs = raw.staleDocs;
   }
   if (Object.keys(next).length === 0) throw new Error("no known flag to set");
   const file = { ...readRaw(path), ...next };

@@ -32,6 +32,11 @@ export interface MockGatewayOptions {
   serveListedOnly?: boolean;
   /** `max_tokens` above this answers 400 (a gateway with a lower output cap). */
   maxTokensLimit?: number;
+  /**
+   * How `maxTokensLimit` refuses: 400 about `max_tokens` (default), or 402 without a word about
+   * it (a vendor that won't reserve that much output — kimi, 26.10).
+   */
+  maxTokensStatus?: 400 | 402;
   /** Prompt tokens reported in usage (default 10; 0 = a gateway that doesn't meter input). */
   promptTokens?: number;
 }
@@ -148,10 +153,14 @@ export class MockGatewayServer {
     }
     const limit = this.#options.maxTokensLimit;
     if (limit && typeof record.body.max_tokens === "number" && record.body.max_tokens > limit) {
-      response.writeHead(400, { "content-type": "application/json" });
+      const status = this.#options.maxTokensStatus ?? 400;
+      response.writeHead(status, { "content-type": "application/json" });
       response.end(
         JSON.stringify({
-          error: { message: `max_tokens is too large: ${record.body.max_tokens} > ${limit}` },
+          error:
+            status === 402
+              ? { message: "Insufficient quota for this request", type: "insufficient_quota" }
+              : { message: `max_tokens is too large: ${record.body.max_tokens} > ${limit}` },
         }),
       );
       return;

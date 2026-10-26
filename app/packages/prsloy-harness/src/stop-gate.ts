@@ -3,6 +3,13 @@
 // а не эффект verify-скрипта; своей цифры у гейта нет, её даёт наш бенч. Когда ход в профиле «Код» заканчивается после
 // правок, харнесс дёшево проверяет проект его же проверкой и, если красно, возвращает модель к работе — не больше
 // двух раз за сообщение пользователя. Хук Pi 1.4: agent_before_settle (записи + одно продолжение).
+import { runCheck } from "./check-run.ts";
+import {
+  conflictingAssertion,
+  showTestsOutdated,
+  testsOutdatedDetails,
+  type TestsOutdatedState,
+} from "./tests-outdated.ts";
 import { type ClaimTracker, claimSignals, type GateFacts } from "./claim-check.ts";
 import { spawn, spawnSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
@@ -64,7 +71,30 @@ export interface ProjectCheck {
   missingTool?: RegExp;
   /** Добавки к окружению запуска (PATH с node_modules/.bin для исходных скриптов, H1). */
   env?: Record<string, string>;
+  /** Запасная проверка, если у этой нет инструмента (#37: нет pytest — unittest). */
+  fallback?: ProjectCheck;
 }
+
+/**
+ * Python проекта (#37): `.venv` или `venv` в папке — его интерпретатор (`Scripts/python.exe` на Windows,
+ * `bin/python` на Linux и Mac), иначе системный. Путь в кавычках: команда идёт через оболочку.
+ */
+export function projectPython(
+  cwd: string,
+  platform: NodeJS.Platform = process.platform,
+): { command: string; venv: boolean } {
+  for (const dir of [".venv", "venv"]) {
+    const exe =
+      platform === "win32"
+        ? join(cwd, dir, "Scripts", "python.exe")
+        : join(cwd, dir, "bin", "python");
+    if (existsSync(exe)) return { command: `"${exe}"`, venv: true };
+  }
+  return { command: platform === "win32" ? "python" : "python3", venv: false };
+}
+
+const PYTHON_MISSING =
+  /python3?(?:\.exe)?"?: (?:command )?not found|is not recognized as an internal or external command|No such file or directory/i;
 
 export interface CheckRun {
   code: number | null;
@@ -135,6 +165,7 @@ function packageManager(cwd: string): string {
 export function detectProjectCheck(
   cwd: string,
   hasBinary: (name: string) => boolean = onPath,
+  platform: NodeJS.Platform = process.platform,
 ): ProjectCheck | undefined {
   const pkg = readJson(join(cwd, "package.json"));
   if (pkg) {
@@ -165,13 +196,19 @@ export function detectProjectCheck(
       };
     }
   }
-  const python = process.platform === "win32" ? "python" : "python3";
-  if (hasPythonTests(cwd) && hasBinary(python)) {
+  const python = projectPython(cwd, platform);
+  if (hasPythonTests(cwd) && (python.venv || hasBinary(python.command))) {
     return {
-      command: `${python} -m pytest -q -x`,
+      command: `${python.command} -m pytest -q -x`,
       label: "pytest",
-      missingTool:
-        /No module named pytest|python3?: (?:command )?not found|is not recognized as an internal or external command/i,
+      missingTool: new RegExp(`No module named pytest|${PYTHON_MISSING.source}`, "i"),
+      // Нет pytest (у казуала на Windows обычно так) — unittest из стандартной библиотеки. Голые pytest-функции он не
+      // видит: «Ran 0 tests» — значит, проверять нечем, а не «прошло».
+      fallback: {
+        command: `${python.command} -m unittest discover -q`,
+        label: "unittest",
+        missingTool: new RegExp(`\\bRan 0 tests\\b|NO TESTS RAN|${PYTHON_MISSING.source}`, "i"),
+      },
     };
   }
   if (existsSync(join(cwd, "Cargo.toml")) && hasBinary("cargo"))
@@ -310,6 +347,8 @@ export interface StopGateDeps {
   testQuality?: () => boolean;
   /** Слова и факты (H-2: H6–H8, флаг claimCheck): утверждения ответа — ревьюеру в сигналы. */
   claims?: ClaimTracker;
+  /** Карточка «тесты устарели» (#25): общее с report_blocker состояние «уже показана». */
+  testsOutdated?: TestsOutdatedState;
   /** Ревьюер ищет подгонку (H-4, флаг reviewerCheats, читается на каждом ходе). */
   reviewerCheats?: () => boolean;
 }
@@ -347,6 +386,7 @@ export function installStopGate(
     testQuality = () => false,
     reviewerCheats = () => false,
     claims,
+    testsOutdated,
   } = typeof deps === "function" ? { runner: deps } : deps;
   /** Блокер принят кодом (research/24 §4.2): возвратов «почини» больше нет, отчёты остаются. */
   const blocked = () => !!honesty?.accepted;
@@ -358,9 +398,22 @@ export function installStopGate(
   let reviewed = false;
   /** Страж вернул ход в этом сообщении: T2 — один раз, дальше только сигналы ревьюеру. */
   let guarded = false;
+  /** Страж поймал правку старых тестов, которые на новом коде красные: кандидат в «тесты устарели» (#25). */
+  let conflict: { files: string[]; quote: string } | undefined;
+  /** Последний прогон гейта в сообщении: красный ли. */
+  let lastRed = false;
   let task = "";
   /** H1: проверка проекта на начало хода (сообщения пользователя). */
   let start: (CheckSnapshot & { check?: ProjectCheck }) | undefined;
+
+  // #25: ход кончился красным, а страж ловил попытку переписать старые тесты, — значит, тесты расходятся с
+  // просьбой. Не молча: карточка «похоже, устарели — обновить?» (если report_blocker её ещё не показал).
+  pi.on("agent_settled", async (event) => {
+    if (event.aborted || !conflict || !lastRed || !testsOutdated) return;
+    const { files, quote } = conflict;
+    conflict = undefined;
+    await showTestsOutdated(pi, testsOutdated, testsOutdatedDetails(files, quote, task));
+  });
 
   pi.on("before_agent_start", (event, ctx) => {
     if (event.messageType !== "user") return;
@@ -370,6 +423,9 @@ export function installStopGate(
     gaveUp = false;
     reviewed = false;
     guarded = false;
+    conflict = undefined;
+    lastRed = false;
+    if (testsOutdated) testsOutdated.shown = false;
     task = event.prompt;
     const check = detectProjectCheck(ctx.cwd);
     start = {
@@ -480,6 +536,7 @@ export function installStopGate(
           if (rerun.red) {
             pushbacks += 1;
             guarded = true;
+            conflict = conflictingAssertion(patch);
             const tip = intervene(ctx, { kind: "gate.red", sig: "gate:guard", n: pushbacks });
             return entry(`${guardPushback(rerun, check.label)}${tip}`);
           }
@@ -516,7 +573,7 @@ export function installStopGate(
     // H1: если проверка за ход пропала или поменялась (`scripts.test` → `echo ok`), прогоняется та, что была.
     const now = detectProjectCheck(ctx.cwd);
     const changed = start ? checkChange(start, now?.command, packageScripts(ctx.cwd)) : undefined;
-    const check = (changed && start ? originalCheck(start, ctx.cwd) : undefined) ?? now;
+    let check = (changed && start ? originalCheck(start, ctx.cwd) : undefined) ?? now;
     if (changed) recordEvent(ctx, { kind: "test_guard.command_changed" });
     const guardOn = testGuard();
     const found = guardOn ? signatures(parsePatch(diff?.patch ?? "")) : [];
@@ -550,14 +607,18 @@ export function installStopGate(
         ]),
         ...qualitySignals,
       ].slice(0, 8);
-    const run = check ? await runner(check, ctx.cwd, opts.stopGateTimeoutMs) : undefined;
+    // Нет pytest — запасной unittest (#37); дальше (возврат, ревьюер, статус) — та проверка, что отработала.
+    let run: CheckRun | undefined;
+    if (check) ({ check, run } = await runCheck(runner, check, ctx.cwd, opts.stopGateTimeoutMs));
     // Зелёное, таймаут или нечем проверять — не красное: не пилим казуала за отсутствие тестов.
     const red =
       check && run && !run.timedOut && run.code !== 0 && !check.missingTool?.test(run.output);
+    lastRed = !!red;
     if (check && run && !run.timedOut && !check.missingTool?.test(run.output))
       facts.gate = red ? "red" : "green";
     if (turnStatus && check && run && !run.timedOut && !check.missingTool?.test(run.output)) {
       turnStatus.gate = red ? "red" : "green";
+      if (check.label === "unittest") turnStatus.checkVia = "unittest";
       turnStatus.hasCheck = true;
     }
     const gateSig = check

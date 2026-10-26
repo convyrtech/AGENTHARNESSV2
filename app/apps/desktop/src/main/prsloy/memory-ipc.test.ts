@@ -245,6 +245,7 @@ describe("memory IPC (S5)", () => {
       webTools: false,
       testQuality: false,
       reviewerCheats: false,
+      staleDocs: "end",
     } as const;
     // Other switches: nothing happens.
     await harnessFlagsChanged(flags, { ...flags, secondOpinion: false });

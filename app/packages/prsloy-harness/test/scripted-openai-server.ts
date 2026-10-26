@@ -21,6 +21,11 @@ export interface ScriptedReply {
   /** `raw` — текст аргументов как есть (битый JSON для проверки ремонта). */
   toolCalls?: { name: string; arguments: Record<string, unknown>; raw?: string }[];
   finishReason?: "stop" | "tool_calls" | "length";
+  /** Ответ шлюза с ошибкой: HTTP-код и текст `{"error": {"message"}}` (401 — ключ не принят, 500 — сбой). */
+  status?: number;
+  error?: string;
+  /** usage последнего куска вместо 100/20. */
+  usage?: Record<string, unknown>;
 }
 
 export type Script = (request: ChatRequest, index: number) => ScriptedReply;
@@ -79,12 +84,18 @@ export class ScriptedOpenAiServer {
     const parsed = JSON.parse(body) as ChatRequest;
     this.requests.push(parsed);
     const reply = this.script(parsed, this.requests.length - 1);
+    if (reply.status && reply.status !== 200) {
+      response
+        .writeHead(reply.status, { "content-type": "application/json" })
+        .end(JSON.stringify({ error: { message: reply.error ?? "error", type: "mock_error" } }));
+      return;
+    }
 
     response.writeHead(200, { "content-type": "text/event-stream", "cache-control": "no-cache" });
     const send = (
       delta: Record<string, unknown>,
       finish: string | null = null,
-      usage?: Record<string, number>,
+      usage?: Record<string, unknown>,
     ) =>
       response.write(
         `data: ${JSON.stringify({
@@ -112,7 +123,11 @@ export class ScriptedOpenAiServer {
       });
     });
     const finish = reply.finishReason ?? (reply.toolCalls?.length ? "tool_calls" : "stop");
-    send({}, finish, { prompt_tokens: 100, completion_tokens: 20, total_tokens: 120 });
+    send(
+      {},
+      finish,
+      reply.usage ?? { prompt_tokens: 100, completion_tokens: 20, total_tokens: 120 },
+    );
     response.end("data: [DONE]\n\n");
   }
 }

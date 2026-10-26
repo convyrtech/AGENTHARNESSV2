@@ -241,8 +241,16 @@ describe("stop gate", () => {
     await slow.edit();
     expect((await slow.settle()).continue).toBe(false);
 
+    // Нет pytest — запасной unittest (#37); тесты он не видит («Ran 0 tests») — проверять нечем, молчим.
     const py = setup(
-      [{ code: 1, output: "/usr/bin/python3: No module named pytest" }],
+      [
+        { code: 1, output: "/usr/bin/python3: No module named pytest" },
+        {
+          code: 5,
+          output:
+            "\n----------------------------------------------------------------------\nRan 0 tests in 0.000s\n\nNO TESTS RAN\n",
+        },
+      ],
       await project({ "test_a.py": "" }),
     );
     await py.edit();

@@ -29,7 +29,7 @@ export type HarnessFlags = {
   autoMemory: "off" | "shadow" | true;
   /** Honest exit: `report_blocker` and the T1 text in every push-back (research/24 §4.2, default off). */
   honestExit: boolean;
-  /** Guard of the old tests (research/24 §4.1 H2/H3, default off until the owner decides §4.3). */
+  /** Guard of the old tests (research/24 §4.1 H2/H3; on by default since the owner decided #25). */
   testGuard: boolean;
   /** The agent's words checked against its calls (research/24 §4.1 H-2, default off). */
   claimCheck: boolean;
@@ -39,6 +39,12 @@ export type HarnessFlags = {
   testQuality: boolean;
   /** The reviewer looks for test-fitting (H-4, #9): kinds in its prompt, code-computed facts, tests kept whole. Default off. */
   reviewerCheats: boolean;
+  /**
+   * Stale project notes (AGENTS.md / README) against the code: how the harness says «the code wins».
+   * "end" (default since 26.10, measured) — a section after the project notes; "prompt" — the prompt line only;
+   * "frame" / "read" / "gate" — the other measured variants.
+   */
+  staleDocs: "prompt" | "end" | "frame" | "read" | "gate";
 };
 
 export interface HarnessFlagsApi {
