@@ -7,8 +7,8 @@
 /**
  * `free` — the default, no key: official sources (GitHub, npm, PyPI, endoflife.date, Wikipedia) and a keyless
  * web search, always configured; `prsloy` — «Поиск PRSLOY» through the gateway (no key of its own: the PRSLOY
- * key, issue #31); `model` — the model's built-in search, the last fallback, sources unchecked by code. Tavily is
- * not offered: its terms bar users in Russia (research/26 §3.2). `github` — the user's own GitHub token (optional):
+ * key, issue #31); `model` — the model's built-in search, the last fallback, sources unchecked by code. `tavily` —
+ * the user's own Tavily key (owner's decision, issue #48). `github` — the user's own GitHub token (optional):
  * as the active provider it searches repositories, issues and code; set at all, the free search uses it too
  * (higher limits). Screen order: free, own keys (github last of them), prsloy, model.
  */
@@ -20,6 +20,7 @@ export type SearchProviderId =
   | "searxng"
   | "brave"
   | "exa"
+  | "tavily"
   | "firecrawl"
   | "jina"
   | "github"
@@ -113,6 +114,11 @@ export type PrsloySearchHandoff = {
     url?: string;
     models?: string[];
   };
+  /**
+   * The other own-key providers that are set up, in screen order: tried in turn when the active one hits a limit
+   * or fails, before the free search and the model (issue #48).
+   */
+  fallbacks?: PrsloySearchHandoff["search"][];
   gatewayUrl?: string;
   githubToken?: string;
   modelSearch?: string[];

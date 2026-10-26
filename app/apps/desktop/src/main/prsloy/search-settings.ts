@@ -24,6 +24,7 @@ export const SEARCH_PROVIDER_IDS: readonly SearchProviderId[] = [
   "searxng",
   "brave",
   "exa",
+  "tavily",
   "firecrawl",
   "jina",
   "github",
@@ -46,6 +47,7 @@ const KEYED = new Set<SearchProviderId>([
   "yandex",
   "brave",
   "exa",
+  "tavily",
   "firecrawl",
   "jina",
   // a token of the user's own: the free search goes to GitHub with it too (higher limits, code search)
@@ -256,8 +258,17 @@ export class SearchSettings {
       provider: "free" as const,
     };
     const githubToken = this.#store("github").read();
+    // the other own-key providers that are set up, in screen order: the agent moves on to them on a limit (#48);
+    // github is left out (as a search of its own it only looks at GitHub; the free search already uses its token)
+    const fallbacks = SEARCH_PROVIDER_IDS.filter(
+      (id) => id !== search.provider && id !== "github" && (KEYED.has(id) || id === "searxng"),
+    ).flatMap((id) => {
+      const cfg = this.config(id, gatewayUrl);
+      return cfg && (id !== "searxng" || cfg.url) ? [cfg] : [];
+    });
     const handoff: SearchHandoff = {
       search,
+      ...(fallbacks.length ? { fallbacks } : {}),
       ...(gatewayUrl ? { gatewayUrl } : {}),
       ...(githubToken ? { githubToken } : {}),
       modelSearch: this.#models(this.#read()),
