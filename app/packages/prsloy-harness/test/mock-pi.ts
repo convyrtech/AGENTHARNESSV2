@@ -93,7 +93,7 @@ export class MockPi {
       messageType: "user",
       prompt,
       systemPrompt: "",
-      systemPromptOptions: { sections: {} },
+      systemPromptOptions: { sections: {}, contextFiles: [] },
     });
   }
 

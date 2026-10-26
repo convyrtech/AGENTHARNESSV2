@@ -26,6 +26,7 @@ import { installMemory } from "./memory.ts";
 import { installDigest } from "./digest.ts";
 import { memoryDirFor } from "./memory-store.ts";
 import { installSecretScrub } from "./secret-scrub.ts";
+import { installStaleDocs } from "./stale-docs.ts";
 import { installStopGate } from "./stop-gate.ts";
 import { checkPage } from "./page-check.ts";
 import { installArgRepair } from "./arg-repair.ts";
@@ -176,6 +177,8 @@ export function createPrsloyHarness(options: HarnessOptions = {}): (pi: Extensio
       });
     // После стоп-гейта: расплывчатая просьба без названного прочтения — один раз «допиши, как понял» (этап 14).
     if (on("vagueRequest")) installVagueRequest(pi, opts);
+    // Устаревшее описание проекта (#6 потока): варианты за флагом "staleDocs", возврат "gate" — после гейта.
+    if (on("staleDocs")) installStaleDocs(pi, opts);
     // Сводка «прошлый раз» (S6): после стоп-гейта — его итог хода уже известен.
     if (memory && on("digest"))
       installDigest(pi, {
