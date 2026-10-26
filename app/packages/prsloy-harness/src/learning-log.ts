@@ -44,6 +44,9 @@ export type LearningKind =
   | "secret.declined"
   | "install.offline"
   | "vague.nudge"
+  | "stale_docs.armed"
+  | "stale_docs.read_note"
+  | "stale_docs.nudge"
   | "skill.loaded"
   | "skill.used"
   // Трубы research/24 §2: виды заведены заранее, чтобы core (память), harness (честность) и ci (разборщик) не

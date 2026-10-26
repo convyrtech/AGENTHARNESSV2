@@ -17,6 +17,7 @@
 //   … --memory off             без памяти (флаг "memory")
 //   … --honest-exit on         инструмент report_blocker (флаг "honestExit", H-1; по умолчанию выкл.)
 //   … --test-guard off         без стража старых тестов (флаг "testGuard", H-1; по умолчанию вкл., #25)
+//   … --stale-docs end         вариант против устаревшего AGENTS.md (флаг "staleDocs": prompt|end|frame|read|gate)
 //   … --test-quality on        полезность новых тестов (флаг "testQuality", H-3; по умолчанию выкл.)
 //   … --reviewer-cheats on     ревьюер ищет подгонку (флаг "reviewerCheats", H-4; по умолчанию выкл.)
 //   … --claim-check on         слова и факты (флаг "claimCheck", H-2: H6–H8; по умолчанию выкл.)
@@ -36,6 +37,7 @@ import { join, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { PRSLOY_DEFAULT_BASE_URL } from "../../../apps/desktop/src/shared/prsloy-config.ts";
 import { reportMarkdown, runBench } from "../bench/run.ts";
+import { STALE_DOCS_MODES, type StaleDocsMode } from "../src/flags.ts";
 import { skillFilesFromDir } from "../src/skills.ts";
 
 const { values } = parseArgs({
@@ -60,6 +62,7 @@ const { values } = parseArgs({
     "test-quality": { type: "string", default: "off" },
     "reviewer-cheats": { type: "string", default: "off" },
     "claim-check": { type: "string", default: "off" },
+    "stale-docs": { type: "string", default: "prompt" },
     web: { type: "string", default: "off" },
     out: { type: "string", default: "bench-out" },
     resume: { type: "string" },
@@ -103,6 +106,9 @@ async function main(): Promise<number> {
     testQuality: values["test-quality"] === "on",
     reviewerCheats: values["reviewer-cheats"] === "on",
     claimCheck: values["claim-check"] === "on",
+    staleDocs: STALE_DOCS_MODES.includes(values["stale-docs"] as StaleDocsMode)
+      ? (values["stale-docs"] as StaleDocsMode)
+      : "prompt",
     webTools: values.web === "on",
     model: values.model,
     ...(values.fake ? { fake: true } : { baseUrl: values["base-url"] ?? PRSLOY_DEFAULT_BASE_URL }),

@@ -36,7 +36,22 @@ export interface HarnessFlags {
   testQuality: boolean;
   /** Ревьюер ищет подгонку (H-4, #9): виды подгонки в промпте, факты кодом, тесты в диффе целиком. По умолчанию выкл. */
   reviewerCheats: boolean;
+  /**
+   * Устаревшее описание проекта (#6 потока, stale-docs.ts): "prompt" — только строка в промпте (по умолчанию);
+   * "end" — раздел после AGENTS.md; "frame" — пометка в начале AGENTS.md; "read" — строка в результате read;
+   * "gate" — один возврат в конце хода. Для замера kimi/deepseek.
+   */
+  staleDocs: StaleDocsMode;
 }
+
+export type StaleDocsMode = "prompt" | "end" | "frame" | "read" | "gate";
+export const STALE_DOCS_MODES: readonly StaleDocsMode[] = [
+  "prompt",
+  "end",
+  "frame",
+  "read",
+  "gate",
+];
 
 export type AutoMemoryMode = "off" | "shadow" | true;
 
@@ -59,6 +74,7 @@ export function readFlags(settingsPath: string | undefined): HarnessFlags {
     webTools: true,
     testQuality: false,
     reviewerCheats: false,
+    staleDocs: "prompt",
   };
   if (settingsPath && existsSync(settingsPath)) {
     try {
@@ -78,6 +94,8 @@ export function readFlags(settingsPath: string | undefined): HarnessFlags {
       if (typeof raw.webTools === "boolean") flags.webTools = raw.webTools;
       if (raw.testQuality === true) flags.testQuality = true;
       if (raw.reviewerCheats === true) flags.reviewerCheats = true;
+      if (STALE_DOCS_MODES.includes(raw.staleDocs as StaleDocsMode))
+        flags.staleDocs = raw.staleDocs as StaleDocsMode;
       if (Array.isArray(raw.disabledLessons))
         flags.disabledLessons = raw.disabledLessons.filter(
           (x): x is string => typeof x === "string",
