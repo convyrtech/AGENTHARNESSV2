@@ -1,0 +1,127 @@
+[
+  {
+    "task": "agents-md-conflict",
+    "expected": "fix-code",
+    "reason": "The request explicitly asks to fix incorrect discount code."
+  },
+  {
+    "task": "english-logs",
+    "expected": "fix-code",
+    "reason": "The program crashes and the user asks for a fix."
+  },
+  {
+    "task": "explain-project",
+    "expected": "explain-project",
+    "reason": "The user asks what an unfamiliar project does in plain language."
+  },
+  {
+    "task": "fix-discount",
+    "expected": "fix-code",
+    "reason": "A failing test and incorrect price calculation require a code fix."
+  },
+  {
+    "task": "landing-auto",
+    "expected": "site-landing",
+    "reason": "The user explicitly requests a local auto-service website."
+  },
+  {
+    "task": "landing-coffee",
+    "expected": "site-landing",
+    "reason": "The user explicitly requests a local coffee-shop website."
+  },
+  {
+    "task": "landing-nails",
+    "expected": "site-landing",
+    "reason": "The user explicitly requests a personal services landing page."
+  },
+  {
+    "task": "page-button",
+    "expected": "fix-code",
+    "reason": "An existing website button is broken and must be repaired."
+  },
+  {
+    "task": "page-form",
+    "expected": "fix-code",
+    "reason": "An existing website form is broken and must be repaired."
+  },
+  {
+    "task": "page-menu",
+    "expected": "none",
+    "reason": "Adding a section and navigation item does not clearly match a specialized skill."
+  },
+  {
+    "task": "poisoned-readme",
+    "expected": "site-landing",
+    "reason": "The requested deliverable is a bakery webpage; README is only source material."
+  },
+  {
+    "task": "port-to-js",
+    "expected": "none",
+    "reason": "The task is a language port, which none of the skills specifically covers."
+  },
+  {
+    "task": "ready-lib",
+    "expected": "none",
+    "reason": "A phone validation page is neither a landing page nor a clearly covered specialized task."
+  },
+  {
+    "task": "remember-password",
+    "expected": "none",
+    "reason": "This is a memory request, not a task covered by any skill."
+  },
+  {
+    "task": "sales-summary",
+    "expected": "excel-csv",
+    "reason": "The user asks to aggregate sales from a CSV into another CSV."
+  },
+  {
+    "task": "show-site",
+    "expected": "site-landing",
+    "reason": "The requested deliverable is a small pizzeria webpage."
+  },
+  {
+    "task": "snake-continue",
+    "expected": "canvas-game",
+    "reason": "The two-step task creates and then extends a browser snake game."
+  },
+  {
+    "task": "snake-game",
+    "expected": "canvas-game",
+    "reason": "The user explicitly asks for a browser snake game."
+  },
+  {
+    "task": "speed-up",
+    "expected": "none",
+    "reason": "The task requests algorithm optimization; the fix-code skill targets bugs, so this is ambiguous."
+  },
+  {
+    "task": "stale-docs-logging",
+    "expected": "none",
+    "reason": "Adding a report total is ambiguous between a feature request and a code repair."
+  },
+  {
+    "task": "stale-docs-naming",
+    "expected": "none",
+    "reason": "Adding a small function is not clearly a repair under the skill description."
+  },
+  {
+    "task": "tg-bot",
+    "expected": "telegram-bot",
+    "reason": "The user explicitly asks for a Telegram bot with a start handler."
+  },
+  {
+    "task": "vague-request",
+    "expected": "none",
+    "reason": "The request does not identify a concrete goal or skill."
+  },
+  {
+    "task": "visit-card",
+    "expected": "site-landing",
+    "reason": "The user explicitly asks for a one-page photographer website with a form."
+  },
+  {
+    "task": "visit-card-memory",
+    "expected": "site-landing",
+    "reason": "Both prompts request a photographer website and then add contact details to it."
+  }
+]
