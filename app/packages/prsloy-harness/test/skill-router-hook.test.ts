@@ -37,13 +37,18 @@ describe("skill router hook", () => {
     const event: {
       messageType: string;
       prompt: string;
-      systemPromptOptions: { sections: Record<string, string> };
+      systemPromptOptions: { sections: Record<string, string>; skills: { name: string }[] };
     } = {
       messageType: "user",
       prompt: "Fix the bug",
-      systemPromptOptions: { sections: {} },
+      systemPromptOptions: {
+        sections: {},
+        skills: [{ name: "site-landing" }, { name: "fix-code" }, { name: "excel-csv" }],
+      },
     };
     await handler!(event, pi.ctx);
+    // the other skills are hidden: the model has nothing to confuse it with
+    expect(event.systemPromptOptions.skills).toEqual([{ name: "fix-code" }]);
     expect(event.systemPromptOptions.sections.prsloy_skill).toContain("# Починить чужой код");
     expect(Object.keys(event.systemPromptOptions.sections)).toEqual(["prsloy_skill"]);
     expect(pi.sent[0]?.content).toBe("Взял навык: починку кода");
@@ -82,12 +87,18 @@ describe("skill router hook", () => {
     const event: {
       messageType: string;
       prompt: string;
-      systemPromptOptions: { sections: Record<string, string> };
-    } = { messageType: "user", prompt: "Maybe", systemPromptOptions: { sections: {} } };
+      systemPromptOptions: { sections: Record<string, string>; skills: { name: string }[] };
+    } = {
+      messageType: "user",
+      prompt: "Maybe",
+      systemPromptOptions: { sections: {}, skills: [{ name: "fix-code" }, { name: "excel-csv" }] },
+    };
     await handler!(event, pi.ctx);
     off();
     expect(events).toEqual(["skill:none"]);
     expect(event.systemPromptOptions.sections).toEqual({});
+    // not sure — no skills at all this turn
+    expect(event.systemPromptOptions.skills).toEqual([]);
     expect(pi.sent).toEqual([]);
   });
 });

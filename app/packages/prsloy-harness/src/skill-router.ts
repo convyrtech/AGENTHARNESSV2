@@ -108,7 +108,8 @@ export async function routeSkill(
           { role: "user", content: routerPrompt(request, skills, hints), timestamp: Date.now() },
         ],
       },
-      { signal: AbortSignal.any(signals), maxTokens: 100 },
+      // Думающим моделям нужен запас: рассуждение тоже тратит лимит.
+      { signal: AbortSignal.any(signals), maxTokens: 400 },
     );
     if (reply.stopReason === "error" || reply.stopReason === "aborted") return none;
     return parseRoute(
