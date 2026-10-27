@@ -21,8 +21,11 @@ export async function evaluate(options: {
 }): Promise<{
   rows: { task: string; expected: string; chosen: string; confidence: number; ok: boolean }[];
   tokens: number;
+  /** Время каждого выбора, мс. */
+  ms: number[];
 }> {
   let tokens = 0;
+  const ms: number[] = [];
   const skills = Object.entries(SKILL_FILES).map(([id, files]) => ({
     id,
     description: /^description: "(.+)"$/m.exec(files["SKILL.md"] ?? "")?.[1] ?? id,
@@ -76,9 +79,11 @@ export async function evaluate(options: {
         },
       },
     } as never;
+    const started = performance.now();
     const result = await routeSkill(request, skills, projectHints(cwd), ctx, {
       model: options.model,
     });
+    ms.push(performance.now() - started);
     rows.push({
       task: label.task,
       expected: label.expected,
@@ -87,7 +92,7 @@ export async function evaluate(options: {
       ok: result.skill === label.expected,
     });
   }
-  return { rows, tokens };
+  return { rows, tokens, ms };
 }
 
 async function main(): Promise<number> {
@@ -95,7 +100,7 @@ async function main(): Promise<number> {
     options: {
       "base-url": { type: "string", default: "https://api.prsloy.online/v1" },
       key: { type: "string" },
-      model: { type: "string", default: "deepseek-v4.1-flash-1017" },
+      model: { type: "string", default: "kimi-k3.1-pro" },
     },
   });
   const key = values.key ?? process.env.PRSLOY_GATEWAY_KEY;
@@ -128,6 +133,10 @@ async function main(): Promise<number> {
     `accuracy\t${correct}/${result.rows.length} (${((100 * correct) / result.rows.length).toFixed(1)}%)`,
   );
   console.log(`wrong loads\t${wrongLoads}\nmissed\t${missed}\ntokens\t${result.tokens}`);
+  // Выбор навыка идёт перед каждым сообщением пользователя: задержка — это ожидание человека.
+  const sorted = [...result.ms].sort((a, b) => a - b);
+  const at = (q: number) => sorted[Math.min(sorted.length - 1, Math.floor(q * sorted.length))] ?? 0;
+  console.log(`latency ms\tmedian ${Math.round(at(0.5))}, p90 ${Math.round(at(0.9))}`);
   return 0;
 }
 

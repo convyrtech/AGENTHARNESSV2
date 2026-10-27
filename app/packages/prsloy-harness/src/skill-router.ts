@@ -91,7 +91,8 @@ export async function routeSkill(
 ): Promise<SkillRoute> {
   const none: SkillRoute = { skill: "none", confidence: 0 };
   try {
-    const modelId = options.model ?? "deepseek-v4.1-flash-1017";
+    // Замер #42 (27.10): kimi 22/25, deepseek 16/25 на размеченном наборе.
+    const modelId = options.model ?? "kimi-k3.1-pro";
     const slash = modelId.indexOf("/");
     const provider = slash > 0 ? modelId.slice(0, slash) : (ctx.model?.provider ?? "prsloy");
     const id = slash > 0 ? modelId.slice(slash + 1) : modelId;

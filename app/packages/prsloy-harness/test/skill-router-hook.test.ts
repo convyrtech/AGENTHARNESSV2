@@ -53,6 +53,25 @@ describe("skill router hook", () => {
     expect(Object.keys(event.systemPromptOptions.sections)).toEqual(["prsloy_skill"]);
     expect(pi.sent[0]?.content).toBe("Взял навык: починку кода");
 
+    // the next message of the same chat: the same choice, no second router call and no second card
+    let calls = 0;
+    modelRegistry.complete = async () => {
+      calls += 1;
+      return {
+        content: [{ type: "text", text: '{"skill":"excel-csv","confidence":0.99}' }],
+        stopReason: "stop",
+      };
+    };
+    const next: typeof event = {
+      messageType: "user",
+      prompt: "and the totals too",
+      systemPromptOptions: { sections: {}, skills: [{ name: "fix-code" }, { name: "excel-csv" }] },
+    };
+    await handler!(next, pi.ctx);
+    expect(calls).toBe(0);
+    expect(next.systemPromptOptions.skills).toEqual([{ name: "fix-code" }]);
+    expect(pi.sent).toHaveLength(1);
+
     writeFileSync(settingsPath, JSON.stringify({ skills: false, skillRouter: true }));
     const ignored: {
       messageType: string;

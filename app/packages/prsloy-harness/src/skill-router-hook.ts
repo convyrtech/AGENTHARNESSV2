@@ -13,6 +13,10 @@ export function installSkillRouter(pi: ExtensionAPI, opts: ResolvedOptions): voi
     id,
     description: /^description: "(.+)"$/m.exec(content["SKILL.md"] ?? "")?.[1] ?? id,
   }));
+  // Выбор — один раз на задачу (первое сообщение чата; правило «одна задача — один чат»): маршрутизатор отвечает
+  // ~8 с (замер #42, kimi: медиана 7,7 с), на каждом сообщении это ожидание человека. Дальше в том же чате — тот же
+  // выбор без вызова. После перезапуска хоста — один новый вызов.
+  const chosen = new Map<string, string>();
   pi.on("before_agent_start", async (event, ctx) => {
     if (
       event.messageType !== "user" ||
@@ -20,15 +24,21 @@ export function installSkillRouter(pi: ExtensionAPI, opts: ResolvedOptions): voi
       !readFlags(opts.settingsPath).skillRouter
     )
       return;
-    const result = await routeSkill(
-      event.prompt,
-      skills,
-      projectHints(ctx.cwd),
-      ctx,
-      opts.skillRouter,
-    );
-    const selected = result.confidence >= 0.7 ? result.skill : "none";
-    recordEvent(ctx, { kind: "skill.routed", sig: `skill:${selected}` });
+    const session = ctx.sessionManager.getSessionId();
+    let selected = chosen.get(session);
+    const first = selected === undefined;
+    if (selected === undefined) {
+      const result = await routeSkill(
+        event.prompt,
+        skills,
+        projectHints(ctx.cwd),
+        ctx,
+        opts.skillRouter,
+      );
+      selected = result.confidence >= 0.7 ? result.skill : "none";
+      chosen.set(session, selected);
+      recordEvent(ctx, { kind: "skill.routed", sig: `skill:${selected}` });
+    }
     const body = selected === "none" ? undefined : files[selected]?.["SKILL.md"];
     // Выбор сделал маршрутизатор: остальные навыки модель не видит — путать не из чего (#42). Выбранный остаётся в
     // списке ради пути к его файлам; его текст — сразу разделом, без лишнего чтения.
@@ -37,6 +47,6 @@ export function installSkillRouter(pi: ExtensionAPI, opts: ResolvedOptions): voi
       event.systemPromptOptions.skills = body ? listed.filter((s) => s.name === selected) : [];
     if (!body) return;
     event.systemPromptOptions.sections.prsloy_skill = body;
-    await showCard(pi, "prsloy-harness.skill", `Взял навык: ${skillName(selected)}`);
+    if (first) await showCard(pi, "prsloy-harness.skill", `Взял навык: ${skillName(selected)}`);
   });
 }
