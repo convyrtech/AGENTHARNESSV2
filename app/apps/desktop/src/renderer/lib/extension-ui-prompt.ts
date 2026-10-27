@@ -145,6 +145,19 @@ export function cancelExtensionUiDialogs(
   return pending.length;
 }
 
+/**
+ * A host died. Its own questions can never be answered; the questions of parked
+ * runtimes belong to hosts that are still alive and must stay on screen (#83).
+ * Without a runtime id nothing can be attributed, so everything is cancelled.
+ */
+export function cancelExtensionUiDialogsForCrash(
+  runtimeId: string | undefined,
+  result: ExtensionUiDialogResult = { ok: false, value: undefined },
+): number {
+  if (!runtimeId) return cancelExtensionUiDialogs(result);
+  return cancelExtensionUiDialogsForRuntime(runtimeId, result);
+}
+
 /** Cancel the requests that belong to one runtime (its host was stopped/replaced). */
 export function cancelExtensionUiDialogsForRuntime(
   runtimeId: string,

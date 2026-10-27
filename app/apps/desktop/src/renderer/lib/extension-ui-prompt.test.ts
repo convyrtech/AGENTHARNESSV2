@@ -2,6 +2,7 @@ import { describe, expect, it, beforeEach } from "vite-plus/test";
 import { IPC_PROTOCOL_VERSION } from "@zeno/contracts";
 import {
   cancelExtensionUiDialogs,
+  cancelExtensionUiDialogsForCrash,
   cancelExtensionUiDialogsForRuntime,
   getPendingExtensionUiDialog,
   getQueuedExtensionUiDialogs,
@@ -202,6 +203,37 @@ describe("promptExtensionUiDialog bridge", () => {
     expect(getPendingExtensionUiDialog()?.runtimeId).toBe("rt-2");
     settleExtensionUiDialog({ ok: true, value: "b" });
     await expect(other).resolves.toEqual({ ok: true, value: "b" });
+  });
+
+  it("closes only the crashed host's question and leaves parked chats answerable (#83)", async () => {
+    // Two chats ask at the same time; the foreground host then dies.
+    const crashed = promptExtensionUiDialog(selectRequest(["a"]));
+    const parked = promptExtensionUiDialog({
+      ...selectRequest(["b"]),
+      runtimeId: "rt-2",
+      requestId: "req-2",
+    });
+    expect(pendingExtensionUiDialogCount()).toBe(2);
+
+    expect(cancelExtensionUiDialogsForCrash("rt-1")).toBe(1);
+    await expect(crashed).resolves.toEqual({ ok: false, value: undefined });
+    // The parked chat still has its host: its question must stay on screen.
+    expect(getPendingExtensionUiDialog()?.runtimeId).toBe("rt-2");
+    settleExtensionUiDialog({ ok: true, value: "b" });
+    await expect(parked).resolves.toEqual({ ok: true, value: "b" });
+  });
+
+  it("cancels everything on a crash with no runtime id to blame (#83)", async () => {
+    const first = promptExtensionUiDialog(selectRequest(["a"]));
+    const second = promptExtensionUiDialog({
+      ...selectRequest(["b"]),
+      runtimeId: "rt-2",
+      requestId: "req-2",
+    });
+    expect(cancelExtensionUiDialogsForCrash(undefined)).toBe(2);
+    await expect(first).resolves.toEqual({ ok: false, value: undefined });
+    await expect(second).resolves.toEqual({ ok: false, value: undefined });
+    expect(pendingExtensionUiDialogCount()).toBe(0);
   });
 
   it("exposes all options on the pending select request for the host UI", async () => {

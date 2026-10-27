@@ -77,7 +77,7 @@ import {
   unknownErrorMessage,
 } from "./lib/host-signals.ts";
 import {
-  cancelExtensionUiDialogs,
+  cancelExtensionUiDialogsForCrash,
   cancelExtensionUiDialogsForRuntime,
 } from "./lib/extension-ui-prompt.ts";
 import { handleExtensionUiRequest } from "./lib/extension-ui-handle.ts";
@@ -904,8 +904,9 @@ function App() {
           store.settleSessionByRuntime(event.runtimeId, "crashed", event.message);
           return;
         }
-        // Every runtime is gone: no question can be answered any more.
-        cancelExtensionUiDialogs();
+        // Only the crashed host's questions died with it: parked runtimes keep their own
+        // hosts and their own questions (resetAfterCrash leaves them alone too).
+        cancelExtensionUiDialogsForCrash(event.runtimeId);
         store.resetAfterCrash(event.message);
         {
           const cleared = emptyExtensionUiPortableState();
@@ -1864,8 +1865,7 @@ function App() {
     // A stopped agent can no longer answer a question it asked: close its dialogs and
     // settle them as «cancelled» instead of leaving an unmovable window (#83). Other
     // chats keep their own questions — only this runtime is gone.
-    if (runtimeId) cancelExtensionUiDialogsForRuntime(runtimeId);
-    else cancelExtensionUiDialogs();
+    cancelExtensionUiDialogsForCrash(runtimeId);
     try {
       acceptSnapshot(await window.zeno.agent.abort());
       setStatus("Agent aborted");
