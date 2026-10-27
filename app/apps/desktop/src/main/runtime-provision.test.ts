@@ -1,16 +1,18 @@
 import { execFileSync } from "node:child_process";
 import {
   existsSync,
+  lstatSync,
   mkdirSync,
   mkdtempSync,
   readdirSync,
   readFileSync,
   renameSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { describe, expect, it } from "vite-plus/test";
 import {
   buildRuntimeIsolationEnv,
@@ -28,6 +30,7 @@ import {
   readProvisionStamp,
   resolveTarBinary,
   resolveVendorRuntimeLayout,
+  restoreNodeBinLinks,
   userRuntimesRoot,
 } from "./runtime-provision.ts";
 import { rootsFromRuntimeRoot } from "./bundled-runtimes.ts";
@@ -128,6 +131,68 @@ describe("extractRuntimeArchives", () => {
     } finally {
       rmSync(vendorRoot, { recursive: true, force: true });
       rmSync(dest, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("restoreNodeBinLinks (issue #78: npm in the bundled runtime)", () => {
+  // Node ships bin/npm as a symlink to ../lib/node_modules/npm/bin/npm-cli.js. An older
+  // copyTree copied the target as a file, so npm-cli.js sat in bin/ and required
+  // ../lib/cli.js — «Cannot find module '../lib/cli.js'» on every npm call.
+  function makeBrokenNode(): string {
+    const root = mkdtempSync(join(tmpdir(), "zeno-node-links-"));
+    const nodeRoot = join(root, "node");
+    mkdirSync(join(nodeRoot, "bin"), { recursive: true });
+    mkdirSync(join(nodeRoot, "lib", "node_modules", "npm", "bin"), { recursive: true });
+    mkdirSync(join(nodeRoot, "lib", "node_modules", "npm", "lib"), { recursive: true });
+    mkdirSync(join(nodeRoot, "lib", "node_modules", "corepack", "dist"), { recursive: true });
+    writeFileSync(join(nodeRoot, "bin", "node"), "#!/bin/sh\n");
+    const npmCli = join(nodeRoot, "lib", "node_modules", "npm", "bin", "npm-cli.js");
+    writeFileSync(npmCli, "#!/usr/bin/env node\nrequire('../lib/cli.js')(process)\n");
+    writeFileSync(
+      join(nodeRoot, "lib", "node_modules", "npm", "lib", "cli.js"),
+      "module.exports=1;\n",
+    );
+    writeFileSync(
+      join(nodeRoot, "lib", "node_modules", "npm", "bin", "npx-cli.js"),
+      "#!/usr/bin/env node\n",
+    );
+    writeFileSync(join(nodeRoot, "lib", "node_modules", "corepack", "dist", "corepack.js"), "1;\n");
+    // The shape the broken build produced: plain files where symlinks belong.
+    writeFileSync(join(nodeRoot, "bin", "npm"), readFileSync(npmCli));
+    writeFileSync(
+      join(nodeRoot, "bin", "npx"),
+      readFileSync(join(nodeRoot, "lib", "node_modules", "npm", "bin", "npx-cli.js")),
+    );
+    return nodeRoot;
+  }
+
+  it("puts back npm/npx links a broken build turned into plain files", () => {
+    if (process.platform === "win32") return; // Windows launchers are .cmd files, not links
+    const nodeRoot = makeBrokenNode();
+    try {
+      const restored = restoreNodeBinLinks(nodeRoot);
+      expect(restored).toEqual(["npm", "npx"]);
+      expect(lstatSync(join(nodeRoot, "bin", "npm")).isSymbolicLink()).toBe(true);
+      expect(lstatSync(join(nodeRoot, "bin", "npx")).isSymbolicLink()).toBe(true);
+      // corepack had no plain file to begin with and is not invented out of nowhere.
+      expect(existsSync(join(nodeRoot, "bin", "corepack"))).toBe(false);
+    } finally {
+      rmSync(dirname(nodeRoot), { recursive: true, force: true });
+    }
+  });
+
+  it("leaves a correct tree alone and is idempotent", () => {
+    if (process.platform === "win32") return;
+    const nodeRoot = makeBrokenNode();
+    try {
+      rmSync(join(nodeRoot, "bin", "npm"));
+      symlinkSync("../lib/node_modules/npm/bin/npm-cli.js", join(nodeRoot, "bin", "npm"));
+      expect(restoreNodeBinLinks(nodeRoot)).toEqual(["npx"]);
+      expect(restoreNodeBinLinks(nodeRoot)).toEqual([]);
+      expect(existsSync(join(nodeRoot, "bin", "node"))).toBe(true);
+    } finally {
+      rmSync(dirname(nodeRoot), { recursive: true, force: true });
     }
   });
 });
