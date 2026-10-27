@@ -108,3 +108,17 @@ const FORWARDED_PARKED_RUNTIME_EVENTS = new Set<string>([
 export function shouldForwardParkedRuntimeEvent(eventType: string): boolean {
   return FORWARDED_PARKED_RUNTIME_EVENTS.has(eventType);
 }
+
+/**
+ * Non-runtime host messages a parked (background) host must still reach the window.
+ *
+ * #83: an agent that asks the user a question (`extensionUi.request`) blocks until the
+ * answer arrives. Dropping the question of a background chat left that agent waiting
+ * with nothing on screen — the «nothing happens for 20 minutes» hang. The answer is
+ * routed back by `runtimeId`, so the chat does not have to be the active one.
+ */
+export const FORWARDED_PARKED_HOST_MESSAGES = new Set<string>(["extensionUi.request"]);
+
+export function shouldForwardParkedHostMessage(messageType: string): boolean {
+  return FORWARDED_PARKED_HOST_MESSAGES.has(messageType);
+}

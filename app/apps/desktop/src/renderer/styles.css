@@ -7152,3 +7152,20 @@ textarea.models-scoped-patterns-input[data-slot="textarea"] {
 .process-step-thinking-toggle:hover {
   color: var(--foreground);
 }
+
+/* A question waiting behind the one on screen (extension UI queue, #83). */
+.extension-ui-queue {
+  position: fixed;
+  left: 50%;
+  bottom: 16px;
+  z-index: 11000;
+  margin: 0;
+  padding: 6px 12px;
+  transform: translateX(-50%);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-panel);
+  font-size: 12px;
+  color: var(--muted-foreground);
+  box-shadow: var(--shadow-soft);
+}

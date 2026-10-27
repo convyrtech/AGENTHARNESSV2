@@ -420,6 +420,9 @@ export const en = {
     "Terminal-only capability {method} is not executed on desktop (degraded, session continues)",
   "extensionUi.customMessage": "Extension · {type}",
   "extensionUi.customEntry": "Extension entry · {type}",
+  "extensionUi.queue": "More questions waiting: {n}",
+  "extensionUi.answerFailed":
+    "The answer did not reach the agent: it has already stopped. Ask again if you still need it.",
   "pi.checking": "Checking for global pi…",
   "pi.installing": "Installing global pi…",
   "pi.progress": "Installing global pi…",
