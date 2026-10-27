@@ -1,6 +1,6 @@
 // Поиск в интернете для «Исследовать» (research/26 §3, §4.8; issue #23): один интерфейс над поставщиками, которые
 // доступны из России. Поиск PRSLOY — через шлюз (`/v1/tools/search`, формат DeepSeek Search), свой ключ — DeepSeek,
-// Яндекс, свой SearXNG, Brave, Exa, Firecrawl, Jina. Tavily нет: условия запрещают пользователей в России (§3.2).
+// Яндекс, свой SearXNG, Brave, Exa, Tavily, Firecrawl, Jina. Tavily — по решению владельца (#48), со своим ключом.
 // Ключи сюда приходят из main (safeStorage) через передачу хосту; в окружение агента они не попадают.
 // Результаты поиска — данные со сторонних сайтов, а не инструкции.
 import {
@@ -26,6 +26,7 @@ export type SearchProviderId =
   | "searxng"
   | "brave"
   | "exa"
+  | "tavily"
   | "firecrawl"
   | "jina"
   | "github";
@@ -38,6 +39,7 @@ export const SEARCH_PROVIDERS: readonly SearchProviderId[] = [
   "searxng",
   "brave",
   "exa",
+  "tavily",
   "firecrawl",
   "jina",
   "github",
@@ -108,6 +110,7 @@ const NAME: Record<SearchProviderId, string> = {
   searxng: "SearXNG",
   brave: "Brave",
   exa: "Exa",
+  tavily: "Tavily",
   firecrawl: "Firecrawl",
   jina: "Jina",
   github: "GitHub",
@@ -130,7 +133,12 @@ function httpError(provider: SearchProviderId, status: number): SearchError {
   const who = NAME[provider];
   if (status === 401 || (status === 403 && provider !== "searxng"))
     return new SearchError("auth", `${who}: ключ не принят (HTTP ${status})`);
-  if (status === 402 || status === 429)
+  // Tavily: 432 — лимит ключа или тарифа, 433 — лимит оплаты по факту (docs.tavily.com, POST /search)
+  if (
+    status === 402 ||
+    status === 429 ||
+    (provider === "tavily" && (status === 432 || status === 433))
+  )
     return new SearchError("limit", `${who}: лимит или баланс исчерпан (HTTP ${status})`);
   if (provider === "searxng" && status === 403)
     return new SearchError(
@@ -393,6 +401,40 @@ export async function search(
           snippet: clean((r.highlights ?? []).join(" … ") || r.text, 800),
           ...dated(r.publishedDate),
           provider: "exa" as const,
+        }));
+    }
+    case "tavily": {
+      // docs.tavily.com/documentation/api-reference/endpoint/search: POST, Authorization: Bearer <key>
+      const data = (await call(
+        "tavily",
+        "https://api.tavily.com/search",
+        {
+          method: "POST",
+          headers: { ...json, Authorization: `Bearer ${need(cfg, "key")}` },
+          body: JSON.stringify({
+            query: q.query,
+            max_results: count,
+            search_depth: "basic",
+            include_published_date: true,
+            ...(q.site ? { include_domains: [q.site] } : {}),
+            ...(q.freshness ? { time_range: q.freshness } : {}),
+            ...(q.after ? { start_date: q.after } : {}),
+          }),
+        },
+        deps,
+      )) as {
+        results?: { url?: string; title?: string; content?: string; published_date?: string }[];
+      };
+      if (!Array.isArray(data?.results)) throw new SearchError("format", "Tavily: нет results");
+      return data.results
+        .filter((r) => r.url)
+        .slice(0, count)
+        .map((r) => ({
+          url: r.url!,
+          title: clean(r.title, 200),
+          snippet: clean(r.content, 800),
+          ...dated(r.published_date),
+          provider: "tavily" as const,
         }));
     }
     case "firecrawl": {

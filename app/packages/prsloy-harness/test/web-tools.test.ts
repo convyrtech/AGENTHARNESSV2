@@ -619,6 +619,50 @@ describe("web_search: chain, year guard, tiers, site", () => {
     expect(details).toMatchObject({ provider: "free", hits: 2, removedYears: [2024] });
   });
 
+  it("a limit at the chosen provider moves on to the next set-up one, each once, the line says who answered", async () => {
+    const TAV = {
+      results: [{ title: "Tavily hit", url: "https://t.example/a", content: "from tavily" }],
+    };
+    const f = fakeFetch([
+      ["https://api.search.brave.com/", () => json({}, 429)],
+      ["https://api.exa.ai/search", () => json({}, 402)],
+      ["https://api.tavily.com/search", () => json(TAV)],
+      ["https://html.duckduckgo.com/html/", () => html(DDG)],
+    ]);
+    const { run } = setup({
+      search: { provider: "brave", key: "bk" },
+      fallbacks: [
+        { provider: "exa", key: "ek" },
+        { provider: "brave", key: "bk" },
+        { provider: "tavily", key: "tk" },
+      ],
+      fetchImpl: f.impl,
+      now: NOW,
+    });
+    const r = await run({ query: "tavily api" });
+    expect(r.text).toContain("Поиск: Tavily · «tavily api»");
+    expect(r.text).toContain(
+      "Запасной поиск: Brave: лимит или баланс исчерпан (HTTP 429); Exa: лимит или баланс исчерпан (HTTP 402).",
+    );
+    expect(r.details).toMatchObject({ provider: "tavily", hits: 1, fallbackFrom: 2 });
+    // brave once (not again from fallbacks), exa once, tavily once, free not needed
+    expect(f.calls.map((c) => new URL(c.url).host)).toEqual([
+      "api.search.brave.com",
+      "api.exa.ai",
+      "api.tavily.com",
+    ]);
+
+    // Tavily at its limit too (432): on to the free search
+    const g = fakeFetch([
+      ["https://api.tavily.com/search", () => json({}, 432)],
+      ["https://html.duckduckgo.com/html/", () => html(DDG)],
+    ]);
+    const m = setup({ search: { provider: "tavily", key: "tk" }, fetchImpl: g.impl, now: NOW });
+    const last = await m.run({ query: "node releases" });
+    expect(last.text).toContain("Поиск: Бесплатный поиск");
+    expect(last.text).toContain("Запасной поиск: Tavily: лимит или баланс исчерпан (HTTP 432).");
+  });
+
   it("own key → limit card once → free; all down → the model's search, marked unchecked", async () => {
     const f = fakeFetch([
       ["https://api.search.brave.com/", () => json({}, 429)],

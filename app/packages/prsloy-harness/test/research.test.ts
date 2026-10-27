@@ -70,6 +70,10 @@ describe("search: one interface over the providers", () => {
       [{ provider: "deepseek", key: "k" }, 402, "limit"],
       [{ provider: "brave", key: "k" }, 429, "limit"],
       [{ provider: "exa", key: "k" }, 401, "auth"],
+      [{ provider: "tavily", key: "k" }, 401, "auth"],
+      [{ provider: "tavily", key: "k" }, 429, "limit"],
+      [{ provider: "tavily", key: "k" }, 432, "limit"],
+      [{ provider: "tavily", key: "k" }, 433, "limit"],
       [{ provider: "searxng", url: "https://sx.example" }, 403, "format"],
     ];
     for (const [cfg, status, code] of cases) {
@@ -214,6 +218,67 @@ describe("search: one interface over the providers", () => {
       url: "https://e.com",
     });
     expect(f.calls[5]!.headers.Authorization).toBe("Bearer jk");
+  });
+
+  it("Tavily: POST /search with a Bearer key, a recorded answer parsed with its dates", async () => {
+    // shape of the response from docs.tavily.com/documentation/api-reference/endpoint/search (200 example)
+    const TAVILY = {
+      query: "ключевая ставка",
+      answer: null,
+      images: [],
+      results: [
+        {
+          title: "Ключевая ставка Банка России",
+          url: "https://cbr.ru/hd_base/KeyRate/",
+          content: "Ключевая ставка 14,00% годовых",
+          score: 0.81,
+          raw_content: null,
+          published_date: "2026-10-23T00:00:00Z",
+          favicon: "https://cbr.ru/favicon.ico",
+        },
+        { title: "Без даты", url: "https://example.com/y", content: "<b>текст</b>", score: 0.5 },
+        { title: "Без адреса", content: "x", score: 0.1 },
+      ],
+      response_time: "1.67",
+      request_id: "123e4567-e89b-12d3-a456-426614174111",
+    };
+    const f = fakeFetch([["https://api.tavily.com/search", () => json(TAVILY)]]);
+    const hits = await search(
+      { provider: "tavily", key: "tvly-k" },
+      { query: "ключевая ставка", freshness: "month", site: "cbr.ru", count: 4 },
+      { fetchImpl: f.impl, now: NOW },
+    );
+    expect(f.calls[0]!.headers.Authorization).toBe("Bearer tvly-k");
+    expect(f.calls[0]!.body).toEqual({
+      query: "ключевая ставка",
+      max_results: 4,
+      search_depth: "basic",
+      include_published_date: true,
+      include_domains: ["cbr.ru"],
+      time_range: "month",
+    });
+    expect(hits).toEqual([
+      {
+        url: "https://cbr.ru/hd_base/KeyRate/",
+        title: "Ключевая ставка Банка России",
+        snippet: "Ключевая ставка 14,00% годовых",
+        date: "2026-10-23",
+        provider: "tavily",
+      },
+      { url: "https://example.com/y", title: "Без даты", snippet: "текст", provider: "tavily" },
+    ]);
+    const bad = fakeFetch([["https://api.tavily.com/search", () => json({ query: "q" })]]);
+    const err = await search(
+      { provider: "tavily", key: "k" },
+      { query: "q" },
+      { fetchImpl: bad.impl },
+    ).catch((e: unknown) => e);
+    expect((err as SearchError).code).toBe("format");
+    const check = fakeFetch([["https://api.tavily.com/search", () => json(TAVILY)]]);
+    expect(
+      await checkProvider({ provider: "tavily", key: "k" }, { fetchImpl: check.impl }),
+    ).toMatchObject({ ok: true, dated: true, firstUrl: "https://cbr.ru/hd_base/KeyRate/" });
+    expect(check.calls[0]!.body).toMatchObject({ query: "Пушкин", max_results: 1 });
   });
 
   it("«Проверить»: one query «Пушкин», 1 result; latency, dates, a readable error", async () => {
