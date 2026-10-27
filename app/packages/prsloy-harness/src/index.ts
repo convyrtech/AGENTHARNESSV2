@@ -37,6 +37,7 @@ import { modelReviewer, secondOpinionFlag } from "./reviewer.ts";
 import { gitResolver, installTurnChanges, TurnChanges } from "./turn-changes.ts";
 import { installTaskThread } from "./task-thread.ts";
 import { join } from "node:path";
+import { installContinuationGuard } from "./continuation-guard.ts";
 
 export type { HarnessOptions, HarnessProfile, PracticeName } from "./options.ts";
 export { sanitizedEnv } from "./options.ts";
@@ -202,6 +203,9 @@ export function createPrsloyHarness(options: HarnessOptions = {}): (pi: Extensio
     if (on("taskThread")) installTaskThread(pi, opts);
     if (on("secretScrub")) installSecretScrub(pi);
     if (on("reliabilityProxy")) installReliability(pi, opts);
+    // Последним: общий предел автоматических повторных запросов одного user-turn.
+    // Не ограничивает max_tokens и не влияет на явные новые сообщения пользователя.
+    installContinuationGuard(pi);
   };
 }
 
