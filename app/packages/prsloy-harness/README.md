@@ -99,6 +99,21 @@ PRSLOY_GATEWAY_KEY=… node packages/prsloy-harness/scripts/bench.mts --harness 
 Страницы проверяются в Chromium Playwright (свой, `BENCH_CHROMIUM` или `/opt/pw-browsers/chromium`); нет
 браузера — проверка «не выполнена», а не провалена.
 
+### Второе мнение по целой ветке
+
+`review-live.mts` проверяет самого проверяющего на синтетических диффах. Когда ветку писал агент и живого
+человека-ревьюера нет, тот же путь (прокси надёжности, промпт `reviewPrompt`, разбор `parseVerdict` с
+цитатой из диффа) запускается по настоящему диффу ветки:
+
+```sh
+PRSLOY_GATEWAY_KEY=… node packages/prsloy-harness/scripts/review-branch.mts \
+  --base 6c95a70 --task "что просил пользователь" --checks "итог проверок"
+```
+
+`--path` сужает дифф (большой дифф обрезается и теряет файлы), `--limit` поднимает потолок символов,
+`--reviewer` задаёт проверяющего вместо пары к писателю. Выход 0 — PASS, 4 — FAIL с замечаниями, 3 — шлюз
+ответил 402. Разбор с токенами и ценой пишется в `--out` (по умолчанию `review-branch.json`).
+
 ## Проверка
 
 ```sh
