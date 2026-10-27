@@ -31,9 +31,14 @@ export async function launchRu(options: LaunchOptions = {}) {
   return launched;
 }
 
-export async function closeLaunched(launched: Awaited<ReturnType<typeof launchZenoApp>>) {
+export async function closeLaunched(
+  launched: Awaited<ReturnType<typeof launchZenoApp>>,
+  options: { keepRoot?: boolean } = {},
+) {
   await launched.app.close().catch(() => undefined);
   await launched.fakeModel.stop().catch(() => undefined);
+  // A restart test relaunches on the same root: its sessions and prefs must survive.
+  if (options.keepRoot) return;
   await rm(launched.root, { recursive: true, force: true }).catch(() => undefined);
 }
 

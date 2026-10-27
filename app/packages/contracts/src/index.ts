@@ -330,8 +330,22 @@ export type RuntimeEvent =
   | { type: "agent.started" | "agent.settled" }
   | { type: "user.message"; content: string }
   | { type: "queue.updated"; steering: string[]; followUp: string[] }
-  | { type: "message.delta"; delta: string }
-  | { type: "thinking.delta"; delta: string }
+  | {
+      type: "message.delta";
+      delta: string;
+      /**
+       * Which assistant message the delta belongs to (assistant-final.ts). The renderer
+       * starts a new reply row when it changes — without it two consecutive messages
+       * merged into one bubble (issue #79).
+       */
+      messageId?: string;
+    }
+  | {
+      type: "thinking.delta";
+      delta: string;
+      /** Same message identity as message.delta. */
+      messageId?: string;
+    }
   | {
       type: "message.completed";
       reason: "stop" | "length" | "toolUse";
@@ -339,6 +353,8 @@ export type RuntimeEvent =
       text?: string;
       /** Final thinking text, when the model produced any. */
       thinking?: string;
+      /** Message identity, same scheme as message.delta. */
+      messageId?: string;
     }
   /**
    * Non-success assistant stop reasons from pi (`StopReason` minus completed ones).
@@ -2766,12 +2782,16 @@ function isRuntimeEvent(value: unknown): value is RuntimeEvent {
       return isStringArray(value.steering) && isStringArray(value.followUp);
     case "message.delta":
     case "thinking.delta":
-      return typeof value.delta === "string";
+      return (
+        typeof value.delta === "string" &&
+        (value.messageId === undefined || typeof value.messageId === "string")
+      );
     case "message.completed":
       return (
         (value.reason === "stop" || value.reason === "length" || value.reason === "toolUse") &&
         (value.text === undefined || typeof value.text === "string") &&
-        (value.thinking === undefined || typeof value.thinking === "string")
+        (value.thinking === undefined || typeof value.thinking === "string") &&
+        (value.messageId === undefined || typeof value.messageId === "string")
       );
     case "message.failed":
       return (

@@ -6,6 +6,7 @@ import {
   assertLiveStreamTextMonotonic,
   emptyLiveStream,
   liveStreamNotCoveredByHistory,
+  rebaseLiveStreamEpoch,
   retractOptimisticUserMessage,
 } from "./live-stream.ts";
 
@@ -134,7 +135,8 @@ describe("message end reconciles with pi's stored text", () => {
 });
 
 describe("message end never rewrites an earlier message", () => {
-  it("leaves a row shared with the previous message as streamed", () => {
+  it("leaves a row shared with the previous message as streamed (no message ids)", () => {
+    // Legacy fallback for hosts without message ids: no boundary signal, best effort.
     let state = emptyLiveStream();
     const events: Parameters<typeof applyRuntimeEventToLiveStream>[1][] = [
       { type: "message.delta", delta: "Первый. " },
@@ -148,6 +150,166 @@ describe("message end never rewrites an earlier message", () => {
     expect(state.items.map((item) => ("text" in item ? item.text : ""))).toEqual([
       "Первый. Второй",
     ]);
+  });
+
+  it("keeps two consecutive replies in two bubbles when message ids are known (#79)", () => {
+    let state = emptyLiveStream();
+    const events: Parameters<typeof applyRuntimeEventToLiveStream>[1][] = [
+      { type: "message.delta", delta: "Первый. ", messageId: "t:1" },
+      { type: "message.completed", reason: "stop", text: "Первый. ", messageId: "t:1" },
+      { type: "message.delta", delta: "Второй", messageId: "t:2" },
+      { type: "message.completed", reason: "stop", text: "Второй!", messageId: "t:2" },
+    ];
+    events.forEach((event, i) => {
+      state = applyRuntimeEventToLiveStream(state, event, [], { sequence: i + 1 });
+    });
+    expect(state.items.map((item) => ("text" in item ? item.text : ""))).toEqual([
+      "Первый. ",
+      "Второй!",
+    ]);
+  });
+
+  it("a completion targets its own message even when another reply follows", () => {
+    let state = emptyLiveStream();
+    state = applyRuntimeEventToLiveStream(
+      state,
+      { type: "message.delta", delta: "Первый потерянный хвост", messageId: "t:1" },
+      [],
+      { sequence: 1 },
+    );
+    state = applyRuntimeEventToLiveStream(
+      state,
+      { type: "message.delta", delta: "Второй", messageId: "t:2" },
+      [],
+      { sequence: 2 },
+    );
+    // Completion of the FIRST message arrives with the stored text: only its own row changes.
+    state = applyRuntimeEventToLiveStream(
+      state,
+      { type: "message.completed", reason: "stop", text: "Первый полный", messageId: "t:1" },
+      [],
+      { sequence: 3 },
+    );
+    expect(state.items.map((item) => ("text" in item ? item.text : ""))).toEqual([
+      "Первый полный",
+      "Второй",
+    ]);
+  });
+
+  it("a reply whose deltas never arrived is added from its completion (by id)", () => {
+    let state = emptyLiveStream();
+    state = applyRuntimeEventToLiveStream(
+      state,
+      { type: "message.delta", delta: "Первый.", messageId: "t:1" },
+      [],
+      { sequence: 1 },
+    );
+    state = applyRuntimeEventToLiveStream(
+      state,
+      { type: "message.completed", reason: "stop", text: "Первый.", messageId: "t:1" },
+      [],
+      { sequence: 2 },
+    );
+    // No deltas for t:2 — only the completion event reaches the renderer.
+    state = applyRuntimeEventToLiveStream(
+      state,
+      { type: "message.completed", reason: "stop", text: "Второй.", messageId: "t:2" },
+      [],
+      { sequence: 3 },
+    );
+    expect(state.items.map((item) => ("text" in item ? item.text : ""))).toEqual([
+      "Первый.",
+      "Второй.",
+    ]);
+  });
+});
+
+describe("a reply cut off at the length limit is not a silent success (#79)", () => {
+  it("adds an error card after the partial answer", () => {
+    let state = emptyLiveStream();
+    state = applyRuntimeEventToLiveStream(
+      state,
+      { type: "message.delta", delta: "Половина от" },
+      [],
+      {
+        sequence: 1,
+      },
+    );
+    state = applyRuntimeEventToLiveStream(
+      state,
+      { type: "message.completed", reason: "length", text: "Половина от" },
+      [],
+      { sequence: 2 },
+    );
+    const card = state.items.at(-1);
+    expect(card?.kind).toBe("system");
+    expect(card && card.kind === "system" ? card.tone : undefined).toBe("error");
+    expect(card && card.kind === "system" ? card.title : undefined).toBe("Response truncated");
+  });
+
+  it("stop and toolUse completions add no card", () => {
+    for (const reason of ["stop", "toolUse"] as const) {
+      let state = emptyLiveStream();
+      state = applyRuntimeEventToLiveStream(
+        state,
+        { type: "message.delta", delta: "Прочитал файл" },
+        [],
+        { sequence: 1 },
+      );
+      state = applyRuntimeEventToLiveStream(
+        state,
+        { type: "message.completed", reason, text: "Прочитал файл" },
+        [],
+        { sequence: 2 },
+      );
+      expect(state.items.map((item) => item.kind)).toEqual(["assistant"]);
+    }
+  });
+});
+
+describe("host event numbering epochs (#79)", () => {
+  it("clears a stale dedupe list when the host restarted its numbering", () => {
+    let state = emptyLiveStream();
+    state = applyRuntimeEventToLiveStream(state, { type: "message.delta", delta: "Готово." }, [], {
+      sequence: 7,
+    });
+    // host.ready / session.switch send sequence 0 — the old numbers must not bite.
+    const rebased = rebaseLiveStreamEpoch(state, 0);
+    expect(rebased.seenSequences).toEqual([]);
+    // And the next turn's events land instead of being dropped as "redeliveries".
+    let next = applyRuntimeEventToLiveStream(
+      rebased,
+      { type: "user.message", content: "ещё раз" },
+      ["ещё раз"],
+      { sequence: 1 },
+    );
+    next = applyRuntimeEventToLiveStream(
+      next,
+      { type: "message.delta", delta: "Второй ответ" },
+      [],
+      { sequence: 2 },
+    );
+    expect(next.items.map((item) => ("text" in item ? item.text : ""))).toEqual([
+      "Готово.",
+      "ещё раз",
+      "Второй ответ",
+    ]);
+  });
+
+  it("keeps the dedupe list for a same-epoch snapshot", () => {
+    let state = emptyLiveStream();
+    state = applyRuntimeEventToLiveStream(state, { type: "message.delta", delta: "Готово." }, [], {
+      sequence: 7,
+    });
+    const rebased = rebaseLiveStreamEpoch(state, 12);
+    expect(rebased).toBe(state);
+    const dropped = applyRuntimeEventToLiveStream(
+      rebased,
+      { type: "message.delta", delta: "дубль" },
+      [],
+      { sequence: 7 },
+    );
+    expect(dropped.items.at(-1)).toMatchObject({ kind: "assistant", text: "Готово." });
   });
 });
 
@@ -459,6 +621,37 @@ describe("liveStreamNotCoveredByHistory", () => {
     });
     const next = liveStreamNotCoveredByHistory(state, [{ role: "assistant", text: "Готово." }]);
     expect(next.items.some((item) => item.kind === "assistant")).toBe(false);
+  });
+
+  it("keeps a fresh short reply that happens to prefix an older stored reply (#79)", () => {
+    let state = emptyLiveStream();
+    state = applyRuntimeEventToLiveStream(state, { type: "message.delta", delta: "Готово" }, [], {
+      sequence: 1,
+    });
+    // The older answer starts with the new one; a prefix match must not eat the new row.
+    const next = liveStreamNotCoveredByHistory(state, [
+      { role: "assistant", text: "Готово, всё сделано, файл рядом." },
+    ]);
+    expect(next.items.some((item) => item.kind === "assistant" && item.text === "Готово")).toBe(
+      true,
+    );
+  });
+
+  it("matches the live user bubble against the stored text without the attachments block", () => {
+    let state = emptyLiveStream();
+    state = applyRuntimeEventToLiveStream(
+      state,
+      { type: "user.message", content: "Собери страницу" },
+      ["Собери страницу"],
+      { sequence: 1, optimistic: true },
+    );
+    const next = liveStreamNotCoveredByHistory(state, [
+      {
+        role: "user",
+        text: "Собери страницу\n\n<attached-paths>\n<path>/tmp/logo.png</path>\n</attached-paths>",
+      },
+    ]);
+    expect(next.items.some((item) => item.kind === "user")).toBe(false);
   });
 
   it("keeps live assistant text when history is a stale prefix (extra tokens)", () => {

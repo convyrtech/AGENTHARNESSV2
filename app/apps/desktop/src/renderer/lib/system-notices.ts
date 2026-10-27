@@ -10,12 +10,15 @@ export const RESPONSE_FAILED_TITLE = "Response failed";
 export const HOST_CRASHED_TITLE = "Agent Host crashed";
 /** The projection's note after the host came back (`host.restarted`). */
 export const HOST_RESTARTED_TEXT = "Agent Host restarted";
+/** The projection's title for a reply cut off at the model's length limit (#79). */
+export const RESPONSE_TRUNCATED_TITLE = "Response truncated";
 
 const TITLE_KEYS: Readonly<Record<string, MessageKey>> = {
   [RESPONSE_FAILED_TITLE]: "system.responseFailed",
   "Response stopped": "system.responseStopped",
   "Response pending": "system.responsePending",
   "Response deferred": "system.responseDeferred",
+  [RESPONSE_TRUNCATED_TITLE]: "system.responseTruncated",
   Retry: "system.retry",
   [HOST_CRASHED_TITLE]: "system.hostCrashed",
 };

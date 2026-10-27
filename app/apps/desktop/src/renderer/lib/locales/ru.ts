@@ -1582,6 +1582,7 @@ export const ru = {
   "prsloy.host.restarted": "Агент перезапущен после сбоя — разговор сохранён",
   "system.responseFailed": "Связь с моделью оборвалась",
   "system.responseStopped": "Ответ остановлен",
+  "system.responseTruncated": "Ответ обрезан: модель упёрлась в предел длины — попроси продолжить",
   "system.responsePending": "Ждём ответа",
   "system.responseDeferred": "Ответ отложен",
   "system.retry": "Повтор",

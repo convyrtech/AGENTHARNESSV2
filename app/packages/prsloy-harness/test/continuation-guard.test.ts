@@ -39,7 +39,9 @@ describe("continuation guard", () => {
       reason: "threshold",
       preparation: { firstKeptEntryId: "entry-1", tokensBefore: 500_000 },
     });
-    expect(first[0]).toMatchObject({ compaction: { firstKeptEntryId: "entry-1", tokensBefore: 500_000 } });
+    expect(first[0]).toMatchObject({
+      compaction: { firstKeptEntryId: "entry-1", tokensBefore: 500_000 },
+    });
     expect(await pi.emit("session_before_compact", { reason: "threshold" })).toEqual([
       { cancel: true },
     ]);
