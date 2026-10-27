@@ -5,6 +5,7 @@ import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promis
 import { createServer as createNetServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import {
   createAgentSession,
   DefaultResourceLoader,
@@ -43,6 +44,19 @@ async function startSession(
 ) {
   const root = await mkdtemp(join(tmpdir(), "prsloy-int-"));
   const agentDir = join(root, "agent");
+  // Pi подмешивает в промпт глобальные ресурсы из домашней папки (~/.agents/skills). На
+  // машине разработчика они там есть, и тест «навыков нет» / «в промпте только наши навыки»
+  // проверял бы чужие файлы. Свой HOME на время теста — и видно только то, что создал тест.
+  const home = process.env.HOME;
+  const userProfile = process.env.USERPROFILE;
+  process.env.HOME = root;
+  process.env.USERPROFILE = root;
+  cleanup.push(async () => {
+    if (home === undefined) delete process.env.HOME;
+    else process.env.HOME = home;
+    if (userProfile === undefined) delete process.env.USERPROFILE;
+    else process.env.USERPROFILE = userProfile;
+  });
   const cwd = join(root, "project");
   await mkdir(agentDir, { recursive: true });
   await mkdir(cwd, { recursive: true });
@@ -98,6 +112,9 @@ async function startSession(
               outputDir: join(root, "out"),
               // Флаги приложения (prsloy-harness.json): нет файла — всё по умолчанию.
               settingsPath: join(root, "flags.json"),
+              // Память тоже своя: иначе memoryDirFor() возьмёт PRSLOY_MEMORY_DIR /
+              // PI_CODING_AGENT_DIR из окружения машины и в промпт попадёт реальная память.
+              memoryDir: join(root, "memory"),
               ...load.factory,
             }),
           ],
@@ -558,7 +575,7 @@ describe("integration: lessons (S3) in a real session", () => {
   it("a situational tip rides on the loop warning; the event names it; a green turn counts as helped", async () => {
     const learningDir = await mkdtemp(join(tmpdir(), "prsloy-lessons-int-"));
     cleanup.push(() => rm(learningDir, { recursive: true, force: true }));
-    const lessonsPath = new URL("./fixtures/lessons/code.json", import.meta.url).pathname;
+    const lessonsPath = fileURLToPath(new URL("./fixtures/lessons/code.json", import.meta.url));
     const ls = { name: "bash", arguments: { command: "ls" } };
     const { session, server, toolResults, textOf } = await startSession(
       (_req, index) => (index < 3 ? { toolCalls: [ls] } : { text: "Готово." }),
