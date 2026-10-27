@@ -36,6 +36,11 @@ export interface ResearchOptions {
    * Поставщик и его ключ из настроек приложения (main → хост, ключ в окружение агента не попадает). Нет — бесплатный.
    */
   search?: SearchConfig;
+  /**
+   * Другие настроенные поставщики со своими ключами, по порядку экрана: при лимите или сбое выбранного поиск идёт
+   * по ним (каждый не больше раза за поиск), потом бесплатный и модель (#48).
+   */
+  fallbacks?: SearchConfig[];
   /** Адрес шлюза PRSLOY: поиск PRSLOY и запасное чтение страниц; ключ — ключ шлюза из Pi. */
   gatewayUrl?: string;
   /** Токен GitHub из настроек (необязательный): бесплатный поиск ходит в GitHub с ним. */
@@ -99,6 +104,8 @@ export function installResearch(
   // Ключи поиска — в список чистки секретов дословно: где бы ни всплыли в выводе инструментов, модель их не увидит.
   if (research.search?.key)
     rememberSecretValue(research.search.key, `поиска ${providerName(research.search.provider)}`);
+  for (const f of research.fallbacks ?? [])
+    if (f.key) rememberSecretValue(f.key, `поиска ${providerName(f.provider)}`);
   if (research.githubToken) rememberSecretValue(research.githubToken, "GitHub");
   const ledgers = new Map<string, SourceLedger>();
   const ledger = (ctx: ExtensionContext) => {
@@ -133,7 +140,10 @@ export function installResearch(
       jina: research.jina !== false,
     };
   };
-  /** Цепочка поставщиков: выбранный → бесплатный → поиск модели через шлюз (если есть ключ шлюза). */
+  /**
+   * Цепочка поставщиков: выбранный → другие настроенные свои ключи → бесплатный → поиск модели через шлюз (если
+   * есть ключ шлюза). Каждый поставщик — не больше раза.
+   */
   const chain = async (ctx: ExtensionContext): Promise<SearchConfig[]> => {
     const active = research.search ?? { provider: "free" as const };
     const gw = await gateway(ctx);
@@ -150,6 +160,11 @@ export function installResearch(
           ? { ...models, ...fill(active) }
           : fill(active);
     const list = [first];
+    for (const f of research.fallbacks ?? []) {
+      if (f.provider === "free" || f.provider === "model" || f.provider === "prsloy") continue;
+      if (list.some((c) => c.provider === f.provider)) continue;
+      list.push(f);
+    }
     if (active.provider !== "free") list.push({ provider: "free", ...token });
     if (gw && active.provider !== "model")
       list.push({ provider: "model", url: gw.url, key: gw.key, ...models });

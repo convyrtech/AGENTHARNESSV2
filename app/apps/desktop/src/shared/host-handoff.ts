@@ -10,6 +10,8 @@ export const HOST_HANDOFF_TYPE = "prsloy.handoff";
 /** Web search provider and its keys, as main's search settings write them (search-settings.ts). */
 export type HostSearchHandoff = {
   search: { provider: string; key?: string; folderId?: string; url?: string; models?: string[] };
+  /** Other set-up own-key providers, in order: the fallback after the active one (issue #48). */
+  fallbacks?: HostSearchHandoff["search"][];
   gatewayUrl?: string;
   githubToken?: string;
   modelSearch?: string[];

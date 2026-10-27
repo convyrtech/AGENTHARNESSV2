@@ -231,6 +231,7 @@ export const featuresEn: Record<keyof typeof featuresZh, string> = {
   "features.web.name.searxng": "SearXNG (your own server)",
   "features.web.name.brave": "Brave",
   "features.web.name.exa": "Exa",
+  "features.web.name.tavily": "Tavily",
   "features.web.name.firecrawl": "Firecrawl",
   "features.web.name.jina": "Jina",
   "features.web.name.prsloy": "PRSLOY search",
@@ -246,6 +247,8 @@ export const featuresEn: Record<keyof typeof featuresZh, string> = {
     "$5 a month free, about 1000 searches. Key: api-dashboard.search.brave.com → the Search plan (asks for a card) → keys. Whether it works from Russia is not checked.",
   "features.web.hint.exa":
     "$10 a month free, no card. Key: dashboard.exa.ai → keys. Whether it works from Russia is not checked.",
+  "features.web.hint.tavily":
+    "1000 searches a month free, no card. Key: app.tavily.com → keys. Whether it works from Russia is not checked.",
   "features.web.hint.firecrawl":
     "1000 credits a month free, no card. Key: firecrawl.dev → Dashboard → keys.",
   "features.web.hint.jina": "A new key comes with a free allowance. Key: jina.ai → keys.",

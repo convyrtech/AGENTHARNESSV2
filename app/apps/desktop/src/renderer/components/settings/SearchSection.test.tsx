@@ -17,6 +17,7 @@ function state(over: Partial<Record<SearchProviderId, Partial<SearchProviderStat
     "searxng",
     "brave",
     "exa",
+    "tavily",
     "firecrawl",
     "jina",
     "github",

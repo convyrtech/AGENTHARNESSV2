@@ -37,6 +37,7 @@ describe("search settings", () => {
       "searxng",
       "brave",
       "exa",
+      "tavily",
       "firecrawl",
       "jina",
       "github",
@@ -134,6 +135,22 @@ describe("search settings", () => {
     expect(s.handoff(gw)).toMatchObject({
       search: { provider: "exa", key: "exa-key" },
       gatewayUrl: gw,
+    });
+    expect(s.handoff(gw).fallbacks).toBeUndefined();
+    // other set-up own-key providers go along as fallbacks, in screen order; github and the active one do not
+    s.setKey("tavily", "tvly-key");
+    s.setKey("brave", "brave-key");
+    s.setKey("github", "ghp_x");
+    expect(s.handoff(gw).fallbacks).toEqual([
+      { provider: "brave", key: "brave-key" },
+      { provider: "tavily", key: "tvly-key" },
+    ]);
+    s.clearKey("brave");
+    s.clearKey("github");
+    s.setActive("tavily");
+    expect(s.handoff(gw)).toMatchObject({
+      search: { provider: "tavily", key: "tvly-key" },
+      fallbacks: [{ provider: "exa", key: "exa-key" }],
     });
     s.setActive("prsloy");
     expect(s.handoff(gw).search).toEqual({ provider: "prsloy", url: gw });
@@ -288,7 +305,7 @@ describe("search IPC", () => {
 
   it("validates input: known providers only, http(s) addresses, string keys", async () => {
     const { call } = ipc();
-    await expect(call(SEARCH_IPC.setKey, "tavily", "k")).rejects.toThrow("Неизвестный поиск");
+    await expect(call(SEARCH_IPC.setKey, "bing", "k")).rejects.toThrow("Неизвестный поиск");
     await expect(call(SEARCH_IPC.setKey, "searxng", "", { url: "file:///etc" })).rejects.toThrow(
       "http",
     );

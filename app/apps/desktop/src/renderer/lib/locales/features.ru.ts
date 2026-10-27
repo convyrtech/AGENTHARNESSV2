@@ -230,6 +230,7 @@ export const featuresRu: Record<keyof typeof featuresZh, string> = {
   "features.web.name.searxng": "SearXNG (свой сервер)",
   "features.web.name.brave": "Brave",
   "features.web.name.exa": "Exa",
+  "features.web.name.tavily": "Tavily",
   "features.web.name.firecrawl": "Firecrawl",
   "features.web.name.jina": "Jina",
   "features.web.name.prsloy": "Поиск PRSLOY",
@@ -245,6 +246,8 @@ export const featuresRu: Record<keyof typeof featuresZh, string> = {
     "$5 в месяц бесплатно, около 1000 запросов. Ключ: api-dashboard.search.brave.com → тариф Search (просит карту) → раздел ключей. Работает ли из России — не проверено.",
   "features.web.hint.exa":
     "$10 в месяц бесплатно, карта не нужна. Ключ: dashboard.exa.ai → раздел ключей. Работает ли из России — не проверено.",
+  "features.web.hint.tavily":
+    "1000 запросов в месяц бесплатно, карта не нужна. Ключ: app.tavily.com → раздел ключей. Работает ли из России — не проверено.",
   "features.web.hint.firecrawl":
     "1000 кредитов в месяц бесплатно, карта не нужна. Ключ: firecrawl.dev → Dashboard → раздел ключей.",
   "features.web.hint.jina": "Новый ключ идёт с бесплатным запасом. Ключ: jina.ai → раздел ключей.",
