@@ -139,6 +139,9 @@ test("a switch in the middle of a stream and a restart keep every answer in its 
     await page.waitForTimeout(6_000);
     const otherChat = await timeline.textContent();
     expect(otherChat).not.toContain("still streaming");
+    // The parked turn's own question must not appear here either — the renderer used to
+    // resolve a background turn's text against the open chat's question list (#79).
+    expect(otherChat).not.toContain("stream slowly");
     expect(otherChat).not.toContain(MARK_A);
 
     // Coming back shows the parked turn whole: nothing was dropped while it streamed.
