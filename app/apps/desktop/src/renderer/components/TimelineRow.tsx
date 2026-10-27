@@ -328,7 +328,17 @@ function toolSummary(value: unknown): string {
   if (typeof value === "string") return value.split("\n", 1)[0] ?? value;
   if (!value || typeof value !== "object" || Array.isArray(value)) return "";
   const row = value as Record<string, unknown>;
-  for (const key of ["command", "path", "file_path", "query", "url", "description"]) {
+  for (const key of [
+    "command",
+    "path",
+    "file_path",
+    "query",
+    "url",
+    "description",
+    // Вопрос и причина секрета читаются людьми, а не JSON-ом (#82).
+    "question",
+    "reason",
+  ]) {
     if (typeof row[key] === "string" && row[key].trim()) return row[key].trim();
   }
   const text = structuredText(value).replace(/\s+/g, " ");
@@ -1329,7 +1339,9 @@ function processToolExpandBodies(
     } else if (view.path) {
       input = view.path;
     } else {
-      input = structuredText(item.args);
+      // Вопрос и причина секрета — текст для человека, а не JSON (#82).
+      const spoken = toolSummary(item.args);
+      input = spoken || structuredText(item.args);
     }
   } else if (!view.weak) {
     if (view.kind === "run" && view.detail.trim()) input = view.detail;
