@@ -71,6 +71,7 @@ const { values } = parseArgs({
     "task-thread": { type: "string", default: "off" },
     "context-window": { type: "string" },
     "keep-recent": { type: "string" },
+    "work-dir": { type: "string" },
     "budget-rub": { type: "string" },
     "budget-tokens": { type: "string" },
     "stale-docs": { type: "string", default: "end" },
@@ -133,6 +134,7 @@ async function main(): Promise<number> {
     taskThread: values["task-thread"] === "on",
     ...(contextWindow ? { contextWindow } : {}),
     ...(keepRecentTokens ? { keepRecentTokens } : {}),
+    ...(values["work-dir"] ? { workDir: resolve(values["work-dir"]) } : {}),
     staleDocs: STALE_DOCS_MODES.includes(values["stale-docs"] as StaleDocsMode)
       ? (values["stale-docs"] as StaleDocsMode)
       : "end",

@@ -1,7 +1,7 @@
 // Нить задачи (#64 п.1): факты задачи из записей сессии и git; блок после пересказа сжатия, «продолжай, не
 // начинай заново». За флагом "taskThread" (по умолчанию выкл.), блок заморожен на сжатие и переживает перезапуск.
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vite-plus/test";
@@ -192,6 +192,14 @@ describe("gitFacts", () => {
     expect(facts?.commits[0]).toMatch(/^[0-9a-f]+ fix: first$/);
     // a task that started later has no commits of its own
     expect((await gitFacts("git", dir, Date.now() + 3_600_000))?.commits).toEqual([]);
+  });
+
+  it("a folder ignored by the repo it sits in — not that repo's facts", async () => {
+    const dir = gitRepo();
+    writeFileSync(join(dir, ".gitignore"), "out/\n");
+    const nested = join(dir, "out", "task");
+    mkdirSync(nested, { recursive: true });
+    expect(await gitFacts("git", nested, 0)).toBeUndefined();
   });
 
   it("not a repository — undefined", async () => {

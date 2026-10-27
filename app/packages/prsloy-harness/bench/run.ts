@@ -11,6 +11,7 @@ import {
   rmSync,
   writeFileSync,
 } from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
@@ -137,6 +138,11 @@ export interface BenchOptions {
    * Для замера с маленьким окном: сжатие срабатывает при «окно − 16 384».
    */
   keepRecentTokens?: number;
+  /**
+   * Где создавать рабочие папки задач (#70). По умолчанию — временная папка системы: внутри репо Pi подмешал бы агенту
+   * `AGENTS.md` / `CLAUDE.md` из папок выше.
+   */
+  workDir?: string;
   /** Разборщик сессий после прогона (research/24 §6, A-4; ci). Пока только помечается в отчёте. */
   audit?: boolean;
   /**
@@ -471,14 +477,49 @@ export function infraReason(
   return `${last.status === 402 ? "квота шлюза" : "сбой шлюза"}: ${last.message}`;
 }
 
+/** Файлы описания проекта, которые Pi грузит из папки и всех папок выше (pi-coding-agent, loadContextFileFromDir). */
+const CONTEXT_FILE_NAMES = [
+  "AGENTS.override.md",
+  "AGENTS.md",
+  "AGENTS.MD",
+  "CLAUDE.md",
+  "CLAUDE.MD",
+];
+
+/** Файлы описания в `dir` и выше: агент на стенде получил бы их в контекст (#70). */
+export function contextFilesAbove(dir: string): string[] {
+  const found: string[] = [];
+  let current = dir;
+  while (true) {
+    for (const name of CONTEXT_FILE_NAMES) {
+      const path = join(current, name);
+      if (existsSync(path)) found.push(path);
+    }
+    const parent = dirname(current);
+    if (parent === current) return found;
+    current = parent;
+  }
+}
+
+/** Корень рабочих папок задач: вне `--out`, без файлов описания выше — иначе ошибка с объяснением. */
+export function benchWorkRoot(workDir: string | undefined): string {
+  const root = workDir ?? join(tmpdir(), "prsloy-bench-work");
+  mkdirSync(root, { recursive: true });
+  const above = contextFilesAbove(root);
+  if (above.length)
+    throw new Error(
+      `Рабочая папка стенда ${root} лежит под ${above.join(", ")}: Pi подмешает агенту эти правила, замер будет не про задачу. Укажите --work-dir в папке без AGENTS.md / CLAUDE.md выше (#70).`,
+    );
+  return root;
+}
+
 async function runTask(
   task: TaskDef,
   opts: BenchOptions,
   control: RunControl,
   prices: PriceTable,
 ): Promise<TaskResult> {
-  const work = join(opts.outDir, "work");
-  mkdirSync(work, { recursive: true });
+  const work = benchWorkRoot(opts.workDir);
   const slug = task.id.replace(/\//g, "-");
   const ws = mkdtempSync(join(work, `${slug}-`));
   const original = task.workspace;

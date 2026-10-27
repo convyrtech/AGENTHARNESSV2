@@ -233,6 +233,9 @@ export async function gitFacts(
 ): Promise<GitFacts | undefined> {
   const inside = await runGit(git, cwd, ["rev-parse", "--is-inside-work-tree"]);
   if (inside?.trim() !== "true") return undefined;
+  // Папка задачи внутри чужого репо, где она игнорируется (папка проекта в домашнем репо-настройках, стенд в
+  // bench-out/): git этого репо — не факты задачи. Код 0 у check-ignore — папка игнорируется.
+  if ((await runGit(git, cwd, ["check-ignore", "-q", "."])) !== undefined) return undefined;
   const [branch, status, log] = await Promise.all([
     runGit(git, cwd, ["rev-parse", "--abbrev-ref", "HEAD"]),
     runGit(git, cwd, ["status", "--short"]),
