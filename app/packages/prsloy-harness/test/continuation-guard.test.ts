@@ -29,4 +29,21 @@ describe("continuation guard", () => {
     await pi.userPrompt();
     expect((await pi.boundary("agent_before_settle")).continue).toBe(true);
   });
+
+  it("allows one automatic compaction and cancels the next", async () => {
+    const pi = new MockPi();
+    pi.api.on("agent_before_settle", () => ({ entries: [], continue: true }));
+    installContinuationGuard(pi.api);
+    await pi.userPrompt();
+    const first = await pi.emit("session_before_compact", {
+      reason: "threshold",
+      preparation: { firstKeptEntryId: "entry-1", tokensBefore: 500_000 },
+    });
+    expect(first[0]).toMatchObject({ compaction: { firstKeptEntryId: "entry-1", tokensBefore: 500_000 } });
+    expect(await pi.emit("session_before_compact", { reason: "threshold" })).toEqual([
+      { cancel: true },
+    ]);
+    const stopped = await pi.boundary("agent_before_settle", { continue: true });
+    expect(stopped.continue).toBe(false);
+  });
 });
