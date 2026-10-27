@@ -1571,6 +1571,7 @@ export const zh = {
   "prsloy.host.restarted": "代理在崩溃后已重启，对话已保留",
   "system.responseFailed": "与模型的连接中断了",
   "system.responseStopped": "回复已停止",
+  "system.responseTruncated": "回复被截断：模型达到长度上限，请让它继续",
   "system.responsePending": "回复等待中",
   "system.responseDeferred": "回复已推迟",
   "system.retry": "重试",

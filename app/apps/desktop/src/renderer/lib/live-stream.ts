@@ -8,6 +8,7 @@
  * 3. Cleared only on session switch / stop / crash
  */
 import type { RuntimeEvent, SessionHistoryMessage } from "@zeno/contracts";
+import { RESPONSE_TRUNCATED_TITLE } from "./system-notices.ts";
 import type { TimelineItem } from "./timeline.ts";
 import { splitAttachedPaths } from "./timeline.ts";
 
@@ -33,22 +34,31 @@ export function resetLiveStream(): LiveStreamState {
 }
 
 /**
- * True when `historyText` already contains everything `liveText` holds — i.e. the
- * history is equal to or a strict prefix-superset of the live text. The reverse
- * (live text is a prefix-superset of history) means history is stale and the live
- * stream still carries extra tokens that must be preserved; that is NOT "covered".
+ * True when `historyText` holds exactly the live row's text. History is stored trimmed;
+ * the stream keeps a model's trailing space or newline, so both sides are trimmed first.
+ *
+ * A *prefix* match here ate fresh replies: a new short answer ("Готово") that happened to
+ * start an older, longer one ("Готово, всё сделано…") was dropped on reopen as if it were
+ * the old one — the old text showed instead, with no error (#79). Only exact text (after
+ * trimming) counts as covered; a stale prefix history must keep the longer live row.
  */
 function historyCoversText(historyText: string, liveText: string): boolean {
-  // History is stored trimmed; the stream keeps a model's trailing space or newline. Without
-  // trimming, a reopened chat kept the streamed copy and showed the answer twice.
   const live = liveText.trim();
   const stored = historyText.trim();
   if (!live) return Boolean(stored);
-  return live === stored || stored.startsWith(live);
+  return live === stored;
 }
 
 function historyCoversLiveItem(history: SessionHistoryMessage[], item: TimelineItem): boolean {
-  if (item.kind === "user" || item.kind === "assistant" || item.kind === "thinking") {
+  if (item.kind === "user") {
+    // The live bubble shows the typed text; pi's JSONL keeps the raw content, possibly
+    // with the <attached-paths> block. Compare without it, exactly (see historyCoversText).
+    return history.some(
+      (row) =>
+        row.role === "user" && historyCoversText(splitAttachedPaths(row.text).text, item.text),
+    );
+  }
+  if (item.kind === "assistant" || item.kind === "thinking") {
     return history.some((row) => row.role === item.kind && historyCoversText(row.text, item.text));
   }
   if (item.kind === "tool") {
@@ -86,6 +96,46 @@ export function liveStreamNotCoveredByHistory(
  */
 export function appendMonotonicText(prev: string, delta: string): string {
   return prev + delta;
+}
+
+/**
+ * The host restarts its event numbering at 0 on session.new/switch/fork (agent-host
+ * `sequence = 0`), while a reopened session's live stream still remembers the previous
+ * numbering in `seenSequences`. Without this rebase every event of the next turn in that
+ * chat collided with an old number and was dropped as a "redelivery" — the reply never
+ * appeared and no error showed (#79).
+ *
+ * `hostSequence` is the snapshot's sequence that arrived with the (re)open. When it is
+ * below the highest sequence this stream has seen, the numbering is a new epoch and the
+ * dedupe list is stale: clear it. Same epoch (snapshot at or above the high-water mark)
+ * keeps the list so a genuine redelivery is still dropped.
+ */
+export function rebaseLiveStreamEpoch(
+  stream: LiveStreamState,
+  hostSequence: number | undefined,
+): LiveStreamState {
+  if (hostSequence === undefined) return stream;
+  let highest = 0;
+  for (const seq of stream.seenSequences) if (seq > highest) highest = seq;
+  if (hostSequence >= highest) return stream;
+  if (stream.seenSequences.length === 0) return stream;
+  return { ...stream, seenSequences: [] };
+}
+
+/**
+ * A delta belongs to the open row unless both carry a message id and the ids differ —
+ * then a new reply started without a user/tool row in between (continuation, two pi
+ * messages back-to-back) and must get its own bubble instead of gluing onto the previous
+ * answer (#79). Rows or events without an id (old hosts, tests) keep the old behaviour.
+ */
+function sameOpenMessage(
+  row: { kind: string; messageId?: string | undefined } | undefined,
+  kind: "assistant" | "thinking",
+  messageId: string | undefined,
+): boolean {
+  if (row?.kind !== kind) return false;
+  if (messageId === undefined || row.messageId === undefined) return true;
+  return row.messageId === messageId;
 }
 
 function nextId(state: LiveStreamState, prefix: string): { id: string; seq: number } {
@@ -160,29 +210,53 @@ export function applyRuntimeEventToLiveStream(
       if (!event.delta) return mark(state);
       const items = state.items.slice();
       const last = items[items.length - 1];
-      if (last?.kind === "thinking") {
+      if (last?.kind === "thinking" && sameOpenMessage(last, "thinking", event.messageId)) {
         const text = appendMonotonicText(last.text, event.delta);
         if (text === last.text) return mark(state);
         // Keep original timestamp = when this thinking segment started.
-        items[items.length - 1] = { ...last, text };
+        items[items.length - 1] = {
+          ...last,
+          text,
+          ...(last.messageId === undefined && event.messageId !== undefined
+            ? { messageId: event.messageId }
+            : {}),
+        };
         return mark({ ...state, items });
       }
       const { id, seq } = nextId(state, "thinking");
-      items.push({ id, kind: "thinking", text: event.delta, timestamp: nowIso() });
+      items.push({
+        id,
+        kind: "thinking",
+        text: event.delta,
+        ...(event.messageId !== undefined ? { messageId: event.messageId } : {}),
+        timestamp: nowIso(),
+      });
       return mark({ ...state, items, seq });
     }
     case "message.delta": {
       if (!event.delta) return mark(state);
       const items = state.items.slice();
       const last = items[items.length - 1];
-      if (last?.kind === "assistant") {
+      if (last?.kind === "assistant" && sameOpenMessage(last, "assistant", event.messageId)) {
         const text = appendMonotonicText(last.text, event.delta);
         if (text === last.text) return mark(state);
-        items[items.length - 1] = { ...last, text };
+        items[items.length - 1] = {
+          ...last,
+          text,
+          ...(last.messageId === undefined && event.messageId !== undefined
+            ? { messageId: event.messageId }
+            : {}),
+        };
         return mark({ ...state, items });
       }
       const { id, seq } = nextId(state, "assistant");
-      items.push({ id, kind: "assistant", text: event.delta, timestamp: nowIso() });
+      items.push({
+        id,
+        kind: "assistant",
+        text: event.delta,
+        ...(event.messageId !== undefined ? { messageId: event.messageId } : {}),
+        timestamp: nowIso(),
+      });
       return mark({ ...state, items, seq });
     }
     case "user.message": {
@@ -453,9 +527,31 @@ export function applyRuntimeEventToLiveStream(
       return mark({ ...state, items });
     }
     case "message.completed": {
-      const next = reconcileFinalMessage(state, event.text, event.thinking);
-      const lastId = next.items.at(-1)?.id;
-      return mark(lastId === undefined ? next : { ...next, lastCompletedId: lastId });
+      const next = reconcileFinalMessage(state, event.text, event.thinking, event.messageId);
+      // reason "length": the model hit its token limit mid-reply — the answer on screen is
+      // incomplete by definition. Show it as an error card instead of accepting the cut text
+      // as a finished answer (#79: a partial reply must never look like a whole one).
+      if (event.reason !== "length") {
+        const lastId = next.items.at(-1)?.id;
+        return mark(lastId === undefined ? next : { ...next, lastCompletedId: lastId });
+      }
+      const { id, seq } = nextId(next, "truncated");
+      const withNote: LiveStreamState = {
+        ...next,
+        seq,
+        items: [
+          ...next.items,
+          {
+            id,
+            kind: "system",
+            title: RESPONSE_TRUNCATED_TITLE,
+            text: "",
+            tone: "error",
+            timestamp: nowIso(),
+          },
+        ],
+      };
+      return mark({ ...withNote, lastCompletedId: id });
     }
     // agent.started / queue.updated — still mark sequence
     default:
@@ -465,30 +561,59 @@ export function applyRuntimeEventToLiveStream(
 
 /**
  * At message end pi sends what it stored. If the streamed text differs (a lost or doubled
- * delta), the stored text silently replaces it. Only this message's rows are touched (the
- * trailing thinking/assistant run, after where the previous message ended), and only when
- * they hold one row of that kind: an interleaved message is left as streamed rather than
+ * delta), the stored text silently replaces it. With a message id the row of exactly this
+ * message is targeted, wherever it sits in the list — an older answer is never rewritten
+ * by a newer message's completion (#79). Without one (old hosts, tests) only the trailing
+ * thinking/assistant run after where the previous message ended is touched, and only when
+ * it holds one row of that kind: an interleaved message is left as streamed rather than
  * guessed at. A reply whose deltas never arrived at all is added.
  */
 function reconcileFinalMessage(
   state: LiveStreamState,
   text: string | undefined,
   thinking: string | undefined,
+  messageId: string | undefined,
 ): LiveStreamState {
   if (!text && !thinking) return state;
-  const items = state.items;
-  let runStart = items.length;
-  while (runStart > 0) {
-    const kind = items[runStart - 1]?.kind;
-    if (kind !== "assistant" && kind !== "thinking") break;
-    runStart--;
-  }
-  const previousEnd = items.findIndex((item) => item.id === state.lastCompletedId);
-  const start = previousEnd >= runStart ? previousEnd + 1 : runStart;
   let next = state;
   const settle = (kind: "assistant" | "thinking", final: string | undefined) => {
     if (!final) return;
     const rows = next.items;
+    if (messageId !== undefined) {
+      const own: number[] = [];
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        if (row?.kind === kind && row.messageId === messageId) own.push(i);
+      }
+      if (own.length === 0) {
+        // The deltas of this message never landed (or were glued to another row) — add
+        // the stored text so the reply is not lost.
+        const { id, seq } = nextId(next, kind);
+        next = {
+          ...next,
+          seq,
+          items: [...rows, { id, kind, text: final, messageId, timestamp: nowIso() }],
+        };
+        return;
+      }
+      const index = own[0];
+      const row = index === undefined ? undefined : rows[index];
+      if (own.length !== 1 || index === undefined || row?.kind !== kind || row.text === final) {
+        return;
+      }
+      const replaced = rows.slice();
+      replaced[index] = { ...row, text: final };
+      next = { ...next, items: replaced };
+      return;
+    }
+    let runStart = rows.length;
+    while (runStart > 0) {
+      const kindAt = rows[runStart - 1]?.kind;
+      if (kindAt !== "assistant" && kindAt !== "thinking") break;
+      runStart--;
+    }
+    const previousEnd = rows.findIndex((item) => item.id === next.lastCompletedId);
+    const start = previousEnd >= runStart ? previousEnd + 1 : runStart;
     const own: number[] = [];
     for (let i = start; i < rows.length; i++) if (rows[i]?.kind === kind) own.push(i);
     if (own.length === 0) {

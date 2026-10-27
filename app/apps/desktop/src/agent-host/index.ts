@@ -1,5 +1,5 @@
 import "./proxy-bootstrap.ts";
-import { assistantFinalContent } from "./assistant-final.ts";
+import { assistantFinalContent, assistantMessageId } from "./assistant-final.ts";
 import { applyHostHandoff, prsloyHandoff } from "./prsloy-handoff.ts";
 import { isHostHandoff } from "../shared/host-handoff.ts";
 import { createPrsloyHarness, type HarnessOptions } from "@prsloy/harness";
@@ -297,9 +297,13 @@ function projectRuntimeEvent(event: AgentSessionEvent): RuntimeEvent | undefined
     }
     case "message_update": {
       const update = event.assistantMessageEvent;
-      if (update.type === "text_delta") return { type: "message.delta", delta: update.delta };
+      const messageId = assistantMessageId(event.message);
+      const identity = messageId !== undefined ? { messageId } : {};
+      if (update.type === "text_delta") {
+        return { type: "message.delta", delta: update.delta, ...identity };
+      }
       if (update.type === "thinking_delta") {
-        return { type: "thinking.delta", delta: update.delta };
+        return { type: "thinking.delta", delta: update.delta, ...identity };
       }
       return undefined;
     }
@@ -318,10 +322,12 @@ function projectRuntimeEvent(event: AgentSessionEvent): RuntimeEvent | undefined
       if (event.message.role !== "assistant") return undefined;
       const { stopReason } = event.message;
       if (stopReason === "stop" || stopReason === "length" || stopReason === "toolUse") {
+        const messageId = assistantMessageId(event.message);
         return {
           type: "message.completed",
           reason: stopReason,
           ...assistantFinalContent(event.message.content),
+          ...(messageId !== undefined ? { messageId } : {}),
         };
       }
       // Pass through pi StopReason as-is (pending/deferred/aborted/error).

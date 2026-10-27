@@ -22,8 +22,17 @@ export type TimelineItem =
       /** ISO time the turn settled, when this is the turn's final reply (live stream). */
       endedAt?: string;
       entryId?: string;
+      /** pi assistant message identity — message boundaries in the live stream (#79). */
+      messageId?: string;
     }
-  | { id: string; kind: "thinking"; text: string; timestamp?: string }
+  | {
+      id: string;
+      kind: "thinking";
+      text: string;
+      timestamp?: string;
+      /** pi assistant message identity — message boundaries in the live stream (#79). */
+      messageId?: string;
+    }
   | {
       id: string;
       kind: "tool";
@@ -270,6 +279,8 @@ export function projectEventsToTimeline(
   let assistantId = 0;
   let thinkingId = 0;
   let promptIndex = 0;
+  /** Message id the open text buffer belongs to; a change flushes the buffer (#79). */
+  let bufferMessageId: string | undefined;
   const tools = new Map<string, Extract<TimelineItem, { kind: "tool" }>>();
   const now = () => new Date().toISOString();
 
@@ -279,9 +290,11 @@ export function projectEventsToTimeline(
       id: `assistant-${assistantId++}`,
       kind: "assistant",
       text: assistantBuffer,
+      ...(bufferMessageId !== undefined ? { messageId: bufferMessageId } : {}),
       timestamp: now(),
     });
     assistantBuffer = "";
+    bufferMessageId = undefined;
   };
 
   const flushThinking = () => {
@@ -290,9 +303,11 @@ export function projectEventsToTimeline(
       id: `thinking-${thinkingId++}`,
       kind: "thinking",
       text: thinkingBuffer,
+      ...(bufferMessageId !== undefined ? { messageId: bufferMessageId } : {}),
       timestamp: now(),
     });
     thinkingBuffer = "";
+    bufferMessageId = undefined;
   };
 
   const flushMessage = () => {
@@ -321,16 +336,42 @@ export function projectEventsToTimeline(
       } else if (runtimeEvent.type === "thinking.delta") {
         if (skipTextDeltas) continue;
         flushAssistant();
+        // A new message's thinking must not extend the previous message's buffer.
+        if (
+          thinkingBuffer &&
+          bufferMessageId !== undefined &&
+          runtimeEvent.messageId !== undefined &&
+          runtimeEvent.messageId !== bufferMessageId
+        ) {
+          flushThinking();
+        }
+        bufferMessageId = runtimeEvent.messageId ?? bufferMessageId;
         thinkingBuffer += runtimeEvent.delta;
       } else if (runtimeEvent.type === "message.delta") {
         if (skipTextDeltas) continue;
         flushThinking();
+        if (
+          assistantBuffer &&
+          bufferMessageId !== undefined &&
+          runtimeEvent.messageId !== undefined &&
+          runtimeEvent.messageId !== bufferMessageId
+        ) {
+          flushAssistant();
+        }
+        bufferMessageId = runtimeEvent.messageId ?? bufferMessageId;
         assistantBuffer += runtimeEvent.delta;
       } else if (runtimeEvent.type === "message.completed") {
-        // pi's stored text wins over the streamed deltas when they differ.
-        if (runtimeEvent.text && assistantBuffer) assistantBuffer = runtimeEvent.text;
-        if (runtimeEvent.thinking && thinkingBuffer) thinkingBuffer = runtimeEvent.thinking;
-        flushMessage();
+        // pi's stored text wins over the streamed deltas when they differ — but only for
+        // the buffer of the same message; an unknown id leaves the buffers alone (#79).
+        const sameBuffer =
+          runtimeEvent.messageId === undefined ||
+          bufferMessageId === undefined ||
+          runtimeEvent.messageId === bufferMessageId;
+        if (sameBuffer) {
+          if (runtimeEvent.text && assistantBuffer) assistantBuffer = runtimeEvent.text;
+          if (runtimeEvent.thinking && thinkingBuffer) thinkingBuffer = runtimeEvent.thinking;
+          flushMessage();
+        }
       } else if (runtimeEvent.type === "message.failed") {
         flushMessage();
         items.push({
