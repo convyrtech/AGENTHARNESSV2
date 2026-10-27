@@ -1,6 +1,7 @@
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { afterAll, describe, expect, it } from "vite-plus/test";
 import {
   BUNDLED_LESSONS,
@@ -19,7 +20,7 @@ import {
 import { fitPromptBudget, MEMORY_LESSONS_MAX_CHARS } from "../src/prompt-budget.ts";
 import { MockPi } from "./mock-pi.ts";
 
-const FIXTURE = new URL("./fixtures/lessons/code.json", import.meta.url).pathname;
+const FIXTURE = fileURLToPath(new URL("./fixtures/lessons/code.json", import.meta.url));
 const root = mkdtempSync(join(tmpdir(), "prsloy-lessons-"));
 afterAll(() => rmSync(root, { recursive: true, force: true }));
 

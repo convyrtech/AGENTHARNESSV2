@@ -3,11 +3,14 @@
  * Run: node apps/desktop/scripts/fetch-runtimes.test.mjs
  */
 import {
+  lstatSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  readlinkSync,
   rmSync,
   statSync,
+  symlinkSync,
   writeFileSync,
   existsSync,
 } from "node:fs";
@@ -15,6 +18,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import {
+  copyTree,
   dedupeIdenticalFiles,
   gitDistMeta,
   loadVersions,
@@ -433,6 +437,69 @@ function assertEqual(actual, expected, message) {
     );
     assertEqual(readFileSync(join(root, "a", "git-add.exe"), "utf8"), big, "content intact");
     assertEqual(dedupeIdenticalFiles(root), 0, "second pass is a no-op");
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+}
+
+// ── copyTree keeps a relative symlink inside the tree ───────────────────────
+// Node ships bin/npm -> ../lib/node_modules/npm/bin/npm-cli.js. Copying the target as a file
+// puts npm-cli.js into bin/, and it then requires ../lib/cli.js — which does not exist, so every
+// npm call in the bundled runtime died with «Cannot find module '../lib/cli.js'» (issue #78).
+{
+  const root = mkdtempSync(join(tmpdir(), "zeno-copytree-link-"));
+  try {
+    const src = join(root, "node");
+    mkdirSync(join(src, "bin"), { recursive: true });
+    mkdirSync(join(src, "lib", "node_modules", "npm", "bin"), { recursive: true });
+    mkdirSync(join(src, "lib", "node_modules", "npm", "lib"), { recursive: true });
+    writeFileSync(join(src, "bin", "node"), "#!/bin/sh\n");
+    writeFileSync(
+      join(src, "lib", "node_modules", "npm", "bin", "npm-cli.js"),
+      "#!/usr/bin/env node\nrequire('../lib/cli.js')(process)\n",
+    );
+    writeFileSync(
+      join(src, "lib", "node_modules", "npm", "lib", "cli.js"),
+      "module.exports = 1;\n",
+    );
+    symlinkSync("../lib/node_modules/npm/bin/npm-cli.js", join(src, "bin", "npm"));
+
+    const dest = join(root, "out");
+    copyTree(src, dest);
+
+    const npmBin = join(dest, "bin", "npm");
+    assert(lstatSync(npmBin).isSymbolicLink(), "bin/npm stays a symlink");
+    assertEqual(
+      readlinkSync(npmBin),
+      "../lib/node_modules/npm/bin/npm-cli.js",
+      "symlink target unchanged",
+    );
+    assert(
+      existsSync(join(dest, "lib", "node_modules", "npm", "lib", "cli.js")),
+      "symlinked target copied",
+    );
+    assertEqual(
+      readFileSync(join(dest, "bin", "node"), "utf8"),
+      "#!/bin/sh\n",
+      "plain file copied",
+    );
+
+    // A link that leaves the tree cannot be kept: it would point at a path the app never ships.
+    const outerRoot = mkdtempSync(join(tmpdir(), "zeno-copytree-outside-"));
+    try {
+      const outerSrc = join(outerRoot, "src");
+      mkdirSync(join(outerSrc, "bin"), { recursive: true });
+      writeFileSync(join(outerRoot, "outside.txt"), "outside\n");
+      symlinkSync(join(outerRoot, "outside.txt"), join(outerSrc, "bin", "abs"));
+      const outerDest = join(outerRoot, "dest");
+      copyTree(outerSrc, outerDest);
+      const abs = join(outerDest, "bin", "abs");
+      assert(existsSync(abs), "absolute link leaves a file");
+      assert(!lstatSync(abs).isSymbolicLink(), "absolute link materialized as a copy");
+      assertEqual(readFileSync(abs, "utf8"), "outside\n", "absolute link content copied");
+    } finally {
+      rmSync(outerRoot, { recursive: true, force: true });
+    }
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

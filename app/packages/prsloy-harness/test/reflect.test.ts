@@ -5,6 +5,7 @@ import { createServer } from "node:http";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { afterAll, describe, expect, it } from "vite-plus/test";
 import {
   type CatalogLesson,
@@ -209,7 +210,7 @@ describe("reflect-lessons.mts --dry-run", () => {
     const r = spawnSync(
       process.execPath,
       [
-        new URL("../scripts/reflect-lessons.mts", import.meta.url).pathname,
+        fileURLToPath(new URL("../scripts/reflect-lessons.mts", import.meta.url)),
         "--dry-run",
         "--events",
         ev,
@@ -266,7 +267,7 @@ describe("reflect-lessons.mts with a gateway", () => {
     const child = spawn(
       process.execPath,
       [
-        new URL("../scripts/reflect-lessons.mts", import.meta.url).pathname,
+        fileURLToPath(new URL("../scripts/reflect-lessons.mts", import.meta.url)),
         "--events",
         ev,
         "--design-events",

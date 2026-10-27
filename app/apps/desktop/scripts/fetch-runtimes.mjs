@@ -20,6 +20,7 @@ import {
   readFileSync,
   linkSync,
   readdirSync,
+  readlinkSync,
   renameSync,
   rmSync,
   statSync,
@@ -27,7 +28,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { homedir, tmpdir } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { dirname, join, relative, resolve } from "node:path";
 import { pipeline } from "node:stream/promises";
 import { fileURLToPath } from "node:url";
 
@@ -474,19 +475,37 @@ function unwrapSingleTopDir(destDir) {
 }
 
 /**
- * Copy directory tree (files only; follow symlinks as files when possible).
+ * Copy a directory tree.
+ *
+ * Symlinks are kept as symlinks when their target stays inside the tree: Node ships
+ * `bin/npm -> ../lib/node_modules/npm/bin/npm-cli.js`, and that file requires `../lib/cli.js`
+ * relative to `bin/`. Copying the target as a file puts npm-cli.js in `bin/`, so it looks for
+ * `node/lib/cli.js` (does not exist) and every `npm` call dies with
+ * «Cannot find module '../lib/cli.js'». tar keeps symlinks on its own, so a kept link also
+ * survives packing and unpacking.
  * @param {string} src
  * @param {string} dest
  */
-function copyTree(src, dest) {
+export function copyTree(src, dest, root = src) {
   mkdirSync(dest, { recursive: true });
   for (const entry of readdirSync(src, { withFileTypes: true })) {
     const from = join(src, entry.name);
     const to = join(dest, entry.name);
     if (entry.isDirectory()) {
-      copyTree(from, to);
+      copyTree(from, to, root);
     } else if (entry.isSymbolicLink()) {
-      // Materialize symlink targets as copies when possible.
+      const target = readlinkSync(from);
+      const resolved = resolve(dirname(from), target);
+      const inside = !relative(root, resolved).startsWith("..");
+      if (inside) {
+        try {
+          symlinkSync(target, to);
+          continue;
+        } catch {
+          // Windows without developer mode refuses symlinks: fall through to a copy.
+        }
+      }
+      // Absolute links and links leaving the tree become plain files.
       try {
         copyFileSync(from, to);
       } catch {
