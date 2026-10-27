@@ -23,8 +23,8 @@ import {
 } from "@zeno/contracts";
 import type { AgentSessionEvent } from "@earendil-works/pi-coding-agent";
 import { readFile } from "node:fs/promises";
-import { extname } from "node:path";
 import { ProviderOAuthCoordinator, type OAuthModelRuntime } from "./provider-oauth.ts";
+import { loadPromptImages } from "./prompt-images.ts";
 import { installPrsloyFetch, modelSwitchText } from "./prsloy-fetch.ts";
 import { PRSLOY_PROVIDER_ID } from "../shared/prsloy-config.ts";
 
@@ -94,26 +94,6 @@ const HIDDEN_NOTE_TYPES = new Set(["prsloy-memory.forgot"]);
 
 const providerOAuth = new ProviderOAuthCoordinator(post);
 const testOAuthProviders = new Set<string>();
-
-const PROMPT_IMAGE_MIME_TYPES: Record<string, string> = {
-  ".gif": "image/gif",
-  ".jpeg": "image/jpeg",
-  ".jpg": "image/jpeg",
-  ".png": "image/png",
-  ".webp": "image/webp",
-};
-
-async function loadPromptImages(paths: string[]) {
-  return Promise.all(
-    paths.map(async (path) => {
-      const mimeType = PROMPT_IMAGE_MIME_TYPES[extname(path).toLowerCase()];
-      if (!mimeType) throw new Error(`Unsupported prompt image type: ${path}`);
-      const bytes = await readFile(path);
-      if (bytes.byteLength === 0) throw new Error(`Prompt image is empty: ${path}`);
-      return { type: "image" as const, data: bytes.toString("base64"), mimeType };
-    }),
-  );
-}
 
 function testOAuthRuntime(provider: string): OAuthModelRuntime | undefined {
   if (process.env.ZENO_ENABLE_TEST_COMMANDS !== "1") return undefined;

@@ -375,7 +375,7 @@ function App() {
   /** Floating composer height — timeline bottom inset so last rows stay above the input. */
   const [composerDockHeight, setComposerDockHeight] = useState(200);
   const [modelOptions, setModelOptions] = useState<
-    Array<{ provider: string; id: string; name: string }>
+    Array<{ provider: string; id: string; name: string; input?: readonly string[] }>
   >([]);
   const [recentWorkspaces, setRecentWorkspaces] = useState<string[]>([]);
   /** Sessions keyed by project cwd — all projects, no switch required to browse. */
@@ -1363,6 +1363,8 @@ function App() {
           provider: model.provider,
           id: model.id,
           name: model.name,
+          // pi model `input`: without "image" an attached picture never reaches the model (#75).
+          ...(model.input ? { input: model.input } : {}),
           ...(model.source ? { source: model.source } : {}),
         })),
     );
