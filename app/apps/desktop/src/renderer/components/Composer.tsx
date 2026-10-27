@@ -58,7 +58,6 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ContextUsageIndicator } from "./ContextUsageIndicator.tsx";
 import { CostChip } from "./CostChip.tsx";
-import { BalanceChip } from "./BalanceChip.tsx";
 import { ModelTierSwitch } from "./ModelTierSwitch.tsx";
 import { useCasualPrefs } from "../hooks/useCasualPrefs.ts";
 import { ComposerAttachmentList } from "./ComposerAttachmentList.tsx";
@@ -1088,7 +1087,6 @@ export function Composer(props: ComposerProps) {
 
           {/* Right: context + model + send */}
           <div className="flex shrink-0 items-center gap-1">
-            <BalanceChip locale={props.locale} />
             <CostChip locale={props.locale} />
             {developerMode && props.showContextUsage !== false ? (
               <ContextUsageIndicator
