@@ -74,7 +74,12 @@ describe("composer image warning (#75)", () => {
 
   it("stays silent when the model takes pictures or nothing is attached", () => {
     render(
-      <Composer {...props({ modelValue: `${VISION.provider}/${VISION.id}`, attachments: ["/tmp/shot.png"] })} />,
+      <Composer
+        {...props({
+          modelValue: `${VISION.provider}/${VISION.id}`,
+          attachments: ["/tmp/shot.png"],
+        })}
+      />,
     );
     expect(screen.queryByTestId("composer-image-warning")).toBeNull();
     cleanup();
@@ -83,9 +88,7 @@ describe("composer image warning (#75)", () => {
   });
 
   it("warns without an offer when no served model takes pictures", () => {
-    render(
-      <Composer {...props({ attachments: ["/tmp/shot.png"], modelOptions: [BLIND] })} />,
-    );
+    render(<Composer {...props({ attachments: ["/tmp/shot.png"], modelOptions: [BLIND] })} />);
     expect(screen.getByTestId("composer-image-warning")).toBeTruthy();
     expect(screen.queryByTestId("composer-image-warning-switch")).toBeNull();
   });
