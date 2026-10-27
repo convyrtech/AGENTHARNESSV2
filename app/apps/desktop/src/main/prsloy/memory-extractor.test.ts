@@ -6,6 +6,7 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
   rmSync,
   utimesSync,
@@ -24,7 +25,12 @@ import {
   runExtractorShadow,
   type ExtractorRun,
 } from "./memory-extractor.ts";
-import { emitSessionLeft } from "./session-left.ts";
+import {
+  currentSessionFile,
+  emitSessionLeft,
+  resetSessionTracking,
+  trackSessionFile,
+} from "./session-left.ts";
 
 const cleanups: (() => Promise<void> | void)[] = [];
 afterEach(async () => {
@@ -444,6 +450,126 @@ describe("memory extractor in the shadow (M-3)", () => {
     });
     expect(run.written).toBe(2);
     expect(notes).toEqual([{ type: "prsloy-memory.auto", text: "Запомнил несколько вещей (2)" }]);
+  });
+
+  // #73: an entry about one project is filed under that project, and another project never sees it.
+  it("a project entry stays in its own project; another project and the user part stay clean", async () => {
+    const ops = JSON.stringify({
+      ops: [
+        {
+          op: "add",
+          scope: "project",
+          kind: "decision",
+          text: "Делаем на Python",
+          quote: "Запомни: делаем на Python",
+        },
+      ],
+    });
+    const server = await gateway({ text: ops });
+    const agentDir = tempDir();
+    const dir = join(agentDir, "prsloy-memory");
+    const a = writeSession(
+      agentDir,
+      "a.jsonl",
+      [userLine("ma", "Запомни: делаем на Python")],
+      "/home/u/проект-а",
+    );
+    const b = writeSession(
+      agentDir,
+      "b.jsonl",
+      [userLine("mb", "Я не программист, пиши проще")],
+      "/home/u/проект-б",
+    );
+    const run = (sessionFile: string, write = false) =>
+      runExtractorShadow({
+        baseUrl: server.baseUrl,
+        apiKey: "sk-x",
+        model: "qwen3.8-max",
+        sessionFile,
+        agentDir,
+        learningDir: agentDir,
+        fetch,
+        write,
+      });
+    const first = await run(a, true);
+    expect(first).toMatchObject({ accepted: 1, written: 1 });
+    const projects = () =>
+      readdirSync(join(dir, "projects")).map((key) => ({
+        key,
+        entries: (
+          JSON.parse(readFileSync(join(dir, "projects", key, "project.json"), "utf8")) as {
+            path: string;
+            entries: { text: string }[];
+          }
+        ).entries.map((e) => e.text),
+      }));
+    const one = projects();
+    expect(one).toHaveLength(1);
+    expect(one[0]!.entries).toEqual(["Делаем на Python"]);
+    expect(
+      (
+        JSON.parse(readFileSync(join(dir, "projects", one[0]!.key, "project.json"), "utf8")) as {
+          path: string;
+        }
+      ).path,
+    ).toBe("/home/u/проект-а");
+    // The second project reads nothing of the first one: there is no key of A under B.
+    const second = await run(b, true);
+    expect(second).toMatchObject({ accepted: 0, written: 0 });
+    expect(projects()).toEqual(one);
+    // Going back to the first project, its entry is still there.
+    const back = await run(a);
+    expect(back).toMatchObject({ skipped: "no-messages" });
+    expect(projects()).toEqual(one);
+    // The user part is untouched: a project entry never lands there.
+    expect(existsSync(join(dir, "user.json"))).toBe(false);
+  });
+
+  // #73, the whole way: the extractor finished after the person had already switched projects.
+  it("a card about a project entry is not shown in another project's chat", async () => {
+    const ops = JSON.stringify({
+      ops: [
+        {
+          op: "add",
+          scope: "project",
+          kind: "decision",
+          text: "Делаем на Python",
+          quote: "Запомни: делаем на Python",
+        },
+      ],
+    });
+    const server = await gateway({ text: ops });
+    const agentDir = tempDir();
+    // A real chat of project A: its own folder, as pi files them (`sessions/<cwd-slug>/`).
+    const folder = join(agentDir, "sessions", "--home-u-проект-а--");
+    mkdirSync(folder, { recursive: true });
+    const a = join(folder, "a.jsonl");
+    writeFileSync(
+      a,
+      `${[
+        JSON.stringify({ type: "session", id: "sid-a", cwd: "/home/u/проект-а", timestamp: "" }),
+        userLine("ma", "Запомни: делаем на Python"),
+      ].join("\n")}\n`,
+    );
+    const notes: { text: string; chat: string | undefined }[] = [];
+    resetSessionTracking();
+    cleanups.push(() => resetSessionTracking());
+    // The person left A and is now in a chat of B.
+    trackSessionFile(join(agentDir, "sessions", "--home-u-проект-б--", "chat.jsonl"));
+    const run = await runExtractorShadow({
+      baseUrl: server.baseUrl,
+      apiKey: "sk-x",
+      model: "qwen3.8-max",
+      sessionFile: a,
+      agentDir,
+      learningDir: agentDir,
+      fetch,
+      write: true,
+      note: async (_type, text) => void notes.push({ text, chat: currentSessionFile() }),
+    });
+    // The entry is written into the memory of its own project; only the card stays out of B.
+    expect(run).toMatchObject({ accepted: 1, written: 1 });
+    expect(notes).toEqual([]);
   });
 
   it("mode: the env wins; otherwise memory on with autoMemory shadow or true", () => {
