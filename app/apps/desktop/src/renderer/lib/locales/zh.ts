@@ -419,6 +419,8 @@ export const zh = {
   "extensionUi.unsupportedHint": "终端专用能力 {method} 在桌面端不会执行（已降级，不中断会话）",
   "extensionUi.customMessage": "扩展 · {type}",
   "extensionUi.customEntry": "扩展条目 · {type}",
+  "extensionUi.queue": "还有 {n} 个问题在等待",
+  "extensionUi.answerFailed": "回答没有送到助手：它已经停止了。如果需要，请再问一次。",
   "pi.checking": "正在检测全局 pi…",
   "pi.installing": "正在安装全局 pi…",
   "pi.progress": "正在安装全局 pi…",

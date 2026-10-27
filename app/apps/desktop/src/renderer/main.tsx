@@ -76,11 +76,13 @@ import {
   isAlreadyProcessingError,
   unknownErrorMessage,
 } from "./lib/host-signals.ts";
-import { isExtensionUiDialogMethod } from "./lib/extension-ui-prompt.ts";
 import {
-  applyExtensionUiFireForget,
+  cancelExtensionUiDialogs,
+  cancelExtensionUiDialogsForRuntime,
+} from "./lib/extension-ui-prompt.ts";
+import { handleExtensionUiRequest } from "./lib/extension-ui-handle.ts";
+import {
   emptyExtensionUiPortableState,
-  isExtensionUiFireForgetMethod,
   mcpStatusFromExtensionUi,
   type ExtensionUiPortableState,
 } from "./lib/extension-ui-state.ts";
@@ -883,6 +885,8 @@ function App() {
         if (event.type === "host.ready") void refreshPiStatus({ ensure: false });
       } else if (event.type === "host.restarted") {
         store.acceptSnapshot(event.snapshot);
+        // The previous runtime is gone: its open questions can never be answered.
+        cancelExtensionUiDialogsForRuntime(event.previousRuntimeId);
         // Clear busy markers bound to the previous runtime (e.g. abort-timeout recycle).
         store.settleSessionByRuntime(event.previousRuntimeId, "aborted");
         store.setStatus("Agent Host restarted");
@@ -895,9 +899,13 @@ function App() {
       } else if (event.type === "host.crashed") {
         // Background (parked) host death must not wipe the foreground session.
         if (event.runtimeId && store.runtimeId && event.runtimeId !== store.runtimeId) {
+          // That chat's open questions died with its host: close them, nothing to answer.
+          cancelExtensionUiDialogsForRuntime(event.runtimeId);
           store.settleSessionByRuntime(event.runtimeId, "crashed", event.message);
           return;
         }
+        // Every runtime is gone: no question can be answered any more.
+        cancelExtensionUiDialogs();
         store.resetAfterCrash(event.message);
         {
           const cleared = emptyExtensionUiPortableState();
@@ -1117,40 +1125,18 @@ function App() {
         // around host/session lifecycle without a user prompt and stuck the sidebar spinner.
         // Busy markers are only set by sendPrompt → setSessionRunning(true).
       } else if (event.type === "extensionUi.request") {
-        // Drop only when a different runtime is active. Allow through when
-        // runtimeId is not yet set (session_start can race host.ready).
-        if (store.runtimeId && event.runtimeId !== store.runtimeId) return;
-
-        // Fire-and-forget portable methods (notify/status/widget/title/editor/working).
-        if (isExtensionUiFireForgetMethod(event.method)) {
-          const result = applyExtensionUiFireForget(extensionUiStateRef.current, {
-            runtimeId: event.runtimeId,
-            method: event.method,
-            args: event.args,
-          });
-          extensionUiStateRef.current = result.state;
-          setExtensionUiState(result.state);
-          if (result.editorText !== undefined) {
-            store.setPrompt(result.editorText);
-          }
-          hostMessages.applyExtensionNotify(result.notify);
-        } else if (isExtensionUiDialogMethod(event.method)) {
-          // Only show waiting if this session is already in a user-initiated turn.
-          const key = sessionKeyFromSnapshot(store.snapshot);
-          if (key && store.runningSessions[key]) {
-            store.setSessionMarker(key, "waiting", {
-              runtimeId: event.runtimeId,
-              reason: event.method,
-            });
-          }
-          void hostMessages.respondToExtensionUi(event).finally(() => {
-            const st = useShellStore.getState();
-            const k = sessionKeyFromSnapshot(st.snapshot);
-            if (k && st.runningSessions[k]) {
-              st.setSessionMarker(k, "running", { runtimeId: event.runtimeId });
-            }
-          });
-        }
+        handleExtensionUiRequest({
+          event,
+          store,
+          state: extensionUiStateRef.current,
+          setState: (next) => {
+            extensionUiStateRef.current = next;
+            setExtensionUiState(next);
+          },
+          setPrompt: store.setPrompt,
+          applyNotify: hostMessages.applyExtensionNotify,
+          respond: hostMessages.respondToExtensionUi,
+        });
       }
       // Events ring is diagnostics / activity only — not the text authority.
       store.setEvents((current) => appendHostEvent(current, event));
@@ -1875,6 +1861,11 @@ function App() {
     const snap = useShellStore.getState().snapshot;
     const key = sessionKeyFromSnapshot(snap);
     const runtimeId = snap?.runtimeId;
+    // A stopped agent can no longer answer a question it asked: close its dialogs and
+    // settle them as «cancelled» instead of leaving an unmovable window (#83). Other
+    // chats keep their own questions — only this runtime is gone.
+    if (runtimeId) cancelExtensionUiDialogsForRuntime(runtimeId);
+    else cancelExtensionUiDialogs();
     try {
       acceptSnapshot(await window.zeno.agent.abort());
       setStatus("Agent aborted");

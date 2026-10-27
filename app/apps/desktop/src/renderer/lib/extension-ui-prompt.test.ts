@@ -1,8 +1,13 @@
 import { describe, expect, it, beforeEach } from "vite-plus/test";
 import { IPC_PROTOCOL_VERSION } from "@zeno/contracts";
 import {
+  cancelExtensionUiDialogs,
+  cancelExtensionUiDialogsForRuntime,
   getPendingExtensionUiDialog,
+  getQueuedExtensionUiDialogs,
   isExtensionUiDialogMethod,
+  pendingExtensionUiDialogCount,
+  settleExtensionUiDialogById,
   parseConfirmArgs,
   parseInputArgs,
   parseSelectArgs,
@@ -92,7 +97,7 @@ describe("parseConfirmArgs / parseInputArgs", () => {
 describe("promptExtensionUiDialog bridge", () => {
   beforeEach(() => {
     // Drain any leftover pending from a previous test.
-    settleExtensionUiDialog({ ok: false, value: undefined });
+    cancelExtensionUiDialogs();
   });
 
   it("exposes the pending request to subscribers and settles with the selected value", async () => {
@@ -121,15 +126,82 @@ describe("promptExtensionUiDialog bridge", () => {
     await expect(resultPromise).resolves.toEqual({ ok: false, value: undefined });
   });
 
-  it("cancels a previous pending dialog when a new one is prompted", async () => {
+  it("queues a second question instead of cancelling the first (#83)", async () => {
     const first = promptExtensionUiDialog(selectRequest(["a"]));
     const second = promptExtensionUiDialog({
       ...selectRequest(["b"]),
       requestId: "req-2",
     });
+    // The first question stays on screen; the second waits its turn.
+    expect(getPendingExtensionUiDialog()?.requestId).toBe("req-1");
+    expect(getQueuedExtensionUiDialogs().map((item) => item.requestId)).toEqual(["req-2"]);
+    expect(pendingExtensionUiDialogCount()).toBe(2);
+
+    settleExtensionUiDialog({ ok: true, value: "a" });
+    await expect(first).resolves.toEqual({ ok: true, value: "a" });
+    // Now the queued one is on screen, not lost.
+    expect(getPendingExtensionUiDialog()?.requestId).toBe("req-2");
     settleExtensionUiDialog({ ok: true, value: "b" });
-    await expect(first).resolves.toEqual({ ok: false, value: undefined });
     await expect(second).resolves.toEqual({ ok: true, value: "b" });
+    expect(pendingExtensionUiDialogCount()).toBe(0);
+  });
+
+  it("shows a question asked twice once, and answers both asks", async () => {
+    // The host re-emits on reconnect and an extension's session_start can run twice.
+    const first = promptExtensionUiDialog(selectRequest(["a"]));
+    const again = promptExtensionUiDialog({ ...selectRequest(["a"]), requestId: "req-1b" });
+    expect(pendingExtensionUiDialogCount()).toBe(1);
+    settleExtensionUiDialog({ ok: true, value: "a" });
+    await expect(first).resolves.toEqual({ ok: true, value: "a" });
+    await expect(again).resolves.toEqual({ ok: true, value: "a" });
+    expect(getPendingExtensionUiDialog()).toBeNull();
+  });
+
+  it("keeps a different question from the same chat in the queue", async () => {
+    const first = promptExtensionUiDialog(selectRequest(["a"]));
+    const second = promptExtensionUiDialog({
+      ...selectRequest(["b"]),
+      requestId: "req-2",
+    });
+    expect(pendingExtensionUiDialogCount()).toBe(2);
+    settleExtensionUiDialog({ ok: true, value: "a" });
+    await expect(first).resolves.toEqual({ ok: true, value: "a" });
+    settleExtensionUiDialog({ ok: true, value: "b" });
+    await expect(second).resolves.toEqual({ ok: true, value: "b" });
+  });
+
+  it("settles one request by id without touching the others", async () => {
+    const first = promptExtensionUiDialog(selectRequest(["a"]));
+    const second = promptExtensionUiDialog({ ...selectRequest(["b"]), requestId: "req-2" });
+    expect(settleExtensionUiDialogById("req-2", { ok: true, value: "b" })).toBe(true);
+    await expect(second).resolves.toEqual({ ok: true, value: "b" });
+    expect(getPendingExtensionUiDialog()?.requestId).toBe("req-1");
+    settleExtensionUiDialog({ ok: false, value: undefined });
+    await expect(first).resolves.toEqual({ ok: false, value: undefined });
+  });
+
+  it("cancels every open question when the agent is stopped", async () => {
+    const first = promptExtensionUiDialog(selectRequest(["a"]));
+    const second = promptExtensionUiDialog({ ...selectRequest(["b"]), requestId: "req-2" });
+    expect(cancelExtensionUiDialogs()).toBe(2);
+    await expect(first).resolves.toEqual({ ok: false, value: undefined });
+    await expect(second).resolves.toEqual({ ok: false, value: undefined });
+    expect(getPendingExtensionUiDialog()).toBeNull();
+  });
+
+  it("cancels only the questions of a crashed runtime", async () => {
+    const mine = promptExtensionUiDialog(selectRequest(["a"]));
+    const other = promptExtensionUiDialog({
+      ...selectRequest(["b"]),
+      requestId: "req-2",
+      runtimeId: "rt-2",
+    });
+    expect(cancelExtensionUiDialogsForRuntime("rt-1")).toBe(1);
+    await expect(mine).resolves.toEqual({ ok: false, value: undefined });
+    // A question from the other chat is still answerable.
+    expect(getPendingExtensionUiDialog()?.runtimeId).toBe("rt-2");
+    settleExtensionUiDialog({ ok: true, value: "b" });
+    await expect(other).resolves.toEqual({ ok: true, value: "b" });
   });
 
   it("exposes all options on the pending select request for the host UI", async () => {

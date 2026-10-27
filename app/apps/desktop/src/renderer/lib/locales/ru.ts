@@ -416,6 +416,9 @@ export const ru = {
     "{method} работает только в терминале и в приложении не выполняется (чат продолжается)",
   "extensionUi.customMessage": "Расширение · {type}",
   "extensionUi.customEntry": "Запись расширения · {type}",
+  "extensionUi.queue": "Дальше ещё вопросов: {n}",
+  "extensionUi.answerFailed":
+    "Ответ не дошёл до агента: он уже остановлен. Спросите ещё раз, если нужно.",
   "pi.checking": "Ищем глобальный pi…",
   "pi.installing": "Устанавливаем глобальный pi…",
   "pi.progress": "Устанавливаем глобальный pi…",

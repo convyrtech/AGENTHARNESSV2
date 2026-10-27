@@ -1,6 +1,12 @@
+/**
+ * Answers an extension's dialog request and survives the trip back to the host.
+ *
+ * #83: a failed send used to be swallowed, so the window closed, nothing was said, and
+ * the agent stayed blocked. The failure is now a visible status line instead.
+ */
 import type { HostEvent } from "@zeno/contracts";
 import { isExtensionUiDialogMethod, promptExtensionUiDialog } from "@/lib/extension-ui-prompt";
-import type { Locale } from "@/lib/i18n";
+import { t, type Locale } from "@/lib/i18n";
 import { loadNotificationPrefs } from "@/lib/notification-prefs";
 import { resolveNotification, type NotificationKind } from "@/lib/notifications";
 
@@ -46,12 +52,18 @@ export function useHostMessages(options: { locale: Locale; setStatus: (status: s
   ): Promise<void> {
     if (!isExtensionUiDialogMethod(event.method)) return;
     const { ok, value } = await promptExtensionUiDialog({ ...event, method: event.method });
-    await window.zeno.extensionUi.respond({
-      runtimeId: event.runtimeId,
-      requestId: event.requestId,
-      ok,
-      value,
-    });
+    try {
+      await window.zeno.extensionUi.respond({
+        runtimeId: event.runtimeId,
+        requestId: event.requestId,
+        ok,
+        value,
+      });
+    } catch {
+      // The agent that asked is no longer there (crashed or was replaced). Say it instead
+      // of leaving the chat looking like it is still waiting.
+      setStatus(t(locale, "extensionUi.answerFailed"));
+    }
   }
 
   return { notify, applyExtensionNotify, respondToExtensionUi };

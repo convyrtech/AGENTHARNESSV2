@@ -42,14 +42,14 @@ const FROZEN = {
   // 5907 → 5753: the mcp.json read/write helpers, the npm-package-name guard, the Windows
   // MCP entry resolver, and the five `zeno:mcp:*` handler bodies moved to `main/mcp-config.ts`,
   // which also let that logic be tested for the first time. Banked, per the note above.
-  "main/index.ts": 5753,
+  "main/index.ts": 5751,
   // 4605 → 4534: the MCP servers list became `components/McpServersSection.tsx`.
   // 4534 → 4476: `ResourcesPage` moved to its own component, paying for the casual-mode gates.
   // 4476 → 4469: core moved the render root to `components/prsloy/render-root.tsx`.
   // 4469 → 3803: `PackagesPage` moved to its own component, paying for the progress line
   // and the empty-chat examples.
   // 3803 → 3799: the empty «Код» screen moved to `components/EmptyHero.tsx`, paying for the recipes.
-  "renderer/main.tsx": 3799,
+  "renderer/main.tsx": 3788,
   // 5163 → 5109: `EnvironmentSection` moved out, paying for the ru option and casual prefs.
   // 5109 → 5062: `BehaviorSection` moved out, paying for the «Аккаунт» route.
   // → 4919: `NotificationsSection` moved out, paying for the casual shortcut filter.
