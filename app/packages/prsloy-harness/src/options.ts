@@ -115,7 +115,9 @@ export type PracticeName =
   // Полезность новых тестов (H-3): за флагом "testQuality".
   | "testQuality"
   // Ревьюер ищет подгонку (H-4): за флагом "reviewerCheats".
-  | "reviewerCheats";
+  | "reviewerCheats"
+  // Нить задачи после сжатия истории (#64 п.1): за флагом "taskThread".
+  | "taskThread";
 
 export interface ResolvedOptions {
   profile: HarnessProfile;

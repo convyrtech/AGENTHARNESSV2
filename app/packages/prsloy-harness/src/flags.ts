@@ -42,6 +42,12 @@ export interface HarnessFlags {
    * начале AGENTS.md; "read" — строка в результате read; "gate" — один возврат в конце хода.
    */
   staleDocs: StaleDocsMode;
+  /**
+   * Нить задачи (#64 п.1, task-thread.ts): после сжатия истории модель получает факты задачи, собранные харнессом
+   * (просьбы пользователя дословно, git, правки, команды с кодом выхода), и «продолжай, не начинай заново».
+   * По умолчанию выкл. до замера.
+   */
+  taskThread: boolean;
 }
 
 export type StaleDocsMode = "prompt" | "end" | "frame" | "read" | "gate";
@@ -76,6 +82,7 @@ export function readFlags(settingsPath: string | undefined): HarnessFlags {
     reviewerCheats: false,
     // #6 потока (дирижёр, 26.10): "end" — по замеру kimi/deepseek.
     staleDocs: "end",
+    taskThread: false,
   };
   if (settingsPath && existsSync(settingsPath)) {
     try {
@@ -95,6 +102,7 @@ export function readFlags(settingsPath: string | undefined): HarnessFlags {
       if (typeof raw.webTools === "boolean") flags.webTools = raw.webTools;
       if (raw.testQuality === true) flags.testQuality = true;
       if (raw.reviewerCheats === true) flags.reviewerCheats = true;
+      if (typeof raw.taskThread === "boolean") flags.taskThread = raw.taskThread;
       if (STALE_DOCS_MODES.includes(raw.staleDocs as StaleDocsMode))
         flags.staleDocs = raw.staleDocs as StaleDocsMode;
       if (Array.isArray(raw.disabledLessons))
@@ -124,6 +132,7 @@ export function readFlags(settingsPath: string | undefined): HarnessFlags {
     ["PRSLOY_WEB_TOOLS", "webTools"],
     ["PRSLOY_TEST_QUALITY", "testQuality"],
     ["PRSLOY_REVIEWER_CHEATS", "reviewerCheats"],
+    ["PRSLOY_TASK_THREAD", "taskThread"],
   ] as const) {
     if (process.env[env] === "1") flags[key] = true;
     if (process.env[env] === "0") flags[key] = false;
