@@ -3,6 +3,7 @@ import type { TimelineItem } from "./timeline.ts";
 import { IPC_PROTOCOL_VERSION } from "@zeno/contracts";
 import { describe, expect, it } from "vite-plus/test";
 import { isHostCrash } from "./system-notices.ts";
+import { TOOL_STALL_MS } from "./tool-state.ts";
 import {
   buildTimelineBlocks,
   deriveLiveActivity,
@@ -414,6 +415,42 @@ describe("process activity", () => {
         running: false,
       }),
     ).toEqual({ phase: "processed" });
+  });
+
+  it("shows a stuck tool as «зависло», not as endless execution (#82)", () => {
+    const started = new Date(Date.now() - TOOL_STALL_MS - 1_000).toISOString();
+    expect(
+      deriveProcessActivity(
+        [
+          {
+            id: "tool",
+            kind: "tool",
+            toolName: "bash",
+            status: "running",
+            args: { command: "sleep 100" },
+            timestamp: started,
+          },
+        ],
+        { open: true, running: true },
+      ).phase,
+    ).toBe("stalled");
+
+    // Свежий вызов остаётся обычным «выполняется».
+    expect(
+      deriveProcessActivity(
+        [
+          {
+            id: "tool",
+            kind: "tool",
+            toolName: "bash",
+            status: "running",
+            args: { command: "ls" },
+            timestamp: new Date().toISOString(),
+          },
+        ],
+        { open: true, running: true },
+      ).phase,
+    ).toBe("executing");
   });
 
   it("formats live elapsed duration from start to now (s/m/h/d)", () => {

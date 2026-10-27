@@ -2,6 +2,7 @@ import { HOST_CRASHED_TITLE, HOST_RESTARTED_TEXT } from "./system-notices.ts";
 import type { HostEvent, SessionHistoryMessage, ZenoRunState } from "@zeno/contracts";
 import { localeTag, type Locale } from "./i18n.ts";
 import { hideToolLeaks } from "./tool-markup.ts";
+import { toolCallState } from "./tool-state.ts";
 
 export type ThreadRunState = ZenoRunState;
 
@@ -66,6 +67,7 @@ export type TimelineItem =
 export type ProcessActivityPhase =
   | "thinking"
   | "executing"
+  | "stalled"
   | "processing"
   | "responding"
   | "waiting"
@@ -656,8 +658,20 @@ export function deriveProcessActivity(
       return item.kind === "tool" && item.status === "running";
     });
   if (runningTool) {
+    // #82: инструмент без конца дольше TOOL_STALL_MS показывается как «зависло», а не как
+    // вечное «выполняется»: иначе зависший bash не отличить от быстрого `ls`.
+    const state = toolCallState(
+      {
+        toolName: runningTool.toolName,
+        status: runningTool.status,
+        timestamp: runningTool.timestamp,
+        endedAt: runningTool.endedAt,
+        args: runningTool.args,
+      },
+      Date.now(),
+    );
     return {
-      phase: "executing",
+      phase: state.state === "stalled" ? "stalled" : "executing",
       toolName: runningTool.toolName,
       ...(toolSummaryLine(runningTool.args)
         ? { toolSummary: toolSummaryLine(runningTool.args) }
@@ -704,9 +718,19 @@ export function deriveLiveActivity(input: {
   if (last?.kind === "thinking") return withStart({ phase: "thinking" }, startedAt);
   if (last?.kind === "tool" && last.status === "running") {
     const summary = toolSummaryLine(last.args);
+    const state = toolCallState(
+      {
+        toolName: last.toolName,
+        status: last.status,
+        timestamp: last.timestamp,
+        endedAt: last.endedAt,
+        args: last.args,
+      },
+      Date.now(),
+    );
     return withStart(
       {
-        phase: "executing",
+        phase: state.state === "stalled" ? "stalled" : "executing",
         toolName: last.toolName,
         ...(summary ? { toolSummary: summary } : {}),
       },

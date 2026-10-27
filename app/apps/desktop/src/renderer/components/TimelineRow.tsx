@@ -96,6 +96,7 @@ import { TESTS_OUTDATED_TYPE } from "../lib/tests-outdated-card.ts";
 import { TestsOutdatedCard } from "./TestsOutdatedCard.tsx";
 import { SEARCH_LIMIT_TYPE } from "../lib/search-settings.ts";
 import { harnessToolVerb } from "../lib/harness-tools.ts";
+import { toolCallState, type ToolCallState } from "../lib/tool-state.ts";
 import { memoryCardKind } from "../lib/memory.ts";
 import {
   isHostCrash,
@@ -140,6 +141,15 @@ function activityLabel(
     return tr("timeline.activity.executing", { tool });
   }
 
+  if (phase === "stalled") {
+    if (detail && duration) {
+      return tr("timeline.activity.stalledDetailWithDuration", { detail, duration });
+    }
+    if (detail) return tr("timeline.activity.stalledDetail", { detail });
+    if (duration) return tr("timeline.activity.stalledWithDuration", { duration });
+    return tr("timeline.activity.stalled");
+  }
+
   const withDur = (base: MessageKey, withDuration: MessageKey) =>
     duration ? tr(withDuration, { duration }) : tr(base);
 
@@ -172,6 +182,8 @@ function liveStatusIcon(phase: ProcessActivityPhase): ReactNode {
   if (phase === "processed") return null;
   if (phase === "thinking") return <Brain {...common} />;
   if (phase === "executing") return <Terminal {...common} />;
+  // #82: «зависло» — не спиннер: пауза видна и без анимации.
+  if (phase === "stalled") return <Clock {...common} className="size-3.5 opacity-80" />;
   if (phase === "compacting") return <Minimize2 {...common} />;
   if (phase === "summarizing") return <GitBranch {...common} />;
   // Waiting for user input — Lucide Clock (not a Unicode glyph).
@@ -332,39 +344,80 @@ function ToolSection(props: { title: string; children: ReactNode }) {
   );
 }
 
+const TOOL_STATE_LABEL: Record<ToolCallState, MessageKey> = {
+  running: "timeline.toolRunning",
+  waiting: "timeline.toolWaiting",
+  stalled: "timeline.toolStalled",
+  timeout: "timeline.toolTimeout",
+  aborted: "timeline.toolAborted",
+  error: "timeline.toolFailed",
+  completed: "timeline.toolCompleted",
+};
+
+function toolStateIcon(state: ToolCallState): ReactNode {
+  if (state === "running") return <LoaderCircle className="size-3.5 animate-spin" />;
+  if (state === "waiting" || state === "stalled") return <Clock className="size-3.5" />;
+  if (state === "timeout") return <Clock className="size-3.5" />;
+  if (state === "aborted") return <CircleAlert className="size-3.5" />;
+  if (state === "completed") return <Check className="size-3" />;
+  return <X className="size-3" />;
+}
+
 function ToolCard(props: { item: Extract<TimelineItem, { kind: "tool" }>; locale: Locale }) {
   const { item } = props;
   const summary = toolSummary(item.args);
   const [open, setOpen] = useState(item.status === "running");
-  const statusLabel =
-    item.status === "running"
-      ? t(props.locale, "timeline.toolRunning")
-      : item.status === "error"
-        ? t(props.locale, "timeline.toolFailed")
-        : t(props.locale, "timeline.toolCompleted");
+  // #82: у карточки свой счётчик времени и различимые состояния — «зависло», «ждёт ответа»,
+  // «таймаут», «отменено». Без этого зависший `bash` выглядел как вечное «Выполняется».
+  const live = item.status === "running";
+  const now = useNow(live);
+  const info = toolCallState(
+    {
+      toolName: item.toolName,
+      status: item.status,
+      timestamp: item.timestamp,
+      endedAt: item.endedAt,
+      output: item.output,
+      args: item.args,
+    },
+    now,
+  );
+  const stateLabel = t(props.locale, TOOL_STATE_LABEL[info.state]);
+  const duration = item.timestamp
+    ? elapsedDurationLabel(item.timestamp, item.endedAt, now, props.locale)
+    : undefined;
+  const timeoutHint =
+    info.live && info.timeoutSec !== undefined
+      ? t(props.locale, "timeline.toolTimeoutAfter", { seconds: String(info.timeoutSec) })
+      : undefined;
+  const stateTitle = [stateLabel, timeoutHint].filter(Boolean).join(" · ");
 
   useEffect(() => {
     if (item.status === "running") setOpen(true);
   }, [item.status]);
 
   return (
-    <article className="content-tool-wrap" data-kind="tool" data-status={item.status}>
+    <article
+      className="content-tool-wrap"
+      data-kind="tool"
+      data-status={item.status}
+      data-state={info.state}
+    >
       <Collapsible open={open} onOpenChange={setOpen} className="content-tool-card">
         <CollapsibleTrigger className="content-tool-card-trigger flex w-full items-center gap-2 text-left">
-          <span className="content-tool-status" aria-hidden>
-            {item.status === "running" ? (
-              <LoaderCircle className="size-3.5 animate-spin" />
-            ) : item.status === "error" ? (
-              <X className="size-3" />
-            ) : (
-              <Check className="size-3" />
-            )}
+          <span className="content-tool-status" data-state={info.state} aria-hidden>
+            {toolStateIcon(info.state)}
           </span>
           <Terminal className="size-3.5 shrink-0 opacity-60" strokeWidth={1.75} />
           <span className="shrink-0 font-medium text-foreground">{item.toolName}</span>
           {summary ? <span className="content-tool-summary">{summary}</span> : null}
-          <Badge variant="secondary" className="content-tool-state ml-auto font-normal">
-            {statusLabel}
+          {duration ? <span className="content-tool-duration">{duration}</span> : null}
+          <Badge
+            variant="secondary"
+            className="content-tool-state ml-auto font-normal"
+            title={stateTitle}
+          >
+            {stateLabel}
           </Badge>
           <ChevronDown
             className={cn(
@@ -1374,6 +1427,29 @@ function ProcessToolRow(props: {
   // Duration only from real tool timestamps (start + end, or start→now while running).
   // Never invent end time for completed tools that lack endedAt.
   const now = useNow(running && Boolean(props.item.timestamp));
+  // #82: у шага процесса есть своё состояние — зависло / таймаут / отменено / ждёт ответа.
+  // Раньше все ошибки выглядели одинаково, а зависший bash — как вечное «выполняется».
+  const stateInfo = toolCallState(
+    {
+      toolName: props.item.toolName,
+      status: props.item.status,
+      timestamp: props.item.timestamp,
+      endedAt: props.item.endedAt,
+      output: props.item.output,
+      args: props.item.args,
+    },
+    now,
+  );
+  const stateNote =
+    stateInfo.state === "stalled"
+      ? t(props.locale, "timeline.toolStalled")
+      : stateInfo.state === "timeout"
+        ? t(props.locale, "timeline.toolTimeout")
+        : stateInfo.state === "aborted"
+          ? t(props.locale, "timeline.toolAborted")
+          : stateInfo.state === "waiting"
+            ? t(props.locale, "timeline.toolWaiting")
+            : undefined;
   const siblings = props.groupSiblings ?? [props.item];
   // Parallel toolCalls share one assistant start — don't show the same batch span on every child.
   const independent = hasIndependentToolDuration(props.item, siblings);
@@ -1416,6 +1492,7 @@ function ProcessToolRow(props: {
       data-kind="tool"
       data-tool-kind={view.kind}
       data-status={props.item.status}
+      data-state={stateInfo.state}
       data-nested={props.nested ? "true" : undefined}
       data-open={open ? "true" : undefined}
     >
@@ -1427,7 +1504,9 @@ function ProcessToolRow(props: {
         ) : null
       ) : (
         <MarkerIcon className="process-step-icon size-3.5 text-muted-foreground">
-          {running ? (
+          {stateInfo.state === "stalled" || stateInfo.state === "waiting" ? (
+            <Clock className="size-3.5" strokeWidth={1.75} />
+          ) : running ? (
             <LoaderCircle className="size-3.5 animate-spin" strokeWidth={1.75} />
           ) : (
             processToolIcon(view.kind)
@@ -1495,6 +1574,12 @@ function ProcessToolRow(props: {
       </MarkerContent>
       {parts.detail && parts.detailTone === "command" ? (
         <CommandContextMenu menu={commandMenu} locale={props.locale} command={parts.detail} />
+      ) : null}
+      {stateNote ? (
+        <span className="process-step-state" data-state={stateInfo.state}>
+          {stateNote}
+          {stateInfo.live && duration ? ` · ${duration}` : ""}
+        </span>
       ) : null}
       {typeLabel ? (
         <span className="process-step-type" title={props.item.toolName}>

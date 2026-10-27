@@ -1,8 +1,19 @@
 // Практика 4 (PLAN-alpha §3): таймаут bash + уход в фон, реестр процессов и портов.
 // Источник: research/08-practitioners-research.md (2610.00917: 34 прогона Pi зависли без таймаута), ADR-3.
 import { join } from "node:path";
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import {
+  createBashToolDefinition,
+  createPowerShellToolDefinition,
+  getPowerShellConfig,
+  getShellConfig,
+} from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
+import {
+  boundedBashOperations,
+  boundedPowerShellOperations,
+  SESSION_CWD_SENTINEL,
+} from "./bash-exec.ts";
 import {
   describeProcess,
   fatalLine,
@@ -59,25 +70,87 @@ export function serverDetails(servers: BackgroundProcess[]) {
 }
 
 export function installBashTimeout(pi: ExtensionAPI, opts: ResolvedOptions): ProcessRegistry {
+  const resolveShellPath = (): string | undefined => {
+    if (opts.shellPath) return opts.shellPath;
+    try {
+      return pi.getSettings().shellPath;
+    } catch {
+      return undefined;
+    }
+  };
+
   const registry = new ProcessRegistry(
     join(opts.outputDir, `bg-${process.pid}-${Date.now().toString(36)}`),
     opts.backgroundEnv,
-    () => {
-      if (opts.shellPath) return opts.shellPath;
-      try {
-        return pi.getSettings().shellPath;
-      } catch {
-        return undefined;
-      }
-    },
+    resolveShellPath,
   );
+
+  // #82: вызов bash не должен висеть дольше своего таймаута и должен отменяться. Своё ожидание
+  // процесса — единственная точка, где это решается: таймаут Pi убивает группу процессов, а потомок,
+  // ушедший в свою сессию (setsid, демонизированная программа), продолжает держать пайп вывода, и
+  // вызов не завершается ни по таймауту, ни по отмене. Подробности замера — в шапке bash-exec.ts.
+  const currentCtx = { value: undefined as ExtensionContext | undefined };
+  // Каталог сессии запоминаем отдельно: currentCtx обнуляется после вызова оболочки, а метка
+  // SESSION_CWD_SENTINEL нужна и в следующем программном вызове без контекста (#82, ревью).
+  const lastSessionCwd = { value: undefined as string | undefined };
+  const onBoundary = (event: { reason: "abort" | "timeout" | "drain"; elapsedMs: number }) => {
+    recordEvent(currentCtx.value, {
+      kind: "tool.watch",
+      tool: "bash",
+      sig: `bash:${event.reason}`,
+      n: Math.round(event.elapsedMs / 1000),
+    });
+  };
+  /**
+   * #82, ревью: cwd у определения тула — только запасной путь, Pi берёт `ctx?.cwd || cwd`.
+   * Программный вызов без контекста (codemode, скрипт) уходил в `process.cwd()` десктопа, то есть
+   * в чужой каталог. Вместо выдуманного контекста подставляем метку: наши операции меняют её на
+   * каталог последней сессии, а Pi, у которого контекст есть, метку не видит.
+   */
+  const resolveCwd = (cwd: string): string =>
+    cwd === SESSION_CWD_SENTINEL
+      ? (currentCtx.value?.cwd ?? lastSessionCwd.value ?? process.cwd())
+      : cwd;
+
+  const installShellTool = (tool: "bash" | "powershell") => {
+    const shellPath = resolveShellPath();
+    if (tool === "bash") {
+      pi.registerTool(
+        createBashToolDefinition(SESSION_CWD_SENTINEL, {
+          ...(shellPath ? { shellPath } : {}),
+          operations: boundedBashOperations(() => getShellConfig(shellPath), {
+            onBoundary,
+            resolveCwd,
+          }),
+        }),
+      );
+      return;
+    }
+    pi.registerTool(
+      createPowerShellToolDefinition(SESSION_CWD_SENTINEL, {
+        operations: boundedPowerShellOperations(() => getPowerShellConfig(), {
+          onBoundary,
+          resolveCwd,
+        }),
+      }),
+    );
+  };
+  try {
+    installShellTool("bash");
+    if (process.platform === "win32") installShellTool("powershell");
+  } catch {
+    // Оболочку не нашли — остаётся встроенный тул Pi: он хоть как-то, но работает,
+    // а падать на старте сессии из-за этого нельзя.
+  }
 
   const notesById = new Map<string, { notes: string[]; servers: BackgroundProcess[] }>();
   /** Серверная команда целиком ушла в реестр: результат тула — причина «блокировки» с details для превью. */
   const blockedById = new Map<string, { reason: string; server: BackgroundProcess }>();
 
   pi.on("tool_call", async (event, ctx) => {
+    lastSessionCwd.value = ctx.cwd;
     if (!SHELL_TOOLS.has(event.toolName)) return undefined;
+    currentCtx.value = ctx;
     const input = event.input as { command?: unknown; timeout?: unknown };
     const requested =
       typeof input.timeout === "number" && input.timeout > 0 ? input.timeout : undefined;
@@ -204,6 +277,7 @@ export function installBashTimeout(pi: ExtensionAPI, opts: ResolvedOptions): Pro
   }
 
   pi.on("tool_result", (event) => {
+    if (SHELL_TOOLS.has(event.toolName)) currentCtx.value = undefined;
     const blocked = blockedById.get(event.toolCallId);
     if (blocked) {
       blockedById.delete(event.toolCallId);

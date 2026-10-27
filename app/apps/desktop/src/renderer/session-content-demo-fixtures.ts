@@ -546,6 +546,107 @@ export function scenarioPausedQueue(): DemoScenario {
   };
 }
 
+/**
+ * Состояния карточки инструмента (#82): зависло, ждёт ответа, таймаут, отменено, ошибка, готово.
+ * Одна и та же сессия, разные концы вызовов — то, что раньше выглядело одинаково.
+ */
+export function scenarioToolStates(): DemoScenario {
+  const started = (minutesAgo: number) => new Date(Date.now() - minutesAgo * 60_000).toISOString();
+  const ended = (secondsAgo: number) => new Date(Date.now() - secondsAgo * 1_000).toISOString();
+  return {
+    id: "tool-states",
+    title: "工具状态 · 卡住 / 等待 / 超时 / 取消",
+    description:
+      "同一轮里六个真实状态：running、stalled（超过 30 с）、waiting（ask_user）、timeout、aborted、completed。",
+    items: [
+      {
+        id: "u-states",
+        kind: "user",
+        text: "Собери проект и проверь тесты.",
+        timestamp: started(30),
+        entryId: "e-u-states",
+      },
+      {
+        id: "tool-done",
+        kind: "tool",
+        toolCallId: "c-done",
+        toolName: "bash",
+        status: "completed",
+        args: { command: "echo hi" },
+        output: "hi\n\n[exit 0 · 0.1 с · 3 Б]",
+        timestamp: started(29),
+        endedAt: ended(28),
+      },
+      {
+        id: "th-1",
+        kind: "thinking",
+        text: "Проверки шли долго — смотрю, что зависло.",
+        timestamp: started(29),
+      },
+      {
+        id: "tool-timeout",
+        kind: "tool",
+        toolCallId: "c-timeout",
+        toolName: "bash",
+        status: "error",
+        args: { command: "pnpm test", timeout: 5 },
+        output: "Command timed out after 5 seconds\n\n[таймаут · остановлен по таймауту]",
+        timestamp: started(20),
+        endedAt: ended(15),
+      },
+      {
+        id: "th-2",
+        kind: "thinking",
+        text: "Прогон остановлен по таймауту.",
+        timestamp: started(15),
+      },
+      {
+        id: "tool-aborted",
+        kind: "tool",
+        toolCallId: "c-aborted",
+        toolName: "bash",
+        status: "error",
+        args: { command: "sleep 100" },
+        output: "sleep 100\n\nCommand aborted",
+        timestamp: started(12),
+        endedAt: ended(10),
+      },
+      { id: "th-3", kind: "thinking", text: "Остановил вручную.", timestamp: started(10) },
+      {
+        id: "tool-error",
+        kind: "tool",
+        toolCallId: "c-error",
+        toolName: "bash",
+        status: "error",
+        args: { command: "nope" },
+        output: "bash: nope: command not found",
+        timestamp: started(9),
+        endedAt: ended(9),
+      },
+      { id: "th-4", kind: "thinking", text: "Опечатка в имени команды.", timestamp: started(9) },
+      {
+        id: "tool-wait",
+        kind: "tool",
+        toolCallId: "c-wait",
+        toolName: "ask_user",
+        status: "running",
+        args: { question: "Перезапустить сервер?" },
+        timestamp: started(1),
+      },
+      {
+        id: "tool-stalled",
+        kind: "tool",
+        toolCallId: "c-stalled",
+        toolName: "bash",
+        status: "running",
+        args: { command: "vite dev", timeout: 600 },
+        timestamp: started(4),
+      },
+    ],
+    running: true,
+  };
+}
+
 export function allDemoScenarios(): DemoScenario[] {
   return [
     scenarioCompletedTurn(),
@@ -557,5 +658,6 @@ export function allDemoScenarios(): DemoScenario[] {
     scenarioCompacting(),
     scenarioCompactionDone(),
     scenarioWaiting(),
+    scenarioToolStates(),
   ];
 }

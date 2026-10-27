@@ -447,3 +447,71 @@ describe("detectPorts", () => {
     expect(detectPorts("listening on http://[::1]:8080")).toEqual([8080]);
   });
 });
+
+// Ревью #82 (gpt-6.1-sol): cwd у определения тула — только запасной путь, Pi берёт `ctx?.cwd || cwd`.
+// Программный вызов без контекста уходил в process.cwd() десктопа, то есть в чужой каталог.
+const posixOnly = process.platform === "win32" ? it.skip : it;
+posixOnly("вызов без контекста идёт в каталог сессии, а не в каталог приложения", async () => {
+  const dir = await project();
+  const pi = new MockPi(dir);
+  installBashTimeout(pi.api, resolveOptions({ outputDir: join(dir, ".harness-out") }));
+  // Каталог сессии становится известен на первом вызове инструмента.
+  await pi.emit("tool_call", {
+    toolName: "bash",
+    toolCallId: "call-0",
+    input: { command: "true" },
+  });
+
+  const tool = pi.tools.get("bash");
+  expect(tool).toBeDefined();
+  const result = await (
+    tool as unknown as {
+      execute: (
+        id: string,
+        params: Record<string, unknown>,
+        signal: undefined,
+        onUpdate: undefined,
+        ctx: undefined,
+      ) => Promise<unknown>;
+    }
+  ).execute("call-1", { command: "pwd", timeout: 10 }, undefined, undefined, undefined);
+
+  expect(JSON.stringify(result)).toContain(resolvePath(dir));
+});
+
+posixOnly("каталог сессии не забывается после завершения вызова оболочки", async () => {
+  const dir = await project();
+  const pi = new MockPi(dir);
+  installBashTimeout(pi.api, resolveOptions({ outputDir: join(dir, ".harness-out") }));
+  const tool = pi.tools.get("bash") as unknown as {
+    execute: (
+      id: string,
+      params: Record<string, unknown>,
+      signal: undefined,
+      onUpdate: undefined,
+      ctx: undefined,
+    ) => Promise<unknown>;
+  };
+
+  // Обычный вызов с контекстом: после него currentCtx обнуляется.
+  await pi.emit("tool_call", {
+    toolName: "bash",
+    toolCallId: "call-0",
+    input: { command: "true" },
+  });
+  await pi.emit("tool_result", {
+    toolName: "bash",
+    toolCallId: "call-0",
+    output: "",
+    isError: false,
+  });
+
+  const result = await tool.execute(
+    "call-2",
+    { command: "pwd", timeout: 10 },
+    undefined,
+    undefined,
+    undefined,
+  );
+  expect(JSON.stringify(result)).toContain(resolvePath(dir));
+});
