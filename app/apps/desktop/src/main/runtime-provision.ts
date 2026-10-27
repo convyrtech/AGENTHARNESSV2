@@ -11,14 +11,18 @@ import { execFileSync, spawn } from "node:child_process";
 import {
   createReadStream,
   existsSync,
+  lstatSync,
   mkdirSync,
   readFileSync,
   readdirSync,
+  readlinkSync,
   renameSync,
   rmSync,
+  symlinkSync,
+  unlinkSync,
   writeFileSync,
 } from "node:fs";
-import { dirname, join } from "node:path";
+import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   type BundledRuntimeManifest,
@@ -253,6 +257,70 @@ export function extractRuntimeArchives(
     rmSync(join(destRoot, "tools"), { recursive: true, force: true });
     untarSync(archives.tools, destRoot);
   }
+  restoreNodeBinLinks(join(destRoot, "node"));
+}
+
+/**
+ * Node's own tarball ships `bin/npm`, `bin/npx` and `bin/corepack` as relative symlinks into
+ * `lib/node_modules/…`. Older builds of `scripts/fetch-runtimes.mjs` copied the link target as a
+ * plain file, so `bin/npm` became a copy of `npm-cli.js`, which requires `../lib/cli.js` — that
+ * path does not exist, and every `npm` call died with «Cannot find module '../lib/cli.js'»
+ * (issue #78). Archives shipped from such a tree stay broken; putting the links back on the spot
+ * is cheaper than re-downloading ~120MB, so every start repairs what it finds.
+ * @returns names of the links that were put back
+ */
+export function restoreNodeBinLinks(nodeRoot: string): string[] {
+  if (process.platform === "win32") return [];
+  const bin = join(nodeRoot, "bin");
+  if (!existsSync(bin)) return [];
+  const restored: string[] = [];
+  for (const name of ["npm", "npx", "corepack"]) {
+    const link = join(bin, name);
+    if (!existsSync(link) && !isDanglingLink(link)) continue;
+    if (isLink(link)) continue;
+    const target = guessLinkTarget(nodeRoot, name);
+    if (!target) continue;
+    try {
+      unlinkSync(link);
+      symlinkSync(target, link);
+      restored.push(name);
+    } catch {
+      // Windows without developer mode, read-only install: leave the file as it is.
+    }
+  }
+  return restored;
+}
+
+function isLink(path: string): boolean {
+  try {
+    return lstatSync(path).isSymbolicLink();
+  } catch {
+    return false;
+  }
+}
+
+function isDanglingLink(path: string): boolean {
+  if (!isLink(path)) return false;
+  try {
+    readlinkSync(path);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Relative target of the npm/npx/corepack launcher inside a Node tree, if this tree has one. */
+function guessLinkTarget(nodeRoot: string, name: string): string | undefined {
+  const candidates: Record<string, string[]> = {
+    npm: ["lib/node_modules/npm/bin/npm-cli.js"],
+    npx: ["lib/node_modules/npm/bin/npx-cli.js"],
+    corepack: ["lib/node_modules/corepack/dist/corepack.js"],
+  };
+  for (const rel of candidates[name] ?? []) {
+    if (existsSync(join(nodeRoot, rel)))
+      return relative(join(nodeRoot, "bin"), join(nodeRoot, rel));
+  }
+  return undefined;
 }
 
 /**
@@ -387,6 +455,8 @@ export function ensureProvisionedRuntimes(options: {
   if (vendor.archives && isProvisionStampCurrent(stamp, vendor, userRoot)) {
     const roots = rootsFromRuntimeRoot(userRoot);
     if (roots) {
+      // Installs made by an older build may carry npm/npx as plain files (issue #78).
+      restoreNodeBinLinks(roots.nodeRoot);
       const iso = isolationDirsForPythonRoot(
         options.userDataPath,
         options.skipVenv,
@@ -467,6 +537,7 @@ export function ensureProvisionedRuntimes(options: {
 
   // Dev / fallback: use expanded vendor tree in-place
   if (vendor.expanded) {
+    restoreNodeBinLinks(vendor.expanded.nodeRoot);
     const iso = isolationDirsForPythonRoot(
       options.userDataPath,
       options.skipVenv,

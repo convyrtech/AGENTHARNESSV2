@@ -6,6 +6,7 @@
 //   … --out reflect-out           куда положить REPORT.md и drafts.json
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import { PRSLOY_DEFAULT_BASE_URL } from "../../../apps/desktop/src/shared/prsloy-config.ts";
 import codeLessons from "../lessons/code.json" with { type: "json" };
@@ -52,7 +53,7 @@ const events = [
 ];
 const designLessonsPath =
   values["design-lessons"] ??
-  new URL("../../../../playbooks/site/harness/lessons.json", import.meta.url).pathname;
+  fileURLToPath(new URL("../../../../playbooks/site/harness/lessons.json", import.meta.url));
 const catalog = catalogFromFiles(codeLessons, JSON.parse(read(designLessonsPath) || "{}"));
 
 const baseUrl = (values["base-url"] ?? PRSLOY_DEFAULT_BASE_URL).replace(/\/+$/, "");

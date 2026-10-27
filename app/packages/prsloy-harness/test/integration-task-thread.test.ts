@@ -1,5 +1,8 @@
 // Нить задачи в настоящей сессии Pi (#64 п.1): окно маленькое, история сжимается посреди хода, и следующий запрос к
 // модели несёт пересказ и сразу за ним блок фактов харнесса. Без флага — пересказ без блока.
+// С 6c95a70 пересказ делает сам харнесс (src/continuation-guard.ts): Pi больше не зовёт модель за пересказом,
+// поэтому запроса с «context summarization assistant» в сессии нет. Признак сжатия — локальный пересказ
+// в следующем запросе. Что модель за пересказом не звали — проверяется отдельно: это и есть смысл правки.
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -20,9 +23,15 @@ afterEach(async () => {
 });
 
 const SUMMARY = "## Goal\nFix the tests.\n## Progress\n- [x] ran echo one";
-// Запросы пересказа Pi (история и начало разрезанного хода) — по их системному промпту.
+// Запрос пересказа к модели. С локальным сжатием его быть не должно; сервер отвечает на него на случай,
+// если поведение вернётся к старому, — тогда тест падает на явной проверке ниже, а не на таймауте.
 const isSummaryCall = (req: ChatRequest) =>
   req.messages.some((m) => messageText(m).includes("context summarization assistant"));
+// Текст, которым continuation-guard заменяет пересказ модели.
+const LOCAL_SUMMARY = "PRSLOY local compaction";
+// Первый запрос, который видит сжатие: в его истории уже лежит пересказ.
+const isCompactedRequest = (req: ChatRequest) =>
+  req.messages.some((m) => messageText(m).includes("was compacted into the following summary"));
 
 async function startSession(taskThread: boolean) {
   const root = await mkdtemp(join(tmpdir(), "prsloy-thread-int-"));
@@ -118,11 +127,14 @@ async function startSession(taskThread: boolean) {
 }
 
 function afterCompaction(server: ScriptedOpenAiServer): string {
-  const at = server.requests.findLastIndex(isSummaryCall);
+  const at = server.requests.findIndex(isCompactedRequest);
   expect(at).toBeGreaterThanOrEqual(0);
-  const next = server.requests[at + 1];
-  expect(next).toBeDefined();
-  return JSON.stringify(next!.messages);
+  return JSON.stringify(server.requests[at]!.messages);
+}
+
+/** Сжатие осталось локальным: за пересказом модель не звали — ни одного лишнего большого запроса. */
+function expectNoModelSummary(server: ScriptedOpenAiServer): void {
+  expect(server.requests.filter(isSummaryCall)).toHaveLength(0);
 }
 
 describe("integration: task thread after a compaction mid-turn", () => {
@@ -131,13 +143,14 @@ describe("integration: task thread after a compaction mid-turn", () => {
     await session.prompt("Почини тесты, задача #50");
     await session.prompt("Теперь дождись зелёного CI");
     const next = afterCompaction(server);
-    expect(next).toContain("Fix the tests.");
+    expectNoModelSummary(server);
+    expect(next).toContain(LOCAL_SUMMARY);
     expect(next).toContain("<task_thread>");
     expect(next).toContain("Do not start over");
     expect(next).toContain("[1] Почини тесты, задача #50");
     expect(next).toContain("[2] Теперь дождись зелёного CI");
     expect(next).toContain("[0] echo one");
-    expect(next.indexOf("Fix the tests.")).toBeLessThan(next.indexOf("<task_thread>"));
+    expect(next.indexOf(LOCAL_SUMMARY)).toBeLessThan(next.indexOf("<task_thread>"));
     // the block is stored with the session (a host restart brings it back)
     const stored = sessionManager
       .getEntries()
@@ -154,7 +167,8 @@ describe("integration: task thread after a compaction mid-turn", () => {
     await session.prompt("Почини тесты, задача #50");
     await session.prompt("Теперь дождись зелёного CI");
     const next = afterCompaction(server);
-    expect(next).toContain("Fix the tests.");
+    expectNoModelSummary(server);
+    expect(next).toContain(LOCAL_SUMMARY);
     expect(next).not.toContain("<task_thread>");
   }, 60_000);
 });
