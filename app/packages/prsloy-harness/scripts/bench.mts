@@ -56,6 +56,7 @@ const { values } = parseArgs({
     lessons: { type: "string", default: "on" },
     review: { type: "string", default: "on" },
     skills: { type: "string", default: "off" },
+    "skill-router": { type: "string", default: "off" },
     audit: { type: "boolean", default: false },
     prompt: { type: "string", default: "prsloy" },
     delta: { type: "string", default: "off" },
@@ -78,6 +79,10 @@ const { values } = parseArgs({
 });
 
 async function main(): Promise<number> {
+  if (values["skill-router"] !== "on" && values["skill-router"] !== "off") {
+    console.error("--skill-router on|off");
+    return 2;
+  }
   if (values.harness !== "on" && values.harness !== "off") {
     console.error("--harness on|off");
     return 2;
@@ -111,6 +116,7 @@ async function main(): Promise<number> {
     lessons: values.lessons !== "off",
     review: values.review !== "off",
     skills: values.skills === "on",
+    skillRouter: values["skill-router"] === "on",
     audit: values.audit === true,
     prompt: values.prompt === "pi" || values.prompt === "diet" ? values.prompt : "prsloy",
     delta: values.delta === "on",
@@ -144,7 +150,7 @@ async function main(): Promise<number> {
     log: (line) => console.log(line),
   });
   const stamp = report.meta.date.replace(/[:.]/g, "-");
-  const mode = `${values.harness}-${values.prompt}${values.delta === "on" ? "-delta" : ""}${values.lessons === "off" ? "-nolessons" : ""}${values.review === "off" ? "-noreview" : ""}${values.skills === "on" ? "-skills" : ""}${values.memory === "off" ? "-nomemory" : ""}${values.web === "on" ? "-web" : ""}`;
+  const mode = `${values.harness}-${values.prompt}${values.delta === "on" ? "-delta" : ""}${values.lessons === "off" ? "-nolessons" : ""}${values.review === "off" ? "-noreview" : ""}${values.skills === "on" ? "-skills" : ""}${values["skill-router"] === "on" ? "-skill-router" : ""}${values.memory === "off" ? "-nomemory" : ""}${values.web === "on" ? "-web" : ""}`;
   const base = join(outDir, `bench-${values.model.replace(/\//g, "_")}-${mode}-${stamp}`);
   const md = reportMarkdown(report);
   writeFileSync(`${base}.md`, md);

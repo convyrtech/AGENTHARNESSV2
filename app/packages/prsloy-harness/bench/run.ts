@@ -84,6 +84,8 @@ export interface BenchOptions {
   review?: boolean;
   /** Курированные навыки (флаг "skills", S9). По умолчанию выкл., как в приложении. */
   skills?: boolean;
+  /** Предварительный выбор навыка (флаг "skillRouter"). По умолчанию выкл. */
+  skillRouter?: boolean;
   /** Память (флаг "memory"). По умолчанию вкл. */
   memory?: boolean;
   /** Системный промпт «Кода»: pi (база Pi + разделы) или prsloy (research/17 §9). По умолчанию prsloy. */
@@ -470,6 +472,7 @@ async function runTask(
       lessons: opts.lessons !== false,
       secondOpinion: opts.review !== false,
       skills: opts.skills === true || opts.skillFiles !== undefined,
+      skillRouter: opts.skillRouter === true,
       memory: opts.memory !== false,
       prompt: opts.prompt ?? "prsloy",
       promptDelta: opts.delta === true || opts.deltaText !== undefined,
@@ -718,6 +721,7 @@ export interface BenchReport {
     lessons: boolean;
     review: boolean;
     skills: boolean;
+    skillRouter: boolean;
     memory: boolean;
     prompt: "pi" | "prsloy" | "diet";
     delta: boolean;
@@ -775,6 +779,7 @@ export async function runBench(opts: BenchOptions): Promise<BenchReport> {
     harness: opts.harness,
     review: opts.review !== false,
     skills: opts.skills === true,
+    skillRouter: opts.skillRouter === true,
     lessons: opts.lessons !== false,
     memory: opts.memory !== false,
     prompt: opts.prompt ?? "prsloy",
@@ -1041,7 +1046,7 @@ export function reportMarkdown(report: BenchReport): string {
     return `| ${r.id} | ${failed ? "⚠" : mark} ${r.note.replace(/\|/g, "/")}${failed ? " · исход infra_error" : outcome}${r.error && !failed ? ` (${r.error})` : ""} | ${r.seconds} | ${r.toolCalls} | ${tokensText(r.tokens)} | ${r.tokens ? rubText(r.rub) : "—"} | ${cache} | ${reply} | ${iv || "—"} |`;
   });
   return [
-    `# Замер: ${meta.model}, харнесс ${meta.harness ? "вкл" : "выкл"}, промпт ${meta.prompt}${meta.delta ? "+дельта" : ""}, уроки ${meta.lessons ? "вкл" : "выкл"}, ревью ${meta.review ? "вкл" : "выкл"}, навыки ${meta.skills ? "вкл" : "выкл"}, память ${meta.memory ? "вкл" : "выкл"}${meta.webTools ? ", поиск вкл" : ""}${meta.honestExit ? ", честный выход вкл" : ""}${meta.testGuard ? ", страж тестов вкл" : ""}${meta.testQuality ? ", полезность тестов вкл" : ""}${meta.reviewerCheats ? ", ревьюер ищет подгонку" : ""}${meta.claimCheck ? ", слова и факты вкл" : ""}${meta.staleDocs && meta.staleDocs !== "end" ? `, описание проекта: ${meta.staleDocs}` : ""}${meta.audit ? ", разбор вкл" : ""}${meta.fake ? " (фейковая модель)" : ""}`,
+    `# Замер: ${meta.model}, харнесс ${meta.harness ? "вкл" : "выкл"}, промпт ${meta.prompt}${meta.delta ? "+дельта" : ""}, уроки ${meta.lessons ? "вкл" : "выкл"}, ревью ${meta.review ? "вкл" : "выкл"}, навыки ${meta.skills ? "вкл" : "выкл"}${meta.skillRouter ? ", маршрутизатор навыков вкл" : ""}, память ${meta.memory ? "вкл" : "выкл"}${meta.webTools ? ", поиск вкл" : ""}${meta.honestExit ? ", честный выход вкл" : ""}${meta.testGuard ? ", страж тестов вкл" : ""}${meta.testQuality ? ", полезность тестов вкл" : ""}${meta.reviewerCheats ? ", ревьюер ищет подгонку" : ""}${meta.claimCheck ? ", слова и факты вкл" : ""}${meta.staleDocs && meta.staleDocs !== "end" ? `, описание проекта: ${meta.staleDocs}` : ""}${meta.audit ? ", разбор вкл" : ""}${meta.fake ? " (фейковая модель)" : ""}`,
     "",
     `${meta.date} · шлюз ${meta.gateway} · таймаут задачи ${meta.timeoutSec} с`,
     "",

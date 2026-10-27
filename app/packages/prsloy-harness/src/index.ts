@@ -13,6 +13,7 @@ import { installResearch } from "./research/tools.ts";
 import { installReliability } from "./reliability.ts";
 import { installRequestSecret } from "./request-secret.ts";
 import { installSkills } from "./skills.ts";
+import { installSkillRouter } from "./skill-router-hook.ts";
 import { installAutoMemory } from "./memory-auto.ts";
 import { installClaimCheck } from "./claim-check.ts";
 import { installInstallOffline } from "./install-offline.ts";
@@ -136,6 +137,7 @@ export function createPrsloyHarness(options: HarnessOptions = {}): (pi: Extensio
     if (on("askUser")) installAskUser(pi, opts);
     if (on("requestSecret")) installRequestSecret(pi, opts);
     // Курированные навыки (S9): флаг "skills", по умолчанию выкл.
+    if (on("skillRouter")) installSkillRouter(pi, opts);
     if (on("skills")) installSkills(pi, opts, { dir: opts.skillsDir, files: opts.skillFiles });
     // Раньше стоп-гейта: сорванный вызов инструмента — сначала повтор, проверки проекта потом.
     if (on("toolLeak")) installToolLeak(pi);

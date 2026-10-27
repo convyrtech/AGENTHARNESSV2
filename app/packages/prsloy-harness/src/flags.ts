@@ -8,6 +8,8 @@ export interface HarnessFlags {
   lessons: boolean;
   /** Курированные навыки (S9, research/18). По умолчанию выкл. — включается по замеру. */
   skills: boolean;
+  /** Выбор одного навыка до хода (по умолчанию выкл.). */
+  skillRouter: boolean;
   /** Уроки, выключенные вручную (срочный откат, §7.6). */
   disabledLessons: string[];
   /** «Запоминать, когда я прошу» (память, S4). По умолчанию выкл., пока в приложении нет «Забыть» и панели «Память» (S5). */
@@ -60,6 +62,7 @@ export function readFlags(settingsPath: string | undefined): HarnessFlags {
     secondOpinion: true,
     lessons: true,
     skills: false,
+    skillRouter: false,
     disabledLessons: [],
     // MVP (25.10, owner): memory, auto memory and web tools on by default; an explicit false / "off" in the
     // file stays.
@@ -83,6 +86,7 @@ export function readFlags(settingsPath: string | undefined): HarnessFlags {
       if (raw.secondOpinion === false) flags.secondOpinion = false;
       if (raw.lessons === false) flags.lessons = false;
       if (raw.skills === true) flags.skills = true;
+      if (raw.skillRouter === true) flags.skillRouter = true;
       if (typeof raw.memory === "boolean") flags.memory = raw.memory;
       if (raw.prompt === "prsloy" || raw.prompt === "pi" || raw.prompt === "diet")
         flags.prompt = raw.prompt;
@@ -109,6 +113,8 @@ export function readFlags(settingsPath: string | undefined): HarnessFlags {
   if (process.env.PRSLOY_LESSONS === "0") flags.lessons = false;
   if (process.env.PRSLOY_SKILLS === "1") flags.skills = true;
   if (process.env.PRSLOY_SKILLS === "0") flags.skills = false;
+  if (process.env.PRSLOY_SKILL_ROUTER === "1") flags.skillRouter = true;
+  if (process.env.PRSLOY_SKILL_ROUTER === "0") flags.skillRouter = false;
   if (process.env.PRSLOY_MEMORY === "1") flags.memory = true;
   if (process.env.PRSLOY_MEMORY === "0") flags.memory = false;
   const prompt = process.env.PRSLOY_PROMPT;

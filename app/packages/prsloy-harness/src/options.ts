@@ -50,6 +50,8 @@ export interface HarnessOptions {
   skillsDir?: string;
   /** Комплект навыков вместо встроенного (оффлайн-улучшатель #33 пробует правленые SKILL.md). */
   skillFiles?: Record<string, Record<string, string>>;
+  /** Модель маршрутизатора навыков и таймаут вызова. */
+  skillRouter?: { model?: string; timeoutMs?: number };
   /** Добавка промпта модели вместо встроенной (флаг "promptDelta"; улучшатель #33 пробует правленую). */
   promptDeltaText?: string;
   /** Память сама (research/24 §3, core): подмена экстрактора для тестов и бенча --fake. */
@@ -102,6 +104,7 @@ export type PracticeName =
   | "pagePaths"
   | "pageCheck"
   | "skills"
+  | "skillRouter"
   | "vagueRequest"
   // Устаревшее описание проекта (#6 потока): варианты за флагом "staleDocs".
   | "staleDocs"
@@ -138,6 +141,7 @@ export interface ResolvedOptions {
   pageCheck: PageCheckOptions;
   skillsDir: string | undefined;
   skillFiles: Record<string, Record<string, string>> | undefined;
+  skillRouter: { model: string; timeoutMs: number };
   promptDeltaText: string | undefined;
   autoMemory: AutoMemoryOptions;
   stopGateTimeoutMs: number;
@@ -233,6 +237,13 @@ export function resolveOptions(options: HarnessOptions = {}): ResolvedOptions {
     pageCheck: options.pageCheck ?? {},
     skillsDir: options.skillsDir,
     skillFiles: options.skillFiles,
+    skillRouter: {
+      model:
+        options.skillRouter?.model ??
+        process.env.PRSLOY_SKILL_ROUTER_MODEL ??
+        "deepseek-v4.1-flash-1017",
+      timeoutMs: options.skillRouter?.timeoutMs ?? 15_000,
+    },
     promptDeltaText: options.promptDeltaText,
     autoMemory: options.autoMemory ?? {},
     stopGateTimeoutMs:
