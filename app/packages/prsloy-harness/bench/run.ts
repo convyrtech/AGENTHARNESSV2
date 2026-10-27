@@ -11,6 +11,7 @@ import {
   rmSync,
   writeFileSync,
 } from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
@@ -55,6 +56,18 @@ export const TASKS_DIR = join(dirname(fileURLToPath(import.meta.url)), "tasks");
  * распространяем. Варианты из `<кэш>/<задача>/variants` добавляются к своим (`variants/syn-*`, синтетика).
  */
 export const HONESTY_CACHE = join(dirname(fileURLToPath(import.meta.url)), ".cache", "honesty");
+
+/** Окно контекста всех моделей каталога для замера сжатия; без числа — как в приложении. */
+export function withContextWindow(
+  provider: Record<string, unknown>,
+  contextWindow: number | undefined,
+): Record<string, unknown> {
+  if (!contextWindow || !Array.isArray(provider.models)) return provider;
+  return {
+    ...provider,
+    models: (provider.models as Record<string, unknown>[]).map((m) => ({ ...m, contextWindow })),
+  };
+}
 
 export interface BenchOptions {
   /** id задач (`conflicting-test` — все варианты, `conflicting-test/v2` — один); по умолчанию весь набор `suite`. */
@@ -115,6 +128,23 @@ export interface BenchOptions {
   reviewerCheats?: boolean;
   /** Слова и факты (флаг "claimCheck", H-2: H6–H8). По умолчанию выкл., как в приложении. */
   claimCheck?: boolean;
+  /** Нить задачи после сжатия истории (флаг "taskThread", #64 п.1). По умолчанию выкл., как в приложении. */
+  taskThread?: boolean;
+  /**
+   * Окно контекста модели для замера (#64): маленькое окно — сжатие истории посреди задачи. По умолчанию — окно из
+   * каталога приложения.
+   */
+  contextWindow?: number;
+  /**
+   * Сколько последних токенов Pi оставляет дословно при сжатии (`compaction.keepRecentTokens`, по умолчанию 20 000).
+   * Для замера с маленьким окном: сжатие срабатывает при «окно − 16 384».
+   */
+  keepRecentTokens?: number;
+  /**
+   * Где создавать рабочие папки задач (#70). По умолчанию — временная папка системы: внутри репо Pi подмешал бы агенту
+   * `AGENTS.md` / `CLAUDE.md` из папок выше.
+   */
+  workDir?: string;
   /** Разборщик сессий после прогона (research/24 §6, A-4; ci). Пока только помечается в отчёте. */
   audit?: boolean;
   /**
@@ -449,14 +479,49 @@ export function infraReason(
   return `${last.status === 402 ? "квота шлюза" : "сбой шлюза"}: ${last.message}`;
 }
 
+/** Файлы описания проекта, которые Pi грузит из папки и всех папок выше (pi-coding-agent, loadContextFileFromDir). */
+const CONTEXT_FILE_NAMES = [
+  "AGENTS.override.md",
+  "AGENTS.md",
+  "AGENTS.MD",
+  "CLAUDE.md",
+  "CLAUDE.MD",
+];
+
+/** Файлы описания в `dir` и выше: агент на стенде получил бы их в контекст (#70). */
+export function contextFilesAbove(dir: string): string[] {
+  const found: string[] = [];
+  let current = dir;
+  while (true) {
+    for (const name of CONTEXT_FILE_NAMES) {
+      const path = join(current, name);
+      if (existsSync(path)) found.push(path);
+    }
+    const parent = dirname(current);
+    if (parent === current) return found;
+    current = parent;
+  }
+}
+
+/** Корень рабочих папок задач: вне `--out`, без файлов описания выше — иначе ошибка с объяснением. */
+export function benchWorkRoot(workDir: string | undefined): string {
+  const root = workDir ?? join(tmpdir(), "prsloy-bench-work");
+  mkdirSync(root, { recursive: true });
+  const above = contextFilesAbove(root);
+  if (above.length)
+    throw new Error(
+      `Рабочая папка стенда ${root} лежит под ${above.join(", ")}: Pi подмешает агенту эти правила, замер будет не про задачу. Укажите --work-dir в папке без AGENTS.md / CLAUDE.md выше (#70).`,
+    );
+  return root;
+}
+
 async function runTask(
   task: TaskDef,
   opts: BenchOptions,
   control: RunControl,
   prices: PriceTable,
 ): Promise<TaskResult> {
-  const work = join(opts.outDir, "work");
-  mkdirSync(work, { recursive: true });
+  const work = benchWorkRoot(opts.workDir);
   const slug = task.id.replace(/\//g, "-");
   const ws = mkdtempSync(join(work, `${slug}-`));
   const original = task.workspace;
@@ -464,6 +529,12 @@ async function runTask(
   // Одна папка агента на все сессии задачи: память и уроки переживают сессию, как у пользователя.
   const agentDir = mkdtempSync(join(work, `${slug}-agent-`));
   const memoryDir = join(agentDir, "prsloy-memory");
+  // Настройки Pi (settings.json папки агента): сколько оставлять дословно при сжатии — для замера #64.
+  if (opts.keepRecentTokens)
+    writeFileSync(
+      join(agentDir, "settings.json"),
+      JSON.stringify({ compaction: { keepRecentTokens: opts.keepRecentTokens } }),
+    );
   // Флаги — тем же файлом, что пишет приложение.
   const settingsPath = join(agentDir, "prsloy-harness.json");
   writeFileSync(
@@ -483,6 +554,7 @@ async function runTask(
       reviewerCheats: opts.reviewerCheats === true,
       claimCheck: opts.claimCheck === true,
       staleDocs: opts.staleDocs ?? "end",
+      taskThread: opts.taskThread === true,
     }),
   );
   const slash = opts.model.indexOf("/");
@@ -501,7 +573,14 @@ async function runTask(
     writeFileSync(
       join(agentDir, "models.json"),
       JSON.stringify(
-        { providers: { [PRSLOY_PROVIDER_ID]: buildPrsloyModelsJsonProvider(baseUrl) } },
+        {
+          providers: {
+            [PRSLOY_PROVIDER_ID]: withContextWindow(
+              buildPrsloyModelsJsonProvider(baseUrl),
+              opts.contextWindow,
+            ),
+          },
+        },
         null,
         2,
       ),
@@ -732,6 +811,9 @@ export interface BenchReport {
     testQuality: boolean;
     reviewerCheats: boolean;
     claimCheck: boolean;
+    taskThread: boolean;
+    contextWindow: number | undefined;
+    keepRecentTokens: number | undefined;
     fake: boolean;
     date: string;
     gateway: string;
@@ -791,6 +873,9 @@ export async function runBench(opts: BenchOptions): Promise<BenchReport> {
     reviewerCheats: opts.reviewerCheats === true,
     claimCheck: opts.claimCheck === true,
     staleDocs: opts.staleDocs ?? "end",
+    taskThread: opts.taskThread === true,
+    contextWindow: opts.contextWindow,
+    keepRecentTokens: opts.keepRecentTokens,
     fake: opts.fake === true,
     date: new Date().toISOString(),
     gateway: opts.fake ? "fake" : new URL(opts.baseUrl ?? "http://unknown").host,
@@ -1046,7 +1131,7 @@ export function reportMarkdown(report: BenchReport): string {
     return `| ${r.id} | ${failed ? "⚠" : mark} ${r.note.replace(/\|/g, "/")}${failed ? " · исход infra_error" : outcome}${r.error && !failed ? ` (${r.error})` : ""} | ${r.seconds} | ${r.toolCalls} | ${tokensText(r.tokens)} | ${r.tokens ? rubText(r.rub) : "—"} | ${cache} | ${reply} | ${iv || "—"} |`;
   });
   return [
-    `# Замер: ${meta.model}, харнесс ${meta.harness ? "вкл" : "выкл"}, промпт ${meta.prompt}${meta.delta ? "+дельта" : ""}, уроки ${meta.lessons ? "вкл" : "выкл"}, ревью ${meta.review ? "вкл" : "выкл"}, навыки ${meta.skills ? "вкл" : "выкл"}${meta.skillRouter ? ", маршрутизатор навыков вкл" : ""}, память ${meta.memory ? "вкл" : "выкл"}${meta.webTools ? ", поиск вкл" : ""}${meta.honestExit ? ", честный выход вкл" : ""}${meta.testGuard ? ", страж тестов вкл" : ""}${meta.testQuality ? ", полезность тестов вкл" : ""}${meta.reviewerCheats ? ", ревьюер ищет подгонку" : ""}${meta.claimCheck ? ", слова и факты вкл" : ""}${meta.staleDocs && meta.staleDocs !== "end" ? `, описание проекта: ${meta.staleDocs}` : ""}${meta.audit ? ", разбор вкл" : ""}${meta.fake ? " (фейковая модель)" : ""}`,
+    `# Замер: ${meta.model}, харнесс ${meta.harness ? "вкл" : "выкл"}, промпт ${meta.prompt}${meta.delta ? "+дельта" : ""}, уроки ${meta.lessons ? "вкл" : "выкл"}, ревью ${meta.review ? "вкл" : "выкл"}, навыки ${meta.skills ? "вкл" : "выкл"}${meta.skillRouter ? ", маршрутизатор навыков вкл" : ""}, память ${meta.memory ? "вкл" : "выкл"}${meta.webTools ? ", поиск вкл" : ""}${meta.honestExit ? ", честный выход вкл" : ""}${meta.testGuard ? ", страж тестов вкл" : ""}${meta.testQuality ? ", полезность тестов вкл" : ""}${meta.reviewerCheats ? ", ревьюер ищет подгонку" : ""}${meta.claimCheck ? ", слова и факты вкл" : ""}${meta.taskThread ? ", нить задачи вкл" : ""}${meta.contextWindow ? `, окно ${meta.contextWindow}` : ""}${meta.keepRecentTokens ? `, дословно ${meta.keepRecentTokens}` : ""}${meta.staleDocs && meta.staleDocs !== "end" ? `, описание проекта: ${meta.staleDocs}` : ""}${meta.audit ? ", разбор вкл" : ""}${meta.fake ? " (фейковая модель)" : ""}`,
     "",
     `${meta.date} · шлюз ${meta.gateway} · таймаут задачи ${meta.timeoutSec} с`,
     "",

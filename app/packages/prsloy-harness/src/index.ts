@@ -36,6 +36,7 @@ import { installToolLeak } from "./tool-leak.ts";
 import { installToolOutput } from "./tool-output.ts";
 import { modelReviewer, secondOpinionFlag } from "./reviewer.ts";
 import { gitResolver, installTurnChanges, TurnChanges } from "./turn-changes.ts";
+import { installTaskThread } from "./task-thread.ts";
 import { join } from "node:path";
 
 export type { HarnessOptions, HarnessProfile, PracticeName } from "./options.ts";
@@ -62,6 +63,7 @@ export {
   type ExtractorOp,
 } from "./memory-extract.ts";
 export { readFlags } from "./flags.ts";
+export { factsFromEntries, renderThread, TASK_THREAD_TYPE, withThread } from "./task-thread.ts";
 export { autoDetails, MEMORY_CARD, MEMORY_TEXT, quoteSource, updatedDetails } from "./memory.ts";
 export { detectToolLeak, stripToolMarkup } from "./tool-leak.ts";
 export {
@@ -198,6 +200,8 @@ export function createPrsloyHarness(options: HarnessOptions = {}): (pi: Extensio
       if (turnStatus)
         installTurnStatus(pi, opts, { state: turnStatus, changes, ...(claims ? { claims } : {}) });
     }
+    // Нить задачи (#64 п.1): факты задачи после сжатия истории; поведение — за флагом "taskThread".
+    if (on("taskThread")) installTaskThread(pi, opts);
     if (on("secretScrub")) installSecretScrub(pi);
     if (on("reliabilityProxy")) installReliability(pi, opts);
   };

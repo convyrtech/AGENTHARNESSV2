@@ -81,6 +81,8 @@ export type LearningKind =
   // Разборщик сессий (ci, §6): находка детектора, прогон разбора.
   | "audit.finding"
   | "audit.run"
+  // Нить задачи (#64 п.1): после сжатия истории собран блок фактов задачи.
+  | "thread.built"
   | "turn.end";
 
 export type TurnOutcome = "green" | "red" | "budget" | "aborted" | "error";
