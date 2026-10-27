@@ -40,6 +40,15 @@ export interface LaunchOptions {
   env?: Record<string, string>;
   /** Scripted model answer for a request whose last user message matches (see FakeOpenAiServer). */
   reply?: (lastUserText: string) => string | undefined;
+  /** When the last user text contains this marker, the reply ends with finish_reason "length" (#79). */
+  truncatedWhenPromptIncludes?: string;
+  /** Delay between streamed chunks (ms) — a stream slow enough to switch chats mid-answer. */
+  streamDelayMs?: number;
+  /**
+   * Reuse the temp root of an earlier launch: the app starts again on the same `~/.pi/agent`,
+   * workspace and userData, so the previous chats are still on disk (#79 restart case).
+   */
+  root?: string;
 }
 
 /**
@@ -50,7 +59,7 @@ export interface LaunchOptions {
 const packagedExecutable = process.env.PRSLOY_E2E_PACKAGED?.trim() || undefined;
 
 export async function launchZenoApp(options: LaunchOptions = {}): Promise<LaunchedZeno> {
-  const root = await mkdtemp(join(tmpdir(), "zeno-e2e-"));
+  const root = options.root ?? (await mkdtemp(join(tmpdir(), "zeno-e2e-")));
   const home = join(root, "home");
   const agentDir = join(home, ".pi", "agent");
   const workspace = join(root, "workspace");
@@ -120,6 +129,10 @@ export async function launchZenoApp(options: LaunchOptions = {}): Promise<Launch
     toolPath,
     ...(options.toolCall ? { toolCall: options.toolCall } : {}),
     ...(options.reply ? { reply: options.reply } : {}),
+    ...(options.truncatedWhenPromptIncludes
+      ? { truncatedWhenPromptIncludes: options.truncatedWhenPromptIncludes }
+      : {}),
+    ...(options.streamDelayMs ? { streamDelayMs: options.streamDelayMs } : {}),
   });
   await fakeModel.start();
   await writeFile(

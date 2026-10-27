@@ -471,6 +471,140 @@ describe("per-session running", () => {
       true,
     );
   });
+
+  it("a turn after switching away and back is not silently eaten (#79)", () => {
+    // The host restarts its event numbering on every session switch (agent-host
+    // `sequence = 0`). A reopened session must forget the old numbers, otherwise every
+    // event of the next turn collides with the old dedupe list and never shows.
+    const snapshotA = {
+      runtimeId: "rt-1",
+      sequence: 3,
+      cwd: "/tmp",
+      agentDir: "/tmp/agent",
+      sessionId: "a",
+      sessionFile: "/tmp/a.jsonl",
+      slashCommands: [],
+      queuedMessages: { steering: [], followUp: [] },
+      activeTools: [],
+      projectTrusted: true,
+      resources: { extensions: 0, skills: 0, prompts: 0, themes: 0, contextFiles: 0 },
+      configuredPackages: { global: 0, project: 0 },
+      diagnostics: [],
+    };
+    const snapshotB = { ...snapshotA, sessionId: "b", sessionFile: "/tmp/b.jsonl" };
+    useShellStore.setState({
+      snapshot: snapshotA,
+      runtimeId: "rt-1",
+      lastSequence: 3,
+      liveStream: emptyLiveStream(),
+      backgroundLiveStreams: {},
+      history: [],
+      events: [],
+    });
+    // Turn 1 in session A: events 1..3.
+    useShellStore
+      .getState()
+      .applyLiveStreamEvent({ type: "user.message", content: "раз" }, ["раз"], {
+        sequence: 1,
+      });
+    useShellStore
+      .getState()
+      .applyLiveStreamEvent({ type: "message.delta", delta: "Первый ответ." }, [], { sequence: 2 });
+    useShellStore
+      .getState()
+      .applyLiveStreamEvent(
+        { type: "message.completed", reason: "stop", text: "Первый ответ." },
+        [],
+        { sequence: 3 },
+      );
+    // Switch to B and back to A (host sequence reset to 0 both times; A's history is on disk).
+    useShellStore.getState().applySessionOpen({
+      snapshot: { ...snapshotB, sequence: 0 },
+      threads: [],
+      history: [],
+    });
+    useShellStore.getState().applySessionOpen({
+      snapshot: { ...snapshotA, sequence: 0 },
+      threads: [],
+      history: [
+        { role: "user", text: "раз" },
+        { role: "assistant", text: "Первый ответ." },
+      ],
+    });
+    // Turn 2 in A: the host numbers the events 1..2 again.
+    useShellStore
+      .getState()
+      .applyLiveStreamEvent({ type: "user.message", content: "два" }, ["раз", "два"], {
+        sequence: 1,
+      });
+    useShellStore
+      .getState()
+      .applyLiveStreamEvent({ type: "message.delta", delta: "Второй ответ." }, [], { sequence: 2 });
+    const items = useShellStore.getState().liveStream.items;
+    expect(items.some((item) => item.kind === "user" && item.text === "два")).toBe(true);
+    expect(items.some((item) => item.kind === "assistant" && item.text === "Второй ответ.")).toBe(
+      true,
+    );
+  });
+
+  it("a parked chat keeps its own questions, not the open chat's (#79)", () => {
+    const base = {
+      runtimeId: "rt-1",
+      sequence: 0,
+      cwd: "/tmp/project",
+      agentDir: "/tmp/agent",
+      sessionId: "a",
+      sessionFile: "/tmp/project/a.jsonl",
+      slashCommands: [],
+      queuedMessages: { steering: [], followUp: [] },
+      activeTools: [],
+      projectTrusted: true,
+      resources: { extensions: 0, skills: 0, prompts: 0, themes: 0, contextFiles: 0 },
+      configuredPackages: { global: 0, project: 0 },
+      diagnostics: [],
+    };
+    const openB = {
+      ...base,
+      runtimeId: "rt-2",
+      sessionId: "b",
+      sessionFile: "/tmp/project/b.jsonl",
+    };
+    useShellStore.setState({
+      snapshot: base,
+      runtimeId: "rt-1",
+      liveStream: emptyLiveStream(),
+      backgroundLiveStreams: {},
+      history: [],
+      events: [],
+      sentPrompts: [],
+      sentPromptsBySession: {},
+    });
+    useShellStore.getState().setSentPrompts((current) => [...current, "вопрос А"]);
+    // Hop to another chat of the same project; its list becomes the foreground one.
+    useShellStore.getState().applySessionOpen({ snapshot: openB, threads: [], history: [] });
+    useShellStore.getState().setSentPrompts((current) => [...current, "вопрос Б"]);
+    // A late host echo of chat A's turn arrives while B is open: it must be labelled with
+    // A's question, never with the question typed in B.
+    useShellStore
+      .getState()
+      .applySessionLiveStreamEvent(
+        "/tmp/project/a.jsonl",
+        { type: "user.message", content: "вопрос А" },
+        useShellStore.getState().sentPrompts,
+        { sequence: 1 },
+      );
+    const parked = useShellStore.getState().backgroundLiveStreams["/tmp/project/a.jsonl"];
+    expect(parked?.items.map((item) => (item.kind === "user" ? item.text : item.kind))).toEqual([
+      "вопрос А",
+    ]);
+    // Back to A: its own prompt list comes back with it.
+    useShellStore.getState().applySessionOpen({
+      snapshot: { ...base, sequence: 0 },
+      threads: [],
+      history: [{ role: "user", text: "вопрос А" }],
+    });
+    expect(useShellStore.getState().sentPrompts).toEqual(["вопрос А"]);
+  });
 });
 
 describe("locale preference", () => {

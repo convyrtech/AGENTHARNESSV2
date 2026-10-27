@@ -1601,6 +1601,8 @@ export const en = {
   "prsloy.host.restarted": "The agent restarted after a crash — the conversation is kept",
   "system.responseFailed": "Lost the connection to the model",
   "system.responseStopped": "Response stopped",
+  "system.responseTruncated":
+    "The answer was cut off at the model's length limit — ask it to continue",
   "system.responsePending": "Response pending",
   "system.responseDeferred": "Response deferred",
   "system.retry": "Retry",
