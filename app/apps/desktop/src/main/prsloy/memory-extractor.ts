@@ -48,7 +48,7 @@ import {
   prsloySpeedModelId,
 } from "../../shared/prsloy-config.ts";
 import type { FetchLike } from "./gateway-check.ts";
-import { carryUnsavedCards } from "./memory-card-carry.ts";
+import { carryUnsavedCards, onlyInProjectOf } from "./memory-card-carry.ts";
 import { onSessionLeft } from "./session-left.ts";
 
 /**
@@ -393,6 +393,8 @@ export async function runExtractorShadow(options: {
   const { call, ops } = result;
   const candidates = result.candidates.filter((c) => c.scope === "user" || cwd);
   const applied = new Map<Candidate, string>();
+  // A card about this project is shown only where that project is open (#73).
+  const note = options.note ? onlyInProjectOf(options.sessionFile, options.note) : undefined;
   if (options.write && !call.error) await writeCandidates();
   async function writeCandidates(): Promise<void> {
     const norm = (t: string) => t.replace(/\s+/g, " ").trim().toLowerCase();
@@ -428,13 +430,13 @@ export async function runExtractorShadow(options: {
     // One card per run (≤3 changes): a lone replacement — «Обновил» with «Вернуть»; anything else — one
     // «Заметил и запомнил «…»» / «Запомнил несколько вещей (N)» (a replaced entry's «Вернуть» is in «Было»).
     if (updated && noticed.length === 1)
-      await options.note?.(
+      await note?.(
         MEMORY_CARD.updated,
         MEMORY_TEXT.updated(updated.before.text, updated.after.text),
         { ...updatedDetails(updated.opId, updated.scope, updated.before, updated.after) },
       );
     else if (noticed.length)
-      await options.note?.(
+      await note?.(
         MEMORY_CARD.auto,
         noticed.length === 1
           ? MEMORY_TEXT.noticed(noticed[0]!.entry.text)
