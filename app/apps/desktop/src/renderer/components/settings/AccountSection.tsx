@@ -1,14 +1,12 @@
 /**
  * Settings → «Аккаунт»: the PRSLOY key (masked, «Сменить ключ»), the gateway address and
- * the ruble rate. Key and address go through core's `window.zeno.prsloy` IPC, which checks
+ * the gateway address. Key and address go through core's `window.zeno.prsloy` IPC, which checks
  * them against the gateway before saving; refusals come back as codes shown in Russian.
  */
 import { useEffect, useState, type FormEvent } from "react";
 import type { PrsloyKeyResult, PrsloyState } from "@zeno/contracts";
 import type { MessageKey } from "../../lib/i18n.ts";
-import { normalizeRubPerUsd, saveCasualPrefs } from "../../lib/casual-prefs.ts";
 import { cleanPastedKey, gatewayErrorKey } from "../../lib/prsloy-first-run.ts";
-import { useCasualPrefs } from "../../hooks/useCasualPrefs.ts";
 import { SupportReportRow } from "../prsloy/SupportReportRow.tsx";
 import {
   SettingsButton,
@@ -20,43 +18,6 @@ import {
 import { AppVersionRow } from "./AppVersionRow.tsx";
 
 type Tr = (key: MessageKey, vars?: Record<string, string>) => string;
-
-function RubRateRow(props: { tr: Tr }) {
-  const { tr } = props;
-  const prefs = useCasualPrefs();
-  const [draft, setDraft] = useState(String(prefs.rubPerUsd));
-
-  useEffect(() => {
-    setDraft(String(prefs.rubPerUsd));
-  }, [prefs.rubPerUsd]);
-
-  function commit() {
-    const next = normalizeRubPerUsd(draft);
-    saveCasualPrefs({ rubPerUsd: next });
-    setDraft(String(next));
-  }
-
-  return (
-    <SettingsRow
-      title={tr("casual.rubPerUsd")}
-      control={
-        <SettingsInput
-          className="w-24 text-right"
-          inputMode="decimal"
-          value={draft}
-          data-testid="settings-rub-per-usd"
-          aria-label={tr("casual.rubPerUsd")}
-          onChange={(event) => setDraft(event.target.value)}
-          onBlur={commit}
-          onKeyDown={(event) => {
-            if (event.key === "Enter") commit();
-          }}
-        />
-      }
-      last
-    />
-  );
-}
 
 export function AccountSection(props: { tr: Tr }) {
   const { tr } = props;
@@ -243,9 +204,6 @@ export function AccountSection(props: { tr: Tr }) {
           />
         </SettingsSectionBlock>
       ) : null}
-      <SettingsSectionBlock label={tr("prsloy.settings.money")} testId="settings-account-money">
-        <RubRateRow tr={tr} />
-      </SettingsSectionBlock>
       <SettingsSectionBlock label={tr("prsloy.support.group")} testId="settings-account-support">
         <SupportReportRow tr={tr} />
       </SettingsSectionBlock>

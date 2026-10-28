@@ -26,6 +26,7 @@ import {
   prsloySpeedModelId,
   type PrsloySpeedMode,
 } from "../../shared/prsloy-config.ts";
+import type { RubPricePerM } from "../../shared/prsloy-prices.ts";
 
 export type PrsloyHomePaths = {
   /** pi agent dir (models.json, settings.json, trust, bin/). */
@@ -96,6 +97,8 @@ export function ensurePrsloyModelsJson(
   baseUrl: string,
   /** What the gateway serves (`/v1/models`); undefined = not known, whole catalog. */
   available?: readonly string[],
+  /** Retail prices in ₽ per 1M (#52); undefined = the bundled snapshot. */
+  prices?: Readonly<Record<string, RubPricePerM>>,
 ): boolean {
   const path = join(agentDir, "models.json");
   const root = readJsonObject(path);
@@ -103,7 +106,7 @@ export function ensurePrsloyModelsJson(
     root.providers && typeof root.providers === "object" && !Array.isArray(root.providers)
       ? { ...(root.providers as Record<string, unknown>) }
       : {};
-  const next = buildPrsloyModelsJsonProvider(baseUrl, available);
+  const next = buildPrsloyModelsJsonProvider(baseUrl, available, prices);
   if (JSON.stringify(providers[PRSLOY_PROVIDER_ID]) === JSON.stringify(next) && existsSync(path)) {
     return false;
   }

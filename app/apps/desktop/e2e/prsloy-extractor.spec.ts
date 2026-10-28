@@ -39,7 +39,7 @@ test("extractor probe: a call outside the turn after leaving a chat, its own jou
     const line = JSON.parse((await readFile(journal, "utf8")).trim().split("\n")[0]!);
     expect(line).toMatchObject({ kind: "probe", model: "zeno-fake", ok: true, status: 200 });
     expect(line.input).toBeGreaterThan(0);
-    expect(line.costUsd).toBeNull(); // the fake model has no price
+    expect(line.costRub).toBeNull(); // the fake model has no price
     expect(fakeModel.requests.length).toBe(requestsBefore + 1);
     // The chat that was left is untouched by the extractor.
     expect(await readFile(left!, "utf8")).toBe(before);

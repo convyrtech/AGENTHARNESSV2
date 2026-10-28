@@ -1500,7 +1500,6 @@ export const ru = {
   "auth.usage.resetIn": "Сброс через {duration}",
   "auth.usage.window": "Окно {duration}",
   "casual.section": "Основное",
-  "casual.rubPerUsd": "Курс ₽ за $",
   "casual.developerMode": "Для разработчиков",
   "casual.developerModeHint": "Терминал, пакеты, расширения и выбор любой модели",
   "casual.secondOpinion": "Проверка второй моделью",

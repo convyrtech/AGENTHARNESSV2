@@ -7,7 +7,6 @@ import {
   PRSLOY_PROVIDER_COMPAT,
   PRSLOY_SPEED_PREFERENCE,
   PRSLOY_UNPRICED,
-  PRSLOY_PRICES_USD_PER_M,
   prsloyModelCost,
   PRSLOY_SPEED_MODES,
   prsloyModelForSpeed,
@@ -124,27 +123,19 @@ describe("prsloy config", () => {
     expect(byId["claude-opus-5-5"]!.compat.supportsReasoningEffort).toBe(false);
   });
 
-  it("prices every measured model; cache read is 10% of input", () => {
+  it("uses the gateway's retail ruble prices, including cache and output", () => {
     for (const model of PRSLOY_MODELS) {
-      const price = PRSLOY_PRICES_USD_PER_M[model.id];
-      // No gateway price measured yet: unpriced on purpose (STATUS-core).
-      if (UNMEASURED.includes(model.id)) {
-        expect(price, model.id).toBeUndefined();
-        continue;
-      }
-      expect(price, model.id).toBeDefined();
-      if (!price) continue;
-      // A missing cacheRead bills cache hits as full input (DIARY E9: $1.73 shown vs $0.41).
-      expect(price.cacheRead, model.id).toBeCloseTo(price.input / 10, 10);
+      const price = prsloyModelCost(model.id);
+      if (!UNMEASURED.includes(model.id)) expect(price.input, model.id).toBeGreaterThan(0);
     }
     expect(prsloyModelCost("deepseek-v4.1-flash-1017")).toEqual({
-      input: 0.0012,
-      output: 0.0048,
-      cacheRead: 0.00012,
-      cacheWrite: 0.0012,
+      input: 1.04,
+      output: 4.1,
+      cacheRead: 0.05,
+      cacheWrite: 1.3,
     });
-    expect(prsloyModelCost("claude-opus-5-5").cacheRead).toBeCloseTo(0.0096, 10);
-    expect(prsloyModelCost("kimi-k3.1-pro", 3).output).toBeCloseTo(0.612, 10);
+    expect(prsloyModelCost("claude-opus-5-5").cacheRead).toBeCloseTo(1.9, 10);
+    expect(prsloyModelCost("kimi-k3.1-pro").output).toBe(130);
     expect(prsloyModelCost("unknown")).toEqual({
       input: 0,
       output: 0,
@@ -154,7 +145,7 @@ describe("prsloy config", () => {
     const block = buildPrsloyModelsJsonProvider("https://gw/v1") as {
       models: { id: string; cost: { input: number } }[];
     };
-    expect(block.models.find((m) => m.id === "qwen3.8-max")!.cost.input).toBe(0.036);
+    expect(block.models.find((m) => m.id === "qwen3.8-max")!.cost.input).toBe(4.3);
   });
 });
 

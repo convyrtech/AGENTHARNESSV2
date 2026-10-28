@@ -19,7 +19,7 @@ import { parseArgs } from "node:util";
 import {
   PRSLOY_DEFAULT_BASE_URL,
   PRSLOY_MODELS,
-  PRSLOY_PRICES_USD_PER_M,
+  prsloyModelCost,
 } from "../../../apps/desktop/src/shared/prsloy-config.ts";
 import { ReliabilityProxy } from "../src/reliability-proxy.ts";
 import {
@@ -275,8 +275,8 @@ const CASES = [
   LEGIT_TEST_CHANGE,
 ];
 
-function costUsd(model: string, usage: Record<string, number> | undefined): number {
-  const price = PRSLOY_PRICES_USD_PER_M[model];
+function costRub(model: string, usage: Record<string, number> | undefined): number {
+  const price = prsloyModelCost(model);
   if (!price || !usage) return 0;
   const cached = usage.prompt_tokens_details_cached ?? 0;
   const input = (usage.prompt_tokens ?? 0) - cached;
@@ -383,8 +383,8 @@ async function main(): Promise<number> {
             completion_tokens: body.usage.completion_tokens ?? 0,
             prompt_tokens_details_cached: body.usage.prompt_tokens_details?.cached_tokens ?? 0,
           };
-          const usd = costUsd(reviewer, usage);
-          total += usd;
+          const rub = costRub(reviewer, usage);
+          total += rub;
           const verdict = parseVerdict(text, diff);
           const pass = verdict.verdict === c.expect && !verdict.invalid;
           if (pass) right += 1;
@@ -392,7 +392,7 @@ async function main(): Promise<number> {
             `  ${pass ? "✓" : "✗"} ${c.name}${runs > 1 ? ` [${run}/${runs}]` : ""} (строк изменено: ${changedLines(c.diff)}): ${verdict.verdict}` +
               `${verdict.invalid ? " (ответ не разобран)" : ""}, ждали ${c.expect}; ` +
               `замечаний с цитатой ${verdict.items.length}, отброшено без цитаты ${verdict.rejected}; ` +
-              `${seconds} с, $${usd.toFixed(5)}`,
+              `${seconds} с, ${rub.toFixed(5)} ₽`,
           );
           for (const item of verdict.items)
             console.log(

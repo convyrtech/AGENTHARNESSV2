@@ -32,11 +32,11 @@ beforeEach(() => localStorage.clear());
 afterEach(cleanup);
 
 describe("AccountSection", () => {
-  it("shows the masked key and the ruble rate", async () => {
+  it("shows the masked key without a made-up dollar-rate control", async () => {
     mockPrsloy();
     render(<AccountSection tr={tr} />);
     expect((await screen.findByTestId("settings-account-masked")).textContent).toBe("sk-…abcd");
-    expect((screen.getByTestId("settings-rub-per-usd") as HTMLInputElement).value).toBe("95");
+    expect(screen.queryByTestId("settings-rub-per-usd")).toBeNull();
   });
 
   it("changes the key and shows a refusal in Russian", async () => {

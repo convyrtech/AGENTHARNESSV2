@@ -1,5 +1,5 @@
 // Счётчик шлюза в замере (дирижёр, 26.10): токены по usage из ответов шлюза, кто звал (агент / второе мнение /
-// поиск / память), цена в ₽ по bench/prices.json, бюджет. Ошибка шлюза — исход infra_error, не «честный отказ»:
+// поиск / память), цена в ₽ по общей таблице шлюза, бюджет. Ошибка шлюза — исход infra_error, не «честный отказ»:
 // 401 останавливает прогон сразу (выход 2), бюджет — выход 3, --resume гоняет сбойные задачи заново.
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
@@ -102,12 +102,21 @@ describe("price in rubles", () => {
     expect(usageRub(usage, { a: price })).toBeNull();
   });
 
-  it("bench/prices.json lists the gateway models with null prices until the conductor fills them", () => {
+  it("reads the same retail ruble snapshot as the app, with no empty second table", () => {
     const prices = readPrices();
-    expect(Object.keys(prices)).toContain("deepseek-v4.1-flash-1017");
-    expect(Object.keys(prices)).toContain("kimi-k3.1-pro");
-    for (const p of Object.values(prices))
-      expect(Object.values(p).every((v) => v === null || typeof v === "number")).toBe(true);
+    expect(prices["kimi-k3.1-pro"]).toEqual({
+      input: 26,
+      cacheRead: 6.5,
+      cacheWrite: 32.5,
+      output: 130,
+    });
+    // The journal example in #52: 0.88M fresh input + 4.62M cache reads ≈ 52.9 ₽.
+    expect(
+      countRub(
+        { calls: 58, input: 5_500_000, output: 21_000, cacheRead: 4_620_000, cacheWrite: 0 },
+        prices["kimi-k3.1-pro"],
+      ),
+    ).toBeCloseTo(55.64);
   });
 
   it("the sources line: calls per caller and the share of tokens our add-ons cost", () => {

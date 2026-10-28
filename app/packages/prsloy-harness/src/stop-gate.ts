@@ -450,7 +450,7 @@ export function installStopGate(
     ctx: ExtensionContext,
     signals: string[] = [],
     reportOnly = false,
-  ): Promise<{ verdict: ReviewVerdict; model: string; costUsd: number } | undefined> {
+  ): Promise<{ verdict: ReviewVerdict; model: string; costRub: number } | undefined> {
     if (!reviewer || reviewed || !reviewEnabled()) return undefined;
     // После капа возвратов ревьюер зовётся только «отчётом» (research/24 §1): возвращать к работе уже нельзя.
     if (capped() && !reportOnly) return undefined;
@@ -463,10 +463,10 @@ export function installStopGate(
     const diff = clipDiff(patch, undefined, cheats);
     const reply = await reviewer(reviewPrompt({ task, diff, checks, signals, cheats }), ctx);
     if (!reply) return undefined;
-    budget?.spend(reply.costUsd);
+    budget?.spend(reply.costRub);
     // Пользователь нажал «стоп», пока ждали проверяющего, или ответа нет: молчим.
     if (ctx.signal?.aborted || reply.error) return undefined;
-    return { verdict: parseVerdict(reply.text, diff), model: reply.model, costUsd: reply.costUsd };
+    return { verdict: parseVerdict(reply.text, diff), model: reply.model, costRub: reply.costRub };
   }
 
   /** Ревьюер «только отчёт»: карточка и данные, без возврата к работе (research/24 §1). */
@@ -479,7 +479,7 @@ export function installStopGate(
   ): Promise<void> {
     const result = await review(patch, checksSummary(check, run), ctx, signals, true);
     if (!result || result.verdict.invalid) return;
-    const { verdict, model, costUsd } = result;
+    const { verdict, model, costRub } = result;
     const pass = verdict.verdict === "PASS";
     recordEvent(ctx, {
       kind: pass ? "review.pass" : "review.fail",
@@ -490,7 +490,7 @@ export function installStopGate(
       pi,
       "prsloy-harness.second-opinion",
       pass ? REVIEW_PASS_CARD : reviewReportCard(verdict.items.length),
-      { model, costUsd, reportOnly: true, signals, ...verdict },
+      { model, costRub, reportOnly: true, signals, ...verdict },
     );
   }
 
@@ -764,8 +764,8 @@ export function installStopGate(
     }
     const result = await review(diff.patch, checksSummary(check, run), ctx, signals());
     if (!result) return undefined;
-    const { verdict, model, costUsd } = result;
-    const data = { model, costUsd, ...verdict };
+    const { verdict, model, costRub } = result;
+    const data = { model, costRub, ...verdict };
     // Ответ не разобран — карточку «замечаний нет» не показываем: проверки по сути не было.
     // Данные ревью — в details карточки: отдельная запись custom показалась бы в чате сырым JSON.
     if (verdict.invalid) return undefined;

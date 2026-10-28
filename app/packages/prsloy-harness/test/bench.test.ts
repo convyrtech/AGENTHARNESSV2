@@ -141,15 +141,15 @@ describe("bench --fake", () => {
             r.tokens.input,
           ]);
         }
-      // Цен в bench/prices.json пока нет — не ноль, а «неизвестна».
-      expect(report.totals.rub).toBeNull();
+      // DeepSeek is priced in the shared gateway table: the bench reports real rubles.
+      expect(report.totals.rub).toBeGreaterThan(0);
       expect(report.totals.outcomes.infra_error).toBe(0);
       const md = reportMarkdown(report);
       expect(md).toContain(
         "| Задача | Проверка | Время, с | Вызовов | Токены вх/вых/кэш | ₽ | Кэш | Ответ | Вмешательства харнесса |",
       );
       expect(md).toMatch(/Вызовы шлюза: агент \d+ \(.*\), второе мнение \d+/);
-      expect(md).toContain("цена неизвестна.");
+      expect(md).not.toContain("цена неизвестна.");
       expect(md).toContain(`харнесс ${harness ? "вкл" : "выкл"}, промпт ${prompt}`);
       expect(md).toContain("Ответы: по-русски 25 из 25; команд пользователю 0");
     }, 120_000);

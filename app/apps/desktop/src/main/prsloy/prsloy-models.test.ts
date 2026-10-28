@@ -114,14 +114,14 @@ describe("catalog and presets from the gateway's list", () => {
     expect(prsloyModelCost("gpt-6.1-sol").input).toBeGreaterThan(0);
     expect(prsloyModelCost("qwen3.8-max").input).toBeGreaterThan(0);
     expect(prsloyModelCost("claude-opus-5-5").input).toBeGreaterThan(0);
-    // No measured price → unpriced (no ruble cost shown), not a made-up one.
+    // The gateway's price list now covers these too (#52): priced in rubles.
     expect(prsloyModelCost("grok-4.7")).toEqual({
-      input: 0,
-      output: 0,
-      cacheRead: 0,
-      cacheWrite: 0,
+      input: 6,
+      output: 18,
+      cacheRead: 1.5,
+      cacheWrite: 7.5,
     });
-    expect(prsloyModelCost("claude-fable-5").input).toBe(0);
+    expect(prsloyModelCost("claude-fable-5").input).toBeGreaterThan(0);
     // A chat model the catalog doesn't know yet is offered too.
     const withNew = buildPrsloyModelsJsonProvider("https://gw.example/v1", ["new-model-9"]) as {
       models: { id: string }[];

@@ -20,6 +20,7 @@ import { onHarnessFlagsChanged } from "./flags-events.ts";
 import { registerPrsloyMemoryIpc } from "./memory-ipc.ts";
 import { registerPrsloySearchIpc } from "./search-ipc.ts";
 import { startPrsloyModelRefresh } from "./model-list.ts";
+import { startPrsloyPricesRefresh } from "./prices.ts";
 import type { TurnRecord } from "./turn-snapshots.ts";
 
 export const PRSLOY_IPC = {
@@ -177,6 +178,12 @@ export function registerPrsloyIpc(rawIpcMain: IpcMainLike, deps: PrsloyIpcDeps):
 
   if (deps.refreshModels !== false) {
     startPrsloyModelRefresh({
+      ctx,
+      fetch: deps.fetch,
+      onChanged: () => deps.onModelsChanged?.(),
+    });
+    // Public retail prices need no key: refresh them even before the first key is saved (#52).
+    startPrsloyPricesRefresh({
       ctx,
       fetch: deps.fetch,
       onChanged: () => deps.onModelsChanged?.(),

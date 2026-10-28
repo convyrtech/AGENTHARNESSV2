@@ -10,7 +10,7 @@ import {
   type ExtensionContext,
 } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
-import { messageCostUsd } from "./budget.ts";
+import { messageCostRub } from "./budget.ts";
 import { readFlags, type ExploreMode } from "./flags.ts";
 import type { ResolvedOptions } from "./options.ts";
 import { recordUsage } from "./reviewer.ts";
@@ -377,7 +377,7 @@ export function installExplore(
               ctx,
               model,
               reply.usage,
-              messageCostUsd(reply.usage, model.cost),
+              messageCostRub(reply.usage, model.cost),
               "prsloy_explore",
               "Разведчик",
             ),

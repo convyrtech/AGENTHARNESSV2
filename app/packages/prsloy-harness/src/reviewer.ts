@@ -3,13 +3,13 @@
 // записью usage (так Pi учитывает свои внеочередные вызовы), поэтому она видна в стоимости хода.
 import { existsSync, readFileSync } from "node:fs";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { messageCostUsd } from "./budget.ts";
+import { messageCostRub } from "./budget.ts";
 import { pickModel, reviewersFor } from "./second-opinion.ts";
 
 export interface ReviewReply {
   text: string;
   model: string;
-  costUsd: number;
+  costRub: number;
   error?: string;
 }
 
@@ -61,8 +61,8 @@ export function modelReviewer(options: ReviewerOptions = {}): Reviewer {
         { messages: [{ role: "user", content: prompt, timestamp: Date.now() }] },
         { signal: AbortSignal.any(signals), maxTokens: options.maxTokens ?? 16_000 },
       );
-      const costUsd = messageCostUsd(reply.usage, model.cost);
-      recordUsage(ctx, model, reply.usage, costUsd);
+      const costRub = messageCostRub(reply.usage, model.cost);
+      recordUsage(ctx, model, reply.usage, costRub);
       const text = reply.content
         .map((part) => (part.type === "text" ? part.text : ""))
         .join("")
@@ -71,21 +71,21 @@ export function modelReviewer(options: ReviewerOptions = {}): Reviewer {
       return {
         text,
         model: `${model.provider}/${model.id}`,
-        costUsd,
+        costRub,
         ...(failed ? { error: reply.errorMessage ?? reply.stopReason } : {}),
       };
     } catch (error) {
       return {
         text: "",
         model: `${model.provider}/${model.id}`,
-        costUsd: 0,
+        costRub: 0,
         error: error instanceof Error ? error.message : String(error),
       };
     }
   };
 }
 
-type Usage = Parameters<typeof messageCostUsd>[0];
+type Usage = Parameters<typeof messageCostRub>[0];
 
 /**
  * Запись usage в сессию: getSessionStats() Pi суммирует её в стоимость, которую показывает приложение.
@@ -95,7 +95,7 @@ export function recordUsage(
   ctx: ExtensionContext,
   model: Model,
   usage: Usage,
-  costUsd: number,
+  costRub: number,
   kind = "prsloy_second_opinion",
   note = "Проверка второй моделью",
 ): void {
@@ -110,7 +110,7 @@ export function recordUsage(
     ) => void;
   };
   if (typeof manager.appendUsage !== "function") return;
-  const cost = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, ...usage.cost, total: costUsd };
+  const cost = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, ...usage.cost, total: costRub };
   try {
     manager.appendUsage(kind, model.provider, model.id, { ...usage, cost }, note);
   } catch {
