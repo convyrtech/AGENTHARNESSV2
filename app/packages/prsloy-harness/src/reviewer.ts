@@ -87,8 +87,18 @@ export function modelReviewer(options: ReviewerOptions = {}): Reviewer {
 
 type Usage = Parameters<typeof messageCostUsd>[0];
 
-/** Запись usage в сессию: getSessionStats() Pi суммирует её в стоимость, которую показывает приложение. */
-function recordUsage(ctx: ExtensionContext, model: Model, usage: Usage, costUsd: number): void {
+/**
+ * Запись usage в сессию: getSessionStats() Pi суммирует её в стоимость, которую показывает приложение.
+ * kind — метка в статистике (`prsloy_second_opinion`, `prsloy_explore`), note — что это было.
+ */
+export function recordUsage(
+  ctx: ExtensionContext,
+  model: Model,
+  usage: Usage,
+  costUsd: number,
+  kind = "prsloy_second_opinion",
+  note = "Проверка второй моделью",
+): void {
   if (!usage) return;
   const manager = ctx.sessionManager as unknown as {
     appendUsage?: (
@@ -102,13 +112,7 @@ function recordUsage(ctx: ExtensionContext, model: Model, usage: Usage, costUsd:
   if (typeof manager.appendUsage !== "function") return;
   const cost = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, ...usage.cost, total: costUsd };
   try {
-    manager.appendUsage(
-      "prsloy_second_opinion",
-      model.provider,
-      model.id,
-      { ...usage, cost },
-      "Проверка второй моделью",
-    );
+    manager.appendUsage(kind, model.provider, model.id, { ...usage, cost }, note);
   } catch {
     // статистика — не повод ронять ход
   }

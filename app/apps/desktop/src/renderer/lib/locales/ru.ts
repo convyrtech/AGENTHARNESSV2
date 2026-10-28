@@ -135,6 +135,8 @@ export const ru = {
   "tool.webFetch.done": "Прочитал страницу",
   "tool.findReady.running": "Ищет готовое решение",
   "tool.findReady.done": "Поискал готовое решение",
+  "tool.explore.running": "Смотрит по файлам проекта",
+  "tool.explore.done": "Посмотрел по файлам проекта",
   "tool.memory.running": "Заглядывает в память",
   "tool.memory.done": "Заглянул в память",
   "tool.bashBackground.running": "Запускает в фоне",

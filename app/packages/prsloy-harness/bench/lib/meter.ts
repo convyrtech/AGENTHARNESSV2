@@ -6,8 +6,14 @@ import { once } from "node:events";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 
 /** Кто позвал шлюз. */
-export type GatewaySource = "agent" | "review" | "memory" | "search";
-export const GATEWAY_SOURCES: readonly GatewaySource[] = ["agent", "review", "search", "memory"];
+export type GatewaySource = "agent" | "review" | "memory" | "search" | "explore";
+export const GATEWAY_SOURCES: readonly GatewaySource[] = [
+  "agent",
+  "review",
+  "search",
+  "memory",
+  "explore",
+];
 
 export interface TokenCount {
   calls: number;
@@ -58,6 +64,8 @@ export function addUsage(to: TokenUsage, from: TokenUsage): void {
 /** Начала промптов надстроек: second-opinion.ts reviewPrompt, memory-extract.ts extractorPrompt. */
 export const REVIEW_MARKER = "Ты проверяющий";
 export const MEMORY_MARKER = "Ты выбираешь из слов пользователя";
+/** Начало системного промпта разведчика (src/explore.ts EXPLORE_MARKER): #47. */
+export const EXPLORE_MARKER = "Ты разведчик";
 
 type Message = { role?: string; content?: unknown };
 
@@ -74,6 +82,8 @@ export function sourceOf(payload: Record<string, unknown>): GatewaySource {
   if (payload.web_search_options !== undefined) return "search";
   const messages = Array.isArray(payload.messages) ? (payload.messages as Message[]) : [];
   if (messages.some((m) => textOf(m).trimStart().startsWith(MEMORY_MARKER))) return "memory";
+  // Разведчик (#47): ребёнок ходит тем же шлюзом, но его токены — отдельная строка отчёта.
+  if (messages.some((m) => textOf(m).trimStart().startsWith(EXPLORE_MARKER))) return "explore";
   const lastUser = messages.findLast((m) => m.role === "user");
   if (lastUser && textOf(lastUser).trimStart().startsWith(REVIEW_MARKER)) return "review";
   return "agent";

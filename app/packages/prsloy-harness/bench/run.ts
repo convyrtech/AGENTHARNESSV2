@@ -28,7 +28,7 @@ import {
 } from "../../../apps/desktop/src/shared/prsloy-config.ts";
 import { createPrsloyHarness, harnessStats, installReusePrompt } from "../src/index.ts";
 import { resolveOptions } from "../src/options.ts";
-import type { StaleDocsMode } from "../src/flags.ts";
+import type { ExploreMode, StaleDocsMode } from "../src/flags.ts";
 import type { SearchConfig } from "../src/research/search.ts";
 import { type AnswerMetrics, answerMetrics } from "./lib/answer-metrics.ts";
 import {
@@ -128,6 +128,8 @@ export interface BenchOptions {
   claimCheck?: boolean;
   /** Нить задачи после сжатия истории (флаг "taskThread", #64 п.1). По умолчанию выкл., как в приложении. */
   taskThread?: boolean;
+  /** Разведчик (#47, флаг "explore"): "off" — выкл., "same" — та же модель, "cheap" — дешёвая. */
+  explore?: ExploreMode;
   /**
    * Окно контекста модели для замера (#64): маленькое окно — сжатие истории посреди задачи. По умолчанию — окно из
    * каталога приложения.
@@ -552,6 +554,7 @@ async function runTask(
       claimCheck: opts.claimCheck === true,
       staleDocs: opts.staleDocs ?? "end",
       taskThread: opts.taskThread === true,
+      explore: opts.explore ?? "off",
     }),
   );
   const slash = opts.model.indexOf("/");
@@ -808,6 +811,7 @@ export interface BenchReport {
     reviewerCheats: boolean;
     claimCheck: boolean;
     taskThread: boolean;
+    explore: ExploreMode;
     contextWindow: number | undefined;
     keepRecentTokens: number | undefined;
     fake: boolean;
@@ -869,6 +873,7 @@ export async function runBench(opts: BenchOptions): Promise<BenchReport> {
     claimCheck: opts.claimCheck === true,
     staleDocs: opts.staleDocs ?? "end",
     taskThread: opts.taskThread === true,
+    explore: opts.explore ?? "off",
     contextWindow: opts.contextWindow,
     keepRecentTokens: opts.keepRecentTokens,
     fake: opts.fake === true,
@@ -1076,6 +1081,7 @@ const SOURCE_NAMES: Record<GatewaySource, string> = {
   review: "второе мнение",
   search: "поиск моделью",
   memory: "экстрактор памяти",
+  explore: "разведчик",
 };
 
 function kTokens(n: number): string {
@@ -1126,7 +1132,7 @@ export function reportMarkdown(report: BenchReport): string {
     return `| ${r.id} | ${failed ? "⚠" : mark} ${r.note.replace(/\|/g, "/")}${failed ? " · исход infra_error" : outcome}${r.error && !failed ? ` (${r.error})` : ""} | ${r.seconds} | ${r.toolCalls} | ${tokensText(r.tokens)} | ${r.tokens ? rubText(r.rub) : "—"} | ${cache} | ${reply} | ${iv || "—"} |`;
   });
   return [
-    `# Замер: ${meta.model}, харнесс ${meta.harness ? "вкл" : "выкл"}, промпт ${meta.prompt}${meta.delta ? "+дельта" : ""}, уроки ${meta.lessons ? "вкл" : "выкл"}, ревью ${meta.review ? "вкл" : "выкл"}, навыки ${meta.skills ? "вкл" : "выкл"}, память ${meta.memory ? "вкл" : "выкл"}${meta.webTools ? ", поиск вкл" : ""}${meta.honestExit ? ", честный выход вкл" : ""}${meta.testGuard ? ", страж тестов вкл" : ""}${meta.testQuality ? ", полезность тестов вкл" : ""}${meta.reviewerCheats ? ", ревьюер ищет подгонку" : ""}${meta.claimCheck ? ", слова и факты вкл" : ""}${meta.taskThread ? ", нить задачи вкл" : ""}${meta.contextWindow ? `, окно ${meta.contextWindow}` : ""}${meta.keepRecentTokens ? `, дословно ${meta.keepRecentTokens}` : ""}${meta.staleDocs && meta.staleDocs !== "end" ? `, описание проекта: ${meta.staleDocs}` : ""}${meta.audit ? ", разбор вкл" : ""}${meta.fake ? " (фейковая модель)" : ""}`,
+    `# Замер: ${meta.model}, харнесс ${meta.harness ? "вкл" : "выкл"}, промпт ${meta.prompt}${meta.delta ? "+дельта" : ""}, уроки ${meta.lessons ? "вкл" : "выкл"}, ревью ${meta.review ? "вкл" : "выкл"}, навыки ${meta.skills ? "вкл" : "выкл"}, память ${meta.memory ? "вкл" : "выкл"}${meta.webTools ? ", поиск вкл" : ""}${meta.honestExit ? ", честный выход вкл" : ""}${meta.testGuard ? ", страж тестов вкл" : ""}${meta.testQuality ? ", полезность тестов вкл" : ""}${meta.reviewerCheats ? ", ревьюер ищет подгонку" : ""}${meta.claimCheck ? ", слова и факты вкл" : ""}${meta.taskThread ? ", нить задачи вкл" : ""}${meta.explore && meta.explore !== "off" ? `, разведчик ${meta.explore}` : ""}${meta.contextWindow ? `, окно ${meta.contextWindow}` : ""}${meta.keepRecentTokens ? `, дословно ${meta.keepRecentTokens}` : ""}${meta.staleDocs && meta.staleDocs !== "end" ? `, описание проекта: ${meta.staleDocs}` : ""}${meta.audit ? ", разбор вкл" : ""}${meta.fake ? " (фейковая модель)" : ""}`,
     "",
     `${meta.date} · шлюз ${meta.gateway} · таймаут задачи ${meta.timeoutSec} с`,
     "",

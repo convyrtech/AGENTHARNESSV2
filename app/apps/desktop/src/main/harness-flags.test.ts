@@ -14,6 +14,8 @@ const DEFAULTS = {
   testQuality: false,
   reviewerCheats: false,
   staleDocs: "end",
+  // #47: разведчик выключен, пока замер не скажет обратное.
+  explore: "off",
 } as const;
 
 vi.mock("electron", () => ({ app: { getPath: () => tmpdir() }, ipcMain: { handle: vi.fn() } }));
@@ -110,5 +112,17 @@ describe("harness flags (prsloy-harness.json)", () => {
     expect(readHarnessFlags(path).staleDocs).toBe("end");
     expect(() => writeHarnessFlags(path, { staleDocs: "loud" })).toThrow();
     expect(() => writeHarnessFlags(path, { staleDocs: true })).toThrow();
+  });
+
+  it("explore (#47): выключен по умолчанию, «same»/«cheap» по руке, мусор не принимаем", () => {
+    const path = harnessFlagsPath(mkdtempSync(join(tmpdir(), "flags-")));
+    expect(readHarnessFlags(path).explore).toBe("off");
+    expect(writeHarnessFlags(path, { explore: "same" })).toEqual({ ...DEFAULTS, explore: "same" });
+    expect(JSON.parse(readFileSync(path, "utf8"))).toEqual({ explore: "same" });
+    expect(readHarnessFlags(path).explore).toBe("same");
+    writeFileSync(path, JSON.stringify({ explore: "always" }));
+    expect(readHarnessFlags(path).explore).toBe("off");
+    expect(() => writeHarnessFlags(path, { explore: "always" })).toThrow();
+    expect(() => writeHarnessFlags(path, { explore: true })).toThrow();
   });
 });

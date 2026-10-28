@@ -117,7 +117,9 @@ export type PracticeName =
   // Ревьюер ищет подгонку (H-4): за флагом "reviewerCheats".
   | "reviewerCheats"
   // Нить задачи после сжатия истории (#64 п.1): за флагом "taskThread".
-  | "taskThread";
+  | "taskThread"
+  // Разведчик (issue #47): за флагом "explore".
+  | "explore";
 
 export interface ResolvedOptions {
   profile: HarnessProfile;

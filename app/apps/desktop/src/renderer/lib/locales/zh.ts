@@ -143,6 +143,8 @@ export const zh = {
   "tool.webFetch.done": "已阅读网页",
   "tool.findReady.running": "正在找现成方案",
   "tool.findReady.done": "已找现成方案",
+  "tool.explore.running": "正在翻看项目文件",
+  "tool.explore.done": "已翻看项目文件",
   "tool.memory.running": "正在查看记忆",
   "tool.memory.done": "已查看记忆",
   "tool.bashBackground.running": "正在后台启动",
