@@ -20,6 +20,8 @@ export type LearningKind =
   | "budget.warn"
   | "budget.stop"
   | "bash.timeout"
+  // #82: вызов shell-тула упёрся в границу ожидания (таймаут, отмена, живой потомок в пайпе).
+  | "tool.watch"
   | "server.bg"
   | "shell.block"
   | "secret.placeholder"

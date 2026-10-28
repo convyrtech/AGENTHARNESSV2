@@ -2478,6 +2478,22 @@ html[data-custom-window-controls="true"] .page-header {
   margin: 1px 0 4px;
   padding-left: calc(0.875rem + 6px);
 }
+/* #82: состояние шага процесса словами: «зависло», «таймаут», «отменено», «ждёт ответа». */
+.process-step-state {
+  flex-shrink: 0;
+  margin-left: 4px;
+  font-size: 10px;
+  opacity: 0.8;
+  white-space: nowrap;
+}
+.process-step-state[data-state="stalled"],
+.process-step-state[data-state="timeout"] {
+  color: var(--text-warning, #b45309);
+  opacity: 1;
+}
+.process-step-row[data-state="stalled"] .process-step-verb {
+  animation: none;
+}
 /* Tool type chip (bash / powershell / …) — only on expandable rows. */
 .process-step-type {
   flex-shrink: 0;
@@ -2810,10 +2826,30 @@ html[data-custom-window-controls="true"] .page-header {
   white-space: nowrap;
   opacity: 0.75;
 }
+.content-tool-duration {
+  flex: none;
+  font-size: 10px;
+  opacity: 0.6;
+  font-variant-numeric: tabular-nums;
+}
 .content-tool-state {
   flex: none;
   font-size: 10px;
   opacity: 0.68;
+}
+/* #82: «зависло» и «ждёт ответа» — не бесконечный спиннер, а пауза: так видно, что
+   ждём не вычислений, а человека или чужой процесс. */
+.content-tool-status[data-state="waiting"] svg,
+.content-tool-status[data-state="stalled"] svg,
+.content-tool-status[data-state="timeout"] svg,
+.content-tool-status[data-state="aborted"] svg {
+  animation: none;
+  opacity: 0.75;
+}
+.content-tool-wrap[data-state="stalled"] .content-tool-state,
+.content-tool-wrap[data-state="timeout"] .content-tool-state {
+  color: var(--text-warning, #b45309);
+  opacity: 1;
 }
 .content-tool-body {
   display: grid;

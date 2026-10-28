@@ -221,6 +221,8 @@ export function processToolView(
     "prompt",
   ]);
   const description = firstString(row, ["description", "title", "name"]);
+  // Вопрос к человеку и причина запроса секрета — это текст для чтения, а не JSON (#82).
+  const spoken = firstString(row, ["question", "reason"]);
   // Avoid using raw "content" as description when it is huge file body for write tools.
   const content = firstString(row, ["content"]);
   const shortContent = content && content.length <= 80 ? content : "";
@@ -269,6 +271,7 @@ export function processToolView(
     path ||
     query ||
     description ||
+    spoken ||
     shortContent ||
     (args !== undefined ? JSON.stringify(args) : "");
   if (!detail) {
