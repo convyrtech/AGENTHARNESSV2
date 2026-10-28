@@ -23,7 +23,6 @@ import { CommandPalette } from "./components/CommandPalette.tsx";
 import { Composer } from "./components/Composer.tsx";
 import { ConfirmDialog } from "./components/ConfirmDialog.tsx";
 import { ErrorDialog } from "./components/ErrorDialog.tsx";
-import { unwrapRemoteIpcError } from "../shared/ipc-error.ts";
 import { ExtensionUiChrome } from "./components/ExtensionUiChrome.tsx";
 import { ExtensionUiHost } from "./components/ExtensionUiHost.tsx";
 import { ProjectTrustDialog } from "./components/ProjectTrustDialog.tsx";
@@ -70,7 +69,6 @@ import {
 } from "./lib/theme-packs.ts";
 import { cn } from "./lib/utils.ts";
 import {
-  errorMessageOrFallback,
   hostPillState,
   isAbortRecycleError,
   isAlreadyProcessingError,
@@ -81,6 +79,7 @@ import {
   cancelExtensionUiDialogsForRuntime,
 } from "./lib/extension-ui-prompt.ts";
 import { handleExtensionUiRequest } from "./lib/extension-ui-handle.ts";
+import { reportAppError } from "./lib/app-error.ts";
 import {
   emptyExtensionUiPortableState,
   mcpStatusFromExtensionUi,
@@ -161,13 +160,6 @@ applyThemeSelection(
 );
 applyAppearancePrefs();
 const NEW_SESSION_OP_TIMEOUT_MS = 30_000;
-
-/** Surface app-level errors as a modal (agent timeline errors stay in-chat). */
-function reportAppError(error: unknown, fallback: string): string {
-  const message = unwrapRemoteIpcError(errorMessageOrFallback(error, fallback));
-  useShellStore.getState().showAppError(message);
-  return message;
-}
 
 function App() {
   useEffect(() => {
