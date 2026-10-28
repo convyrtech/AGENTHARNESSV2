@@ -37,7 +37,6 @@ import {
   FolderOpen,
   Gauge,
   GitBranch,
-  ImageOff,
   Monitor,
   Package,
   Plus,
@@ -72,10 +71,11 @@ import {
   useSuggestOverflow,
 } from "./ComposerSuggestMenus.tsx";
 import { ComposerContextMenu } from "./ComposerContextMenu.tsx";
+import { ComposerImageWarning } from "./ComposerImageWarning.tsx";
 import { CreateWorktreeDialog } from "./CreateWorktreeDialog.tsx";
 import { t, thinkingLevelLabel, type Locale } from "../lib/i18n.ts";
 import { modelSupportsServiceTier, type ServiceTierId } from "../lib/service-tier.ts";
-import { findModel, imageWarning } from "../lib/model-images.ts";
+import type { ModelCapability } from "../lib/model-images.ts";
 import { modelSupportsThinking } from "../lib/thinking-levels.ts";
 import { groupModelsByProvider } from "../lib/model-groups.ts";
 import {
@@ -99,13 +99,8 @@ export type { AccessMode, AccessVisibility };
 /** @deprecated Use ServiceTierId — legacy Zeno labels mapped to OpenAI service_tier. */
 export type SpeedMode = ServiceTierId;
 
-export interface ComposerModelOption {
-  provider: string;
-  id: string;
-  name: string;
-  /** pi model `input`: a model without "image" never receives an attached picture (#75). */
-  input?: readonly string[] | undefined;
-  /** Aligns with model settings: "custom" vs built-in catalog providers. */
+/** `source` aligns with model settings: "custom" vs built-in catalog providers. */
+export interface ComposerModelOption extends ModelCapability {
   source?: string;
 }
 
@@ -383,21 +378,6 @@ export function Composer(props: ComposerProps) {
   );
   const thinkingSupported = modelSupportsThinking(props.thinkingLevels);
   const serviceTierSupported = modelSupportsServiceTier(props.serviceTiers);
-
-  /**
-   * Pictures attached to a model that cannot take them (#75): pi would swap them for
-   * «(image omitted: model does not support images)» without a word, so say it here and
-   * offer the model that can.
-   */
-  const pictureLoss = useMemo(
-    () =>
-      imageWarning({
-        model: findModel(props.modelOptions, props.modelValue),
-        attachments: props.attachments,
-        models: props.modelOptions,
-      }),
-    [props.modelOptions, props.modelValue, props.attachments],
-  );
 
   function serviceTierLabel(tier: string): string {
     if (tier === "priority") return tr("composer.speed.priority");
@@ -964,32 +944,7 @@ export function Composer(props: ComposerProps) {
           />
         ) : null}
 
-        {pictureLoss ? (
-          <div
-            className="flex items-start gap-2 px-3.5 pt-2 text-xs text-amber-600 dark:text-amber-400"
-            data-testid="composer-image-warning"
-            role="status"
-          >
-            <ImageOff className="mt-0.5 size-3.5 shrink-0" strokeWidth={2} aria-hidden="true" />
-            <span className="min-w-0 flex-1">
-              {tr("composer.imageWarning", { model: pictureLoss.modelName })}
-            </span>
-            {pictureLoss.switchTo ? (
-              <button
-                type="button"
-                className="shrink-0 rounded-md px-1.5 py-0.5 font-medium underline underline-offset-2 hover:bg-amber-500/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
-                data-testid="composer-image-warning-switch"
-                onClick={() => {
-                  const target = pictureLoss.switchTo;
-                  if (target) props.onModelChange(target.provider, target.id);
-                }}
-              >
-                {tr("composer.imageWarning.switch", { model: pictureLoss.switchTo.name })}
-              </button>
-            ) : null}
-          </div>
-        ) : null}
-
+        <ComposerImageWarning {...props} />
         <div className="composer-prompt-field">
           <div
             ref={promptHighlightRef}
