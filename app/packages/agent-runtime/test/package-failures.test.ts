@@ -6,6 +6,10 @@ import { afterEach, describe, expect, it } from "vite-plus/test";
 
 const temporaryDirectories: string[] = [];
 
+// These tests exercise online installs; an ambient PI_OFFLINE (e.g. from an agent shell)
+// must not turn them into no-ops.
+delete process.env.PI_OFFLINE;
+
 function portablePath(path: string): string {
   return path.replace(/\\/g, "/");
 }

@@ -16,6 +16,10 @@ const execFileAsync = promisify(execFile);
 const temporaryDirectories: string[] = [];
 const servers: Server[] = [];
 
+// These tests exercise online installs and update checks; an ambient PI_OFFLINE (e.g. from
+// an agent shell) must not turn them into no-ops. The offline scenario sets PI_OFFLINE itself.
+delete process.env.PI_OFFLINE;
+
 interface PackedVersion {
   version: string;
   tarball: Buffer;

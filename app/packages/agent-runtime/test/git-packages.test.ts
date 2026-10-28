@@ -15,6 +15,10 @@ const execFileAsync = promisify(execFile);
 const temporaryDirectories: string[] = [];
 const servers: Server[] = [];
 
+// These tests exercise online updates; an ambient PI_OFFLINE (e.g. from an agent shell)
+// must not turn them into no-ops.
+delete process.env.PI_OFFLINE;
+
 async function git(cwd: string, ...args: string[]): Promise<string> {
   const { stdout } = await execFileAsync("git", args, {
     cwd,
