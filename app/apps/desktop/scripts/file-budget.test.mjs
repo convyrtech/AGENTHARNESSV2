@@ -49,7 +49,8 @@ const FROZEN = {
   // 4469 → 3803: `PackagesPage` moved to its own component, paying for the progress line
   // and the empty-chat examples.
   // 3803 → 3799: the empty «Код» screen moved to `components/EmptyHero.tsx`, paying for the recipes.
-  "renderer/main.tsx": 3788,
+  // 3799 → 3782: `reportAppError` moved to `lib/app-error.ts`, paying for the #83 question queue.
+  "renderer/main.tsx": 3782,
   // 5163 → 5109: `EnvironmentSection` moved out, paying for the ru option and casual prefs.
   // 5109 → 5062: `BehaviorSection` moved out, paying for the «Аккаунт» route.
   // → 4919: `NotificationsSection` moved out, paying for the casual shortcut filter.
