@@ -223,6 +223,14 @@ test("clean Windows (system Git hidden): bash tool via bundled Git", async () =>
   try {
     launched = await launch("clean", { hideGitBash: true, bashCommand: AGENT_COMMAND });
     await startHost(launched.page);
+    // Wait for PortableGit to unpack before bash turn (hideGitBash hides system Git).
+    await expect
+      .poll(
+        async () =>
+          (await launched!.page.evaluate(() => window.zeno.prsloy.getState())).gitSetup.status,
+        { timeout: 180_000 },
+      )
+      .toBe("ready");
     const bash = await runBashTurn(launched, "clean");
     const report = `bash tool result:\n${bash.result}`;
     if (!strictCleanBash) {
