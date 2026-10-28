@@ -1005,6 +1005,9 @@ export const ru = {
   "composer.attach.folders": "Добавить папки",
   "composer.attach.filesAndFolders": "Файлы и папки",
   "composer.attach.remove": "Убрать вложение",
+  "composer.imageWarning":
+    "{model} не видит картинки: вложение до модели не дойдёт. Останется только путь к файлу.",
+  "composer.imageWarning.switch": "Переключить на {model}",
   "composer.attach.defaultPrompt": "Посмотри эти файлы и папки",
   "composer.add.title": "Добавить",
   "composer.add.plugins": "Плагины",

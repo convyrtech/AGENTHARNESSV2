@@ -71,9 +71,11 @@ import {
   useSuggestOverflow,
 } from "./ComposerSuggestMenus.tsx";
 import { ComposerContextMenu } from "./ComposerContextMenu.tsx";
+import { ComposerImageWarning } from "./ComposerImageWarning.tsx";
 import { CreateWorktreeDialog } from "./CreateWorktreeDialog.tsx";
 import { t, thinkingLevelLabel, type Locale } from "../lib/i18n.ts";
 import { modelSupportsServiceTier, type ServiceTierId } from "../lib/service-tier.ts";
+import type { ModelCapability } from "../lib/model-images.ts";
 import { modelSupportsThinking } from "../lib/thinking-levels.ts";
 import { groupModelsByProvider } from "../lib/model-groups.ts";
 import {
@@ -97,11 +99,8 @@ export type { AccessMode, AccessVisibility };
 /** @deprecated Use ServiceTierId — legacy Zeno labels mapped to OpenAI service_tier. */
 export type SpeedMode = ServiceTierId;
 
-export interface ComposerModelOption {
-  provider: string;
-  id: string;
-  name: string;
-  /** Aligns with model settings: "custom" vs built-in catalog providers. */
+/** `source` aligns with model settings: "custom" vs built-in catalog providers. */
+export interface ComposerModelOption extends ModelCapability {
   source?: string;
 }
 
@@ -945,6 +944,7 @@ export function Composer(props: ComposerProps) {
           />
         ) : null}
 
+        <ComposerImageWarning {...props} />
         <div className="composer-prompt-field">
           <div
             ref={promptHighlightRef}

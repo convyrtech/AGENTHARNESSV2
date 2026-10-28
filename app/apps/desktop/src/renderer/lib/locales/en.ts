@@ -1011,6 +1011,9 @@ export const en = {
   "composer.attach.folders": "Add folders",
   "composer.attach.filesAndFolders": "Files and folders",
   "composer.attach.remove": "Remove attachment",
+  "composer.imageWarning":
+    "{model} can't see pictures: the attachment won't reach it, only the file path will.",
+  "composer.imageWarning.switch": "Switch to {model}",
   "composer.attach.defaultPrompt": "Please inspect these paths",
   "composer.add.title": "Add",
   "composer.add.plugins": "Plugins",

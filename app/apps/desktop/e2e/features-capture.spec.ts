@@ -55,9 +55,9 @@ test("a frame drawn over the preview becomes a picture attached to the message",
     await waitSettled(page);
     const sent = JSON.stringify(launched.fakeModel.requests.slice(before));
     expect(sent).toContain("Вот тут криво");
-    // The picture itself goes to the model (data URL), not just a file name.
     // The picture goes as an image part. The fake model has no image input, so pi marks it
-    // omitted; PRSLOY's models all take images (shared/prsloy-config.ts).
+    // omitted; the catalog models the app defaults to take images (shared/prsloy-config.ts), and
+    // a text-only model now warns in the composer before the send (#75).
     expect(sent).toContain("(image omitted: model does not support images)");
     const path = /<path>([^<]*preview-\d+\.png)<\/path>/u.exec(sent)?.[1] ?? "";
     expect(path).not.toBe("");

@@ -14,7 +14,21 @@ import {
   prsloySpeedForModel,
 } from "./prsloy-config.ts";
 
-const UNMEASURED = ["claude-fable-5", "grok-4.7"];
+const UNMEASURED = [
+  "claude-fable-5",
+  "grok-4.7",
+  // Catalogued 2026-10-27 (#75), no gateway price measured yet:
+  "gpt-6.1-terra",
+  "gemini-4-argon",
+  "mimo-v2.6-pro",
+  "glm-5.3",
+  "qwen3.8-flash",
+  "minimax-m3.1-flash",
+  "gemini-3.8-flash",
+  "kimi-k3",
+  "gpt-6-astra",
+  "claude-fable-5-1",
+];
 
 describe("prsloy config", () => {
   it("knows the gateway's chat models", () => {
@@ -26,6 +40,18 @@ describe("prsloy config", () => {
       "claude-fable-5",
       "gpt-6.1-sol",
       "grok-4.7",
+      // Catalogued after the 2026-10-27 vision probe (#75): the gateway serves these, and a
+      // model missing here is text-only in the app — attached pictures are silently dropped.
+      "gpt-6.1-terra",
+      "gemini-4-argon",
+      "mimo-v2.6-pro",
+      "glm-5.3",
+      "qwen3.8-flash",
+      "minimax-m3.1-flash",
+      "gemini-3.8-flash",
+      "kimi-k3",
+      "gpt-6-astra",
+      "claude-fable-5-1",
     ]);
   });
 
@@ -49,8 +75,8 @@ describe("prsloy config", () => {
     expect(PRSLOY_SPEED_PREFERENCE.fast[0]).toBe("deepseek-v4.1-flash-1017");
     expect(PRSLOY_SPEED_PREFERENCE.quality[0]).toBe("kimi-k3.1-pro");
     expect(PRSLOY_SPEED_PREFERENCE.quality).not.toContain("deepseek-v4.1-flash-1017");
-    // Qwen's channel drops images silently: never send it one.
-    expect(PRSLOY_MODELS.find((m) => m.id === "qwen3.8-max")!.input).toEqual(["text"]);
+    // Qwen reads the control picture now (probe 2026-10-27, #75); its channel may vary.
+    expect(PRSLOY_MODELS.find((m) => m.id === "qwen3.8-max")!.input).toEqual(["text", "image"]);
     // No reasoning field for Opus and Fable (effort routes them to worse channels); no developer role.
     for (const id of ["claude-opus-5-5", "claude-fable-5"])
       expect(PRSLOY_MODELS.find((m) => m.id === id)!.reasoning).toBe(false);

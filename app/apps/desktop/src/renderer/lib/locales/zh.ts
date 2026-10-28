@@ -996,6 +996,8 @@ export const zh = {
   "composer.attach.folders": "添加文件夹",
   "composer.attach.filesAndFolders": "文件和文件夹",
   "composer.attach.remove": "移除附件",
+  "composer.imageWarning": "{model} 无法查看图片：附件不会传到模型，只会保留文件路径。",
+  "composer.imageWarning.switch": "切换到 {model}",
   "composer.attach.defaultPrompt": "请查看这些路径",
   "composer.add.title": "添加",
   "composer.add.plugins": "插件",

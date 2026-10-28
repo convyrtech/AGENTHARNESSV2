@@ -103,6 +103,16 @@ export const PRSLOY_OUTPUT_LIMITS: Readonly<
   "claude-fable-5": { tokens: null, source: "no number in our sources" },
   "gpt-6.1-sol": { tokens: null, source: "no number in our sources" },
   "grok-4.7": { tokens: null, source: "research/07 §1.2: «Н/Д в собранных доках»" },
+  "gpt-6.1-terra": { tokens: null, source: "no number in our sources" },
+  "gemini-4-argon": { tokens: null, source: "no number in our sources" },
+  "mimo-v2.6-pro": { tokens: null, source: "no number in our sources" },
+  "glm-5.3": { tokens: null, source: "no number in our sources" },
+  "qwen3.8-flash": { tokens: null, source: "no number in our sources" },
+  "minimax-m3.1-flash": { tokens: null, source: "no number in our sources" },
+  "gemini-3.8-flash": { tokens: null, source: "no number in our sources" },
+  "kimi-k3": { tokens: null, source: "no number in our sources" },
+  "gpt-6-astra": { tokens: null, source: "no number in our sources" },
+  "claude-fable-5-1": { tokens: null, source: "no number in our sources" },
 };
 
 /** `max_tokens` the catalog asks of a model: min(owner's ceiling, its own limit). */
@@ -147,13 +157,14 @@ export const PRSLOY_MODELS: readonly PrsloyModelDef[] = [
     thinkingLevelMap: { off: null, minimal: null, low: null, medium: null, high: "high" },
   },
   {
-    // Through the gateway (2026-10-25 probe) Qwen goes via a third-party coding-assistant channel that
-    // adds a hidden prompt, drops our system/developer messages and silently drops images: text only,
-    // and no preset picks it. Still selectable by hand.
+    // Through the gateway (2026-10-25 probe) Qwen went via a coding-assistant channel that added a
+    // hidden prompt and dropped our system/developer messages, so no preset picks it. Still selectable
+    // by hand. The image flag: a plain vision request saw the control picture (probe 2026-10-27, #75) —
+    // the 2026-10-25 channel dropped images, so the channel may vary.
     id: "qwen3.8-max",
     name: "Qwen 3.8 Max",
     reasoning: true,
-    input: ["text"],
+    input: ["text", "image"],
     contextWindow: 256_000,
     maxTokens: prsloyMaxTokens("qwen3.8-max"),
     compat: {
@@ -205,11 +216,111 @@ export const PRSLOY_MODELS: readonly PrsloyModelDef[] = [
     maxTokens: prsloyMaxTokens("grok-4.7"),
     compat: { supportsReasoningEffort: false },
   },
+  {
+    // Catalogued from the gateway's /v1/models; image: read "42" off the control picture (vision probe 2026-10-27, #75).
+    id: "gpt-6.1-terra",
+    name: "gpt-6.1-terra",
+    reasoning: false,
+    input: ["text", "image"],
+    contextWindow: 128_000,
+    maxTokens: prsloyMaxTokens("gpt-6.1-terra"),
+    compat: { supportsReasoningEffort: false },
+  },
+  {
+    // Catalogued from the gateway's /v1/models; image: read "42" off the control picture (vision probe 2026-10-27, #75).
+    id: "gemini-4-argon",
+    name: "gemini-4-argon",
+    reasoning: false,
+    input: ["text", "image"],
+    contextWindow: 128_000,
+    maxTokens: prsloyMaxTokens("gemini-4-argon"),
+    compat: { supportsReasoningEffort: false },
+  },
+  {
+    // Catalogued from the gateway's /v1/models; text: answered the control picture cannot be seen (vision probe 2026-10-27, #75).
+    id: "mimo-v2.6-pro",
+    name: "mimo-v2.6-pro",
+    reasoning: false,
+    input: ["text"],
+    contextWindow: 128_000,
+    maxTokens: prsloyMaxTokens("mimo-v2.6-pro"),
+    compat: { supportsReasoningEffort: false },
+  },
+  {
+    // Catalogued from the gateway's /v1/models; text: answered the control picture cannot be seen (vision probe 2026-10-27, #75).
+    id: "glm-5.3",
+    name: "glm-5.3",
+    reasoning: false,
+    input: ["text"],
+    contextWindow: 128_000,
+    maxTokens: prsloyMaxTokens("glm-5.3"),
+    compat: { supportsReasoningEffort: false },
+  },
+  {
+    // Catalogued from the gateway's /v1/models; image: read "42" off the control picture (vision probe 2026-10-27, #75).
+    id: "qwen3.8-flash",
+    name: "qwen3.8-flash",
+    reasoning: false,
+    input: ["text", "image"],
+    contextWindow: 128_000,
+    maxTokens: prsloyMaxTokens("qwen3.8-flash"),
+    compat: { supportsReasoningEffort: false },
+  },
+  {
+    // Catalogued from the gateway's /v1/models; image: read "42" off the control picture (vision probe 2026-10-27, #75).
+    id: "minimax-m3.1-flash",
+    name: "minimax-m3.1-flash",
+    reasoning: false,
+    input: ["text", "image"],
+    contextWindow: 128_000,
+    maxTokens: prsloyMaxTokens("minimax-m3.1-flash"),
+    compat: { supportsReasoningEffort: false },
+  },
+  {
+    // Catalogued from the gateway's /v1/models; image: read "42" off the control picture (vision probe 2026-10-27, #75).
+    id: "gemini-3.8-flash",
+    name: "gemini-3.8-flash",
+    reasoning: false,
+    input: ["text", "image"],
+    contextWindow: 128_000,
+    maxTokens: prsloyMaxTokens("gemini-3.8-flash"),
+    compat: { supportsReasoningEffort: false },
+  },
+  {
+    // Catalogued from the gateway's /v1/models; image: read "42" off the control picture (vision probe 2026-10-27, #75).
+    id: "kimi-k3",
+    name: "kimi-k3",
+    reasoning: false,
+    input: ["text", "image"],
+    contextWindow: 128_000,
+    maxTokens: prsloyMaxTokens("kimi-k3"),
+    compat: { supportsReasoningEffort: false },
+  },
+  {
+    // Catalogued from the gateway's /v1/models; text: answered the control picture cannot be seen (vision probe 2026-10-27, #75).
+    id: "gpt-6-astra",
+    name: "gpt-6-astra",
+    reasoning: false,
+    input: ["text"],
+    contextWindow: 128_000,
+    maxTokens: prsloyMaxTokens("gpt-6-astra"),
+    compat: { supportsReasoningEffort: false },
+  },
+  {
+    // Catalogued from the gateway's /v1/models; image: read "42" off the control picture (vision probe 2026-10-27, #75).
+    id: "claude-fable-5-1",
+    name: "claude-fable-5-1",
+    reasoning: false,
+    input: ["text", "image"],
+    contextWindow: 128_000,
+    maxTokens: prsloyMaxTokens("claude-fable-5-1"),
+    compat: { supportsReasoningEffort: false },
+  },
 ];
 
 /** Image generators the gateway lists next to chat models: no `chat/completions`. */
 const IMAGE_MODEL =
-  /(^|[-_/])(image|img)([-_.]|$)|^(gpt-image|dall-e|nano-banana|imagen|flux|midjourney|seedream|recraft|stable-diffusion|sdxl?)/iu;
+  /(^|[-_/])(image|img)([-_.]|$)|^(gpt-image|dall-e|nano-banana|imagen|flux|midjourney|seedream|recraft|stable-diffusion|sdxl?|ideogram)/iu;
 
 export function isPrsloyChatModelId(id: string): boolean {
   return !IMAGE_MODEL.test(id);

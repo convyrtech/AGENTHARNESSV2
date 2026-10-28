@@ -20,7 +20,7 @@ import { loadCasualPrefs } from "./lib/casual-prefs.ts";
 import { ArrowDown } from "lucide-react";
 import { AppSidebar } from "./components/AppSidebar.tsx";
 import { CommandPalette } from "./components/CommandPalette.tsx";
-import { Composer } from "./components/Composer.tsx";
+import { Composer, type ComposerModelOption } from "./components/Composer.tsx";
 import { ConfirmDialog } from "./components/ConfirmDialog.tsx";
 import { ErrorDialog } from "./components/ErrorDialog.tsx";
 import { ExtensionUiChrome } from "./components/ExtensionUiChrome.tsx";
@@ -368,9 +368,7 @@ function App() {
   const pendingComposerFocus = useRef(false);
   /** Floating composer height — timeline bottom inset so last rows stay above the input. */
   const [composerDockHeight, setComposerDockHeight] = useState(200);
-  const [modelOptions, setModelOptions] = useState<
-    Array<{ provider: string; id: string; name: string }>
-  >([]);
+  const [modelOptions, setModelOptions] = useState<ComposerModelOption[]>([]);
   const [recentWorkspaces, setRecentWorkspaces] = useState<string[]>([]);
   /** Sessions keyed by project cwd — all projects, no switch required to browse. */
   const [threadsByCwd, setThreadsByCwd] = useState<Record<string, SessionThreadSummary[]>>({});
@@ -1342,7 +1340,8 @@ function App() {
           provider: model.provider,
           id: model.id,
           name: model.name,
-          ...(model.source ? { source: model.source } : {}),
+          ...(model.input && { input: model.input }),
+          ...(model.source && { source: model.source }),
         })),
     );
   }
