@@ -87,12 +87,12 @@ export interface PpcResult {
   /** Сколько train-задач прошло check.mjs: подпись прогона → число. Только для человека. */
   train: Record<string, { passed: number; of: number }>;
   test?: { base: BenchReport["totals"]; composed: BenchReport["totals"] };
-  costUsd: number;
+  costRub: number;
 }
 
 interface Turn {
   reply: string;
-  costUsd: number;
+  costRub: number;
   error?: string;
 }
 
@@ -212,7 +212,7 @@ async function tunerSession(
       }
       return {
         reply: lastAssistantText(session.messages as unknown as unknown[]),
-        costUsd: session.getSessionStats().cost - before,
+        costRub: session.getSessionStats().cost - before,
         ...(error ? { error } : {}),
       };
     },
@@ -284,7 +284,7 @@ async function editHarness(
   prompt: string,
   script: Script | undefined,
   seen: string[],
-  cost: { usd: number },
+  cost: { rub: number },
 ): Promise<{ tree: HarnessTree; result: CandidateResult }> {
   const root = join(opts.outDir, "candidates", label);
   const harness = join(root, "harness");
@@ -296,13 +296,13 @@ async function editHarness(
   let notes = "";
   try {
     const first = await session.prompt(prompt);
-    cost.usd += first.costUsd;
+    cost.rub += first.costRub;
     notes = block(first.reply, "notes") ?? first.reply;
     errors = first.error ? [first.error] : checkHarness(harness, base);
     if (errors.length && !first.error) {
       opts.log?.(`${label}: ${errors.length} ошибок валидатора, вторая попытка`);
       const second = await session.prompt(fixPrompt(errors));
-      cost.usd += second.costUsd;
+      cost.rub += second.costRub;
       notes = block(second.reply, "notes") ?? notes;
       errors = second.error ? [second.error] : checkHarness(harness, base);
       status = "retried";
@@ -419,7 +419,7 @@ export async function runPpc(opts: PpcOptions, fake?: FakeScripts): Promise<PpcR
   const checkFiles = all.map((t) => join(t.dir, "check.mjs")).filter((f) => existsSync(f));
   const fingerprints = checkFingerprints(checkFiles);
   const seen: string[] = [];
-  const cost = { usd: 0 };
+  const cost = { rub: 0 };
   const passed: PpcResult["train"] = {};
   const ctx = (name: string) => join(opts.outDir, "context", name);
 
@@ -430,7 +430,7 @@ export async function runPpc(opts: PpcOptions, fake?: FakeScripts): Promise<PpcR
   for (let i = 1; i <= k; i++) {
     const { report, rollouts } = await probe(opts, `base-${i}`, base, train);
     passed[`base-${i}`] = passedOf(report);
-    cost.usd += report.totals.costUsd;
+    cost.rub += report.totals.costRub;
     baseRollouts.push(...rollouts);
   }
 
@@ -473,7 +473,7 @@ export async function runPpc(opts: PpcOptions, fake?: FakeScripts): Promise<PpcR
   for (const [label, tree] of Object.entries(trees)) {
     const { report, rollouts } = await probe(opts, label, tree, train);
     passed[label] = passedOf(report);
-    cost.usd += report.totals.costUsd;
+    cost.rub += report.totals.costRub;
     candidateRollouts.push(...rollouts);
   }
 
@@ -505,7 +505,7 @@ export async function runPpc(opts: PpcOptions, fake?: FakeScripts): Promise<PpcR
   // 5. Финальный прогон итоговой обвязки на train — улика для рефлектора.
   const final = await probe(opts, "final-1", composedTree, train);
   passed["final-1"] = passedOf(final.report);
-  cost.usd += final.report.totals.costUsd;
+  cost.rub += final.report.totals.costRub;
 
   // 6. Рефлектор: вся запись раунда, итог — как ещё один кандидат.
   const reflectCtx = buildContext({
@@ -534,7 +534,7 @@ export async function runPpc(opts: PpcOptions, fake?: FakeScripts): Promise<PpcR
   let reflection: PpcResult["reflection"] = { edits: "", experience: "NO_ENTRY" };
   try {
     const turn = await reflector.prompt(reflectorPrompt(reflectCtx));
-    cost.usd += turn.costUsd;
+    cost.rub += turn.costRub;
     reflection = {
       edits: block(turn.reply, "edits") ?? "",
       experience: block(turn.reply, "experience") ?? "NO_ENTRY",
@@ -562,7 +562,7 @@ export async function runPpc(opts: PpcOptions, fake?: FakeScripts): Promise<PpcR
     const testTasks = opts.split.test.filter((t) => casual.has(t));
     const b = await probe(opts, "test-base", base, testTasks);
     const c = await probe(opts, "test-composed", composedTree, testTasks);
-    cost.usd += b.report.totals.costUsd + c.report.totals.costUsd;
+    cost.rub += b.report.totals.costRub + c.report.totals.costRub;
     test = { base: b.report.totals, composed: c.report.totals };
   }
 
@@ -573,7 +573,7 @@ export async function runPpc(opts: PpcOptions, fake?: FakeScripts): Promise<PpcR
     reflection,
     train: passed,
     ...(test ? { test } : {}),
-    costUsd: cost.usd,
+    costRub: cost.rub,
   };
   writeFileSync(join(opts.outDir, "RESULT.json"), `${JSON.stringify(result, null, 2)}\n`);
   writeFileSync(
@@ -624,7 +624,7 @@ function proposalMarkdown(opts: PpcOptions, r: PpcResult, diff: string): string 
     "",
     r.reflection.experience,
     "",
-    `Стоимость раунда: $${r.costUsd.toFixed(4)}.`,
+    `Стоимость раунда: ${r.costRub.toFixed(4)} ₽.`,
     "",
     "## Diff",
     "",

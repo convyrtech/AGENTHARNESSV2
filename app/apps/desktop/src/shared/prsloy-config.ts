@@ -5,6 +5,7 @@
  * Shared by main (seeds the isolated agent home) and renderer (model picker).
  * Pure data + pure helpers only: no Node / DOM imports.
  */
+import { prsloyModelCostRub, type RubPricePerM } from "./prsloy-prices.ts";
 
 export const PRSLOY_PROVIDER_ID = "prsloy";
 export const PRSLOY_DEFAULT_BASE_URL = "https://api.prsloy.online/v1";
@@ -19,7 +20,7 @@ export type PrsloyCompat = {
   thinkingFormat?: "openai" | "deepseek" | "qwen";
 };
 
-/** Price in US dollars per 1M tokens (pi's `models.json` cost unit). */
+/** Price in rubles per 1M tokens (the gateway's retail price; pi's `models.json` `cost` unit). */
 export type PrsloyModelCost = {
   input: number;
   output: number;
@@ -352,42 +353,19 @@ export function prsloyAvailableModels(available?: readonly string[]): PrsloyMode
 }
 
 /**
- * Gateway prices, USD per 1M tokens (measured gateway cost for now). `cacheRead` is 10% of
- * input (measured for deepseek/kimi, assumed for qwen/claude until measured): without it
- * cache reads were billed as full input and tripped the task budget early.
- * Retail = cost × PRSLOY_PRICE_MULTIPLIER.
+ * pi's `cost` block for `models.json`: rubles per 1M tokens, the gateway's retail price (#52).
+ * The block is where pi keeps «price per million»; here the unit is the site's — rubles — so
+ * `usage.cost` and the «чат 8,40 ₽» chip need no conversion and no dollar rate.
+ *
+ * The prices themselves live in `shared/prsloy-prices.ts`: the gateway's live `/api/pricing`
+ * when main has read it, the bundled snapshot otherwise. A model with no price stays unpriced —
+ * no rubles at all rather than a guess.
  */
-export const PRSLOY_PRICES_USD_PER_M: Readonly<
-  Record<string, { input: number; output: number; cacheRead?: number }>
-> = {
-  "deepseek-v4.1-flash-1017": { input: 0.0012, output: 0.0048, cacheRead: 0.00012 },
-  "kimi-k3.1-pro": { input: 0.041, output: 0.204, cacheRead: 0.0041 },
-  "qwen3.8-max": { input: 0.036, output: 0.108, cacheRead: 0.0036 },
-  "claude-opus-5-5": { input: 0.096, output: 0.48, cacheRead: 0.0096 },
-  // Measured gateway range $0.015–0.077 / $0.077–0.385 (8 suppliers, REPORT-2026-10-22):
-  // the upper end, so the ruble cost is never understated.
-  "gpt-6.1-sol": { input: 0.077, output: 0.385, cacheRead: 0.0077 },
-  // claude-fable-5, grok-4.7: no gateway price measured yet → unpriced (no ruble cost),
-  // not the vendors' list prices (those are ~40× the gateway's, STATUS-core).
-};
-
-/** One knob for the owner to move from cost to retail pricing. */
-export const PRSLOY_PRICE_MULTIPLIER = 1;
-
-/** pi `cost` block (USD per 1M tokens) for a catalog model, multiplier applied. */
 export function prsloyModelCost(
   modelId: string,
-  multiplier: number = PRSLOY_PRICE_MULTIPLIER,
+  prices?: Readonly<Record<string, RubPricePerM>>,
 ): PrsloyModelCost {
-  const price = PRSLOY_PRICES_USD_PER_M[modelId];
-  if (!price) return { ...PRSLOY_UNPRICED };
-  const input = price.input * multiplier;
-  return {
-    input,
-    output: price.output * multiplier,
-    cacheRead: (price.cacheRead ?? price.input) * multiplier,
-    cacheWrite: input,
-  };
+  return prsloyModelCostRub(modelId, prices);
 }
 
 export type PrsloySpeedMode = "fast" | "quality";
@@ -500,6 +478,8 @@ export function normalizePrsloyBaseUrl(raw: string | undefined | null): string |
 export function buildPrsloyModelsJsonProvider(
   baseUrl: string,
   available?: readonly string[],
+  /** Retail prices in ₽ per 1M; undefined = the bundled snapshot (#52). */
+  prices?: Readonly<Record<string, RubPricePerM>>,
 ): Record<string, unknown> {
   return {
     name: "PRSLOY",
@@ -513,7 +493,7 @@ export function buildPrsloyModelsJsonProvider(
       input: [...model.input],
       contextWindow: model.contextWindow,
       maxTokens: model.maxTokens,
-      cost: prsloyModelCost(model.id),
+      cost: prsloyModelCost(model.id, prices),
       compat: { ...model.compat },
       ...(model.thinkingLevelMap ? { thinkingLevelMap: { ...model.thinkingLevelMap } } : {}),
       ...(model.samplingParams ? { samplingParams: { ...model.samplingParams } } : {}),

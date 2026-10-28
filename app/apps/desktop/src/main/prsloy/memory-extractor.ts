@@ -78,7 +78,7 @@ export type ExtractorRun = {
   input: number;
   output: number;
   /** null: price unknown (no price for the model, or the gateway metered no input). */
-  costUsd: number | null;
+  costRub: number | null;
   /** The answer parsed as the JSON we asked for. */
   json: boolean;
   error?: string;
@@ -101,7 +101,7 @@ type GatewayCall = {
   text: string;
   input: number;
   output: number;
-  costUsd: number | null;
+  costRub: number | null;
   error?: string;
 };
 
@@ -115,7 +115,7 @@ async function callGateway(options: {
   fetch: FetchLike;
   timeoutMs?: number;
 }): Promise<GatewayCall> {
-  const out: GatewayCall = { status: 0, text: "", input: 0, output: 0, costUsd: null };
+  const out: GatewayCall = { status: 0, text: "", input: 0, output: 0, costRub: null };
   try {
     const response = await options.fetch(
       `${options.baseUrl.replace(/\/+$/u, "")}/chat/completions`,
@@ -158,7 +158,7 @@ async function callGateway(options: {
     }
     const price = prsloyModelCost(options.model);
     const metered = out.input > 0 || out.output === 0;
-    out.costUsd =
+    out.costRub =
       price.input > 0 && metered
         ? (out.input * price.input + out.output * price.output) / 1e6
         : null;
@@ -211,7 +211,7 @@ export async function runExtractorProbe(options: {
     ms: Date.now() - started,
     input: call.input,
     output: call.output,
-    costUsd: call.error ? null : call.costUsd,
+    costRub: call.error ? null : call.costRub,
     json,
     ...(call.error ? { error: call.error } : {}),
   };
@@ -353,7 +353,7 @@ export async function runExtractorShadow(options: {
     ms: 0,
     input: 0,
     output: 0,
-    costUsd: null,
+    costRub: null,
     json: false,
   };
   const { entries, id, cwd } = readSession(options.sessionFile);
@@ -467,7 +467,7 @@ export async function runExtractorShadow(options: {
     status: call.status,
     input: call.input,
     output: call.output,
-    costUsd: call.error ? null : call.costUsd,
+    costRub: call.error ? null : call.costRub,
     json: ops !== undefined,
     messages: input.messages.length,
     signals: selected.length,

@@ -5,6 +5,7 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { normalizePrsloyBaseUrl, PRSLOY_DEFAULT_BASE_URL } from "../../shared/prsloy-config.ts";
+import { prsloySnapshotPrices, type RubPricePerM } from "../../shared/prsloy-prices.ts";
 import { buildPrsloyHostEnv, writeAgentShims } from "./agent-env.ts";
 import {
   ensurePrsloyHomeDirs,
@@ -29,6 +30,12 @@ export type PrsloyState = {
   migrations?: string[];
   /** Chat + image model ids the gateway's `/v1/models` listed, and when. */
   models?: { ids: string[]; checkedAt: string };
+  /** Last live retail price list, so an offline restart still shows the same rubles. */
+  prices?: {
+    list: Record<string, RubPricePerM>;
+    source: "gateway";
+    fetchedAt: string;
+  };
 };
 
 /** The slice of RuntimeBoot the context needs (absent outside the Electron app). */
@@ -111,6 +118,10 @@ export type PrsloyContext = {
   setAvailableModels(ids: readonly string[], now?: Date): boolean;
   /** Last known list (undefined: never checked, or a gateway without `/models`). */
   availableModels(): string[] | undefined;
+  /** Last live prices, otherwise the bundled snapshot. */
+  prices(): Readonly<Record<string, RubPricePerM>>;
+  /** Persist live prices and put them into models.json. True when that file changed. */
+  setPrices(list: { prices: Record<string, RubPricePerM>; source: "gateway" }, now?: Date): boolean;
   /** Agent Host env: scrubbed, shims first, pinned home, key handoff. */
   hostEnv(base: Record<string, string | undefined>): Record<string, string>;
   /**
@@ -131,6 +142,23 @@ function readState(path: string): PrsloyState {
     const baseUrl = normalizePrsloyBaseUrl(parsed.baseUrl) ?? PRSLOY_DEFAULT_BASE_URL;
     const models = parsed.models;
     const ids = Array.isArray(models?.ids) ? models.ids.filter((m) => typeof m === "string") : [];
+    const prices = parsed.prices;
+    const priceList =
+      prices && typeof prices === "object" && prices.list && typeof prices.list === "object"
+        ? Object.fromEntries(
+            Object.entries(prices.list).filter(
+              ([id, value]) =>
+                typeof id === "string" &&
+                value &&
+                typeof value === "object" &&
+                ["input", "output", "cacheRead", "cacheWrite"].every(
+                  (key) =>
+                    typeof (value as Record<string, unknown>)[key] === "number" &&
+                    Number.isFinite((value as Record<string, number>)[key]),
+                ),
+            ),
+          )
+        : {};
     return {
       baseUrl,
       ...(Array.isArray(parsed.migrations)
@@ -138,6 +166,15 @@ function readState(path: string): PrsloyState {
         : {}),
       ...(ids.length && typeof models?.checkedAt === "string"
         ? { models: { ids, checkedAt: models.checkedAt } }
+        : {}),
+      ...(prices?.source === "gateway" && Object.keys(priceList).length > 0
+        ? {
+            prices: {
+              list: priceList,
+              source: "gateway" as const,
+              fetchedAt: typeof prices.fetchedAt === "string" ? prices.fetchedAt : "",
+            },
+          }
         : {}),
     };
   } catch {
@@ -224,7 +261,7 @@ export function bootstrapPrsloy(options: {
   };
   const gitBinary = () => chooseGitBinary({ platform, bundledGitRoot, env });
 
-  ensurePrsloyModelsJson(agentDir, state.baseUrl, state.models?.ids);
+  ensurePrsloyModelsJson(agentDir, state.baseUrl, state.models?.ids, state.prices?.list);
   const MCP_MIGRATION = "no-auto-mcp-adapter";
   const dropAutoMcpAdapter = !state.migrations?.includes(MCP_MIGRATION);
   ensurePrsloySettings(agentDir, { shellPath, dropAutoMcpAdapter, available: state.models?.ids });
@@ -287,11 +324,11 @@ export function bootstrapPrsloy(options: {
     setBaseUrl(raw) {
       const baseUrl = normalizePrsloyBaseUrl(raw);
       if (!baseUrl) throw new Error("Invalid gateway URL");
-      // Another gateway serves other models: forget the old list until it is checked.
-      const { models: _old, ...rest } = state;
+      // Another gateway serves other models and charges its own prices: forget both.
+      const { models: _old, prices: _prices, ...rest } = state;
       state = baseUrl === state.baseUrl ? state : { ...rest, baseUrl };
       writeState(statePath, state);
-      ensurePrsloyModelsJson(agentDir, baseUrl, state.models?.ids);
+      ensurePrsloyModelsJson(agentDir, baseUrl, state.models?.ids, state.prices?.list);
       return baseUrl;
     },
     setAvailableModels(rawIds, now = new Date()) {
@@ -299,11 +336,25 @@ export function bootstrapPrsloy(options: {
       if (ids.length === 0) return false;
       state = { ...state, models: { ids, checkedAt: now.toISOString() } };
       writeState(statePath, state);
-      const changed = ensurePrsloyModelsJson(agentDir, state.baseUrl, ids);
+      const changed = ensurePrsloyModelsJson(agentDir, state.baseUrl, ids, state.prices?.list);
       ensurePrsloySettings(agentDir, { shellPath, available: ids });
       return changed;
     },
     availableModels: () => (state.models ? [...state.models.ids] : undefined),
+    prices: () => state.prices?.list ?? prsloySnapshotPrices().prices,
+    setPrices(list, now = new Date()) {
+      if (state.prices && JSON.stringify(state.prices.list) === JSON.stringify(list.prices)) {
+        return false;
+      }
+      const next = {
+        list: { ...list.prices },
+        source: "gateway" as const,
+        fetchedAt: now.toISOString(),
+      };
+      state = { ...state, prices: next };
+      writeState(statePath, state);
+      return ensurePrsloyModelsJson(agentDir, state.baseUrl, state.models?.ids, next.list);
+    },
     searchForHost() {
       return readFlags(join(agentDir, "prsloy-harness.json")).webTools
         ? search.handoff(state.baseUrl)

@@ -21,8 +21,8 @@ interface ModelCostLike {
   cacheWrite?: number;
 }
 
-/** Цена ответа: из usage.cost.total, иначе по таблице цен модели ($ за миллион токенов). */
-export function messageCostUsd(
+/** Цена ответа: из usage.cost.total, иначе по таблице цен модели (₽ за миллион токенов). */
+export function messageCostRub(
   usage: UsageLike | undefined,
   cost: ModelCostLike | undefined,
 ): number {
@@ -41,7 +41,7 @@ export function messageCostUsd(
 
 export interface BudgetState {
   toolCalls: number;
-  costUsd: number;
+  costRub: number;
   warned: boolean;
   exhausted: "calls" | "money" | undefined;
   /** Вызовы, заблокированные после исчерпания. */
@@ -53,7 +53,7 @@ export interface BudgetState {
 function freshState(): BudgetState {
   return {
     toolCalls: 0,
-    costUsd: 0,
+    costRub: 0,
     warned: false,
     exhausted: undefined,
     blockedAfterStop: 0,
@@ -105,14 +105,14 @@ export interface BudgetHandle {
   /** Доля бюджета, уже потраченная (наибольшая из «вызовы» и «деньги»). */
   ratio: () => number;
   /** Расход вне ответов модели агента (ревью второй моделью) — в стоимость хода. */
-  spend: (usd: number) => void;
+  spend: (rub: number) => void;
 }
 
 export function installBudget(pi: ExtensionAPI, opts: ResolvedOptions): BudgetHandle {
   let state = freshState();
 
   const ratio = () =>
-    Math.max(state.toolCalls / opts.maxToolCalls, state.costUsd / opts.maxCostUsd);
+    Math.max(state.toolCalls / opts.maxToolCalls, state.costRub / opts.maxCostRub);
 
   pi.on("before_agent_start", (event) => {
     if (event.messageType === "user") state = freshState();
@@ -121,8 +121,8 @@ export function installBudget(pi: ExtensionAPI, opts: ResolvedOptions): BudgetHa
   pi.on("message_end", (event, ctx) => {
     const message = event.message;
     if (message.role !== "assistant") return;
-    state.costUsd += messageCostUsd(message.usage, ctx.model?.cost);
-    if (!state.exhausted && state.costUsd >= opts.maxCostUsd) state.exhausted = "money";
+    state.costRub += messageCostRub(message.usage, ctx.model?.cost);
+    if (!state.exhausted && state.costRub >= opts.maxCostRub) state.exhausted = "money";
   });
 
   pi.on("tool_call", (event, ctx: ExtensionContext) => {
@@ -179,9 +179,9 @@ export function installBudget(pi: ExtensionAPI, opts: ResolvedOptions): BudgetHa
     });
   };
 
-  const spend = (usd: number) => {
-    state.costUsd += usd;
-    if (!state.exhausted && state.costUsd >= opts.maxCostUsd) state.exhausted = "money";
+  const spend = (rub: number) => {
+    state.costRub += rub;
+    if (!state.exhausted && state.costRub >= opts.maxCostRub) state.exhausted = "money";
   };
 
   return { state: () => state, installWarning, ratio, spend };

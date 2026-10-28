@@ -19,7 +19,7 @@ import { parseArgs } from "node:util";
 import {
   PRSLOY_DEFAULT_BASE_URL,
   PRSLOY_MODELS,
-  PRSLOY_PRICES_USD_PER_M,
+  prsloyModelCost,
 } from "../../../apps/desktop/src/shared/prsloy-config.ts";
 import { ReliabilityProxy } from "../src/reliability-proxy.ts";
 import {
@@ -37,8 +37,8 @@ const REPO = resolve(import.meta.dirname, "../../../..");
 const DEFAULT_TASK = "(задача не передана: см. --task)";
 const DEFAULT_CHECKS = "(итог проверок не передан: см. --checks)";
 
-function costUsd(model: string, usage: Record<string, number> | undefined): number {
-  const price = PRSLOY_PRICES_USD_PER_M[model];
+function costRub(model: string, usage: Record<string, number> | undefined): number {
+  const price = prsloyModelCost(model);
   if (!price || !usage) return 0;
   const cached = usage.prompt_tokens_details_cached ?? 0;
   const input = (usage.prompt_tokens ?? 0) - cached;
@@ -149,7 +149,7 @@ async function main(): Promise<number> {
       completion_tokens: body.usage.completion_tokens ?? 0,
       prompt_tokens_details_cached: body.usage.prompt_tokens_details?.cached_tokens ?? 0,
     };
-    total = costUsd(reviewer, usage);
+    total = costRub(reviewer, usage);
     const text = body.choices?.[0]?.message?.content ?? "";
     const verdict = parseVerdict(text, diff);
     console.log(
@@ -175,7 +175,7 @@ async function main(): Promise<number> {
           diffLines: changedLines(raw),
           requested: calls,
           usage,
-          costUsd: total,
+          costRub: total,
         },
         null,
         2,
@@ -185,7 +185,7 @@ async function main(): Promise<number> {
     );
     console.log(
       `\nЗапросов: ${calls} из ${maxRequests}; токенов: вход ${usage?.prompt_tokens ?? 0}, ` +
-        `выход ${usage?.completion_tokens ?? 0}; цена $${total.toFixed(6)}; разбор: ${out}`,
+        `выход ${usage?.completion_tokens ?? 0}; цена ${total.toFixed(6)} ₽; разбор: ${out}`,
     );
     return verdict.verdict === "PASS" ? 0 : 4;
   } finally {

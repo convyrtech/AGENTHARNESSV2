@@ -22,8 +22,8 @@ export interface HarnessOptions {
   loopAbortAt?: number;
   /** Лимит вызовов тулов на задачу (одно сообщение пользователя). */
   maxToolCalls?: number;
-  /** Лимит денег на задачу, доллары по ценам шлюза из таблицы моделей. */
-  maxCostUsd?: number;
+  /** Лимит денег на задачу, рубли по ценам шлюза из таблицы моделей. */
+  maxCostRub?: number;
   /** Доля бюджета, на которой модель получает предупреждение. */
   budgetWarnRatio?: number;
   /** Сколько байт результата тула идёт в контекст как есть. */
@@ -128,7 +128,7 @@ export interface ResolvedOptions {
   loopWarnAt: number;
   loopAbortAt: number;
   maxToolCalls: number;
-  maxCostUsd: number;
+  maxCostRub: number;
   budgetWarnRatio: number;
   inlineLimitBytes: number;
   outputDir: string;
@@ -223,7 +223,7 @@ export function resolveOptions(options: HarnessOptions = {}): ResolvedOptions {
     loopWarnAt: options.loopWarnAt ?? 3,
     loopAbortAt: options.loopAbortAt ?? 5,
     maxToolCalls: options.maxToolCalls ?? 300,
-    maxCostUsd: options.maxCostUsd ?? 0.5,
+    maxCostRub: options.maxCostRub ?? 50,
     budgetWarnRatio: options.budgetWarnRatio ?? 0.8,
     inlineLimitBytes: options.inlineLimitBytes ?? 30 * 1024,
     outputDir: options.outputDir ?? join(tmpdir(), "prsloy-harness"),

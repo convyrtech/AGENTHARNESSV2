@@ -1486,7 +1486,6 @@ export const zh = {
   "auth.usage.resetIn": "{duration}后重置",
   "auth.usage.window": "{duration}窗口",
   "casual.section": "偏好",
-  "casual.rubPerUsd": "卢布兑美元汇率",
   "casual.developerMode": "开发者模式",
   "casual.developerModeHint": "终端、插件、扩展和任意模型",
   "casual.secondOpinion": "第二个模型复查",

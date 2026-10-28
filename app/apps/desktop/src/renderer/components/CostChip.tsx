@@ -4,8 +4,7 @@
  */
 import { useEffect, useState } from "react";
 import { t, type Locale } from "../lib/i18n.ts";
-import { formatRub, INITIAL_TURN_COST, nextTurnCost, usdToRub } from "../lib/rub-cost.ts";
-import { useCasualPrefs } from "../hooks/useCasualPrefs.ts";
+import { formatRub, INITIAL_TURN_COST, nextTurnCost } from "../lib/rub-cost.ts";
 import { useShellStore } from "../store/shell-store.ts";
 import { RollText } from "./motion/RollText.tsx";
 
@@ -18,26 +17,26 @@ let tracker = INITIAL_TURN_COST;
 export function CostChip(props: { locale: Locale }) {
   const snapshot = useShellStore((s) => s.snapshot);
   const running = useShellStore((s) => s.running);
-  const { rubPerUsd } = useCasualPrefs();
-  const [turnUsd, setTurnUsd] = useState<number | undefined>(() => tracker.turnUsd);
+  const [turnRub, setTurnUsd] = useState<number | undefined>(() => tracker.turnRub);
   const sessionKey = snapshot?.sessionFile ?? snapshot?.sessionId;
-  const sessionUsd = snapshot?.usage?.cost;
+  const sessionRub = snapshot?.usage?.cost;
 
   useEffect(() => {
-    tracker = nextTurnCost(tracker, { sessionKey, running, sessionUsd });
-    setTurnUsd(tracker.turnUsd);
-  }, [sessionKey, running, sessionUsd]);
+    tracker = nextTurnCost(tracker, { sessionKey, running, sessionRub });
+    setTurnUsd(tracker.turnRub);
+  }, [sessionKey, running, sessionRub]);
 
-  if (typeof sessionUsd !== "number" || !Number.isFinite(sessionUsd)) return null;
+  if (typeof sessionRub !== "number" || !Number.isFinite(sessionRub)) return null;
   // Zero means nothing spent yet, or a model without prices: no tag rather than «0,00 ₽».
-  if (sessionUsd <= 0) return null;
-  const rub = (usd: number) => formatRub(usdToRub(usd, rubPerUsd), props.locale);
-  const sessionLabel = t(props.locale, "cost.session", { amount: rub(sessionUsd) });
+  if (sessionRub <= 0) return null;
+  // models.json prices for the PRSLOY provider are already retail ₽ per 1M (#52).
+  const rub = (amount: number) => formatRub(amount, props.locale);
+  const sessionLabel = t(props.locale, "cost.session", { amount: rub(sessionRub) });
   // pi adds a reply's cost when the reply ends, so a running turn grows in steps. A turn that
   // has cost nothing (not replied yet, or failed before any reply) shows no «ход 0,00 ₽».
   const turnLabel =
-    turnUsd !== undefined && turnUsd > 0
-      ? t(props.locale, "cost.turn", { amount: rub(turnUsd) })
+    turnRub !== undefined && turnRub > 0
+      ? t(props.locale, "cost.turn", { amount: rub(turnRub) })
       : undefined;
 
   return (

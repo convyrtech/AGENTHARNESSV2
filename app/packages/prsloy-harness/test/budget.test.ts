@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
-import { installBudget, messageCostUsd } from "../src/budget.ts";
+import { installBudget, messageCostRub } from "../src/budget.ts";
 import { resolveOptions } from "../src/options.ts";
 import { MockPi } from "./mock-pi.ts";
 
@@ -63,7 +63,7 @@ describe("budget", () => {
   });
 
   it("counts money from usage.cost and stops at the limit", async () => {
-    const { pi, budget } = setup({ maxCostUsd: 0.05 });
+    const { pi, budget } = setup({ maxCostRub: 0.05 });
     await pi.userPrompt();
     await pi.assistantMessage({ usage: { input: 1000, output: 100, cost: { total: 0.03 } } });
     expect(await pi.toolCall("read", { path: "a" })).toBeUndefined();
@@ -83,7 +83,7 @@ describe("budget", () => {
     await pi.assistantMessage({
       usage: { input: 1_000_000, output: 500_000, cacheRead: 0, cacheWrite: 0, cost: { total: 0 } },
     });
-    expect(budget.state().costUsd).toBeCloseTo(0.28, 6);
+    expect(budget.state().costRub).toBeCloseTo(0.28, 6);
   });
 
   it("resets per user task", async () => {
@@ -103,11 +103,11 @@ describe("budget", () => {
   });
 });
 
-describe("messageCostUsd", () => {
+describe("messageCostRub", () => {
   it("prefers the reported total", () => {
-    expect(messageCostUsd({ input: 10, cost: { total: 0.5 } }, { input: 100 })).toBe(0.5);
+    expect(messageCostRub({ input: 10, cost: { total: 0.5 } }, { input: 100 })).toBe(0.5);
   });
   it("is zero without usage", () => {
-    expect(messageCostUsd(undefined, { input: 1 })).toBe(0);
+    expect(messageCostRub(undefined, { input: 1 })).toBe(0);
   });
 });

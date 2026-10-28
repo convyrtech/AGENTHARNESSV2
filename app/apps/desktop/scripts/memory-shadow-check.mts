@@ -79,7 +79,7 @@ async function phrases(): Promise<number> {
     });
     calls += 1;
     times.push(Date.now() - t0);
-    cost += call.costUsd ?? 0;
+    cost += call.costRub ?? 0;
     rows.push({
       text: p.text,
       label: p.signal,
@@ -108,7 +108,7 @@ async function phrases(): Promise<number> {
   const report = {
     model,
     calls,
-    costUsd: Number(cost.toFixed(6)),
+    costRub: Number(cost.toFixed(6)),
     caught: `${positives.filter(accepted).length}/${positives.length}`,
     falseAccepted: `${negatives.filter(accepted).length}/${negatives.length}`,
     notJson: rows.filter((r) => r.called && !r.json).length,
@@ -121,7 +121,7 @@ async function phrases(): Promise<number> {
   writeFileSync(out, `${JSON.stringify(report, null, 2).split(key).join("***")}\n`);
   console.log(
     [
-      `Модель: ${model}; вызовов ${calls}; цена $${report.costUsd} (≈${(report.costUsd * 95).toFixed(3)} ₽ по 95 ₽/$, цена шлюза)`,
+      `Модель: ${model}; вызовов ${calls}; цена ${report.costRub.toFixed(6)} ₽ по таблице шлюза`,
       `Время вызова: среднее ${times.length ? Math.round(times.reduce((a, b) => a + b, 0) / times.length) : 0} мс, максимум ${times.length ? Math.max(...times) : 0} мс (вне хода, UI не ждёт)`,
       `Пойманные (есть принятый кандидат): ${report.caught}`,
       `Ложные (принят кандидат на разовой фразе): ${report.falseAccepted}`,
@@ -156,7 +156,7 @@ function sessions(agentDir: string): number {
   const runs = readLines(join(dir, "extractor.jsonl")).filter((r) => r.kind === "extract");
   const candidates = readLines(join(dir, "candidates.jsonl"));
   const called = runs.filter((r) => !r.skipped);
-  const costs = called.map((r) => r.costUsd).filter((c): c is number => typeof c === "number");
+  const costs = called.map((r) => r.costRub).filter((c): c is number => typeof c === "number");
   const accepted = candidates.filter((c) => c.verdict === "ok");
   console.log(
     [

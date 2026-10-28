@@ -152,11 +152,11 @@ export interface BenchOptions {
    * по всем. Настройки должны совпасть с прошлыми (`results/run.json`), иначе ошибка: смешивать замеры нельзя.
    */
   resume?: boolean;
-  /** Остановить прогон, когда цена по токенам (bench/prices.json) дошла до N ₽: выход 3. */
+  /** Остановить прогон, когда цена по общей таблице шлюза дошла до N ₽: выход 3. */
   budgetRub?: number;
   /** То же по токенам (вход + выход всех вызовов шлюза), когда цен нет. */
   budgetTokens?: number;
-  /** Таблица цен вместо bench/prices.json (тесты). */
+  /** Явная таблица цен (тесты). */
   prices?: PriceTable;
   log?: (line: string) => void;
 }
@@ -210,10 +210,10 @@ export interface TaskResult {
   seconds: number;
   toolCalls: number;
   /** Цена по таблице Pi (врёт для шлюза PRSLOY, ~в 100 раз): только для сравнения со старыми замерами. */
-  costUsd: number;
+  costRub: number;
   /** Токены всех вызовов шлюза задачи по usage из ответов: агент, второе мнение, поиск, память. */
   tokens: TokenUsage;
-  /** Цена в ₽ по bench/prices.json; null — цена неизвестна. */
+  /** Цена в ₽ по общей таблице шлюза; null — цена неизвестна. */
   rub: number | null;
   interventions: Record<string, number>;
   /** Казуал-метрики финального ответа (research/17 §11.3). */
@@ -452,7 +452,7 @@ interface RunControl {
 interface SessionRun {
   messages: MessageLike[];
   stats: Record<string, number>;
-  costUsd: number;
+  costRub: number;
   asked: number;
   error?: string;
 }
@@ -658,7 +658,7 @@ async function runTask(
     const run: SessionRun = {
       messages: (session?.messages ?? []) as unknown as MessageLike[],
       stats: session ? harnessStats(session.sessionId) : {},
-      costUsd: session?.getSessionStats().cost ?? 0,
+      costRub: session?.getSessionStats().cost ?? 0,
       asked,
       ...(error ? { error } : {}),
     };
@@ -690,7 +690,7 @@ async function runTask(
         .map((p) => ({ name: p.name ?? "", arguments: p.arguments })),
     );
   const toolCalls = calls.length;
-  const costUsd = runs.reduce((n, r) => n + r.costUsd, 0);
+  const costRub = runs.reduce((n, r) => n + r.costRub, 0);
   const { usage: tokens, failures } = control.meter.take();
   const rub = usageRub(tokens, prices);
   const last = runs.at(-1)?.messages ?? [];
@@ -715,7 +715,7 @@ async function runTask(
     title: task.title,
     seconds,
     toolCalls,
-    costUsd,
+    costRub,
     tokens,
     rub,
     interventions,
@@ -830,10 +830,10 @@ export interface BenchReport {
     skipped: number;
     seconds: number;
     toolCalls: number;
-    costUsd: number;
+    costRub: number;
     /** Токены всех задач (и прерванной), по кому и по моделям. */
     tokens: TokenUsage;
-    /** ₽ по bench/prices.json; null — цена неизвестна. */
+    /** ₽ по общей таблице шлюза; null — цена неизвестна. */
     rub: number | null;
     /** Сколько задач закончилось каждым исходом. */
     outcomes: Record<Outcome, number>;
@@ -902,7 +902,7 @@ export async function runBench(opts: BenchOptions): Promise<BenchReport> {
   const own = prices[modelId];
   if (opts.budgetRub !== undefined && (own?.input == null || own.output == null))
     throw new Error(
-      `--budget-rub: нет цены модели ${modelId} в bench/prices.json — бюджет в ₽ не посчитать, есть --budget-tokens`,
+      `--budget-rub: нет цены модели ${modelId} в общей таблице шлюза — бюджет в ₽ не посчитать, есть --budget-tokens`,
     );
   // Бюджет — по всем вызовам этого запуска (при --resume — только прогнанного сейчас).
   const spent = emptyUsage();
@@ -934,7 +934,7 @@ export async function runBench(opts: BenchOptions): Promise<BenchReport> {
       if (rub === null)
         control.stop = {
           reason: "budget",
-          message: `бюджет исчерпан: нет цены модели ${model} в bench/prices.json, ₽ не посчитать`,
+          message: `бюджет исчерпан: нет цены модели ${model} в общей таблице шлюза, ₽ не посчитать`,
         };
       else if (rub >= opts.budgetRub)
         control.stop = {
@@ -1016,7 +1016,7 @@ export async function runBench(opts: BenchOptions): Promise<BenchReport> {
       skipped: results.filter((r) => r.ok === null && r.outcome !== "infra_error").length,
       seconds: Math.round(sum((r) => r.seconds)),
       toolCalls: sum((r) => r.toolCalls),
-      costUsd: sum((r) => r.costUsd),
+      costRub: sum((r) => r.costRub),
       tokens,
       rub: results.some((r) => r.tokens && r.rub === null) ? null : sum((r) => r.rub ?? 0),
       outcomes: Object.fromEntries(

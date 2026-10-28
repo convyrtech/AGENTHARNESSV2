@@ -71,7 +71,7 @@ describe("memory extractor probe (M-sp)", () => {
       fetch,
     });
     expect(run).toMatchObject({ ok: true, json: true, status: 200, input: 10, output: 5 });
-    expect(run.costUsd).toBeGreaterThan(0);
+    expect(run.costRub).toBeGreaterThan(0);
     const [line] = journal(dir);
     expect(line).toMatchObject({ kind: "probe", model: "qwen3.8-max", ok: true });
     expect(line!.session).toMatch(/^[0-9a-f]{16}$/u);
@@ -91,7 +91,7 @@ describe("memory extractor probe (M-sp)", () => {
       journalDir: tempDir(),
       fetch,
     });
-    expect(run.costUsd).toBeNull();
+    expect(run.costRub).toBeNull();
   });
 
   it("a failed call is journaled too", async () => {
@@ -225,7 +225,7 @@ describe("memory extractor in the shadow (M-3)", () => {
       ops: 2,
       accepted: 1,
     });
-    expect(run.costUsd).toBeGreaterThan(0);
+    expect(run.costRub).toBeGreaterThan(0);
     // Only the message with a signal went to the model.
     const prompt = JSON.stringify(server.requests[0]!.body);
     expect(prompt).toContain("Я не программист");

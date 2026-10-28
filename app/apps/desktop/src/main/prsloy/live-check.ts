@@ -283,7 +283,7 @@ export async function runLiveGatewayCheck(options: {
             unmetered
               ? "шлюз не прислал input: цена неизвестна (₽ не показываем)"
               : priced
-                ? `$${cost.toFixed(6)}`
+                ? `${cost.toFixed(6)} ₽`
                 : "нет цены (₽ не показываем)"
           }`,
         };

@@ -1,8 +1,10 @@
-// Цена замера в рублях по таблице bench/prices.json (модель → ₽ за 1 млн токенов). Нет цены у модели, по которой
-// шли токены, — цена неизвестна (null), а не ноль: ноль выглядел бы как «бесплатно».
+// Цена замера в рублях по той же таблице шлюза, что и в приложении (#52). Нет цены у модели,
+// по которой шли токены, — цена неизвестна (null), а не ноль: ноль выглядел бы как «бесплатно».
+// Явный файл принимается для старых прогонов и тестов; отдельной пустой таблицы бенча больше нет.
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { TokenCount, TokenUsage } from "./meter.ts";
+import { PRSLOY_PRICE_TABLE_SNAPSHOT } from "../../../../apps/desktop/src/shared/prsloy-prices-table.ts";
 
 export interface ModelPrice {
   input: number | null;
@@ -13,9 +15,25 @@ export interface ModelPrice {
 
 export type PriceTable = Record<string, ModelPrice>;
 
-export const PRICES_FILE = join(import.meta.dirname, "..", "prices.json");
+/** The same retail snapshot that seeds the app before its live price refresh. */
+export const PRICES_FILE = join(
+  import.meta.dirname,
+  "../../../../apps/desktop/src/shared/prsloy-prices-table.ts",
+);
 
-export function readPrices(path = PRICES_FILE): PriceTable {
+export function readPrices(path?: string): PriceTable {
+  if (!path)
+    return Object.fromEntries(
+      Object.entries(PRSLOY_PRICE_TABLE_SNAPSHOT).map(([model, price]) => [
+        model,
+        {
+          input: price.input,
+          output: price.output,
+          cacheRead: price.cacheRead,
+          cacheWrite: price.cacheWrite,
+        },
+      ]),
+    );
   if (!existsSync(path)) return {};
   const raw = JSON.parse(readFileSync(path, "utf8")) as {
     models?: Record<string, Partial<ModelPrice>>;

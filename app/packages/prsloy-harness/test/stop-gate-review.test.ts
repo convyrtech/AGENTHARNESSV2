@@ -62,7 +62,7 @@ async function setup(o: {
     if (o.noPair) return undefined;
     prompts.push(prompt);
     const text = o.replies?.[Math.min(r++, o.replies.length - 1)] ?? PASS;
-    return { text, model: "prsloy/kimi-k3.1-pro", costUsd: 0.002 };
+    return { text, model: "prsloy/kimi-k3.1-pro", costRub: 0.002 };
   };
   const diff = "diff" in o ? o.diff : { files: ["sum.js"], patch: BUGGY_DIFF };
   const changes = {
@@ -73,8 +73,8 @@ async function setup(o: {
   const budget = {
     state: () => ({ exhausted: undefined }),
     ratio: () => o.ratio ?? 0,
-    spend: (usd: number) => {
-      spent += usd;
+    spend: (rub: number) => {
+      spent += rub;
     },
   } as unknown as BudgetHandle;
   let c = 0;

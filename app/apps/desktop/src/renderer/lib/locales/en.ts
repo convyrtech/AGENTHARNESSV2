@@ -1518,7 +1518,6 @@ export const en = {
   "auth.usage.resetIn": "Resets in {duration}",
   "auth.usage.window": "{duration} window",
   "casual.section": "Preferences",
-  "casual.rubPerUsd": "Rubles per dollar",
   "casual.developerMode": "For developers",
   "casual.developerModeHint": "Terminal, packages, extensions and any model",
   "casual.secondOpinion": "Second-model check",
