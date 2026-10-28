@@ -220,7 +220,7 @@ export function resolveOptions(options: HarnessOptions = {}): ResolvedOptions {
     bashMaxTimeoutSec: options.bashMaxTimeoutSec ?? 600,
     loopWarnAt: options.loopWarnAt ?? 3,
     loopAbortAt: options.loopAbortAt ?? 5,
-    maxToolCalls: options.maxToolCalls ?? 150,
+    maxToolCalls: options.maxToolCalls ?? 300,
     maxCostUsd: options.maxCostUsd ?? 0.5,
     budgetWarnRatio: options.budgetWarnRatio ?? 0.8,
     inlineLimitBytes: options.inlineLimitBytes ?? 30 * 1024,

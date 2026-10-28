@@ -14,6 +14,11 @@ function setup(
 }
 
 describe("budget", () => {
+  it("defaults to 300 tool calls per task and still honors an explicit lower limit", async () => {
+    expect(resolveOptions().maxToolCalls).toBe(300);
+    expect(resolveOptions({ maxToolCalls: 10 }).maxToolCalls).toBe(10);
+  });
+
   it("warns once at 80% of tool calls", async () => {
     const { pi } = setup({ maxToolCalls: 10 });
     await pi.userPrompt();
