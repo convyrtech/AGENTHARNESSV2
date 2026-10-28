@@ -48,4 +48,47 @@ describe("continuation guard", () => {
     const stopped = await pi.boundary("agent_before_settle", { continue: true });
     expect(stopped.continue).toBe(false);
   });
+
+  it("embeds session facts in the local summary without a model request", async () => {
+    const pi = new MockPi("/work/project");
+    installContinuationGuard(pi.api);
+    await pi.userPrompt();
+    const out = await pi.emit("session_before_compact", {
+      reason: "threshold",
+      preparation: { firstKeptEntryId: "entry-1", tokensBefore: 500_000 },
+      branchEntries: [
+        {
+          type: "message",
+          message: {
+            role: "user",
+            content: [{ type: "text", text: "Почини compaction" }],
+            timestamp: 1,
+          },
+        },
+        {
+          type: "message",
+          message: {
+            role: "assistant",
+            content: [
+              { type: "toolCall", id: "b1", name: "bash", arguments: { command: "pnpm test" } },
+            ],
+          },
+        },
+        {
+          type: "message",
+          message: {
+            role: "toolResult",
+            toolCallId: "b1",
+            toolName: "bash",
+            content: [{ type: "text", text: "[exit 1 · 1 s]\nFAIL compaction" }],
+            isError: true,
+          },
+        },
+      ],
+    });
+    const summary = (out[0] as { compaction: { summary: string } }).compaction.summary;
+    expect(summary).toContain("<task_thread>");
+    expect(summary).toContain("[1] Почини compaction");
+    expect(summary).toContain("[1] pnpm test — FAIL compaction");
+  });
 });

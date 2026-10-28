@@ -30,6 +30,8 @@ export interface ThreadCommand {
   command: string;
   /** Код выхода; undefined — не узнали (вызов упал до запуска или нет строки «exited with code»). */
   exit: number | undefined;
+  /** Короткий текст ошибки последнего неудачного запуска, если Pi его сохранил. */
+  error?: string;
 }
 
 export interface ThreadFacts {
@@ -67,6 +69,17 @@ function textOf(content: unknown): string {
     .filter((p) => p?.type === "text" && typeof p.text === "string")
     .map((p) => p.text as string)
     .join("\n");
+}
+
+function shortError(text: string): string | undefined {
+  const value = text
+    .replace(/^\[exit \d+[^\n]*\]\s*/i, "")
+    .replace(/^Command exited with code \d+\s*/im, "")
+    .replace(/\s*\n\s*/g, " ⏎ ")
+    .replace(/\s*⏎\s*$/, "")
+    .trim();
+  if (!value) return undefined;
+  return value.length <= 240 ? value : `${value.slice(0, 240)}…`;
 }
 
 // Код выхода: заголовок tool-output «[exit N · …]» или строка Pi «Command exited with code N».
@@ -107,12 +120,18 @@ export function factsFromEntries(entries: readonly unknown[]): ThreadFacts {
       const name = typeof m.toolName === "string" ? m.toolName : call?.name;
       if (!call || !name) continue;
       if (name === "bash" && typeof call.args.command === "string") {
-        const match = EXIT_LINE.exec(textOf(m.content));
+        const output = textOf(m.content);
+        const match = EXIT_LINE.exec(output);
         const code = match ? Number(match[1] ?? match[2]) : undefined;
-        commands.push({
+        const command: ThreadCommand = {
           command: call.args.command,
           exit: code ?? (m.isError === true ? undefined : 0),
-        });
+        };
+        if (m.isError === true) {
+          const error = shortError(output);
+          if (error !== undefined) command.error = error;
+        }
+        commands.push(command);
       } else if ((name === "edit" || name === "write") && m.isError !== true) {
         const path = call.args.path ?? call.args.file_path;
         if (typeof path === "string" && !seen.has(path)) {
@@ -200,8 +219,10 @@ export function renderThread(facts: ThreadFacts, git: GitFacts | undefined, cwd?
       "",
       `Commands you ran: ${commands.length}, failed: ${failed}. The last ${Math.min(LIMITS.commands, commands.length)}, oldest first, exit code in brackets:`,
     );
-    for (const c of commands.slice(-LIMITS.commands))
-      lines.push(`  [${c.exit ?? "?"}] ${oneLine(c.command, LIMITS.commandChars)}`);
+    for (const c of commands.slice(-LIMITS.commands)) {
+      const detail = c.error ? ` — ${oneLine(c.error, 180)}` : "";
+      lines.push(`  [${c.exit ?? "?"}] ${oneLine(c.command, LIMITS.commandChars)}${detail}`);
+    }
   }
   lines.push("</task_thread>");
   return lines.join("\n");
@@ -268,6 +289,9 @@ export function withThread(
   if (at < 0) return undefined;
   const summary = (messages[at] as ContextMessage).summary;
   if (typeof summary !== "string") return undefined;
+  // Local compaction already embeds the immutable facts block. Do not append a
+  // second copy when the optional task-thread extension also has a stored one.
+  if (summary.includes("<task_thread>")) return undefined;
   const block = blocks.get(summaryKey(summary));
   if (!block) return undefined;
   const timestamp = (messages[at] as ContextMessage).timestamp;
