@@ -113,12 +113,13 @@ export function installBashTimeout(pi: ExtensionAPI, opts: ResolvedOptions): Pro
       : cwd;
 
   const installShellTool = (tool: "bash" | "powershell") => {
-    const shellPath = resolveShellPath();
     if (tool === "bash") {
+      // shellPath читается при каждом вызове, а не при регистрации: во время загрузки расширения
+      // pi.getSettings() бросает «not initialized», и путь из настроек терялся. Без него Pi на
+      // Windows ищет bash сам (`where bash.exe`) и находит WSL вместо встроенного Git.
       pi.registerTool(
         createBashToolDefinition(SESSION_CWD_SENTINEL, {
-          ...(shellPath ? { shellPath } : {}),
-          operations: boundedBashOperations(() => getShellConfig(shellPath), {
+          operations: boundedBashOperations(() => getShellConfig(resolveShellPath()), {
             onBoundary,
             resolveCwd,
           }),
