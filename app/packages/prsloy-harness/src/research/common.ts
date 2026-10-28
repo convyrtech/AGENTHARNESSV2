@@ -19,11 +19,20 @@ export function clean(text: unknown, max = 400): string {
     .slice(0, max);
 }
 
+/**
+ * Дата `YYYY-MM-DD` из того, что отдал поставщик. Строка без зоны («2026-10-01T00:00:00» — так отдают
+ * SearXNG и Brave) — это та календарная дата, которую написал поставщик, а не местное время машины:
+ * иначе один и тот же ответ на машине с UTC+3 давал бы вчерашний день. Строки с зоной («…Z», «…+02:00»)
+ * по-прежнему переводятся в UTC, числа — время в миллисекундах.
+ */
 export function isoDate(value: unknown): string | undefined {
   if (typeof value === "number" && Number.isFinite(value))
     return new Date(value).toISOString().slice(0, 10);
   if (typeof value !== "string" || !value.trim()) return undefined;
-  const t = Date.parse(value);
+  const text = value.trim();
+  const zoneless = /^(\d{4}-\d{2}-\d{2})(?:[T ]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?)?$/.exec(text);
+  if (zoneless) return zoneless[1];
+  const t = Date.parse(text);
   return Number.isNaN(t) ? undefined : new Date(t).toISOString().slice(0, 10);
 }
 

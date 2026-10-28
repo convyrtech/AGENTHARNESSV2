@@ -17,3 +17,20 @@ export function assistantFinalContent(content: unknown): { text: string; thinkin
   }
   return thinking ? { text, thinking } : { text };
 }
+
+/**
+ * Stable identity of the assistant message behind a pi message_* event (its `responseId`
+ * when the provider sent one, otherwise the request-start timestamp pi stamps on the
+ * message object). The renderer uses it to keep two consecutive replies in two bubbles
+ * instead of gluing them (#79). Undefined for non-assistant messages.
+ */
+export function assistantMessageId(message: unknown): string | undefined {
+  if (!message || typeof message !== "object") return undefined;
+  const row = message as { role?: unknown; responseId?: unknown; timestamp?: unknown };
+  if (row.role !== "assistant") return undefined;
+  if (typeof row.responseId === "string" && row.responseId.trim()) return `r:${row.responseId}`;
+  if (typeof row.timestamp === "number" && Number.isFinite(row.timestamp)) {
+    return `t:${row.timestamp}`;
+  }
+  return undefined;
+}

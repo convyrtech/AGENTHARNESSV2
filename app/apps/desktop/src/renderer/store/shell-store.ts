@@ -31,11 +31,30 @@ import {
   applyRuntimeEventToLiveStream,
   emptyLiveStream,
   liveStreamNotCoveredByHistory,
+  rebaseLiveStreamEpoch,
   resetLiveStream,
   retractOptimisticUserMessage,
   type ApplyLiveStreamOptions,
   type LiveStreamState,
 } from "../lib/live-stream.ts";
+
+/**
+ * Rebase every parked stream when a snapshot proves the host restarted its event
+ * numbering (see rebaseLiveStreamEpoch) — the foreground stream is rebased by its caller.
+ */
+function rebaseBackgroundStreams(
+  streams: Record<string, LiveStreamState>,
+  hostSequence: number | undefined,
+): Record<string, LiveStreamState> {
+  let changed = false;
+  const next: Record<string, LiveStreamState> = {};
+  for (const [key, stream] of Object.entries(streams)) {
+    const rebased = rebaseLiveStreamEpoch(stream, hostSequence);
+    next[key] = rebased;
+    if (rebased !== stream) changed = true;
+  }
+  return changed ? next : streams;
+}
 import {
   isThemePreference,
   nextThemePreference,
@@ -127,6 +146,12 @@ export interface ShellState {
   threads: SessionThreadSummary[];
   prompt: string;
   sentPrompts: string[];
+  /**
+   * The same list per session key. A parked turn's `user.message` echo resolves its
+   * display text through the prompt list of *its* session; reading the foreground list
+   * put another chat's question into this chat's bubble (#79).
+   */
+  sentPromptsBySession: Record<string, string[]>;
   queuedMessages: QueuedMessages;
   /** Foreground session is generating (composer stop button). */
   running: boolean;
@@ -447,6 +472,7 @@ export const useShellStore = create<ShellState>((set, get) => ({
   threads: [],
   prompt: "",
   sentPrompts: [],
+  sentPromptsBySession: {},
   queuedMessages: { steering: [], followUp: [] },
   running: false,
   sessionMarkers: {},
@@ -525,7 +551,8 @@ export const useShellStore = create<ShellState>((set, get) => ({
         [key]: applyRuntimeEventToLiveStream(
           state.backgroundLiveStreams[key] ?? emptyLiveStream(),
           event,
-          prompts,
+          // The caller's list is the open chat's; this parked stream needs its own (#79).
+          state.sentPromptsBySession[key] ?? [],
           options,
         ),
       },
@@ -549,9 +576,17 @@ export const useShellStore = create<ShellState>((set, get) => ({
   setThreads: (threads) => set({ threads }),
   setPrompt: (prompt) => set({ prompt }),
   setSentPrompts: (prompts) =>
-    set((state) => ({
-      sentPrompts: typeof prompts === "function" ? prompts(state.sentPrompts) : prompts,
-    })),
+    set((state) => {
+      const next = typeof prompts === "function" ? prompts(state.sentPrompts) : prompts;
+      const key = sessionKeyFromSnapshot(state.snapshot);
+      // Keep this chat's list for its parked turns and its next reopen (#79).
+      return key
+        ? {
+            sentPrompts: next,
+            sentPromptsBySession: { ...state.sentPromptsBySession, [key]: next },
+          }
+        : { sentPrompts: next };
+    }),
   setQueuedMessages: (queuedMessages) => set({ queuedMessages }),
   setRunning: (running) => set({ running }),
   setSessionMarker: (sessionKey, markerState, options) => {
@@ -833,6 +868,14 @@ export const useShellStore = create<ShellState>((set, get) => ({
         queuedMessages: snapshot.queuedMessages,
         runtimeId: snapshot.runtimeId,
         lastSequence: snapshot.sequence,
+        // A snapshot whose sequence sits below the high-water marks proves a fresh host
+        // numbering (restart/switch): parked dedupe lists would otherwise eat the next
+        // turn's events and the reply would silently never show (#79).
+        liveStream: rebaseLiveStreamEpoch(state.liveStream, snapshot.sequence),
+        backgroundLiveStreams: rebaseBackgroundStreams(
+          state.backgroundLiveStreams,
+          snapshot.sequence,
+        ),
         // Never invent busy from a snapshot — only runningSessions (sendPrompt) can.
         running: key ? Boolean(state.runningSessions[key]) : false,
       };
@@ -890,9 +933,20 @@ export const useShellStore = create<ShellState>((set, get) => ({
       const incoming =
         key && prevKey === key ? state.liveStream : key ? backgroundLiveStreams[key] : undefined;
       if (key) delete backgroundLiveStreams[key];
+      // The host restarts event numbering on session.new/switch (agent-host sequence = 0);
+      // rebase first so the next turn's events are not dropped as old duplicates (#79).
       const liveStream = incoming
-        ? liveStreamNotCoveredByHistory(incoming, input.history)
+        ? liveStreamNotCoveredByHistory(
+            rebaseLiveStreamEpoch(incoming, input.snapshot.sequence),
+            input.history,
+          )
         : emptyLiveStream();
+      // A reopened chat gets back the questions typed in it: its parked stream counts user
+      // rows against that list (`promptIndex`), so the host echo resolves the right text (#79).
+      const ownPrompts =
+        (key ? state.sentPromptsBySession[key] : undefined) ??
+        (idKey && idKey !== key ? state.sentPromptsBySession[idKey] : undefined) ??
+        [];
       return {
         snapshot: input.snapshot,
         runtimeId: input.snapshot.runtimeId,
@@ -908,7 +962,7 @@ export const useShellStore = create<ShellState>((set, get) => ({
         events: [],
         liveStream,
         backgroundLiveStreams,
-        sentPrompts: [],
+        sentPrompts: ownPrompts,
         queuedMessages: input.snapshot.queuedMessages,
         lastFailure: undefined,
         // Drop pending failures for the runtime we are leaving; keep others (parked).
@@ -936,6 +990,8 @@ export const useShellStore = create<ShellState>((set, get) => ({
       events: [],
       liveStream: emptyLiveStream(),
       backgroundLiveStreams: {},
+      sentPrompts: [],
+      sentPromptsBySession: {},
       queuedMessages: { steering: [], followUp: [] },
       running: false,
       sessionMarkers: {},

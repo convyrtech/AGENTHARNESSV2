@@ -7,6 +7,7 @@ import {
   PARKED_IDLE_TTL_MS,
   pickExpiredIdleParkKeys,
   pickParkedEvictionKey,
+  shouldForwardParkedHostMessage,
   shouldForwardParkedRuntimeEvent,
   shouldParkForeground,
   type ParkedHostRef,
@@ -72,6 +73,14 @@ describe("host-park-policy", () => {
     expect(shouldForwardParkedRuntimeEvent("message.delta")).toBe(true);
     expect(shouldForwardParkedRuntimeEvent("agent.started")).toBe(false);
     expect(shouldForwardParkedRuntimeEvent("queue.updated")).toBe(false);
+  });
+
+  it("forwards a background chat's question to the window (#83)", () => {
+    // Dropping it left that agent blocked with nothing on screen — the «nothing happens»
+    // hang. The rest of a parked host's messages stay private to it.
+    expect(shouldForwardParkedHostMessage("extensionUi.request")).toBe(true);
+    expect(shouldForwardParkedHostMessage("runtime.event")).toBe(false);
+    expect(shouldForwardParkedHostMessage("host.ready")).toBe(false);
   });
 
   it("parks idle foreground only when allowIdle is set", () => {

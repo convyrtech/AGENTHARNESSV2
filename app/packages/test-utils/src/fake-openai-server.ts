@@ -19,6 +19,11 @@ interface FakeOpenAiServerOptions {
   rateLimitFailures?: number;
   /** Delay between streamed tokens for queue/steer fixtures (ms). */
   streamDelayMs?: number;
+  /**
+   * When the last user text contains this marker, the scripted/plain reply ends with
+   * `finish_reason: "length"` — a reply cut off at the model's token limit (#79).
+   */
+  truncatedWhenPromptIncludes?: string;
 }
 
 interface ChatMessage {
@@ -66,6 +71,7 @@ export class FakeOpenAiServer {
   #remainingRateLimits: number;
   #streamDelayMs: number;
   #reply: ((lastUserText: string) => string | undefined) | undefined;
+  #truncatedWhenPromptIncludes: string | undefined;
 
   constructor(options: FakeOpenAiServerOptions) {
     this.#toolPath = options.toolPath;
@@ -76,6 +82,7 @@ export class FakeOpenAiServer {
     this.#remainingRateLimits = options.rateLimitFailures ?? 0;
     this.#streamDelayMs = options.streamDelayMs ?? 0;
     this.#reply = options.reply;
+    this.#truncatedWhenPromptIncludes = options.truncatedWhenPromptIncludes;
     this.#server = createServer((request, response) => {
       void this.#handle(request, response);
     });
@@ -271,8 +278,11 @@ export class FakeOpenAiServer {
       sendChunk(response, chunk({ content: `${part} ` }));
       if (this.#streamDelayMs > 0) await delay(this.#streamDelayMs);
     }
+    const cutOff =
+      this.#truncatedWhenPromptIncludes !== undefined &&
+      prompt.includes(this.#truncatedWhenPromptIncludes);
     sendChunk(response, {
-      ...chunk({}, "stop"),
+      ...chunk({}, cutOff ? "length" : "stop"),
       usage: { prompt_tokens: 12, completion_tokens: 4, total_tokens: 16 },
     });
     response.end("data: [DONE]\n\n");

@@ -79,9 +79,12 @@ import {
   normalizeHostCwdKey,
   PARKED_IDLE_TTL_MS,
   pickParkedEvictionKey,
+  shouldForwardParkedHostMessage,
   shouldForwardParkedRuntimeEvent,
   shouldParkForeground,
 } from "./host-park-policy.ts";
+import { autoExtensionUiValue } from "./extension-ui-auto.ts";
+import { findHostForRuntime } from "./extension-ui-routing.ts";
 import {
   formatHostExitError,
   resolveAgentHostEntry,
@@ -3876,8 +3879,14 @@ class HostSupervisor {
   }
 
   async extensionUiRespond(response: ExtensionUiResponse): Promise<void> {
-    const host = this.#host;
-    if (!host || host.ignoreMessages || response.runtimeId !== this.#snapshot?.runtimeId) {
+    // The runtime that asked can be the foreground chat or one parked in the background;
+    // the answer goes back to it either way, or switching chats killed the answer (#83).
+    const host = findHostForRuntime({
+      foreground: { runtimeId: this.#snapshot?.runtimeId, host: this.#host ?? undefined },
+      parked: this.#parked.values(),
+      runtimeId: response.runtimeId,
+    });
+    if (!host || host.ignoreMessages) {
       throw new Error("Rejected stale Extension UI response");
     }
     host.child.postMessage({
@@ -4048,21 +4057,9 @@ class HostSupervisor {
 
       if (message.type === "extensionUi.request") {
         this.#count("extensionUi.request");
-        // Only auto-answer / surface extension UI for the foreground host.
-        if (!isForeground) return;
+        // A question blocks the agent that asked it until someone answers, so it is shown
+        // for a background chat too (#83); the answer is routed back by runtimeId.
         if (process.env.ZENO_AUTO_EXTENSION_UI === "1") {
-          const args =
-            typeof message.args === "object" && message.args !== null
-              ? (message.args as Record<string, unknown>)
-              : {};
-          const value =
-            message.method === "confirm"
-              ? true
-              : message.method === "select" && Array.isArray(args.options)
-                ? args.options[0]
-                : message.method === "input" || message.method === "editor"
-                  ? "zeno-test-input"
-                  : undefined;
           host.child.postMessage({
             protocolVersion: IPC_PROTOCOL_VERSION,
             type: "extensionUi.respond",
@@ -4072,12 +4069,11 @@ class HostSupervisor {
               runtimeId: message.runtimeId,
               requestId: message.requestId,
               ok: true,
-              value,
+              value: autoExtensionUiValue(message.method, message.args),
             },
           } satisfies HostCommand);
         }
       }
-
       // Foreground events go to the renderer as today. Parked hosts forward
       // turn/tool/retry events so sidebar markers and promote reconnect stay live.
       if (isForeground) {
@@ -4086,6 +4082,8 @@ class HostSupervisor {
         message.type === "runtime.event" &&
         shouldForwardParkedRuntimeEvent(message.event.type)
       ) {
+        this.#emit(message, false);
+      } else if (shouldForwardParkedHostMessage(message.type)) {
         this.#emit(message, false);
       }
 

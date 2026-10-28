@@ -429,6 +429,9 @@ export const en = {
     "Terminal-only capability {method} is not executed on desktop (degraded, session continues)",
   "extensionUi.customMessage": "Extension · {type}",
   "extensionUi.customEntry": "Extension entry · {type}",
+  "extensionUi.queue": "More questions waiting: {n}",
+  "extensionUi.answerFailed":
+    "The answer did not reach the agent: it has already stopped. Ask again if you still need it.",
   "pi.checking": "Checking for global pi…",
   "pi.installing": "Installing global pi…",
   "pi.progress": "Installing global pi…",
@@ -1610,6 +1613,8 @@ export const en = {
   "prsloy.host.restarted": "The agent restarted after a crash — the conversation is kept",
   "system.responseFailed": "Lost the connection to the model",
   "system.responseStopped": "Response stopped",
+  "system.responseTruncated":
+    "The answer was cut off at the model's length limit — ask it to continue",
   "system.responsePending": "Response pending",
   "system.responseDeferred": "Response deferred",
   "system.retry": "Retry",
