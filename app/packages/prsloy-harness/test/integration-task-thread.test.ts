@@ -162,13 +162,14 @@ describe("integration: task thread after a compaction mid-turn", () => {
     expect(stored).toHaveLength(1);
   }, 60_000);
 
-  it("flag off: the summary alone", async () => {
+  it("flag off: local compaction still carries the session facts", async () => {
     const { session, server } = await startSession(false);
     await session.prompt("Почини тесты, задача #50");
     await session.prompt("Теперь дождись зелёного CI");
     const next = afterCompaction(server);
     expectNoModelSummary(server);
     expect(next).toContain(LOCAL_SUMMARY);
-    expect(next).not.toContain("<task_thread>");
+    expect(next).toContain("<task_thread>");
+    expect(next).toContain("[1] Почини тесты, задача #50");
   }, 60_000);
 });
