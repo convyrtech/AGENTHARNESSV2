@@ -1,6 +1,6 @@
 {
   "name": "@zeno/desktop",
-  "version": "0.1.0-alpha.0",
+  "version": "0.1.0-alpha.4",
   "private": true,
   "description": "Desktop shell for the pi coding agent",
   "homepage": "https://github.com/aletheics/zeno",
