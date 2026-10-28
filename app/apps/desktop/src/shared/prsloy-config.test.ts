@@ -14,7 +14,21 @@ import {
   prsloySpeedForModel,
 } from "./prsloy-config.ts";
 
-const UNMEASURED = ["claude-fable-5", "grok-4.7"];
+const UNMEASURED = [
+  "claude-fable-5",
+  "grok-4.7",
+  // Catalogued 2026-10-27 (#75), no gateway price measured yet:
+  "gpt-6.1-terra",
+  "gemini-4-argon",
+  "mimo-v2.6-pro",
+  "glm-5.3",
+  "qwen3.8-flash",
+  "minimax-m3.1-flash",
+  "gemini-3.8-flash",
+  "kimi-k3",
+  "gpt-6-astra",
+  "claude-fable-5-1",
+];
 
 describe("prsloy config", () => {
   it("knows the gateway's chat models", () => {
