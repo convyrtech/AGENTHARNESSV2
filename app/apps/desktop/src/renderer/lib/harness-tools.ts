@@ -11,6 +11,7 @@ const VERBS: Record<string, { running: MessageKey; done: MessageKey }> = {
   web_search: { running: "tool.webSearch.running", done: "tool.webSearch.done" },
   web_fetch: { running: "tool.webFetch.running", done: "tool.webFetch.done" },
   find_ready: { running: "tool.findReady.running", done: "tool.findReady.done" },
+  explore: { running: "tool.explore.running", done: "tool.explore.done" },
   memory: { running: "tool.memory.running", done: "tool.memory.done" },
   bash_background: { running: "tool.bashBackground.running", done: "tool.bashBackground.done" },
   process: { running: "tool.process.running", done: "tool.process.done" },

@@ -45,6 +45,12 @@ export type HarnessFlags = {
    * "frame" / "read" / "gate" — the other measured variants.
    */
   staleDocs: "prompt" | "end" | "frame" | "read" | "gate";
+  /**
+   * The scout (issue #47): a read-only assistant that answers questions about the project's files.
+   * "off" (default until measured) — no tool; "same" — the agent's own model; "cheap" — the cheapest model
+   * of the same provider.
+   */
+  explore: "off" | "same" | "cheap";
 };
 
 export interface HarnessFlagsApi {

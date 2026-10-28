@@ -8,6 +8,9 @@ describe("harness tools in the feed", () => {
     expect(harnessToolVerb("ru", "web_search", "failed")).toBe("Ищет в интернете — не получилось");
     expect(harnessToolVerb("en", "ask_user", "running")).toBe("Asking a question");
     expect(harnessToolVerb("zh", "web_fetch", "done")).toBe("已阅读网页");
+    // Разведчик (#47): в ленте одна понятная строка, без слова «explore».
+    expect(harnessToolVerb("ru", "explore", "running")).toBe("Смотрит по файлам проекта");
+    expect(harnessToolVerb("ru", "explore", "done")).toBe("Посмотрел по файлам проекта");
   });
 
   it("leaves any other tool to the generic «Вызывает {tool}»", () => {

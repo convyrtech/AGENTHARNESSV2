@@ -52,6 +52,10 @@ export function readHarnessFlags(path: string): HarnessFlags {
     staleDocs: STALE_DOCS_VALUES.includes(raw.staleDocs as HarnessFlags["staleDocs"])
       ? (raw.staleDocs as HarnessFlags["staleDocs"])
       : "end",
+    // #47: the scout is off until the bench says otherwise; a value the user wrote stays.
+    explore: EXPLORE_VALUES.includes(raw.explore as HarnessFlags["explore"])
+      ? (raw.explore as HarnessFlags["explore"])
+      : "off",
   };
 }
 
@@ -69,6 +73,8 @@ const FLAG_KEYS = [
 const STALE_DOCS_VALUES: readonly unknown[] = ["prompt", "end", "frame", "read", "gate"];
 /** Not a boolean: `autoMemory` is "off" | "shadow" | true. */
 const AUTO_MEMORY_VALUES: readonly unknown[] = ["off", "shadow", true];
+/** Not a boolean: the scout is "off" | "same" | "cheap" (#47). */
+const EXPLORE_VALUES: readonly unknown[] = ["off", "same", "cheap"];
 
 /** Only known flags with the right type, at least one; other keys in the file are kept. */
 export function writeHarnessFlags(path: string, patch: unknown): HarnessFlags {
@@ -84,6 +90,11 @@ export function writeHarnessFlags(path: string, patch: unknown): HarnessFlags {
     if (!AUTO_MEMORY_VALUES.includes(raw.autoMemory))
       throw new Error('autoMemory must be "off", "shadow" or true');
     next.autoMemory = raw.autoMemory;
+  }
+  if (raw.explore !== undefined) {
+    if (!EXPLORE_VALUES.includes(raw.explore))
+      throw new Error('explore must be "off", "same" or "cheap"');
+    next.explore = raw.explore;
   }
   if (raw.staleDocs !== undefined) {
     if (!STALE_DOCS_VALUES.includes(raw.staleDocs))

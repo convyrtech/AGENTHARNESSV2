@@ -139,6 +139,8 @@ export const en = {
   "tool.webFetch.done": "Read a page",
   "tool.findReady.running": "Looking for a ready-made solution",
   "tool.findReady.done": "Looked for a ready-made solution",
+  "tool.explore.running": "Looking through the project's files",
+  "tool.explore.done": "Looked through the project's files",
   "tool.memory.running": "Checking memory",
   "tool.memory.done": "Checked memory",
   "tool.bashBackground.running": "Starting in the background",

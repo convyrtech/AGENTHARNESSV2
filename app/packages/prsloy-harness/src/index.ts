@@ -4,6 +4,7 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { installBashTimeout } from "./bash-timeout.ts";
 import { installBudget } from "./budget.ts";
 import { installEditRobustness } from "./edit-robustness.ts";
+import { installExplore } from "./explore.ts";
 import { installLoopDetector } from "./loop-detector.ts";
 import { resolveOptions, type HarnessOptions } from "./options.ts";
 import { installPostEditVerify } from "./post-edit-verify.ts";
@@ -63,6 +64,15 @@ export {
   type ExtractorOp,
 } from "./memory-extract.ts";
 export { readFlags } from "./flags.ts";
+export {
+  clipAnswer,
+  EXPLORE_ANSWER_LIMIT,
+  EXPLORE_MARKER,
+  EXPLORE_TURNS,
+  exploreModel,
+  exploreTools,
+  runExplore,
+} from "./explore.ts";
 export { factsFromEntries, renderThread, TASK_THREAD_TYPE, withThread } from "./task-thread.ts";
 export { autoDetails, MEMORY_CARD, MEMORY_TEXT, quoteSource, updatedDetails } from "./memory.ts";
 export { detectToolLeak, stripToolMarkup } from "./tool-leak.ts";
@@ -134,6 +144,8 @@ export function createPrsloyHarness(options: HarnessOptions = {}): (pi: Extensio
         ...(memory ? { memorySection: memory.section } : {}),
       });
     if (on("findReady")) installFindReady(pi, opts, opts.findReady);
+    // Разведчик (#47): дочерний цикл только с чтением; флаг "explore", по умолчанию выкл.
+    if (on("explore")) installExplore(pi, opts);
     if (on("research")) installResearch(pi, opts, options.research);
     // Вопрос кнопками и ключ формой (research/19 §1.1, §1.3): только «Код».
     if (on("askUser")) installAskUser(pi, opts);

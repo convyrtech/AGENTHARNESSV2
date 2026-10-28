@@ -48,7 +48,15 @@ export interface HarnessFlags {
    * По умолчанию выкл. до замера.
    */
   taskThread: boolean;
+  /**
+   * Разведчик (issue #47, explore.ts): "off" — нет; "same" — та же модель, что у агента; "cheap" — самая дешёвая того
+   * же провайдера. По умолчанию выкл. до замера.
+   */
+  explore: ExploreMode;
 }
+
+export type ExploreMode = "off" | "same" | "cheap";
+export const EXPLORE_MODES: readonly ExploreMode[] = ["off", "same", "cheap"];
 
 export type StaleDocsMode = "prompt" | "end" | "frame" | "read" | "gate";
 export const STALE_DOCS_MODES: readonly StaleDocsMode[] = [
@@ -83,6 +91,7 @@ export function readFlags(settingsPath: string | undefined): HarnessFlags {
     // #6 потока (дирижёр, 26.10): "end" — по замеру kimi/deepseek.
     staleDocs: "end",
     taskThread: false,
+    explore: "off",
   };
   if (settingsPath && existsSync(settingsPath)) {
     try {
@@ -103,6 +112,8 @@ export function readFlags(settingsPath: string | undefined): HarnessFlags {
       if (raw.testQuality === true) flags.testQuality = true;
       if (raw.reviewerCheats === true) flags.reviewerCheats = true;
       if (typeof raw.taskThread === "boolean") flags.taskThread = raw.taskThread;
+      if (EXPLORE_MODES.includes(raw.explore as ExploreMode))
+        flags.explore = raw.explore as ExploreMode;
       if (STALE_DOCS_MODES.includes(raw.staleDocs as StaleDocsMode))
         flags.staleDocs = raw.staleDocs as StaleDocsMode;
       if (Array.isArray(raw.disabledLessons))
@@ -122,6 +133,8 @@ export function readFlags(settingsPath: string | undefined): HarnessFlags {
   const prompt = process.env.PRSLOY_PROMPT;
   if (prompt === "prsloy" || prompt === "pi" || prompt === "diet") flags.prompt = prompt;
   if (process.env.PRSLOY_PROMPT_DELTA === "1") flags.promptDelta = true;
+  const explore = process.env.PRSLOY_EXPLORE;
+  if (EXPLORE_MODES.includes(explore as ExploreMode)) flags.explore = explore as ExploreMode;
   const auto = process.env.PRSLOY_AUTO_MEMORY;
   if (auto === "1" || auto === "on") flags.autoMemory = true;
   else if (auto === "shadow" || auto === "off") flags.autoMemory = auto;

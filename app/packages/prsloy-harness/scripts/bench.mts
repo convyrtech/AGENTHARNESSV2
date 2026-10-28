@@ -22,6 +22,7 @@
 //   … --reviewer-cheats on     ревьюер ищет подгонку (флаг "reviewerCheats", H-4; по умолчанию выкл.)
 //   … --claim-check on         слова и факты (флаг "claimCheck", H-2: H6–H8; по умолчанию выкл.)
 //   … --task-thread on         нить задачи после сжатия истории (флаг "taskThread", #64 п.1; по умолчанию выкл.)
+//   … --explore same|cheap     разведчик (флаг "explore", #47): same — та же модель, cheap — дешёвая; по умолчанию off
 //   … --context-window 22384 --keep-recent 1500   замер сжатия: Pi сжимает при «окно − 16 384»,
 //                              оставляя дословно последние N токенов (по умолчанию — как в приложении)
 //   … --audit                  разборщик сессий после прогона (research/24 §6, ci; пока только метка в отчёте)
@@ -43,7 +44,12 @@ import { join, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { PRSLOY_DEFAULT_BASE_URL } from "../../../apps/desktop/src/shared/prsloy-config.ts";
 import { reportMarkdown, runBench } from "../bench/run.ts";
-import { STALE_DOCS_MODES, type StaleDocsMode } from "../src/flags.ts";
+import {
+  EXPLORE_MODES,
+  STALE_DOCS_MODES,
+  type ExploreMode,
+  type StaleDocsMode,
+} from "../src/flags.ts";
 import { skillFilesFromDir } from "../src/skills.ts";
 
 const { values } = parseArgs({
@@ -69,6 +75,7 @@ const { values } = parseArgs({
     "reviewer-cheats": { type: "string", default: "off" },
     "claim-check": { type: "string", default: "off" },
     "task-thread": { type: "string", default: "off" },
+    explore: { type: "string", default: "off" },
     "context-window": { type: "string" },
     "keep-recent": { type: "string" },
     "work-dir": { type: "string" },
@@ -91,6 +98,10 @@ async function main(): Promise<number> {
   }
   if (!values.model.includes("/")) {
     console.error("--model провайдер/модель, например prsloy/kimi-k3.1-pro");
+    return 2;
+  }
+  if (!EXPLORE_MODES.includes(values.explore as ExploreMode)) {
+    console.error("--explore off|same|cheap");
     return 2;
   }
   if (!["casual", "honesty", "web", "all"].includes(values.suite)) {
@@ -132,6 +143,7 @@ async function main(): Promise<number> {
     reviewerCheats: values["reviewer-cheats"] === "on",
     claimCheck: values["claim-check"] === "on",
     taskThread: values["task-thread"] === "on",
+    explore: values.explore as ExploreMode,
     ...(contextWindow ? { contextWindow } : {}),
     ...(keepRecentTokens ? { keepRecentTokens } : {}),
     ...(values["work-dir"] ? { workDir: resolve(values["work-dir"]) } : {}),
@@ -159,7 +171,7 @@ async function main(): Promise<number> {
     log: (line) => console.log(line),
   });
   const stamp = report.meta.date.replace(/[:.]/g, "-");
-  const mode = `${values.harness}-${values.prompt}${values.delta === "on" ? "-delta" : ""}${values.lessons === "off" ? "-nolessons" : ""}${values.review === "off" ? "-noreview" : ""}${values.skills === "on" ? "-skills" : ""}${values.memory === "off" ? "-nomemory" : ""}${values.web === "on" ? "-web" : ""}`;
+  const mode = `${values.harness}-${values.prompt}${values.delta === "on" ? "-delta" : ""}${values.lessons === "off" ? "-nolessons" : ""}${values.review === "off" ? "-noreview" : ""}${values.skills === "on" ? "-skills" : ""}${values.memory === "off" ? "-nomemory" : ""}${values.web === "on" ? "-web" : ""}${values.explore !== "off" ? `-explore-${values.explore}` : ""}`;
   const base = join(outDir, `bench-${values.model.replace(/\//g, "_")}-${mode}-${stamp}`);
   const md = reportMarkdown(report);
   writeFileSync(`${base}.md`, md);
