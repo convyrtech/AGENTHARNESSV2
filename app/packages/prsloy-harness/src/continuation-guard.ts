@@ -1,5 +1,6 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { recordEvent } from "./learning-log.ts";
+import { factsFromEntries, renderThread } from "./task-thread.ts";
 
 /**
  * A continuation is a fresh model request.  Several independent boundary
@@ -15,16 +16,23 @@ const GUARD_NOTE =
   "Автоматическая цепочка проверок остановлена после нескольких повторных ходов. " +
   "Остановись и сообщи текущий результат пользователю.";
 
-function localCompaction(event: any): { compaction: Record<string, unknown> } {
+function localCompaction(event: any, ctx: any): { compaction: Record<string, unknown> } {
   const preparation = event.preparation;
   const previous =
     typeof preparation?.previousSummary === "string"
       ? preparation.previousSummary.slice(-8_000)
       : "";
+  const branchEntries = Array.isArray(event.branchEntries) ? event.branchEntries : [];
+  const thread = renderThread(
+    factsFromEntries(branchEntries),
+    undefined,
+    typeof ctx?.cwd === "string" ? ctx.cwd : undefined,
+  );
   const summary = [
     "PRSLOY local compaction: the older context was compacted without another model request.",
     previous ? `Previous summary:\n${previous}` : "",
     "Recent messages are retained after firstKeptEntryId. Continue from the retained context and the task-thread facts.",
+    thread,
   ]
     .filter(Boolean)
     .join("\n\n");
@@ -54,11 +62,11 @@ export function installContinuationGuard(pi: ExtensionAPI): void {
   // second automatic summary in one turn means paying for another 500k-token
   // request before the next continuation can even start.
   // Pi 1.4 supports this event at runtime; older published typings omitted it.
-  (pi as any).on("session_before_compact", (event: any) => {
+  (pi as any).on("session_before_compact", (event: any, ctx: any) => {
     if (event.reason !== "threshold" && event.reason !== "overflow") return undefined;
     if (compactions < MAX_AUTO_COMPACTIONS) {
       compactions += 1;
-      return localCompaction(event);
+      return localCompaction(event, ctx);
     }
     compactionBlocked = true;
     return { cancel: true };

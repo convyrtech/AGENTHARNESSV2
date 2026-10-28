@@ -61,8 +61,8 @@ describe("factsFromEntries", () => {
     ]);
     expect(facts.startedAt).toBe(1_700_000_000_000);
     expect(facts.commands).toEqual([
-      { command: "pnpm test", exit: 1 },
-      { command: "git push origin main", exit: 128 },
+      { command: "pnpm test", exit: 1, error: "FAIL a.test.ts" },
+      { command: "git push origin main", exit: 128, error: "rejected" },
       { command: "ls", exit: 0 },
     ]);
     // failed edit is not a change; a path is listed once
@@ -74,7 +74,9 @@ describe("factsFromEntries", () => {
       calls(["x", "bash", { command: "sleep 999" }]),
       result("x", "bash", "timed out after 120 s", true),
     ]);
-    expect(facts.commands).toEqual([{ command: "sleep 999", exit: undefined }]);
+    expect(facts.commands).toEqual([
+      { command: "sleep 999", exit: undefined, error: "timed out after 120 s" },
+    ]);
   });
 });
 
@@ -97,6 +99,7 @@ describe("renderThread", () => {
     expect(text).toContain("abc1234 fix: tests");
     expect(text).toContain("Commands you ran: 3, failed: 2.");
     expect(text).toContain("[128] git push origin main");
+    expect(text).toContain("— rejected");
     expect(text).toContain("[0] ls");
   });
 
@@ -161,6 +164,11 @@ describe("withThread", () => {
   it("no summary, or a block for another summary — untouched", () => {
     expect(withThread([{ role: "user", content: "hi" }], blocks)).toBeUndefined();
     expect(withThread([{ ...summary, summary: "S2" }], blocks)).toBeUndefined();
+  });
+
+  it("does not duplicate facts already embedded by local compaction", () => {
+    const embedded = { ...summary, summary: "local summary\n<task_thread>facts</task_thread>" };
+    expect(withThread([embedded, { role: "user", content: "next" }], blocks)).toBeUndefined();
   });
 });
 
