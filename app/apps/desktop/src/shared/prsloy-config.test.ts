@@ -33,6 +33,10 @@ describe("prsloy config", () => {
   it("knows the gateway's chat models", () => {
     expect(PRSLOY_MODELS.map((m) => m.id)).toEqual([
       "deepseek-v4.1-flash-1017",
+      "deepseek-v4-flash",
+      "mimo-v2.6-flash",
+      "gpt-6-luna",
+      "gpt-5.6-luna",
       "kimi-k3.1-pro",
       "qwen3.8-max",
       "claude-opus-5-5",
@@ -72,6 +76,12 @@ describe("prsloy config", () => {
     for (const id of ["qwen3.8-max", "grok-4.7", "claude-fable-5"])
       expect(presets).not.toContain(id);
     expect(PRSLOY_SPEED_PREFERENCE.fast[0]).toBe("deepseek-v4.1-flash-1017");
+    expect(PRSLOY_SPEED_PREFERENCE.fast.slice(1, 5)).toEqual([
+      "deepseek-v4-flash",
+      "mimo-v2.6-flash",
+      "gpt-6-luna",
+      "gpt-5.6-luna",
+    ]);
     expect(PRSLOY_SPEED_PREFERENCE.quality[0]).toBe("kimi-k3.1-pro");
     expect(PRSLOY_SPEED_PREFERENCE.quality).not.toContain("deepseek-v4.1-flash-1017");
     // Qwen reads the control picture now (probe 2026-10-27, #75); its channel may vary.
@@ -136,6 +146,15 @@ describe("prsloy config", () => {
     });
     expect(prsloyModelCost("claude-opus-5-5").cacheRead).toBeCloseTo(1.9, 10);
     expect(prsloyModelCost("kimi-k3.1-pro").output).toBe(130);
+    expect(prsloyModelCost("deepseek-v4-flash")).toEqual({
+      input: 0.55,
+      output: 1.6,
+      cacheRead: 0.0018,
+      cacheWrite: 0.6875,
+    });
+    expect(prsloyModelCost("mimo-v2.6-flash").output).toBe(5.5);
+    expect(prsloyModelCost("gpt-6-luna").input).toBe(1.9);
+    expect(prsloyModelCost("gpt-5.6-luna").input).toBe(2.2);
     expect(prsloyModelCost("unknown")).toEqual({
       input: 0,
       output: 0,
