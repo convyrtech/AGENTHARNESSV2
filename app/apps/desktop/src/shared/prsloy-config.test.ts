@@ -147,14 +147,14 @@ describe("prsloy config", () => {
     expect(prsloyModelCost("claude-opus-5-5").cacheRead).toBeCloseTo(1.9, 10);
     expect(prsloyModelCost("kimi-k3.1-pro").output).toBe(130);
     expect(prsloyModelCost("deepseek-v4-flash")).toEqual({
-      input: 0.55,
-      output: 1.6,
-      cacheRead: 0.0018,
-      cacheWrite: 0.6875,
+      input: 5.5,
+      output: 17,
+      cacheRead: 0.018,
+      cacheWrite: 6.875,
     });
-    expect(prsloyModelCost("mimo-v2.6-flash").output).toBe(5.5);
-    expect(prsloyModelCost("gpt-6-luna").input).toBe(1.9);
-    expect(prsloyModelCost("gpt-5.6-luna").input).toBe(2.2);
+    expect(prsloyModelCost("mimo-v2.6-flash").output).toBe(26);
+    expect(prsloyModelCost("gpt-6-luna").input).toBe(8.1);
+    expect(prsloyModelCost("gpt-5.6-luna").input).toBe(11);
     expect(prsloyModelCost("unknown")).toEqual({
       input: 0,
       output: 0,
