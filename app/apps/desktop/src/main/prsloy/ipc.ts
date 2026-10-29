@@ -21,6 +21,7 @@ import { registerPrsloyMemoryIpc } from "./memory-ipc.ts";
 import { registerPrsloySearchIpc } from "./search-ipc.ts";
 import { startPrsloyModelRefresh } from "./model-list.ts";
 import { startPrsloyPricesRefresh } from "./prices.ts";
+import { startPrsloyBalanceRefresh } from "./balance.ts";
 import type { TurnRecord } from "./turn-snapshots.ts";
 
 export const PRSLOY_IPC = {
@@ -90,6 +91,7 @@ export function undoNoteText(result: {
 
 export function buildPrsloyState(ctx: PrsloyContext, needsWorkspace: boolean): PrsloyState {
   const key = ctx.keyStore.read();
+  const balance = ctx.balance();
   return {
     hasKey: Boolean(key),
     keyMemoryOnly: ctx.keyStore.isMemoryOnly(),
@@ -103,6 +105,7 @@ export function buildPrsloyState(ctx: PrsloyContext, needsWorkspace: boolean): P
       ctx.git.state(),
     ),
     appSetup: ctx.setupProgress(),
+    ...(balance ? { balance } : {}),
     firstRunBypass:
       process.env.ZENO_ENABLE_TEST_COMMANDS === "1" && process.env.PRSLOY_FORCE_FIRST_RUN !== "1",
   };
@@ -132,6 +135,9 @@ export function registerPrsloyIpc(rawIpcMain: IpcMainLike, deps: PrsloyIpcDeps):
     },
   };
   const state = () => buildPrsloyState(ctx, deps.needsWorkspace());
+  // Keep the reader even with background refresh disabled in tests: saving the first key
+  // must still fetch its balance, and a new key must never briefly show the old one's money.
+  const balanceRefresh = startPrsloyBalanceRefresh({ ctx, fetch: deps.fetch });
 
   ipcMain.handle(PRSLOY_IPC.getState, () => state());
 
@@ -211,13 +217,22 @@ export function registerPrsloyIpc(rawIpcMain: IpcMainLike, deps: PrsloyIpcDeps):
       if (baseUrl !== ctx.getState().baseUrl) ctx.setBaseUrl(baseUrl);
       if (check.via === "models") ctx.setAvailableModels(check.modelIds);
       ctx.keyStore.write(key);
+      // Invalidate requests for the previous key before it is replaced: their late answers
+      // must not restore the old balance. Read the new key's money while the host restarts.
+      balanceRefresh.invalidate();
+      ctx.setBalance(undefined);
+      const refreshed = balanceRefresh.refresh(true);
       await deps.restartHost();
+      await refreshed;
       return { ok: true, state: state(), modelIds: check.modelIds };
     },
   );
 
   ipcMain.handle(PRSLOY_IPC.clearKey, async () => {
+    balanceRefresh.invalidate();
     ctx.keyStore.clear();
+    // No key: the number on the screen is no longer anyone's balance.
+    ctx.setBalance(undefined);
     await deps.restartHost();
     return state();
   });
@@ -239,7 +254,12 @@ export function registerPrsloyIpc(rawIpcMain: IpcMainLike, deps: PrsloyIpcDeps):
     }
     ctx.setBaseUrl(baseUrl);
     if (listed) ctx.setAvailableModels(modelIds);
+    // Another gateway may hold a different account balance even with the same key.
+    balanceRefresh.invalidate();
+    ctx.setBalance(undefined);
+    const refreshed = balanceRefresh.refresh(true);
     await deps.restartHost();
+    await refreshed;
     return { ok: true, state: state(), modelIds };
   });
 

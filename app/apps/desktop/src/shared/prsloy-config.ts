@@ -534,6 +534,27 @@ export function normalizePrsloyBaseUrl(raw: string | undefined | null): string |
 }
 
 /**
+ * Below this much money left on the key the app warns before a task starts (#56), instead of
+ * letting the gateway answer 402 in the middle of one. Rubles — the same unit as the retail
+ * price list. `PRSLOY_BALANCE_WARN_RUB` overrides it; 0 turns the warning off.
+ */
+export const PRSLOY_BALANCE_WARN_RUB = 200;
+
+/** The renderer has no `process`: the same default must work on both sides of the IPC. */
+function currentEnv(): Record<string, string | undefined> {
+  const proc = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process;
+  return proc?.env ?? {};
+}
+
+export function prsloyBalanceWarnRub(
+  env: Record<string, string | undefined> = currentEnv(),
+): number {
+  const raw = Number.parseFloat(env.PRSLOY_BALANCE_WARN_RUB ?? "");
+  if (!Number.isFinite(raw) || raw < 0) return PRSLOY_BALANCE_WARN_RUB;
+  return raw;
+}
+
+/**
  * The `providers.prsloy` block for pi `models.json`. No `apiKey`: the key never touches
  * disk in plain text; the agent host sets it as a pi runtime key.
  */

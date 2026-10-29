@@ -126,6 +126,22 @@ describe("first run over IPC (mock gateway)", () => {
     expect(hostEnv.GH_TOKEN).toBeUndefined();
   });
 
+  it("drops the old key's balance and reads the new one even without background refresh", async () => {
+    const t = await setup();
+    t.ctx.setBalance({
+      remainingRub: 900,
+      usedRub: 100,
+      grantedRub: 1000,
+      fetchedAt: "2026-10-29T10:00:00.000Z",
+    });
+    // Billing is absent on the mock gateway, so the correct visible state is «unknown», never 900 ₽.
+    const result = await t.invoke<PrsloyKeyResult>(PRSLOY_IPC.setKey, "sk-real", t.server.baseUrl);
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.state.balance).toBeUndefined();
+    expect(t.ctx.getState().balance).toBeUndefined();
+    expect(await t.invoke<PrsloyState>(PRSLOY_IPC.getState)).not.toHaveProperty("balance");
+  });
+
   it("maps a dead gateway to network and a bad URL to bad_url", async () => {
     const t = await setup();
     expect(

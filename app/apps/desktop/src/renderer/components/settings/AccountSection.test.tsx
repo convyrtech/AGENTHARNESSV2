@@ -32,6 +32,47 @@ beforeEach(() => localStorage.clear());
 afterEach(cleanup);
 
 describe("AccountSection", () => {
+  it("shows the money left on the key, in rubles, with its age", async () => {
+    const api = mockPrsloy();
+    api.getState.mockResolvedValue({
+      ...state,
+      balance: {
+        remainingRub: 3776.4,
+        usedRub: 223.6,
+        grantedRub: 4000,
+        fetchedAt: new Date(Date.now() - 5 * 60_000).toISOString(),
+      },
+    });
+    render(<AccountSection tr={tr} />);
+    const row = await screen.findByTestId("settings-account-balance");
+    // Intl puts a thin no-break space between the digits; compare on plain text.
+    const plain = (row.textContent ?? "").replace(/\u202f|\u00a0/g, " ");
+    expect(plain).toContain("3 776");
+    expect(document.body.textContent).toContain("обновлено 5 мин назад");
+  });
+
+  it("says the balance is low instead of only showing a number", async () => {
+    const api = mockPrsloy();
+    api.getState.mockResolvedValue({
+      ...state,
+      balance: {
+        remainingRub: 30,
+        usedRub: 3970,
+        grantedRub: 4000,
+        fetchedAt: new Date().toISOString(),
+      },
+    });
+    render(<AccountSection tr={tr} />);
+    await screen.findByTestId("settings-account-balance");
+    expect(document.body.textContent).toContain("Мало денег");
+  });
+
+  it("shows nothing as a balance when the gateway never answered", async () => {
+    mockPrsloy();
+    render(<AccountSection tr={tr} />);
+    expect((await screen.findByTestId("settings-account-balance")).textContent).toBe("—");
+  });
+
   it("shows the masked key without a made-up dollar-rate control", async () => {
     mockPrsloy();
     render(<AccountSection tr={tr} />);

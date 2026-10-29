@@ -17,7 +17,7 @@ import {
   type PrsloyHomePaths,
 } from "./agent-home.ts";
 import { PrsloyKeyStore, type SecretCipher } from "./key-store.ts";
-import type { PrsloySearchHandoff } from "@zeno/contracts";
+import type { PrsloyBalance, PrsloySearchHandoff } from "@zeno/contracts";
 import { readFlags } from "@prsloy/harness/flags";
 import { SearchSettings } from "./search-settings.ts";
 import { restrictToCurrentUser } from "./file-acl.ts";
@@ -36,6 +36,8 @@ export type PrsloyState = {
     source: "gateway";
     fetchedAt: string;
   };
+  /** Last money-left-on-the-key answer, for the same offline reason (#56). */
+  balance?: PrsloyBalance;
 };
 
 /** The slice of RuntimeBoot the context needs (absent outside the Electron app). */
@@ -122,6 +124,10 @@ export type PrsloyContext = {
   prices(): Readonly<Record<string, RubPricePerM>>;
   /** Persist live prices and put them into models.json. True when that file changed. */
   setPrices(list: { prices: Record<string, RubPricePerM>; source: "gateway" }, now?: Date): boolean;
+  /** Last answer of the billing routes: what is left on the key (#56). */
+  balance(): PrsloyBalance | undefined;
+  /** Persist the balance (undefined forgets it); it changes nothing the host reads. */
+  setBalance(balance: PrsloyBalance | undefined): void;
   /** Agent Host env: scrubbed, shims first, pinned home, key handoff. */
   hostEnv(base: Record<string, string | undefined>): Record<string, string>;
   /**
@@ -136,6 +142,24 @@ export type PrsloyContext = {
   designPython?: () => string | undefined;
 };
 
+/** A stored balance the renderer may show: three finite numbers and the moment it was read. */
+function readBalance(raw: PrsloyState["balance"]): PrsloyBalance | undefined {
+  if (!raw || typeof raw !== "object") return undefined;
+  const money = [raw.remainingRub, raw.usedRub, raw.grantedRub];
+  if (!money.every((value) => typeof value === "number" && Number.isFinite(value) && value >= 0)) {
+    return undefined;
+  }
+  if (typeof raw.fetchedAt !== "string" || Number.isNaN(Date.parse(raw.fetchedAt))) {
+    return undefined;
+  }
+  return {
+    remainingRub: raw.remainingRub,
+    usedRub: raw.usedRub,
+    grantedRub: raw.grantedRub,
+    fetchedAt: raw.fetchedAt,
+  };
+}
+
 function readState(path: string): PrsloyState {
   try {
     const parsed = JSON.parse(readFileSync(path, "utf8")) as Partial<PrsloyState>;
@@ -143,6 +167,7 @@ function readState(path: string): PrsloyState {
     const models = parsed.models;
     const ids = Array.isArray(models?.ids) ? models.ids.filter((m) => typeof m === "string") : [];
     const prices = parsed.prices;
+    const balance = readBalance(parsed.balance);
     const priceList =
       prices && typeof prices === "object" && prices.list && typeof prices.list === "object"
         ? Object.fromEntries(
@@ -176,6 +201,7 @@ function readState(path: string): PrsloyState {
             },
           }
         : {}),
+      ...(balance ? { balance } : {}),
     };
   } catch {
     // fall through to defaults
@@ -324,8 +350,8 @@ export function bootstrapPrsloy(options: {
     setBaseUrl(raw) {
       const baseUrl = normalizePrsloyBaseUrl(raw);
       if (!baseUrl) throw new Error("Invalid gateway URL");
-      // Another gateway serves other models and charges its own prices: forget both.
-      const { models: _old, prices: _prices, ...rest } = state;
+      // Another gateway serves other models, charges its own prices and holds other money.
+      const { models: _old, prices: _prices, balance: _balance, ...rest } = state;
       state = baseUrl === state.baseUrl ? state : { ...rest, baseUrl };
       writeState(statePath, state);
       ensurePrsloyModelsJson(agentDir, baseUrl, state.models?.ids, state.prices?.list);
@@ -354,6 +380,19 @@ export function bootstrapPrsloy(options: {
       state = { ...state, prices: next };
       writeState(statePath, state);
       return ensurePrsloyModelsJson(agentDir, state.baseUrl, state.models?.ids, next.list);
+    },
+    balance: () => state.balance,
+    setBalance(balance) {
+      if (balance) {
+        if (state.balance && state.balance.fetchedAt === balance.fetchedAt) return;
+        state = { ...state, balance };
+      } else if (!state.balance) {
+        return;
+      } else {
+        const { balance: _gone, ...rest } = state;
+        state = rest;
+      }
+      writeState(statePath, state);
     },
     searchForHost() {
       return readFlags(join(agentDir, "prsloy-harness.json")).webTools

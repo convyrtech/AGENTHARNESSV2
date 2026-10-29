@@ -57,6 +57,8 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ContextUsageIndicator } from "./ContextUsageIndicator.tsx";
 import { CostChip } from "./CostChip.tsx";
+import { BalanceChip } from "./BalanceChip.tsx";
+import { uniqueProjectPaths } from "../lib/composer-projects.ts";
 import { ModelTierSwitch } from "./ModelTierSwitch.tsx";
 import { useCasualPrefs } from "../hooks/useCasualPrefs.ts";
 import { ComposerAttachmentList } from "./ComposerAttachmentList.tsx";
@@ -337,20 +339,10 @@ export function Composer(props: ComposerProps) {
     return () => clearModelFlyoutCloseTimer();
   }, []);
 
-  const projectPaths = useMemo(() => {
-    const list: string[] = [];
-    if (props.workspacePath) list.push(props.workspacePath);
-    for (const p of props.recentWorkspaces) list.push(p);
-    const seen = new Set<string>();
-    const out: string[] = [];
-    for (const p of list) {
-      const key = p.replace(/\\/g, "/").replace(/\/+$/, "");
-      if (seen.has(key)) continue;
-      seen.add(key);
-      out.push(p);
-    }
-    return out;
-  }, [props.workspacePath, props.recentWorkspaces]);
+  const projectPaths = useMemo(
+    () => uniqueProjectPaths(props.workspacePath, props.recentWorkspaces),
+    [props.workspacePath, props.recentWorkspaces],
+  );
 
   const filteredProjects = useMemo(() => {
     const q = projectQuery.trim().toLowerCase();
@@ -1043,6 +1035,7 @@ export function Composer(props: ComposerProps) {
           {/* Right: context + model + send */}
           <div className="flex shrink-0 items-center gap-1">
             <CostChip locale={props.locale} />
+            <BalanceChip locale={props.locale} />
             {developerMode && props.showContextUsage !== false ? (
               <ContextUsageIndicator
                 label={tr("composer.context")}

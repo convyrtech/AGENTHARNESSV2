@@ -5,8 +5,11 @@
  */
 import { useEffect, useState, type FormEvent } from "react";
 import type { PrsloyKeyResult, PrsloyState } from "@zeno/contracts";
-import type { MessageKey } from "../../lib/i18n.ts";
+import type { Locale, MessageKey } from "../../lib/i18n.ts";
 import { cleanPastedKey, gatewayErrorKey } from "../../lib/prsloy-first-run.ts";
+import { balanceAgeMinutes, balanceIsLow } from "../../lib/prsloy-balance.ts";
+import { formatRub } from "../../lib/rub-cost.ts";
+import { useShellStore } from "../../store/shell-store.ts";
 import { SupportReportRow } from "../prsloy/SupportReportRow.tsx";
 import {
   SettingsButton,
@@ -19,8 +22,38 @@ import { AppVersionRow } from "./AppVersionRow.tsx";
 
 type Tr = (key: MessageKey, vars?: Record<string, string>) => string;
 
+/** The gateway page where the key is topped up — same origin the app already talks to. */
+function topUpUrl(baseUrl: string): string | undefined {
+  try {
+    const url = new URL(baseUrl);
+    return url.protocol === "https:" ? url.origin : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function balanceDescription(
+  balance: PrsloyState["balance"],
+  locale: Locale,
+  baseUrl: string,
+  tr: Tr,
+): string | undefined {
+  if (!balance) return undefined;
+  const parts: string[] = [];
+  if (balanceIsLow(balance)) {
+    parts.push(tr("prsloy.balance.low", { amount: formatRub(balance.remainingRub, locale) }));
+  }
+  const site = topUpUrl(baseUrl);
+  if (site) parts.push(tr("prsloy.balance.settingsHint", { site }));
+  parts.push(
+    tr("prsloy.balance.updated", { minutes: String(balanceAgeMinutes(balance.fetchedAt)) }),
+  );
+  return parts.join(" · ");
+}
+
 export function AccountSection(props: { tr: Tr }) {
   const { tr } = props;
+  const locale = useShellStore((s) => s.locale);
   const [state, setState] = useState<PrsloyState>();
   const [changingKey, setChangingKey] = useState(false);
   const [keyDraft, setKeyDraft] = useState("");
@@ -152,6 +185,15 @@ export function AccountSection(props: { tr: Tr }) {
                   </SettingsButton>
                 </div>
               )
+            }
+          />
+          <SettingsRow
+            title={tr("prsloy.balance.settingsLabel")}
+            description={balanceDescription(state.balance, locale, state.baseUrl, tr)}
+            control={
+              <span data-testid="settings-account-balance">
+                {state.balance ? formatRub(state.balance.remainingRub, locale) : "—"}
+              </span>
             }
           />
           <SettingsRow

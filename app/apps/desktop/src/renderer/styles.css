@@ -6576,6 +6576,10 @@ textarea.models-scoped-patterns-input[data-slot="textarea"] {
   white-space: nowrap;
   color: var(--muted-foreground);
 }
+/* Money left on the key fell under the warning line (#56): the chip has to read as a warning. */
+.cost-chip.prsloy-balance-low {
+  color: var(--destructive);
+}
 .cost-chip-sep {
   opacity: 0.5;
 }
