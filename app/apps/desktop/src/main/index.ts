@@ -1,6 +1,7 @@
 // First: userData → <appData>/PRSLOY (one-time move of the old profile) before any getPath.
 import "./prsloy/user-data-electron.ts";
 import { SUPPORT_LOG_DIR } from "./prsloy/support/startup.ts";
+import { registerAttachmentImageIpc } from "./attachment-images.ts";
 import {
   IPC_PROTOCOL_VERSION,
   type ExtensionUiResponse,
@@ -69,7 +70,7 @@ import {
   readdirSync,
 } from "node:fs";
 import { homedir } from "node:os";
-import { basename, dirname, isAbsolute, join, resolve, sep } from "node:path";
+import { basename, dirname, isAbsolute, join, resolve } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import {
@@ -5315,64 +5316,12 @@ void app
         return filePath;
       },
     );
-    /** Local image → small data-URL thumbnail for AttachmentMedia variant="image". */
-    ipcMain.handle("zeno:workspace:read-attachment-preview", async (event, filePath?: string) => {
-      assertTrustedSender(event);
-      if (typeof filePath !== "string" || !filePath.trim()) return undefined;
-      const abs = resolve(filePath);
-      if (!existsSync(abs)) return undefined;
-      // 边界校验：仅允许工作区或剪贴板临时目录内的图片，防任意磁盘文件读取。
-      const attachmentsRoot = resolve(join(app.getPath("temp"), "zeno-attachments"));
-      const workspaceCwd = supervisor?.getWorkspaceCwd();
-      const inAttachments = abs === attachmentsRoot || abs.startsWith(attachmentsRoot + sep);
-      const inWorkspace =
-        typeof workspaceCwd === "string" && workspaceCwd.trim()
-          ? abs === resolve(workspaceCwd) || abs.startsWith(resolve(workspaceCwd) + sep)
-          : false;
-      if (!inAttachments && !inWorkspace) return undefined;
-      try {
-        if (!lstatSync(abs).isFile()) return undefined;
-      } catch {
-        return undefined;
-      }
-      const ext = abs.slice(abs.lastIndexOf(".")).toLowerCase();
-      if (
-        ![
-          ".png",
-          ".jpg",
-          ".jpeg",
-          ".gif",
-          ".webp",
-          ".svg",
-          ".bmp",
-          ".tif",
-          ".tiff",
-          ".heic",
-          ".avif",
-        ].includes(ext)
-      ) {
-        return undefined;
-      }
-      try {
-        const image = nativeImage.createFromPath(abs);
-        if (image.isEmpty()) return undefined;
-        const { width, height } = image.getSize();
-        const maxEdge = 160;
-        let out = image;
-        if (width > maxEdge || height > maxEdge) {
-          const scale = Math.min(maxEdge / Math.max(width, 1), maxEdge / Math.max(height, 1));
-          out = image.resize({
-            width: Math.max(1, Math.round(width * scale)),
-            height: Math.max(1, Math.round(height * scale)),
-            quality: "good",
-          });
-        }
-        const png = out.toPNG();
-        if (!png.length || png.length > 1_500_000) return undefined;
-        return `data:image/png;base64,${png.toString("base64")}`;
-      } catch {
-        return undefined;
-      }
+    registerAttachmentImageIpc({
+      ipcMain,
+      nativeImage,
+      attachmentsRoot: () => join(app.getPath("temp"), "zeno-attachments"),
+      workspaceRoot: () => supervisor?.getWorkspaceCwd(),
+      assertTrustedSender,
     });
     ipcMain.handle("zeno:trust:get", () => supervisor?.getTrust());
     ipcMain.handle("zeno:trust:set", (_event, trusted: boolean) => supervisor?.setTrust(trusted));

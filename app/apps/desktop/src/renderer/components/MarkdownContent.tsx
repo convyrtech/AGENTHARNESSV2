@@ -426,6 +426,7 @@ function MediaContent(props: {
         open={previewOpen}
         onOpenChange={setPreviewOpen}
         source={source}
+        path={filePath}
         alt={props.alt}
         locale={props.locale}
         onError={() => void handleImageError()}

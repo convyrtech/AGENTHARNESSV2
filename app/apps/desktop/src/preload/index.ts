@@ -282,6 +282,7 @@ const api: ZenoDesktopApi = {
       ipcRenderer.invoke("zeno:workspace:save-clipboard-image", options),
     readAttachmentPreview: (path) =>
       ipcRenderer.invoke("zeno:workspace:read-attachment-preview", path),
+    readAttachmentImage: (path) => ipcRenderer.invoke("zeno:workspace:read-attachment-image", path),
     ensureDefault: () => ipcRenderer.invoke("zeno:workspace:ensure-default"),
     ensureConversation: () => ipcRenderer.invoke("zeno:workspace:ensure-conversation"),
     removeRecent: (cwd) => ipcRenderer.invoke("zeno:workspace:remove-recent", cwd),
