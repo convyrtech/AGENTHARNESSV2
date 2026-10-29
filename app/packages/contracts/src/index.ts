@@ -2026,6 +2026,11 @@ export interface ZenoDesktopApi {
      */
     readAttachmentPreview(path: string): Promise<string | undefined>;
     /**
+     * Full-size data URL of a local image for the lightbox (#74). The same path guard as
+     * `readAttachmentPreview`, but no 160px thumbnail: a screenshot must stay readable.
+     */
+    readAttachmentImage(path: string): Promise<string | undefined>;
+    /**
      * Ensure a default project folder under Documents/Zeno/YYYY-MM-DD
      * (reuse today's folder if it already exists). Returns absolute path.
      */
