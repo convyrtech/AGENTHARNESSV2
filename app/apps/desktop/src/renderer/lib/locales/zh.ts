@@ -198,7 +198,7 @@ export const zh = {
   "projectsPage.months": "{n} 个月",
   "projectsPage.years": "{n} 年",
   "projectsPage.open": "打开项目",
-  "nav.update.github": "在 GitHub 上查看 PRSLOY",
+  "nav.update.check": "检查更新",
   "nav.update.available": "发现新版本，点击下载",
   "nav.update.downloading": "正在下载更新…",
   "nav.update.downloadingPct": "正在下载更新 {percent}%…",

@@ -171,6 +171,7 @@ export function ComposerAttachmentList(props: {
         }}
         source={previewSource ?? ""}
         alt={previewPath ? attachmentLabel(previewPath) : undefined}
+        path={previewPath}
         locale={props.locale}
       />
     </>

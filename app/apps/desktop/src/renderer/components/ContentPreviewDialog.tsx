@@ -1,4 +1,4 @@
-import type { ReactEventHandler, ReactNode } from "react";
+import { useEffect, useState, type ReactEventHandler, type ReactNode } from "react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { t, type Locale } from "../lib/i18n.ts";
 import { cn } from "../lib/utils.ts";
@@ -54,11 +54,38 @@ export function ImagePreviewDialog(props: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   source: string;
+  /**
+   * Local file path of the picture. When given, the dialog loads the full-size image itself
+   * instead of upscaling the composer thumbnail (#74); `source` stays the instant fallback so
+   * the dialog never opens empty.
+   */
+  path?: string | undefined;
   alt?: string | undefined;
   locale: Locale;
   onError?: ReactEventHandler<HTMLImageElement> | undefined;
 }) {
   const title = props.alt || t(props.locale, "timeline.imagePreview");
+  const [fullSize, setFullSize] = useState<string>();
+  const imagePath = props.path;
+  useEffect(() => {
+    if (!props.open || !imagePath) {
+      setFullSize(undefined);
+      return;
+    }
+    let cancelled = false;
+    void window.zeno?.workspace
+      ?.readAttachmentImage?.(imagePath)
+      .then((url) => {
+        if (!cancelled && url) setFullSize(url);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [props.open, imagePath]);
+
+  // The dialog card shrink-wraps its content (that is right for tables), so an image needs its
+  // own box size here — otherwise the stage collapses and a thumbnail lands at ~100×100 (#74).
   return (
     <ContentPreviewDialog
       open={props.open}
@@ -70,7 +97,7 @@ export function ImagePreviewDialog(props: {
     >
       <div className="content-image-preview-surface">
         <img
-          src={props.source}
+          src={fullSize ?? props.source}
           alt={props.alt ?? ""}
           className="content-image-preview-image"
           onError={props.onError}

@@ -5316,8 +5316,13 @@ void app
       },
     );
     /** Local image → small data-URL thumbnail for AttachmentMedia variant="image". */
-    ipcMain.handle("zeno:workspace:read-attachment-preview", async (event, filePath?: string) => {
-      assertTrustedSender(event);
+    /**
+     * Path guard shared by the thumbnail and the full-size lightbox source (#74): only images
+     * inside the workspace or the clipboard temp dir, only real files, only known extensions.
+     * Keeping it in one place means the thumbnail and the picture a user clicks can never
+     * disagree about what may be read.
+     */
+    const resolveAttachmentImagePath = (filePath?: string): string | undefined => {
       if (typeof filePath !== "string" || !filePath.trim()) return undefined;
       const abs = resolve(filePath);
       if (!existsSync(abs)) return undefined;
@@ -5353,6 +5358,13 @@ void app
       ) {
         return undefined;
       }
+      return abs;
+    };
+    /** Local image → small data-URL thumbnail for AttachmentMedia variant="image". */
+    ipcMain.handle("zeno:workspace:read-attachment-preview", async (event, filePath?: string) => {
+      assertTrustedSender(event);
+      const abs = resolveAttachmentImagePath(filePath);
+      if (!abs) return undefined;
       try {
         const image = nativeImage.createFromPath(abs);
         if (image.isEmpty()) return undefined;
@@ -5369,6 +5381,36 @@ void app
         }
         const png = out.toPNG();
         if (!png.length || png.length > 1_500_000) return undefined;
+        return `data:image/png;base64,${png.toString("base64")}`;
+      } catch {
+        return undefined;
+      }
+    });
+    /**
+     * Lightbox source: the picture at a readable size. A 160px thumbnail in a full-screen dialog
+     * is unreadable, so this returns the original — only capped for very large photos so the
+     * renderer does not hold a 40-megapixel image in memory.
+     */
+    ipcMain.handle("zeno:workspace:read-attachment-image", async (event, filePath?: string) => {
+      assertTrustedSender(event);
+      const abs = resolveAttachmentImagePath(filePath);
+      if (!abs) return undefined;
+      try {
+        const image = nativeImage.createFromPath(abs);
+        if (image.isEmpty()) return undefined;
+        const { width, height } = image.getSize();
+        const maxEdge = 2400;
+        let out = image;
+        if (width > maxEdge || height > maxEdge) {
+          const scale = Math.min(maxEdge / Math.max(width, 1), maxEdge / Math.max(height, 1));
+          out = image.resize({
+            width: Math.max(1, Math.round(width * scale)),
+            height: Math.max(1, Math.round(height * scale)),
+            quality: "best",
+          });
+        }
+        const png = out.toPNG();
+        if (!png.length || png.length > 12_000_000) return undefined;
         return `data:image/png;base64,${png.toString("base64")}`;
       } catch {
         return undefined;

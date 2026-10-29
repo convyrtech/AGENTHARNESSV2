@@ -308,6 +308,7 @@ function AttachmentList(props: { paths: string[]; locale: Locale }) {
         }}
         source={previewSource ?? ""}
         alt={previewPath ? attachmentLabel(previewPath) : undefined}
+        path={previewPath}
         locale={props.locale}
       />
     </>
