@@ -190,7 +190,6 @@ export const ru = {
   "projectsPage.months": "{n} мес",
   "projectsPage.years": "{n} г",
   "projectsPage.open": "Открыть проект",
-  "nav.update.github": "PRSLOY на GitHub",
   "nav.update.available": "Есть обновление — скачать",
   "nav.update.downloading": "Скачиваем обновление…",
   "nav.update.downloadingPct": "Скачиваем обновление {percent}%…",
