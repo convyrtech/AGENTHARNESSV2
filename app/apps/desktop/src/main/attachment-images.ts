@@ -2,10 +2,10 @@
  * Local images for the composer thumbnail and the full-size lightbox (#74).
  *
  * Both routes share one path guard: only real image files inside the open workspace or the
- * clipboard attachment directory. The lightbox gets the original pixels; CSS alone scales it
- * to the window, so screenshot text is not lost to a second resize.
+ * clipboard attachment directory. The lightbox keeps the original pixels when they fit;
+ * exceptionally large images are reduced until the IPC payload fits.
  */
-import { existsSync, lstatSync } from "node:fs";
+import { existsSync, lstatSync, realpathSync } from "node:fs";
 import { resolve, sep } from "node:path";
 import type { IpcMainInvokeEvent } from "electron";
 
@@ -50,14 +50,19 @@ export function resolveAttachmentImagePath(
   if (typeof filePath !== "string" || !filePath.trim()) return undefined;
   const abs = resolve(filePath);
   if (!existsSync(abs)) return undefined;
-  const inside = roots.some((root) => {
-    if (!root.trim()) return false;
-    const base = resolve(root);
-    return abs === base || abs.startsWith(base + sep);
-  });
-  if (!inside) return undefined;
   try {
     if (!lstatSync(abs).isFile()) return undefined;
+    const actual = realpathSync(abs);
+    const inside = roots.some((root) => {
+      if (!root.trim()) return false;
+      try {
+        const base = realpathSync(resolve(root));
+        return actual === base || actual.startsWith(base + sep);
+      } catch {
+        return false;
+      }
+    });
+    if (!inside) return undefined;
   } catch {
     return undefined;
   }
@@ -67,6 +72,28 @@ export function resolveAttachmentImagePath(
 function dataUrl(png: Buffer, maxBytes: number): string | undefined {
   if (!png.length || png.length > maxBytes) return undefined;
   return `data:image/png;base64,${png.toString("base64")}`;
+}
+
+const MAX_FULL_IMAGE_BYTES = 12_000_000;
+
+/** Keep the original when possible; shrink oversized PNGs rather than show a 160px thumbnail. */
+function fullImageDataUrl(
+  image: ReturnType<AttachmentImageNative["createFromPath"]>,
+): string | undefined {
+  let out = image;
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    const png = out.toPNG();
+    const url = dataUrl(png, MAX_FULL_IMAGE_BYTES);
+    if (url || !png.length) return url;
+    const { width, height } = out.getSize();
+    if (width <= 1 && height <= 1) return undefined;
+    out = out.resize({
+      width: Math.max(1, Math.floor(width * 0.7)),
+      height: Math.max(1, Math.floor(height * 0.7)),
+      quality: "best",
+    });
+  }
+  return undefined;
 }
 
 export function registerAttachmentImageIpc(options: {
@@ -113,7 +140,7 @@ export function registerAttachmentImageIpc(options: {
     try {
       const image = options.nativeImage.createFromPath(abs);
       if (image.isEmpty()) return undefined;
-      return dataUrl(image.toPNG(), 12_000_000);
+      return fullImageDataUrl(image);
     } catch {
       return undefined;
     }
