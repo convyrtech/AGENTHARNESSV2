@@ -194,7 +194,6 @@ export const en = {
   "projectsPage.months": "{n}mo",
   "projectsPage.years": "{n}y",
   "projectsPage.open": "Open project",
-  "nav.update.github": "View PRSLOY on GitHub",
   "nav.update.available": "Update available — click to download",
   "nav.update.downloading": "Downloading update…",
   "nav.update.downloadingPct": "Downloading update {percent}%…",
