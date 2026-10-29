@@ -87,6 +87,22 @@ export const PRSLOY_OUTPUT_LIMITS: Readonly<
     source:
       "research/07 §2.1: DeepSeek Models & Pricing — output up to 384K, max 393 216 [VERIFIED]",
   },
+  "deepseek-v4-flash": {
+    tokens: null,
+    source: "A6 catalog 2026-10-29; output limit not verified",
+  },
+  "mimo-v2.6-flash": {
+    tokens: null,
+    source: "A6 catalog 2026-10-29, output limit not verified",
+  },
+  "gpt-6-luna": {
+    tokens: null,
+    source: "A6 catalog 2026-10-29, output limit not verified",
+  },
+  "gpt-5.6-luna": {
+    tokens: null,
+    source: "A6 catalog 2026-10-29, output limit not verified",
+  },
   "kimi-k3.1-pro": {
     tokens: null,
     source:
@@ -140,6 +156,43 @@ export const PRSLOY_MODELS: readonly PrsloyModelDef[] = [
       supportsReasoningEffort: true,
       requiresReasoningContentOnAssistantMessages: true,
     },
+  },
+  {
+    // A6 2026-10-29: cheaper than the dated V4.1 listing; text-only until a vision probe.
+    id: "deepseek-v4-flash",
+    name: "DeepSeek V4 Flash",
+    reasoning: false,
+    input: ["text"],
+    contextWindow: 128_000,
+    maxTokens: prsloyMaxTokens("deepseek-v4-flash"),
+    compat: { supportsReasoningEffort: false },
+  },
+  {
+    id: "mimo-v2.6-flash",
+    name: "MiMo V2.6 Flash",
+    reasoning: false,
+    input: ["text"],
+    contextWindow: 128_000,
+    maxTokens: prsloyMaxTokens("mimo-v2.6-flash"),
+    compat: { supportsReasoningEffort: false },
+  },
+  {
+    id: "gpt-6-luna",
+    name: "GPT-6 Luna",
+    reasoning: false,
+    input: ["text"],
+    contextWindow: 128_000,
+    maxTokens: prsloyMaxTokens("gpt-6-luna"),
+    compat: { supportsReasoningEffort: false },
+  },
+  {
+    id: "gpt-5.6-luna",
+    name: "GPT-5.6 Luna",
+    reasoning: false,
+    input: ["text"],
+    contextWindow: 128_000,
+    maxTokens: prsloyMaxTokens("gpt-5.6-luna"),
+    compat: { supportsReasoningEffort: false },
   },
   {
     id: "kimi-k3.1-pro",
@@ -387,14 +440,23 @@ export const PRSLOY_DEFAULT_SPEED_MODE: PrsloySpeedMode = "fast";
  * Owner's rule «лучший результат за минимум денег»: each preset is the first model of its
  * list the gateway serves. The first entry is PRSLOY_SPEED_MODES' model.
  *
- * Only models that reach the vendor as asked (gateway probe 2026-10-25): DeepSeek and Kimi are genuine;
- * GPT-6.1 Sol sometimes goes through another channel but still obeys our system message; Opus obeys it
- * too but streams nothing until the whole answer is ready (quality's last resort). Never in a preset:
- * Qwen (our system message is dropped), Grok (tool calls come back as text, minutes of hidden thinking),
- * Fable (its channel overrides our system message). They stay selectable by hand.
+ * Only models that reach the vendor as asked: DeepSeek and Kimi are genuine (gateway probe
+ * 2026-10-25); the four cheap 2026-10-29 additions obeyed the system prompt and called a tool
+ * through A6; GPT-6.1 Sol sometimes goes through another channel but still obeys our system message;
+ * Opus obeys it too but streams nothing until the whole answer is ready (quality's last resort).
+ * Never in a preset: Qwen (our system message is dropped), Grok (tool calls come back as text,
+ * minutes of hidden thinking), Fable (its channel overrides our system message). They stay selectable by hand.
  */
 export const PRSLOY_SPEED_PREFERENCE: Readonly<Record<PrsloySpeedMode, readonly string[]>> = {
-  fast: ["deepseek-v4.1-flash-1017", "kimi-k3.1-pro", "gpt-6.1-sol"],
+  fast: [
+    "deepseek-v4.1-flash-1017",
+    "deepseek-v4-flash",
+    "mimo-v2.6-flash",
+    "gpt-6-luna",
+    "gpt-5.6-luna",
+    "kimi-k3.1-pro",
+    "gpt-6.1-sol",
+  ],
   // No DeepSeek in «Качественнее» (owner, 2026-10-26): a person who chose quality never silently gets
   // the fast model; without Kimi and GPT-6.1 Sol it falls to Opus.
   quality: ["kimi-k3.1-pro", "gpt-6.1-sol", "claude-opus-5-5"],

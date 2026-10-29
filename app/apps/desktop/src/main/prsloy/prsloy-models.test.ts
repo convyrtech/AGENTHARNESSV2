@@ -76,6 +76,10 @@ describe("catalog and presets from the gateway's list", () => {
     expect(prsloySpeedModelId("quality", LIVE)).toBe("gpt-6.1-sol");
     // Only Kimi: it is «Быстрее» too, ahead of anything that drops our system message.
     expect(prsloySpeedModelId("fast", ["qwen3.8-max", "kimi-k3.1-pro"])).toBe("kimi-k3.1-pro");
+    expect(prsloySpeedModelId("fast", ["gpt-5.6-luna", "deepseek-v4-flash"])).toBe(
+      "deepseek-v4-flash",
+    );
+    expect(prsloySpeedModelId("fast", ["gpt-5.6-luna", "mimo-v2.6-flash"])).toBe("mimo-v2.6-flash");
     // Once the owner adds them, they win again.
     const full = [...LIVE, "deepseek-v4.1-flash-1017", "kimi-k3.1-pro"];
     expect(prsloySpeedModelId("fast", full)).toBe("deepseek-v4.1-flash-1017");

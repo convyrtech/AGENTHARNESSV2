@@ -21,6 +21,30 @@ export const PRSLOY_PRICE_TABLE_SNAPSHOT: Readonly<Record<string, RubPricePerM>>
     cacheWrite: 1.3,
     output: 4.1,
   },
+  "deepseek-v4-flash": {
+    input: 0.55,
+    cacheRead: 0.0018,
+    cacheWrite: 0.6875,
+    output: 1.6,
+  },
+  "mimo-v2.6-flash": {
+    input: 2.7,
+    cacheRead: 0.055,
+    cacheWrite: 3.375,
+    output: 5.5,
+  },
+  "gpt-6-luna": {
+    input: 1.9,
+    cacheRead: 0.19,
+    cacheWrite: 2.375,
+    output: 9.3,
+  },
+  "gpt-5.6-luna": {
+    input: 2.2,
+    cacheRead: 0.22,
+    cacheWrite: 2.75,
+    output: 13,
+  },
   "gpt-6-astra": {
     input: 66,
     cacheRead: 6.6,
