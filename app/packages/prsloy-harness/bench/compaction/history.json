@@ -1,0 +1,257 @@
+{
+  "_note": "Обезличенная выдуманная история для A/B сжатия (#76). Ничего из настоящих сессий: проект, имена, пути и ошибки придуманы. facts — что обязано пережить сжатие; needle — точная строка, по которой это проверяется кодом.",
+  "task": "Сделать страницу заказа пирогов с формой, починить расчёт доставки и не трогать общий стиль.",
+  "facts": [
+    {
+      "id": "project",
+      "needle": "Пирог и точка",
+      "what": "название проекта из первой просьбы"
+    },
+    {
+      "id": "constraint",
+      "needle": "styles/shared.css",
+      "what": "запрет трогать общий файл стилей"
+    },
+    {
+      "id": "constraint2",
+      "needle": "Цены в прайсе не менять",
+      "what": "запрет менять прайс"
+    },
+    {
+      "id": "edited1",
+      "needle": "site/order.html",
+      "what": "файл формы заказа"
+    },
+    {
+      "id": "edited2",
+      "needle": "src/delivery.js",
+      "what": "файл расчёта доставки"
+    },
+    {
+      "id": "failed",
+      "needle": "npm test",
+      "what": "упавшая проверка"
+    },
+    {
+      "id": "error",
+      "needle": "deliveryCost is not a function",
+      "what": "текст ошибки"
+    },
+    {
+      "id": "decision",
+      "needle": "порог бесплатной доставки — 1500",
+      "what": "решение, принятое по ходу"
+    },
+    {
+      "id": "unfinished",
+      "needle": "проверить на телефоне",
+      "what": "незаконченная часть"
+    },
+    {
+      "id": "asked",
+      "needle": "Спросить у Насти",
+      "what": "открытый вопрос к человеку"
+    }
+  ],
+  "entries": [
+    {
+      "type": "message",
+      "message": {
+        "role": "user",
+        "timestamp": 1761600000000,
+        "content": [
+          {
+            "type": "text",
+            "text": "Нужна страница заказа для пекарни «Пирог и точка». Форма: имя, телефон, начинка, адрес. Стиль общий в styles/shared.css — его не трогай, он для всех страниц. Цены в прайсе не менять."
+          }
+        ]
+      }
+    },
+    {
+      "type": "message",
+      "message": {
+        "role": "assistant",
+        "timestamp": 1761600010000,
+        "content": [
+          {
+            "type": "text",
+            "text": "Сделаю страницу и форму, стиль подключу, но менять не буду."
+          },
+          {
+            "type": "toolCall",
+            "id": "c1",
+            "name": "write",
+            "arguments": {
+              "path": "site/order.html",
+              "content": "<form>…</form>"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "message",
+      "message": {
+        "role": "toolResult",
+        "toolCallId": "c1",
+        "toolName": "write",
+        "isError": false,
+        "timestamp": 1761600012000,
+        "content": [
+          {
+            "type": "text",
+            "text": "Successfully wrote site/order.html"
+          }
+        ]
+      }
+    },
+    {
+      "type": "message",
+      "message": {
+        "role": "assistant",
+        "timestamp": 1761600020000,
+        "content": [
+          {
+            "type": "text",
+            "text": "Форма готова. Проверю, как считается доставка."
+          },
+          {
+            "type": "toolCall",
+            "id": "c2",
+            "name": "read",
+            "arguments": {
+              "path": "src/delivery.js"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "message",
+      "message": {
+        "role": "toolResult",
+        "toolCallId": "c2",
+        "toolName": "read",
+        "isError": false,
+        "timestamp": 1761600022000,
+        "content": [
+          {
+            "type": "text",
+            "text": "export function price(order) { … }"
+          }
+        ]
+      }
+    },
+    {
+      "type": "message",
+      "message": {
+        "role": "user",
+        "timestamp": 1761600030000,
+        "content": [
+          {
+            "type": "text",
+            "text": "И ещё: доставка бесплатная от 1500 рублей, порог бесплатной доставки — 1500. Это решение согласовано."
+          }
+        ]
+      }
+    },
+    {
+      "type": "message",
+      "message": {
+        "role": "assistant",
+        "timestamp": 1761600040000,
+        "content": [
+          {
+            "type": "text",
+            "text": "Добавлю расчёт доставки с порогом 1500."
+          },
+          {
+            "type": "toolCall",
+            "id": "c3",
+            "name": "edit",
+            "arguments": {
+              "path": "src/delivery.js",
+              "oldText": "export function price",
+              "newText": "export function deliveryCost"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "message",
+      "message": {
+        "role": "toolResult",
+        "toolCallId": "c3",
+        "toolName": "edit",
+        "isError": false,
+        "timestamp": 1761600042000,
+        "content": [
+          {
+            "type": "text",
+            "text": "Edited src/delivery.js"
+          }
+        ]
+      }
+    },
+    {
+      "type": "message",
+      "message": {
+        "role": "assistant",
+        "timestamp": 1761600050000,
+        "content": [
+          {
+            "type": "toolCall",
+            "id": "c4",
+            "name": "bash",
+            "arguments": {
+              "command": "cd site && npm test"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "message",
+      "message": {
+        "role": "toolResult",
+        "toolCallId": "c4",
+        "toolName": "bash",
+        "isError": true,
+        "timestamp": 1761600052000,
+        "content": [
+          {
+            "type": "text",
+            "text": "[exit 1 · 0,8 с]\nTypeError: deliveryCost is not a function\n    at price (src/delivery.js:12:18)"
+          }
+        ]
+      }
+    },
+    {
+      "type": "message",
+      "message": {
+        "role": "user",
+        "timestamp": 1761600060000,
+        "content": [
+          {
+            "type": "text",
+            "text": "Порог не тот — я спрашивала у Насти, она говорит 1500. И надо проверить на телефоне, как выглядит форма. Спросить у Насти про самовывоз я не успела."
+          }
+        ]
+      }
+    },
+    {
+      "type": "message",
+      "message": {
+        "role": "assistant",
+        "timestamp": 1761600070000,
+        "content": [
+          {
+            "type": "text",
+            "text": "Понял: чиню вызов функции, порог 1500, потом смотрю форму на телефоне."
+          }
+        ]
+      }
+    }
+  ]
+}

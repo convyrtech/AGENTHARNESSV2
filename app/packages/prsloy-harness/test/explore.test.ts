@@ -5,8 +5,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 import {
+  callPath,
   cheapestModel,
   clipAnswer,
+  exploreResultText,
+  safeSlice,
   EXPLORE_ANSWER_LIMIT,
   EXPLORE_MARKER,
   EXPLORE_TURNS,
@@ -248,6 +251,51 @@ describe("разведчик: пределы", () => {
     });
     expect(answer.stoppedBy).toBe("error");
     expect(answer.error).toContain("500");
+  });
+});
+
+describe("ревью другой моделью (#47): найденные дыры закрыты", () => {
+  it("pattern у grep/find не считается файлом, только path/file", () => {
+    expect(callPath("grep", { pattern: "TODO|FIXME" })).toBeUndefined();
+    expect(callPath("find", { pattern: "**/*.ts" })).toBeUndefined();
+    expect(callPath("find", { pattern: "balance.json" })).toBe("balance.json");
+    expect(callPath("read", { path: "src/a.ts" })).toBe("src/a.ts");
+  });
+
+  it("обрезка не рвёт символ пополам", () => {
+    // Три единицы — это половина эмодзи: без защиты на конце осталась бы битая пара.
+    expect(safeSlice("😀😀", 3)).toBe("😀");
+    expect(safeSlice("😀😀", 4)).toBe("😀😀");
+    const clip = clipAnswer("😀".repeat(EXPLORE_ANSWER_LIMIT));
+    expect(clip.clipped).toBe(true);
+    const last = clip.text.charCodeAt(clip.text.length - 1);
+    expect(last >= 0xd800 && last <= 0xdbff).toBe(false);
+  });
+
+  it("предел времени — честное «не успел», модель не зовём", async () => {
+    const dir = await project({ "a.ts": "const a = 1;\n" });
+    const s = scripted(say("Нашёл."));
+    const answer = await runExplore({
+      question: "где a?",
+      depth: "thorough",
+      cwd: dir,
+      tools: exploreTools(dir),
+      model: MODEL,
+      complete: s.complete,
+      deadlineMs: -1,
+    });
+    expect(answer.stoppedBy).toBe("timeout");
+    expect(s.seen).toHaveLength(0);
+    expect(exploreResultText(answer, MODEL, 3)).toContain("не успел");
+  });
+
+  it("модель без цены не выбирается как «самая дешёвая»", () => {
+    type Priced = { id: string; cost?: { input?: number; output?: number } };
+    const known: Priced = { id: "a", cost: { input: 1, output: 1 } };
+    const unknown: Priced = { id: "b" };
+    const pricey: Priced = { id: "c", cost: { input: 9, output: 9 } };
+    expect(cheapestModel([unknown, pricey, known])?.id).toBe("a");
+    expect(cheapestModel([unknown])).toBeUndefined();
   });
 });
 

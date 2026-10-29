@@ -28,6 +28,8 @@ export const EXPLORE_ANSWER_LIMIT = 4_000;
 /** Сколько знаков одного результата инструмента идёт ребёнку: контекст не раздуваем. */
 export const EXPLORE_TOOL_OUTPUT_LIMIT = 8_000;
 export const EXPLORE_MAX_TOKENS = 8_000;
+/** Предел на весь цикл: разведчик не должен держать ход родителя дольше двух минут. */
+export const EXPLORE_DEADLINE_MS = 120_000;
 
 /** Инструменты ребёнка: только чтение. Ни bash, ни write/edit, ни explore (рекурсии нет). */
 export const EXPLORE_TOOL_NAMES: readonly string[] = ["read", "grep", "find", "ls"];
@@ -80,7 +82,7 @@ export function clipAnswer(
   if (trimmed.length <= limit) return { text: trimmed, clipped: false };
   const mark = "\n[…обрезано: ответ длиннее лимита]";
   return {
-    text: `${trimmed.slice(0, Math.max(0, limit - mark.length)).trimEnd()}${mark}`,
+    text: `${safeSlice(trimmed, Math.max(0, limit - mark.length)).trimEnd()}${mark}`,
     clipped: true,
   };
 }
@@ -92,7 +94,10 @@ export function cheapestModel<T extends { cost?: { input?: number; output?: numb
   let best: T | undefined;
   let bestCost = Number.POSITIVE_INFINITY;
   for (const model of models) {
-    const cost = (model.cost?.input ?? 0) + (model.cost?.output ?? 0);
+    // Модель без цены не может быть «самой дешёвой»: неизвестно, сколько она стоит (ревью #47).
+    const { input, output } = model.cost ?? {};
+    if (typeof input !== "number" || typeof output !== "number") continue;
+    const cost = input + output;
     if (cost < bestCost) {
       bestCost = cost;
       best = model;
@@ -134,6 +139,8 @@ export interface ExploreRun {
   maxTokens?: number;
   /** Стоимость и токены каждого ответа — в статистику сессии. */
   onUsage?: (reply: ExploreReply) => void;
+  /** Предел на весь цикл, мс. По умолчанию EXPLORE_DEADLINE_MS. */
+  deadlineMs?: number;
 }
 
 export interface ExploreAnswer {
@@ -144,7 +151,7 @@ export interface ExploreAnswer {
   toolCalls: number;
   /** Файлы, которых касались вызовы (read/grep/find). */
   files: string[];
-  stoppedBy: "answer" | "depth" | "aborted" | "error";
+  stoppedBy: "answer" | "depth" | "aborted" | "error" | "timeout";
   error?: string;
 }
 
@@ -159,20 +166,35 @@ function textPart(text: string): { type: "text"; text: string } {
   return { type: "text", text };
 }
 
-/** Файл, который тронул вызов: для счёта «N файлов» в карточке. */
+/** Файл, который тронул вызов: для счёта «N файлов» в карточке.
+ * Берём только `path`/`file`: у grep и find в `pattern` лежит регулярка или шаблон имени, а не файл,
+ * иначе в счёте появлялись бы строки вроде «TODO|FIXME» (ревью #47). */
 export function callPath(
   name: string,
   args: Record<string, unknown> | undefined,
 ): string | undefined {
   if (!args) return undefined;
-  const path = args.path ?? args.file ?? args.pattern;
-  return typeof path === "string" && path.trim() ? path.trim() : undefined;
+  const path = args.path ?? args.file;
+  if (typeof path === "string" && path.trim()) return path.trim();
+  // find без пути ищет от корня проекта — это законный «файл» только если он назван.
+  const pattern = name === "find" ? args.pattern : undefined;
+  return typeof pattern === "string" && pattern.trim() && !/[*?[\]]/.test(pattern)
+    ? pattern.trim()
+    : undefined;
+}
+
+/** Обрезка без разрыва символа: не оставляем половину суррогатной пары (эмодзи). */
+export function safeSlice(text: string, limit: number): string {
+  if (text.length <= limit) return text;
+  const cut = text.slice(0, limit);
+  const last = cut.charCodeAt(cut.length - 1);
+  return last >= 0xd800 && last <= 0xdbff ? cut.slice(0, -1) : cut;
 }
 
 /** Результат ребёнку: текст в пределах лимита, ошибка — как ошибка. */
 function clipToolOutput(text: string): string {
   if (text.length <= EXPLORE_TOOL_OUTPUT_LIMIT) return text;
-  return `${text.slice(0, EXPLORE_TOOL_OUTPUT_LIMIT)}\n[…обрезано: результат длиннее лимита]`;
+  return `${safeSlice(text, EXPLORE_TOOL_OUTPUT_LIMIT)}\n[…обрезано: результат длиннее лимита]`;
 }
 
 /**
@@ -203,8 +225,12 @@ export async function runExplore(input: ExploreRun): Promise<ExploreAnswer> {
       ...(error ? { error } : {}),
     };
   };
+  const startedAt = Date.now();
+  const deadline = input.deadlineMs ?? EXPLORE_DEADLINE_MS;
   for (let turn = 0; turn < maxTurns; turn++) {
     if (input.signal?.aborted) return done("", "aborted");
+    // Предел времени: лучше честное «не успел», чем ход родителя, висящий минутами (ревью #47).
+    if (Date.now() - startedAt > deadline) return done("", "timeout");
     const last = turn === maxTurns - 1;
     const reply = await input.complete(
       input.model,
@@ -281,6 +307,7 @@ export function exploreResultText(
   if (answer.stoppedBy === "error")
     return `Разведчик не справился (${model.provider}/${model.id}): ${answer.error ?? "ошибка модели"}`;
   if (answer.stoppedBy === "aborted") return "Разведчик остановлен.";
+  if (answer.stoppedBy === "timeout") return "Разведчик не успел за отведённое время.";
   if (!answer.answer) return "Разведчик ничего не нашёл по этому вопросу.";
   const head = `Разведчик (${model.provider}/${model.id}, ${answer.files.length} файлов, ${Math.round(seconds)} с) — только чтение:`;
   const tail = answer.clipped ? "\n[ответ разведчика обрезан по лимиту]" : "";
