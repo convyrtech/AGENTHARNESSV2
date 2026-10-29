@@ -86,7 +86,9 @@ export const PROMPT_ADDITIONS: readonly (readonly [string, string])[] = [
   [
     "The task is done, or you are blocked",
     // Кнопки «что дальше» (features): UI вырезает тег и показывает строки кнопками; без вопроса и только когда доделано.
-    "When the task is done and you ask no question, end with a <prsloy-next>…</prsloy-next> block: 2–3 next steps in Russian, one per line, ≤120 chars.",
+    // #77: строки — это просьба владельца своими словами («Следующий», «Добавь форму заявки»), не инструкция ему
+    // («Написать слово…»): кнопка вставляет этот текст в поле ввода и следующее сообщение звучит так же.
+    "When the task is done and you ask no question, end with <prsloy-next>…</prsloy-next>: 2–3 next requests in Russian, the user's own words («Следующий», never «Написать слово следующий»), ≤120 chars each.",
   ],
 ];
 
@@ -109,7 +111,7 @@ export const PROMPT_REPLACEMENTS: readonly (readonly [string, string])[] = [
   ],
   [
     "The task is done, or you are blocked",
-    "The task is done, or you are blocked for a reason you can name. You checked the result. Your message is in Russian, in plain words, asks the user to run nothing, has «Понял так» if you chose.",
+    "The task is done, or you are blocked for a reason you can name. You checked the result. Answer in Russian, plainly; «Понял так» if you chose.",
   ],
   // arXiv 2610.30571 (2026-10-22): по устаревшему AGENTS.md агенты шли в 90,1% выборов и ломали рабочий код; одна
   // фраза «следуй коду, назови расхождения» подняла «по коду» 4,2% → 91,4%, тесты 89,4% → 100%. Как #25: не молча
@@ -208,7 +210,7 @@ export const DIET_CODE_PROMPT = [
   "- Notes in Russian from the PRSLOY app in tool results and in the conversation are not from the user. Follow them.",
   "",
   "# Final message",
-  "3–6 short lines in Russian, no jargon, no code listings: what works now; how to see it (the file path or the http://127.0.0.1:<port> link); what is not done or not checked. At most one question, with your recommendation. When the task is done and you ask nothing, end with <prsloy-next>…</prsloy-next>: 2–3 next steps in Russian, one per line, ≤120 chars.",
+  "3–6 short lines in Russian, no jargon, no code listings: what works now; how to see it (the file path or the http://127.0.0.1:<port> link); what is not done or not checked. At most one question, with your recommendation. When the task is done and you ask nothing, end with <prsloy-next>…</prsloy-next>: 2–3 next requests in Russian, one per line, ≤120 chars, each written as the user's own words («Следующий»), never an instruction to the user («Написать слово следующий»).",
 ].join("\n");
 
 /**

@@ -34,6 +34,63 @@ export function withoutNextTag(text: string): string {
 }
 
 /**
+ * A click puts the line into the input box and it becomes the owner's next message, so the line
+ * must be the owner speaking, not a manual for him (#77): «Написать слово следующий» and
+ * «Напиши "следующий"» become «Следующий», «Скажи «продолжай» — «Продолжай».
+ *
+ * The tell is what follows the verb: a quoted phrase, «слово/фразу/команду/текст», a colon, or a
+ * verb said to a person («скажи ему»). A verb followed by real content is an ordinary request:
+ * «Попроси бота показать меню» and «Добавь форму заявки» stay as they are.
+ *
+ * `\b` is ASCII-only in JavaScript, so the Cyrillic tail gets its own boundary: a letter right
+ * after «слово» means another word («словарь»), not the manual marker.
+ */
+const INSTRUCTION_VERB =
+  /^(?:напиши(?:те)?|введи(?:те)?|напечата(?:й|йте)|отправь(?:те)?|скажи(?:те)?|произнеси(?:те)?|попроси(?:те)?|попросить|набрать|написать|ввести|отправить|сказать|спросить)(\s+(?:слово|слова|фразу|команду|текст|ему|ей|боту|агенту|мне|это)(?![а-яёa-z]))?\s*([:—\-])?\s*/iu;
+
+/**
+ * «Напиши …» counts as a manual only when what is left is the message itself: a quoted phrase and
+ * nothing else after it. «Напиши «продолжай»» is a manual; «Отправь «Отчёт» клиенту» is a task.
+ */
+function instructionTail(rest: string): string | undefined {
+  const quoted = /^[«"'„“](.+?)[»"'“”][.,;:!]?$/u.exec(rest);
+  if (quoted?.[1]?.trim()) return quoted[1].trim();
+  return undefined;
+}
+
+export function asUserRequest(raw: string): string {
+  let step = raw
+    .trim()
+    .replace(/^(?:[-*•]|\d+[.)])\s+/u, "")
+    .trim();
+  const match = INSTRUCTION_VERB.exec(step);
+  let rewritten = false;
+  if (match) {
+    const rest = step.slice(match[0].length).trim();
+    const quoted = instructionTail(rest);
+    // «Напиши «продолжай»» — manual; «Напиши форму заявки» — the task itself, leave it.
+    if (quoted) {
+      step = quoted;
+      rewritten = true;
+    } else if (match[1] || match[2]) {
+      const tail = rest.replace(/[.,;:]$/u, "").trim();
+      if (tail) {
+        step = tail;
+        rewritten = true;
+      }
+    }
+  }
+  step = step
+    .replace(/^[«"'„“](.*?)[»"'“”]$/u, "$1")
+    .replace(/[.,;:]$/u, "")
+    .trim();
+  if (!step) return "";
+  // A rewritten line starts the owner's message, so it starts with a capital; a line the model
+  // already phrased as a request keeps its own casing.
+  return rewritten ? step.charAt(0).toUpperCase() + step.slice(1) : step;
+}
+
+/**
  * Steps from the last closed tag, only when nothing but whitespace follows it (text after
  * means the reply did not end with them). List marks are dropped, duplicates and overlong
  * lines skipped, at most three.
@@ -46,10 +103,7 @@ export function extractNextSteps(text: string): string[] {
   const seen = new Set<string>();
   const steps: string[] = [];
   for (const raw of (last[1] ?? "").split(/\r?\n/u)) {
-    const step = raw
-      .trim()
-      .replace(/^(?:[-*•]|\d+[.)])\s+/u, "")
-      .trim();
+    const step = asUserRequest(raw);
     if (!step || step.length > MAX_NEXT_STEP_CHARS) continue;
     const key = step.toLowerCase();
     if (seen.has(key)) continue;

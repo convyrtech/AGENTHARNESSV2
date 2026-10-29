@@ -26,6 +26,20 @@ describe("the <prsloy-next> tag", () => {
     expect(withoutNextTag("Готово.\n<prsloy-next>\nДобавь фор")).toBe("Готово.");
     expect(withoutNextTag("обычный текст")).toBe("обычный текст");
   });
+
+  // #77: кнопка вставляет строку в поле ввода и отправляет её от лица владельца.
+  it("writes a step as the owner's own words, not as an instruction to him", () => {
+    const steps = (body: string) => extractNextSteps(`Готово.\n<prsloy-next>\n${body}\n</prsloy-next>`);
+    expect(steps("Написать слово следующий")).toEqual(["Следующий"]);
+    expect(steps("Напиши «продолжай»")).toEqual(["Продолжай"]);
+    expect(steps("Напишите: добавь кнопку.")).toEqual(["Добавь кнопку"]);
+    expect(steps("Написать ему «покажи лог»")).toEqual(["Покажи лог"]);
+    // Уже просьба — не трогаем.
+    expect(steps("Добавь форму заявки")).toEqual(["Добавь форму заявки"]);
+    expect(steps("Следующий")).toEqual(["Следующий"]);
+    // Позвать агента — тоже норма (это сообщение, а не инструкция владельцу).
+    expect(steps("Попроси бота показать меню")).toEqual(["Попроси бота показать меню"]);
+  });
 });
 
 const user = (text: string): TimelineItem => ({ id: `u${text}`, kind: "user", text });

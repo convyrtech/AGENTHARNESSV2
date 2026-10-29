@@ -67,11 +67,10 @@ describe("PRSLOY code prompt (research/17 §9)", () => {
     );
     expect(PRSLOY_CODE_PROMPT).not.toContain("Small assumptions are fine");
     // Кнопки «что дальше»: тег разбирает renderer/lib/next-steps.ts (строки ≤120 символов).
-    expect(
-      PRSLOY_CODE_PROMPT.endsWith(
-        "end with a <prsloy-next>…</prsloy-next> block: 2–3 next steps in Russian, one per line, ≤120 chars.",
-      ),
-    ).toBe(true);
+    // #77: строки — слова владельца, не инструкция ему.
+    expect(PRSLOY_CODE_PROMPT).toContain(
+      "end with <prsloy-next>…</prsloy-next>: 2–3 next requests in Russian, the user's own words («Следующий», never «Написать слово следующий»), ≤120 chars each.",
+    );
   });
 
   it("≤7 500 characters, no date or time, no ripgrep instruction, Russian answers rule", () => {
