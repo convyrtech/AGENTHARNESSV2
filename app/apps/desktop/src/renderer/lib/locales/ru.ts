@@ -1509,6 +1509,13 @@ export const ru = {
   "composer.tier.quality": "Качественнее",
   "cost.turn": "ход {amount}",
   "cost.session": "чат {amount}",
+  "prsloy.balance.chip": "остаток {amount}",
+  "prsloy.balance.turns": "ещё ~{count} ход.",
+  "prsloy.balance.updated": "обновлено {minutes} мин назад",
+  "prsloy.balance.low": "Мало денег: {amount}",
+  "prsloy.balance.settingsLabel": "Остаток на ключе",
+  "prsloy.balance.settingsHint":
+    "Сервер считает это в тех же рублях, что и цену чата. Пополнить: {site}",
   "prsloy.firstRun.keyTitle": "Вставьте ключ PRSLOY",
   "prsloy.firstRun.keyPlaceholder": "sk-…",
   "prsloy.firstRun.keySubmit": "Продолжить",

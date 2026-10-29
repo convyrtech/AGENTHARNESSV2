@@ -1527,6 +1527,13 @@ export const en = {
   "composer.tier.quality": "Better",
   "cost.turn": "turn {amount}",
   "cost.session": "chat {amount}",
+  "prsloy.balance.chip": "balance {amount}",
+  "prsloy.balance.turns": "~{count} turns left",
+  "prsloy.balance.updated": "updated {minutes} min ago",
+  "prsloy.balance.low": "Low balance: {amount}",
+  "prsloy.balance.settingsLabel": "Key balance",
+  "prsloy.balance.settingsHint":
+    "The gateway counts this in the same rubles as the chat cost. Top up: {site}",
   "prsloy.firstRun.keyTitle": "Paste your PRSLOY key",
   "prsloy.firstRun.keyPlaceholder": "sk-…",
   "prsloy.firstRun.keySubmit": "Continue",

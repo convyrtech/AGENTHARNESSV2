@@ -11,6 +11,21 @@ export type PrsloyGatewayErrorCode =
   | "server"
   | "bad_url";
 
+/**
+ * What the gateway says about the key's money (#56). Rubles — the same unit the retail price
+ * list uses, so the balance and the ₽ chip are comparable without any exchange rate.
+ */
+export interface PrsloyBalance {
+  /** Left on the key: granted minus used, never below zero. */
+  remainingRub: number;
+  /** Spent through this key, as the gateway counts it. */
+  usedRub: number;
+  /** Everything ever put on the key. */
+  grantedRub: number;
+  /** When main read it (ISO). An old stamp means the number is stale, not fresh. */
+  fetchedAt: string;
+}
+
 export interface PrsloyState {
   /** A key is stored (encrypted) or held for this session. */
   hasKey: boolean;
@@ -38,6 +53,8 @@ export interface PrsloyState {
   gitSetup: { status: "absent" | "installing" | "ready" | "failed"; percent?: number };
   /** First launch: Node/Python + Git unpack combined into one percentage. */
   appSetup?: { status: "absent" | "installing" | "ready" | "failed"; percent?: number };
+  /** Money left on the key, read from the gateway (absent: no key, or it never answered). */
+  balance?: PrsloyBalance;
 }
 
 export type PrsloyKeyResult =
