@@ -11,7 +11,8 @@ import { MockPi } from "./mock-pi.ts";
 
 const PID = 42;
 const list = "Fixture  [fixture]  pid=42 windows=1";
-const state = "42 (pid 42) [e1] Edit [e2] Button";
+const state =
+  '42 (pid 42), 1 window(s)\n\n── window 0: "Fixture"  window_id=1337\nWindow "Fixture"\n  [e1] Edit\n  [e2] Button';
 const image = { type: "image", data: "AQID", mimeType: "image/png" } as const;
 
 function harness(
@@ -346,6 +347,30 @@ describe("Munim wrapper guard scaffold", () => {
       noGate.run("munim_click", { pid: PID, element_token: returnedToken(noGateResult) }),
     ).rejects.toThrow(/durable recovery gate/u);
     expect(noGate.dispatches).toBe(0);
+  });
+
+  it("issues tokens only for a single native window with a valid window_id", async () => {
+    const invalidSnapshots = [
+      '42 (pid 42), 0 window(s)\n\n── window 0: "Fixture"  window_id=1337',
+      '42 (pid 42), 2 window(s)\n\n── window 0: "Fixture"  window_id=1337',
+      '42 (pid 42), 1 window(s)\n\n── window 0: "Fixture"',
+      '42 (pid 42), 1 window(s)\n\n── window 0: "Fixture"  window_id=0',
+      '42 (pid 42), 1 window(s)\n\n── window 0: "Fixture"  window_id=1337\n── window 1: "Other"  window_id=1338',
+    ];
+    for (const stateText of invalidSnapshots) {
+      const h = harness({ stateText });
+      await h.run("munim_list_apps");
+      await expect(h.run("munim_get_app_state", { pid: PID })).rejects.toThrow(
+        /snapshot не прошёл guard/u,
+      );
+      const returned = [...h.toolResultOutputs.values()].at(-1) as {
+        content?: { type?: string; text?: string }[];
+        structuredContent?: unknown;
+      };
+      expect(returned.content?.map((part) => part.text ?? "").join(" ")).not.toContain("[e1]");
+      expect(returned.structuredContent).toBeUndefined();
+      expect(h.dispatches).toBe(0);
+    }
   });
 
   it("drops malformed or mismatched snapshots instead of returning the raw nested result", async () => {

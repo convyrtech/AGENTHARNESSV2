@@ -75,6 +75,22 @@ function parseSingleWindowPids(text: string): Set<number> {
   }
   return new Set([...rows].filter(([, count]) => count === 1).map(([pid]) => pid));
 }
+/** Validate Munim 0.9's own window summary before issuing element tokens. */
+function isSingleWindowSnapshot(text: string, pid: number): boolean {
+  const heading = new RegExp(
+    `^\\s*${pid}\\s+\\(pid\\s+${pid}\\),\\s*(\\d+)\\s+window\\(s\\)(?:[ \\t]|$)`,
+    "imu",
+  );
+  const firstLine = text.split(/\r?\n/u, 1)[0] ?? "";
+  const match = heading.exec(firstLine);
+  if (!match || Number(match[1]) !== 1) return false;
+  // The driver emits one native-window identifier on its canonical window row.
+  // This is a consistency check on the snapshot, not an OS-enforced action target.
+  const windows = [...text.matchAll(/^──\s+window\s+(\d+):\s+.+?\s+window_id=(\d+)\s*$/gimu)];
+  if (windows.length !== 1 || windows[0]![1] !== "0") return false;
+  const windowId = Number(windows[0]![2]);
+  return Number.isSafeInteger(windowId) && windowId > 0;
+}
 function idsIn(text: string): string[] {
   return [...new Set(Array.from(text.matchAll(/\[(e\d+)\]/giu), (match) => match[1]!))];
 }
@@ -338,12 +354,14 @@ export function installMunimComputerUseGuard(
       return { content: event.content as WrapperResult["content"] };
     } else if (call.name === "get_app_state" && call.pid !== undefined) {
       const rawText = textContent(event.content);
-      const heading = new RegExp(`^\\s*${call.pid}\\s*\\(pid\\s+${call.pid}\\)`, "iu");
-      if (!heading.test(rawText)) {
+      if (!isSingleWindowSnapshot(rawText, call.pid)) {
         tokens.invalidate();
         return {
           content: [
-            { type: "text", text: "Munim snapshot PID не совпал; обнови состояние приложения." },
+            {
+              type: "text",
+              text: "Munim snapshot не подтвердил ожидаемый PID и одно окно; обнови состояние приложения.",
+            },
           ],
         };
       }

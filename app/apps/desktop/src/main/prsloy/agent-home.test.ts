@@ -3,7 +3,6 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 import {
-  ensurePrsloyComputerUseConfig,
   disablePrsloyComputerUseConfig,
   ensurePrsloyHomeDirs,
   ensurePrsloyModelsJson,
@@ -135,8 +134,21 @@ describe("MCP off by default", () => {
       join(agentDir, "settings.json"),
       JSON.stringify({ extensions: ["+builtin:mcp", "custom"] }),
     );
-    ensurePrsloySettings(agentDir, { computerUse: true });
-    ensurePrsloyComputerUseConfig(agentDir, "C:\\Tools\\munim-computer-use.exe");
+    writeFileSync(
+      join(agentDir, "mcp.json"),
+      JSON.stringify({
+        mcpServers: {
+          munimComputerUse: {
+            command: "C:\\Tools\\munim-computer-use.exe",
+            args: [],
+            exposure: "direct",
+            prsloyComputerUseOwned: true,
+            disabled: false,
+            enabled: true,
+          },
+        },
+      }),
+    );
     ensurePrsloySettings(agentDir, { computerUse: false });
     disablePrsloyComputerUseConfig(agentDir);
     expect(readJson(join(agentDir, "settings.json")).extensions).toEqual([
@@ -147,8 +159,6 @@ describe("MCP off by default", () => {
       enabled: false,
       disabled: true,
     });
-    ensurePrsloyComputerUseConfig(agentDir, "C:\\Tools\\munim-computer-use.exe");
-    expect(readJson(join(agentDir, "mcp.json")).mcpServers.munimComputerUse.enabled).toBe(true);
   });
   it("removes the legacy restore marker without rewriting the current user extensions", () => {
     const agentDir = tempDir();
@@ -173,9 +183,6 @@ describe("MCP off by default", () => {
       JSON.stringify({ mcpServers: { munimComputerUse: other } }),
     );
     expect(disablePrsloyComputerUseConfig(agentDir)).toBe(false);
-    expect(ensurePrsloyComputerUseConfig(agentDir, "C:\\Tools\\munim-computer-use.exe")).toBe(
-      false,
-    );
     expect(readJson(join(agentDir, "mcp.json")).mcpServers.munimComputerUse).toEqual(other);
   });
   it("preserves a user-managed Munim even when it looks like the old experimental config", () => {
@@ -190,9 +197,6 @@ describe("MCP off by default", () => {
       JSON.stringify({ mcpServers: { munimComputerUse: manual } }),
     );
     expect(disablePrsloyComputerUseConfig(agentDir)).toBe(false);
-    expect(ensurePrsloyComputerUseConfig(agentDir, "C:\\Tools\\munim-computer-use.exe")).toBe(
-      false,
-    );
     expect(readJson(join(agentDir, "mcp.json")).mcpServers.munimComputerUse).toEqual(manual);
   });
   it("seeds -builtin:mcp unless the user has an extensions list", () => {
@@ -207,17 +211,28 @@ describe("MCP off by default", () => {
     expect(readJson(join(agentDir, "settings.json")).extensions).toEqual(["+builtin:mcp"]);
   });
 
-  it("configures Munim only with an explicit binary path", () => {
+  it("retires a persisted PRSLOY-owned Munim entry without modifying other MCP servers", () => {
     const agentDir = tempDir();
-    expect(ensurePrsloyComputerUseConfig(agentDir, undefined)).toBe(false);
-    expect(ensurePrsloyComputerUseConfig(agentDir, "C:\\Tools\\munim-computer-use.exe")).toBe(true);
-    const config = readJson(join(agentDir, "mcp.json"));
-    expect(config.mcpServers.munimComputerUse).toMatchObject({
-      command: "C:\\Tools\\munim-computer-use.exe",
-      args: [],
-      enabled: true,
-      disabled: false,
-    });
+    const userServer = { command: "custom.exe", args: ["serve"] };
+    writeFileSync(
+      join(agentDir, "mcp.json"),
+      JSON.stringify({
+        mcpServers: {
+          munimComputerUse: {
+            command: "C:\\Tools\\munim-computer-use.exe",
+            args: [],
+            exposure: "direct",
+            prsloyComputerUseOwned: true,
+            enabled: true,
+          },
+          custom: userServer,
+        },
+      }),
+    );
+    expect(disablePrsloyComputerUseConfig(agentDir)).toBe(true);
+    const servers = readJson(join(agentDir, "mcp.json")).mcpServers;
+    expect(servers.munimComputerUse).toMatchObject({ enabled: false, disabled: true });
+    expect(servers.custom).toEqual(userServer);
   });
 
   it("drops the auto-installed npm:pi-mcp-adapter once, keeps other packages", () => {

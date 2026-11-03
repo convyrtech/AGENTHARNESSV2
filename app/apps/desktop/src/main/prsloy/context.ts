@@ -11,7 +11,6 @@ import {
   ensurePrsloyHomeDirs,
   ensurePrsloyModelsJson,
   ensurePrsloySettings,
-  ensurePrsloyComputerUseConfig,
   disablePrsloyComputerUseConfig,
   installSearchTools,
   prsloyHomePaths,
@@ -299,9 +298,9 @@ export function bootstrapPrsloy(options: {
     available: state.models?.ids,
     computerUse,
   });
-  if (computerUse && env.PRSLOY_MUNIM_BINARY)
-    ensurePrsloyComputerUseConfig(agentDir, env.PRSLOY_MUNIM_BINARY);
-  else disablePrsloyComputerUseConfig(agentDir);
+  // Retire the old direct MCP entry on startup. A legacy Agent Host can load it
+  // without the current host's recovery guard; new guarded hosts use only env config.
+  disablePrsloyComputerUseConfig(agentDir);
   if (dropAutoMcpAdapter) {
     state = { ...state, migrations: [...(state.migrations ?? []), MCP_MIGRATION] };
     writeState(statePath, state);

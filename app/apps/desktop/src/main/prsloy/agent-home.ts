@@ -27,7 +27,6 @@ import {
   type PrsloySpeedMode,
 } from "../../shared/prsloy-config.ts";
 import type { RubPricePerM } from "../../shared/prsloy-prices.ts";
-import { munimComputerUseServer } from "./computer-use.ts";
 import { readMcpConfig, writeMcpConfig } from "../mcp-config.ts";
 
 export type PrsloyHomePaths = {
@@ -188,27 +187,7 @@ export function ensurePrsloySettings(agentDir: string, seed: PrsloySettingsSeed)
   return true;
 }
 
-/** Configure only an explicitly supplied Munim binary; never downloads or installs it. */
-export function ensurePrsloyComputerUseConfig(agentDir: string, binaryPath?: string): boolean {
-  if (!binaryPath) return false;
-  const config = readMcpConfig(agentDir);
-  const next = munimComputerUseServer({ binaryPath });
-  const existing = config.mcpServers.munimComputerUse;
-  if (existing && !existing.prsloyComputerUseOwned) return false;
-  const before = JSON.stringify(config.mcpServers.munimComputerUse);
-  config.mcpServers.munimComputerUse = {
-    ...next,
-    prsloyComputerUseOwned: true,
-    exposure: "direct",
-    disabled: false,
-    enabled: true,
-  };
-  if (before === JSON.stringify(config.mcpServers.munimComputerUse)) return false;
-  writeMcpConfig(agentDir, config);
-  return true;
-}
-
-/** Keep the experimental server from starting through the normal loader after opt-out. */
+/** Retire an old PRSLOY-owned MCP entry that legacy Agent Hosts could load without the guard. */
 export function disablePrsloyComputerUseConfig(agentDir: string): boolean {
   const config = readMcpConfig(agentDir);
   const server = config.mcpServers.munimComputerUse;

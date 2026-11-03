@@ -104,6 +104,23 @@ test("packaged Munim opt-in works, then owned MCP opt-out disables it in the sam
       JSON.stringify({ recentWorkspaces: [], window: appBounds }),
     );
     await writeFile(join(workspace, "README.md"), "Synthetic isolated Munim opt-out fixture.\n");
+    const agentDir = join(root, "home", ".pi", "agent");
+    await mkdir(agentDir, { recursive: true });
+    await writeFile(
+      join(agentDir, "mcp.json"),
+      JSON.stringify({
+        mcpServers: {
+          munimComputerUse: {
+            command: munim,
+            args: [],
+            exposure: "direct",
+            enabled: true,
+            disabled: false,
+            prsloyComputerUseOwned: true,
+          },
+        },
+      }),
+    );
     execFileSync(
       "dotnet",
       [
@@ -252,9 +269,8 @@ test("packaged Munim opt-in works, then owned MCP opt-out disables it in the sam
     };
     const optedInServer = optInConfig.mcpServers?.munimComputerUse;
     expect(optedInServer).toMatchObject({ command: munim, prsloyComputerUseOwned: true });
-    // Either the freshly written enabled pair or its canonical normalized form is active.
-    expect(optedInServer?.disabled).not.toBe(true);
-    expect(optedInServer?.enabled).not.toBe(false);
+    expect(optedInServer?.disabled).toBe(true);
+    expect(optedInServer?.enabled).toBe(false);
     postOptInDriverPids = await getExactBinaryProcessIds(munim!);
     expect(postOptInDriverPids.some((pid) => !initialDriverPids.includes(pid))).toBe(true);
     const optInEvidence = {

@@ -1,4 +1,4 @@
-import { isAbsolute } from "node:path";
+import { win32 } from "node:path";
 import type { McpServerConfig } from "@earendil-works/pi-coding-agent";
 import { MUNIM_COMPUTER_USE_TOOL_NAMES } from "@prsloy/harness";
 
@@ -9,6 +9,7 @@ export const CUA_COMPUTER_USE_TOOL_NAMES = [
   "click",
   "type_text",
 ] as const;
+const MUNIM_BINARY_RE = /(?:^|[\\/])munim-computer-use(?:\.exe)?$/iu;
 
 export function selectComputerUseBackend(
   enabled: boolean,
@@ -23,7 +24,13 @@ export function allowedMunimConfig(
   value: unknown,
   binaryPath: string | undefined,
 ): McpServerConfig | undefined {
-  if (!value || typeof value !== "object" || !binaryPath || !isAbsolute(binaryPath))
+  if (
+    !value ||
+    typeof value !== "object" ||
+    !binaryPath ||
+    !win32.isAbsolute(binaryPath) ||
+    !MUNIM_BINARY_RE.test(binaryPath)
+  )
     return undefined;
   const config = value as Record<string, unknown>;
   if (config.command !== binaryPath || config.enabled === false || config.disabled === true)
@@ -45,7 +52,7 @@ export function allowedCuaConfig(
   value: unknown,
   binaryPath: string | undefined,
 ): McpServerConfig | undefined {
-  if (!value || typeof value !== "object" || !binaryPath || !isAbsolute(binaryPath))
+  if (!value || typeof value !== "object" || !binaryPath || !win32.isAbsolute(binaryPath))
     return undefined;
   const config = value as Record<string, unknown>;
   if (config.command !== binaryPath || config.enabled === false || config.disabled === true)

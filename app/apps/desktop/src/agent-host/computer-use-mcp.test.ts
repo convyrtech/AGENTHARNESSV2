@@ -19,6 +19,7 @@ describe("computer-use MCP selection", () => {
       [config, undefined],
       [config, "relative.exe"],
       [config, resolve("other.exe")],
+      [{ ...config, command: resolve("other.exe") }, resolve("other.exe")],
       [{ ...config, disabled: true }, binary],
       [{ ...config, enabled: false }, binary],
       ["bad", binary],
@@ -87,5 +88,8 @@ describe("computer-use MCP selection", () => {
     expect(selectComputerUseBackend(true, resolve("cua-driver.exe"))).toBe("cua");
     // An invalid explicit Cua path must fail closed instead of silently switching backends.
     expect(allowedCuaConfig({ command: "relative.exe" }, "relative.exe")).toBeUndefined();
+    expect(
+      allowedMunimConfig({ command: "C:\\Tools\\other.exe" }, "C:\\Tools\\other.exe"),
+    ).toBeUndefined();
   });
 });

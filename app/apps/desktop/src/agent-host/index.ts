@@ -36,12 +36,9 @@ import type {
   AgentSessionEvent,
   ExtensionContext,
   LoadedMcpConfig,
-  McpServerConfig,
 } from "@earendil-works/pi-coding-agent";
 import { createMcpExtension } from "@earendil-works/pi-coding-agent";
-import { readFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
-import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 import { ProviderOAuthCoordinator, type OAuthModelRuntime } from "./provider-oauth.ts";
 import { loadPromptImages } from "./prompt-images.ts";
@@ -479,27 +476,11 @@ async function handleCommand(command: HostCommand): Promise<void> {
               installMunimComputerUseGuard(pi, recovery.gate),
             );
           }
-          const mcpAgentDir = options.agentDir ?? process.env.PI_CODING_AGENT_DIR;
-          if (cuaSelected || mcpAgentDir) {
+          const munimBinary = process.env.PRSLOY_MUNIM_BINARY;
+          if (cuaSelected || munimBinary) {
             options.extensionFactories.push(
               createMcpExtension({
                 loadConfig: (_ctx: ExtensionContext): LoadedMcpConfig => {
-                  let munim: McpServerConfig | undefined;
-                  if (!cuaSelected && mcpAgentDir) {
-                    try {
-                      const raw = JSON.parse(
-                        readFileSync(join(mcpAgentDir, "mcp.json"), "utf8"),
-                      ) as {
-                        mcpServers?: Record<string, McpServerConfig>;
-                      };
-                      munim = raw.mcpServers?.munimComputerUse;
-                    } catch {
-                      munim = undefined;
-                    }
-                  }
-                  const source = mcpAgentDir
-                    ? `${mcpAgentDir}/mcp.json`
-                    : "explicit environment opt-in";
                   const cua = cuaSelected
                     ? allowedCuaConfig(
                         { command: process.env.PRSLOY_CUA_BINARY },
@@ -509,7 +490,7 @@ async function handleCommand(command: HostCommand): Promise<void> {
                   const config =
                     cua ??
                     (!cuaSelected
-                      ? allowedMunimConfig(munim, process.env.PRSLOY_MUNIM_BINARY)
+                      ? allowedMunimConfig({ command: munimBinary }, munimBinary)
                       : undefined);
                   return {
                     servers: config
@@ -517,7 +498,7 @@ async function handleCommand(command: HostCommand): Promise<void> {
                           {
                             name: cua ? "cuaComputerUse" : "munimComputerUse",
                             config,
-                            source: cua ? "PRSLOY_CUA_BINARY" : source,
+                            source: cua ? "PRSLOY_CUA_BINARY" : "PRSLOY_MUNIM_BINARY",
                             scope: "global" as const,
                           },
                         ]

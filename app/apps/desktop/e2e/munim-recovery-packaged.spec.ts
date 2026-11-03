@@ -157,11 +157,30 @@ test("packaged PRSLOY Munim wrapper recovers uncertain actions and rejects stale
     appHwnd = appWindow.hwnd;
     expect(insideDisplay2(appWindow)).toBe(true);
 
-    const mcp = JSON.parse(await readFile(join(launched.agentDir, "mcp.json"), "utf8")) as {
-      mcpServers?: Record<string, { command?: string }>;
-    };
-    // Keep the production allowlist path intact: the configured executable is the real Munim exe.
-    expect(mcp.mcpServers?.munimComputerUse?.command).toBe(munim);
+    const mcpText = await readFile(join(launched.agentDir, "mcp.json"), "utf8").catch(
+      (error: NodeJS.ErrnoException) => {
+        if (error.code === "ENOENT") return undefined;
+        throw error;
+      },
+    );
+    const mcp = mcpText
+      ? (JSON.parse(mcpText) as {
+          mcpServers?: Record<
+            string,
+            {
+              disabled?: boolean;
+              enabled?: boolean;
+              prsloyComputerUseOwned?: boolean;
+            }
+          >;
+        })
+      : undefined;
+    const ownedMunim = mcp?.mcpServers?.munimComputerUse;
+    const enabledOwnedMunim =
+      ownedMunim?.prsloyComputerUseOwned === true &&
+      ownedMunim.disabled !== true &&
+      ownedMunim.enabled !== false;
+    expect(enabledOwnedMunim).toBe(false);
     await launched.fakeModel.stop();
     const modelPath = join(launched.agentDir, "models.json");
     const models = JSON.parse(await readFile(modelPath, "utf8")) as {
