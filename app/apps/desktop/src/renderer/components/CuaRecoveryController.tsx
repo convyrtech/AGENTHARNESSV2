@@ -1,23 +1,10 @@
 import type { CuaOwnerResolution, CuaRecoveryItem } from "@zeno/contracts";
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { Locale } from "../lib/i18n.ts";
+import { t, type Locale } from "../lib/i18n.ts";
 import { CuaRecoveryDialog, cuaRecoveryBannerLabel } from "./CuaRecoveryDialog.tsx";
 
 const listTimeoutMs = 10_000;
 const maxOutstandingLists = 2;
-
-function listTimeoutMessage(locale: Locale) {
-  if (locale === "ru") return "Истекло время ожидания списка действий (10 секунд)";
-  if (locale === "zh") return "等待恢复队列超时（10 秒）";
-  return "Timed out waiting for the recovery queue (10 seconds)";
-}
-
-function listLimitMessage(locale: Locale) {
-  if (locale === "ru")
-    return "Слишком много незавершённых запросов к очереди; ожидаю их завершения";
-  if (locale === "zh") return "未完成的队列请求过多；等待它们完成";
-  return "Too many unfinished recovery queue requests; waiting for them to finish";
-}
 
 /** Owns the recovery queue polling, owner decisions, banner, and confirmation dialog. */
 export function CuaRecoveryController({ locale }: { locale: Locale }) {
@@ -40,7 +27,7 @@ export function CuaRecoveryController({ locale }: { locale: Locale }) {
         // A forced refresh may have invalidated the current logical request. If no IPC slot is
         // available, release its poll lock so a later interval can retry after a slot frees up.
         if (force) listInFlight.current = false;
-        if (mounted.current) setListError(listLimitMessage(locale));
+        if (mounted.current) setListError(t(locale, "cuaRecovery.listLimit"));
         return;
       }
       const sequence = ++listSequence.current;
@@ -57,7 +44,7 @@ export function CuaRecoveryController({ locale }: { locale: Locale }) {
           listPromise,
           new Promise<CuaRecoveryItem[]>((_, reject) => {
             timeout = window.setTimeout(
-              () => reject(new Error(listTimeoutMessage(locale))),
+              () => reject(new Error(t(locale, "cuaRecovery.listTimeout"))),
               listTimeoutMs,
             );
           }),

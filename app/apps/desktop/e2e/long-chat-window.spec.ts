@@ -38,8 +38,42 @@ test("long chat opens with its tail; earlier turns on demand", async () => {
     await page.locator('[data-session-path$="long-chat.jsonl"]').first().click();
     await expect(timeline).toContainText("Ход 150: покажи файлы", { timeout: 60_000 });
     await expect(timeline).not.toContainText("Ход 1: покажи файлы");
-    // 300 dashes overlap on the packed rail: click the first one directly.
-    await page.locator(".minimap-marker").first().dispatchEvent("click");
+    const minimap = page.locator(".minimap-rail");
+    const markers = minimap.locator(".minimap-marker");
+    await expect(markers).toHaveCount(300);
+    const activeMarker = minimap.locator('.minimap-marker[aria-current="true"]');
+    await expect(activeMarker).toHaveCount(1);
+    const activeIsVisible = await activeMarker.evaluate((element) => {
+      const track = element.closest(".minimap-track")!;
+      const marker = element.getBoundingClientRect();
+      const viewport = track.getBoundingClientRect();
+      return marker.top >= viewport.top && marker.bottom <= viewport.bottom;
+    });
+    expect(activeIsVisible).toBe(true);
+    const undersized = await markers.evaluateAll((elements) =>
+      elements
+        .map((element) => {
+          const { width, height } = element.getBoundingClientRect();
+          return { width: Math.round(width), height: Math.round(height) };
+        })
+        .filter(({ width, height }) => width < 24 || height < 24),
+    );
+    expect(undersized).toEqual([]);
+
+    // Scroll the minimap itself and use a real click to reach the oldest hidden turn.
+    const firstMarker = markers.first();
+    await firstMarker.scrollIntoViewIfNeeded();
+    await expect
+      .poll(() =>
+        firstMarker.evaluate((element) => {
+          const track = element.closest(".minimap-track")!;
+          const marker = element.getBoundingClientRect();
+          const viewport = track.getBoundingClientRect();
+          return marker.top >= viewport.top && marker.bottom <= viewport.bottom;
+        }),
+      )
+      .toBe(true);
+    await firstMarker.click();
     await expect(timeline).toContainText("Ход 1: покажи файлы", { timeout: 30_000 });
   } finally {
     await launched.app.close().catch(() => undefined);

@@ -9,7 +9,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import type { Locale } from "../lib/i18n.ts";
+import { localeTag, t, type Locale } from "../lib/i18n.ts";
 
 export type CuaRecoveryResolution =
   | "observed_completed"
@@ -37,21 +37,15 @@ export function cuaRecoveryBannerLabel(
   const hasCua = items.some((item) => item.backend !== "munim");
   const hasMunim = items.some((item) => item.backend === "munim");
   const count = items.length;
-  if (hasCua && !hasMunim)
-    return locale === "ru" ? `Проверить действие Cua (${count})` : `Review Cua action (${count})`;
-  if (hasMunim && !hasCua)
-    return locale === "ru"
-      ? `Проверить действие Munim (${count})`
-      : `Review Munim action (${count})`;
-  return locale === "ru"
-    ? `Проверить действия Cua и Munim (${count})`
-    : `Review Cua and Munim actions (${count})`;
+  if (hasCua && !hasMunim) return t(locale, "cuaRecovery.bannerCua", { count: String(count) });
+  if (hasMunim && !hasCua) return t(locale, "cuaRecovery.bannerMunim", { count: String(count) });
+  return t(locale, "cuaRecovery.bannerMixed", { count: String(count) });
 }
 
 function formatTime(createdAt: number, locale: Locale): string {
   const date = new Date(createdAt);
-  if (!Number.isFinite(date.getTime())) return locale === "ru" ? "неизвестно" : "unknown";
-  return new Intl.DateTimeFormat(locale === "ru" ? "ru-RU" : "en-US", {
+  if (!Number.isFinite(date.getTime())) return t(locale, "cuaRecovery.unknownTime");
+  return new Intl.DateTimeFormat(localeTag(locale), {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(date);
@@ -74,31 +68,30 @@ export function CuaRecoveryDialog(props: {
     setAcknowledged(false);
     setAcknowledgedInFlight(false);
   }, [props.open, props.pending.actionId]);
-  const ru = props.locale === "ru";
+  const locale = props.locale;
   const busy = props.busy === true;
   const backendName = props.pending.backend === "munim" ? "Munim" : "Cua";
   // A dispatch still owned by a live host cannot be resolved as a lost result.
   const resolvingDisabled = busy || props.pending.status === "dispatching" || !acknowledged;
   const actionName =
     props.pending.kind === "click"
-      ? ru
-        ? "нажатие"
-        : "click"
+      ? t(locale, "cuaRecovery.action.click")
       : props.pending.kind === "type_text"
-        ? ru
-          ? "ввод текста"
-          : "text entry"
-        : ru
-          ? "действие"
-          : "action";
+        ? t(locale, "cuaRecovery.action.typeText")
+        : t(locale, "cuaRecovery.action.other");
   const targetDescription =
     props.pending.backend === "munim"
-      ? ru
-        ? `Проверь Munim, PID ${props.pending.pid}: ${actionName}, начато ${formatTime(props.pending.createdAt, props.locale)}.`
-        : `Check Munim, PID ${props.pending.pid}: ${actionName}, started ${formatTime(props.pending.createdAt, props.locale)}.`
-      : ru
-        ? `Проверь окно PID ${props.pending.pid}, HWND ${props.pending.windowId}: ${actionName}, начато ${formatTime(props.pending.createdAt, props.locale)}.`
-        : `Check window PID ${props.pending.pid}, HWND ${props.pending.windowId}: ${actionName}, started ${formatTime(props.pending.createdAt, props.locale)}.`;
+      ? t(locale, "cuaRecovery.targetMunim", {
+          pid: String(props.pending.pid),
+          action: actionName,
+          time: formatTime(props.pending.createdAt, locale),
+        })
+      : t(locale, "cuaRecovery.targetCua", {
+          pid: String(props.pending.pid),
+          windowId: String(props.pending.windowId),
+          action: actionName,
+          time: formatTime(props.pending.createdAt, locale),
+        });
 
   function resolve(resolution: CuaRecoveryResolution) {
     settledRef.current = true;
@@ -123,15 +116,11 @@ export function CuaRecoveryDialog(props: {
       >
         <AlertDialogHeader>
           <AlertDialogTitle className="text-[15px] font-semibold">
-            {ru ? "Проверь результат действия" : "Check the action result"}
+            {t(locale, "cuaRecovery.title")}
           </AlertDialogTitle>
           <AlertDialogDescription asChild>
             <div className="space-y-2 text-[13px] leading-relaxed text-muted-foreground">
-              <p className="m-0">
-                {ru
-                  ? `PRSLOY потерял подтверждённый ответ от ${backendName}. Действие могло ещё не начаться, уже сработать или продолжать выполняться. Остановка модели не отменяет его в другом приложении.`
-                  : `PRSLOY lost ${backendName}’s result. The action may not have started yet, may have completed, or may still be running. Stopping the model does not cancel it in another app.`}
-              </p>
+              <p className="m-0">{t(locale, "cuaRecovery.lostResult", { backend: backendName })}</p>
               <p className="m-0">{targetDescription}</p>
               <p
                 className="m-0 rounded-md bg-muted/60 px-2 py-1.5 font-mono text-[11px] break-all"
@@ -140,15 +129,11 @@ export function CuaRecoveryDialog(props: {
                 {props.pending.actionId}
               </p>
               <p className="m-0 font-medium text-foreground">
-                {ru
-                  ? "Пока не проверишь состояние приложения, оставь блокировку. При подтверждении неизвестного результата повтор автоматически не запускается."
-                  : "Leave the gate closed until you inspect the app. Resolving an unknown result never retries the action automatically."}
+                {t(locale, "cuaRecovery.keepGateClosed")}
               </p>
               {props.pending.status === "dispatching" ? (
                 <p className="m-0 font-medium text-foreground">
-                  {ru
-                    ? `Запись о действии сохранена, но вызов ${backendName} мог ещё не начаться. Он может стартовать позже или всё ещё выполняться, даже после освобождения блокировки.`
-                    : `The action intent is recorded, but the ${backendName} call may not have started yet. It could start later or still be running after the gate is released.`}
+                  {t(locale, "cuaRecovery.dispatchingWarning", { backend: backendName })}
                 </p>
               ) : null}
             </div>
@@ -164,11 +149,7 @@ export function CuaRecoveryDialog(props: {
                 onChange={(event) => setAcknowledgedInFlight(event.target.checked)}
                 data-testid="cua-recovery-acknowledge-in-flight"
               />
-              <span>
-                {ru
-                  ? "Я принимаю риск, что действие ещё запустится или завершится позже и может выполняться одновременно со следующим."
-                  : "I accept that this action may start or finish later and may run at the same time as the next one."}
-              </span>
+              <span>{t(locale, "cuaRecovery.acknowledgeInFlight")}</span>
             </label>
             <Button
               type="button"
@@ -179,7 +160,7 @@ export function CuaRecoveryDialog(props: {
                 props.onAcceptInFlightRisk(props.pending.actionId, props.pending.challenge)
               }
             >
-              {ru ? "Принять риск и снять блокировку" : "Accept risk and release gate"}
+              {t(locale, "cuaRecovery.acceptInFlight")}
             </Button>
           </div>
         ) : null}
@@ -191,11 +172,7 @@ export function CuaRecoveryDialog(props: {
             onChange={(event) => setAcknowledged(event.target.checked)}
             data-testid="cua-recovery-acknowledge"
           />
-          <span>
-            {ru
-              ? "Я понимаю, что действие может завершиться позже, даже если сейчас его результат не виден, и принимаю этот риск."
-              : "I understand that the action may finish later even if no result is visible now, and accept this risk."}
-          </span>
+          <span>{t(locale, "cuaRecovery.acknowledgeUnknown")}</span>
         </label>
         <div className="grid gap-2">
           <Button
@@ -205,7 +182,7 @@ export function CuaRecoveryDialog(props: {
             data-testid="cua-recovery-completed"
             onClick={() => resolve("observed_completed")}
           >
-            {ru ? "Проверил: действие выполнено" : "I checked: action completed"}
+            {t(locale, "cuaRecovery.completed")}
           </Button>
           <Button
             type="button"
@@ -214,7 +191,7 @@ export function CuaRecoveryDialog(props: {
             data-testid="cua-recovery-not-applied"
             onClick={() => resolve("observed_not_applied")}
           >
-            {ru ? "Проверил: действие не выполнено" : "I checked: action did not happen"}
+            {t(locale, "cuaRecovery.notApplied")}
           </Button>
           <Button
             type="button"
@@ -223,7 +200,7 @@ export function CuaRecoveryDialog(props: {
             data-testid="cua-recovery-accept-unknown"
             onClick={() => resolve("accept_unknown")}
           >
-            {ru ? "Продолжить, принимая неизвестный результат" : "Continue despite unknown result"}
+            {t(locale, "cuaRecovery.acceptUnknown")}
           </Button>
         </div>
         <AlertDialogFooter className="sm:justify-start">
@@ -235,7 +212,7 @@ export function CuaRecoveryDialog(props: {
               props.onLeaveBlocked();
             }}
           >
-            {busy ? (ru ? "Сохранение…" : "Saving…") : ru ? "Оставить блокировку" : "Leave blocked"}
+            {busy ? t(locale, "cuaRecovery.saving") : t(locale, "cuaRecovery.leaveBlocked")}
           </AlertDialogCancel>
         </AlertDialogFooter>
         {props.error ? (

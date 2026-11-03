@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useTimelineWindow } from "./timeline-window-context.tsx";
 import {
   useMessageScroller,
@@ -50,7 +50,9 @@ export const ConversationMinimap = memo(function ConversationMinimap({
     marker: ConversationMinimapMarker;
     top: number;
   } | null>(null);
+  const [scrollHints, setScrollHints] = useState({ up: false, down: false });
   const railRef = useRef<HTMLElement>(null);
+  const trackRef = useRef<HTMLDivElement>(null);
   const markerEls = useRef(new Map<string, HTMLButtonElement>());
   const moveRaf = useRef(0);
 
@@ -77,7 +79,7 @@ export const ConversationMinimap = memo(function ConversationMinimap({
   /**
    * Vertical centers of the dashes, in rail-local pixels.
    *
-   * Dashes have a CSS-fixed height and magnify horizontally only, so their centers
+   * Rows have a CSS-fixed height and magnify horizontally only, so their centers
    * follow the rail's layout, not the cursor. Measuring them once per layout keeps hover
    * off the critical path: `applyMagnify` runs on every mousemove frame, and reading
    * `offsetTop` there — interleaved with the `--magnify` writes it makes in the same loop
@@ -87,13 +89,49 @@ export const ConversationMinimap = memo(function ConversationMinimap({
 
   const measureMagnifyCenters = useCallback(() => {
     const centers: { id: string; center: number }[] = [];
+    const scrollTop = trackRef.current?.scrollTop ?? 0;
     // Read-only pass: no style writes, so layout is computed at most once.
     for (const [id, btn] of markerEls.current) {
-      centers.push({ id, center: btn.offsetTop + btn.offsetHeight / 2 });
+      centers.push({ id, center: btn.offsetTop + btn.offsetHeight / 2 - scrollTop });
     }
     centers.sort((a, b) => a.center - b.center);
     magnifyCentersRef.current = centers;
   }, []);
+
+  const updateScrollHints = useCallback(() => {
+    const track = trackRef.current;
+    if (!track) return;
+    const next = {
+      up: track.scrollTop > 1,
+      down: track.scrollTop + track.clientHeight < track.scrollHeight - 1,
+    };
+    setScrollHints((prev) => (prev.up === next.up && prev.down === next.down ? prev : next));
+  }, []);
+
+  const keepActiveMarkerVisible = useCallback(() => {
+    const track = trackRef.current;
+    const active = activeId ? markerEls.current.get(activeId) : null;
+    if (!track || !active) return;
+    const top = active.offsetTop;
+    const height = active.offsetHeight;
+    const viewportHeight = track.clientHeight;
+    // Reserve the 12px hint bands when there is room; on a short rail, shrink the
+    // effective insets so a 24px row still fits. If it cannot fit, center it as well as
+    // the viewport allows. Clamp against the browser's actual scroll range at both ends.
+    const inset = Math.min(12, Math.max(0, (viewportHeight - height) / 2));
+    const visibleTop = track.scrollTop + inset;
+    const visibleBottom = track.scrollTop + viewportHeight - inset;
+    let nextScrollTop = track.scrollTop;
+    if (viewportHeight < height) {
+      nextScrollTop = top + height / 2 - viewportHeight / 2;
+    } else if (top < visibleTop) {
+      nextScrollTop = top - inset;
+    } else if (top + height > visibleBottom) {
+      nextScrollTop = top + height - viewportHeight + inset;
+    }
+    const maxScrollTop = Math.max(0, track.scrollHeight - viewportHeight);
+    track.scrollTop = Math.max(0, Math.min(maxScrollTop, nextScrollTop));
+  }, [activeId]);
 
   const jumpTo = useCallback(
     (id: string) => {
@@ -177,17 +215,21 @@ export const ConversationMinimap = memo(function ConversationMinimap({
 
   useEffect(() => () => cancelAnimationFrame(moveRaf.current), []);
 
-  /* Dash centers follow the rail's own box, which is driven by the pane height and by the
-   * marker-count-dependent gap — not by the marker set alone. Observing the rail catches
-   * every cause, so magnification never tracks stale positions. */
+  /* Row centers follow the rail's own box and scroll position. Observing the rail catches
+   * pane-height changes, and the track's scroll handler catches its position changes. */
   useEffect(() => {
     measureMagnifyCenters();
+    updateScrollHints();
     const rail = railRef.current;
     if (!rail || typeof ResizeObserver === "undefined") return;
     let frame = 0;
     const observer = new ResizeObserver(() => {
       cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(measureMagnifyCenters);
+      frame = requestAnimationFrame(() => {
+        keepActiveMarkerVisible();
+        measureMagnifyCenters();
+        updateScrollHints();
+      });
     });
     observer.observe(rail);
     return () => {
@@ -196,7 +238,28 @@ export const ConversationMinimap = memo(function ConversationMinimap({
     };
     // `overflows` gates whether the rail is mounted at all, so the observer has to be
     // reattached when it returns.
-  }, [markerIdentity, measureMagnifyCenters, overflows]);
+  }, [
+    keepActiveMarkerVisible,
+    markerIdentity,
+    measureMagnifyCenters,
+    overflows,
+    updateScrollHints,
+  ]);
+
+  /* Keep the active row visible. The rail reserves hint space permanently, so adding or
+   * removing the scroll indicators never shifts marker geometry. */
+  useLayoutEffect(() => {
+    keepActiveMarkerVisible();
+    measureMagnifyCenters();
+    updateScrollHints();
+  }, [activeId, keepActiveMarkerVisible, markerIdentity, measureMagnifyCenters, updateScrollHints]);
+
+  const handleTrackScroll = useCallback(() => {
+    cancelAnimationFrame(moveRaf.current);
+    moveRaf.current = requestAnimationFrame(measureMagnifyCenters);
+    updateScrollHints();
+    setHovered(null);
+  }, [measureMagnifyCenters, updateScrollHints]);
 
   if (!shouldRenderConversationMinimap({ markerCount: markers.length, overflows })) {
     return null;
@@ -210,28 +273,45 @@ export const ConversationMinimap = memo(function ConversationMinimap({
       className="minimap-rail"
       ref={railRef}
       aria-label={t(locale, "timeline.minimap")}
-      style={{ "--minimap-marker-count": markers.length } as CSSProperties}
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
     >
-      {markers.map((marker) => (
-        <button
-          key={marker.id}
-          type="button"
-          ref={(node) => {
-            if (node) markerEls.current.set(marker.id, node);
-            else markerEls.current.delete(marker.id);
-          }}
-          className={`minimap-marker ${marker.role} ${marker.id === activeId ? "active" : ""}`}
-          aria-label={roleLabel(marker.role)}
-          aria-current={marker.id === activeId ? "true" : undefined}
-          onFocus={(event) =>
-            setHovered({ marker, top: Math.max(0, event.currentTarget.offsetTop - 36) })
-          }
-          onBlur={() => setHovered(null)}
-          onClick={() => jumpTo(marker.id)}
-        />
-      ))}
+      <div className="minimap-track" ref={trackRef} onScroll={handleTrackScroll}>
+        {markers.map((marker) => (
+          <button
+            key={marker.id}
+            type="button"
+            ref={(node) => {
+              if (node) markerEls.current.set(marker.id, node);
+              else markerEls.current.delete(marker.id);
+            }}
+            className={`minimap-marker ${marker.role} ${marker.id === activeId ? "active" : ""}`}
+            aria-label={roleLabel(marker.role)}
+            aria-current={marker.id === activeId ? "true" : undefined}
+            onFocus={(event) => {
+              const rail = railRef.current;
+              const top = rail
+                ? event.currentTarget.getBoundingClientRect().top -
+                  rail.getBoundingClientRect().top -
+                  36
+                : 0;
+              setHovered({ marker, top: Math.max(0, top) });
+            }}
+            onBlur={() => setHovered(null)}
+            onClick={() => jumpTo(marker.id)}
+          />
+        ))}
+      </div>
+      {scrollHints.up ? (
+        <span className="minimap-scroll-hint up" aria-hidden="true">
+          ⌃
+        </span>
+      ) : null}
+      {scrollHints.down ? (
+        <span className="minimap-scroll-hint down" aria-hidden="true">
+          ⌄
+        </span>
+      ) : null}
       {hovered && hovered.marker.preview ? (
         <div className="minimap-popover" role="tooltip" style={{ top: `${hovered.top}px` }}>
           <div className="minimap-popover-role">{roleLabel(hovered.marker.role)}</div>

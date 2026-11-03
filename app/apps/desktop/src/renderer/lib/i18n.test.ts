@@ -10,6 +10,23 @@ describe("i18n", () => {
     expect(t("en", "nav.newThread")).toBe("New session");
   });
 
+  it("localizes Cua recovery safety copy in Chinese with interpolated targets", () => {
+    expect(
+      t("zh", "cuaRecovery.targetCua", {
+        pid: "1234",
+        windowId: "5678",
+        action: t("zh", "cuaRecovery.action.click"),
+        time: "11月4日 12:00",
+      }),
+    ).toContain("PID 1234、HWND 5678");
+    expect(t("zh", "cuaRecovery.lostResult", { backend: "Munim" })).toContain(
+      "停止模型不会取消另一个应用中的操作",
+    );
+    expect(t("zh", "cuaRecovery.dispatchingWarning", { backend: "Munim" })).toContain(
+      "可能尚未开始",
+    );
+  });
+
   it("interpolates variables and validates locales", () => {
     expect(t("zh", "empty.title", { name: "zeno" })).toBe("我们应该在 zeno 中构建什么？");
     expect(t("zh", "empty.titleNoWorkspace")).toBe("打开工作区以开始");

@@ -1641,4 +1641,32 @@ export const zh = {
   "progress.runFiles": "正在整理文件",
   "progress.runDownload": "正在下载",
   "progress.runGit": "正在操作 git",
+  "cuaRecovery.bannerCua": "检查 Cua 操作（{count}）",
+  "cuaRecovery.bannerMunim": "检查 Munim 操作（{count}）",
+  "cuaRecovery.bannerMixed": "检查 Cua 和 Munim 操作（{count}）",
+  "cuaRecovery.unknownTime": "未知",
+  "cuaRecovery.action.click": "点击",
+  "cuaRecovery.action.typeText": "输入文本",
+  "cuaRecovery.action.other": "操作",
+  "cuaRecovery.targetMunim": "检查 Munim，PID {pid}：{action}，开始时间 {time}。",
+  "cuaRecovery.targetCua": "检查窗口 PID {pid}、HWND {windowId}：{action}，开始时间 {time}。",
+  "cuaRecovery.title": "检查操作结果",
+  "cuaRecovery.lostResult":
+    "PRSLOY 未收到来自 {backend} 的已确认回复。操作可能尚未开始、已经执行，或仍在运行。停止模型不会取消另一个应用中的操作。",
+  "cuaRecovery.keepGateClosed":
+    "检查应用状态前，请保持操作门关闭。确认结果未知不会自动重试该操作。",
+  "cuaRecovery.dispatchingWarning":
+    "操作意图已记录，但 {backend} 调用可能尚未开始。即使解除操作门，它仍可能稍后启动或继续运行。",
+  "cuaRecovery.acknowledgeInFlight":
+    "我接受此操作仍可能稍后启动或完成，并可能与下一个操作同时运行。",
+  "cuaRecovery.acceptInFlight": "接受风险并解除操作门",
+  "cuaRecovery.acknowledgeUnknown":
+    "我明白，即使现在看不到结果，该操作仍可能稍后完成，并接受此风险。",
+  "cuaRecovery.completed": "我已检查：操作已完成",
+  "cuaRecovery.notApplied": "我已检查：操作未执行",
+  "cuaRecovery.acceptUnknown": "接受结果未知并继续",
+  "cuaRecovery.saving": "正在保存…",
+  "cuaRecovery.leaveBlocked": "保持操作门关闭",
+  "cuaRecovery.listTimeout": "等待恢复队列超时（10 秒）",
+  "cuaRecovery.listLimit": "未完成的队列请求过多；等待它们完成",
 } as const;

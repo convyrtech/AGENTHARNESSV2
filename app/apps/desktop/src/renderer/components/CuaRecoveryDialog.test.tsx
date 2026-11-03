@@ -26,12 +26,13 @@ function renderDialog(
   onLeaveBlocked = vi.fn(),
   onAcceptInFlightRisk = vi.fn(),
   action: CuaRecoveryPendingAction = pending,
+  locale: "ru" | "en" | "zh" = "ru",
 ) {
   render(
     <CuaRecoveryDialog
       open
       pending={action}
-      locale="ru"
+      locale={locale}
       onResolve={onResolve}
       onAcceptInFlightRisk={onAcceptInFlightRisk}
       onLeaveBlocked={onLeaveBlocked}
@@ -89,6 +90,17 @@ describe("CuaRecoveryDialog", () => {
     expect(cuaRecoveryBannerLabel([{}, { backend: "munim" }], "en")).toBe(
       "Review Cua and Munim actions (2)",
     );
+    expect(cuaRecoveryBannerLabel([{}], "zh")).toBe("检查 Cua 操作（1）");
+  });
+
+  it("renders the recovery dialog in Chinese instead of falling back to English", () => {
+    renderDialog(vi.fn(), vi.fn(), vi.fn(), pending, "zh");
+    const dialog = screen.getByTestId("cua-recovery-dialog");
+    expect(dialog).toHaveTextContent("检查操作结果");
+    expect(dialog).toHaveTextContent("PRSLOY 未收到来自 Cua 的已确认回复");
+    expect(dialog).toHaveTextContent("保持操作门关闭");
+    expect(dialog).toHaveTextContent("接受结果未知并继续");
+    expect(dialog).not.toHaveTextContent("Check the action result");
   });
 
   it("explains that stopping does not cancel the external action and renders IDs as text", () => {
