@@ -45,6 +45,164 @@ type GatewayMessage = {
   tool_calls?: unknown;
   tool_call_id?: string;
 };
+const crossBackendProbePrompt =
+  "Cross-backend fresh Cua token probe: inspect the fixture, then click its delayed action once.";
+
+/** Keep the scripted gateway bound to its one synthetic turn, allowing only generated PNG
+ * user parts after that prompt. Pi converts tool images to user image messages for OpenAI. */
+function syntheticProbeTurn(messages: GatewayMessage[]): GatewayMessage[] | undefined {
+  const promptIndexes = messages.flatMap((message, index) =>
+    message.role === "user" && textOf(message.content).trim() === crossBackendProbePrompt
+      ? [index]
+      : [],
+  );
+  if (promptIndexes.length !== 1) return undefined;
+  const promptIndex = promptIndexes[0]!;
+  const afterPrompt = messages.slice(promptIndex + 1);
+  let toolResultSeen = false;
+  for (const message of afterPrompt) {
+    if (message.role === "tool") {
+      toolResultSeen = true;
+      continue;
+    }
+    if (message.role === "user") {
+      if (!toolResultSeen || !isGeneratedImageUserMessage(message.content)) return undefined;
+    }
+  }
+  return messages.slice(promptIndex);
+}
+
+function isGeneratedImageUserMessage(content: unknown): boolean {
+  if (!Array.isArray(content) || content.length === 0) return false;
+  const parts = [...content];
+  const first = parts[0];
+  if (
+    first &&
+    typeof first === "object" &&
+    !Array.isArray(first) &&
+    (first as Record<string, unknown>).type === "text"
+  ) {
+    const textPart = first as Record<string, unknown>;
+    if (
+      Object.keys(textPart).length !== 2 ||
+      textPart.text !== "Attached image(s) from tool result:"
+    )
+      return false;
+    parts.shift();
+  }
+  if (parts.length === 0) return false;
+  return parts.every((part) => {
+    if (!part || typeof part !== "object" || Array.isArray(part)) return false;
+    const row = part as Record<string, unknown>;
+    if (
+      row.type !== "image_url" ||
+      Object.keys(row).some((key) => key !== "type" && key !== "image_url")
+    )
+      return false;
+    if (!row.image_url || typeof row.image_url !== "object" || Array.isArray(row.image_url))
+      return false;
+    const image = row.image_url as Record<string, unknown>;
+    return (
+      Object.keys(image).every((key) => key === "url" || key === "detail") &&
+      typeof image.url === "string" &&
+      /^data:image\/png;base64,[A-Za-z0-9+/]+=*$/u.test(image.url) &&
+      (image.detail === undefined ||
+        image.detail === "auto" ||
+        image.detail === "low" ||
+        image.detail === "high")
+    );
+  });
+}
+
+function syntheticProbeStep(messages: GatewayMessage[]): number | undefined {
+  const turn = syntheticProbeTurn(messages);
+  if (!turn) return undefined;
+  const results = turn.filter((message) => message.role === "tool");
+  const step = results.length;
+  const previousToolName = findLastToolCall(turn)?.function?.name;
+  const expectedPreviousTool =
+    step === 0
+      ? undefined
+      : step === 1
+        ? "cua_list_windows"
+        : step === 2
+          ? "cua_get_window_state"
+          : step === 3
+            ? "cua_click"
+            : undefined;
+  if (
+    step > 3 ||
+    (step === 0 && previousToolName !== undefined) ||
+    (step > 0 && previousToolName !== expectedPreviousTool)
+  )
+    return undefined;
+  return step;
+}
+
+test("synthetic Cua turn accepts generated image messages but rejects unrelated user turns", () => {
+  const prompt: GatewayMessage = { role: "user", content: crossBackendProbePrompt };
+  const imageMessage: GatewayMessage = {
+    role: "user",
+    content: [
+      { type: "text", text: "Attached image(s) from tool result:" },
+      { type: "image_url", image_url: { url: "data:image/png;base64,U0FGRQ==" } },
+    ],
+  };
+  const toolResult: GatewayMessage = { role: "tool", content: "fixture state" };
+  expect(syntheticProbeTurn([prompt, toolResult, imageMessage])).toEqual([
+    prompt,
+    toolResult,
+    imageMessage,
+  ]);
+  expect(syntheticProbeTurn([toolResult, prompt, toolResult])).toEqual([prompt, toolResult]);
+  expect(syntheticProbeTurn([prompt, imageMessage])).toBeUndefined();
+  expect(syntheticProbeTurn([toolResult])).toBeUndefined();
+  expect(syntheticProbeTurn([prompt, { role: "user", content: "unrelated user text" }])).toBe(
+    undefined,
+  );
+  expect(
+    syntheticProbeTurn([
+      prompt,
+      {
+        role: "user",
+        content: [{ type: "image_url", image_url: { url: "https://example.com/image.png" } }],
+      },
+    ]),
+  ).toBeUndefined();
+  expect(
+    syntheticProbeTurn([
+      prompt,
+      {
+        role: "user",
+        content: [
+          { type: "text", text: "unrelated user text" },
+          { type: "image_url", image_url: { url: "data:image/png;base64,U0FGRQ==" } },
+        ],
+      },
+    ]),
+  ).toBeUndefined();
+  expect(syntheticProbeTurn([prompt, prompt])).toBeUndefined();
+  expect(
+    syntheticProbeStep([
+      prompt,
+      { role: "assistant", tool_calls: [{ id: "c1", function: { name: "cua_list_windows" } }] },
+      toolResult,
+      imageMessage,
+      {
+        role: "assistant",
+        tool_calls: [{ id: "c2", function: { name: "cua_get_window_state" } }],
+      },
+      toolResult,
+    ]),
+  ).toBe(2);
+  expect(
+    syntheticProbeStep([
+      prompt,
+      { role: "assistant", tool_calls: [{ id: "c1", function: { name: "munim_list_apps" } }] },
+      toolResult,
+    ]),
+  ).toBeUndefined();
+});
 type ToolCall = { id?: string; function?: { name?: string } };
 type RecoveryItem = {
   actionId: string;
@@ -765,19 +923,24 @@ async function startRestartCuaGateway(options: {
       for await (const chunk of req) raw += String(chunk);
       const body = JSON.parse(raw) as { messages?: GatewayMessage[] };
       const messages = body.messages ?? [];
-      const prompt =
-        messages
-          .filter((m) => m.role === "user")
-          .map((m) => textOf(m.content))
-          .at(-1) ?? "";
-      const turn = messages.slice(messages.findLastIndex((m) => m.role === "user") + 1);
+      const turn = syntheticProbeTurn(messages);
+      if (!turn) {
+        gateway.errors.push("unexpected_prompt");
+        res.writeHead(400, { "content-type": "application/json" });
+        res.end(JSON.stringify({ error: "cross_backend_gateway_error" }));
+        return;
+      }
       const results = turn.filter((m) => m.role === "tool");
       const lastText = textOf(results.at(-1)?.content);
       const step = results.length;
+      if (syntheticProbeStep(messages) !== step) {
+        gateway.errors.push("unexpected_tool_sequence");
+        res.writeHead(400, { "content-type": "application/json" });
+        res.end(JSON.stringify({ error: "cross_backend_gateway_error" }));
+        return;
+      }
       let call: { name: string; args: Record<string, unknown> } | undefined;
-      if (!prompt.includes("Cross-backend fresh Cua token probe")) {
-        gateway.errors.push("unexpected_prompt");
-      } else if (step === 0) {
+      if (step === 0) {
         call = { name: "cua_list_windows", args: { pid: options.fixturePid } };
       } else if (step === 1) {
         if (!display2StillMatches())
