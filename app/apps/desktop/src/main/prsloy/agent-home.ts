@@ -27,6 +27,8 @@ import {
   type PrsloySpeedMode,
 } from "../../shared/prsloy-config.ts";
 import type { RubPricePerM } from "../../shared/prsloy-prices.ts";
+import { munimComputerUseServer } from "./computer-use.ts";
+import { readMcpConfig, writeMcpConfig } from "../mcp-config.ts";
 
 export type PrsloyHomePaths = {
   /** pi agent dir (models.json, settings.json, trust, bin/). */
@@ -122,6 +124,8 @@ export type PrsloySettingsSeed = {
   dropAutoMcpAdapter?: boolean;
   /** Models the gateway serves: a PRSLOY default it no longer serves moves to its preset's next. */
   available?: readonly string[] | undefined;
+  /** Developer-only opt-in: load pi's native MCP reader. */
+  computerUse?: boolean;
 };
 
 /** Package source early alphas installed from npm on first launch. */
@@ -145,6 +149,10 @@ export function ensurePrsloySettings(agentDir: string, seed: PrsloySettingsSeed)
   const path = join(agentDir, "settings.json");
   const before = readJsonObject(path);
   const next: Record<string, unknown> = { ...before };
+  // Older opt-in code wrote this private flag and rewrote `extensions` to restore
+  // built-in MCP later. Runtime now disables that loader without changing settings;
+  // discard the obsolete flag while preserving the user's current extensions list.
+  delete next.prsloyRestoreBuiltinMcp;
   if (typeof next.defaultProvider !== "string" || typeof next.defaultModel !== "string") {
     next.defaultProvider = PRSLOY_PROVIDER_ID;
     next.defaultModel = prsloySpeedModelId(PRSLOY_DEFAULT_SPEED_MODE, seed.available);
@@ -177,6 +185,41 @@ export function ensurePrsloySettings(agentDir: string, seed: PrsloySettingsSeed)
   }
   if (JSON.stringify(before) === JSON.stringify(next) && existsSync(path)) return false;
   writeJsonAtomic(path, next);
+  return true;
+}
+
+/** Configure only an explicitly supplied Munim binary; never downloads or installs it. */
+export function ensurePrsloyComputerUseConfig(agentDir: string, binaryPath?: string): boolean {
+  if (!binaryPath) return false;
+  const config = readMcpConfig(agentDir);
+  const next = munimComputerUseServer({ binaryPath });
+  const existing = config.mcpServers.munimComputerUse;
+  if (existing && !existing.prsloyComputerUseOwned) return false;
+  const before = JSON.stringify(config.mcpServers.munimComputerUse);
+  config.mcpServers.munimComputerUse = {
+    ...next,
+    prsloyComputerUseOwned: true,
+    exposure: "direct",
+    disabled: false,
+    enabled: true,
+  };
+  if (before === JSON.stringify(config.mcpServers.munimComputerUse)) return false;
+  writeMcpConfig(agentDir, config);
+  return true;
+}
+
+/** Keep the experimental server from starting through the normal loader after opt-out. */
+export function disablePrsloyComputerUseConfig(agentDir: string): boolean {
+  const config = readMcpConfig(agentDir);
+  const server = config.mcpServers.munimComputerUse;
+  if (
+    !server ||
+    !server.prsloyComputerUseOwned ||
+    (server.disabled === true && server.enabled === false)
+  )
+    return false;
+  config.mcpServers.munimComputerUse = { ...server, disabled: true, enabled: false };
+  writeMcpConfig(agentDir, config);
   return true;
 }
 

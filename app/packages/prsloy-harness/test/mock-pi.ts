@@ -102,8 +102,15 @@ export class MockPi {
     toolName: string,
     input: Record<string, unknown>,
     toolCallId = `call-${this.#nextId++}`,
+    parentToolCallId?: string,
   ): Promise<{ block?: boolean; reason?: string; terminate?: boolean } | undefined> {
-    const event = { type: "tool_call", toolName, toolCallId, input };
+    const event = {
+      type: "tool_call",
+      toolName,
+      toolCallId,
+      input,
+      ...(parentToolCallId ? { parentToolCallId } : {}),
+    };
     for (const handler of this.handlers.get("tool_call") ?? []) {
       const result = (await handler(event, this.ctx)) as { block?: boolean } | undefined;
       if (result?.block) return result;

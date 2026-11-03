@@ -120,6 +120,46 @@ describe("host env", () => {
     );
     expect(env[GATEWAY_KEY_HANDOFF_ENV]).toBeUndefined();
   });
+
+  it("passes computer-use only as an explicit developer opt-in", () => {
+    const enabled = buildPrsloyHostEnv(
+      {
+        PATH: "/usr/bin",
+        PRSLOY_COMPUTER_USE: "stale",
+        PRSLOY_MUNIM_BINARY: "stale",
+        PRSLOY_CUA_BINARY: "stale",
+        PRSLOY_CUA_USER_DATA: "stale",
+      },
+      {
+        agentDir: "/a",
+        sessionDir: "/s",
+        shimsDir: "/sh",
+        computerUse: true,
+        munimBinary: "C:\\Tools\\munim-computer-use.exe",
+        cuaBinary: "C:\\Tools\\cua-driver.exe",
+        cuaUserData: "C:\\Profile",
+        platform: "win32",
+      },
+    );
+    expect(enabled.PRSLOY_COMPUTER_USE).toBe("1");
+    expect(enabled.PRSLOY_MUNIM_BINARY).toBe("C:\\Tools\\munim-computer-use.exe");
+    expect(enabled.PRSLOY_CUA_BINARY).toBe("C:\\Tools\\cua-driver.exe");
+    expect(enabled.PRSLOY_CUA_USER_DATA).toBe("C:\\Profile");
+    const disabled = buildPrsloyHostEnv(
+      {
+        PATH: "/usr/bin",
+        PRSLOY_COMPUTER_USE: "stale",
+        PRSLOY_MUNIM_BINARY: "stale",
+        PRSLOY_CUA_BINARY: "stale",
+        PRSLOY_CUA_USER_DATA: "stale",
+      },
+      { agentDir: "/a", sessionDir: "/s", shimsDir: "/sh", platform: "win32" },
+    );
+    expect(disabled.PRSLOY_COMPUTER_USE).toBeUndefined();
+    expect(disabled.PRSLOY_MUNIM_BINARY).toBeUndefined();
+    expect(disabled.PRSLOY_CUA_BINARY).toBeUndefined();
+    expect(disabled.PRSLOY_CUA_USER_DATA).toBeUndefined();
+  });
 });
 
 describe.skipIf(process.platform === "win32")("shims (real shell)", () => {

@@ -94,7 +94,27 @@ export interface PrsloyDesktopApi {
    * the desktop and show it in its folder. Nothing is sent anywhere.
    */
   saveSupportReport(): Promise<PrsloySupportReportResult>;
+  /** Explicitly inspect and resolve a pending Cua action; errors must remain visible. */
+  cuaRecovery: {
+    list(): Promise<CuaRecoveryItem[]>;
+    resolve(actionId: string, challenge: string, resolution: CuaOwnerResolution): Promise<void>;
+    acceptInFlightRisk(actionId: string, challenge: string): Promise<void>;
+  };
 }
+
+export type CuaOwnerResolution = "observed_completed" | "observed_not_applied" | "accept_unknown";
+interface CuaRecoveryItemBase {
+  actionId: string;
+  challenge: string;
+  pid: number;
+  kind: "click" | "type_text" | "other";
+  status: "dispatching" | "unknown";
+  createdAt: number;
+}
+
+/** Existing Cua items omit backend and always carry their exact HWND. */
+export type CuaRecoveryItem = CuaRecoveryItemBase &
+  ({ backend?: "cua"; windowId: number } | { backend: "munim"; windowId: null });
 
 export type PrsloySupportReportResult =
   | { ok: true; path: string; name: string }

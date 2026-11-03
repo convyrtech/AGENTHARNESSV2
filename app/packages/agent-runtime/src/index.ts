@@ -257,11 +257,20 @@ export interface CreateZenoRuntimeOptions {
    * Survives asar packaging: no files to resolve at runtime.
    */
   extensionFactories?: ExtensionFactory[];
+  /** Built-in extensions to suppress for this runtime session, even when user settings enable them. */
+  disabledBuiltinExtensions?: string[];
   /**
    * When true, project AGENTS.md / CLAUDE.md (outside agentDir) load only after the
    * folder is trusted, and such files make trust "required" so the UI asks once.
    */
   contextFilesRequireTrust?: boolean;
+}
+
+/** Compose the Pi loader override only when explicitly requested. */
+export function disabledBuiltinResourceLoaderOptions(
+  names: CreateZenoRuntimeOptions["disabledBuiltinExtensions"],
+) {
+  return names?.length ? { disabledBuiltinExtensions: [...names] } : {};
 }
 
 export interface ZenoRuntimeHandle {
@@ -1641,6 +1650,7 @@ export async function createPixRuntime(
       settingsManager,
       resourceLoaderOptions: {
         additionalExtensionPaths: temporaryExtensionPaths,
+        ...disabledBuiltinResourceLoaderOptions(options.disabledBuiltinExtensions),
         ...(options.extensionFactories?.length
           ? { extensionFactories: options.extensionFactories }
           : {}),

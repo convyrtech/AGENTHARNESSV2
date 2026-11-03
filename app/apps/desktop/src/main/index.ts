@@ -159,6 +159,7 @@ import { RuntimeBoot } from "./prsloy/runtime-boot.ts";
 import { prepareTurn, registerPrsloyIpc } from "./prsloy/ipc.ts";
 import { trackSessionFile } from "./prsloy/session-left.ts";
 import { CRASH_RESTART_DELAY_MS, nextCrashRestart } from "./prsloy/crash-restart.ts";
+import { CuaRecoveryController } from "./prsloy/cua-recovery-controller.ts";
 import {
   isConversationWorkspacePath,
   isNonProjectWorkspacePath,
@@ -1295,6 +1296,17 @@ function isTrustedIpcEvent(event: Electron.IpcMainInvokeEvent | Electron.IpcMain
 
 function assertTrustedSender(event: Electron.IpcMainInvokeEvent): void {
   if (!isTrustedIpcEvent(event)) throw new Error("不受信任的 IPC 发送方");
+}
+
+function assertMainWindowRecoverySender(event: Electron.IpcMainInvokeEvent): void {
+  if (
+    !mainWindow ||
+    mainWindow.isDestroyed() ||
+    event.sender !== mainWindow.webContents ||
+    event.senderFrame !== mainWindow.webContents.mainFrame
+  ) {
+    throw new Error("拒绝非主窗口的 Cua 恢复请求");
+  }
 }
 /** Restored BrowserWindow geometry (userData/zeno-desktop.json). */
 interface WindowBoundsPrefs {
@@ -3981,15 +3993,26 @@ class HostSupervisor {
     // (idempotent; no-op when already patched). See pi-subagents-patch.ts.
     ensurePiSubagentsSpawnPatch(defaultAgentDir());
 
+    const hostId = randomUUID();
+    const childEnv = sanitizeUtilityProcessEnv(env);
+    if (env.PRSLOY_COMPUTER_USE === "1") {
+      // Fail before spawning either computer-use backend if its durable gate is unavailable.
+      cuaRecovery.ensureAvailable(app.getPath("userData"));
+      childEnv.PRSLOY_CUA_HOST_ID = hostId;
+      childEnv.PRSLOY_CUA_USER_DATA = app.getPath("userData");
+    } else {
+      delete childEnv.PRSLOY_CUA_HOST_ID;
+      delete childEnv.PRSLOY_CUA_USER_DATA;
+    }
     const hostEntry = resolveAgentHostEntry(currentDirectory);
     const child = forkAgentHost(hostEntry, {
-      env: sanitizeUtilityProcessEnv(env),
+      env: childEnv,
       serviceName: "PRSLOY Agent Host",
       stdio: "pipe",
     });
     const host: ActiveHost = {
       child,
-      hostId: randomUUID(),
+      hostId,
       hello: deferred<void>(),
       exit: deferred<number>(),
       ignoreMessages: false,
@@ -4107,6 +4130,7 @@ class HostSupervisor {
     child.on("exit", (code) => {
       const exitCode = code ?? -1;
       host.exit.resolve(exitCode);
+      cuaRecovery.markHostLost(host.hostId);
       const finalize = () => this.#onHostProcessExit(host, exitCode);
       // Unexpected exits often flush stderr after the exit event — wait a tick.
       if (host.stopping) finalize();
@@ -4275,6 +4299,7 @@ let lastPetTasks: PetTask[] = [];
 let autoUpdate: AutoUpdateController | undefined;
 let supervisor: HostSupervisor | undefined;
 let themeLibrary: ThemeLibrary | undefined;
+const cuaRecovery = new CuaRecoveryController();
 
 /** App package root (apps/desktop) whether running from src or dist/main. */
 function packageRoot(): string {
@@ -4756,6 +4781,11 @@ void app
     installCodePreview(assertTrustedSender);
     installUiIpc(assertTrustedSender, () => mainWindow);
     installFeatures(assertTrustedSender);
+    cuaRecovery.installIpc(ipcMain, {
+      userDataPath: () => app.getPath("userData"),
+      enabled: () => process.env.PRSLOY_COMPUTER_USE === "1",
+      assertTrustedSender: assertMainWindowRecoverySender,
+    });
     // App-channel proxy before any network from Chromium / main.
     await applyAppSessionProxy();
     // Default Electron File/Edit/View/Window menu is English-only and not product chrome.
@@ -5684,11 +5714,17 @@ app.on("before-quit", (event) => {
   autoUpdate = undefined;
   piTuiController?.disposeAll();
   piTuiGuard.release();
-  if (!supervisor) return;
+  if (!supervisor) {
+    cuaRecovery.close();
+    return;
+  }
   event.preventDefault();
   const activeSupervisor = supervisor;
   supervisor = undefined;
-  void activeSupervisor.stop().finally(() => app.exit(0));
+  void activeSupervisor.stop().finally(() => {
+    cuaRecovery.close();
+    app.exit(0);
+  });
 });
 
 // Any web contents (incl. ones created later): no <webview>, no new windows by default.

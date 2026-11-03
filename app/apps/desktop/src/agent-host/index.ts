@@ -2,8 +2,19 @@ import "./proxy-bootstrap.ts";
 import { assistantFinalContent, assistantMessageId } from "./assistant-final.ts";
 import { applyHostHandoff, prsloyHandoff } from "./prsloy-handoff.ts";
 import { isHostHandoff } from "../shared/host-handoff.ts";
-import { createPrsloyHarness, type HarnessOptions } from "@prsloy/harness";
+import {
+  createPrsloyHarness,
+  installCuaComputerUseGuard,
+  installMunimComputerUseGuard,
+  type HarnessOptions,
+} from "@prsloy/harness";
+import {
+  allowedCuaConfig,
+  allowedMunimConfig,
+  selectComputerUseBackend,
+} from "./computer-use-mcp.ts";
 import { createWriteBoundary } from "./write-boundary.ts";
+import { createCuaRecoveryGate, createMunimRecoveryGate } from "./cua-recovery.ts";
 import {
   classifyModelError,
   createPixRuntime,
@@ -21,8 +32,17 @@ import {
   isHostEvent,
   type RuntimeEvent,
 } from "@zeno/contracts";
-import type { AgentSessionEvent } from "@earendil-works/pi-coding-agent";
+import type {
+  AgentSessionEvent,
+  ExtensionContext,
+  LoadedMcpConfig,
+  McpServerConfig,
+} from "@earendil-works/pi-coding-agent";
+import { createMcpExtension } from "@earendil-works/pi-coding-agent";
+import { readFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
+import { join } from "node:path";
+import { randomUUID } from "node:crypto";
 import { ProviderOAuthCoordinator, type OAuthModelRuntime } from "./provider-oauth.ts";
 import { loadPromptImages } from "./prompt-images.ts";
 import { installPrsloyFetch, modelSwitchText } from "./prsloy-fetch.ts";
@@ -52,6 +72,10 @@ process.on("unhandledRejection", (reason) => {
 let handle: ZenoRuntimeHandle | undefined;
 let unsubscribe: (() => void) | undefined;
 let sequence = 0;
+let cuaRecovery:
+  | ReturnType<typeof createCuaRecoveryGate>
+  | ReturnType<typeof createMunimRecoveryGate>
+  | undefined;
 
 function post(event: HostEvent): void {
   parentPort.postMessage(event);
@@ -404,6 +428,8 @@ async function handleCommand(command: HostCommand): Promise<void> {
         unsubscribe?.();
         unsubscribe = undefined;
         await handle?.dispose();
+        cuaRecovery?.close();
+        cuaRecovery = undefined;
         const options: CreateZenoRuntimeOptions = { cwd: command.cwd };
         if (command.agentDir) options.agentDir = command.agentDir;
         if (command.model) options.model = command.model;
@@ -423,6 +449,86 @@ async function handleCommand(command: HostCommand): Promise<void> {
         options.extensionFactories = [
           createWriteBoundary(options.agentDir ? { agentDir: options.agentDir } : {}),
         ];
+        const computerUseBackend = selectComputerUseBackend(
+          process.env.PRSLOY_COMPUTER_USE === "1",
+          process.env.PRSLOY_CUA_BINARY,
+        );
+        const cuaSelected = computerUseBackend === "cua";
+        if (computerUseBackend) {
+          // Prevent Pi's general MCP loader from bypassing the scoped driver;
+          // this affects this runtime only and never rewrites the user's settings.
+          options.disabledBuiltinExtensions = ["mcp"];
+          // The computer-use boundary is required even if the optional harness is off.
+          if (cuaSelected) {
+            // Never fall back to an unprotected Cua session if profile identity or storage fails.
+            const recovery = createCuaRecoveryGate(
+              process.env.PRSLOY_CUA_USER_DATA ?? "",
+              process.env.PRSLOY_CUA_HOST_ID ?? "",
+              randomUUID(),
+            );
+            cuaRecovery = recovery;
+            options.extensionFactories.push((pi) => installCuaComputerUseGuard(pi, recovery.gate));
+          } else {
+            const recovery = createMunimRecoveryGate(
+              process.env.PRSLOY_CUA_USER_DATA ?? "",
+              process.env.PRSLOY_CUA_HOST_ID ?? "",
+              randomUUID(),
+            );
+            cuaRecovery = recovery;
+            options.extensionFactories.push((pi) =>
+              installMunimComputerUseGuard(pi, recovery.gate),
+            );
+          }
+          const mcpAgentDir = options.agentDir ?? process.env.PI_CODING_AGENT_DIR;
+          if (cuaSelected || mcpAgentDir) {
+            options.extensionFactories.push(
+              createMcpExtension({
+                loadConfig: (_ctx: ExtensionContext): LoadedMcpConfig => {
+                  let munim: McpServerConfig | undefined;
+                  if (!cuaSelected && mcpAgentDir) {
+                    try {
+                      const raw = JSON.parse(
+                        readFileSync(join(mcpAgentDir, "mcp.json"), "utf8"),
+                      ) as {
+                        mcpServers?: Record<string, McpServerConfig>;
+                      };
+                      munim = raw.mcpServers?.munimComputerUse;
+                    } catch {
+                      munim = undefined;
+                    }
+                  }
+                  const source = mcpAgentDir
+                    ? `${mcpAgentDir}/mcp.json`
+                    : "explicit environment opt-in";
+                  const cua = cuaSelected
+                    ? allowedCuaConfig(
+                        { command: process.env.PRSLOY_CUA_BINARY },
+                        process.env.PRSLOY_CUA_BINARY,
+                      )
+                    : undefined;
+                  const config =
+                    cua ??
+                    (!cuaSelected
+                      ? allowedMunimConfig(munim, process.env.PRSLOY_MUNIM_BINARY)
+                      : undefined);
+                  return {
+                    servers: config
+                      ? [
+                          {
+                            name: cua ? "cuaComputerUse" : "munimComputerUse",
+                            config,
+                            source: cua ? "PRSLOY_CUA_BINARY" : source,
+                            scope: "global" as const,
+                          },
+                        ]
+                      : [],
+                    errors: [],
+                  } satisfies LoadedMcpConfig;
+                },
+              }),
+            );
+          }
+        }
         if (prsloyHandoff.harnessEnabled) {
           // Bundled into the host (survives asar); profile from PRSLOY_PROFILE (main sets "code").
           // Web search (issue #23): config and keys come in the prsloy.handoff message (never env), and only
@@ -432,6 +538,8 @@ async function handleCommand(command: HostCommand): Promise<void> {
             createPrsloyHarness(
               search
                 ? {
+                    // Cua mode installs its own stricter boundary. Do not also activate Munim's guard.
+                    ...(computerUseBackend ? { computerUse: false } : {}),
                     research: {
                       // main wrote it from its own list of providers (search-settings.ts)
                       search: search.search as NonNullable<
@@ -449,7 +557,9 @@ async function handleCommand(command: HostCommand): Promise<void> {
                       ...(search.modelSearch?.length ? { modelSearch: search.modelSearch } : {}),
                     },
                   }
-                : {},
+                : computerUseBackend
+                  ? { computerUse: false }
+                  : {},
             ),
           );
         }

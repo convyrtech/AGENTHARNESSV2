@@ -1,9 +1,10 @@
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 import {
   createPixRuntime,
+  disabledBuiltinResourceLoaderOptions,
   filterUntrustedContextFiles,
   hasProjectContextFiles,
   setContextFilesRequireTrust,
@@ -114,6 +115,36 @@ describe("extension paths", () => {
     } finally {
       await handle.dispose();
     }
+  });
+});
+
+describe("disabled built-in extensions", () => {
+  it("suppresses a user-enabled built-in for one runtime without changing settings", async () => {
+    const paths = await fixture();
+    const settingsPath = join(paths.agentDir, "settings.json");
+    await writeFile(settingsPath, JSON.stringify({ extensions: ["+builtin:mcp"] }));
+    const handle = await createPixRuntime({
+      cwd: paths.project,
+      agentDir: paths.agentDir,
+      tools: ["read"],
+      extensionPaths: ["builtin:mcp"],
+      disabledBuiltinExtensions: ["mcp"],
+    });
+    try {
+      const extensions = handle.runtime.services.resourceLoader.getExtensions().extensions;
+      expect(extensions.some((extension) => extension.path === "builtin:mcp")).toBe(false);
+      expect(JSON.parse(await readFile(settingsPath, "utf8")).extensions).toEqual(["+builtin:mcp"]);
+    } finally {
+      await handle.dispose();
+    }
+  });
+
+  it("leaves Pi resource-loader options unchanged unless an override is requested", () => {
+    expect(disabledBuiltinResourceLoaderOptions(undefined)).toEqual({});
+    expect(disabledBuiltinResourceLoaderOptions([])).toEqual({});
+    expect(disabledBuiltinResourceLoaderOptions(["mcp"])).toEqual({
+      disabledBuiltinExtensions: ["mcp"],
+    });
   });
 });
 

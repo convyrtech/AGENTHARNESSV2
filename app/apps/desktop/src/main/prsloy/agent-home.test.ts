@@ -3,6 +3,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 import {
+  ensurePrsloyComputerUseConfig,
+  disablePrsloyComputerUseConfig,
   ensurePrsloyHomeDirs,
   ensurePrsloyModelsJson,
   ensurePrsloySettings,
@@ -110,6 +112,89 @@ describe("settings.json seed", () => {
 });
 
 describe("MCP off by default", () => {
+  it("seeds built-in MCP off only when no user extension list exists", () => {
+    const agentDir = tempDir();
+    ensurePrsloySettings(agentDir, { computerUse: true });
+    ensurePrsloySettings(agentDir, { computerUse: false });
+    expect(readJson(join(agentDir, "settings.json")).extensions).toContain("-builtin:mcp");
+
+    writeFileSync(
+      join(agentDir, "settings.json"),
+      JSON.stringify({ extensions: ["+builtin:mcp", "custom"] }),
+    );
+    ensurePrsloySettings(agentDir, { computerUse: true });
+    ensurePrsloySettings(agentDir, { computerUse: false });
+    expect(readJson(join(agentDir, "settings.json")).extensions).toEqual([
+      "+builtin:mcp",
+      "custom",
+    ]);
+  });
+  it("keeps an existing built-in choice unchanged and disables only the owned server on opt-out", () => {
+    const agentDir = tempDir();
+    writeFileSync(
+      join(agentDir, "settings.json"),
+      JSON.stringify({ extensions: ["+builtin:mcp", "custom"] }),
+    );
+    ensurePrsloySettings(agentDir, { computerUse: true });
+    ensurePrsloyComputerUseConfig(agentDir, "C:\\Tools\\munim-computer-use.exe");
+    ensurePrsloySettings(agentDir, { computerUse: false });
+    disablePrsloyComputerUseConfig(agentDir);
+    expect(readJson(join(agentDir, "settings.json")).extensions).toEqual([
+      "+builtin:mcp",
+      "custom",
+    ]);
+    expect(readJson(join(agentDir, "mcp.json")).mcpServers.munimComputerUse).toMatchObject({
+      enabled: false,
+      disabled: true,
+    });
+    ensurePrsloyComputerUseConfig(agentDir, "C:\\Tools\\munim-computer-use.exe");
+    expect(readJson(join(agentDir, "mcp.json")).mcpServers.munimComputerUse.enabled).toBe(true);
+  });
+  it("removes the legacy restore marker without rewriting the current user extensions", () => {
+    const agentDir = tempDir();
+    const extensions = ["custom", "-builtin:mcp"];
+    writeFileSync(
+      join(agentDir, "settings.json"),
+      JSON.stringify({ extensions, prsloyRestoreBuiltinMcp: true }),
+    );
+    ensurePrsloySettings(agentDir, { computerUse: true });
+    const optedIn = readJson(join(agentDir, "settings.json"));
+    expect(optedIn.extensions).toEqual(extensions);
+    expect(optedIn.prsloyRestoreBuiltinMcp).toBeUndefined();
+
+    ensurePrsloySettings(agentDir, { computerUse: false });
+    expect(readJson(join(agentDir, "settings.json")).extensions).toEqual(extensions);
+  });
+  it("leaves an unrelated user-managed server with the same name alone on opt-out", () => {
+    const agentDir = tempDir();
+    const other = { command: "custom.exe", args: ["serve"] };
+    writeFileSync(
+      join(agentDir, "mcp.json"),
+      JSON.stringify({ mcpServers: { munimComputerUse: other } }),
+    );
+    expect(disablePrsloyComputerUseConfig(agentDir)).toBe(false);
+    expect(ensurePrsloyComputerUseConfig(agentDir, "C:\\Tools\\munim-computer-use.exe")).toBe(
+      false,
+    );
+    expect(readJson(join(agentDir, "mcp.json")).mcpServers.munimComputerUse).toEqual(other);
+  });
+  it("preserves a user-managed Munim even when it looks like the old experimental config", () => {
+    const agentDir = tempDir();
+    const manual = {
+      command: "C:\\Tools\\munim-computer-use.exe",
+      args: [],
+      env: { COMPUTER_USE_BROWSER: "0" },
+    };
+    writeFileSync(
+      join(agentDir, "mcp.json"),
+      JSON.stringify({ mcpServers: { munimComputerUse: manual } }),
+    );
+    expect(disablePrsloyComputerUseConfig(agentDir)).toBe(false);
+    expect(ensurePrsloyComputerUseConfig(agentDir, "C:\\Tools\\munim-computer-use.exe")).toBe(
+      false,
+    );
+    expect(readJson(join(agentDir, "mcp.json")).mcpServers.munimComputerUse).toEqual(manual);
+  });
   it("seeds -builtin:mcp unless the user has an extensions list", () => {
     const agentDir = tempDir();
     ensurePrsloySettings(agentDir, {});
@@ -120,6 +205,19 @@ describe("MCP off by default", () => {
     );
     ensurePrsloySettings(agentDir, {});
     expect(readJson(join(agentDir, "settings.json")).extensions).toEqual(["+builtin:mcp"]);
+  });
+
+  it("configures Munim only with an explicit binary path", () => {
+    const agentDir = tempDir();
+    expect(ensurePrsloyComputerUseConfig(agentDir, undefined)).toBe(false);
+    expect(ensurePrsloyComputerUseConfig(agentDir, "C:\\Tools\\munim-computer-use.exe")).toBe(true);
+    const config = readJson(join(agentDir, "mcp.json"));
+    expect(config.mcpServers.munimComputerUse).toMatchObject({
+      command: "C:\\Tools\\munim-computer-use.exe",
+      args: [],
+      enabled: true,
+      disabled: false,
+    });
   });
 
   it("drops the auto-installed npm:pi-mcp-adapter once, keeps other packages", () => {

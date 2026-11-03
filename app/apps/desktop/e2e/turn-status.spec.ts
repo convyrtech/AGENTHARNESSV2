@@ -54,7 +54,14 @@ async function axe(page: Page) {
 }
 
 async function send(page: Page, text: string) {
-  await page.getByTestId("prompt-input").fill(text);
+  const trust = page.getByTestId("project-trust-dialog-trust");
+  if (await trust.isVisible().catch(() => false)) await trust.click();
+  const input = page.getByTestId("prompt-input");
+  await expect(input).toBeEnabled({ timeout: 30_000 });
+  await input.click();
+  await input.pressSequentially(text, { delay: 1 });
+  await expect(input).toHaveValue(text);
+  await expect(page.getByTestId("send-prompt")).toBeEnabled({ timeout: 30_000 });
   await page.getByTestId("send-prompt").click();
   await expect(page.getByTestId("host-status").first()).toContainText("Agent settled", {
     timeout: 60_000,

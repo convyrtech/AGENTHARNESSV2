@@ -11,6 +11,8 @@ import {
   ensurePrsloyHomeDirs,
   ensurePrsloyModelsJson,
   ensurePrsloySettings,
+  ensurePrsloyComputerUseConfig,
+  disablePrsloyComputerUseConfig,
   installSearchTools,
   prsloyHomePaths,
   resolvePrsloyAgentDir,
@@ -277,20 +279,29 @@ export function bootstrapPrsloy(options: {
   const bundledGitRoot = installerGit ?? join(runtimesRoot, "git");
   let shellPath: string | undefined;
   let shellSource: PrsloyContext["shellSource"];
+  const computerUse = env.PRSLOY_COMPUTER_USE === "1";
   // Re-run when PortableGit finishes unpacking: bundled bash wins over a system Git.
   const refreshShell = () => {
     if (platform !== "win32") return;
     const chosen = chooseWindowsShellPath({ bundledGitRoot, env });
     shellPath = chosen.shellPath;
     shellSource = chosen.source;
-    ensurePrsloySettings(agentDir, { shellPath, available: state.models?.ids });
+    ensurePrsloySettings(agentDir, { shellPath, available: state.models?.ids, computerUse });
   };
   const gitBinary = () => chooseGitBinary({ platform, bundledGitRoot, env });
 
   ensurePrsloyModelsJson(agentDir, state.baseUrl, state.models?.ids, state.prices?.list);
   const MCP_MIGRATION = "no-auto-mcp-adapter";
   const dropAutoMcpAdapter = !state.migrations?.includes(MCP_MIGRATION);
-  ensurePrsloySettings(agentDir, { shellPath, dropAutoMcpAdapter, available: state.models?.ids });
+  ensurePrsloySettings(agentDir, {
+    shellPath,
+    dropAutoMcpAdapter,
+    available: state.models?.ids,
+    computerUse,
+  });
+  if (computerUse && env.PRSLOY_MUNIM_BINARY)
+    ensurePrsloyComputerUseConfig(agentDir, env.PRSLOY_MUNIM_BINARY);
+  else disablePrsloyComputerUseConfig(agentDir);
   if (dropAutoMcpAdapter) {
     state = { ...state, migrations: [...(state.migrations ?? []), MCP_MIGRATION] };
     writeState(statePath, state);
@@ -401,19 +412,23 @@ export function bootstrapPrsloy(options: {
     },
     hostEnv(base) {
       const search = this.searchForHost();
-      const env = buildPrsloyHostEnv(base, {
+      const childEnv = buildPrsloyHostEnv(base, {
         agentDir,
         sessionDir,
         shimsDir: paths.shimsDir,
         gatewayKey: keyStore.read(),
         searchHandoff: search ? JSON.stringify(search) : undefined,
+        computerUse: env.PRSLOY_COMPUTER_USE === "1",
+        munimBinary: env.PRSLOY_MUNIM_BINARY,
+        cuaBinary: env.PRSLOY_CUA_BINARY,
+        cuaUserData: options.userDataPath,
         platform,
       });
       // No venv yet (or never set up): no variable, the harness skips the page check.
       const designPython = this.designPython?.();
-      if (designPython) env.PRSLOY_DESIGN_PYTHON = designPython;
-      else delete env.PRSLOY_DESIGN_PYTHON;
-      return env;
+      if (designPython) childEnv.PRSLOY_DESIGN_PYTHON = designPython;
+      else delete childEnv.PRSLOY_DESIGN_PYTHON;
+      return childEnv;
     },
   };
 }
