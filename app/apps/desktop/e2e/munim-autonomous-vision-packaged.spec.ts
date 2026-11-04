@@ -442,7 +442,7 @@ async function startGateway(key: string, pid: number): Promise<VisionGateway> {
         if (
           calls.length !== 1 ||
           (calls[0]?.name !== "munim_list_apps" && calls[0]?.name !== "munim_screenshot") ||
-          calls[0]?.pid !== pid ||
+          (calls[0]?.pid !== -1 && calls[0]?.pid !== pid) ||
           (calls[0]?.name === "munim_screenshot" &&
             !state.toolCalls.some(
               (call) => call.id !== calls[0]?.id && call.name === "munim_list_apps",
@@ -561,7 +561,10 @@ function parseToolStream(bytes: Buffer): ParsedToolStream {
     )
       return { ok: false, calls: [] };
     if (event.choices.length === 0) {
-      if (event.usage === undefined || !event.usage || typeof event.usage !== "object")
+      if (
+        event.usage !== undefined &&
+        (!event.usage || typeof event.usage !== "object" || Array.isArray(event.usage))
+      )
         return { ok: false, calls: [] };
       continue;
     }
@@ -584,9 +587,12 @@ function parseToolStream(bytes: Buffer): ParsedToolStream {
       return { ok: false, calls: [] };
     const delta = deltaValue as Record<string, unknown>;
     if (
-      Object.keys(delta).some((key) => !["role", "content", "tool_calls"].includes(key)) ||
+      Object.keys(delta).some(
+        (key) => !["role", "content", "tool_calls", "reasoning_content"].includes(key),
+      ) ||
       (delta.role !== undefined && delta.role !== "assistant") ||
       (delta.content !== undefined && typeof delta.content !== "string") ||
+      (delta.reasoning_content !== undefined && typeof delta.reasoning_content !== "string") ||
       (delta.tool_calls !== undefined && !Array.isArray(delta.tool_calls))
     )
       return { ok: false, calls: [] };
@@ -636,14 +642,28 @@ function parseToolStream(bytes: Buffer): ParsedToolStream {
   if (!sawData || !sawDone || !sawChoice || !finishReason) return { ok: false, calls: [] };
   if ((finishReason === "tool_calls") !== calls.size > 0) return { ok: false, calls: [] };
   const parsedCalls = [...calls.values()].map((call) => {
-    let pid = -1;
+    let pid = -2;
     try {
-      const args = JSON.parse(call.args) as { pid?: unknown };
-      if (typeof args.pid === "number") pid = args.pid;
+      const args: unknown = JSON.parse(call.args || "{}");
+      if (args && typeof args === "object" && !Array.isArray(args)) {
+        const parsed = args as Record<string, unknown>;
+        if (parsed.pid === undefined) pid = -1;
+        else if (typeof parsed.pid === "number") pid = parsed.pid;
+        else pid = -2;
+        if (Object.keys(parsed).some((key) => key !== "pid")) pid = -2;
+      }
     } catch {}
     return { id: call.id ?? "", name: call.name, pid };
   });
-  if (parsedCalls.some((call) => !call.id || !call.name || call.pid < 0))
+  if (
+    parsedCalls.some(
+      (call) =>
+        !call.id ||
+        (call.name !== "munim_list_apps" && call.name !== "munim_screenshot") ||
+        (call.name === "munim_screenshot" && call.pid < 0) ||
+        (call.name === "munim_list_apps" && call.pid === -2),
+    )
+  )
     return { ok: false, calls: [] };
   return { ok: true, calls: parsedCalls };
 }
@@ -707,6 +727,39 @@ test("vision relay fails closed on unsupported streams and uncorrelated images",
     Buffer.from("data: [DONE]\n\n"),
   ]);
   expect(parseToolStream(validText).ok).toBe(true);
+  const validListCall = Buffer.concat([
+    chunk({
+      object: "chat.completion.chunk",
+      choices: [
+        { index: 0, delta: { reasoning_content: "Checking available apps." }, finish_reason: null },
+      ],
+    }),
+    chunk({ object: "chat.completion.chunk", choices: [] }),
+    chunk({
+      object: "chat.completion.chunk",
+      choices: [
+        {
+          index: 0,
+          delta: {
+            tool_calls: [
+              {
+                index: 0,
+                id: "list-1",
+                type: "function",
+                function: { name: "munim_list_apps", arguments: "{}" },
+              },
+            ],
+          },
+          finish_reason: "tool_calls",
+        },
+      ],
+    }),
+    Buffer.from("data: [DONE]\n\n"),
+  ]);
+  expect(parseToolStream(validListCall)).toMatchObject({
+    ok: true,
+    calls: [{ id: "list-1", name: "munim_list_apps", pid: -1 }],
+  });
   expect(parseToolStream(Buffer.from("data: not-json\n\ndata: [DONE]\n\n")).ok).toBe(false);
   expect(
     parseToolStream(
