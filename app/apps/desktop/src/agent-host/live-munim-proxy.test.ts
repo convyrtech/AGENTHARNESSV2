@@ -1175,7 +1175,11 @@ describe("live Munim test proxy", () => {
       {
         chunks: [
           terminalWithUsage(validUsage),
-          event({ object: "chat.completion.chunk", choices: [], usage: validUsage }),
+          event({
+            object: "chat.completion.chunk",
+            choices: [],
+            usage: { prompt_tokens: 5, completion_tokens: 3, total_tokens: 8 },
+          }),
         ],
         code: "usage_duplicate",
       },
@@ -1212,6 +1216,28 @@ describe("live Munim test proxy", () => {
       expect(JSON.stringify(px.evidence())).not.toContain("private-unknown-value");
       expect(JSON.stringify(px.evidence())).not.toContain("private_detail");
     }
+  });
+
+  it("accepts identical terminal usage repeated in the empty-choices trailer once", async () => {
+    const usage = { prompt_tokens: 5, completion_tokens: 2, total_tokens: 7 };
+    const body = `${event({
+      object: "chat.completion.chunk",
+      choices: [{ index: 0, delta: {}, finish_reason: "stop" }],
+      usage,
+    })}${event({ object: "chat.completion.chunk", choices: [], usage })}data: [DONE]\n\n`;
+    const up = await mockUpstream(() => ({ body }));
+    running.push(up.close);
+    const px = await proxy(up.url);
+    running.push(() => px.close());
+    baseUrl = px.baseUrl;
+
+    const response = await request();
+    const output = await response.text();
+    expect(response.status).toBe(200);
+    expect(output).not.toContain("rejected by the local SSE validator");
+    expect((output.match(/"usage":/gu) ?? []).length).toBe(1);
+    expect(px.evidence().invalidSseDetails).toEqual([]);
+    expect(px.evidence().outputTokensReported).toBe(2);
   });
 
   it("rejects malformed allowlisted metadata without exposing provider values", async () => {

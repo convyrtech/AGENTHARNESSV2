@@ -608,7 +608,6 @@ function collectSse(
         (chunk.choices[0].delta.content === undefined ||
           chunk.choices[0].delta.content === null ||
           chunk.choices[0].delta.content === "");
-      if (usageSeen) return reject("usage_duplicate");
       if (!(terminal ? chunk.choices.length === 0 : terminalInChunk))
         return reject("usage_location");
       if (!isObj(chunk.usage)) return reject("usage_shape");
@@ -641,12 +640,28 @@ function collectSse(
         (chunk.usage.prompt_tokens as number) + (chunk.usage.completion_tokens as number)
       )
         return reject("usage_sum");
-      usageSeen = true;
-      usage = {
+      const validatedUsage = {
         prompt: chunk.usage.prompt_tokens as number,
         completion: chunk.usage.completion_tokens as number,
         total: chunk.usage.total_tokens as number,
       };
+      if (usageSeen) {
+        // Some compatible gateways repeat the validated counters in the
+        // post-terminal empty-choices usage trailer. Accept that duplicate
+        // only in this terminal location and only when all counters match.
+        if (
+          !terminal ||
+          chunk.choices.length !== 0 ||
+          !usage ||
+          usage.prompt !== validatedUsage.prompt ||
+          usage.completion !== validatedUsage.completion ||
+          usage.total !== validatedUsage.total
+        )
+          return reject("usage_duplicate");
+      } else {
+        usageSeen = true;
+        usage = validatedUsage;
+      }
     }
     if (!chunk.choices.length) {
       // Gateways may emit empty heartbeat chunks before the terminal chunk and
