@@ -7,12 +7,14 @@ import { once } from "node:events";
 import { fileURLToPath } from "node:url";
 import { expect, launchZenoApp, test, waitSettled } from "./fixtures.ts";
 import { startLiveMunimProxy, type LiveMunimProxy } from "./live-munim-proxy.ts";
+import { validateBenchmarkPricing } from "./live-munim-budget.ts";
 
 const packaged = process.env.PRSLOY_E2E_PACKAGED?.trim();
 const munim = process.env.PRSLOY_MUNIM_BINARY?.trim();
 const encryptedKey = process.env.PRSLOY_E2E_GATEWAY_ENCRYPTED_KEY?.trim();
 const upstreamUrl = "https://api.prsloy.online/v1/chat/completions";
-const model = "gpt-6.1-sol";
+const benchmarkModel = process.env.PRSLOY_E2E_BENCHMARK_MODEL?.trim();
+const model = benchmarkModel || "";
 const fixtureProject = fileURLToPath(
   new URL("./munim-isolated-fixture/MunimIsolatedFixture.csproj", import.meta.url),
 );
@@ -39,12 +41,19 @@ type RecoveryItem = {
  * Opt-in, paid live-model test. Uses only synthetic prompts/fixture context and a private,
  * temporary copy of the encrypted key plus its synthetic Electron Local State. Never run in CI.
  */
-test("packaged PRSLOY live GPT drives only the isolated Munim fixture through two owner recoveries", async () => {
+test("packaged PRSLOY live model drives only the isolated Munim fixture through two owner recoveries", async () => {
   test.skip(process.env.PRSLOY_E2E_LIVE_GATEWAY !== "1", "requires explicit paid gateway opt-in");
   test.skip(process.platform !== "win32", "requires Windows native window checks");
   test.skip(!packaged, "requires PRSLOY_E2E_PACKAGED pointing to a packaged Windows executable");
   test.skip(!munim, "requires PRSLOY_MUNIM_BINARY pointing to the verified real Munim executable");
   test.skip(!encryptedKey, "requires the locally staged encrypted gateway key path");
+  test.skip(!benchmarkModel, "requires an explicitly selected benchmark model");
+  if (
+    benchmarkModel &&
+    (!["deepseek-v4.1-flash-1017", "gpt-6-luna"].includes(benchmarkModel) ||
+      process.env.PRSLOY_E2E_CONFIRMED_DEFAULT_GROUP !== "1")
+  )
+    throw new Error("Benchmark requires an allowlisted model and verified default-group test key");
   test.skip(
     Boolean(process.env.PRSLOY_E2E_SESSIONS?.trim()),
     "session export must stay disabled for this live fixture",
@@ -175,6 +184,7 @@ test("packaged PRSLOY live GPT drives only the isolated Munim fixture through tw
       allowedModel: model,
       upstreamUrl,
       liveEnabled: true,
+      validateUpstreamBudget: () => validateBenchmarkPricing(model),
       maxRequests: 12,
       maxOutputTokens: 512,
       maxTotalOutputTokens: 6144,
@@ -212,10 +222,19 @@ test("packaged PRSLOY live GPT drives only the isolated Munim fixture through tw
     if (!(await validateOwnedTargets()))
       throw new Error("Initial fixture/app PID-HWND-bounds monitor preflight failed");
 
-    const mcp = JSON.parse(await readFile(join(launched.agentDir, "mcp.json"), "utf8")) as {
-      mcpServers?: Record<string, { command?: string }>;
-    };
-    expect(mcp.mcpServers?.munimComputerUse?.command).toBe(munim);
+    // Current packaged builds own Munim through the guarded wrapper rather than
+    // registering an unrestricted server in the user's agent configuration.
+    const mcpText = await readFile(join(launched.agentDir, "mcp.json"), "utf8").catch(
+      (error: NodeJS.ErrnoException) => {
+        if (error.code === "ENOENT") return undefined;
+        throw error;
+      },
+    );
+    const mcp = mcpText ? JSON.parse(mcpText) : undefined;
+    const owned = mcp?.mcpServers?.munimComputerUse;
+    expect(
+      owned?.prsloyComputerUseOwned === true && owned.disabled !== true && owned.enabled !== false,
+    ).toBe(false);
     await launched.fakeModel.stop();
     const modelPath = join(launched.agentDir, "models.json");
     const registry = JSON.parse(await readFile(modelPath, "utf8")) as {

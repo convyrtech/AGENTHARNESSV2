@@ -12,6 +12,8 @@ export interface LiveMunimProxyOptions {
   upstreamUrl: string;
   /** Must validate the exact fixture PID, HWND and monitor placement on every call. */
   validateFixtureTarget: () => boolean | Promise<boolean>;
+  /** Optional fail-closed check for live pricing or other upstream budget constraints. */
+  validateUpstreamBudget?: () => boolean | Promise<boolean>;
   /** HTTPS is accepted only with explicit live opt-in; tests should use a loopback mock. */
   liveEnabled?: boolean;
   maxRequests?: number;
@@ -64,7 +66,6 @@ type SseRejectDetail =
   | "invalid_framing"
   | "invalid_json"
   | "invalid_chunk"
-  | "unexpected_field"
   | "invalid_metadata"
   | "invalid_usage"
   | "invalid_choice"
@@ -76,12 +77,20 @@ type SseRejectDetail =
   | "usage_details"
   | "usage_numbers"
   | "usage_sum"
-  | "usage_missing"
   | "content_nonstring"
   | "content_after_tool_nonempty"
   | "content_too_long"
   | "final_content_image_or_long"
   | "invalid_tool"
+  | "invalid_tool_count"
+  | "invalid_tool_index"
+  | "invalid_tool_id"
+  | "invalid_tool_type"
+  | "invalid_tool_function"
+  | "invalid_tool_name"
+  | "invalid_tool_arguments_type"
+  | "invalid_tool_arguments_json"
+  | "invalid_tool_arguments_schema"
   | "invalid_terminal";
 type SseContentDiagnostic = "content_after_tool_empty";
 type UpstreamFailureDiagnostic =
@@ -121,6 +130,24 @@ async function validateTarget(options: LiveMunimProxyOptions, timeoutMs: number)
   try {
     return await Promise.race([
       Promise.resolve().then(options.validateFixtureTarget),
+      new Promise<boolean>((resolve) => {
+        timer = setTimeout(() => resolve(false), timeoutMs);
+      }),
+    ]);
+  } catch {
+    return false;
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+async function validateUpstreamBudget(
+  check: NonNullable<LiveMunimProxyOptions["validateUpstreamBudget"]>,
+  timeoutMs: number,
+): Promise<boolean> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      Promise.resolve().then(check),
       new Promise<boolean>((resolve) => {
         timer = setTimeout(() => resolve(false), timeoutMs);
       }),
@@ -546,22 +573,6 @@ function collectSse(
     } catch {
       return reject("invalid_json");
     }
-    const unexpected = isObj(chunk)
-      ? Object.keys(chunk).some(
-          (k) =>
-            ![
-              "id",
-              "object",
-              "choices",
-              "usage",
-              "created",
-              "model",
-              "service_tier",
-              "system_fingerprint",
-            ].includes(k),
-        )
-      : false;
-    if (unexpected) return reject("unexpected_field");
     if (
       !isObj(chunk) ||
       chunk.object !== "chat.completion.chunk" ||
@@ -649,25 +660,32 @@ function collectSse(
       };
     }
     if (!chunk.choices.length) {
-      if (!usageSeen) return reject("usage_missing");
+      // Gateways may emit empty heartbeat chunks before the terminal chunk and
+      // may omit the optional usage event altogether. Keep requiring a valid
+      // finish_reason and [DONE] later in the stream.
       continue;
     }
     if (terminal) return reject("invalid_terminal");
     const choice = chunk.choices[0];
-    if (
-      !isObj(choice) ||
-      Object.keys(choice).some(
-        (k) => !["index", "delta", "finish_reason", "logprobs"].includes(k),
-      ) ||
-      (choice.logprobs !== undefined && choice.logprobs !== null) ||
-      choice.index !== 0 ||
-      !isObj(choice.delta)
-    )
-      return reject("invalid_choice");
+    if (!isObj(choice)) return reject("invalid_choice");
+    if (choice.index !== 0) return reject("invalid_choice");
+    if (!isObj(choice.delta)) return reject("invalid_choice");
     const delta = choice.delta;
-    if (Object.keys(delta).some((k) => !["role", "content", "tool_calls"].includes(k)))
+    if (
+      Object.keys(delta).some(
+        (k) => !["role", "content", "tool_calls", "reasoning_content"].includes(k),
+      )
+    )
       return reject("invalid_delta");
     if (delta.role !== undefined && delta.role !== "assistant") return reject("invalid_delta");
+    // Some compatible providers include a separate reasoning channel. It is
+    // deliberately ignored and never copied into canonical output or evidence.
+    if (
+      delta.reasoning_content !== undefined &&
+      delta.reasoning_content !== null &&
+      typeof delta.reasoning_content !== "string"
+    )
+      return reject("invalid_delta");
     if (delta.content !== undefined) {
       if (delta.content !== null && typeof delta.content !== "string")
         return reject("content_nonstring");
@@ -680,32 +698,35 @@ function collectSse(
       if (content.length > 4000) return reject("content_too_long");
     }
     if (delta.tool_calls !== undefined) {
-      if (!Array.isArray(delta.tool_calls) || delta.tool_calls.length !== 1 || terminal)
-        return reject("invalid_tool");
+      if (!Array.isArray(delta.tool_calls) || delta.tool_calls.length !== 1)
+        return reject("invalid_tool_count");
+      if (terminal) return reject("invalid_terminal");
       const part = delta.tool_calls[0];
       if (
         !isObj(part) ||
-        part.index !== 0 ||
         Object.keys(part).some((k) => !["index", "id", "type", "function"].includes(k))
       )
-        return reject("invalid_tool");
+        return reject("invalid_tool_function");
+      if (part.index !== 0) return reject("invalid_tool_index");
       if (part.id !== undefined) {
-        if (typeof part.id !== "string" || callId) return reject("invalid_tool");
+        if (typeof part.id !== "string" || callId) return reject("invalid_tool_id");
         callId = part.id;
       }
-      if (part.type !== undefined && part.type !== "function") return reject("invalid_tool");
+      if (part.type !== undefined && part.type !== "function") return reject("invalid_tool_type");
       if (part.function !== undefined) {
         if (
           !isObj(part.function) ||
           Object.keys(part.function).some((k) => !["name", "arguments"].includes(k))
         )
-          return reject("invalid_tool");
+          return reject("invalid_tool_function");
         if (part.function.name !== undefined) {
-          if (typeof part.function.name !== "string" || toolName) return reject("invalid_tool");
+          if (typeof part.function.name !== "string" || toolName)
+            return reject("invalid_tool_name");
           toolName = part.function.name;
         }
         if (part.function.arguments !== undefined) {
-          if (typeof part.function.arguments !== "string") return reject("invalid_tool");
+          if (typeof part.function.arguments !== "string")
+            return reject("invalid_tool_arguments_type");
           rawArgs += part.function.arguments;
         }
       }
@@ -726,9 +747,15 @@ function collectSse(
   let call: Call | undefined;
   if (toolStarted) {
     if (!callId || !toolName || !TOOL_NAMES.includes(toolName as ToolName))
-      return reject("invalid_tool");
-    const args = parseArgs(toolName, rawArgs, options, caps);
-    if (!args) return reject("invalid_tool");
+      return reject("invalid_tool_name");
+    let parsedArgs: unknown;
+    try {
+      parsedArgs = JSON.parse(rawArgs);
+    } catch {
+      return reject("invalid_tool_arguments_json");
+    }
+    const args = parseArgs(toolName, JSON.stringify(parsedArgs), options, caps);
+    if (!args) return reject("invalid_tool_arguments_schema");
     // Never expose provider-owned IDs to the local harness; preserve only one opaque local link.
     call = { id: `munim_call_${randomUUID()}`, name: toolName as ToolName, args };
   } else if (content.includes("data:image/") || content.length > 2000)
@@ -936,6 +963,31 @@ export async function startLiveMunimProxy(options: LiveMunimProxyOptions): Promi
           json(res, 400, { error: "invalid request" });
           return;
         }
+        const pingMessages = body.messages;
+        const pingMessage =
+          Array.isArray(pingMessages) && pingMessages.length === 1 ? pingMessages[0] : undefined;
+        if (
+          body.model === options.allowedModel &&
+          Object.keys(body).sort().join(",") === "max_tokens,messages,model,stream" &&
+          body.max_tokens === 1 &&
+          body.stream === false &&
+          isObj(pingMessage) &&
+          Object.keys(pingMessage).sort().join(",") === "content,role" &&
+          pingMessage.role === "user" &&
+          pingMessage.content === "ping"
+        ) {
+          json(res, 200, {
+            id: "gateway-check",
+            object: "chat.completion",
+            created: 0,
+            model: options.allowedModel,
+            choices: [
+              { index: 0, message: { role: "assistant", content: "pong" }, finish_reason: "stop" },
+            ],
+            usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
+          });
+          return;
+        }
         if (typeof body.model === "string" && body.model !== options.allowedModel) {
           ev.ignoredModelRequests += 1;
           res.writeHead(200, {
@@ -949,15 +1001,9 @@ export async function startLiveMunimProxy(options: LiveMunimProxyOptions): Promi
           );
           return;
         }
-        // Images and all non-synthetic user material are rejected before any outbound byte is sent.
-        if (
-          JSON.stringify(body.messages ?? []).includes("image_url") ||
-          JSON.stringify(body.messages ?? []).includes("data:image/")
-        ) {
-          reject("bad_context");
-          json(res, 400, { error: "context rejected" });
-          return;
-        }
+        // sanitize() rejects image content blocks in user/tool messages. Do not scan the
+        // serialized conversation for image markers: discarded system instructions may
+        // mention image_url or data:image without attaching an image.
         const clean = sanitize(
           body,
           options,
@@ -1013,6 +1059,14 @@ export async function startLiveMunimProxy(options: LiveMunimProxyOptions): Promi
           ev.requests >= maxRequests ||
           tokenBudgetReserved + reserved > maxTotalTokens ||
           ev.outboundBytes + bytes > maxBytes
+        ) {
+          reject("budget");
+          json(res, 429, { error: "budget" });
+          return;
+        }
+        if (
+          options.validateUpstreamBudget &&
+          !(await validateUpstreamBudget(options.validateUpstreamBudget, timeout))
         ) {
           reject("budget");
           json(res, 429, { error: "budget" });

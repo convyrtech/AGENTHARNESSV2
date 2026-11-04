@@ -129,6 +129,58 @@ describe("live Munim test proxy", () => {
     await configOnly.close();
   });
 
+  it("fails closed on upstream budget preflight errors before forwarding", async () => {
+    for (const validateUpstreamBudget of [
+      () => false,
+      () => {
+        throw new Error("preflight unavailable");
+      },
+      () => new Promise<boolean>(() => {}),
+    ]) {
+      let reached = 0;
+      const up = await mockUpstream(() => {
+        reached += 1;
+        return { body: sseFinal() };
+      });
+      running.push(up.close);
+      const px = await proxy(up.url, { validateUpstreamBudget, timeoutMs: 15 });
+      running.push(() => px.close());
+      baseUrl = px.baseUrl;
+
+      const response = await request();
+      expect(response.status).toBe(429);
+      expect(await response.json()).toEqual({ error: "budget" });
+      expect(reached).toBe(0);
+      expect(px.evidence().requests).toBe(0);
+      expect(px.evidence().outboundBytes).toBe(0);
+      expect(px.evidence().rejected).toContain("budget");
+    }
+  });
+
+  it("runs upstream budget preflight before every forwarded request", async () => {
+    let reached = 0;
+    let checked = 0;
+    const up = await mockUpstream(() => {
+      reached += 1;
+      return { body: sseFinal() };
+    });
+    running.push(up.close);
+    const px = await proxy(up.url, {
+      validateUpstreamBudget: () => {
+        checked += 1;
+        return true;
+      },
+    });
+    running.push(() => px.close());
+    baseUrl = px.baseUrl;
+
+    expect((await request()).status).toBe(200);
+    expect((await request()).status).toBe(200);
+    expect(checked).toBe(2);
+    expect(reached).toBe(2);
+    expect(px.evidence().requests).toBe(2);
+  });
+
   it("completes a sanitized list/state/type/read/click lifecycle with fresh opaque controls", async () => {
     const forwarded: any[] = [];
     let step = 0;
@@ -288,6 +340,63 @@ describe("live Munim test proxy", () => {
         ])
       ).status,
     ).toBe(400);
+  });
+
+  it("ignores image marker words in discarded system instructions while rejecting attached images", async () => {
+    let reached = 0;
+    const up = await mockUpstream(() => {
+      reached += 1;
+      return { body: sseTool("munim_list_apps", {}) };
+    });
+    running.push(up.close);
+    const px = await proxy(up.url);
+    running.push(() => px.close());
+    baseUrl = px.baseUrl;
+    const response = await request([
+      { role: "system", content: "The strings image_url and data:image/ are examples only." },
+      { role: "user", content: prompts[0] },
+    ]);
+    expect(response.status).toBe(200);
+    expect(await response.text()).toContain("tool_calls");
+    expect(reached).toBe(1);
+    expect(px.evidence().rejected).not.toContain("bad_context");
+  });
+
+  it("answers only the exact built-in model-list health ping locally", async () => {
+    let reached = 0;
+    const up = await mockUpstream(() => {
+      reached += 1;
+      return { body: sseTool("munim_list_apps", {}) };
+    });
+    running.push(up.close);
+    const model = "deepseek-v4.1-flash-1017";
+    const px = await proxy(up.url, { allowedModel: model });
+    running.push(() => px.close());
+    baseUrl = px.baseUrl;
+    const send = (extra: Record<string, unknown> = {}) =>
+      fetch(`${baseUrl}/chat/completions`, {
+        method: "POST",
+        headers: { authorization: auth, "content-type": "application/json" },
+        body: JSON.stringify({
+          model,
+          messages: [{ role: "user", content: "ping" }],
+          max_tokens: 1,
+          stream: false,
+          ...extra,
+        }),
+      });
+    const health = await send();
+    expect(health.status).toBe(200);
+    expect(health.headers.get("content-type")).toContain("application/json");
+    expect(await health.json()).toMatchObject({
+      object: "chat.completion",
+      model,
+      choices: [{ message: { content: "pong" } }],
+    });
+    const nearMiss = await send({ tools: [] });
+    expect(nearMiss.status).toBe(400);
+    expect(reached).toBe(0);
+    expect(px.evidence().requests).toBe(0);
   });
 
   it("requires the proxy recovery final and exactly the next configured owner turn", async () => {
@@ -504,9 +613,17 @@ describe("live Munim test proxy", () => {
 
   it("rejects wrong PID, stale token, wrong control, synthetic text mismatch and raw tool names", async () => {
     const cases = [
-      ["munim_get_app_state", { pid: fixture.pid + 1 }],
-      ["munim_type_text", { pid: fixture.pid, element_token: editToken, text: "real user text" }],
-      ["munim_click", { pid: fixture.pid, element_token: editToken }],
+      ["munim_get_app_state", { pid: fixture.pid + 1 }, "invalid_tool_arguments_schema"],
+      [
+        "munim_type_text",
+        { pid: fixture.pid, element_token: editToken, text: "real user text" },
+        "invalid_tool_arguments_schema",
+      ],
+      [
+        "munim_click",
+        { pid: fixture.pid, element_token: editToken },
+        "invalid_tool_arguments_schema",
+      ],
       [
         "munim_type_text",
         {
@@ -514,10 +631,15 @@ describe("live Munim test proxy", () => {
           element_token: "munim_v1.8cfa49ca-1e08-4e91-8e86-12e1991da684.0",
           text: marker,
         },
+        "invalid_tool_arguments_schema",
       ],
-      ["mcp__munimComputerUse__click", { pid: fixture.pid, element_token: saveToken }],
+      [
+        "mcp__munimComputerUse__click",
+        { pid: fixture.pid, element_token: saveToken },
+        "invalid_tool_name",
+      ],
     ] as const;
-    for (const [name, args] of cases) {
+    for (const [name, args, detail] of cases) {
       const up = await mockUpstream(() => ({ body: sseTool(name, args as any) }));
       running.push(up.close);
       const px = await proxy(up.url);
@@ -526,7 +648,7 @@ describe("live Munim test proxy", () => {
       const response = await request();
       expect(response.status).toBe(200);
       expect(await response.text()).toContain("rejected by the local SSE validator");
-      expect(px.evidence().invalidSseDetails).toContain("invalid_tool");
+      expect(px.evidence().invalidSseDetails).toContain(detail);
     }
   });
 
@@ -585,16 +707,15 @@ describe("live Munim test proxy", () => {
     const stale = await request(history);
     expect(stale.status).toBe(200);
     expect(await stale.text()).toContain("rejected by the local SSE validator");
-    expect(px.evidence().invalidSseDetails).toContain("invalid_tool");
+    expect(px.evidence().invalidSseDetails).toContain("invalid_tool_arguments_schema");
     expect(px.evidence().toolCalls).toBe(6);
   });
 
-  it("rejects malformed, partial, length, content_filter and alternate-field SSE", async () => {
+  it("rejects malformed, partial, length and content_filter SSE", async () => {
     const badBodies = [
       'data: {"object":"chat.completion.chunk"}\n\n',
       `${event({ object: "chat.completion.chunk", choices: [{ index: 0, delta: {}, finish_reason: "length" }] })}data: [DONE]\n\n`,
       `${event({ object: "chat.completion.chunk", choices: [{ index: 0, delta: {}, finish_reason: "content_filter" }] })}data: [DONE]\n\n`,
-      `${event({ object: "chat.completion.chunk", surprise: "untrusted", choices: [{ index: 0, delta: {}, finish_reason: "stop" }] })}data: [DONE]\n\n`,
       `${event({ object: "chat.completion.chunk", choices: [{ index: 0, delta: {}, finish_reason: "stop" }] })}`,
     ];
     for (const body of badBodies) {
@@ -609,6 +730,72 @@ describe("live Munim test proxy", () => {
       expect(px.evidence().rejected).toContain("invalid_sse");
       expect(px.evidence().invalidSseDetails).toHaveLength(1);
     }
+  });
+
+  it("ignores unused provider fields in chunks and choices", async () => {
+    const body = `${event({
+      object: "chat.completion.chunk",
+      provider_trace: "chunk-private-sentinel",
+      choices: [
+        {
+          index: 0,
+          delta: { role: "assistant", content: "Visible response." },
+          finish_reason: "stop",
+          logprobs: { content: "choice-private-sentinel" },
+          provider_hint: { private_text: "do not retain this value" },
+        },
+      ],
+    })}data: [DONE]\n\n`;
+    const up = await mockUpstream(() => ({ body }));
+    running.push(up.close);
+    const px = await proxy(up.url);
+    running.push(() => px.close());
+    baseUrl = px.baseUrl;
+
+    const response = await request();
+    expect(response.status).toBe(200);
+    const responseText = await response.text();
+    expect(responseText).toContain("Visible response.");
+    expect(responseText).not.toContain("chunk-private-sentinel");
+    expect(responseText).not.toContain("choice-private-sentinel");
+    expect(responseText).not.toContain("do not retain this value");
+    expect(px.evidence().invalidSseDetails).toEqual([]);
+  });
+
+  it("ignores reasoning_content while preserving the visible assistant response", async () => {
+    const body = [
+      event({
+        object: "chat.completion.chunk",
+        choices: [
+          {
+            index: 0,
+            delta: { role: "assistant", reasoning_content: "private reasoning sentinel" },
+            finish_reason: null,
+          },
+        ],
+      }),
+      event({
+        object: "chat.completion.chunk",
+        choices: [{ index: 0, delta: { content: "Visible response." }, finish_reason: null }],
+      }),
+      event({
+        object: "chat.completion.chunk",
+        choices: [{ index: 0, delta: {}, finish_reason: "stop" }],
+      }),
+      "data: [DONE]\n\n",
+    ].join("");
+    const up = await mockUpstream(() => ({ body }));
+    running.push(up.close);
+    const px = await proxy(up.url);
+    running.push(() => px.close());
+    baseUrl = px.baseUrl;
+
+    const response = await request();
+    expect(response.status).toBe(200);
+    const responseBody = await response.text();
+    expect(responseBody).toContain("Visible response.");
+    expect(responseBody).not.toContain("private reasoning sentinel");
+    expect(px.evidence().invalidSseDetails).toEqual([]);
   });
 
   it("accepts bounded standard SSE metadata, null content/logprobs and token detail usage, then strips them", async () => {
@@ -726,6 +913,41 @@ describe("live Munim test proxy", () => {
     expect(px.evidence().usageUnavailableResponses).toBe(0);
   });
 
+  it("accepts an empty-choices heartbeat before terminal when the gateway omits usage", async () => {
+    const body = [
+      event({
+        object: "chat.completion.chunk",
+        choices: [
+          {
+            index: 0,
+            delta: { role: "assistant", content: "Synthetic check complete." },
+            finish_reason: null,
+          },
+        ],
+      }),
+      event({
+        object: "chat.completion.chunk",
+        choices: [],
+      }),
+      event({
+        object: "chat.completion.chunk",
+        choices: [{ index: 0, delta: {}, finish_reason: "stop" }],
+      }),
+      "data: [DONE]\n\n",
+    ].join("");
+    const up = await mockUpstream(() => ({ body }));
+    running.push(up.close);
+    const px = await proxy(up.url);
+    running.push(() => px.close());
+    baseUrl = px.baseUrl;
+    const response = await request();
+    expect(response.status).toBe(200);
+    expect(await response.text()).toContain("Synthetic check complete.");
+    expect(px.evidence().invalidSseDetails).toEqual([]);
+    expect(px.evidence().usageUnavailableResponses).toBe(1);
+    expect(px.evidence().outputTokensReported).toBe(0);
+  });
+
   it("reports fixed usage rejection categories without recording upstream values", async () => {
     const terminal = event({
       object: "chat.completion.chunk",
@@ -778,10 +1000,7 @@ describe("live Munim test proxy", () => {
         chunks: [event({ object: "chat.completion.chunk", choices: [], usage: validUsage })],
         code: "usage_location",
       },
-      {
-        chunks: [terminal, event({ object: "chat.completion.chunk", choices: [] })],
-        code: "usage_missing",
-      },
+      { chunks: ["data: [DONE]\n\n"], code: "invalid_terminal" },
     ] as const;
 
     for (const { chunks, code } of cases) {
@@ -813,7 +1032,7 @@ describe("live Munim test proxy", () => {
       {
         chunk: {
           ...valid,
-          choices: [{ ...valid.choices[0], logprobs: { secret: "logprob-value" } }],
+          choices: [{ ...valid.choices[0], index: "0" }],
         },
         code: "invalid_choice",
       },
