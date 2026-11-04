@@ -39,6 +39,7 @@ import { gitResolver, installTurnChanges, TurnChanges } from "./turn-changes.ts"
 import { installTaskThread } from "./task-thread.ts";
 import { join } from "node:path";
 import { installContinuationGuard } from "./continuation-guard.ts";
+import { installMunimComputerUseGuard } from "./munim-computer-use.ts";
 
 export type { HarnessOptions, HarnessProfile, PracticeName } from "./options.ts";
 export { sanitizedEnv } from "./options.ts";
@@ -51,6 +52,20 @@ export { repairToolCall } from "./arg-repair.ts";
 export { harnessStats } from "./stats.ts";
 export { LEARNING_MAX_BYTES, learningDir, projectKey, recordEvent } from "./learning-log.ts";
 export { installReusePrompt } from "./reuse-prompt.ts";
+export {
+  COMPUTER_USE_TOOL_NAMES,
+  createComputerUseState,
+  installComputerUseGuard,
+  snapshotIdFor,
+  validateComputerUseTarget,
+} from "./computer-use.ts";
+export { CUA_COMPUTER_USE_TOOL_NAMES, installCuaComputerUseGuard } from "./cua-computer-use.ts";
+export type { CuaRecoveryGate } from "./cua-computer-use.ts";
+export {
+  MUNIM_COMPUTER_USE_TOOL_NAMES,
+  installMunimComputerUseGuard,
+} from "./munim-computer-use.ts";
+export type { MunimRecoveryGate } from "./munim-computer-use.ts";
 export { MemoryStore, memoryDirFor, MEMORY_LIMITS } from "./memory-store.ts";
 // Память вне хода (research/24 M-2, M-3, core): вход экстрактора, сигналы, промпт и проверки.
 export { CANDIDATES_FILE, type MemoryEntry, withMemoryLock } from "./memory-store.ts";
@@ -113,6 +128,9 @@ export function createPrsloyHarness(options: HarnessOptions = {}): (pi: Extensio
     if (on("learningLog")) installLearningLog(pi);
     // Самым первым: вызовы с битыми аргументами чинятся до валидации Pi и до всех хуков ниже.
     if (on("argRepair")) installArgRepair(pi);
+    // Generic embeddings have no durable profile gate. Install the scoped
+    // wrapper in read-only/fail-closed mode; desktop supplies its own gate.
+    if (opts.computerUse) installMunimComputerUseGuard(pi);
     const codeGate = opts.profile === "code" && on("stopGate");
     // Первым: снимок начала хода ложится до того, как bash или фоновый процесс что-то поменяют.
     const changes =

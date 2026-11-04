@@ -10,6 +10,8 @@ import { join } from "node:path";
 export type HarnessProfile = "code" | "design" | "text" | "other";
 
 export interface HarnessOptions {
+  /** Enable the opt-in guard for a configured Windows computer-use MCP server. */
+  computerUse?: boolean;
   /** Профиль сессии. По умолчанию `code`. */
   profile?: HarnessProfile;
   /** Таймаут bash по умолчанию, секунды. */
@@ -122,6 +124,7 @@ export type PracticeName =
   | "explore";
 
 export interface ResolvedOptions {
+  computerUse: boolean;
   profile: HarnessProfile;
   bashTimeoutSec: number;
   bashMaxTimeoutSec: number;
@@ -217,6 +220,7 @@ function defaultSettingsPath(): string | undefined {
 
 export function resolveOptions(options: HarnessOptions = {}): ResolvedOptions {
   return {
+    computerUse: options.computerUse ?? process.env.PRSLOY_COMPUTER_USE === "1",
     profile: options.profile ?? envProfile() ?? "code",
     bashTimeoutSec: options.bashTimeoutSec ?? envBashTimeout() ?? 120,
     bashMaxTimeoutSec: options.bashMaxTimeoutSec ?? 600,

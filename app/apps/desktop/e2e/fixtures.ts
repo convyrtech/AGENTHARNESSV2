@@ -34,8 +34,21 @@ export interface LaunchOptions {
   tools?: string;
   /** Tool the fake model calls for prompts containing "tool". */
   toolCall?: { name: string; arguments: Record<string, unknown> };
+  mcpFixture?: {
+    name: string;
+    result: string;
+    callsFile: string;
+    hang?: boolean;
+    pidFile?: string;
+  };
   /** Model the host starts with (default: the fake model). */
   model?: { provider: string; id: string };
+  /** Override the fake provider URL for packaged end-to-end tests. */
+  modelBaseUrl?: string;
+  /** Override the fake provider key for packaged end-to-end tests. */
+  modelApiKey?: string;
+  /** Override fake provider input modalities for packaged end-to-end tests. */
+  modelInput?: string[];
   /** Extra env for the app process (e.g. a planted secret the agent must not see). */
   env?: Record<string, string>;
   /** Scripted model answer for a request whose last user message matches (see FakeOpenAiServer). */
@@ -49,6 +62,8 @@ export interface LaunchOptions {
    * workspace and userData, so the previous chats are still on disk (#79 restart case).
    */
   root?: string;
+  /** Optional isolated project path, independent of the private test profile. */
+  workspacePath?: string;
 }
 
 /**
@@ -62,7 +77,7 @@ export async function launchZenoApp(options: LaunchOptions = {}): Promise<Launch
   const root = options.root ?? (await mkdtemp(join(tmpdir(), "zeno-e2e-")));
   const home = join(root, "home");
   const agentDir = join(home, ".pi", "agent");
-  const workspace = join(root, "workspace");
+  const workspace = options.workspacePath ?? join(root, "workspace");
   const toolPath = join(workspace, "fixture.txt");
   const attachmentPaths = [
     "report.xlsx",
@@ -140,15 +155,15 @@ export async function launchZenoApp(options: LaunchOptions = {}): Promise<Launch
     JSON.stringify({
       providers: {
         "zeno-fake": {
-          baseUrl: fakeModel.baseUrl,
-          apiKey: "test-key-not-secret",
+          baseUrl: options.modelBaseUrl ?? fakeModel.baseUrl,
+          apiKey: options.modelApiKey ?? "test-key-not-secret",
           api: "openai-completions",
           models: [
             {
               id: "zeno-fake",
               name: "Zeno Fake Model",
               reasoning: false,
-              input: ["text"],
+              input: options.modelInput ?? ["text"],
               cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
               contextWindow: 8192,
               maxTokens: 1024,
@@ -159,7 +174,49 @@ export async function launchZenoApp(options: LaunchOptions = {}): Promise<Launch
       },
     }),
   );
-
+  let fixtureBinary: string | undefined;
+  if (options.mcpFixture) {
+    const nodeBinary = process.env.NODE_BINARY ?? process.execPath;
+    fixtureBinary =
+      process.platform === "win32" ? join(root, "munim-computer-use.exe") : nodeBinary;
+    if (fixtureBinary !== nodeBinary) await cp(nodeBinary, fixtureBinary);
+    const script = join(root, `${options.mcpFixture.name}-mcp.mjs`);
+    await writeFile(
+      script,
+      `import { appendFileSync } from "node:fs";
+const calls = ${JSON.stringify(options.mcpFixture.callsFile)};
+const result = ${JSON.stringify(options.mcpFixture.result)};
+${options.mcpFixture.pidFile ? `import { writeFileSync } from "node:fs"; writeFileSync(${JSON.stringify(options.mcpFixture.pidFile)}, String(process.pid));` : ""}
+let buffer = "";
+const send = (value) => process.stdout.write(JSON.stringify(value) + "\\n");
+const handle = (m) => {
+  if (m.method === "initialize") return send({ jsonrpc: "2.0", id: m.id, result: { protocolVersion: "2025-06-18", capabilities: { tools: {} }, serverInfo: { name: "fixture", version: "1" } } });
+  if (m.method === "notifications/initialized") return;
+  if (m.method === "tools/list") return send({ jsonrpc: "2.0", id: m.id, result: { tools: [{ name: "list_apps", description: "fixture", inputSchema: { type: "object", properties: {} } }] } });
+  if (m.method === "tools/call") { appendFileSync(calls, JSON.stringify(m.params ?? {}) + "\\n"); if (${options.mcpFixture?.hang === true ? "true" : "false"}) return; return send({ jsonrpc: "2.0", id: m.id, result: { content: [{ type: "text", text: result }] } }); }
+};
+process.stdin.setEncoding("utf8"); process.stdin.on("data", (c) => { buffer += c; for (const line of buffer.split("\\n").slice(0, -1)) { try { handle(JSON.parse(line)); } catch {} } buffer = buffer.slice(buffer.lastIndexOf("\\n") + 1); });
+`,
+      "utf8",
+    );
+    await writeFile(
+      join(agentDir, "mcp.json"),
+      JSON.stringify(
+        {
+          mcpServers: {
+            [options.mcpFixture.name]: {
+              command: fixtureBinary,
+              args: [script],
+              cwd: workspace,
+              exposure: "direct",
+            },
+          },
+        },
+        null,
+        2,
+      ),
+    );
+  }
   const env: Record<string, string> = {};
   for (const [key, value] of Object.entries(process.env)) {
     if (value !== undefined) env[key] = value;
@@ -203,9 +260,34 @@ export async function launchZenoApp(options: LaunchOptions = {}): Promise<Launch
     // Product cold-start auto-resume is off so each test drives Host start via UI.
     ZENO_NO_AUTO_RESUME: "1",
   });
+  if (process.platform === "win32") {
+    const localAppData = join(root, "AppData", "Local");
+    const appData = join(root, "AppData", "Roaming");
+    const temp = join(localAppData, "Temp");
+    await Promise.all([
+      mkdir(temp, { recursive: true }),
+      mkdir(appData, { recursive: true }),
+      mkdir(join(root, "Documents"), { recursive: true }),
+      mkdir(join(root, "Desktop"), { recursive: true }),
+      mkdir(join(root, "Downloads"), { recursive: true }),
+    ]);
+    Object.assign(env, {
+      USERPROFILE: root,
+      HOMEDRIVE: root.slice(0, 2),
+      HOMEPATH: root.slice(2),
+      APPDATA: appData,
+      LOCALAPPDATA: localAppData,
+      TEMP: temp,
+      TMP: temp,
+    });
+  }
   // Interactive E2E: product cold-start auto-resume is already off via ZENO_NO_AUTO_RESUME.
   delete env.ELECTRON_RUN_AS_NODE;
   Object.assign(env, options.env ?? {});
+  if (options.mcpFixture) {
+    env.PRSLOY_COMPUTER_USE = "1";
+    env.PRSLOY_MUNIM_BINARY = fixtureBinary!;
+  }
 
   // Isolate Electron userData so recent workspaces / prefs do not leak across runs.
   const userData = join(root, "electron-userData");

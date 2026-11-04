@@ -1678,4 +1678,33 @@ export const en = {
   "progress.runFiles": "Moving files around",
   "progress.runDownload": "Downloading",
   "progress.runGit": "Working with git",
+  "cuaRecovery.bannerCua": "Review Cua action ({count})",
+  "cuaRecovery.bannerMunim": "Review Munim action ({count})",
+  "cuaRecovery.bannerMixed": "Review Cua and Munim actions ({count})",
+  "cuaRecovery.unknownTime": "unknown",
+  "cuaRecovery.action.click": "click",
+  "cuaRecovery.action.typeText": "text entry",
+  "cuaRecovery.action.other": "action",
+  "cuaRecovery.targetMunim": "Check Munim, PID {pid}: {action}, started {time}.",
+  "cuaRecovery.targetCua": "Check window PID {pid}, HWND {windowId}: {action}, started {time}.",
+  "cuaRecovery.title": "Check the action result",
+  "cuaRecovery.lostResult":
+    "PRSLOY lost {backend}'s confirmed response. The action may not have started yet, may have completed, or may still be running. Stopping the model does not cancel it in another app.",
+  "cuaRecovery.keepGateClosed":
+    "Leave the gate closed until you inspect the app. Resolving an unknown result never retries the action automatically.",
+  "cuaRecovery.dispatchingWarning":
+    "The action intent is recorded, but the {backend} call may not have started yet. It could start later or still be running after the gate is released.",
+  "cuaRecovery.acknowledgeInFlight":
+    "I accept that this action may start or finish later and may run at the same time as the next one.",
+  "cuaRecovery.acceptInFlight": "Accept risk and release gate",
+  "cuaRecovery.acknowledgeUnknown":
+    "I understand that the action may finish later even if no result is visible now, and accept this risk.",
+  "cuaRecovery.completed": "I checked: action completed",
+  "cuaRecovery.notApplied": "I checked: action did not happen",
+  "cuaRecovery.acceptUnknown": "Continue despite unknown result",
+  "cuaRecovery.saving": "Saving…",
+  "cuaRecovery.leaveBlocked": "Leave blocked",
+  "cuaRecovery.listTimeout": "Timed out waiting for the recovery queue (10 seconds)",
+  "cuaRecovery.listLimit":
+    "Too many unfinished recovery queue requests; waiting for them to finish",
 } as const;

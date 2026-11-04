@@ -1357,14 +1357,54 @@ html[data-custom-window-controls="true"] .page-header {
   top: 12px;
   bottom: calc(var(--composer-dock-height, 200px) + 16px);
   z-index: 6;
-  display: flex;
+  display: block;
   width: 26px;
+  overflow: visible;
+  -webkit-app-region: no-drag;
+}
+
+.minimap-track {
+  display: flex;
   flex-direction: column;
   align-items: flex-start;
+  gap: 0;
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-width: none;
+  overscroll-behavior: contain;
+  padding-block: 12px;
+}
+
+.minimap-track::-webkit-scrollbar {
+  display: none;
+}
+
+.minimap-scroll-hint {
+  position: absolute;
+  left: 0;
+  z-index: 7;
+  display: flex;
+  width: 26px;
+  height: 12px;
+  align-items: center;
   justify-content: center;
-  /* Tighten the pitch as the stack grows so long threads still fit the rail's span. */
-  gap: clamp(0px, calc(4px - var(--minimap-marker-count, 0) * 0.05px), 2px);
-  -webkit-app-region: no-drag;
+  color: var(--muted-foreground);
+  font-size: 11px;
+  line-height: 1;
+  pointer-events: none;
+}
+
+.minimap-scroll-hint.up {
+  top: 0;
+  background: linear-gradient(to bottom, var(--background), transparent);
+}
+
+.minimap-scroll-hint.down {
+  bottom: 0;
+  background: linear-gradient(to top, var(--background), transparent);
 }
 
 /*
@@ -1385,10 +1425,10 @@ html[data-custom-window-controls="true"] .page-header {
 .minimap-marker {
   display: flex;
   align-items: center;
-  flex: 0 1 auto;
+  flex: 0 0 24px;
   width: 100%;
-  height: 8px;
-  min-height: 0;
+  height: 24px;
+  min-height: 24px;
   padding: 0;
   border: none;
   background: none;

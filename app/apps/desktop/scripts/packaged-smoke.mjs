@@ -257,6 +257,13 @@ export async function runPackagedSmoke() {
     });
     app.process().stdout?.on("data", (b) => output.push(String(b)));
     app.process().stderr?.on("data", (b) => output.push(String(b)));
+    app
+      .process()
+      .on("exit", (code, signal) =>
+        output.push(
+          `[packaged-smoke] electron-exit code=${code ?? "null"} signal=${signal ?? "null"}\n`,
+        ),
+      );
     const page = await app.firstWindow({ timeout: 180_000 });
     mark("window");
     // Window first: the key screen must work while runtimes still unpack in the background.
@@ -271,6 +278,9 @@ export async function runPackagedSmoke() {
       [key, gateway.baseUrl],
     );
     report.checks.keyAccepted = Boolean(setKey?.ok);
+    report.checks.keyVisibleAfterSave = Boolean(
+      (await page.evaluate(() => window.zeno.prsloy.getState()))?.hasKey,
+    );
     mark("keySaved");
     report.appSetupAtKey = setupAtKey?.appSetup ?? null;
     await page.waitForSelector('[data-testid="zeno-app"]', { timeout: 180_000 });
@@ -302,26 +312,12 @@ export async function runPackagedSmoke() {
       }
     })();
 
-    // Same as e2e startHost(): a host may already run from bootstrap; wait for a NEW runtime.
-    const runtimeIdNow = () =>
-      page.evaluate(
-        () =>
-          /"runtimeId":\s*"([^"]+)"/u.exec(
-            document.querySelector('[data-testid="runtime-snapshot"]')?.textContent ?? "",
-          )?.[1] ?? "",
-      );
-    const previousRuntimeId = await runtimeIdNow();
-    await page.getByTestId("start-host").click({ force: true, timeout: 60_000 });
-    await page.waitForFunction(
-      (previous) => {
-        const id = /"runtimeId":\s*"([^"]+)"/u.exec(
-          document.querySelector('[data-testid="runtime-snapshot"]')?.textContent ?? "",
-        )?.[1];
-        return Boolean(id) && id !== previous;
-      },
-      previousRuntimeId,
-      { timeout: 180_000 },
-    );
+    // Bootstrap already starts a host after the key is saved. Exercise that host;
+    // creating another conversation need not replace its runtime.
+    const trust = page.getByTestId("project-trust-dialog-trust");
+    if (await trust.isVisible().catch(() => false)) {
+      await trust.click({ timeout: 5_000 }).catch(() => undefined);
+    }
     await waitHostReady(page);
     mark("hostReady");
     await page.getByTestId("prompt-input").fill("Проверь окружение.");

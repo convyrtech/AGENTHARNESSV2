@@ -38,7 +38,7 @@ import {
   type EnvPanelLayoutMode,
 } from "./components/EnvPanel.tsx";
 import { BootstrapOverlay } from "./components/BootstrapOverlay.tsx";
-
+import { CuaRecoveryController } from "./components/CuaRecoveryController.tsx";
 import { ThreadHeader } from "./components/ThreadHeader.tsx";
 import { PiTuiTerminal, preloadPiTuiTerminal } from "./components/PiTuiTerminal.tsx";
 import { WindowCaptionButtons } from "./components/WindowCaptionButtons.tsx";
@@ -3774,6 +3774,7 @@ function App() {
       />
 
       <ExtensionUiHost locale={locale} />
+      <CuaRecoveryController locale={locale} />
     </div>
   );
 }

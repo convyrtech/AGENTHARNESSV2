@@ -1,9 +1,8 @@
-import { execFile } from "node:child_process";
+import { spawn, type ChildProcess } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdtemp, mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { promisify } from "node:util";
 import {
   ProjectTrustStore,
   SettingsManager,
@@ -14,7 +13,22 @@ import { afterEach, describe, expect, it } from "vite-plus/test";
 import { resolvePixProjectTrust } from "../src/index.ts";
 
 const temporaryDirectories: string[] = [];
-const execFileAsync = promisify(execFile);
+const PROBE_TIMEOUT_MS = 20_000;
+const CHILD_CLEANUP_TIMEOUT_MS = 5_000;
+const fixtureGates = new Map<string, { closed: boolean }>();
+type TrackedChild = {
+  child: ChildProcess;
+  cleanupRoot: string;
+  closed: Promise<void>;
+  exited: boolean;
+};
+const runningChildren = new Set<TrackedChild>();
+
+function closeFixtureGate(directory: string): TrackedChild[] {
+  const gate = fixtureGates.get(directory);
+  if (gate) gate.closed = true;
+  return [...runningChildren].filter((record) => record.cleanupRoot === directory);
+}
 
 function semanticHash(value: unknown): string {
   function canonical(current: unknown): unknown {
@@ -44,32 +58,87 @@ async function exists(path: string): Promise<boolean> {
   }
 }
 
-async function runRuntime(cwd: string, agentDir: string, home: string): Promise<HostSnapshot> {
+async function waitForClose(record: TrackedChild, timeoutMs: number): Promise<boolean> {
+  if (record.exited) return true;
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => resolve(record.exited), timeoutMs);
+    void record.closed.then(() => {
+      clearTimeout(timer);
+      resolve(true);
+    });
+  });
+}
+
+async function runRuntime(
+  cwd: string,
+  agentDir: string,
+  home: string,
+  cleanupRoot: string,
+): Promise<HostSnapshot> {
+  const gate = fixtureGates.get(cleanupRoot);
+  if (!gate || gate.closed)
+    throw new Error(`settings probe refused: fixture is already closing (${cleanupRoot})`);
   const environment = { ...process.env };
   for (const key of Object.keys(environment)) {
     if (/(_API_KEY|_TOKEN|_SECRET|_CREDENTIALS?)$/i.test(key)) delete environment[key];
   }
-  const { stdout } = await execFileAsync(
-    process.execPath,
-    [join(import.meta.dirname, "settings-probe.mjs"), cwd],
-    {
-      cwd,
-      env: {
-        ...environment,
-        HOME: home,
-        USERPROFILE: home,
-        XDG_CONFIG_HOME: join(home, ".config"),
-        PI_CODING_AGENT_DIR: agentDir,
-      },
-      timeout: 20_000,
+  const child = spawn(process.execPath, [join(import.meta.dirname, "settings-probe.mjs"), cwd], {
+    cwd,
+    env: {
+      ...environment,
+      HOME: home,
+      USERPROFILE: home,
+      XDG_CONFIG_HOME: join(home, ".config"),
+      PI_CODING_AGENT_DIR: agentDir,
     },
-  );
+    stdio: ["ignore", "pipe", "pipe"],
+    windowsHide: true,
+  });
+  let stdout = "";
+  let stderr = "";
+  let spawnError: Error | undefined;
+  let closeInfo: { code: number | null; signal: NodeJS.Signals | null } | undefined;
+  const record: TrackedChild = {
+    child,
+    cleanupRoot,
+    closed: Promise.resolve(),
+    exited: false,
+  };
+  record.closed = new Promise<void>((resolve) => {
+    child.once("close", (code, signal) => {
+      closeInfo = { code, signal };
+      record.exited = true;
+      runningChildren.delete(record);
+      resolve();
+    });
+  });
+  child.stdout?.setEncoding("utf8").on("data", (chunk: string) => (stdout += chunk));
+  child.stderr?.setEncoding("utf8").on("data", (chunk: string) => (stderr += chunk));
+  child.once("error", (error) => (spawnError = error));
+  runningChildren.add(record);
+
+  if (!(await waitForClose(record, PROBE_TIMEOUT_MS))) {
+    child.kill();
+    if (!(await waitForClose(record, CHILD_CLEANUP_TIMEOUT_MS))) {
+      throw new Error(
+        `settings probe exceeded ${PROBE_TIMEOUT_MS}ms and did not exit within ${CHILD_CLEANUP_TIMEOUT_MS}ms after termination; preserving ${cleanupRoot}`,
+      );
+    }
+    throw new Error(`settings probe exceeded its ${PROBE_TIMEOUT_MS}ms timeout`);
+  }
+  if (spawnError) throw spawnError;
+  if (closeInfo?.code !== 0) {
+    throw new Error(
+      `settings probe exited with code ${String(closeInfo?.code)} signal ${String(closeInfo?.signal)}${stderr ? `: ${stderr.trim()}` : ""}`,
+    );
+  }
   return JSON.parse(stdout.trim()) as HostSnapshot;
 }
 
 async function fixture() {
   const root = await mkdtemp(join(tmpdir(), "zeno-settings-"));
   temporaryDirectories.push(root);
+  fixtureGates.set(root, { closed: false });
   const home = join(root, "home");
   const agentDir = join(home, ".pi", "agent");
   const cwd = join(root, "project");
@@ -85,14 +154,44 @@ async function fixture() {
 }
 
 afterEach(async () => {
-  await Promise.all(
-    temporaryDirectories
-      .splice(0)
-      .map((directory) => rm(directory, { recursive: true, force: true })),
-  );
+  const errors: Error[] = [];
+  for (const directory of temporaryDirectories.splice(0)) {
+    const children = closeFixtureGate(directory);
+    let childStillRunning = false;
+    for (const record of children) {
+      if (await waitForClose(record, CHILD_CLEANUP_TIMEOUT_MS)) continue;
+      record.child.kill();
+      if (!(await waitForClose(record, CHILD_CLEANUP_TIMEOUT_MS))) childStillRunning = true;
+    }
+    if (childStillRunning) {
+      errors.push(
+        new Error(
+          `preserving ${directory}: a settings probe child is still running after cleanup timeout`,
+        ),
+      );
+      continue;
+    }
+    try {
+      await rm(directory, { recursive: true, force: true });
+      fixtureGates.delete(directory);
+    } catch (error) {
+      errors.push(error instanceof Error ? error : new Error(String(error)));
+    }
+  }
+  if (errors.length) throw new AggregateError(errors, "settings compatibility test cleanup failed");
 });
 
 describe("C02/C03 native settings and project trust", () => {
+  it("refuses a late second probe after fixture cleanup closes its run gate", async () => {
+    const paths = await fixture();
+    const activeBefore = runningChildren.size;
+    expect(closeFixtureGate(paths.root)).toEqual([]);
+    await expect(runRuntime(paths.cwd, paths.agentDir, paths.home, paths.root)).rejects.toThrow(
+      /fixture is already closing/u,
+    );
+    expect(runningChildren.size).toBe(activeBefore);
+  });
+
   it("round-trips one global field without losing unknown or package fields", async () => {
     const paths = await fixture();
     const initial = {
@@ -134,7 +233,7 @@ describe("C02/C03 native settings and project trust", () => {
 
   it(
     "gates project settings, merges trusted scope, and only writes the project file",
-    { timeout: 20_000 },
+    { timeout: 60_000 },
     async () => {
       const paths = await fixture();
       await mkdir(join(paths.cwd, ".pi", "prompts"), { recursive: true });
@@ -171,7 +270,7 @@ describe("C02/C03 native settings and project trust", () => {
       expect(() => untrusted.setProjectPackages(["blocked-package"])).toThrow(/trusted/i);
       await untrusted.flush();
       expect(await readFile(paths.projectPath, "utf8")).toBe(projectBefore);
-      const untrustedSnapshot = await runRuntime(paths.cwd, paths.agentDir, paths.home);
+      const untrustedSnapshot = await runRuntime(paths.cwd, paths.agentDir, paths.home, paths.root);
       expect(untrustedSnapshot.projectTrusted).toBe(false);
       expect(untrustedSnapshot.resources.prompts).toBe(0);
 
@@ -179,7 +278,7 @@ describe("C02/C03 native settings and project trust", () => {
       trustStore.set(paths.cwd, true);
       expect(new ProjectTrustStore(paths.agentDir).get(paths.cwd)).toBe(true);
       expect(resolvePixProjectTrust(paths.cwd, paths.agentDir).trusted).toBe(true);
-      const trustedSnapshot = await runRuntime(paths.cwd, paths.agentDir, paths.home);
+      const trustedSnapshot = await runRuntime(paths.cwd, paths.agentDir, paths.home, paths.root);
       expect(trustedSnapshot.projectTrusted).toBe(true);
       expect(trustedSnapshot.resources.prompts).toBe(1);
 

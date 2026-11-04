@@ -1658,4 +1658,32 @@ export const ru = {
   "progress.runFiles": "Раскладываю файлы",
   "progress.runDownload": "Скачиваю",
   "progress.runGit": "Работаю с git",
+  "cuaRecovery.bannerCua": "Проверить действие Cua ({count})",
+  "cuaRecovery.bannerMunim": "Проверить действие Munim ({count})",
+  "cuaRecovery.bannerMixed": "Проверить действия Cua и Munim ({count})",
+  "cuaRecovery.unknownTime": "неизвестно",
+  "cuaRecovery.action.click": "нажатие",
+  "cuaRecovery.action.typeText": "ввод текста",
+  "cuaRecovery.action.other": "действие",
+  "cuaRecovery.targetMunim": "Проверь Munim, PID {pid}: {action}, начато {time}.",
+  "cuaRecovery.targetCua": "Проверь окно PID {pid}, HWND {windowId}: {action}, начато {time}.",
+  "cuaRecovery.title": "Проверь результат действия",
+  "cuaRecovery.lostResult":
+    "PRSLOY потерял подтверждённый ответ от {backend}. Действие могло ещё не начаться, уже сработать или продолжать выполняться. Остановка модели не отменяет его в другом приложении.",
+  "cuaRecovery.keepGateClosed":
+    "Пока не проверишь состояние приложения, оставь блокировку. При подтверждении неизвестного результата повтор автоматически не запускается.",
+  "cuaRecovery.dispatchingWarning":
+    "Запись о действии сохранена, но вызов {backend} мог ещё не начаться. Он может стартовать позже или всё ещё выполняться, даже после освобождения блокировки.",
+  "cuaRecovery.acknowledgeInFlight":
+    "Я принимаю риск, что действие ещё запустится или завершится позже и может выполняться одновременно со следующим.",
+  "cuaRecovery.acceptInFlight": "Принять риск и снять блокировку",
+  "cuaRecovery.acknowledgeUnknown":
+    "Я понимаю, что действие может завершиться позже, даже если сейчас его результат не виден, и принимаю этот риск.",
+  "cuaRecovery.completed": "Проверил: действие выполнено",
+  "cuaRecovery.notApplied": "Проверил: действие не выполнено",
+  "cuaRecovery.acceptUnknown": "Продолжить, принимая неизвестный результат",
+  "cuaRecovery.saving": "Сохранение…",
+  "cuaRecovery.leaveBlocked": "Оставить блокировку",
+  "cuaRecovery.listTimeout": "Истекло время ожидания списка действий (10 секунд)",
+  "cuaRecovery.listLimit": "Слишком много незавершённых запросов к очереди; ожидаю их завершения",
 } as const;

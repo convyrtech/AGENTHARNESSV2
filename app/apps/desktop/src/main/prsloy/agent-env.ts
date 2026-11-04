@@ -142,6 +142,14 @@ export type PrsloyHostEnvOptions = {
    * spawn env: splitHostHandoff moves it into the prsloy.handoff message before the fork.
    */
   searchHandoff?: string | undefined;
+  /** Developer-only opt-in for the computer-use guard and configured MCP server. */
+  computerUse?: boolean;
+  /** Explicit path to a previously approved Munim binary; never downloaded by PRSLOY. */
+  munimBinary?: string | undefined;
+  /** Explicit path to a locally approved Cua executable. */
+  cuaBinary?: string | undefined;
+  /** Finalized Electron profile directory; never inherited from the shell. */
+  cuaUserData?: string | undefined;
   platform?: NodeJS.Platform;
 };
 
@@ -201,5 +209,14 @@ export function buildPrsloyHostEnv(
   // A stale value in the user's own env never reaches the host: main sets it or removes it.
   if (options.searchHandoff) env[SEARCH_HANDOFF_ENV] = options.searchHandoff;
   else delete env[SEARCH_HANDOFF_ENV];
+  if (options.computerUse) env.PRSLOY_COMPUTER_USE = "1";
+  else delete env.PRSLOY_COMPUTER_USE;
+  if (options.computerUse && options.munimBinary) env.PRSLOY_MUNIM_BINARY = options.munimBinary;
+  else delete env.PRSLOY_MUNIM_BINARY;
+  if (options.computerUse && options.cuaBinary) env.PRSLOY_CUA_BINARY = options.cuaBinary;
+  else delete env.PRSLOY_CUA_BINARY;
+  if (options.computerUse && options.cuaBinary && options.cuaUserData)
+    env.PRSLOY_CUA_USER_DATA = options.cuaUserData;
+  else delete env.PRSLOY_CUA_USER_DATA;
   return env;
 }

@@ -60,6 +60,13 @@ const api: ZenoDesktopApi = {
     listTurns: (options) => ipcRenderer.invoke("prsloy:list-turns", options),
     undoTurn: (snapshotId) => ipcRenderer.invoke("prsloy:undo-turn", snapshotId),
     saveSupportReport: () => ipcRenderer.invoke("prsloy:support-report"),
+    cuaRecovery: {
+      list: () => ipcRenderer.invoke("prsloy:cua-recovery:list"),
+      resolve: (actionId, challenge, resolution) =>
+        ipcRenderer.invoke("prsloy:cua-recovery:resolve", actionId, challenge, resolution),
+      acceptInFlightRisk: (actionId, challenge) =>
+        ipcRenderer.invoke("prsloy:cua-recovery:accept-in-flight", actionId, challenge),
+    },
   },
   app: {
     getRuntime: () => ipcRenderer.invoke("zeno:app:get-runtime"),

@@ -81,6 +81,23 @@ async function setup() {
 }
 
 describe("first run over IPC (mock gateway)", () => {
+  it("passes the injected computer-use environment through to the host", () => {
+    const userData = tempDir("prsloy-cu-env-");
+    const binary = "C:\\Tools\\munim-computer-use.exe";
+    const cua = "C:\\Tools\\cua-driver.exe";
+    const ctx = bootstrapPrsloy({
+      userDataPath: userData,
+      cipher,
+      env: { PRSLOY_COMPUTER_USE: "1", PRSLOY_MUNIM_BINARY: binary, PRSLOY_CUA_BINARY: cua },
+      platform: "linux",
+    });
+    expect(ctx.hostEnv({ PATH: "/bin" })).toMatchObject({
+      PRSLOY_COMPUTER_USE: "1",
+      PRSLOY_MUNIM_BINARY: binary,
+      PRSLOY_CUA_BINARY: cua,
+      PRSLOY_CUA_USER_DATA: userData,
+    });
+  });
   it("bootstraps an isolated home and asks for a key, then a folder", async () => {
     const t = await setup();
     expect(t.env.PI_CODING_AGENT_DIR).toBe(join(t.userData, "agent"));

@@ -548,7 +548,11 @@ export interface ResourceSummary {
 export interface McpServerConfig {
   command: string;
   args: string[];
+  /** This entry is owned by the experimental PRSLOY computer-use bootstrap. */
+  prsloyComputerUseOwned?: boolean;
   env?: Record<string, string>;
+  /** Pi 1.4.0 MCP exposure: direct tools are declared to the model immediately. */
+  exposure?: "direct" | "deferred" | "codemode" | "hidden";
   /**
    * Disable switch understood by `pi-mcp-adapter`, which reads `mcp.json` today (it shadows
    * pi's built-in MCP in both the chat and terminal paths). Its own rule is literal:
