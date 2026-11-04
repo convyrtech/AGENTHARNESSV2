@@ -708,23 +708,35 @@ function collectSse(
       )
         return reject("invalid_tool_function");
       if (part.index !== 0) return reject("invalid_tool_index");
-      if (part.id !== undefined) {
-        if (typeof part.id !== "string" || callId) return reject("invalid_tool_id");
-        callId = part.id;
+      if (part.id !== undefined && part.id !== null) {
+        if (typeof part.id !== "string") return reject("invalid_tool_id");
+        // Streaming providers may repeat the call ID or send null/empty ID fragments.
+        // Treat null/empty as absent, but never allow the call to change IDs mid-stream.
+        if (part.id !== "") {
+          if (callId && callId !== part.id) return reject("invalid_tool_id");
+          callId = part.id;
+        }
       }
-      if (part.type !== undefined && part.type !== "function") return reject("invalid_tool_type");
-      if (part.function !== undefined) {
+      if (
+        part.type !== undefined &&
+        part.type !== null &&
+        part.type !== "" &&
+        part.type !== "function"
+      )
+        return reject("invalid_tool_type");
+      if (part.function !== undefined && part.function !== null) {
         if (
           !isObj(part.function) ||
           Object.keys(part.function).some((k) => !["name", "arguments"].includes(k))
         )
           return reject("invalid_tool_function");
-        if (part.function.name !== undefined) {
-          if (typeof part.function.name !== "string" || toolName)
-            return reject("invalid_tool_name");
-          toolName = part.function.name;
+        if (part.function.name !== undefined && part.function.name !== null) {
+          if (typeof part.function.name !== "string") return reject("invalid_tool_name");
+          const namePart = part.function.name;
+          if (namePart && namePart !== toolName) toolName += namePart;
+          if (toolName.length > 128) return reject("invalid_tool_name");
         }
-        if (part.function.arguments !== undefined) {
+        if (part.function.arguments !== undefined && part.function.arguments !== null) {
           if (typeof part.function.arguments !== "string")
             return reject("invalid_tool_arguments_type");
           rawArgs += part.function.arguments;
@@ -746,8 +758,8 @@ function collectSse(
     return reject("invalid_terminal");
   let call: Call | undefined;
   if (toolStarted) {
-    if (!callId || !toolName || !TOOL_NAMES.includes(toolName as ToolName))
-      return reject("invalid_tool_name");
+    if (!callId) return reject("invalid_tool_id");
+    if (!toolName || !TOOL_NAMES.includes(toolName as ToolName)) return reject("invalid_tool_name");
     let parsedArgs: unknown;
     try {
       parsedArgs = JSON.parse(rawArgs);

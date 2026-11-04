@@ -46,6 +46,7 @@ test("packaged PRSLOY lets live DeepSeek request and read a real Munim screensho
   let app: Awaited<ReturnType<typeof launchZenoApp>> | undefined;
   let gateway: Awaited<ReturnType<typeof startGateway>> | undefined;
   let completed = false;
+  let markerMatched = false;
   try {
     if (!insideDisplay2(bounds) || !insideDisplay2(appBounds) || !display2StillMatches())
       throw new Error("The isolated test windows do not fit the expected DISPLAY2");
@@ -202,7 +203,8 @@ test("packaged PRSLOY lets live DeepSeek request and read a real Munim screensho
     await expect.poll(() => gateway!.imageCorrelated, { timeout: 60_000 }).toBe(true);
     await waitSettled(app.page);
     const answer = await app.page.getByTestId("markdown-content").last().innerText();
-    expect(answer.trim()).toBe(marker);
+    markerMatched = answer.trim() === marker;
+    expect(markerMatched).toBe(true);
     expect(gateway.toolCalls).toHaveLength(2);
     expect(gateway.imagesSent).toBe(1);
     expect(gateway.toolErrors).toEqual([]);
@@ -222,7 +224,7 @@ test("packaged PRSLOY lets live DeepSeek request and read a real Munim screensho
           quotaDelta:
             usageAfter && usageBefore ? usageAfter.total_used - usageBefore.total_used : undefined,
           fixturePid: fixture?.pid,
-          markerMatched: completed,
+          markerMatched,
         }
       : { completed: false, setupFailed: true };
     await writeFile(

@@ -21,6 +21,40 @@ function event(value: unknown): string {
 function sseTool(name: string, args: Record<string, unknown>, id = `call-${name}`): string {
   return `${event({ id: "completion-fixture", object: "chat.completion.chunk", choices: [{ index: 0, delta: { role: "assistant", tool_calls: [{ index: 0, id, type: "function", function: { name, arguments: JSON.stringify(args) } }] }, finish_reason: null }] })}${event({ id: "completion-fixture", object: "chat.completion.chunk", choices: [{ index: 0, delta: {}, finish_reason: "tool_calls" }] })}data: [DONE]\n\n`;
 }
+function sseToolIdFragments(ids: readonly unknown[], types: readonly unknown[] = []): string {
+  const chunks = ids.map((id, index) =>
+    event({
+      id: "completion-fixture",
+      object: "chat.completion.chunk",
+      choices: [
+        {
+          index: 0,
+          delta: {
+            tool_calls: [
+              {
+                index: 0,
+                ...(id === undefined ? {} : { id }),
+                ...(index === 0
+                  ? {
+                      type: "function",
+                      function: {
+                        name: "munim_get_app_state",
+                        arguments: JSON.stringify({ pid: fixture.pid }),
+                      },
+                    }
+                  : types[index] === undefined
+                    ? {}
+                    : { type: types[index] }),
+              },
+            ],
+          },
+          finish_reason: null,
+        },
+      ],
+    }),
+  );
+  return `${chunks.join("")}${event({ id: "completion-fixture", object: "chat.completion.chunk", choices: [{ index: 0, delta: {}, finish_reason: "tool_calls" }] })}data: [DONE]\n\n`;
+}
 function sseFinal(content = "Done."): string {
   return `${event({ id: "completion-fixture", object: "chat.completion.chunk", choices: [{ index: 0, delta: { role: "assistant", content }, finish_reason: null }] })}${event({ id: "completion-fixture", object: "chat.completion.chunk", choices: [{ index: 0, delta: {}, finish_reason: "stop" }] })}data: [DONE]\n\n`;
 }
@@ -729,6 +763,101 @@ describe("live Munim test proxy", () => {
       expect(await response.text()).toContain("rejected by the local SSE validator");
       expect(px.evidence().rejected).toContain("invalid_sse");
       expect(px.evidence().invalidSseDetails).toHaveLength(1);
+    }
+  });
+
+  it("normalizes absent/repeated SSE tool IDs but rejects missing or conflicting IDs", async () => {
+    const up = await mockUpstream(() => ({
+      body: sseToolIdFragments(
+        ["provider-call-id", "provider-call-id", null, "", undefined],
+        [undefined, null, "", undefined, undefined],
+      ),
+    }));
+    running.push(up.close);
+    const px = await proxy(up.url);
+    running.push(() => px.close());
+    baseUrl = px.baseUrl;
+
+    const response = await request();
+    expect(response.status).toBe(200);
+    const { id, name, args } = toolFromResponse(await response.text());
+    expect(id).toMatch(/^munim_call_/u);
+    expect(id).not.toBe("provider-call-id");
+    expect(name).toBe("munim_get_app_state");
+    expect(args).toEqual({ pid: fixture.pid });
+
+    for (const [ids, detail] of [
+      [["provider-call-id", "conflicting-call-id"], "invalid_tool_id"],
+      [[null, ""], "invalid_tool_id"],
+    ] as const) {
+      const up = await mockUpstream(() => ({ body: sseToolIdFragments(ids) }));
+      running.push(up.close);
+      const px = await proxy(up.url);
+      running.push(() => px.close());
+      baseUrl = px.baseUrl;
+
+      const response = await request();
+      expect(response.status).toBe(200);
+      expect(await response.text()).toContain("rejected by the local SSE validator");
+      expect(px.evidence().invalidSseDetails).toContain(detail);
+    }
+
+    const badType = await mockUpstream(() => ({
+      body: sseToolIdFragments(["provider-call-id", undefined], [undefined, "unexpected"]),
+    }));
+    running.push(badType.close);
+    const badProxy = await proxy(badType.url);
+    running.push(() => badProxy.close());
+    baseUrl = badProxy.baseUrl;
+    expect(await (await request()).text()).toContain("rejected by the local SSE validator");
+    expect(badProxy.evidence().invalidSseDetails).toContain("invalid_tool_type");
+  });
+
+  it("assembles fragmented tool names and rejects unknown names", async () => {
+    const fragmented = (names: Array<string | null>) =>
+      names
+        .map((name, index) =>
+          event({
+            object: "chat.completion.chunk",
+            choices: [
+              {
+                index: 0,
+                delta: {
+                  tool_calls: [
+                    {
+                      index: 0,
+                      ...(index === 0 ? { id: "provider-call-id", type: "function" } : {}),
+                      function: {
+                        name,
+                        arguments: index === 0 ? JSON.stringify({ pid: fixture.pid }) : null,
+                      },
+                    },
+                  ],
+                },
+                finish_reason: null,
+              },
+            ],
+          }),
+        )
+        .join("") +
+      event({
+        object: "chat.completion.chunk",
+        choices: [{ index: 0, delta: {}, finish_reason: "tool_calls" }],
+      }) +
+      "data: [DONE]\n\n";
+
+    for (const [names, accepted] of [
+      [["munim_", "get_app_state", "munim_get_app_state", null, ""], true],
+      [["munim_", "unknown"], false],
+    ] as Array<[Array<string | null>, boolean]>) {
+      const up = await mockUpstream(() => ({ body: fragmented(names) }));
+      running.push(up.close);
+      const px = await proxy(up.url);
+      running.push(() => px.close());
+      baseUrl = px.baseUrl;
+      const text = await (await request()).text();
+      if (accepted) expect(toolFromResponse(text).name).toBe("munim_get_app_state");
+      else expect(px.evidence().invalidSseDetails).toContain("invalid_tool_name");
     }
   });
 
