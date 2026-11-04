@@ -73,7 +73,6 @@ type SseRejectDetail =
   | "usage_duplicate"
   | "usage_location"
   | "usage_shape"
-  | "usage_unknown_fields"
   | "usage_details"
   | "usage_numbers"
   | "usage_sum"
@@ -83,7 +82,8 @@ type SseRejectDetail =
   | "final_content_image_or_long"
   | "invalid_tool"
   | "invalid_tool_count"
-  | "invalid_tool_index"
+  | "invalid_tool_index_nonzero"
+  | "invalid_tool_index_type"
   | "invalid_tool_id"
   | "invalid_tool_type"
   | "invalid_tool_function"
@@ -510,6 +510,7 @@ function sanitize(
       messages: safe,
       tools: safeTools(),
       tool_choice: "auto",
+      parallel_tool_calls: false,
       [tokenField]: max,
       temperature: 0,
       stream: true,
@@ -611,19 +612,7 @@ function collectSse(
       if (!(terminal ? chunk.choices.length === 0 : terminalInChunk))
         return reject("usage_location");
       if (!isObj(chunk.usage)) return reject("usage_shape");
-      if (
-        Object.keys(chunk.usage).some(
-          (k) =>
-            ![
-              "prompt_tokens",
-              "completion_tokens",
-              "total_tokens",
-              "prompt_tokens_details",
-              "completion_tokens_details",
-            ].includes(k),
-        )
-      )
-        return reject("usage_unknown_fields");
+      // Provider-specific fields are not forwarded; only the validated counters below are used.
       if (
         !validUsageDetails(chunk.usage.prompt_tokens_details, [
           "cached_tokens",
@@ -707,7 +696,11 @@ function collectSse(
         Object.keys(part).some((k) => !["index", "id", "type", "function"].includes(k))
       )
         return reject("invalid_tool_function");
-      if (part.index !== 0) return reject("invalid_tool_index");
+      if (part.index !== undefined && part.index !== null) {
+        if (typeof part.index !== "number" || !Number.isSafeInteger(part.index))
+          return reject("invalid_tool_index_type");
+        if (part.index !== 0) return reject("invalid_tool_index_nonzero");
+      }
       if (part.id !== undefined && part.id !== null) {
         if (typeof part.id !== "string") return reject("invalid_tool_id");
         // Streaming providers may repeat the call ID or send null/empty ID fragments.
@@ -733,7 +726,9 @@ function collectSse(
         if (part.function.name !== undefined && part.function.name !== null) {
           if (typeof part.function.name !== "string") return reject("invalid_tool_name");
           const namePart = part.function.name;
-          if (namePart && namePart !== toolName) toolName += namePart;
+          if (namePart && namePart !== toolName) {
+            toolName = namePart.startsWith(toolName) ? namePart : toolName + namePart;
+          }
           if (toolName.length > 128) return reject("invalid_tool_name");
         }
         if (part.function.arguments !== undefined && part.function.arguments !== null) {

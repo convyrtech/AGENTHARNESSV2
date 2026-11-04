@@ -813,6 +813,58 @@ describe("live Munim test proxy", () => {
     expect(badProxy.evidence().invalidSseDetails).toContain("invalid_tool_type");
   });
 
+  it("normalizes a missing single-call index, rejects unsafe indices, and disables parallel calls", async () => {
+    const makeBody = (index: unknown, includeIndex = true) => {
+      const part = {
+        ...(includeIndex ? { index } : {}),
+        id: "provider-call-id",
+        type: "function",
+        function: { name: "munim_get_app_state", arguments: JSON.stringify({ pid: fixture.pid }) },
+      };
+      return `${event({
+        object: "chat.completion.chunk",
+        choices: [{ index: 0, delta: { tool_calls: [part] }, finish_reason: null }],
+      })}${event({
+        object: "chat.completion.chunk",
+        choices: [{ index: 0, delta: {}, finish_reason: "tool_calls" }],
+      })}data: [DONE]\n\n`;
+    };
+
+    for (const [index, includeIndex] of [
+      [undefined, false],
+      [null, true],
+      [0, true],
+    ] as const) {
+      let upstreamRequest: any;
+      const up = await mockUpstream((body) => {
+        upstreamRequest = body;
+        return { body: makeBody(index, includeIndex) };
+      });
+      running.push(up.close);
+      const px = await proxy(up.url);
+      running.push(() => px.close());
+      baseUrl = px.baseUrl;
+      const response = await request();
+      expect(response.status).toBe(200);
+      expect(toolFromResponse(await response.text()).name).toBe("munim_get_app_state");
+      expect(upstreamRequest.parallel_tool_calls).toBe(false);
+      expect(px.evidence().invalidSseDetails).toEqual([]);
+    }
+
+    for (const [index, detail] of [
+      [1, "invalid_tool_index_nonzero"],
+      ["0", "invalid_tool_index_type"],
+    ] as const) {
+      const up = await mockUpstream(() => ({ body: makeBody(index) }));
+      running.push(up.close);
+      const px = await proxy(up.url);
+      running.push(() => px.close());
+      baseUrl = px.baseUrl;
+      expect(await (await request()).text()).toContain("rejected by the local SSE validator");
+      expect(px.evidence().invalidSseDetails).toContain(detail);
+    }
+  });
+
   it("assembles fragmented tool names and rejects unknown names", async () => {
     const fragmented = (names: Array<string | null>) =>
       names
@@ -848,6 +900,7 @@ describe("live Munim test proxy", () => {
 
     for (const [names, accepted] of [
       [["munim_", "get_app_state", "munim_get_app_state", null, ""], true],
+      [["munim_", "munim_get_app_state"], true],
       [["munim_", "unknown"], false],
     ] as Array<[Array<string | null>, boolean]>) {
       const up = await mockUpstream(() => ({ body: fragmented(names) }));
@@ -1077,6 +1130,23 @@ describe("live Munim test proxy", () => {
     expect(px.evidence().outputTokensReported).toBe(0);
   });
 
+  it("ignores provider-specific usage fields without forwarding them", async () => {
+    const body = `${event({
+      object: "chat.completion.chunk",
+      choices: [{ index: 0, delta: {}, finish_reason: "stop" }],
+      usage: { prompt_tokens: 5, completion_tokens: 2, total_tokens: 7, extra: "private-sentinel" },
+    })}data: [DONE]\n\n`;
+    const up = await mockUpstream(() => ({ body }));
+    running.push(up.close);
+    const px = await proxy(up.url);
+    running.push(() => px.close());
+    baseUrl = px.baseUrl;
+    const response = await request();
+    expect(await response.text()).not.toContain("private-sentinel");
+    expect(px.evidence().invalidSseDetails).toEqual([]);
+    expect(px.evidence().outputTokensReported).toBe(2);
+  });
+
   it("reports fixed usage rejection categories without recording upstream values", async () => {
     const terminal = event({
       object: "chat.completion.chunk",
@@ -1091,12 +1161,6 @@ describe("live Munim test proxy", () => {
       });
     const cases = [
       { chunks: [terminalWithUsage("private-usage-shape")], code: "usage_shape" },
-      {
-        chunks: [
-          terminalWithUsage({ ...validUsage, private_usage_field: "private-unknown-value" }),
-        ],
-        code: "usage_unknown_fields",
-      },
       {
         chunks: [
           terminalWithUsage({ ...validUsage, prompt_tokens_details: { private_detail: 1 } }),
