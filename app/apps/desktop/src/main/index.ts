@@ -2408,6 +2408,7 @@ class HostSupervisor {
     // Re-insert so Map order tracks recency; idle cap is applied after insert.
     this.#parked.delete(sessionKey);
     const now = Date.now();
+    const workspaceCwd = snapshot.cwd?.trim() || this.#workspaceCwd;
     const parked: ParkedHost = {
       host,
       snapshot,
@@ -2416,7 +2417,7 @@ class HostSupervisor {
       sessionKey,
       parkedAt: now,
       ...(busy ? {} : { idleSince: now }),
-      ...(this.#workspaceCwd ? { workspaceCwd: this.#workspaceCwd } : {}),
+      ...(workspaceCwd ? { workspaceCwd } : {}),
     };
     this.#parked.set(sessionKey, parked);
     this.#host = undefined;
@@ -2480,11 +2481,9 @@ class HostSupervisor {
     this.#lastSequence = live.lastSequence;
     this.#pending = live.pending;
     this.#sessionFile = trackSessionFile(live.snapshot.sessionFile ?? sessionPath);
-    if (live.workspaceCwd) {
-      this.#workspaceCwd = live.workspaceCwd;
-      this.#requireExplicitWorkspace = false;
-    } else if (live.snapshot.cwd) {
-      this.#workspaceCwd = live.snapshot.cwd;
+    const workspaceCwd = live.snapshot.cwd?.trim() || live.workspaceCwd;
+    if (workspaceCwd) {
+      this.#workspaceCwd = workspaceCwd;
       this.#requireExplicitWorkspace = false;
     }
     return true;
@@ -2715,14 +2714,14 @@ class HostSupervisor {
         }
       }
 
-      this.#workspaceCwd = cwd;
-      this.#requireExplicitWorkspace = false;
       // Prefer explicit session when switching into a project (avoids open→default→switch flicker).
       this.#sessionFile = trackSessionFile(options?.sessionFile);
       this.#resumeRecent = options?.resumeRecent === true && !options?.sessionFile;
       // Park current host (idle or busy) for later promote instead of killing it.
       await this.#detachForeground();
       // stop/park may have cleared pointers; re-assert intent.
+      this.#workspaceCwd = cwd;
+      this.#requireExplicitWorkspace = false;
       this.#sessionFile = trackSessionFile(options?.sessionFile);
       this.#resumeRecent = options?.resumeRecent === true && !options?.sessionFile;
       return this.#startExclusive({

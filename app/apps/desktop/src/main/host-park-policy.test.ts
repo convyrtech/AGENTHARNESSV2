@@ -36,6 +36,28 @@ describe("host-park-policy", () => {
     expect(findParkedSessionKeyByCwd(parked, "/proj/c")).toBeUndefined();
   });
 
+  it("uses the host's actual cwd when the next workspace was assigned before parking (#113)", () => {
+    const parked = [
+      ref({ sessionKey: "initial", workspaceCwd: "/proj/a", snapshotCwd: "/workspace" }),
+      ref({ sessionKey: "a", workspaceCwd: "/proj/b", snapshotCwd: "/proj/a" }),
+    ];
+    expect(findParkedSessionKeyByCwd(parked, "/proj/a")).toBe("a");
+    expect(findParkedSessionKeyByCwd(parked, "/workspace")).toBe("initial");
+    expect(findParkedSessionKeyByCwd(parked, "/proj/b")).toBeUndefined();
+  });
+
+  it("falls back to workspace metadata only when the snapshot has no cwd", () => {
+    const parked = [
+      ref({ sessionKey: "absent", workspaceCwd: "C:\\proj\\a" }),
+      ref({ sessionKey: "blank", workspaceCwd: "C:\\proj\\b", snapshotCwd: "  " }),
+      ref({ sessionKey: "actual", workspaceCwd: "C:\\wrong", snapshotCwd: " C:/proj/c/ " }),
+    ];
+    expect(findParkedSessionKeyByCwd(parked, "c:/proj/a/")).toBe("absent");
+    expect(findParkedSessionKeyByCwd(parked, "c:/proj/b")).toBe("blank");
+    expect(findParkedSessionKeyByCwd(parked, "C:\\proj\\c")).toBe("actual");
+    expect(findParkedSessionKeyByCwd(parked, "C:/wrong")).toBeUndefined();
+  });
+
   it("evicts the oldest idle park and never a busy one", () => {
     expect(MAX_PARKED_HOSTS).toBeGreaterThanOrEqual(2);
     const parked = [

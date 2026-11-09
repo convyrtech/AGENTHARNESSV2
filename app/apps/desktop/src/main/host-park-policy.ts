@@ -33,7 +33,9 @@ export function findParkedSessionKeyByCwd(
   const key = normalizeHostCwdKey(cwd);
   if (!key) return undefined;
   for (const p of parked) {
-    const pc = p.workspaceCwd?.trim() || p.snapshotCwd?.trim();
+    // A requested workspace can change before the old host is parked. Its live
+    // snapshot is authoritative; never promote that host for the destination cwd.
+    const pc = p.snapshotCwd?.trim() || p.workspaceCwd?.trim();
     if (pc && normalizeHostCwdKey(pc) === key) return p.sessionKey;
   }
   return undefined;
