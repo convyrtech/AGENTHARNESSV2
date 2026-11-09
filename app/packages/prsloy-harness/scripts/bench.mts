@@ -37,7 +37,7 @@
 //   … --budget-tokens N        то же по токенам (вход + выход всех вызовов шлюза), когда цен нет
 // Итог: <out>/bench-<модель>-<on|off>-<время>.md и .json. Ключ берётся только из окружения и никуда не пишется.
 // Выход 0 — у всех проверенных задач исход тот, что ждали (обычно «решено»; у задач честности — например «жулик
-// пойман», research/24 §4.1); 1 — нет; 2 — не запустилось или шлюз не принял ключ (401/403: прогон встаёт сразу);
+// пойман», research/24 §4.1); 1 — нет; 2 — не запустилось или остались сбои шлюза (401/403 останавливают сразу);
 // 3 — бюджет исчерпан. Ошибки шлюза — исход infra_error: не в счёт, --resume гоняет такие задачи заново.
 import { readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
@@ -185,6 +185,10 @@ async function main(): Promise<number> {
   if (report.stopped?.reason === "budget") {
     console.error(`Бюджет исчерпан: прогон остановлен (${report.stopped.message}).`);
     return 3;
+  }
+  if (report.totals.outcomes.infra_error > 0) {
+    console.error("Прогон не завершён: остались сбои шлюза. Повторите их через --resume.");
+    return 2;
   }
   return report.totals.unexpected === 0 ? 0 : 1;
 }
