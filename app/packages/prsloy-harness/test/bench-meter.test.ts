@@ -323,6 +323,60 @@ describe("scripts/bench.mts exit codes", () => {
     }
   };
 
+  it("0 when the scenario completes successfully", async () => {
+    const result = await run([
+      "--fake",
+      "--harness",
+      "off",
+      "--model",
+      MODEL,
+      "--task",
+      "explain-project",
+      "--out",
+      join(out, "cli-success"),
+    ]);
+    expect(result.status, result.stderr).toBe(0);
+    const report = JSON.parse(
+      readFileSync(join(out, "cli-success", "results", "explain-project.json"), "utf8"),
+    );
+    expect(report.outcome).toBe("solved");
+    expect(report.matched).toBe(true);
+  }, 240_000);
+
+  it.each([402, 503])(
+    "2 when HTTP %s leaves no completed scenarios",
+    async (status) => {
+      const dead = await gateway(() => ({ status, error: "Mock gateway unavailable" }));
+      const dir = join(out, `cli-infra-${status}`);
+      let result: Awaited<ReturnType<typeof run>>;
+      try {
+        result = await run(
+          [
+            "--harness",
+            "off",
+            "--model",
+            MODEL,
+            "--base-url",
+            dead.baseUrl,
+            "--task",
+            "explain-project",
+            "--out",
+            dir,
+          ],
+          { PRSLOY_GATEWAY_KEY: "local-test" },
+        );
+      } finally {
+        await dead.stop();
+      }
+      expect(result.status, result.stderr).toBe(2);
+      expect(result.stderr).toContain("--resume");
+      const report = JSON.parse(readFileSync(join(dir, "results", "explain-project.json"), "utf8"));
+      expect(report.outcome).toBe("infra_error");
+      expect(report.matched).toBeNull();
+    },
+    240_000,
+  );
+
   it("2 and «ключ не принят шлюзом» on a 401; 3 and «бюджет исчерпан» on the budget", async () => {
     const dead = await gateway(() => ({ status: 401, error: "Invalid API key" }));
     const auth = await run(
