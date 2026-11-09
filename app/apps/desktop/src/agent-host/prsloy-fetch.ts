@@ -40,6 +40,12 @@ export type PrsloyFetchOptions = {
   /** What the gateway serves right now (its `/v1/models`). */
   listModels(): Promise<string[]>;
   onModelSwitch?(from: string, to: string): void;
+  /**
+   * `false` — «строго выбранная модель»: a model the gateway won't serve is an error to the
+   * caller, never a switch. No catalog read, no `onModelSwitch`. Missing or `true` — the
+   * quiet fallback above. The output-limit step-down happens in both modes.
+   */
+  modelFallback?: boolean;
   /** For tests: the clock. */
   now?(): number;
 };
@@ -131,7 +137,7 @@ export function createPrsloyFetch(options: PrsloyFetchOptions): typeof fetch {
       attempt.response.status === 404 ||
       ((attempt.response.status === 400 || attempt.response.status === 503) &&
         MODEL_UNAVAILABLE.test(attempt.text ?? ""));
-    if (current && gone) {
+    if (current && gone && options.modelFallback !== false) {
       let served: string[] = [];
       try {
         served = await options.listModels();
@@ -173,11 +179,14 @@ export function installPrsloyFetch(options: {
   apiKey: string;
   agentDir: () => string | undefined;
   onModelSwitch(from: string, to: string): void;
+  /** `false` — «строго выбранная модель»: see `PrsloyFetchOptions.modelFallback`. */
+  modelFallback?: boolean;
 }): void {
   const base = globalThis.fetch.bind(globalThis);
   globalThis.fetch = createPrsloyFetch({
     base,
     apiKey: options.apiKey,
+    modelFallback: options.modelFallback ?? true,
     async listModels() {
       const url = gatewayBaseUrl(options.agentDir());
       if (!url) return [];
