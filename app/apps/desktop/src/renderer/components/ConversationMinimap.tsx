@@ -1,4 +1,13 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+} from "react";
 import { useTimelineWindow } from "./timeline-window-context.tsx";
 import {
   useMessageScroller,
@@ -29,7 +38,6 @@ const MAGNIFY_RADIUS = 46;
 const MAGNIFY_BOOST = 1.3;
 /* Cursor must be this close to a dash for the popover to pick it. */
 const POPOVER_SNAP = 24;
-const POPOVER_HEIGHT = 132;
 
 /** Pixel offset left above a jumped-to row so it does not sit flush against the top. */
 const JUMP_SCROLL_MARGIN = 24;
@@ -48,10 +56,15 @@ export const ConversationMinimap = memo(function ConversationMinimap({
 
   const [hovered, setHovered] = useState<{
     marker: ConversationMinimapMarker;
+    center: number;
     top: number;
   } | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const railRef = useRef<HTMLElement>(null);
-  const markerEls = useRef(new Map<string, HTMLButtonElement>());
+  const popoverRef = useRef<HTMLDivElement>(null);
+  const popoverHeightRef = useRef(0);
+  const sliderRef = useRef<HTMLInputElement>(null);
+  const markerEls = useRef(new Map<string, HTMLSpanElement>());
   const moveRaf = useRef(0);
 
   const markers = useMemo(() => buildConversationMinimapMarkers(items), [items]);
@@ -74,6 +87,11 @@ export const ConversationMinimap = memo(function ConversationMinimap({
     return visibleMessageIds.find((id) => ids.has(id)) ?? null;
   }, [markers, visibleMessageIds]);
 
+  const preferredIndex = markers.findIndex((marker) => marker.id === selectedId);
+  const activeIndex = markers.findIndex((marker) => marker.id === activeId);
+  const selectedIndex = preferredIndex >= 0 ? preferredIndex : Math.max(activeIndex, 0);
+  const selectedMarker = markers[selectedIndex];
+
   /**
    * Vertical centers of the dashes, in rail-local pixels.
    *
@@ -88,8 +106,10 @@ export const ConversationMinimap = memo(function ConversationMinimap({
   const measureMagnifyCenters = useCallback(() => {
     const centers: { id: string; center: number }[] = [];
     // Read-only pass: no style writes, so layout is computed at most once.
-    for (const [id, btn] of markerEls.current) {
-      centers.push({ id, center: btn.offsetTop + btn.offsetHeight / 2 });
+    const railTop = railRef.current?.getBoundingClientRect().top ?? 0;
+    for (const [id, marker] of markerEls.current) {
+      const rect = marker.getBoundingClientRect();
+      centers.push({ id, center: rect.top - railTop + rect.height / 2 });
     }
     centers.sort((a, b) => a.center - b.center);
     magnifyCentersRef.current = centers;
@@ -116,6 +136,41 @@ export const ConversationMinimap = memo(function ConversationMinimap({
     [scrollToMessage, timelineWindow],
   );
 
+  const popoverTop = useCallback(
+    (center: number, railHeight: number) =>
+      Math.min(Math.max(center - 36, 0), Math.max(railHeight - popoverHeightRef.current, 0)),
+    [],
+  );
+
+  const selectMarker = useCallback(
+    (index: number) => {
+      const marker = markersRef.current[index];
+      if (!marker) return;
+      setSelectedId(marker.id);
+      jumpTo(marker.id);
+      const rail = railRef.current;
+      const center = magnifyCentersRef.current.find((entry) => entry.id === marker.id)?.center;
+      if (rail && center != null) {
+        setHovered({ marker, center, top: popoverTop(center, rail.clientHeight) });
+      }
+    },
+    [jumpTo, popoverTop],
+  );
+
+  useLayoutEffect(() => {
+    const popover = popoverRef.current;
+    const rail = railRef.current;
+    if (!popover || !rail) return;
+    const height = popover.getBoundingClientRect().height;
+    if (height <= 0) return;
+    popoverHeightRef.current = height;
+    setHovered((prev) => {
+      if (!prev) return prev;
+      const top = popoverTop(prev.center, rail.clientHeight);
+      return prev.top === top ? prev : { ...prev, top };
+    });
+  }, [hovered?.marker.id, hovered?.marker.preview, hovered?.center, popoverTop]);
+
   /* Dock magnification, applied imperatively so mousemove never re-renders. */
   const applyMagnify = useCallback(
     (cursorY: number | null) => {
@@ -126,8 +181,8 @@ export const ConversationMinimap = memo(function ConversationMinimap({
       }
       let nearest: { id: string; dist: number; center: number } | null = null;
       for (const { id, center } of magnifyCentersRef.current) {
-        const btn = markerEls.current.get(id);
-        if (!btn) continue;
+        const markerElement = markerEls.current.get(id);
+        if (!markerElement) continue;
         let scale = 1;
         if (cursorY != null) {
           const dist = Math.abs(center - cursorY);
@@ -138,26 +193,60 @@ export const ConversationMinimap = memo(function ConversationMinimap({
             nearest = { id, dist, center };
           }
         }
-        btn.style.setProperty("--magnify", scale.toFixed(3));
+        markerElement.style.setProperty("--magnify", scale.toFixed(3));
       }
       if (nearest) {
         const marker = markersRef.current.find((m) => m.id === nearest!.id);
         const rail = railRef.current;
         if (marker && rail) {
-          const top = Math.min(
-            Math.max(nearest.center - 36, 0),
-            Math.max(rail.clientHeight - POPOVER_HEIGHT, 0),
-          );
+          const top = popoverTop(nearest.center, rail.clientHeight);
           setHovered((prev) =>
-            prev?.marker.id === marker.id && prev.top === top ? prev : { marker, top },
+            prev?.marker.id === marker.id && prev.top === top && prev.center === nearest.center
+              ? prev
+              : { marker, center: nearest.center, top },
           );
           return;
         }
       }
       setHovered(null);
     },
-    [measureMagnifyCenters],
+    [measureMagnifyCenters, popoverTop],
   );
+
+  const handleChange = useCallback(
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      selectMarker(Number(event.currentTarget.value));
+    },
+    [selectMarker],
+  );
+
+  const handlePointerDown = useCallback(
+    (event: React.PointerEvent<HTMLInputElement>) => {
+      if (event.button !== 0) return;
+      event.preventDefault();
+      event.currentTarget.focus({ preventScroll: true });
+      const rail = railRef.current;
+      if (!rail) return;
+      const centers = magnifyCentersRef.current;
+      if (centers.length === 0) measureMagnifyCenters();
+      const measured = magnifyCentersRef.current;
+      if (measured.length === 0) return;
+      const first = measured[0]!.center;
+      const last = measured[measured.length - 1]!.center;
+      const y = event.clientY - rail.getBoundingClientRect().top;
+      const position =
+        last === first
+          ? (y / Math.max(rail.clientHeight, 1)) * (measured.length - 1)
+          : ((y - first) / (last - first)) * (measured.length - 1);
+      selectMarker(Math.max(0, Math.min(measured.length - 1, Math.round(position))));
+    },
+    [measureMagnifyCenters, selectMarker],
+  );
+
+  const handleSliderBlur = useCallback(() => {
+    setSelectedId(null);
+    setHovered(null);
+  }, []);
 
   const handleMouseMove = useCallback(
     (event: React.MouseEvent) => {
@@ -187,7 +276,19 @@ export const ConversationMinimap = memo(function ConversationMinimap({
     let frame = 0;
     const observer = new ResizeObserver(() => {
       cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(measureMagnifyCenters);
+      frame = requestAnimationFrame(() => {
+        measureMagnifyCenters();
+        const popoverHeight = popoverRef.current?.getBoundingClientRect().height;
+        if (popoverHeight && popoverHeight > 0) popoverHeightRef.current = popoverHeight;
+        setHovered((prev) => {
+          if (!prev) return prev;
+          const measured = magnifyCentersRef.current.find(({ id }) => id === prev.marker.id);
+          if (!measured) return null;
+          const center = measured.center;
+          const top = popoverTop(center, rail.clientHeight);
+          return prev.top === top && prev.center === center ? prev : { ...prev, center, top };
+        });
+      });
     });
     observer.observe(rail);
     return () => {
@@ -196,7 +297,7 @@ export const ConversationMinimap = memo(function ConversationMinimap({
     };
     // `overflows` gates whether the rail is mounted at all, so the observer has to be
     // reattached when it returns.
-  }, [markerIdentity, measureMagnifyCenters, overflows]);
+  }, [markerIdentity, measureMagnifyCenters, overflows, popoverTop]);
 
   if (!shouldRenderConversationMinimap({ markerCount: markers.length, overflows })) {
     return null;
@@ -214,26 +315,41 @@ export const ConversationMinimap = memo(function ConversationMinimap({
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
     >
+      <input
+        ref={sliderRef}
+        className="minimap-slider"
+        type="range"
+        min={0}
+        max={markers.length - 1}
+        step={1}
+        value={selectedIndex}
+        aria-label={t(locale, "timeline.minimap")}
+        aria-valuetext={
+          selectedMarker
+            ? `${roleLabel(selectedMarker.role)}, ${selectedIndex + 1} / ${markers.length}${selectedMarker.preview ? `, ${selectedMarker.preview.slice(0, 80)}` : ""}`
+            : undefined
+        }
+        onChange={handleChange}
+        onPointerDown={handlePointerDown}
+        onBlur={handleSliderBlur}
+      />
       {markers.map((marker) => (
-        <button
+        <span
           key={marker.id}
-          type="button"
           ref={(node) => {
             if (node) markerEls.current.set(marker.id, node);
             else markerEls.current.delete(marker.id);
           }}
-          className={`minimap-marker ${marker.role} ${marker.id === activeId ? "active" : ""}`}
-          aria-label={roleLabel(marker.role)}
-          aria-current={marker.id === activeId ? "true" : undefined}
-          onFocus={(event) =>
-            setHovered({ marker, top: Math.max(0, event.currentTarget.offsetTop - 36) })
-          }
-          onBlur={() => setHovered(null)}
-          onClick={() => jumpTo(marker.id)}
+          className={`minimap-marker ${marker.role} ${marker.id === activeId ? "active" : ""} ${marker.id === selectedId ? "selected" : ""} ${marker.id === hovered?.marker.id ? "hovered" : ""}`}
         />
       ))}
       {hovered && hovered.marker.preview ? (
-        <div className="minimap-popover" role="tooltip" style={{ top: `${hovered.top}px` }}>
+        <div
+          ref={popoverRef}
+          className="minimap-popover"
+          role="tooltip"
+          style={{ top: `${hovered.top}px` }}
+        >
           <div className="minimap-popover-role">{roleLabel(hovered.marker.role)}</div>
           <div className="minimap-popover-text">{hovered.marker.preview}</div>
         </div>
