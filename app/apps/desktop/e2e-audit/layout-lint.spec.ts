@@ -291,10 +291,18 @@ async function codeFlow(scale: number, sizes: Size[], theme: string) {
       timeout: 120_000,
     });
     await page.waitForTimeout(1500);
+    const trustDialog = page.getByTestId("project-trust-dialog");
+    if (await trustDialog.isVisible()) {
+      await c.check("project-trust");
+      await page.getByTestId("project-trust-dialog-distrust").click();
+      await expect(trustDialog).toBeHidden();
+    }
     await c.check("code-empty");
 
     const send = async (text: string) => {
       await page.getByTestId("prompt-input").fill(text);
+      await expect(page.getByTestId("prompt-input")).toHaveValue(text);
+      await expect(page.getByTestId("send-prompt")).toBeEnabled();
       await page.getByTestId("send-prompt").click();
     };
     await send("Сделай сайт-визитку для флориста");
@@ -345,6 +353,12 @@ async function codeFlow(scale: number, sizes: Size[], theme: string) {
       await page.waitForTimeout(300);
       await c.check(id.replace("settings-nav-", "settings-"));
     }
+  } catch (error) {
+    mkdirSync(OUT, { recursive: true });
+    await page
+      .screenshot({ path: join(OUT, `code-failure-${theme}-${scale}.png`) })
+      .catch(() => undefined);
+    throw error;
   } finally {
     await app.close().catch(() => undefined);
     server.close();

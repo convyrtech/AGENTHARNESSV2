@@ -19,6 +19,7 @@ import { infraReason, reportMarkdown, runBench, sourcesLine } from "../bench/run
 import { extractorPrompt } from "../src/memory-extract.ts";
 import { reviewPrompt } from "../src/second-opinion.ts";
 import { ScriptedOpenAiServer, type ScriptedReply } from "./scripted-openai-server.ts";
+import { MockGatewayServer } from "../../test-utils/src/index.ts";
 
 const out = mkdtempSync(join(tmpdir(), "prsloy-bench-meter-"));
 afterAll(() => rmSync(out, { recursive: true, force: true }));
@@ -223,6 +224,34 @@ describe("infra_error", () => {
 });
 
 describe("the app's request path (#39)", () => {
+  it("an unavailable chosen model stays infra_error even when a fallback is served", async () => {
+    const gw = new MockGatewayServer({
+      apiKey: "local-test",
+      modelIds: ["claude-opus-5-5"],
+      serveListedOnly: true,
+      turns: [{ text: "Проект — сайт кофейни: страница index.html и стили style.css." }],
+    });
+    await gw.start();
+    try {
+      const report = await runBench({
+        harness: false,
+        model: "prsloy/kimi-k3.1-pro",
+        key: "local-test",
+        baseUrl: gw.baseUrl,
+        timeoutSec: 60,
+        tasks: ["explain-project"],
+        outDir: join(out, "fixed-model"),
+      });
+      expect(report.results[0]!.outcome).toBe("infra_error");
+      expect(report.results[0]!.ok).toBeNull();
+      expect(gw.requests.length).toBeGreaterThan(0);
+      expect(gw.requests.every((r) => r.body.model === "kimi-k3.1-pro")).toBe(true);
+      expect(gw.modelListRequests).toHaveLength(0);
+    } finally {
+      await gw.stop();
+    }
+  }, 120_000);
+
   it("402 to a big output reserve: the bench steps max_tokens down like the app and the task runs", async () => {
     const gw = await gateway((body) =>
       Number((body as { max_tokens?: number }).max_tokens) > 32_000
@@ -243,6 +272,7 @@ describe("the app's request path (#39)", () => {
     // pi режет 128k до «окно − вход», потом 64k → 402, 32k → 200.
     expect(sent.slice(1, 3)).toEqual([64_000, 32_000]);
     expect(sent[0]).toBeGreaterThan(64_000);
+    expect(gw.requests.every((r) => r.model === MODEL.split("/")[1])).toBe(true);
     expect(report.stopped).toBeUndefined();
     expect(report.results[0]!.outcome).not.toBe("infra_error");
   }, 120_000);
@@ -322,6 +352,60 @@ describe("scripts/bench.mts exit codes", () => {
       return { status: err.code ?? -1, stderr: err.stderr ?? "" };
     }
   };
+
+  it("0 when the scenario completes successfully", async () => {
+    const result = await run([
+      "--fake",
+      "--harness",
+      "off",
+      "--model",
+      MODEL,
+      "--task",
+      "explain-project",
+      "--out",
+      join(out, "cli-success"),
+    ]);
+    expect(result.status, result.stderr).toBe(0);
+    const report = JSON.parse(
+      readFileSync(join(out, "cli-success", "results", "explain-project.json"), "utf8"),
+    );
+    expect(report.outcome).toBe("solved");
+    expect(report.matched).toBe(true);
+  }, 240_000);
+
+  it.each([402, 503])(
+    "2 when HTTP %s leaves no completed scenarios",
+    async (status) => {
+      const dead = await gateway(() => ({ status, error: "Mock gateway unavailable" }));
+      const dir = join(out, `cli-infra-${status}`);
+      let result: Awaited<ReturnType<typeof run>>;
+      try {
+        result = await run(
+          [
+            "--harness",
+            "off",
+            "--model",
+            MODEL,
+            "--base-url",
+            dead.baseUrl,
+            "--task",
+            "explain-project",
+            "--out",
+            dir,
+          ],
+          { PRSLOY_GATEWAY_KEY: "local-test" },
+        );
+      } finally {
+        await dead.stop();
+      }
+      expect(result.status, result.stderr).toBe(2);
+      expect(result.stderr).toContain("--resume");
+      const report = JSON.parse(readFileSync(join(dir, "results", "explain-project.json"), "utf8"));
+      expect(report.outcome).toBe("infra_error");
+      expect(report.matched).toBeNull();
+    },
+    240_000,
+  );
 
   it("2 and «ключ не принят шлюзом» on a 401; 3 and «бюджет исчерпан» on the budget", async () => {
     const dead = await gateway(() => ({ status: 401, error: "Invalid API key" }));

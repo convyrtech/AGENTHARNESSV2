@@ -6,11 +6,16 @@ import { app } from "electron";
 import { rmSync } from "node:fs";
 import { migrateLegacyUserData, prsloyUserDataDir } from "./user-data.ts";
 
-const plan = prsloyUserDataDir({
-  appData: app.getPath("appData"),
-  packaged: app.isPackaged,
-  explicitUserDataDir: app.commandLine.hasSwitch("user-data-dir"),
-});
+// Dev and explicitly isolated profiles do not use the OS appData location at all.
+// Check before getPath: Electron may be unable to resolve it in an isolated environment.
+const plan =
+  app.isPackaged && !app.commandLine.hasSwitch("user-data-dir")
+    ? prsloyUserDataDir({
+        appData: app.getPath("appData"),
+        packaged: true,
+        explicitUserDataDir: false,
+      })
+    : undefined;
 if (plan) {
   const migration = migrateLegacyUserData(plan);
   if (migration.status === "failed") {

@@ -3,6 +3,31 @@
 All notable user-facing changes to Zeno are documented in this file.
 Earlier releases (v0.1.0, v0.1.1) predate this file.
 
+## PRSLOY [0.1.0-alpha.5] - 2026-11-09
+
+### Added and improved since alpha 4
+
+- The account settings show the current key balance; the model catalog and RUB prices
+  reflect the gateway catalog.
+- A limited read-only scout can inspect a task's workspace. Tool calls have a shared
+  task budget, and image previews keep full-size details readable.
+- Long-chat navigation uses one keyboard-accessible rail instead of many tiny click
+  targets. Arrow keys, Home and End select turns; previews stay inside the rail and
+  follow its size changes.
+
+### Fixed
+
+- Image reads enforce the permitted workspace roots; the GitHub refresh control no
+  longer appears when it has no action to perform.
+- Development and explicitly isolated launches no longer look up AppData before
+  determining whether the packaged-profile migration is needed.
+- Benchmark runs report unresolved infrastructure errors as failures, accept Node 24's
+  synthetic CommonJS namespace marker, and disable automatic model substitution so
+  comparisons use the requested model.
+
+The full orchestrator and experimental computer-use PR #107 are not part of this release.
+The pilot does not change the default model selection.
+
 ## [0.2.0] - 2026-10-02
 
 ### Changed
