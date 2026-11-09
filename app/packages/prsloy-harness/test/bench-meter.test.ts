@@ -19,6 +19,7 @@ import { infraReason, reportMarkdown, runBench, sourcesLine } from "../bench/run
 import { extractorPrompt } from "../src/memory-extract.ts";
 import { reviewPrompt } from "../src/second-opinion.ts";
 import { ScriptedOpenAiServer, type ScriptedReply } from "./scripted-openai-server.ts";
+import { MockGatewayServer } from "../../test-utils/src/index.ts";
 
 const out = mkdtempSync(join(tmpdir(), "prsloy-bench-meter-"));
 afterAll(() => rmSync(out, { recursive: true, force: true }));
@@ -223,6 +224,34 @@ describe("infra_error", () => {
 });
 
 describe("the app's request path (#39)", () => {
+  it("an unavailable chosen model stays infra_error even when a fallback is served", async () => {
+    const gw = new MockGatewayServer({
+      apiKey: "local-test",
+      modelIds: ["claude-opus-5-5"],
+      serveListedOnly: true,
+      turns: [{ text: "Проект — сайт кофейни: страница index.html и стили style.css." }],
+    });
+    await gw.start();
+    try {
+      const report = await runBench({
+        harness: false,
+        model: "prsloy/kimi-k3.1-pro",
+        key: "local-test",
+        baseUrl: gw.baseUrl,
+        timeoutSec: 60,
+        tasks: ["explain-project"],
+        outDir: join(out, "fixed-model"),
+      });
+      expect(report.results[0]!.outcome).toBe("infra_error");
+      expect(report.results[0]!.ok).toBeNull();
+      expect(gw.requests.length).toBeGreaterThan(0);
+      expect(gw.requests.every((r) => r.body.model === "kimi-k3.1-pro")).toBe(true);
+      expect(gw.modelListRequests).toHaveLength(0);
+    } finally {
+      await gw.stop();
+    }
+  }, 120_000);
+
   it("402 to a big output reserve: the bench steps max_tokens down like the app and the task runs", async () => {
     const gw = await gateway((body) =>
       Number((body as { max_tokens?: number }).max_tokens) > 32_000
@@ -243,6 +272,7 @@ describe("the app's request path (#39)", () => {
     // pi режет 128k до «окно − вход», потом 64k → 402, 32k → 200.
     expect(sent.slice(1, 3)).toEqual([64_000, 32_000]);
     expect(sent[0]).toBeGreaterThan(64_000);
+    expect(gw.requests.every((r) => r.model === MODEL.split("/")[1])).toBe(true);
     expect(report.stopped).toBeUndefined();
     expect(report.results[0]!.outcome).not.toBe("infra_error");
   }, 120_000);

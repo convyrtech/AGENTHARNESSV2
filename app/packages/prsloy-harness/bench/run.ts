@@ -945,12 +945,14 @@ export async function runBench(opts: BenchOptions): Promise<BenchReport> {
     if (control.stop) control.abort?.();
   }
   await control.meter.start();
-  // Тот же путь, что в приложении (agent-host/index.ts): обёртка fetch спускает max_tokens на 400/402 и
-  // переводит на другую модель, если эта пропала. Ставится на время прогона, как в хосте — на процесс.
+  // Тот же путь, что в приложении (agent-host/index.ts): обёртка fetch спускает max_tokens на 400/402,
+  // но сохраняет выбранную модель: ответ замены нельзя приписывать исходной модели в отчёте.
+  // Ставится на время прогона, как в хосте — на процесс.
   const baseFetch = globalThis.fetch;
   globalThis.fetch = createPrsloyFetch({
     base: baseFetch.bind(globalThis),
     apiKey: opts.key ?? "fake",
+    modelFallback: false,
     async listModels() {
       const response = await baseFetch(`${control.meter.upstream.replace(/\/+$/, "")}/models`, {
         headers: { Authorization: `Bearer ${opts.key ?? "fake"}`, Accept: "application/json" },
