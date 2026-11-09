@@ -122,6 +122,8 @@ export function hidden(ws, module, cases) {
   const script = `const mod = await import(${JSON.stringify(url)});
 const m = { ...(mod.default && typeof mod.default === "object" ? mod.default : {}), ...mod };
 delete m.default;
+// CommonJS namespace marker, not a callable export or a valid function parameter.
+delete m["module.exports"];
 const out = [];
 for (const [expr, want] of ${JSON.stringify(cases)}) {
   let got;
