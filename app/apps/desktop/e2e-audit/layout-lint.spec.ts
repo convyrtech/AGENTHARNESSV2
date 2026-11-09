@@ -345,6 +345,12 @@ async function codeFlow(scale: number, sizes: Size[], theme: string) {
       await page.waitForTimeout(300);
       await c.check(id.replace("settings-nav-", "settings-"));
     }
+  } catch (error) {
+    mkdirSync(OUT, { recursive: true });
+    await page
+      .screenshot({ path: join(OUT, `code-failure-${theme}-${scale}.png`) })
+      .catch(() => undefined);
+    throw error;
   } finally {
     await app.close().catch(() => undefined);
     server.close();
