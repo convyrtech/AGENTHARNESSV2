@@ -187,8 +187,11 @@ test.describe("Desktop shell Playwright E2E (macOS Electron)", () => {
     await expect(page.getByTestId("composer-slash-menu")).toContainText("/skill:e2e-skill");
     await page.getByTestId("composer-slash-item").filter({ hasText: "/e2e-review" }).click();
     await expect(page.getByTestId("prompt-input")).toHaveValue("/e2e-review ");
+    // Command selection restores the caret on the next animation frame.
+    await expect(page.getByTestId("prompt-input")).toBeFocused();
 
     await page.getByTestId("prompt-input").fill("@");
+    await expect(page.getByTestId("prompt-input")).toHaveValue("@");
     await expect(page.getByTestId("composer-attach-menu")).toBeVisible();
     await expect(page.getByTestId("composer-attach-files")).toBeVisible();
     await expect(page.getByTestId("composer-attach-menu")).toContainText("fixture.txt");

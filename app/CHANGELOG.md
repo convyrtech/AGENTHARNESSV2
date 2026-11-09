@@ -3,7 +3,7 @@
 All notable user-facing changes to Zeno are documented in this file.
 Earlier releases (v0.1.0, v0.1.1) predate this file.
 
-## PRSLOY [0.1.0-alpha.5] — release candidate
+## PRSLOY [0.1.0-alpha.5] - 2026-11-09
 
 ### Added and improved since alpha 4
 
