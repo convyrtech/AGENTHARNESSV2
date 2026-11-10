@@ -10,12 +10,14 @@ export class DelegationBudget {
   unknown = false;
   exceeded = false;
   calls = 0;
+  readonly limit: number;
+  readonly attempts: number;
+  readonly reviewReserve: number;
 
-  constructor(
-    readonly limit: number,
-    readonly attempts: number,
-    readonly reviewReserve: number,
-  ) {
+  constructor(limit: number, attempts: number, reviewReserve: number) {
+    this.limit = limit;
+    this.attempts = attempts;
+    this.reviewReserve = reviewReserve;
     if (
       !Number.isFinite(limit) ||
       limit <= 0 ||
