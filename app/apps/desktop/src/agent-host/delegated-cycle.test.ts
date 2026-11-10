@@ -14,6 +14,12 @@ import {
 } from "../../../../packages/test-utils/src/index.ts";
 import { installDelegate } from "../../../../packages/prsloy-harness/src/delegate.ts";
 import { installBudget } from "../../../../packages/prsloy-harness/src/budget.ts";
+import { installLessons } from "../../../../packages/prsloy-harness/src/lessons.ts";
+import {
+  configureLearning,
+  onLearningEvent,
+  type LearningEvent,
+} from "../../../../packages/prsloy-harness/src/learning-log.ts";
 import { resolveOptions } from "../../../../packages/prsloy-harness/src/options.ts";
 import { runDelegatedWorker } from "./delegated-worker.ts";
 
@@ -32,10 +38,14 @@ async function cycle(
     denyCheck?: boolean;
     changeAfterReview?: boolean;
     enabled?: boolean;
+    invalidDelegatePath?: boolean;
+    workerReadOutsideScope?: boolean;
+    lessons?: boolean;
   } = {},
 ) {
   const root = await mkdtemp(join(process.cwd(), ".delegated-cycle-"));
   cleanups.push(() => rm(root, { recursive: true, force: true }));
+  configureLearning({ dir: join(root, "learning"), enabled: true });
   const cwd = join(root, "project"),
     agentDir = join(root, "agent"),
     outputDir = join(root, "traces");
@@ -43,7 +53,7 @@ async function cycle(
   await mkdir(agentDir);
   await writeFile(
     join(agentDir, "prsloy-harness.json"),
-    JSON.stringify({ delegate: options.enabled !== false }),
+    JSON.stringify({ delegate: options.enabled !== false, lessons: options.lessons !== false }),
   );
   const command = options.command ?? "grep -qx working result.txt";
   const gateway = new MockGatewayServer({
@@ -55,30 +65,47 @@ async function cycle(
           name: "delegate",
           arguments: {
             task: "Write working to result.txt",
-            paths: ["result.txt"],
+            paths: [options.invalidDelegatePath ? "./result.txt" : "result.txt"],
             check: command,
             workerModel: "test/kimi-worker",
             reviewerModel: "test/minimax-review",
           },
         },
       },
-      ...(options.noWorkerChanges
-        ? []
+      ...(options.invalidDelegatePath
+        ? [{ text: "The delegate request was rejected. I should report the path issue." }]
         : [
-            {
-              toolCall: { name: "write", arguments: { path: "result.txt", content: "working\n" } },
-            },
+            ...(options.workerReadOutsideScope
+              ? [
+                  {
+                    toolCall: {
+                      name: "read",
+                      arguments: { path: "unlisted-check.mjs" },
+                    },
+                  },
+                ]
+              : []),
+            ...(options.noWorkerChanges
+              ? []
+              : [
+                  {
+                    toolCall: {
+                      name: "write",
+                      arguments: { path: "result.txt", content: "working\n" },
+                    },
+                  },
+                ]),
+            options.workerFinal ?? { text: "Changed result.txt. Verification pending." },
+            ...(options.denyCheck || options.command || options.noWorkerChanges
+              ? []
+              : [
+                  {
+                    text: options.verdict ?? '{"verdict":"PASS","items":[]}',
+                    finishReason: options.reviewerFinish ?? "stop",
+                  },
+                ]),
+            { text: "A short factual parent summary." },
           ]),
-      options.workerFinal ?? { text: "Changed result.txt. Verification pending." },
-      ...(options.denyCheck || options.command || options.noWorkerChanges
-        ? []
-        : [
-            {
-              text: options.verdict ?? '{"verdict":"PASS","items":[]}',
-              finishReason: options.reviewerFinish ?? "stop",
-            },
-          ]),
-      { text: "A short factual parent summary." },
     ],
   });
   await gateway.start();
@@ -106,6 +133,10 @@ async function cycle(
   );
   let nestedChecks = 0;
   let result: Record<string, unknown> | undefined;
+  const learningEvents: Array<{ session: string; event: LearningEvent }> = [];
+  const stopLearningEvents = onLearningEvent((session, event) =>
+    learningEvents.push({ session, event }),
+  );
   const opts = resolveOptions({
     profile: "code",
     settingsPath: join(agentDir, "prsloy-harness.json"),
@@ -115,6 +146,10 @@ async function cycle(
   let services: Awaited<ReturnType<typeof createAgentSessionServices>>;
   const extension: ExtensionFactory = (pi) => {
     const budget = installBudget(pi, opts);
+    installLessons(pi, {
+      settingsPath: opts.settingsPath,
+      countersPath: join(root, "lessons.json"),
+    });
     installDelegate(pi, opts, budget, (input) =>
       runDelegatedWorker({ ...input, agentDir, modelRuntime: services.modelRuntime }),
     );
@@ -159,11 +194,13 @@ async function cycle(
     sessionManager: SessionManager.inMemory(cwd),
   });
   cleanups.push(async () => {
+    stopLearningEvents();
     await session.abort();
     session.dispose();
   });
   await session.bindExtensions({ mode: "rpc" });
-  if (options.enabled === false) return { session, gateway, result, nestedChecks, cwd };
+  if (options.enabled === false)
+    return { session, gateway, result, nestedChecks, cwd, learningEvents };
   await session.prompt("Do the scoped task using delegate.");
   if (!result)
     throw new Error(
@@ -172,7 +209,7 @@ async function cycle(
         requests: gateway.requests.map((r) => r.body.model),
       }),
     );
-  return { session, gateway, result, nestedChecks, cwd };
+  return { session, gateway, result, nestedChecks, cwd, learningEvents };
 }
 
 describe("first delegated cycle through real SDK", () => {
@@ -246,6 +283,43 @@ describe("first delegated cycle through real SDK", () => {
     expect(run.result?.reservedRub).toBe(0);
     expect(run.result?.accounting).toBe("catalogue_estimate");
     expect(run.gateway.requests.some((r) => r.body.model === "minimax-review")).toBe(false);
+  }, 30_000);
+  it("returns a relative-path lesson for an invalid delegate path and logs no path", async () => {
+    const run = await cycle({ invalidDelegatePath: true });
+    expect(run.result?.status).toBe("failed");
+    expect(run.result?.error).toBe("Invalid delegate path");
+    expect(run.result?.lesson).toContain("normalized project-relative paths");
+    expect(run.gateway.requests).toHaveLength(2);
+    expect(run.learningEvents.map(({ event }) => event)).toContainEqual({
+      kind: "delegate.path",
+      tool: "delegate",
+      sig: "invalid",
+      lessons: ["L-delegate-relative-paths"],
+    });
+    expect(JSON.stringify(run.learningEvents)).not.toContain("result.txt");
+  }, 30_000);
+  it("returns the file-scope lesson through the normal worker and logs a fixed event code", async () => {
+    const run = await cycle({ workerReadOutsideScope: true });
+    expect(run.result?.status).toBe("failed");
+    expect(run.result?.error).toBe("Worker file is outside its explicit scope");
+    expect(run.result?.lesson).toContain("worker should not read or run the acceptance check");
+    expect(run.learningEvents.map(({ event }) => event)).toContainEqual({
+      kind: "delegate.scope",
+      tool: "delegate",
+      sig: "worker-outside-scope",
+      lessons: ["L-delegate-scope-and-check"],
+    });
+    expect(JSON.stringify(run.learningEvents)).not.toContain("unlisted-check.mjs");
+  }, 30_000);
+  it("records a normalized delegate failure without guidance when lessons are disabled", async () => {
+    const run = await cycle({ invalidDelegatePath: true, lessons: false });
+    expect(run.result?.error).toBe("Invalid delegate path");
+    expect(run.result?.lesson).toBeUndefined();
+    expect(run.learningEvents.map(({ event }) => event)).toContainEqual({
+      kind: "delegate.path",
+      tool: "delegate",
+      sig: "invalid",
+    });
   }, 30_000);
   it("keeps delegation unavailable by default/when disabled", async () => {
     const run = await cycle({ enabled: false });

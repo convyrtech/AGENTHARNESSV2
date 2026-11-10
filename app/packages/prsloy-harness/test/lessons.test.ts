@@ -38,6 +38,12 @@ describe("lessons: the shipped file", () => {
   it("only §8.2 seeds for «Код» (active/candidate) — one, already delivered by prsloy_casual_user", () => {
     expect(BUNDLED_LESSONS.map((l) => [l.id, l.status, l.delivery])).toEqual([
       ["L-c-casual-no-commands", "active", "section:prsloy_casual_user"],
+      ["L-delegate-relative-paths", "active", undefined],
+      ["L-delegate-scope-and-check", "active", undefined],
+    ]);
+    expect(BUNDLED_LESSONS.filter((l) => l.mode === "on-event").map((l) => l.id)).toEqual([
+      "L-delegate-relative-paths",
+      "L-delegate-scope-and-check",
     ]);
     // Уже доставлен постоянным разделом — в prsloy_lessons не дублируется.
     expect(lessonsSection(BUNDLED_LESSONS, "deepseek-v4.1-flash", "s").text).toBe("");

@@ -16,6 +16,8 @@ import {
   type VerificationResult,
 } from "./delegation-policy.ts";
 import { readFlags } from "./flags.ts";
+import { intervene } from "./lessons.ts";
+import type { LearningEvent } from "./learning-log.ts";
 import type { ResolvedOptions } from "./options.ts";
 import { recordUsage } from "./reviewer.ts";
 import { scrubSecrets } from "./secret-scrub.ts";
@@ -42,6 +44,15 @@ function findModel(ctx: ExtensionToolContext, ref: string): ExploreModel {
   if (!model || model.api !== "openai-completions")
     throw new Error("Delegation requires an available OpenAI-compatible model");
   return model;
+}
+
+/** Match only errors created by the delegate's path validators, never arbitrary model text. */
+function delegateLessonEvent(error: string | undefined): LearningEvent | undefined {
+  if (error === "Invalid delegate path")
+    return { kind: "delegate.path", tool: "delegate", sig: "invalid" };
+  if (error === "Worker file is outside its explicit scope")
+    return { kind: "delegate.scope", tool: "delegate", sig: "worker-outside-scope" };
+  return undefined;
 }
 
 export async function runDelegate(input: {
@@ -77,6 +88,7 @@ export async function runDelegate(input: {
   let currentDigest = "";
   let workerFailed = false;
   let error: string | undefined;
+  let lesson: string | undefined;
   let files: string[] = [];
   const account = (role: string, model: ExploreModel, reply: ExploreReply) => {
     const failed = reply.stopReason === "error" || reply.stopReason === "aborted";
@@ -190,6 +202,11 @@ export async function runDelegate(input: {
       error = caught instanceof Error ? caught.message : String(caught);
     }
   }
+  const failureEvent = delegateLessonEvent(error);
+  if (failureEvent) {
+    const tip = intervene(ctx, failureEvent);
+    if (tip) lesson = tip.trim();
+  }
   const status = decideDelegateStatus({
     cancelled: signal.aborted,
     budgetExceeded: ledger.exceeded,
@@ -219,6 +236,7 @@ export async function runDelegate(input: {
     modelCalls: ledger.calls,
     seconds: Math.round((Date.now() - started) / 1000),
     ...(error ? { error } : {}),
+    ...(lesson ? { lesson } : {}),
     tracePath,
   };
   await mkdir(join(opts.outputDir, "delegations"), { recursive: true });
@@ -284,13 +302,17 @@ export function installDelegate(
           isError: result.status !== "verified",
         };
       } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        const failureEvent = delegateLessonEvent(message);
+        const lesson = failureEvent ? intervene(ctx, failureEvent).trim() : "";
         return {
           content: [
             {
               type: "text",
               text: JSON.stringify({
                 status: signal?.aborted ? "cancelled" : "failed",
-                error: error instanceof Error ? error.message : String(error),
+                error: message,
+                ...(lesson ? { lesson } : {}),
               }),
             },
           ],

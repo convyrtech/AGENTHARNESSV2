@@ -14,6 +14,32 @@
       "codeFix": null,
       "delivery": "section:prsloy_casual_user",
       "evidence": { "bench": [], "sessions": [], "recurrenceBefore": null }
+    },
+    {
+      "id": "L-delegate-relative-paths",
+      "surface": "code",
+      "models": ["*"],
+      "mode": "on-event",
+      "trigger": { "kind": "delegate.path", "sig": "invalid" },
+      "text": "Use normalized project-relative paths such as `src/file.ts` in `paths`. Do not add `./` or absolute paths.",
+      "status": "active",
+      "since": "0.1.0-alpha.5",
+      "cause": "A live PRSLOY cycle rejected an absolute path and a ./ path as invalid delegate paths.",
+      "codeFix": null,
+      "evidence": { "bench": [], "sessions": ["first-live-cycle"], "recurrenceBefore": 2 }
+    },
+    {
+      "id": "L-delegate-scope-and-check",
+      "surface": "code",
+      "models": ["*"],
+      "mode": "on-event",
+      "trigger": { "kind": "delegate.scope", "sig": "worker-outside-scope" },
+      "text": "Keep `paths` to files the worker may edit. The worker should not read or run the acceptance check. Put that command in `check` so the parent runs it.",
+      "status": "active",
+      "since": "0.1.0-alpha.5",
+      "cause": "A live PRSLOY cycle stopped the worker after it tried to read a check file outside its allowed file list.",
+      "codeFix": null,
+      "evidence": { "bench": [], "sessions": ["first-live-cycle"], "recurrenceBefore": 1 }
     }
   ]
 }

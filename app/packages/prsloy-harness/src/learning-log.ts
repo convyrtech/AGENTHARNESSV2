@@ -85,6 +85,8 @@ export type LearningKind =
   // Нить задачи (#64 п.1): после сжатия истории собран блок фактов задачи.
   | "thread.built"
   | "continuation.guard"
+  | "delegate.path"
+  | "delegate.scope"
   | "turn.end";
 
 export type TurnOutcome = "green" | "red" | "budget" | "aborted" | "error";
