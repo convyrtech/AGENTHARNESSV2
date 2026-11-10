@@ -54,6 +54,25 @@ describe("learning log (S0)", () => {
     expect(callSignature("find_ready", { query: "csv parser" })).toBe("find_ready");
   });
 
+  it("records delegate failure categories with fixed privacy-safe signatures", () => {
+    recordEvent(ctx(), {
+      kind: "delegate.model_ref",
+      tool: "delegate",
+      sig: "unavailable-openai-model",
+    });
+    recordEvent(ctx(), {
+      kind: "delegate.no_changes",
+      tool: "delegate",
+      sig: "worker-no-file-change",
+    });
+
+    expect(lines().map(({ kind, sig }) => ({ kind, sig }))).toEqual([
+      { kind: "delegate.model_ref", sig: "unavailable-openai-model" },
+      { kind: "delegate.no_changes", sig: "worker-no-file-change" },
+    ]);
+    expect(JSON.stringify(lines())).not.toContain("/home/anna");
+  });
+
   it("model family without provider and build number; project as a hash", () => {
     expect(modelFamily("prsloy/deepseek-v4.1-flash-1017")).toBe("deepseek-v4.1-flash");
     expect(modelFamily("kimi-k3.1-pro")).toBe("kimi-k3.1-pro");
