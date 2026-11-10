@@ -91,9 +91,11 @@ test("delegate runs a scoped worker, verifies its change, and shows the parent s
       "gpt-parent",
     ]);
     await expect(
-      page.getByTestId("markdown-content").getByText("Готово: result.txt записан и проверка прошла.", {
-        exact: true,
-      }),
+      page
+        .getByTestId("markdown-content")
+        .getByText("Готово: result.txt записан и проверка прошла.", {
+          exact: true,
+        }),
     ).toBeVisible();
 
     const sessionRoot = join(launched.agentDir, "sessions");
@@ -106,7 +108,9 @@ test("delegate runs a scoped worker, verifies its change, and shows the parent s
       }
     }
     await collectFiles(sessionRoot);
-    const sessionText = (await Promise.all(sessionFiles.map((path) => readFile(path, "utf8")))).join("\n");
+    const sessionText = (
+      await Promise.all(sessionFiles.map((path) => readFile(path, "utf8")))
+    ).join("\n");
     expect(sessionText).toContain('"status":"verified"');
     const screenshot = test.info().outputPath("prsloy-delegate-cycle.png");
     await page.screenshot({ path: screenshot });
