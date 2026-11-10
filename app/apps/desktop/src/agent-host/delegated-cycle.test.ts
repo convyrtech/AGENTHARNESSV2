@@ -34,6 +34,9 @@ async function cycle(
     workerFinal?: MockGatewayTurn;
     reviewerFinish?: MockGatewayTurn["finishReason"];
     noWorkerChanges?: boolean;
+    workerRetryChanges?: boolean;
+    reviewerRetry?: MockGatewayTurn;
+    expectReviewerRetry?: boolean;
     command?: string;
     denyCheck?: boolean;
     changeAfterReview?: boolean;
@@ -56,6 +59,11 @@ async function cycle(
     JSON.stringify({ delegate: options.enabled !== false, lessons: options.lessons !== false }),
   );
   const command = options.command ?? "grep -qx working result.txt";
+  const patch: MockGatewayTurn = {
+    toolCall: { name: "write", arguments: { path: "result.txt", content: "working\n" } },
+  };
+  const workerDone: MockGatewayTurn = { text: "Changed result.txt. Verification pending." };
+  const pass = '{"verdict":"PASS","items":[]}';
   const gateway = new MockGatewayServer({
     apiKey: "test-key",
     modelIds: ["gpt-parent", "kimi-worker", "minimax-review"],
@@ -85,24 +93,23 @@ async function cycle(
                   },
                 ]
               : []),
+            ...(options.noWorkerChanges ? [] : [patch]),
+            options.workerFinal ?? workerDone,
             ...(options.noWorkerChanges
+              ? options.workerRetryChanges
+                ? [patch, workerDone]
+                : [options.workerFinal ?? workerDone]
+              : []),
+            ...(options.denyCheck ||
+            options.command ||
+            (options.noWorkerChanges && !options.workerRetryChanges)
               ? []
               : [
                   {
-                    toolCall: {
-                      name: "write",
-                      arguments: { path: "result.txt", content: "working\n" },
-                    },
-                  },
-                ]),
-            options.workerFinal ?? { text: "Changed result.txt. Verification pending." },
-            ...(options.denyCheck || options.command || options.noWorkerChanges
-              ? []
-              : [
-                  {
-                    text: options.verdict ?? '{"verdict":"PASS","items":[]}',
+                    text: options.verdict ?? pass,
                     finishReason: options.reviewerFinish ?? "stop",
                   },
+                  ...(options.expectReviewerRetry ? [options.reviewerRetry ?? { text: pass }] : []),
                 ]),
             { text: "A short factual parent summary." },
           ]),
@@ -248,8 +255,56 @@ describe("first delegated cycle through real SDK", () => {
     30_000,
   );
   it("does not turn a malformed FAIL review into success", async () => {
-    const run = await cycle({ verdict: '{"verdict":"FAIL","items":[]}' });
+    const verdict = '{"verdict":"FAIL","items":[]}';
+    const run = await cycle({
+      verdict,
+      expectReviewerRetry: true,
+      reviewerRetry: { text: verdict },
+    });
     expect(run.result?.status).toBe("unverified");
+    expect(run.gateway.requests.filter((r) => r.body.model === "minimax-review")).toHaveLength(2);
+    expect(run.nestedChecks).toBe(1);
+  }, 30_000);
+  it.each([{ verdict: '{"verdict":"FAIL","items":[]}' }, { reviewerFinish: "length" as const }])(
+    "retries only the reviewer on the original patch and check after an invalid verdict: %j",
+    async (options) => {
+      const run = await cycle({ ...options, expectReviewerRetry: true });
+      expect(run.result?.status).toBe("verified");
+      expect(run.result?.workerRetries).toBe(0);
+      expect(run.result?.reviewerRetries).toBe(1);
+      expect(run.nestedChecks).toBe(1);
+      expect(run.gateway.requests.map((r) => r.body.model)).toEqual([
+        "gpt-parent",
+        "kimi-worker",
+        "kimi-worker",
+        "minimax-review",
+        "minimax-review",
+        "gpt-parent",
+      ]);
+      const firstMessages = run.gateway.requests[3]?.body.messages;
+      const retryMessages = run.gateway.requests[4]?.body.messages;
+      if (!Array.isArray(firstMessages) || !Array.isArray(retryMessages))
+        throw new Error("Expected OpenAI-compatible reviewer messages");
+      expect(firstMessages.at(-1)?.content).toEqual(retryMessages.at(-1)?.content);
+    },
+    30_000,
+  );
+  it("keeps an evidence-backed rejection and does not ask for a second opinion", async () => {
+    const verdict = JSON.stringify({
+      verdict: "FAIL",
+      items: [
+        {
+          file: "result.txt",
+          line: 1,
+          problem: "Specific defect in the patch",
+          evidence: "working",
+        },
+      ],
+    });
+    const run = await cycle({ verdict });
+    expect(run.result?.status).toBe("needs_changes");
+    expect(run.result?.reviewerRetries).toBe(0);
+    expect(run.gateway.requests.filter((r) => r.body.model === "minimax-review")).toHaveLength(1);
   }, 30_000);
   it.each<MockGatewayTurn>([
     { reasoning: "I still need to summarize the change." },
@@ -268,10 +323,15 @@ describe("first delegated cycle through real SDK", () => {
     30_000,
   );
   it("does not accept a valid-looking PASS from a truncated review", async () => {
-    const run = await cycle({ reviewerFinish: "length" });
+    const run = await cycle({
+      reviewerFinish: "length",
+      expectReviewerRetry: true,
+      reviewerRetry: { text: '{"verdict":"PASS","items":[]}', finishReason: "length" },
+    });
     expect(run.nestedChecks).toBe(1);
     expect(run.result?.status).toBe("unverified");
     expect(run.result?.error).toContain("length");
+    expect(run.result?.reviewerRetries).toBe(1);
   }, 30_000);
   it("reports no changes and skips the check and reviewer when the worker only returns a summary", async () => {
     const run = await cycle({
@@ -282,11 +342,29 @@ describe("first delegated cycle through real SDK", () => {
     expect(run.result?.files).toEqual([]);
     expect(run.nestedChecks).toBe(0);
     expect(run.result?.error).toBe("Worker did not change any delegated files");
-    expect(run.result?.modelCalls).toBe(1);
+    expect(run.result?.modelCalls).toBe(2);
     expect(run.result?.estimatedRub).toBeGreaterThan(0);
     expect(run.result?.reservedRub).toBe(0);
     expect(run.result?.accounting).toBe("catalogue_estimate");
     expect(run.gateway.requests.some((r) => r.body.model === "minimax-review")).toBe(false);
+  }, 30_000);
+  it("retries the executor once with feedback, then checks and reviews a scoped patch", async () => {
+    const run = await cycle({
+      noWorkerChanges: true,
+      workerRetryChanges: true,
+      workerFinal: { text: "I checked the task but did not change anything." },
+    });
+    expect(run.result?.status).toBe("verified");
+    expect(run.result?.workerRetries).toBe(1);
+    expect(run.result?.reviewerRetries).toBe(0);
+    expect(run.nestedChecks).toBe(1);
+    expect(run.result?.files).toEqual(["result.txt"]);
+    const workers = run.gateway.requests.filter((r) => r.body.model === "kimi-worker");
+    expect(workers).toHaveLength(3);
+    expect(JSON.stringify(workers[1]?.body.messages)).toContain(
+      "Previous worker attempt made no changes",
+    );
+    expect(run.gateway.requests.filter((r) => r.body.model === "minimax-review")).toHaveLength(1);
   }, 30_000);
   it("returns a relative-path lesson for an invalid delegate path and logs no path", async () => {
     const run = await cycle({ invalidDelegatePath: true });
