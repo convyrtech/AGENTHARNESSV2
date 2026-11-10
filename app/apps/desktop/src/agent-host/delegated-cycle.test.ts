@@ -8,7 +8,10 @@ import {
   type ExtensionFactory,
 } from "@earendil-works/pi-coding-agent";
 import { afterEach, describe, expect, it } from "vite-plus/test";
-import { MockGatewayServer } from "../../../../packages/test-utils/src/index.ts";
+import {
+  MockGatewayServer,
+  type MockGatewayTurn,
+} from "../../../../packages/test-utils/src/index.ts";
 import { installDelegate } from "../../../../packages/prsloy-harness/src/delegate.ts";
 import { installBudget } from "../../../../packages/prsloy-harness/src/budget.ts";
 import { resolveOptions } from "../../../../packages/prsloy-harness/src/options.ts";
@@ -22,6 +25,8 @@ afterEach(async () => {
 async function cycle(
   options: {
     verdict?: string;
+    workerFinal?: MockGatewayTurn;
+    reviewerFinish?: MockGatewayTurn["finishReason"];
     command?: string;
     denyCheck?: boolean;
     changeAfterReview?: boolean;
@@ -57,10 +62,15 @@ async function cycle(
         },
       },
       { toolCall: { name: "write", arguments: { path: "result.txt", content: "working\n" } } },
-      { text: "Changed result.txt. Verification pending." },
+      options.workerFinal ?? { text: "Changed result.txt. Verification pending." },
       ...(options.denyCheck || options.command
         ? []
-        : [{ text: options.verdict ?? '{"verdict":"PASS","items":[]}' }]),
+        : [
+            {
+              text: options.verdict ?? '{"verdict":"PASS","items":[]}',
+              finishReason: options.reviewerFinish ?? "stop",
+            },
+          ]),
       { text: "A short factual parent summary." },
     ],
   });
@@ -192,6 +202,28 @@ describe("first delegated cycle through real SDK", () => {
   it("does not turn a malformed FAIL review into success", async () => {
     const run = await cycle({ verdict: '{"verdict":"FAIL","items":[]}' });
     expect(run.result?.status).toBe("unverified");
+  }, 30_000);
+  it.each<MockGatewayTurn>([
+    { reasoning: "I still need to summarize the change." },
+    { text: "Changed result.txt, but", finishReason: "length" },
+  ])(
+    "keeps partial edits and stops when the executor has no complete summary: %j",
+    async (workerFinal) => {
+      const run = await cycle({ workerFinal });
+      expect(run.result?.status).toBe("failed");
+      expect(run.result?.error).toContain("final summary");
+      expect(run.result?.files).toEqual(["result.txt"]);
+      expect(await readFile(join(run.cwd, "result.txt"), "utf8")).toBe("working\n");
+      expect(run.nestedChecks).toBe(0);
+      expect(run.gateway.requests.some((r) => r.body.model === "minimax-review")).toBe(false);
+    },
+    30_000,
+  );
+  it("does not accept a valid-looking PASS from a truncated review", async () => {
+    const run = await cycle({ reviewerFinish: "length" });
+    expect(run.nestedChecks).toBe(1);
+    expect(run.result?.status).toBe("unverified");
+    expect(run.result?.error).toContain("length");
   }, 30_000);
   it("keeps delegation unavailable by default/when disabled", async () => {
     const run = await cycle({ enabled: false });

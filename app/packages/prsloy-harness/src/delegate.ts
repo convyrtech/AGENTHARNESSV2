@@ -160,12 +160,16 @@ export async function runDelegate(input: {
           },
         );
         account("reviewer", reviewerModel, reply);
-        if (reply.stopReason !== "error" && reply.stopReason !== "aborted")
+        if (reply.stopReason === "stop")
           review = parseDelegatedReview(
             reply.content.map((part) => (part.type === "text" ? part.text : "")).join("\n"),
             diff,
           );
-        if (!review) error = "Reviewer did not produce a valid evidence-backed verdict";
+        if (!review)
+          error =
+            reply.stopReason === "stop"
+              ? "Reviewer did not produce a valid evidence-backed verdict"
+              : `Reviewer did not complete its response (${reply.stopReason})`;
       } else if (!diff) error = "No changed files to review";
       currentDigest = delegatedDigest(await readDelegatedFiles(ctx.cwd, request.paths));
     }

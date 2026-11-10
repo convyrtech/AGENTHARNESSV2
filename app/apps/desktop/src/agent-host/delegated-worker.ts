@@ -109,6 +109,7 @@ export async function runDelegatedWorker(
 ): Promise<DelegatedWorkerResult> {
   let requests = 0;
   let text = "";
+  let lastStopReason: DelegatedWorkerAssistant["stopReason"] | undefined;
   let failure: string | undefined;
   try {
     input.signal.throwIfAborted();
@@ -236,6 +237,7 @@ export async function runDelegatedWorker(
       unsubscribe = session.subscribe((event) => {
         if (event.type !== "message_end" || event.message.role !== "assistant") return;
         const reply = event.message;
+        lastStopReason = reply.stopReason;
         text = reply.content
           .filter((part) => part.type === "text")
           .map((part) => part.text)
@@ -262,6 +264,11 @@ export async function runDelegatedWorker(
       await runtime.dispose();
     }
     if (input.signal.aborted) return { status: "cancelled", text, requests };
+    if (!failure && (lastStopReason !== "stop" || !text.trim()))
+      failure =
+        lastStopReason && lastStopReason !== "stop"
+          ? `Worker did not finish its final summary (${lastStopReason})`
+          : "Worker returned no final summary";
     if (failure) return { status: "failed", text, requests, error: failure };
     return { status: "completed", text, requests };
   } catch (error) {

@@ -12,6 +12,7 @@ import { once } from "node:events";
 export interface MockGatewayTurn {
   reasoning?: string;
   text?: string;
+  finishReason?: "stop" | "length";
   toolCall?: { name: string; arguments: Record<string, unknown> };
 }
 
@@ -176,7 +177,7 @@ export class MockGatewayServer {
             {
               index: 0,
               message: { role: "assistant", content: turn.text ?? "" },
-              finish_reason: "stop",
+              finish_reason: turn.finishReason ?? "stop",
             },
           ],
         }),
@@ -204,7 +205,7 @@ export class MockGatewayServer {
       });
       sendChunk(response, {}, "tool_calls");
     } else {
-      sendChunk(response, {}, "stop");
+      sendChunk(response, {}, turn.finishReason ?? "stop");
     }
     response.write(
       `data: ${JSON.stringify({
