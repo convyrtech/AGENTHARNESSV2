@@ -4,6 +4,7 @@ import { applyHostHandoff, prsloyHandoff } from "./prsloy-handoff.ts";
 import { isHostHandoff } from "../shared/host-handoff.ts";
 import { createPrsloyHarness, type HarnessOptions } from "@prsloy/harness";
 import { createWriteBoundary } from "./write-boundary.ts";
+import { runDelegatedWorker } from "./delegated-worker.ts";
 import {
   classifyModelError,
   createPixRuntime,
@@ -429,8 +430,16 @@ async function handleCommand(command: HostCommand): Promise<void> {
           // while the harness flag `webTools` is on.
           const search = prsloyHandoff.search;
           options.extensionFactories.push(
-            createPrsloyHarness(
-              search
+            createPrsloyHarness({
+              delegateWorker: async (input) => {
+                if (!handle) throw new Error("Parent runtime is unavailable");
+                return runDelegatedWorker({
+                  ...input,
+                  agentDir: handle.runtime.services.agentDir,
+                  modelRuntime: handle.runtime.services.modelRuntime,
+                });
+              },
+              ...(search
                 ? {
                     research: {
                       // main wrote it from its own list of providers (search-settings.ts)
@@ -449,8 +458,8 @@ async function handleCommand(command: HostCommand): Promise<void> {
                       ...(search.modelSearch?.length ? { modelSearch: search.modelSearch } : {}),
                     },
                   }
-                : {},
-            ),
+                : {}),
+            }),
           );
         }
         options.contextFilesRequireTrust = true;
