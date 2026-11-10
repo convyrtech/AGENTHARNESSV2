@@ -27,6 +27,7 @@ async function cycle(
     verdict?: string;
     workerFinal?: MockGatewayTurn;
     reviewerFinish?: MockGatewayTurn["finishReason"];
+    noWorkerChanges?: boolean;
     command?: string;
     denyCheck?: boolean;
     changeAfterReview?: boolean;
@@ -61,9 +62,15 @@ async function cycle(
           },
         },
       },
-      { toolCall: { name: "write", arguments: { path: "result.txt", content: "working\n" } } },
+      ...(options.noWorkerChanges
+        ? []
+        : [
+            {
+              toolCall: { name: "write", arguments: { path: "result.txt", content: "working\n" } },
+            },
+          ]),
       options.workerFinal ?? { text: "Changed result.txt. Verification pending." },
-      ...(options.denyCheck || options.command
+      ...(options.denyCheck || options.command || options.noWorkerChanges
         ? []
         : [
             {
@@ -224,6 +231,21 @@ describe("first delegated cycle through real SDK", () => {
     expect(run.nestedChecks).toBe(1);
     expect(run.result?.status).toBe("unverified");
     expect(run.result?.error).toContain("length");
+  }, 30_000);
+  it("reports no changes and skips the check and reviewer when the worker only returns a summary", async () => {
+    const run = await cycle({
+      noWorkerChanges: true,
+      workerFinal: { text: "I checked the task but didn't change anything." },
+    });
+    expect(run.result?.status).toBe("unverified");
+    expect(run.result?.files).toEqual([]);
+    expect(run.nestedChecks).toBe(0);
+    expect(run.result?.error).toBe("Worker did not change any delegated files");
+    expect(run.result?.modelCalls).toBe(1);
+    expect(run.result?.estimatedRub).toBeGreaterThan(0);
+    expect(run.result?.reservedRub).toBe(0);
+    expect(run.result?.accounting).toBe("catalogue_estimate");
+    expect(run.gateway.requests.some((r) => r.body.model === "minimax-review")).toBe(false);
   }, 30_000);
   it("keeps delegation unavailable by default/when disabled", async () => {
     const run = await cycle({ enabled: false });

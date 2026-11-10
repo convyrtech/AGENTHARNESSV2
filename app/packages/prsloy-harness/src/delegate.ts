@@ -116,6 +116,8 @@ export async function runDelegate(input: {
     if (!workerFailed && !ledger.unknown && !ledger.exceeded) {
       signal.throwIfAborted();
       const beforeCheck = await readDelegatedFiles(ctx.cwd, request.paths);
+      if (delegatedDigest(beforeCheck) === delegatedDigest(before))
+        throw new Error("Worker did not change any delegated files");
       budget.state().toolCalls += 1;
       budget.state().commands += 1;
       // The immutable command runs through the parent's normal validation/hooks/permissions.
