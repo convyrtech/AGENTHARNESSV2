@@ -216,6 +216,10 @@ describe("first delegated cycle through real SDK", () => {
   it("executes, checks through normal hooks, reviews with another model and returns compact evidence", async () => {
     const run = await cycle();
     expect(run.result?.status).toBe("verified");
+    expect(run.learningEvents.map(({ event }) => event)).toContainEqual({
+      kind: "delegate.verified",
+      sig: "check-review",
+    });
     expect(run.nestedChecks).toBe(1);
     expect(await readFile(join(run.cwd, "result.txt"), "utf8")).toBe("working\n");
     expect(run.gateway.requests.map((r) => r.body.model)).toEqual([

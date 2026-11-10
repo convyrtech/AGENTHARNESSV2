@@ -17,7 +17,7 @@ import {
 } from "./delegation-policy.ts";
 import { readFlags } from "./flags.ts";
 import { intervene } from "./lessons.ts";
-import type { LearningEvent } from "./learning-log.ts";
+import { recordEvent, type LearningEvent } from "./learning-log.ts";
 import type { ResolvedOptions } from "./options.ts";
 import { recordUsage } from "./reviewer.ts";
 import { scrubSecrets } from "./secret-scrub.ts";
@@ -244,6 +244,7 @@ export async function runDelegate(input: {
     encoding: "utf8",
     flag: "wx",
   });
+  if (status === "verified") recordEvent(ctx, { kind: "delegate.verified", sig: "check-review" });
   return result;
 }
 

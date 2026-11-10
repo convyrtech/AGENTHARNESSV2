@@ -87,6 +87,7 @@ export type LearningKind =
   | "continuation.guard"
   | "delegate.path"
   | "delegate.scope"
+  | "delegate.verified"
   | "turn.end";
 
 export type TurnOutcome = "green" | "red" | "budget" | "aborted" | "error";
