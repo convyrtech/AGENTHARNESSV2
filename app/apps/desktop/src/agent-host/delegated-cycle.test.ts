@@ -239,7 +239,7 @@ describe("first delegated cycle through real SDK", () => {
     expect(run.result?.modelCalls).toBe(3);
     expect(run.result?.estimatedRub).toBeGreaterThan(0);
     const review = JSON.stringify(run.gateway.requests[3]!.body);
-    expect(review).toContain("+working");
+    expect(review).toContain("+ [L1] working");
     expect(review).not.toContain("Verification pending");
     expect(JSON.stringify(run.result).length).toBeLessThan(2200);
     const trace = JSON.parse(await readFile(run.result!.tracePath as string, "utf8"));
@@ -294,17 +294,37 @@ describe("first delegated cycle through real SDK", () => {
       verdict: "FAIL",
       items: [
         {
-          file: "result.txt",
-          line: 1,
+          id: "L1",
           problem: "Specific defect in the patch",
-          evidence: "working",
         },
       ],
     });
     const run = await cycle({ verdict });
     expect(run.result?.status).toBe("needs_changes");
+    expect(run.result?.findings).toEqual([
+      { file: "result.txt", line: 1, problem: "Specific defect in the patch", evidence: "working" },
+    ]);
     expect(run.result?.reviewerRetries).toBe(0);
     expect(run.gateway.requests.filter((r) => r.body.model === "minimax-review")).toHaveLength(1);
+  }, 30_000);
+  it("resolves a corrected review ID against the original patch after an unknown ID", async () => {
+    const finding = (id: string) =>
+      JSON.stringify({
+        verdict: "FAIL",
+        items: [{ id, problem: "Specific defect in the patch" }],
+      });
+    const run = await cycle({
+      verdict: finding("L999"),
+      expectReviewerRetry: true,
+      reviewerRetry: { text: finding("L1") },
+    });
+    expect(run.result?.status).toBe("needs_changes");
+    expect(run.result?.findings).toEqual([
+      { file: "result.txt", line: 1, problem: "Specific defect in the patch", evidence: "working" },
+    ]);
+    expect(run.result?.reviewerRetries).toBe(1);
+    expect(run.result?.workerRetries).toBe(0);
+    expect(run.nestedChecks).toBe(1);
   }, 30_000);
   it.each<MockGatewayTurn>([
     { reasoning: "I still need to summarize the change." },
