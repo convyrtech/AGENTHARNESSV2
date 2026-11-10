@@ -4,6 +4,7 @@
 //   … --model claude-opus-5-5     модель рефлектора (по умолчанию — сильнейшая из каталога шлюза /v1/models)
 //   … --dry-run                   без ключа: поддельная модель (тесты, проверка майнера)
 //   … --out reflect-out           куда положить REPORT.md и drafts.json
+//   … --preview-drafts            только Code, MiniMax через PRSLOY, черновики в stdout
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -20,6 +21,13 @@ import {
   type Reflector,
   reportMarkdown,
 } from "../src/reflect.ts";
+import {
+  collectPreviewSignals,
+  PREVIEW_MAX_TOKENS,
+  PREVIEW_MODEL,
+  previewPrompt,
+  validatePreview,
+} from "../src/lesson-preview.ts";
 
 /** Сильнейшая модель рефлектора: первая из этого списка, которую отдаёт шлюз (research/18: Opus 5.5). */
 export const REFLECTOR_PREFERENCE = [
@@ -38,6 +46,7 @@ const { values } = parseArgs({
     model: { type: "string" },
     "base-url": { type: "string" },
     "dry-run": { type: "boolean", default: false },
+    "preview-drafts": { type: "boolean", default: false },
     out: { type: "string", default: "reflect-out" },
   },
 });
@@ -47,6 +56,93 @@ const read = (path: string | undefined) =>
 const defaultEvents = process.env.PI_CODING_AGENT_DIR
   ? join(process.env.PI_CODING_AGENT_DIR, "prsloy-learning", "events.jsonl")
   : undefined;
+const key = process.env.PRSLOY_GATEWAY_KEY ?? process.env.PRSLOY_KEY;
+const baseUrl = (values["base-url"] ?? PRSLOY_DEFAULT_BASE_URL).replace(/\/+$/, "");
+
+if (values["preview-drafts"]) {
+  const eventPath = values.events ?? defaultEvents;
+  if (
+    !eventPath ||
+    !existsSync(eventPath) ||
+    values["dry-run"] ||
+    values.model ||
+    values["design-events"] ||
+    values["design-lessons"] ||
+    values.out !== "reflect-out"
+  ) {
+    console.error(
+      "Для --preview-drafts нужен существующий журнал Code (--events); режим печатает JSON в stdout и всегда использует MiniMax.",
+    );
+    process.exit(2);
+  }
+  const url = URL.parse(baseUrl);
+  if (
+    baseUrl !== PRSLOY_DEFAULT_BASE_URL &&
+    !(
+      url?.protocol === "http:" &&
+      url.hostname === "127.0.0.1" &&
+      url.pathname === "/v1" &&
+      !url.username &&
+      !url.password &&
+      !url.search &&
+      !url.hash
+    )
+  ) {
+    console.error("Для --preview-drafts допустим шлюз PRSLOY или локальный тестовый прокси.");
+    process.exit(2);
+  }
+  const observations = collectPreviewSignals(readFileSync(eventPath, "utf8"));
+  const candidates = observations.filter(({ recoveries }) => recoveries > 0);
+  const summary = { mode: "draft-preview", model: PREVIEW_MODEL, observations };
+  if (!candidates.length) {
+    console.log(JSON.stringify({ ...summary, requested: false, drafts: [] }));
+    process.exit(0);
+  }
+  if (!key) {
+    console.error("Нужен ключ шлюза в PRSLOY_GATEWAY_KEY для --preview-drafts.");
+    process.exit(2);
+  }
+  try {
+    const response = await fetch(`${baseUrl}/chat/completions`, {
+      method: "POST",
+      redirect: "error",
+      signal: AbortSignal.timeout(45_000),
+      headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: PREVIEW_MODEL,
+        temperature: 0,
+        max_tokens: PREVIEW_MAX_TOKENS,
+        messages: [{ role: "user", content: previewPrompt(candidates) }],
+      }),
+    });
+    if (!response.ok) {
+      console.error(`PRSLOY chat/completions: HTTP ${response.status}`);
+      process.exit(3);
+    }
+    const body = (await response.json()) as {
+      model?: unknown;
+      choices?: { finish_reason?: string; message?: { content?: unknown } }[];
+    };
+    const choice = body.choices?.[0];
+    const drafts =
+      body.model === PREVIEW_MODEL && choice?.finish_reason === "stop"
+        ? validatePreview(choice.message?.content, candidates)
+        : undefined;
+    console.log(
+      JSON.stringify({
+        ...summary,
+        requested: true,
+        valid: drafts !== undefined,
+        drafts: drafts ?? [],
+      }),
+    );
+    process.exit(drafts === undefined ? 4 : 0);
+  } catch {
+    console.error("PRSLOY chat/completions: ответ не получен или не разобран.");
+    process.exit(3);
+  }
+}
+
 const events = [
   ...parseJsonl(read(values.events ?? defaultEvents), normCode),
   ...parseJsonl(read(values["design-events"]), normDesign),
@@ -55,9 +151,6 @@ const designLessonsPath =
   values["design-lessons"] ??
   fileURLToPath(new URL("../../../../playbooks/site/harness/lessons.json", import.meta.url));
 const catalog = catalogFromFiles(codeLessons, JSON.parse(read(designLessonsPath) || "{}"));
-
-const baseUrl = (values["base-url"] ?? PRSLOY_DEFAULT_BASE_URL).replace(/\/+$/, "");
-const key = process.env.PRSLOY_GATEWAY_KEY ?? process.env.PRSLOY_KEY;
 
 async function gatewayModels(): Promise<string[]> {
   const r = await fetch(`${baseUrl}/models`, { headers: { Authorization: `Bearer ${key}` } });

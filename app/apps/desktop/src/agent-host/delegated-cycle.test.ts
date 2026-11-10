@@ -219,6 +219,7 @@ describe("first delegated cycle through real SDK", () => {
     expect(run.learningEvents.map(({ event }) => event)).toContainEqual({
       kind: "delegate.verified",
       sig: "check-review",
+      scope: expect.stringMatching(/^[a-f0-9]{32}$/u),
     });
     expect(run.nestedChecks).toBe(1);
     expect(await readFile(join(run.cwd, "result.txt"), "utf8")).toBe("working\n");

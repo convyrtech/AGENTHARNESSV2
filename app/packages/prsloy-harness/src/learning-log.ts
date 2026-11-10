@@ -3,7 +3,7 @@
 // Ни текста пользователя, ни путей, ни содержимого файлов: вид события, инструмент, подпись из имени команды и
 // расширения файла, семейство модели, хэш папки проекта. Вся строка ещё раз проходит scrubSecrets.
 // Поведение агента журнал не меняет: ошибка записи молча пропускается.
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { appendFileSync, mkdirSync, renameSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -87,6 +87,8 @@ export type LearningKind =
   | "continuation.guard"
   | "delegate.path"
   | "delegate.scope"
+  | "delegate.model_ref"
+  | "delegate.no_changes"
   | "delegate.verified"
   | "turn.end";
 
@@ -98,6 +100,8 @@ export interface LearningEvent {
   tool?: string;
   /** Подпись без путей и текста: `bash:npm test`, `write:.html`, `repair:wrapper`. */
   sig?: string;
+  /** Непрозрачная подпись области делегирования, действующая в пределах хода. */
+  scope?: string;
   /** Число (замечаний ревью, вызовов за ход). */
   n?: number;
   outcome?: TurnOutcome;
@@ -213,6 +217,7 @@ export function callSignature(tool: string, input: unknown): string {
 }
 
 interface TurnTrack {
+  scopeKey?: string;
   calls: number;
   red: boolean;
   gaveUp: boolean;
@@ -237,6 +242,11 @@ function track(session: string): TurnTrack {
     turns.set(session, t);
   }
   return t;
+}
+
+/** Local key for matching retries inside one turn; the key itself is never logged. */
+export function learningTurnKey(ctx: ExtensionContext): string {
+  return (track(sessionOf(ctx)).scopeKey ??= randomUUID());
 }
 
 function rotate(file: string, incoming: number): void {

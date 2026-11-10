@@ -1,6 +1,6 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { randomUUID } from "node:crypto";
+import { createHmac, randomUUID } from "node:crypto";
 import type { ExtensionAPI, ExtensionToolContext } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import type { ExploreModel, ExploreReply } from "./explore.ts";
@@ -17,7 +17,7 @@ import {
 } from "./delegation-policy.ts";
 import { readFlags } from "./flags.ts";
 import { intervene } from "./lessons.ts";
-import { recordEvent, type LearningEvent } from "./learning-log.ts";
+import { learningTurnKey, recordEvent, type LearningEvent } from "./learning-log.ts";
 import type { ResolvedOptions } from "./options.ts";
 import { recordUsage } from "./reviewer.ts";
 import { scrubSecrets } from "./secret-scrub.ts";
@@ -37,12 +37,19 @@ export type DelegateWorker = (input: {
   error?: string;
 }>;
 
-function findModel(ctx: ExtensionToolContext, ref: string): ExploreModel {
+function findModel(ctx: ExtensionToolContext, ref: string, scope: string): ExploreModel {
   const slash = ref.indexOf("/");
   const model =
     slash > 0 ? ctx.modelRegistry.find(ref.slice(0, slash), ref.slice(slash + 1)) : undefined;
-  if (!model || model.api !== "openai-completions")
+  if (!model || model.api !== "openai-completions") {
+    recordEvent(ctx, {
+      kind: "delegate.model_ref",
+      tool: "delegate",
+      sig: "unavailable-openai-model",
+      scope,
+    });
     throw new Error("Delegation requires an available OpenAI-compatible model");
+  }
   return model;
 }
 
@@ -67,10 +74,15 @@ export async function runDelegate(input: {
 }) {
   const { ctx, opts, signal, budget } = input;
   const request = validateDelegateRequest(input.request);
+  // Link retries with the same file scope and acceptance command without logging either value.
+  const scope = createHmac("sha256", learningTurnKey(ctx))
+    .update(JSON.stringify([[...request.paths].sort(), request.check]))
+    .digest("hex")
+    .slice(0, 32);
   if (!differentModelFamilies(input.workerModel, input.reviewerModel))
     throw new Error("Reviewer must belong to a different known model family");
-  const workerModel = findModel(ctx, input.workerModel);
-  const reviewerModel = findModel(ctx, input.reviewerModel);
+  const workerModel = findModel(ctx, input.workerModel, scope);
+  const reviewerModel = findModel(ctx, input.reviewerModel, scope);
   const limit = Math.min(20, opts.maxCostRub - budget.state().costRub);
   const ledger = new DelegationBudget(
     limit,
@@ -128,8 +140,15 @@ export async function runDelegate(input: {
     if (!workerFailed && !ledger.unknown && !ledger.exceeded) {
       signal.throwIfAborted();
       const beforeCheck = await readDelegatedFiles(ctx.cwd, request.paths);
-      if (delegatedDigest(beforeCheck) === delegatedDigest(before))
+      if (delegatedDigest(beforeCheck) === delegatedDigest(before)) {
+        recordEvent(ctx, {
+          kind: "delegate.no_changes",
+          tool: "delegate",
+          sig: "worker-no-file-change",
+          scope,
+        });
         throw new Error("Worker did not change any delegated files");
+      }
       budget.state().toolCalls += 1;
       budget.state().commands += 1;
       // The immutable command runs through the parent's normal validation/hooks/permissions.
@@ -244,7 +263,8 @@ export async function runDelegate(input: {
     encoding: "utf8",
     flag: "wx",
   });
-  if (status === "verified") recordEvent(ctx, { kind: "delegate.verified", sig: "check-review" });
+  if (status === "verified")
+    recordEvent(ctx, { kind: "delegate.verified", sig: "check-review", scope });
   return result;
 }
 
