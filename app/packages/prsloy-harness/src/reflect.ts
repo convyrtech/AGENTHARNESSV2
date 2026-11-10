@@ -94,6 +94,8 @@ const CODE_FAILURES = new Set([
   "validation.error",
   "gate.paths",
   "gate.page",
+  "delegate.path",
+  "delegate.scope",
 ]);
 
 /**

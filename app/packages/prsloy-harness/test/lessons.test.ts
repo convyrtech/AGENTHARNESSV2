@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import { afterAll, describe, expect, it } from "vite-plus/test";
 import {
   BUNDLED_LESSONS,
+  intervene,
   inTrial,
   installLessons,
   LESSONS_HEADER,
@@ -18,6 +19,7 @@ import {
   type Lesson,
 } from "../src/lessons.ts";
 import { fitPromptBudget, MEMORY_LESSONS_MAX_CHARS } from "../src/prompt-budget.ts";
+import { configureLearning, recordEvent } from "../src/learning-log.ts";
 import { MockPi } from "./mock-pi.ts";
 
 const FIXTURE = fileURLToPath(new URL("./fixtures/lessons/code.json", import.meta.url));
@@ -38,6 +40,12 @@ describe("lessons: the shipped file", () => {
   it("only §8.2 seeds for «Код» (active/candidate) — one, already delivered by prsloy_casual_user", () => {
     expect(BUNDLED_LESSONS.map((l) => [l.id, l.status, l.delivery])).toEqual([
       ["L-c-casual-no-commands", "active", "section:prsloy_casual_user"],
+      ["L-delegate-relative-paths", "active", undefined],
+      ["L-delegate-scope-and-check", "active", undefined],
+    ]);
+    expect(BUNDLED_LESSONS.filter((l) => l.mode === "on-event").map((l) => l.id)).toEqual([
+      "L-delegate-relative-paths",
+      "L-delegate-scope-and-check",
     ]);
     // Уже доставлен постоянным разделом — в prsloy_lessons не дублируется.
     expect(lessonsSection(BUNDLED_LESSONS, "deepseek-v4.1-flash", "s").text).toBe("");
@@ -125,13 +133,15 @@ describe("lessons: situational tips and counters", () => {
 describe("lessons: frozen per session (cache)", () => {
   function setup(flags: Record<string, unknown> = {}, lessonsPath = FIXTURE) {
     const settingsPath = join(root, `flags-${Math.random()}.json`);
+    const countersPath = join(root, `c-${Math.random()}.json`);
+    configureLearning({ dir: join(root, `learning-${Math.random()}`), enabled: true });
     writeFileSync(settingsPath, JSON.stringify(flags));
     const pi = new MockPi(root);
     (pi.ctx as { model?: unknown }).model = { id: "deepseek-v4.1-flash-1017" };
     installLessons(pi.api, {
       lessonsPath,
       settingsPath,
-      countersPath: join(root, `c-${Math.random()}.json`),
+      countersPath,
     });
     const sections = async () => {
       const event = {
@@ -144,7 +154,16 @@ describe("lessons: frozen per session (cache)", () => {
         await h({ type: "before_agent_start", ...event }, pi.ctx);
       return event.systemPromptOptions.sections;
     };
-    return { pi, sections, settingsPath };
+    return { pi, sections, settingsPath, countersPath };
+  }
+
+  function setupDelegateLessons() {
+    const lessonsPath = join(root, `delegate-lessons-${Math.random()}.json`);
+    writeFileSync(
+      lessonsPath,
+      JSON.stringify({ lessons: BUNDLED_LESSONS.filter((lesson) => lesson.mode === "on-event") }),
+    );
+    return setup({}, lessonsPath);
   }
 
   it("the same section byte for byte on every turn, even if the flags change mid-session", async () => {
@@ -177,5 +196,54 @@ describe("lessons: frozen per session (cache)", () => {
     expect(lessonTip(on.pi.ctx, { kind: "loop.warn", sig: "bash:ls" }).text).toBe(
       `\n\n${TIP_PREFIX}Listing the folder again will not change it: read the file you need instead.`,
     );
+  });
+
+  it("counts a delegate lesson as helped only after verified recovery", async () => {
+    const { pi, countersPath } = setupDelegateLessons();
+    await pi.emit("session_start", {});
+    await pi.userPrompt();
+    expect(intervene(pi.ctx, { kind: "delegate.path", sig: "invalid" })).toContain(
+      "normalized project-relative paths",
+    );
+    recordEvent(pi.ctx, { kind: "delegate.verified", sig: "check-review" });
+    recordEvent(pi.ctx, { kind: "turn.end", outcome: "green" });
+    expect(new LessonCounters(countersPath).get("L-delegate-relative-paths")).toEqual({
+      shown: 1,
+      helped: 1,
+      hurt: 0,
+    });
+  });
+
+  it("keeps crediting a non-delegation lesson on a green turn", async () => {
+    const { pi, countersPath } = setup();
+    await pi.emit("session_start", {});
+    await pi.userPrompt();
+    intervene(pi.ctx, { kind: "loop.warn", sig: "bash:ls" });
+    recordEvent(pi.ctx, { kind: "turn.end", outcome: "green" });
+    expect(new LessonCounters(countersPath).get("T-tip-ls").helped).toBe(1);
+  });
+
+  it("does not count a clean turn as helped without verified delegation; a repeated rejection is hurt", async () => {
+    const clean = setupDelegateLessons();
+    await clean.pi.emit("session_start", {});
+    await clean.pi.userPrompt();
+    intervene(clean.pi.ctx, { kind: "delegate.path", sig: "invalid" });
+    recordEvent(clean.pi.ctx, { kind: "turn.end", outcome: "green" });
+    expect(new LessonCounters(clean.countersPath).get("L-delegate-relative-paths")).toEqual({
+      shown: 1,
+      helped: 0,
+      hurt: 0,
+    });
+
+    const repeated = setupDelegateLessons();
+    await repeated.pi.emit("session_start", {});
+    await repeated.pi.userPrompt();
+    intervene(repeated.pi.ctx, { kind: "delegate.path", sig: "invalid" });
+    intervene(repeated.pi.ctx, { kind: "delegate.path", sig: "invalid" });
+    recordEvent(repeated.pi.ctx, { kind: "turn.end", outcome: "green" });
+    const counters = new LessonCounters(repeated.countersPath).get("L-delegate-relative-paths");
+    expect(counters.shown).toBe(2);
+    expect(counters.helped).toBe(0);
+    expect(counters.hurt).toBe(1);
   });
 });

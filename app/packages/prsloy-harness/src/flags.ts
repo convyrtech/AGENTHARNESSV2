@@ -53,6 +53,8 @@ export interface HarnessFlags {
    * же провайдера. По умолчанию выкл. до замера.
    */
   explore: ExploreMode;
+  /** Experimental scoped executor + independent review. Explicit opt-in only. */
+  delegate: boolean;
 }
 
 export type ExploreMode = "off" | "same" | "cheap";
@@ -92,6 +94,7 @@ export function readFlags(settingsPath: string | undefined): HarnessFlags {
     staleDocs: "end",
     taskThread: false,
     explore: "off",
+    delegate: false,
   };
   if (settingsPath && existsSync(settingsPath)) {
     try {
@@ -112,6 +115,7 @@ export function readFlags(settingsPath: string | undefined): HarnessFlags {
       if (raw.testQuality === true) flags.testQuality = true;
       if (raw.reviewerCheats === true) flags.reviewerCheats = true;
       if (typeof raw.taskThread === "boolean") flags.taskThread = raw.taskThread;
+      if (raw.delegate === true) flags.delegate = true;
       if (EXPLORE_MODES.includes(raw.explore as ExploreMode))
         flags.explore = raw.explore as ExploreMode;
       if (STALE_DOCS_MODES.includes(raw.staleDocs as StaleDocsMode))

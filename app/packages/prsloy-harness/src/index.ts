@@ -5,6 +5,7 @@ import { installBashTimeout } from "./bash-timeout.ts";
 import { installBudget } from "./budget.ts";
 import { installEditRobustness } from "./edit-robustness.ts";
 import { installExplore } from "./explore.ts";
+import { installDelegate } from "./delegate.ts";
 import { installLoopDetector } from "./loop-detector.ts";
 import { resolveOptions, type HarnessOptions } from "./options.ts";
 import { installPostEditVerify } from "./post-edit-verify.ts";
@@ -41,6 +42,7 @@ import { join } from "node:path";
 import { installContinuationGuard } from "./continuation-guard.ts";
 
 export type { HarnessOptions, HarnessProfile, PracticeName } from "./options.ts";
+export type { DelegateWorker } from "./delegate.ts";
 export { sanitizedEnv } from "./options.ts";
 export { checkFile } from "./checkers.ts";
 export { FindReady, formatResult as formatFindReady } from "./find-ready.ts";
@@ -121,6 +123,7 @@ export function createPrsloyHarness(options: HarnessOptions = {}): (pi: Extensio
         : undefined;
     if (changes) installTurnChanges(pi, changes);
     const budget = on("budget") ? installBudget(pi, opts) : undefined;
+    installDelegate(pi, opts, budget, options.delegateWorker);
     if (on("loopDetector")) installLoopDetector(pi, opts);
     const registry = on("bashTimeout") ? installBashTimeout(pi, opts) : undefined;
     if (on("toolOutput")) installToolOutput(pi, opts);

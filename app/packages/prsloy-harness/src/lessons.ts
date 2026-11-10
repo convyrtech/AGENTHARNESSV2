@@ -196,6 +196,7 @@ interface SessionState {
     sig: string | undefined;
     attached: boolean;
     recurred: boolean;
+    verified: boolean;
   }[];
 }
 
@@ -220,6 +221,10 @@ function offSet(): Set<string> {
   return off;
 }
 
+function isDelegateRejection(kind: LearningKind): boolean {
+  return kind === "delegate.path" || kind === "delegate.scope";
+}
+
 /**
  * Совет из прошлых задач к возврату харнесса. Пусто — дописывать нечего. Возвращает и id для журнала.
  * Вызывать рядом с recordEvent того же вмешательства.
@@ -242,6 +247,7 @@ export function lessonTip(
     sig: event.sig,
     attached: false,
     recurred: false,
+    verified: false,
   });
   return { text: `\n\n${TIP_PREFIX}${tip.text.trim()}`, ids: [tip.id] };
 }
@@ -314,6 +320,11 @@ function listenOnce(): void {
     const s = sessions.get(session);
     if (!s || !shared) return;
     if (event.kind !== "turn.end") {
+      if (event.kind === "delegate.verified") {
+        for (const shown of s.shownThisTurn)
+          if (isDelegateRejection(shown.kind)) shown.verified = true;
+        return;
+      }
       for (const shown of s.shownThisTurn) {
         if (shown.kind !== event.kind || shown.sig !== event.sig) continue;
         if (!shown.attached) shown.attached = true;
@@ -324,7 +335,8 @@ function listenOnce(): void {
     for (const shown of s.shownThisTurn) {
       if (shown.recurred || event.outcome === "red" || event.outcome === "budget")
         shared.counters.bump(shown.id, "hurt");
-      else if (event.outcome === "green") shared.counters.bump(shown.id, "helped");
+      else if (event.outcome === "green" && (!isDelegateRejection(shown.kind) || shown.verified))
+        shared.counters.bump(shown.id, "helped");
     }
     if (s.shownThisTurn.length) shared.counters.save();
     s.shownThisTurn = [];

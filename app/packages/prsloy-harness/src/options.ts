@@ -10,6 +10,8 @@ import { join } from "node:path";
 export type HarnessProfile = "code" | "design" | "text" | "other";
 
 export interface HarnessOptions {
+  /** Host-owned isolated SDK worker. Without this adapter delegation is unavailable. */
+  delegateWorker?: import("./delegate.ts").DelegateWorker;
   /** Профиль сессии. По умолчанию `code`. */
   profile?: HarnessProfile;
   /** Таймаут bash по умолчанию, секунды. */
