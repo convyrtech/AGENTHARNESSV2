@@ -7,6 +7,7 @@ import {
   PRSLOY_PROVIDER_COMPAT,
   PRSLOY_SPEED_PREFERENCE,
   PRSLOY_UNPRICED,
+  prsloyAvailableModels,
   prsloyModelCost,
   PRSLOY_SPEED_MODES,
   prsloyModelForSpeed,
@@ -30,6 +31,15 @@ const UNMEASURED = [
 ];
 
 describe("prsloy config", () => {
+  it("offers Gemini 4 Carbon when the gateway serves it", () => {
+    const id = "gemini-4-carbon";
+    expect(prsloyAvailableModels().some((model) => model.id === id)).toBe(false);
+    expect(prsloyAvailableModels(["gemini-4-argon"]).some((model) => model.id === id)).toBe(false);
+    expect(prsloyAvailableModels([id])).toMatchObject([
+      { id, name: "Gemini 4 Carbon", input: ["text"], maxTokens: 64_000 },
+    ]);
+  });
+
   it("knows the gateway's chat models", () => {
     expect(PRSLOY_MODELS.map((m) => m.id)).toEqual([
       "deepseek-v4.1-flash-1017",

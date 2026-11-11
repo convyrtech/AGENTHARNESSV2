@@ -380,6 +380,22 @@ export function isPrsloyChatModelId(id: string): boolean {
   return !IMAGE_MODEL.test(id);
 }
 
+// Metadata for models offered only after the configured gateway lists them.
+const PRSLOY_LIVE_MODEL_DEFS: ReadonlyMap<string, PrsloyModelDef> = new Map([
+  [
+    "gemini-4-carbon",
+    {
+      id: "gemini-4-carbon",
+      name: "Gemini 4 Carbon",
+      reasoning: false,
+      input: ["text"],
+      contextWindow: 1_000_000,
+      maxTokens: 64_000,
+      compat: { supportsReasoningEffort: false },
+    },
+  ],
+]);
+
 /**
  * The models to offer: the catalog filtered to what the gateway serves (`/v1/models`),
  * plus chat models it serves that the catalog doesn't know yet (provider defaults, no
@@ -392,15 +408,16 @@ export function prsloyAvailableModels(available?: readonly string[]): PrsloyMode
   const unknown = [...served]
     .filter((id) => !PRSLOY_MODELS.some((model) => model.id === id))
     .map(
-      (id): PrsloyModelDef => ({
-        id,
-        name: id,
-        reasoning: false,
-        input: ["text"],
-        contextWindow: 128_000,
-        maxTokens: PRSLOY_MAX_TOKENS,
-        compat: {},
-      }),
+      (id): PrsloyModelDef =>
+        PRSLOY_LIVE_MODEL_DEFS.get(id) ?? {
+          id,
+          name: id,
+          reasoning: false,
+          input: ["text"],
+          contextWindow: 128_000,
+          maxTokens: PRSLOY_MAX_TOKENS,
+          compat: {},
+        },
     );
   return [...known, ...unknown];
 }
