@@ -103,7 +103,7 @@ async function cycle(
             {
               toolCall: {
                 name: "submit_scope_plan",
-                arguments: { paths: ["result.txt"], checkFile: "acceptance.mjs" },
+                arguments: { fileIds: ["F1"], checkId: "C1" },
               },
             },
           ]

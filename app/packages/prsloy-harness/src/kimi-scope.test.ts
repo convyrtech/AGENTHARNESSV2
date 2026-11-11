@@ -40,15 +40,6 @@ async function fixture(large = false) {
   return cwd;
 }
 
-function reply(text: string): ExploreReply {
-  return {
-    role: "assistant",
-    content: [{ type: "text", text }],
-    stopReason: "stop",
-    timestamp: Date.now(),
-  } as ExploreReply;
-}
-
 function toolReply(
   calls: Array<{ name: string; arguments: Record<string, unknown> }>,
 ): ExploreReply {
@@ -66,13 +57,38 @@ function toolReply(
 }
 
 function planner(
-  answer: string,
+  answer: (context: Parameters<ExploreComplete>[1]) => ExploreReply,
   onCall?: (context: Parameters<ExploreComplete>[1]) => void,
 ): ExploreComplete {
   return (async (_model, context) => {
     onCall?.(context);
-    return reply(answer);
+    return answer(context);
   }) as ExploreComplete;
+}
+
+function finalInput(context: Parameters<ExploreComplete>[1]): {
+  task: string;
+  files: Array<{ id: string; path: string }>;
+  checks: Array<{ id: string; path: string }>;
+  discovery: unknown[];
+} {
+  const message = context.messages[0]?.content;
+  if (typeof message !== "string") throw new Error("Expected one JSON planning message");
+  return JSON.parse(message) as ReturnType<typeof finalInput>;
+}
+
+function submitIds(
+  context: Parameters<ExploreComplete>[1],
+  filePath: string,
+  checkPath: string,
+): ExploreReply {
+  const input = finalInput(context);
+  const file = input.files.find((candidate) => candidate.path === filePath);
+  const check = input.checks.find((candidate) => candidate.path === checkPath);
+  if (!file || !check) throw new Error("Expected paths to have been discovered and indexed");
+  return toolReply([
+    { name: "submit_scope_plan", arguments: { fileIds: [file.id], checkId: check.id } },
+  ]);
 }
 
 const inputBase = (cwd: string) => ({
@@ -90,19 +106,29 @@ describe("Kimi bounded scope planner", () => {
     const task = inputBase(cwd).task;
     const result = await planKimiScope({
       ...inputBase(cwd),
-      complete: planner('{"paths":["src/text.ts"],"checkFile":"checks/accept.mjs"}', (context) => {
-        seen.push(context.systemPrompt ?? "");
-        seen.push(
-          context.messages
-            .map((message) => message.content)
-            .flatMap((content) =>
-              typeof content === "string"
-                ? [content]
-                : content.filter((part) => part.type === "text").map((part) => part.text),
-            )
-            .join("\n"),
-        );
-      }),
+      complete: planner(
+        (context) => {
+          if (context.tools?.some((tool) => tool.name === "read_project_file"))
+            return toolReply([
+              { name: "list_project_files", arguments: { directory: "src" } },
+              { name: "read_project_file", arguments: { path: "src/text.ts" } },
+            ]);
+          return submitIds(context, "src/text.ts", "checks/accept.mjs");
+        },
+        (context) => {
+          seen.push(context.systemPrompt ?? "");
+          seen.push(
+            context.messages
+              .map((message) => message.content)
+              .flatMap((content) =>
+                typeof content === "string"
+                  ? [content]
+                  : content.filter((part) => part.type === "text").map((part) => part.text),
+              )
+              .join("\n"),
+          );
+        },
+      ),
     });
 
     expect(result).toEqual({
@@ -148,19 +174,37 @@ describe("Kimi bounded scope planner", () => {
             name: "search_project_literal",
             arguments: { query: "�", directory: "app/packages/prsloy-harness/src" },
           },
+          {
+            name: "find_project_files",
+            arguments: { query: "text.ts", directory: "app/packages/prsloy-harness/src" },
+          },
           { name: "list_project_files", arguments: { directory: "bench-out" } },
         ]);
-      return reply(
-        '{"paths":["app/packages/prsloy-harness/src/text.ts"],"checkFile":"bench-out/acceptance.mjs"}',
-      );
+      return toolReply([
+        {
+          name: "read_project_file",
+          arguments: { path: "app/packages/prsloy-harness/src/text.ts" },
+        },
+      ]);
     }) as ExploreComplete;
-    const result = await planKimiScope({ ...inputBase(cwd), complete });
+    const result = await planKimiScope({
+      ...inputBase(cwd),
+      complete: (async (model, context, options) => {
+        if (context.tools?.some((tool) => tool.name === "submit_scope_plan"))
+          return submitIds(
+            context,
+            "app/packages/prsloy-harness/src/text.ts",
+            "bench-out/acceptance.mjs",
+          );
+        return complete(model, context, options);
+      }) as ExploreComplete,
+    });
 
     expect(result.paths).toEqual(["app/packages/prsloy-harness/src/text.ts"]);
     expect(result.check).toBe("node --experimental-strip-types 'bench-out/acceptance.mjs'");
     expect(observed.join("\n")).toContain("app/packages/prsloy-harness/src/text.ts");
     expect(observed.join("\n")).toContain("bench-out/acceptance.mjs");
-    expect(turn).toBe(5);
+    expect(turn).toBe(4);
   });
 
   it("ends persistent discovery and starts a fresh request with only the plan schema", async () => {
@@ -173,28 +217,27 @@ describe("Kimi bounded scope planner", () => {
         return toolReply([{ name: "read_project_file", arguments: { path: "src/text.ts" } }]);
       }
       expect(context.messages.map((message) => message.role)).toEqual(["user"]);
-      expect(context.messages[0]?.content).toContain("export const value = 1;");
-      expect(context.messages[0]?.content).toContain("checks/accept.mjs");
-      expect(context.tools).toMatchObject([
-        {
-          name: "submit_scope_plan",
-          parameters: {
-            required: ["paths", "checkFile"],
-            additionalProperties: false,
-            properties: { paths: { maxItems: 8 } },
+      const input = finalInput(context);
+      expect(input.task).toContain("Fix the � handling");
+      expect(input.files.map(({ path }) => path)).toContain("src/text.ts");
+      expect(input.checks.map(({ path }) => path)).toContain("checks/accept.mjs");
+      const schema = context.tools?.find((tool) => tool.name === "submit_scope_plan")?.parameters;
+      expect(schema).toMatchObject({
+        required: ["fileIds", "checkId"],
+        additionalProperties: false,
+        properties: {
+          fileIds: {
+            maxItems: input.files.length,
+            items: { enum: input.files.map(({ id }) => id) },
           },
+          checkId: { enum: input.checks.map(({ id }) => id) },
         },
-      ]);
+      });
       expect(options.onPayload?.({ model: "kimi" })).toEqual({
         model: "kimi",
         tool_choice: "required",
       });
-      return toolReply([
-        {
-          name: "submit_scope_plan",
-          arguments: { paths: ["src/text.ts"], checkFile: "checks/accept.mjs" },
-        },
-      ]);
+      return submitIds(context, "src/text.ts", "checks/accept.mjs");
     };
     const plan = await planKimiScope({
       ...inputBase(cwd),
@@ -209,14 +252,23 @@ describe("Kimi bounded scope planner", () => {
   it("rejects another search in the final reply without another request", async () => {
     const cwd = await fixture();
     let requests = 0;
-    const complete: ExploreComplete = async () =>
-      ++requests === 1
-        ? reply("Discovery done")
-        : toolReply([{ name: "read_project_file", arguments: { path: "src/text.ts" } }]);
+    const complete: ExploreComplete = async (_model, context) => {
+      requests++;
+      if (context.tools?.some((tool) => tool.name === "submit_scope_plan"))
+        return toolReply([{ name: "read_project_file", arguments: { path: "src/text.ts" } }]);
+      return toolReply([
+        { name: "find_project_files", arguments: { query: "text.ts" } },
+        { name: "list_project_files", arguments: { directory: "src" } },
+        {
+          name: "read_project_file",
+          arguments: { path: "src/text.ts" },
+        },
+      ]);
+    };
     await expect(planKimiScope({ ...inputBase(cwd), complete })).rejects.toThrow(
       "only submit the scope plan",
     );
-    expect(requests).toBe(2);
+    expect(requests).toBe(5);
   });
 
   it("marks a broad literal search truncated at its per-call cap", async () => {
@@ -241,29 +293,67 @@ describe("Kimi bounded scope planner", () => {
             arguments: { query: "not-present", directory: "many" },
           },
         ]);
-      return reply('{"paths":["src/text.ts"],"checkFile":"checks/accept.mjs"}');
+      if (context.tools?.some((tool) => tool.name === "submit_scope_plan"))
+        return submitIds(
+          context,
+          "app/packages/prsloy-harness/src/text.ts",
+          "bench-out/acceptance.mjs",
+        );
+      return toolReply([
+        {
+          name: "read_project_file",
+          arguments: { path: "app/packages/prsloy-harness/src/text.ts" },
+        },
+      ]);
     }) as ExploreComplete;
     await planKimiScope({ ...inputBase(cwd), complete });
     expect(observed.join("\n")).toContain("Search truncated by safety cap");
   });
 
   it.each([
-    ["overlap", '{"paths":["src/text.ts","checks/accept.mjs"],"checkFile":"checks/accept.mjs"}'],
-    ["case-insensitive overlap", '{"paths":["src/text.mjs"],"checkFile":"SRC/TEXT.MJS"}'],
-    ["outside bounded list", '{"paths":["missing.ts"],"checkFile":"checks/accept.mjs"}'],
-    ["hidden file", '{"paths":[".hidden.mjs"],"checkFile":"checks/accept.mjs"}'],
-    ["non-script check", '{"paths":["src/text.ts"],"checkFile":"src/text.ts"}'],
-    ["shell injection check path", '{"paths":["src/text.ts"],"checkFile":"checks/it\'s.mjs"}'],
+    ["unknown file ID", () => ({ fileIds: ["F999"], checkId: "C1" })],
+    ["raw file path", () => ({ fileIds: ["src/text.ts"], checkId: "C1" })],
     [
-      "extra JSON key",
-      '{"paths":["src/text.ts"],"checkFile":"checks/accept.mjs","command":"echo unsafe"}',
+      "unknown check ID",
+      (context: Parameters<ExploreComplete>[1]) => ({
+        fileIds: [finalInput(context).files.find(({ path }) => path === "src/text.ts")!.id],
+        checkId: "C999",
+      }),
     ],
-  ])("rejects %s plans without running a model", async (_name, answer) => {
+    [
+      "raw check path",
+      (context: Parameters<ExploreComplete>[1]) => ({
+        fileIds: [finalInput(context).files.find(({ path }) => path === "src/text.ts")!.id],
+        checkId: "checks/accept.mjs",
+      }),
+    ],
+    [
+      "check ID submitted as a file",
+      (context: Parameters<ExploreComplete>[1]) => ({
+        fileIds: [finalInput(context).checks[0]!.id],
+        checkId: finalInput(context).checks.find(({ path }) => path === "checks/accept.mjs")!.id,
+      }),
+    ],
+    [
+      "file ID submitted as a check",
+      (context: Parameters<ExploreComplete>[1]) => ({
+        fileIds: [finalInput(context).files.find(({ path }) => path === "src/text.ts")!.id],
+        checkId: finalInput(context).files.find(({ path }) => path === "src/text.ts")!.id,
+      }),
+    ],
+  ])("rejects %s plans", async (_name, argumentsFor) => {
     const cwd = await fixture();
     await expect(
       planKimiScope({
         ...inputBase(cwd),
-        complete: planner(answer),
+        complete: planner((context) => {
+          if (!context.tools?.some((tool) => tool.name === "submit_scope_plan"))
+            return toolReply([
+              { name: "list_project_files", arguments: { directory: "src" } },
+              { name: "read_project_file", arguments: { path: "src/text.ts" } },
+            ]);
+          return toolReply([{ name: "submit_scope_plan", arguments: argumentsFor(context) }]);
+        }),
       }),
     ).rejects.toThrow();
   });
