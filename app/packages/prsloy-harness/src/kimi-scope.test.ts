@@ -78,7 +78,7 @@ function planner(
 const inputBase = (cwd: string) => ({
   cwd,
   task: "Fix the � handling in text.ts; keep this exact request.  ",
-  model: {} as ExploreModel,
+  model: { api: "openai-completions" } as ExploreModel,
   signal: new AbortController().signal,
   onUsage: (_reply: ExploreReply) => {},
 });
@@ -110,7 +110,6 @@ describe("Kimi bounded scope planner", () => {
       paths: ["src/text.ts"],
       check: "node --experimental-strip-types 'checks/accept.mjs'",
     });
-    expect(seen.join("\n")).toContain("\\uXXXX");
     expect(seen.join("\n")).toContain(task.trimEnd());
   });
 
@@ -161,7 +160,63 @@ describe("Kimi bounded scope planner", () => {
     expect(result.check).toBe("node --experimental-strip-types 'bench-out/acceptance.mjs'");
     expect(observed.join("\n")).toContain("app/packages/prsloy-harness/src/text.ts");
     expect(observed.join("\n")).toContain("bench-out/acceptance.mjs");
-    expect(turn).toBe(4);
+    expect(turn).toBe(5);
+  });
+
+  it("ends persistent discovery and starts a fresh request with only the plan schema", async () => {
+    const cwd = await fixture();
+    let discoveryTurns = 0;
+    let paidCalls = 0;
+    const complete: ExploreComplete = async (_model, context, options) => {
+      if (context.tools?.some((tool) => tool.name === "read_project_file")) {
+        discoveryTurns++;
+        return toolReply([{ name: "read_project_file", arguments: { path: "src/text.ts" } }]);
+      }
+      expect(context.messages.map((message) => message.role)).toEqual(["user"]);
+      expect(context.messages[0]?.content).toContain("export const value = 1;");
+      expect(context.messages[0]?.content).toContain("checks/accept.mjs");
+      expect(context.tools).toMatchObject([
+        {
+          name: "submit_scope_plan",
+          parameters: {
+            required: ["paths", "checkFile"],
+            additionalProperties: false,
+            properties: { paths: { maxItems: 8 } },
+          },
+        },
+      ]);
+      expect(options.onPayload?.({ model: "kimi" })).toEqual({
+        model: "kimi",
+        tool_choice: "required",
+      });
+      return toolReply([
+        {
+          name: "submit_scope_plan",
+          arguments: { paths: ["src/text.ts"], checkFile: "checks/accept.mjs" },
+        },
+      ]);
+    };
+    const plan = await planKimiScope({
+      ...inputBase(cwd),
+      complete,
+      onUsage: () => paidCalls++,
+    });
+    expect(plan.paths).toEqual(["src/text.ts"]);
+    expect(discoveryTurns).toBe(4);
+    expect(paidCalls).toBe(5);
+  });
+
+  it("rejects another search in the final reply without another request", async () => {
+    const cwd = await fixture();
+    let requests = 0;
+    const complete: ExploreComplete = async () =>
+      ++requests === 1
+        ? reply("Discovery done")
+        : toolReply([{ name: "read_project_file", arguments: { path: "src/text.ts" } }]);
+    await expect(planKimiScope({ ...inputBase(cwd), complete })).rejects.toThrow(
+      "only submit the scope plan",
+    );
+    expect(requests).toBe(2);
   });
 
   it("marks a broad literal search truncated at its per-call cap", async () => {

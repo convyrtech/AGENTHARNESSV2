@@ -95,7 +95,18 @@ async function cycle(
         },
       },
       ...(options.explicitKimi
-        ? [{ text: '{"paths":["result.txt"],"checkFile":"acceptance.mjs"}' }]
+        ? [
+            {
+              toolCall: { name: "read_project_file", arguments: { path: "result.txt" } },
+            },
+            { text: "Found the file and standalone check." },
+            {
+              toolCall: {
+                name: "submit_scope_plan",
+                arguments: { paths: ["result.txt"], checkFile: "acceptance.mjs" },
+              },
+            },
+          ]
         : []),
       ...(options.invalidDelegatePath
         ? [{ text: "The delegate request was rejected. I should report the path issue." }]
@@ -256,9 +267,14 @@ describe("first delegated cycle through real SDK", () => {
       const dispatch = requests[Number(bashBeforeDelegate)]!;
       expect(dispatch.tool_choice).toBe("required");
       expect(dispatch.tools).toMatchObject([{ function: { name: "delegate" } }]);
+      const finalPlan = requests[Number(bashBeforeDelegate) + 3]!;
+      expect(finalPlan.tool_choice).toBe("required");
+      expect(finalPlan.tools).toMatchObject([{ function: { name: "submit_scope_plan" } }]);
       expect(requests.map((request) => request.model)).toEqual([
         ...(bashBeforeDelegate ? ["gpt-parent"] : []),
         "gpt-parent",
+        "kimi-worker",
+        "kimi-worker",
         "kimi-worker",
         "kimi-worker",
         "kimi-worker",

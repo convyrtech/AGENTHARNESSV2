@@ -128,8 +128,9 @@ export async function runDelegate(input: {
                 maxRetries: 0,
                 onPayload(payload: unknown) {
                   signal.throwIfAborted();
-                  ledger.reserve(payload, model.cost, options.maxTokens ?? 2048);
-                  return payload;
+                  const planned = options.onPayload ? options.onPayload(payload) : payload;
+                  ledger.reserve(planned, model.cost, options.maxTokens ?? 2048);
+                  return planned;
                 },
               }),
             onUsage: (reply) => account("planner", workerModel, reply),

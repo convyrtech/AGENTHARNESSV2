@@ -63,7 +63,7 @@ export type ExploreTool = ReturnType<typeof createReadOnlyTools>[number];
 export type ExploreComplete = (
   model: ExploreModel,
   context: Parameters<Complete>[1],
-  options: { signal?: AbortSignal; maxTokens?: number },
+  options: { signal?: AbortSignal; maxTokens?: number; onPayload?: (payload: unknown) => unknown },
 ) => Promise<ExploreReply>;
 
 /** Инструменты ребёнка в корне проекта: из набора Pi берём только разрешённые по имени. */
