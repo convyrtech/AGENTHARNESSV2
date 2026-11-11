@@ -46,6 +46,15 @@ const SYSTEM_PROMPT =
   "You have read, edit and write; the host runs acceptance checks and independent review. " +
   "Do not claim tests passed. Return a short factual summary and any blocker.";
 
+class WorkerFileDenial extends Error {
+  readonly code: "WORKER_READ_SCOPE" | "WORKER_READ_DIRECTORY";
+
+  constructor(code: "WORKER_READ_SCOPE" | "WORKER_READ_DIRECTORY", message: string) {
+    super(message);
+    this.code = code;
+  }
+}
+
 function key(path: string): string {
   return process.platform === "win32" ? path.toLowerCase() : path;
 }
@@ -84,10 +93,13 @@ async function scopedPath(root: string, path: string): Promise<string> {
     if (stat.isSymbolicLink()) throw new Error("Worker files must not use symbolic links");
     if (index < parts.length - 1 && !stat.isDirectory())
       throw new Error("Worker file has a non-directory parent");
-    if (index === parts.length - 1 && (!stat.isFile() || stat.nlink !== 1))
+    const finalDirectory = index === parts.length - 1 && stat.isDirectory();
+    if (index === parts.length - 1 && !finalDirectory && (!stat.isFile() || stat.nlink !== 1))
       throw new Error("Worker file must be a regular file without hard links");
     if (key(await realpath(current)) !== key(current))
       throw new Error("Worker file resolves through an alias");
+    if (finalDirectory)
+      throw new WorkerFileDenial("WORKER_READ_DIRECTORY", "Worker path is a directory");
   }
   return full;
 }
@@ -136,9 +148,17 @@ export async function runDelegatedWorker(
           if (!TOOLS.includes(event.toolName) || typeof path !== "string")
             throw new Error("Worker tool is outside its scope");
           if (!allowed.has(key(await scopedPath(cwd, path))))
-            throw new Error("Worker file is outside its explicit scope");
+            throw new WorkerFileDenial(
+              "WORKER_READ_SCOPE",
+              "Worker file is outside its explicit scope",
+            );
           return undefined;
         } catch (error) {
+          if (event.toolName === "read" && error instanceof WorkerFileDenial)
+            return {
+              block: true,
+              reason: `${error.code}: Read only explicitly allowed files. Allowed paths: ${input.files.join(", ")}`,
+            };
           failure = message(error);
           return { block: true, terminate: true, reason: failure };
         }

@@ -400,17 +400,10 @@ describe("first delegated cycle through real SDK", () => {
     });
     expect(JSON.stringify(run.learningEvents)).not.toContain("result.txt");
   }, 30_000);
-  it("returns the file-scope lesson through the normal worker and logs a fixed event code", async () => {
+  it("lets the normal worker recover from an unlisted read and complete its scoped edit", async () => {
     const run = await cycle({ workerReadOutsideScope: true });
-    expect(run.result?.status).toBe("failed");
-    expect(run.result?.error).toBe("Worker file is outside its explicit scope");
-    expect(run.result?.lesson).toContain("worker should not read or run the acceptance check");
-    expect(run.learningEvents.map(({ event }) => event)).toContainEqual({
-      kind: "delegate.scope",
-      tool: "delegate",
-      sig: "worker-outside-scope",
-      lessons: ["L-delegate-scope-and-check"],
-    });
+    expect(run.result?.status).toBe("verified");
+    expect(JSON.stringify(run.gateway.requests)).toContain("WORKER_READ_SCOPE");
     expect(JSON.stringify(run.learningEvents)).not.toContain("unlisted-check.mjs");
   }, 30_000);
   it("records a normalized delegate failure without guidance when lessons are disabled", async () => {

@@ -89,7 +89,7 @@ describe("isolated delegated worker", () => {
       { text: "Changed result.txt; checks are pending." },
     ]);
     const result = await runDelegatedWorker(f.options);
-    expect(result.status).toBe("completed");
+    expect(result.status, result.error).toBe("completed");
     expect(await readFile(join(f.cwd, "result.txt"), "utf8")).toBe("working");
     expect(result.requests).toBe(2);
     expect(f.usage).toHaveLength(2);
@@ -130,17 +130,70 @@ describe("isolated delegated worker", () => {
   }, 30_000);
 
   it("refuses an out-of-scope read before its content reaches the model", async () => {
-    const f = await fixture([{ toolCall: { name: "read", arguments: { path: "other.txt" } } }]);
+    const f = await fixture([
+      { toolCall: { name: "read", arguments: { path: "other.txt" } } },
+      { toolCall: { name: "write", arguments: { path: "result.txt", content: "recovered" } } },
+      { text: "Changed the requested file." },
+    ]);
     await writeFile(join(f.cwd, "other.txt"), "UNSCOPED_SECRET");
     const result = await runDelegatedWorker(f.options);
-    expect(result.status).toBe("failed");
-    expect(result.error).toContain("explicit scope");
+    expect(result.status).toBe("completed");
+    expect(await readFile(join(f.cwd, "result.txt"), "utf8")).toBe("recovered");
     expect(JSON.stringify(f.gateway.requests)).not.toContain("UNSCOPED_SECRET");
+    expect(JSON.stringify(f.gateway.requests[1]?.body.messages)).toContain("WORKER_READ_SCOPE");
   }, 30_000);
+
+  it("returns a tool error for reading a directory and lets the worker continue", async () => {
+    const f = await fixture([
+      { toolCall: { name: "read", arguments: { path: "folder" } } },
+      { toolCall: { name: "write", arguments: { path: "result.txt", content: "recovered" } } },
+      { text: "Changed the requested file." },
+    ]);
+    await mkdir(join(f.cwd, "folder"));
+    await writeFile(join(f.cwd, "folder", "secret.txt"), "DIRECTORY_SECRET");
+    const result = await runDelegatedWorker(f.options);
+    expect(result.status).toBe("completed");
+    expect(await readFile(join(f.cwd, "result.txt"), "utf8")).toBe("recovered");
+    expect(JSON.stringify(f.gateway.requests)).not.toContain("DIRECTORY_SECRET");
+    expect(JSON.stringify(f.gateway.requests[1]?.body.messages)).toContain("WORKER_READ_DIRECTORY");
+  }, 30_000);
+
+  it.each([
+    {
+      name: "write",
+      arguments: { path: "other.txt", content: "REPLACEMENT" },
+    },
+    {
+      name: "edit",
+      arguments: {
+        path: "other.txt",
+        edits: [{ oldText: "UNSCOPED_WRITE_FILE_SENTINEL_9F", newText: "REPLACEMENT" }],
+      },
+    },
+  ])(
+    "keeps a denied in-project $name fatal",
+    async (toolCall) => {
+      const f = await fixture([{ toolCall }]);
+      await writeFile(join(f.cwd, "other.txt"), "UNSCOPED_WRITE_FILE_SENTINEL_9F");
+      const result = await runDelegatedWorker(f.options);
+      expect(result.status).toBe("failed");
+      expect(result.error).toContain("explicit scope");
+      expect(await readFile(join(f.cwd, "other.txt"), "utf8")).toBe(
+        "UNSCOPED_WRITE_FILE_SENTINEL_9F",
+      );
+      expect(f.gateway.requests).toHaveLength(1);
+      expect(JSON.stringify(f.gateway.requests)).not.toContain("UNSCOPED_WRITE_FILE_SENTINEL_9F");
+    },
+    30_000,
+  );
 
   it("rejects outside paths and hardlinked files before requesting the model", async () => {
     const f = await fixture();
     expect((await runDelegatedWorker({ ...f.options, files: ["../outside.txt"] })).status).toBe(
+      "failed",
+    );
+    await mkdir(join(f.cwd, "scope-directory"));
+    expect((await runDelegatedWorker({ ...f.options, files: ["scope-directory"] })).status).toBe(
       "failed",
     );
     await writeFile(join(f.cwd, "original.txt"), "unchanged");
