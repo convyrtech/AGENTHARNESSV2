@@ -28,6 +28,8 @@ import { recordEvent, type LearningEvent } from "./learning-log.ts";
 import type { ResolvedOptions } from "./options.ts";
 import { recordUsage } from "./reviewer.ts";
 import { scrubSecrets } from "./secret-scrub.ts";
+import { asksKimiToImplement, explicitKimiModels } from "./explicit-kimi.ts";
+import { planKimiScope } from "./kimi-scope.ts";
 
 export type DelegateWorker = (input: {
   cwd: string;
@@ -64,6 +66,7 @@ function delegateLessonEvent(error: string | undefined): LearningEvent | undefin
 
 export async function runDelegate(input: {
   request: unknown;
+  explicitTask?: string;
   workerModel: string;
   reviewerModel: string;
   ctx: ExtensionToolContext;
@@ -73,7 +76,6 @@ export async function runDelegate(input: {
   budget: BudgetHandle;
 }) {
   const { ctx, opts, signal, budget } = input;
-  const request = validateDelegateRequest(input.request);
   if (!differentModelFamilies(input.workerModel, input.reviewerModel))
     throw new Error("Reviewer must belong to a different known model family");
   const workerModel = findModel(ctx, input.workerModel);
@@ -88,9 +90,6 @@ export async function runDelegate(input: {
   const tracePath = join(opts.outputDir, "delegations", `${id}.json`);
   const started = Date.now();
   const trace: unknown[] = [];
-  const before = await readDelegatedFiles(ctx.cwd, request.paths);
-  const beforeDigest = delegatedDigest(before);
-  let check: VerificationResult = { command: request.check, exitCode: null, cancelled: false };
   let review: ReturnType<typeof parseDelegatedReview>;
   let reviewedDigest: string | undefined;
   let currentDigest = "";
@@ -115,6 +114,36 @@ export async function runDelegate(input: {
     // The detailed response remains outside the parent's model context.
     trace.push({ role, model: model.id, response: reply });
   };
+  const { request, before } = await (async () => {
+    try {
+      const request = input.explicitTask
+        ? await planKimiScope({
+            cwd: ctx.cwd,
+            task: input.explicitTask,
+            model: workerModel,
+            signal,
+            complete: (model, context, options) =>
+              ctx.modelRegistry.complete(model, context, {
+                ...options,
+                maxRetries: 0,
+                onPayload(payload: unknown) {
+                  signal.throwIfAborted();
+                  ledger.reserve(payload, model.cost, options.maxTokens ?? 2048);
+                  return payload;
+                },
+              }),
+            onUsage: (reply) => account("planner", workerModel, reply),
+          })
+        : validateDelegateRequest(input.request);
+      if (ledger.unknown || ledger.exceeded) throw new Error("Kimi planning usage is unresolved");
+      return { request, before: await readDelegatedFiles(ctx.cwd, request.paths) };
+    } catch (error) {
+      budget.spend(ledger.chargedEstimate);
+      throw error;
+    }
+  })();
+  const beforeDigest = delegatedDigest(before);
+  let check: VerificationResult = { command: request.check, exitCode: null, cancelled: false };
   try {
     let beforeCheck: DelegatedFiles | undefined;
     for (let attempt = 0; attempt < 2; attempt++) {
@@ -295,13 +324,51 @@ export function installDelegate(
   if (opts.profile !== "code" || !budget || !worker) return;
   const enabled = () => readFlags(opts.settingsPath).delegate;
   let busy = false;
+  let explicitTask: string | undefined;
+  let explicitCall: string | undefined;
   pi.on("before_agent_start", (event) => {
+    explicitCall = undefined;
+    explicitTask =
+      event.messageType === "user" && asksKimiToImplement(event.prompt)
+        ? scrubSecrets(event.prompt).text
+        : undefined;
     const tools = pi.getActiveTools().filter((name) => name !== "delegate");
-    pi.setActiveTools(enabled() ? [...tools, "delegate"] : tools);
-    if (enabled())
+    pi.setActiveTools(enabled() || explicitTask ? [...tools, "delegate"] : tools);
+    if (explicitTask)
+      event.systemPromptOptions.sections.prsloy_delegate =
+        "The user explicitly assigned implementation to Kimi. Your first and only tool call must be delegate with an empty object. The host passes the original request to Kimi, obtains a file scope, runs the check and requests independent review. After the result, report it briefly. Do not claim success unless status is verified.";
+    else if (enabled())
       event.systemPromptOptions.sections.prsloy_delegate =
         "Use delegate for a bounded coding subtask with explicit project files and an existing acceptance command. Select an executor and a reviewer from different known model families in the configured catalogue. Read the compact result: only status verified means checks and review passed. Never claim a failed/unverified delegation is done. Do not re-review an unchanged verified patch.";
     else delete event.systemPromptOptions.sections.prsloy_delegate;
+  });
+  pi.on("before_provider_request", (event, ctx) => {
+    if (
+      !explicitTask ||
+      ctx.model?.api !== "openai-completions" ||
+      !event.payload ||
+      typeof event.payload !== "object" ||
+      Array.isArray(event.payload)
+    )
+      return;
+    const { tools, tool_choice: _choice, ...rest } = event.payload as Record<string, unknown>;
+    if (explicitCall || !Array.isArray(tools)) return rest;
+    const dispatch = tools.filter((tool) => tool?.function?.name === "delegate");
+    return dispatch.length ? { ...rest, tools: dispatch, tool_choice: "required" } : rest;
+  });
+  pi.on("tool_call", (event) => {
+    if (!explicitTask) return;
+    if (!explicitCall && event.toolName === "delegate" && !event.parentToolCallId) return;
+    if (explicitCall && event.parentToolCallId === explicitCall && event.toolName === "bash")
+      return;
+    return {
+      block: true,
+      reason: "This turn is assigned to Kimi. Use delegate once and report its result.",
+    };
+  });
+  pi.on("agent_end", () => {
+    explicitTask = undefined;
+    explicitCall = undefined;
   });
   pi.registerTool({
     name: "delegate",
@@ -310,25 +377,33 @@ export function installDelegate(
     description:
       "Delegate a bounded change to an isolated read/edit/write worker, run the supplied check through normal permissions, then review the actual diff with another model family. Returns a compact verified/needs_changes/unverified result and catalogue cost estimate. No recursive delegation.",
     parameters: Type.Object({
-      task: Type.String(),
-      paths: Type.Array(Type.String()),
-      check: Type.String(),
-      workerModel: Type.String(),
-      reviewerModel: Type.String(),
+      task: Type.Optional(Type.String()),
+      paths: Type.Optional(Type.Array(Type.String())),
+      check: Type.Optional(Type.String()),
+      workerModel: Type.Optional(Type.String()),
+      reviewerModel: Type.Optional(Type.String()),
     }),
-    async execute(_id, params, signal, _update, ctx) {
-      if (!enabled() || busy)
+    async execute(id, params, signal, _update, ctx) {
+      const task = explicitTask;
+      if ((!enabled() && !task) || busy || (task && explicitCall))
         return {
           content: [{ type: "text", text: "Delegation disabled or already running" }],
           details: { status: "failed" },
           isError: true,
         };
       busy = true;
+      if (task) explicitCall = id;
       try {
+        const models = task
+          ? explicitKimiModels(ctx)
+          : { workerModel: params.workerModel, reviewerModel: params.reviewerModel };
+        if (!models.workerModel || !models.reviewerModel)
+          throw new Error("Delegation requires an executor and a reviewer");
         const result = await runDelegate({
           request: params,
-          workerModel: params.workerModel,
-          reviewerModel: params.reviewerModel,
+          ...(task ? { explicitTask: task } : {}),
+          workerModel: models.workerModel,
+          reviewerModel: models.reviewerModel,
           ctx,
           worker,
           signal: AbortSignal.any([...(signal ? [signal] : []), AbortSignal.timeout(8 * 60_000)]),

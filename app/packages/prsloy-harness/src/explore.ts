@@ -130,6 +130,8 @@ export interface ExploreRun {
   tools: readonly ExploreTool[];
   model: ExploreModel;
   complete: ExploreComplete;
+  /** Optional task-specific restrictions for the read-only child. */
+  systemPrompt?: string;
   signal?: AbortSignal;
   maxTokens?: number;
   /** Стоимость и токены каждого ответа — в статистику сессии. */
@@ -209,7 +211,7 @@ export async function runExplore(input: ExploreRun): Promise<ExploreAnswer> {
     const reply = await input.complete(
       input.model,
       {
-        systemPrompt: EXPLORE_SYSTEM,
+        systemPrompt: input.systemPrompt ?? EXPLORE_SYSTEM,
         messages,
         ...(last ? {} : { tools: [...input.tools] }),
       },
