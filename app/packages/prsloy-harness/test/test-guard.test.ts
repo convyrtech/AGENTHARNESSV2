@@ -475,6 +475,37 @@ describe("card texts from the model (blocker, key reason)", () => {
     expect(plainLine("a".repeat(200), 50)).toHaveLength(50);
   });
 
+  it.each(["🙂", "👍🏽", "🇷🇺", "👩‍💻", "👨‍👩‍👧‍👦", "e\u0301"])(
+    "keeps the grapheme %s whole at every truncation boundary",
+    (grapheme) => {
+      const text = `abc${grapheme}xyz`;
+      for (let max = 1; max <= text.length; max++) {
+        const result = plainLine(text, max);
+        expect(result.length).toBeLessThanOrEqual(max);
+        if (text.length <= max) {
+          expect(result).toBe(text);
+        } else {
+          const prefix = result.slice(0, -1);
+          expect(result.endsWith("…")).toBe(true);
+          const allowed = [
+            "",
+            "a",
+            "ab",
+            "abc",
+            `abc${grapheme}`,
+            `abc${grapheme}x`,
+            `abc${grapheme}xy`,
+          ];
+          expect(allowed).toContain(prefix);
+        }
+      }
+    },
+  );
+
+  it("returns no text for a zero limit", () => {
+    expect(plainLine("abc🙂xyz", 0)).toBe("");
+  });
+
   it("a blocker field with an inner colon reaches the card without it", async () => {
     const s = await scene({ honestExit: true }, "Посчитай итоги продаж из sales-2025.csv");
     await s.blocker({
