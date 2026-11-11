@@ -44,6 +44,8 @@ async function cycle(
     invalidDelegatePath?: boolean;
     workerReadOutsideScope?: boolean;
     lessons?: boolean;
+    explicitKimi?: boolean;
+    bashBeforeDelegate?: boolean;
   } = {},
 ) {
   const root = await mkdtemp(join(process.cwd(), ".delegated-cycle-"));
@@ -54,6 +56,13 @@ async function cycle(
     outputDir = join(root, "traces");
   await mkdir(cwd);
   await mkdir(agentDir);
+  if (options.explicitKimi) {
+    await writeFile(join(cwd, "result.txt"), "unfinished\n");
+    await writeFile(
+      join(cwd, "acceptance.mjs"),
+      'import { readFileSync } from "node:fs";\nif (readFileSync("result.txt", "utf8").trim() !== "working") process.exit(1);\n',
+    );
+  }
   await writeFile(
     join(agentDir, "prsloy-harness.json"),
     JSON.stringify({ delegate: options.enabled !== false, lessons: options.lessons !== false }),
@@ -68,18 +77,37 @@ async function cycle(
     apiKey: "test-key",
     modelIds: ["gpt-parent", "kimi-worker", "minimax-review"],
     turns: [
+      ...(options.bashBeforeDelegate
+        ? [{ toolCall: { name: "bash", arguments: { command: "echo premature > bad.txt" } } }]
+        : []),
       {
         toolCall: {
           name: "delegate",
-          arguments: {
-            task: "Write working to result.txt",
-            paths: [options.invalidDelegatePath ? "./result.txt" : "result.txt"],
-            check: command,
-            workerModel: "test/kimi-worker",
-            reviewerModel: "test/minimax-review",
-          },
+          arguments: options.explicitKimi
+            ? {}
+            : {
+                task: "Write working to result.txt",
+                paths: [options.invalidDelegatePath ? "./result.txt" : "result.txt"],
+                check: command,
+                workerModel: "test/kimi-worker",
+                reviewerModel: "test/minimax-review",
+              },
         },
       },
+      ...(options.explicitKimi
+        ? [
+            {
+              toolCall: { name: "read_project_file", arguments: { path: "result.txt" } },
+            },
+            { text: "Found the file and standalone check." },
+            {
+              toolCall: {
+                name: "submit_scope_plan",
+                arguments: { fileIds: ["F1"], checkId: "C1" },
+              },
+            },
+          ]
+        : []),
       ...(options.invalidDelegatePath
         ? [{ text: "The delegate request was rejected. I should report the path issue." }]
         : [
@@ -206,9 +234,13 @@ async function cycle(
     session.dispose();
   });
   await session.bindExtensions({ mode: "rpc" });
-  if (options.enabled === false)
+  if (options.enabled === false && !options.explicitKimi)
     return { session, gateway, result, nestedChecks, cwd, learningEvents };
-  await session.prompt("Do the scoped task using delegate.");
+  await session.prompt(
+    options.explicitKimi
+      ? "Запиши working в result.txt. Пусть Кими сделает правку, затем прогони acceptance.mjs."
+      : "Do the scoped task using delegate.",
+  );
   if (!result)
     throw new Error(
       JSON.stringify({
@@ -220,6 +252,40 @@ async function cycle(
 }
 
 describe("first delegated cycle through real SDK", () => {
+  it.each([false, true])(
+    "routes a named worker through Kimi before shell, even if the parent tries bash (%s)",
+    async (bashBeforeDelegate) => {
+      const run = await cycle({ explicitKimi: true, enabled: false, bashBeforeDelegate });
+      expect(run.result?.status, JSON.stringify(run.result)).toBe("verified");
+      expect(run.result?.worker).toBe("test/kimi-worker");
+      expect(run.result?.reviewer).toBe("test/gpt-parent");
+      expect(run.nestedChecks).toBe(1);
+      await expect(readFile(join(run.cwd, "bad.txt"), "utf8")).rejects.toMatchObject({
+        code: "ENOENT",
+      });
+      const requests = run.gateway.requests.map((request) => request.body);
+      const dispatch = requests[Number(bashBeforeDelegate)]!;
+      expect(dispatch.tool_choice).toBe("required");
+      expect(dispatch.tools).toMatchObject([{ function: { name: "delegate" } }]);
+      const finalPlan = requests[Number(bashBeforeDelegate) + 3]!;
+      expect(finalPlan.tool_choice).toBe("required");
+      expect(finalPlan.tools).toMatchObject([{ function: { name: "submit_scope_plan" } }]);
+      expect(requests.map((request) => request.model)).toEqual([
+        ...(bashBeforeDelegate ? ["gpt-parent"] : []),
+        "gpt-parent",
+        "kimi-worker",
+        "kimi-worker",
+        "kimi-worker",
+        "kimi-worker",
+        "kimi-worker",
+        "gpt-parent",
+        "gpt-parent",
+      ]);
+      expect(requests.at(-1)?.tools ?? []).toEqual([]);
+    },
+    30_000,
+  );
+
   it("executes, checks through normal hooks, reviews with another model and returns compact evidence", async () => {
     const run = await cycle();
     expect(run.result?.status).toBe("verified");
@@ -400,17 +466,10 @@ describe("first delegated cycle through real SDK", () => {
     });
     expect(JSON.stringify(run.learningEvents)).not.toContain("result.txt");
   }, 30_000);
-  it("returns the file-scope lesson through the normal worker and logs a fixed event code", async () => {
+  it("lets the normal worker recover from an unlisted read and complete its scoped edit", async () => {
     const run = await cycle({ workerReadOutsideScope: true });
-    expect(run.result?.status).toBe("failed");
-    expect(run.result?.error).toBe("Worker file is outside its explicit scope");
-    expect(run.result?.lesson).toContain("worker should not read or run the acceptance check");
-    expect(run.learningEvents.map(({ event }) => event)).toContainEqual({
-      kind: "delegate.scope",
-      tool: "delegate",
-      sig: "worker-outside-scope",
-      lessons: ["L-delegate-scope-and-check"],
-    });
+    expect(run.result?.status).toBe("verified");
+    expect(JSON.stringify(run.gateway.requests)).toContain("WORKER_READ_SCOPE");
     expect(JSON.stringify(run.learningEvents)).not.toContain("unlisted-check.mjs");
   }, 30_000);
   it("records a normalized delegate failure without guidance when lessons are disabled", async () => {
